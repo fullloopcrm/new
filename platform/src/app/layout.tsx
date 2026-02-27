@@ -22,6 +22,9 @@ export const metadata: Metadata = {
     title: 'Full Loop CRM — Lead Gen to Reviews in One Platform',
     description: 'The first CRM that takes home service businesses from organic lead generation through AI sales, scheduling, operations, payments, reviews, and retargeting.',
   },
+  icons: {
+    icon: '/icon.svg',
+  },
   alternates: {
     canonical: 'https://fullloopcrm.com',
   },

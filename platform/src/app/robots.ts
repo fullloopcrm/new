@@ -1,0 +1,22 @@
+import type { MetadataRoute } from 'next'
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: [
+          '/dashboard/*',
+          '/admin/*',
+          '/api/*',
+          '/team/*',
+          '/portal/*',
+          '/sign-in/*',
+          '/sign-up/*',
+        ],
+      },
+    ],
+    sitemap: 'https://fullloopcrm.com/sitemap.xml',
+  }
+}

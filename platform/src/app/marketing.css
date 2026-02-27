@@ -55,6 +55,35 @@
   .nav-links a:hover { color: var(--black); }
   .nav-cta { background: var(--black); color: var(--white) !important; padding: 0.6rem 1.5rem; border-radius: 8px; font-weight: 600; transition: background 0.2s; }
   .nav-cta:hover { background: var(--gray-800); }
+  .nav-active { color: var(--black) !important; font-weight: 600 !important; }
+  .nav-signin { color: var(--gray-600); text-decoration: none; font-size: 0.875rem; font-weight: 500; }
+  .nav-signin:hover { color: var(--black); }
+
+  /* NAV DROPDOWN */
+  .nav-dropdown { position: relative; }
+  .nav-dropdown-trigger {
+    background: none; border: none; cursor: pointer; font-family: inherit;
+    font-size: 0.875rem; font-weight: 500; color: var(--gray-600);
+    display: flex; align-items: center; gap: 0.3rem; padding: 0;
+    transition: color 0.2s;
+  }
+  .nav-dropdown-trigger:hover { color: var(--black); }
+  .nav-dropdown-trigger.nav-active { color: var(--black); font-weight: 600; }
+  .nav-dropdown-arrow { font-size: 0.65rem; transition: transform 0.2s; }
+  .nav-dropdown-menu {
+    position: absolute; top: calc(100% + 0.75rem); left: 50%; transform: translateX(-50%);
+    background: var(--white); border: 1px solid var(--gray-200); border-radius: 12px;
+    padding: 0.5rem; min-width: 140px; box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s;
+  }
+  .nav-dropdown-menu.open { opacity: 1; visibility: visible; }
+  .nav-dropdown-menu a {
+    display: block; padding: 0.5rem 0.75rem; border-radius: 8px;
+    font-size: 0.875rem; color: var(--gray-600); text-decoration: none;
+    transition: all 0.15s;
+  }
+  .nav-dropdown-menu a:hover { background: var(--gray-50); color: var(--black); }
+
   .mobile-menu-btn { display: none; background: none; border: none; cursor: pointer; padding: 0.5rem; }
   .mobile-menu-btn span { display: block; width: 24px; height: 2px; background: var(--black); margin: 5px 0; transition: 0.3s; }
 
@@ -550,14 +579,14 @@
     display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.5); z-index: 150; opacity: 0; transition: opacity 0.3s;
   }
-  .mobile-overlay.open { display: block; opacity: 1; }
+  .mobile-overlay.open, .mobile-overlay.active { display: block; opacity: 1; }
   .mobile-menu {
     position: fixed; top: 0; right: -300px; width: 280px; height: 100vh;
     background: var(--white); z-index: 200; transition: right 0.35s ease;
     padding: 5rem 2rem 2rem; box-shadow: -4px 0 24px rgba(0,0,0,0.15);
     display: flex; flex-direction: column; gap: 0;
   }
-  .mobile-menu.open { right: 0; }
+  .mobile-menu.open, .mobile-menu.active { right: 0; }
   .mobile-menu-close {
     position: absolute; top: 1.25rem; right: 1.25rem; background: none; border: none;
     font-size: 1.5rem; cursor: pointer; color: var(--gray-600); padding: 0.5rem;
