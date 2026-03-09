@@ -1,5 +1,4 @@
 {
-  "_comment": "All cron endpoints require Authorization: Bearer CRON_SECRET header. Vercel automatically sends this for cron jobs when CRON_SECRET is set in env vars.",
   "crons": [
     {
       "path": "/api/cron/generate-recurring",
