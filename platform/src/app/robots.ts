@@ -14,6 +14,8 @@ export default function robots(): MetadataRoute.Robots {
           '/portal/*',
           '/sign-in/*',
           '/sign-up/*',
+          '/onboarding/*',
+          '/join/*',
         ],
       },
     ],

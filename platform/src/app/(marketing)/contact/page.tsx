@@ -1,120 +1,191 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
-import CtaSection from '@/components/marketing/cta-section'
+import type { Metadata } from "next";
+import Link from "next/link";
+import {
+  JsonLd,
+  webPageSchema,
+  breadcrumbSchema,
+  localBusinessSchema,
+} from "@/lib/schema";
+
+const breadcrumbs = [
+  { name: "Home", url: "https://fullloopcrm.com" },
+  { name: "Contact", url: "https://fullloopcrm.com/contact" },
+];
 
 export const metadata: Metadata = {
-  title: 'Contact Full Loop CRM — Apply for Exclusive Partnership',
-  description: 'Contact Full Loop CRM: call (212) 202-9220, text us, or email hello@fullloopcrm.com. Apply for exclusive territory partnership for your home service business. Located in New York, NY.',
-  keywords: ['contact Full Loop CRM', 'Full Loop CRM phone number', 'home service CRM partnership', 'apply for CRM partnership', 'Full Loop CRM email'],
+  title: "Contact Full Loop CRM | Get in Touch",
+  description:
+    "Contact Full Loop CRM to learn about exclusive territory partnerships for your home service business. Call, text, or email us today.",
+  keywords: [
+    "contact full loop CRM",
+    "home service CRM contact",
+    "CRM partnership inquiry",
+    "full loop CRM phone number",
+  ],
+  alternates: { canonical: "https://fullloopcrm.com/contact" },
   openGraph: {
-    title: 'Contact Full Loop CRM — Apply for Exclusive Partnership',
-    description: 'Call, text, or email us. Apply for exclusive territory partnership for your home service business.',
-    url: 'https://fullloopcrm.com/contact',
-    siteName: 'Full Loop CRM',
-    type: 'website',
-    locale: 'en_US',
+    title: "Contact Full Loop CRM | Get in Touch",
+    description:
+      "Contact Full Loop CRM to learn about exclusive territory partnerships for your home service business.",
+    url: "https://fullloopcrm.com/contact",
+    type: "website",
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'Contact Full Loop CRM — Apply for Exclusive Partnership',
-    description: 'Call, text, or email us. Apply for exclusive territory partnership for your home service business.',
+    card: "summary_large_image",
+    title: "Contact Full Loop CRM | Get in Touch",
+    description:
+      "Contact Full Loop CRM to learn about exclusive territory partnerships for your home service business.",
   },
-  alternates: {
-    canonical: 'https://fullloopcrm.com/contact',
-  },
-}
+};
 
 export default function ContactPage() {
-  const contactSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'ContactPoint',
-    telephone: '+12122029220',
-    email: 'hello@fullloopcrm.com',
-    contactType: 'sales',
-    areaServed: 'US',
-    availableLanguage: ['English', 'Spanish'],
-  }
-
-  const addressSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'PostalAddress',
-    streetAddress: '150 W 47th St',
-    addressLocality: 'New York',
-    addressRegion: 'NY',
-    postalCode: '10036',
-    addressCountry: 'US',
-  }
-
-  const breadcrumbSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://fullloopcrm.com' },
-      { '@type': 'ListItem', position: 2, name: 'Contact', item: 'https://fullloopcrm.com/contact' },
-    ],
-  }
-
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(addressSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+      <JsonLd
+        data={webPageSchema(
+          "Contact Full Loop CRM | Get in Touch",
+          "Contact Full Loop CRM to learn about exclusive territory partnerships for your home service business.",
+          "https://fullloopcrm.com/contact",
+          breadcrumbs
+        )}
+      />
+      <JsonLd data={breadcrumbSchema(breadcrumbs)} />
+      <JsonLd data={localBusinessSchema("United States", "Country")} />
 
-      <section style={{padding: '8rem 2rem 4rem', textAlign: 'center', background: 'var(--gray-50)'}} aria-label="Contact introduction">
-        <div style={{maxWidth: '800px', margin: '0 auto'}}>
-          <h1 style={{fontSize: 'clamp(2.4rem, 5vw, 3.5rem)', fontWeight: 800, letterSpacing: '-1px', marginBottom: '1rem'}}>Get in Touch</h1>
-          <p style={{color: 'var(--gray-500)', fontSize: '1.15rem', lineHeight: 1.7}}>Ready to lock your exclusive territory? Have questions about the platform? Reach out — we respond to every message personally.</p>
+      {/* Hero */}
+      <section className="bg-slate-900 py-24 px-6">
+        <div className="mx-auto max-w-4xl text-center">
+          <p className="text-teal-400 font-mono text-sm tracking-widest uppercase mb-4">
+            Get in Touch
+          </p>
+          <h1 className="text-4xl md:text-5xl font-extrabold text-white font-heading mb-6">
+            Contact{" "}
+            <span className="text-teal-400">Full Loop CRM</span>
+          </h1>
+          <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto">
+            Ready to lock your territory? Have questions about the platform?
+            We&apos;re here to help.
+          </p>
         </div>
       </section>
 
-      <section style={{padding: '6rem 2rem'}} aria-label="Contact information">
-        <div className="section-container">
-          <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', maxWidth: '900px', margin: '0 auto'}}>
-            <div className="feature-card" style={{textAlign: 'center'}}>
-              <div className="feature-icon blue-icon" style={{margin: '0 auto 1rem'}}>&#128222;</div>
-              <h2 style={{fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem'}}>Call Us</h2>
-              <a href="tel:+12122029220" style={{fontSize: '1.3rem', fontWeight: 700, color: 'var(--blue)', textDecoration: 'none'}}>(212) 202-9220</a>
-              <p style={{color: 'var(--gray-500)', fontSize: '0.9rem', marginTop: '0.5rem'}}>Mon–Fri, 9am–6pm ET</p>
+      {/* Contact Methods */}
+      <section className="py-20 px-6 bg-white">
+        <div className="mx-auto max-w-5xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Call */}
+            <div className="rounded-xl border border-slate-200 p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mx-auto mb-5">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 font-heading mb-2">
+                Call Us
+              </h2>
+              <p className="text-slate-600 mb-4 text-sm">
+                Speak directly with our partnership team.
+              </p>
+              <a
+                href="tel:+12122029220"
+                className="text-teal-600 font-bold text-lg hover:text-teal-700 transition-colors"
+              >
+                (212) 202-9220
+              </a>
             </div>
-            <div className="feature-card" style={{textAlign: 'center'}}>
-              <div className="feature-icon green-icon" style={{margin: '0 auto 1rem'}}>&#128172;</div>
-              <h2 style={{fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem'}}>Text Us</h2>
-              <a href="sms:+12122029220" style={{fontSize: '1.3rem', fontWeight: 700, color: 'var(--green)', textDecoration: 'none'}}>(212) 202-9220</a>
-              <p style={{color: 'var(--gray-500)', fontSize: '0.9rem', marginTop: '0.5rem'}}>Fastest response — 24/7</p>
+
+            {/* Text */}
+            <div className="rounded-xl border border-slate-200 p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mx-auto mb-5">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 font-heading mb-2">
+                Text Us
+              </h2>
+              <p className="text-slate-600 mb-4 text-sm">
+                Send us a text anytime — we respond fast.
+              </p>
+              <a
+                href="sms:+12122029220"
+                className="text-teal-600 font-bold text-lg hover:text-teal-700 transition-colors"
+              >
+                (212) 202-9220
+              </a>
             </div>
-            <div className="feature-card" style={{textAlign: 'center'}}>
-              <div className="feature-icon purple-icon" style={{margin: '0 auto 1rem'}}>&#9993;</div>
-              <h2 style={{fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem'}}>Email Us</h2>
-              <a href="mailto:hello@fullloopcrm.com" style={{fontSize: '1.1rem', fontWeight: 700, color: 'var(--purple)', textDecoration: 'none'}}>hello@fullloopcrm.com</a>
-              <p style={{color: 'var(--gray-500)', fontSize: '0.9rem', marginTop: '0.5rem'}}>We reply within 24 hours</p>
+
+            {/* Email */}
+            <div className="rounded-xl border border-slate-200 p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mx-auto mb-5">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 font-heading mb-2">
+                Email Us
+              </h2>
+              <p className="text-slate-600 mb-4 text-sm">
+                For partnership inquiries and support.
+              </p>
+              <a
+                href="mailto:hello@fullloopcrm.com"
+                className="text-teal-600 font-bold text-lg hover:text-teal-700 transition-colors"
+              >
+                hello@fullloopcrm.com
+              </a>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="alt-bg" style={{padding: '6rem 2rem'}} aria-label="Office location">
-        <div className="section-container" style={{maxWidth: '600px', textAlign: 'center'}}>
-          <h2 style={{fontSize: '1.8rem', fontWeight: 800, marginBottom: '1.5rem'}}>Our Office</h2>
-          <address style={{fontStyle: 'normal'}}>
-            <a href="https://maps.google.com/?q=150+W+47th+St+New+York+NY+10036" target="_blank" rel="noopener noreferrer" style={{fontSize: '1.15rem', color: 'var(--gray-700)', textDecoration: 'none', lineHeight: 1.8}}>
-              150 W 47th St<br />New York, NY 10036
+      {/* Office */}
+      <section className="py-20 px-6 bg-slate-50">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
+            Our Office
+          </h2>
+          <p className="text-slate-600 mb-2 text-lg">
+            150 W 47th St, New York, NY 10036
+          </p>
+          <p className="text-slate-500 text-sm mb-8">
+            Located in Midtown Manhattan. Available by appointment.
+          </p>
+          <Link
+            href="/crm-partnership-request-form"
+            className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            Request Partnership
+          </Link>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="bg-slate-900 py-20 px-6">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-3xl font-bold text-white font-heading mb-4">
+            Ready to Lock Your Territory?
+          </h2>
+          <p className="text-slate-300 mb-8 text-lg">
+            One partner per trade per metro. Check if your market is still
+            available.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/crm-partnership-request-form"
+              className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
+            >
+              Apply Now
+            </Link>
+            <a
+              href="tel:+12122029220"
+              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
+            >
+              Call (212) 202-9220
             </a>
-          </address>
-        </div>
-      </section>
-
-      <section style={{padding: '6rem 2rem'}} aria-label="Partnership application">
-        <div className="section-container" style={{maxWidth: '700px', textAlign: 'center'}}>
-          <h2 style={{fontSize: '1.8rem', fontWeight: 800, marginBottom: '1rem'}}>Apply for Partnership</h2>
-          <p style={{color: 'var(--gray-600)', fontSize: '1.05rem', lineHeight: 1.7, marginBottom: '2rem'}}>Tell us your trade, your city, and a little about your business. We&apos;ll check territory availability and walk you through the platform if your market is open.</p>
-          <div style={{display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap'}}>
-            <Link href="/crm-partnership-request-form" className="btn-primary" style={{fontSize: '1.1rem', padding: '1rem 2.5rem'}}>Apply Now</Link>
-            <Link href="/feedback" className="btn-secondary">Give Feedback</Link>
           </div>
         </div>
       </section>
-
-      <CtaSection />
     </>
-  )
+  );
 }

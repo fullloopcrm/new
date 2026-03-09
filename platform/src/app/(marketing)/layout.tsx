@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
-import Navbar from '@/components/marketing/navbar'
-import Footer from '@/components/marketing/footer'
-import '../marketing.css'
+import Navbar from '@/components/Navbar'
+import Footer from '@/components/Footer'
+import { JsonLd, organizationSchema, websiteSchema } from '@/lib/schema'
+import '../globals.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://fullloopcrm.com'),
@@ -28,8 +29,16 @@ export default function MarketingLayout({
 }) {
   return (
     <>
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={websiteSchema} />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:text-slate-900 focus:rounded-lg focus:shadow-lg focus:text-sm focus:font-medium"
+      >
+        Skip to main content
+      </a>
       <Navbar />
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
       <Footer />
       <Script
         id="tawk-to"
