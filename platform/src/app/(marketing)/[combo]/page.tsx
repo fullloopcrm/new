@@ -15,10 +15,16 @@ import {
 } from "@/lib/marketing/combos";
 
 // ---------------------------------------------------------------------------
-// Static params — generates all 20,400 combo pages at build time
+// Render combo pages on-demand and cache them (ISR). Pre-rendering 20K+
+// pages at build time exceeds Vercel's output size limit.
 // ---------------------------------------------------------------------------
+export const dynamicParams = true;
+export const revalidate = 86400; // re-generate cached pages once per day
+
 export function generateStaticParams() {
-  return getAllCombos().map((c) => ({ combo: c.slug }));
+  // Pre-render only a small seed set at build time; the rest are generated
+  // on first request and cached via ISR.
+  return [];
 }
 
 // ---------------------------------------------------------------------------
