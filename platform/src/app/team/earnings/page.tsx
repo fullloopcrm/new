@@ -37,7 +37,7 @@ export default function EarningsPage() {
 
   return (
     <div className="pb-20">
-      <h1 className="text-xl font-bold text-gray-900 mb-4">{t('Earnings', 'Ganancias')}</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-4">{t('Earnings', 'Ganancias')}</h1>
 
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-0.5">
         {[
@@ -48,7 +48,7 @@ export default function EarningsPage() {
           <button
             key={p.key}
             onClick={() => setPeriod(p.key)}
-            className={`flex-1 py-2 text-sm rounded-md ${period === p.key ? 'bg-white shadow-sm font-medium' : 'text-gray-500'}`}
+            className={`flex-1 py-2 text-sm rounded-md ${period === p.key ? 'bg-white shadow-sm font-medium' : 'text-slate-400'}`}
           >
             {t(p.en, p.es)}
           </button>
@@ -57,30 +57,30 @@ export default function EarningsPage() {
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-          <p className="text-sm text-gray-400">{t('Hours', 'Horas')}</p>
-          <p className="text-2xl font-bold text-gray-900">{totalHours.toFixed(1)}</p>
+          <p className="text-sm text-slate-400">{t('Hours', 'Horas')}</p>
+          <p className="text-2xl font-bold text-slate-800">{totalHours.toFixed(1)}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-          <p className="text-sm text-gray-400">{t('Earned', 'Ganado')}</p>
+          <p className="text-sm text-slate-400">{t('Earned', 'Ganado')}</p>
           <p className="text-2xl font-bold text-green-600">${totalEarnings.toFixed(2)}</p>
         </div>
       </div>
 
-      <h2 className="font-semibold text-gray-900 mb-3">{t('Job Breakdown', 'Desglose')}</h2>
+      <h2 className="font-semibold text-slate-800 mb-3">{t('Job Breakdown', 'Desglose')}</h2>
       <div className="space-y-2">
         {jobs.map((j) => (
           <div key={j.id} className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">{j.service_type || 'Job'}</p>
-              <p className="text-xs text-gray-400">{new Date(j.start_time).toLocaleDateString()}</p>
+              <p className="text-xs text-slate-400">{new Date(j.start_time).toLocaleDateString()}</p>
             </div>
             <div className="text-right">
               <p className="text-sm font-medium text-green-600">${j.pay.toFixed(2)}</p>
-              <p className="text-xs text-gray-400">{j.hours.toFixed(1)}hr</p>
+              <p className="text-xs text-slate-400">{j.hours.toFixed(1)}hr</p>
             </div>
           </div>
         ))}
-        {jobs.length === 0 && <p className="text-sm text-gray-400 text-center py-4">{t('No completed jobs', 'Sin trabajos completados')}</p>}
+        {jobs.length === 0 && <p className="text-sm text-slate-400 text-center py-4">{t('No completed jobs', 'Sin trabajos completados')}</p>}
       </div>
     </div>
   )

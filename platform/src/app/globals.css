@@ -123,6 +123,24 @@ body {
 .animation-delay-2000 { animation-delay: 2s; }
 .animation-delay-4000 { animation-delay: 4s; }
 
+/* Hero entrance animations — replaces Framer Motion for LCP */
+@keyframes hero-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes hero-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-hero-fade-in {
+  opacity: 0;
+  animation: hero-fade-in 0.8s ease-out forwards;
+}
+.animate-hero-slide-up {
+  opacity: 0;
+  animation: hero-slide-up 0.8s ease-out forwards;
+}
+
 ::selection {
   background: rgba(13, 148, 136, 0.2);
   color: #0f172a;

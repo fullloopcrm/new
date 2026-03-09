@@ -53,8 +53,8 @@ export default function PortalLoginPage() {
 
   return (
     <div className="flex flex-col items-center pt-16">
-      <h1 className="text-xl font-bold text-gray-900 mb-2">Client Portal</h1>
-      <p className="text-sm text-gray-500 mb-8">
+      <h1 className="text-xl font-bold text-slate-800 mb-2">Client Portal</h1>
+      <p className="text-sm text-slate-400 mb-8">
         {step === 'phone' ? 'Enter your phone number to get started' : 'Enter the code we sent you'}
       </p>
 
@@ -77,7 +77,7 @@ export default function PortalLoginPage() {
             required
             className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm"
           />
-          <button type="submit" disabled={loading} className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium disabled:opacity-50">
+          <button type="submit" disabled={loading} className="w-full bg-slate-800 text-white py-3 rounded-lg font-medium disabled:opacity-50">
             {loading ? 'Sending...' : 'Send Code'}
           </button>
         </form>
@@ -93,10 +93,10 @@ export default function PortalLoginPage() {
             maxLength={6}
             className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm text-center tracking-widest text-xl font-mono"
           />
-          <button type="submit" disabled={loading || code.length !== 6} className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium disabled:opacity-50">
+          <button type="submit" disabled={loading || code.length !== 6} className="w-full bg-slate-800 text-white py-3 rounded-lg font-medium disabled:opacity-50">
             {loading ? 'Verifying...' : 'Verify'}
           </button>
-          <button type="button" onClick={() => setStep('phone')} className="w-full text-sm text-gray-400">
+          <button type="button" onClick={() => setStep('phone')} className="w-full text-sm text-slate-400">
             Back
           </button>
         </form>

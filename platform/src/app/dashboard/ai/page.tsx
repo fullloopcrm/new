@@ -62,18 +62,18 @@ export default function SelenaAIPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-2xl font-bold text-white">Selenas AI</h2>
-          <p className="text-sm text-gray-500">Your AI assistant for campaigns, copy, and business strategy</p>
+          <p className="text-sm text-slate-400">Your AI assistant for campaigns, copy, and business strategy</p>
         </div>
         {messages.length > 0 && (
           <button onClick={() => setMessages([])}
-            className="text-xs text-gray-400 hover:text-gray-400 px-3 py-1.5 border border-gray-800 rounded-lg">
+            className="text-xs text-slate-400 hover:text-slate-400 px-3 py-1.5 border border-slate-700 rounded-lg">
             Clear Chat
           </button>
         )}
       </div>
 
       {/* Chat area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-gray-900 border border-gray-800 rounded-xl mb-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl mb-4">
         {messages.length === 0 ? (
           <div className="p-8">
             <div className="text-center mb-8">
@@ -81,7 +81,7 @@ export default function SelenaAIPage() {
                 <span className="text-3xl">✧</span>
               </div>
               <h3 className="text-lg font-semibold text-white">Hey! I&apos;m Selenas.</h3>
-              <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto">
+              <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
                 I can help you write campaigns, client messages, service descriptions, and more.
                 Ask me anything about growing your business.
               </p>
@@ -90,8 +90,8 @@ export default function SelenaAIPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-w-2xl mx-auto">
               {quickActions.map((qa) => (
                 <button key={qa.label} onClick={() => send(qa.prompt)}
-                  className="text-left bg-gray-800/50 hover:bg-gray-800 border border-gray-800 rounded-xl p-3 transition-colors">
-                  <p className="text-sm font-medium text-gray-300">{qa.label}</p>
+                  className="text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-700 rounded-xl p-3 transition-colors">
+                  <p className="text-sm font-medium text-slate-300">{qa.label}</p>
                 </button>
               ))}
             </div>
@@ -102,8 +102,8 @@ export default function SelenaAIPage() {
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] ${
                   m.role === 'user'
-                    ? 'bg-white text-gray-900 rounded-2xl rounded-br-md px-4 py-2.5'
-                    : 'bg-gray-800/50 text-white rounded-2xl rounded-bl-md px-4 py-2.5 border border-gray-800'
+                    ? 'bg-teal-600 text-white rounded-2xl rounded-br-md px-4 py-2.5'
+                    : 'bg-slate-700/50 text-white rounded-2xl rounded-bl-md px-4 py-2.5 border border-slate-700'
                 }`}>
                   {m.role === 'assistant' ? (
                     <div className="relative group">
@@ -115,7 +115,7 @@ export default function SelenaAIPage() {
                         }}
                       />
                       <button onClick={() => copyText(m.content)}
-                        className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 text-[10px] text-gray-400 hover:text-gray-400 px-1.5 py-0.5 bg-gray-900 border border-gray-800 rounded transition-opacity">
+                        className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 text-[10px] text-slate-400 hover:text-slate-400 px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded transition-opacity">
                         Copy
                       </button>
                     </div>
@@ -127,7 +127,7 @@ export default function SelenaAIPage() {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-gray-800/50 text-gray-400 rounded-2xl rounded-bl-md px-4 py-2.5 border border-gray-800 text-sm">
+                <div className="bg-slate-700/50 text-slate-400 rounded-2xl rounded-bl-md px-4 py-2.5 border border-slate-700 text-sm">
                   Thinking...
                 </div>
               </div>
@@ -143,11 +143,11 @@ export default function SelenaAIPage() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
           placeholder="Ask Selenas anything — campaign copy, client messages, business advice..."
-          className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent"
           disabled={loading}
         />
         <button onClick={() => send()} disabled={loading || !input.trim()}
-          className="bg-white text-gray-900 px-5 py-3 rounded-xl text-sm font-medium hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+          className="bg-teal-600 text-white px-5 py-3 rounded-xl text-sm font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed">
           Send
         </button>
       </div>

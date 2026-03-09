@@ -34,7 +34,7 @@ const STATUS_ACTIONS: Record<string, { label: string; next: string; color: strin
   ],
   confirmed: [
     { label: 'Start', next: 'in_progress', color: 'bg-yellow-600 text-white' },
-    { label: 'No Show', next: 'no_show', color: 'bg-gray-600 text-white' },
+    { label: 'No Show', next: 'no_show', color: 'bg-slate-600 text-white' },
     { label: 'Cancel', next: 'cancelled', color: 'bg-red-500/20 text-red-400' },
   ],
   in_progress: [
@@ -110,13 +110,13 @@ export default function BookingDetailPage() {
     router.push('/dashboard/bookings')
   }
 
-  if (!booking) return <p className="text-gray-400">Loading...</p>
+  if (!booking) return <p className="text-slate-400">Loading...</p>
 
   const actions = STATUS_ACTIONS[booking.status] || []
 
   return (
     <div>
-      <Link href="/dashboard/bookings" className="text-sm text-gray-400 hover:text-white mb-4 inline-block">
+      <Link href="/dashboard/bookings" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">
         &larr; All Bookings
       </Link>
 
@@ -125,7 +125,7 @@ export default function BookingDetailPage() {
           <h2 className="text-2xl font-bold text-white">
             {booking.service_type || 'Booking'}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-400">
             {new Date(booking.start_time).toLocaleString()}
             {booking.end_time && ` — ${new Date(booking.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
           </p>
@@ -144,7 +144,7 @@ export default function BookingDetailPage() {
                 pay_rate: booking.pay_rate?.toString() || '',
               })
             }
-          }} className="px-4 py-2 text-sm text-gray-400 border border-gray-700 rounded-lg hover:text-white hover:bg-gray-800">
+          }} className="px-4 py-2 text-sm text-slate-400 border border-slate-600 rounded-lg hover:text-white hover:bg-slate-700">
             {editing ? 'Cancel Edit' : 'Edit'}
           </button>
           <button onClick={deleteBooking} className="px-4 py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10">
@@ -154,8 +154,8 @@ export default function BookingDetailPage() {
       </div>
 
       {actions.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6 flex items-center gap-3">
-          <span className="text-sm text-gray-500 mr-2">Actions:</span>
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <span className="text-sm text-slate-400 mr-2">Actions:</span>
           {actions.map((a) => (
             <button
               key={a.next}
@@ -169,7 +169,7 @@ export default function BookingDetailPage() {
             <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+              className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Payment method</option>
               <option value="cash">Cash</option>
@@ -184,91 +184,91 @@ export default function BookingDetailPage() {
       )}
 
       {editing && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
           <h3 className="font-semibold text-white mb-4">Edit Booking</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Start Time</label>
-              <input type="datetime-local" value={editForm.start_time} onChange={e => setEditForm({...editForm, start_time: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Start Time</label>
+              <input type="datetime-local" value={editForm.start_time} onChange={e => setEditForm({...editForm, start_time: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">End Time</label>
-              <input type="datetime-local" value={editForm.end_time} onChange={e => setEditForm({...editForm, end_time: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">End Time</label>
+              <input type="datetime-local" value={editForm.end_time} onChange={e => setEditForm({...editForm, end_time: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Hourly Rate</label>
-              <input type="number" value={editForm.hourly_rate} onChange={e => setEditForm({...editForm, hourly_rate: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Hourly Rate</label>
+              <input type="number" value={editForm.hourly_rate} onChange={e => setEditForm({...editForm, hourly_rate: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Pay Rate</label>
-              <input type="number" value={editForm.pay_rate} onChange={e => setEditForm({...editForm, pay_rate: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Pay Rate</label>
+              <input type="number" value={editForm.pay_rate} onChange={e => setEditForm({...editForm, pay_rate: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="md:col-span-2">
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Notes</label>
-              <textarea value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} rows={2} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Notes</label>
+              <textarea value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="md:col-span-2">
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Special Instructions</label>
-              <textarea value={editForm.special_instructions} onChange={e => setEditForm({...editForm, special_instructions: e.target.value})} rows={2} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Special Instructions</label>
+              <textarea value={editForm.special_instructions} onChange={e => setEditForm({...editForm, special_instructions: e.target.value})} rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={saveEdit} className="bg-white text-gray-900 px-5 py-2 rounded-lg text-sm font-medium">Save Changes</button>
-            <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-white">Cancel</button>
+            <button onClick={saveEdit} className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold">Save Changes</button>
+            <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Details</h3>
             <dl className="space-y-3 text-sm">
-              <div className="flex justify-between"><dt className="text-gray-400">Status</dt><dd className="capitalize font-medium">{booking.status.replace('_', ' ')}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-400">Service</dt><dd>{booking.service_type || '—'}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-400">Price</dt><dd>{booking.price != null ? `$${(booking.price / 100).toFixed(2)}` : '—'}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-400">Hourly Rate</dt><dd>{booking.hourly_rate ? `$${booking.hourly_rate}/hr` : '—'}</dd></div>
-              {booking.notes && <div><dt className="text-gray-400 mb-1">Notes</dt><dd className="bg-gray-800/50 rounded p-2">{booking.notes}</dd></div>}
-              {booking.special_instructions && <div><dt className="text-gray-400 mb-1">Special Instructions</dt><dd className="bg-yellow-500/10 rounded p-2">{booking.special_instructions}</dd></div>}
+              <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize font-medium">{booking.status.replace('_', ' ')}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Service</dt><dd>{booking.service_type || '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Price</dt><dd>{booking.price != null ? `$${(booking.price / 100).toFixed(2)}` : '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Hourly Rate</dt><dd>{booking.hourly_rate ? `$${booking.hourly_rate}/hr` : '—'}</dd></div>
+              {booking.notes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-700/50 rounded p-2">{booking.notes}</dd></div>}
+              {booking.special_instructions && <div><dt className="text-slate-400 mb-1">Special Instructions</dt><dd className="bg-yellow-500/10 rounded p-2">{booking.special_instructions}</dd></div>}
             </dl>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Check-in/out</h3>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <dt className="text-gray-400">Check-in</dt>
+                <dt className="text-slate-400">Check-in</dt>
                 <dd>{booking.check_in_time ? new Date(booking.check_in_time).toLocaleString() : 'Not checked in'}</dd>
               </div>
               {booking.check_in_lat && (
                 <div className="flex justify-between">
-                  <dt className="text-gray-400">GPS</dt>
+                  <dt className="text-slate-400">GPS</dt>
                   <dd className="font-mono text-xs">{booking.check_in_lat.toFixed(6)}, {booking.check_in_lng?.toFixed(6)}</dd>
                 </div>
               )}
               <div className="flex justify-between">
-                <dt className="text-gray-400">Check-out</dt>
+                <dt className="text-slate-400">Check-out</dt>
                 <dd>{booking.check_out_time ? new Date(booking.check_out_time).toLocaleString() : 'Not checked out'}</dd>
               </div>
               {booking.check_in_time && booking.check_out_time && (
                 <div className="flex justify-between">
-                  <dt className="text-gray-400">Duration</dt>
+                  <dt className="text-slate-400">Duration</dt>
                   <dd>{((new Date(booking.check_out_time).getTime() - new Date(booking.check_in_time).getTime()) / 3600000).toFixed(1)} hours</dd>
                 </div>
               )}
             </dl>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Payment</h3>
             <dl className="space-y-3 text-sm">
-              <div className="flex justify-between"><dt className="text-gray-400">Status</dt><dd className="capitalize">{booking.payment_status || 'unpaid'}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-400">Method</dt><dd className="capitalize">{booking.payment_method?.replace('_', ' ') || '—'}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-400">Paid On</dt><dd>{booking.payment_date ? new Date(booking.payment_date).toLocaleDateString() : '—'}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-400">Tip</dt><dd>{booking.tip_amount != null ? `$${(booking.tip_amount / 100).toFixed(2)}` : '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize">{booking.payment_status || 'unpaid'}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Method</dt><dd className="capitalize">{booking.payment_method?.replace('_', ' ') || '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Paid On</dt><dd>{booking.payment_date ? new Date(booking.payment_date).toLocaleDateString() : '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Tip</dt><dd>{booking.tip_amount != null ? `$${(booking.tip_amount / 100).toFixed(2)}` : '—'}</dd></div>
             </dl>
             {booking.payment_status !== 'paid' && booking.price && booking.price > 0 && (
-              <div className="flex gap-2 mt-4 pt-4 border-t border-gray-800">
+              <div className="flex gap-2 mt-4 pt-4 border-t border-slate-700">
                 <button
                   onClick={async () => {
                     const res = await fetch('/api/payments/link', {
@@ -308,30 +308,30 @@ export default function BookingDetailPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Client</h3>
             {booking.clients ? (
               <dl className="space-y-2 text-sm">
                 <dd className="font-medium">{booking.clients.name}</dd>
-                {booking.clients.phone && <dd className="text-gray-500">{booking.clients.phone}</dd>}
-                {booking.clients.email && <dd className="text-gray-500">{booking.clients.email}</dd>}
-                {booking.clients.address && <dd className="text-gray-400">{booking.clients.address}</dd>}
+                {booking.clients.phone && <dd className="text-slate-400">{booking.clients.phone}</dd>}
+                {booking.clients.email && <dd className="text-slate-400">{booking.clients.email}</dd>}
+                {booking.clients.address && <dd className="text-slate-400">{booking.clients.address}</dd>}
               </dl>
             ) : (
-              <p className="text-sm text-gray-400">No client assigned</p>
+              <p className="text-sm text-slate-400">No client assigned</p>
             )}
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Team Member</h3>
             {booking.team_members ? (
               <dl className="space-y-2 text-sm">
                 <dd className="font-medium">{booking.team_members.name}</dd>
-                {booking.team_members.phone && <dd className="text-gray-500">{booking.team_members.phone}</dd>}
-                {booking.team_members.email && <dd className="text-gray-500">{booking.team_members.email}</dd>}
+                {booking.team_members.phone && <dd className="text-slate-400">{booking.team_members.phone}</dd>}
+                {booking.team_members.email && <dd className="text-slate-400">{booking.team_members.email}</dd>}
               </dl>
             ) : (
-              <p className="text-sm text-gray-400">No team member assigned</p>
+              <p className="text-sm text-slate-400">No team member assigned</p>
             )}
           </div>
         </div>

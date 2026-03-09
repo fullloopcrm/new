@@ -37,7 +37,7 @@ const statusTabs = [
 
 const statusColors: Record<string, string> = {
   active: 'bg-green-500/20 text-green-400',
-  inactive: 'bg-gray-700 text-gray-400',
+  inactive: 'bg-slate-600 text-slate-400',
   do_not_contact: 'bg-red-500/20 text-red-400',
 }
 
@@ -56,7 +56,7 @@ function initials(name: string) {
 
 function avatarColor(name: string) {
   const colors = [
-    'bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500',
+    'bg-teal-600', 'bg-purple-500', 'bg-green-500', 'bg-orange-500',
     'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-red-500',
   ]
   let hash = 0
@@ -120,31 +120,31 @@ export default function ClientsPage() {
   return (
     <div>
       {/* PORTAL LINK */}
-      <div className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 mb-6">
+      <div className="flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl px-5 py-3 mb-6">
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-500">Client Portal:</span>
-          <code className="text-blue-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal` : '/portal'}</code>
+          <span className="text-slate-400">Client Portal:</span>
+          <code className="text-blue-400 font-mono text-xs bg-slate-700 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal` : '/portal'}</code>
         </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal`)} className="text-xs text-gray-400 hover:text-white transition-colors">Copy Link</button>
+        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal`)} className="text-xs text-slate-400 hover:text-white transition-colors">Copy Link</button>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-2xl font-bold text-white">Clients</h2>
-            <p className="text-sm text-gray-500">{total} total clients</p>
+            <p className="text-sm text-slate-400">{total} total clients</p>
           </div>
           <PageSettingsGear open={clientsSettings.open} setOpen={clientsSettings.setOpen} title="Clients" />
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => downloadCSV(clients as unknown as Record<string, unknown>[], 'clients', ['name', 'email', 'phone', 'address', 'status', 'source', 'created_at'])}
-            className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-2 rounded-lg"
+            className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg"
           >
             Export CSV
           </button>
           <button onClick={() => setShowAdd(!showAdd)}
-            className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100">
+            className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
             {showAdd ? 'Cancel' : '+ Add Client'}
           </button>
         </div>
@@ -163,54 +163,54 @@ export default function ClientsPage() {
         {({ config, updateConfig }) => (
           <div className="space-y-5">
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Default Client Status</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Client Status</label>
               <select
                 value={(config.default_status as string) || 'active'}
                 onChange={(e) => updateConfig('default_status', e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               >
                 <option value="active">Active</option>
                 <option value="lead">Lead</option>
               </select>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Days inactive before At-Risk</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Days inactive before At-Risk</label>
               <input
                 type="number"
                 min="1"
                 value={(config.at_risk_days as number) || 30}
                 onChange={(e) => updateConfig('at_risk_days', parseInt(e.target.value) || 30)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-32"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-32"
               />
-              <span className="text-xs text-gray-500 ml-2">days</span>
+              <span className="text-xs text-slate-400 ml-2">days</span>
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Days inactive before Churned</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Days inactive before Churned</label>
               <input
                 type="number"
                 min="1"
                 value={(config.churned_days as number) || 60}
                 onChange={(e) => updateConfig('churned_days', parseInt(e.target.value) || 60)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-32"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-32"
               />
-              <span className="text-xs text-gray-500 ml-2">days</span>
+              <span className="text-xs text-slate-400 ml-2">days</span>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-gray-300">Require phone number</label>
+              <label className="text-sm text-slate-300">Require phone number</label>
               <button
                 onClick={() => updateConfig('require_phone', !config.require_phone)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_phone ? 'bg-blue-500' : 'bg-gray-700'}`}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_phone ? 'bg-teal-600' : 'bg-slate-600'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.require_phone ? 'translate-x-5' : ''}`} />
               </button>
             </div>
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-gray-300">Require email address</label>
+              <label className="text-sm text-slate-300">Require email address</label>
               <button
                 onClick={() => updateConfig('require_email', !config.require_email)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_email ? 'bg-blue-500' : 'bg-gray-700'}`}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_email ? 'bg-teal-600' : 'bg-slate-600'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.require_email ? 'translate-x-5' : ''}`} />
               </button>
@@ -230,10 +230,10 @@ export default function ClientsPage() {
             { label: 'Referrals', value: stats.referrals, color: 'border-l-purple-500' },
             { label: 'Avg LTV', value: fmt(stats.avgLtv), color: 'border-l-orange-500' },
           ].map((card) => (
-            <div key={card.label} className={`bg-gray-900 rounded-xl border border-gray-800 border-l-4 ${card.color} p-4`}>
-              <p className="text-[11px] text-gray-500 uppercase tracking-wide">{card.label}</p>
+            <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-4`}>
+              <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
               <p className="text-xl font-bold text-white mt-1">{card.value}</p>
-              {card.sub && <p className="text-[10px] text-gray-400">{card.sub}</p>}
+              {card.sub && <p className="text-[10px] text-slate-400">{card.sub}</p>}
             </div>
           ))}
         </div>
@@ -241,28 +241,28 @@ export default function ClientsPage() {
 
       {/* ADD FORM */}
       {showAdd && (
-        <form onSubmit={addClient} className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+        <form onSubmit={addClient} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
           <h3 className="font-semibold text-white mb-4">Add Client</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Name *</label>
-              <input placeholder="Jane Smith" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Name *</label>
+              <input placeholder="Jane Smith" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Email</label>
-              <input placeholder="jane@example.com" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Email</label>
+              <input placeholder="jane@example.com" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Phone</label>
-              <input placeholder="(555) 123-4567" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Phone</label>
+              <input placeholder="(555) 123-4567" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Address</label>
-              <AddressAutocomplete value={form.address} onChange={(v) => setForm({ ...form, address: v })} placeholder="123 Main St, City, State" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Address</label>
+              <AddressAutocomplete value={form.address} onChange={(v) => setForm({ ...form, address: v })} placeholder="123 Main St, City, State" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Source</label>
-              <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Source</label>
+              <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                 <option value="manual">Manual</option>
                 <option value="referral">Referral</option>
                 <option value="website">Website</option>
@@ -273,10 +273,10 @@ export default function ClientsPage() {
           </div>
           <div className="flex gap-2">
             <button type="submit" disabled={saving || !form.name}
-              className="bg-white text-gray-900 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+              className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
               {saving ? 'Saving...' : 'Save Client'}
             </button>
-            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-white">Cancel</button>
+            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
           </div>
         </form>
       )}
@@ -287,15 +287,15 @@ export default function ClientsPage() {
           placeholder="Search by name, email, phone..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-          className="w-full md:w-64 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+          className="w-full md:w-64 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
         />
         <div className="flex gap-1">
           {statusTabs.map((tab) => (
             <button key={tab.value} onClick={() => { setStatusFilter(tab.value); setPage(1) }}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 statusFilter === tab.value
-                  ? 'bg-white text-gray-900'
-                  : 'text-gray-500 hover:bg-gray-800'
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-400 hover:bg-slate-700'
               }`}>
               {tab.label}
             </button>
@@ -305,10 +305,10 @@ export default function ClientsPage() {
 
       {/* BULK ACTIONS */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 mb-4">
+        <div className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-4">
           <span className="text-sm text-white font-medium">{selected.size} selected</span>
           <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm">
+            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm">
             <option value="">Bulk action...</option>
             <option value="active">Set Active</option>
             <option value="inactive">Set Inactive</option>
@@ -338,25 +338,25 @@ export default function ClientsPage() {
             fetch(`/api/clients?${params}`).then(r => r.json()).then(data => { setClients(data.clients || []); setTotal(data.total || 0) })
             fetch('/api/clients/stats').then(r => r.json()).then(setStats).catch(() => {})
           }} disabled={!bulkAction}
-            className="bg-white text-gray-900 px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50">
+            className="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
             Apply
           </button>
-          <button onClick={() => setSelected(new Set())} className="text-xs text-gray-500 hover:text-white ml-auto">
+          <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-white ml-auto">
             Clear
           </button>
         </div>
       )}
 
       {/* TABLE */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-800 text-left text-gray-500">
+            <tr className="border-b border-slate-700 text-left text-slate-400">
               <th className="px-4 py-3 w-10">
                 <input type="checkbox"
                   checked={selected.size === clients.length && clients.length > 0}
                   onChange={(e) => setSelected(e.target.checked ? new Set(clients.map(c => c.id)) : new Set())}
-                  className="rounded border-gray-700 bg-gray-800"
+                  className="rounded border-slate-600 bg-slate-700"
                 />
               </th>
               <th className="px-4 py-3 font-medium">Client</th>
@@ -368,7 +368,7 @@ export default function ClientsPage() {
           </thead>
           <tbody>
             {clients.map((c) => (
-              <tr key={c.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+              <tr key={c.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                 <td className="px-4 py-3">
                   <input type="checkbox"
                     checked={selected.has(c.id)}
@@ -377,7 +377,7 @@ export default function ClientsPage() {
                       e.target.checked ? next.add(c.id) : next.delete(c.id)
                       setSelected(next)
                     }}
-                    className="rounded border-gray-700 bg-gray-800"
+                    className="rounded border-slate-600 bg-slate-700"
                   />
                 </td>
                 <td className="px-4 py-3">
@@ -386,31 +386,31 @@ export default function ClientsPage() {
                       {initials(c.name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-white group-hover:text-blue-400 truncate">{c.name}</p>
-                      {c.address && <p className="text-[11px] text-gray-400 truncate max-w-[200px]">{c.address}</p>}
+                      <p className="font-medium text-white group-hover:text-teal-400 truncate">{c.name}</p>
+                      {c.address && <p className="text-[11px] text-slate-400 truncate max-w-[200px]">{c.address}</p>}
                     </div>
                   </Link>
                 </td>
                 <td className="px-4 py-3">
-                  {c.email && <p className="text-sm text-gray-400">{c.email}</p>}
-                  {c.phone && <p className="text-xs text-gray-400">{c.phone}</p>}
-                  {!c.email && !c.phone && <span className="text-gray-600">—</span>}
+                  {c.email && <p className="text-sm text-slate-400">{c.email}</p>}
+                  {c.phone && <p className="text-xs text-slate-400">{c.phone}</p>}
+                  {!c.email && !c.phone && <span className="text-slate-500">—</span>}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs text-gray-500">{sourceLabels[c.source || 'unknown'] || c.source}</span>
+                  <span className="text-xs text-slate-400">{sourceLabels[c.source || 'unknown'] || c.source}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[c.status] || 'bg-gray-700 text-gray-400'}`}>
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[c.status] || 'bg-slate-600 text-slate-400'}`}>
                     {c.status.replace('_', ' ')}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs text-gray-400">
+                <td className="px-4 py-3 text-xs text-slate-400">
                   {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </td>
               </tr>
             ))}
             {clients.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No clients found</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">No clients found</td></tr>
             )}
           </tbody>
         </table>
@@ -419,10 +419,10 @@ export default function ClientsPage() {
       {total > 50 && (
         <div className="flex items-center justify-center gap-2 mt-4">
           <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-            className="px-3 py-1.5 text-sm border border-gray-700 rounded-lg disabled:opacity-30 hover:bg-gray-800">Previous</button>
-          <span className="px-3 py-1.5 text-sm text-gray-500">Page {page} of {Math.ceil(total / 50)}</span>
+            className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700">Previous</button>
+          <span className="px-3 py-1.5 text-sm text-slate-400">Page {page} of {Math.ceil(total / 50)}</span>
           <button onClick={() => setPage((p) => p + 1)} disabled={page * 50 >= total}
-            className="px-3 py-1.5 text-sm border border-gray-700 rounded-lg disabled:opacity-30 hover:bg-gray-800">Next</button>
+            className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700">Next</button>
         </div>
       )}
     </div>

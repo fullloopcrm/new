@@ -29,7 +29,7 @@ const ACTION_COLORS: Record<string, string> = {
 
 function getActionColor(action: string): string {
   const suffix = action.split('.').pop() || ''
-  return ACTION_COLORS[suffix] || 'bg-gray-700 text-gray-400'
+  return ACTION_COLORS[suffix] || 'bg-slate-600 text-slate-400'
 }
 
 function formatAction(action: string): string {
@@ -70,7 +70,7 @@ export default function ActivityPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-white">Activity Log</h2>
-          <p className="text-sm text-gray-500">{total} total events</p>
+          <p className="text-sm text-slate-400">{total} total events</p>
         </div>
       </div>
 
@@ -79,12 +79,12 @@ export default function ActivityPage() {
           placeholder="Search actions..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full md:w-64 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
+          className="w-full md:w-64 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
         />
         <select
           value={entityFilter}
           onChange={e => { setEntityFilter(e.target.value); setPage(1) }}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+          className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
         >
           <option value="">All entities</option>
           {entityTypes.map(t => (
@@ -93,8 +93,8 @@ export default function ActivityPage() {
         </select>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-        <div className="divide-y divide-gray-800/50">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div className="divide-y divide-slate-700/50">
           {filtered.map(log => (
             <div key={log.id} className="px-5 py-3 flex items-start gap-4">
               <div className="flex-shrink-0 mt-0.5">
@@ -105,23 +105,23 @@ export default function ActivityPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-white">{formatAction(log.action)}</p>
                 {log.details && (
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">
                     {Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
                   </p>
                 )}
               </div>
               <div className="flex-shrink-0 text-right">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-slate-400">
                   {new Date(log.created_at).toLocaleString('en-US', {
                     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
                   })}
                 </p>
-                <p className="text-[10px] text-gray-600">{log.entity_type}</p>
+                <p className="text-[10px] text-slate-500">{log.entity_type}</p>
               </div>
             </div>
           ))}
           {filtered.length === 0 && (
-            <div className="px-5 py-12 text-center text-gray-400 text-sm">
+            <div className="px-5 py-12 text-center text-slate-400 text-sm">
               {search || entityFilter ? 'No matching events' : 'No activity logged yet'}
             </div>
           )}
@@ -133,17 +133,17 @@ export default function ActivityPage() {
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1.5 text-sm border border-gray-700 rounded-lg disabled:opacity-30 hover:bg-gray-800"
+            className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700"
           >
             Previous
           </button>
-          <span className="px-3 py-1.5 text-sm text-gray-500">
+          <span className="px-3 py-1.5 text-sm text-slate-400">
             Page {page} of {Math.ceil(total / limit)}
           </span>
           <button
             onClick={() => setPage(p => p + 1)}
             disabled={page * limit >= total}
-            className="px-3 py-1.5 text-sm border border-gray-700 rounded-lg disabled:opacity-30 hover:bg-gray-800"
+            className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700"
           >
             Next
           </button>

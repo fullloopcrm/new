@@ -47,11 +47,11 @@ export default function CampaignDetailPage() {
     router.push('/dashboard/campaigns')
   }
 
-  if (!campaign) return <p className="text-gray-400">Loading...</p>
+  if (!campaign) return <p className="text-slate-400">Loading...</p>
 
   return (
     <div>
-      <Link href="/dashboard/campaigns" className="text-sm text-gray-400 hover:text-white mb-4 inline-block">
+      <Link href="/dashboard/campaigns" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">
         &larr; All Campaigns
       </Link>
 
@@ -71,36 +71,36 @@ export default function CampaignDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <dl className="space-y-3 text-sm mb-6">
-              <div className="flex justify-between"><dt className="text-gray-400">Type</dt><dd className="uppercase">{campaign.type}</dd></div>
-              <div className="flex justify-between"><dt className="text-gray-400">Status</dt><dd className="capitalize font-medium">{campaign.status}</dd></div>
-              {campaign.subject && <div className="flex justify-between"><dt className="text-gray-400">Subject</dt><dd>{campaign.subject}</dd></div>}
-              <div className="flex justify-between"><dt className="text-gray-400">Created</dt><dd>{new Date(campaign.created_at).toLocaleDateString()}</dd></div>
-              {campaign.sent_at && <div className="flex justify-between"><dt className="text-gray-400">Sent</dt><dd>{new Date(campaign.sent_at).toLocaleString()}</dd></div>}
+              <div className="flex justify-between"><dt className="text-slate-400">Type</dt><dd className="uppercase">{campaign.type}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize font-medium">{campaign.status}</dd></div>
+              {campaign.subject && <div className="flex justify-between"><dt className="text-slate-400">Subject</dt><dd>{campaign.subject}</dd></div>}
+              <div className="flex justify-between"><dt className="text-slate-400">Created</dt><dd>{new Date(campaign.created_at).toLocaleDateString()}</dd></div>
+              {campaign.sent_at && <div className="flex justify-between"><dt className="text-slate-400">Sent</dt><dd>{new Date(campaign.sent_at).toLocaleString()}</dd></div>}
             </dl>
 
             <h3 className="font-semibold text-white mb-2">Message</h3>
-            <div className="bg-gray-800/50 rounded-lg p-4 text-sm whitespace-pre-wrap">
+            <div className="bg-slate-700/50 rounded-lg p-4 text-sm whitespace-pre-wrap">
               {campaign.body || 'No body'}
             </div>
           </div>
         </div>
 
         <div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Delivery Stats</h3>
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-gray-400">Recipients</p>
+                <p className="text-sm text-slate-400">Recipients</p>
                 <p className="text-2xl font-bold text-white">{campaign.recipient_count ?? 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-400">Opens</p>
+                <p className="text-sm text-slate-400">Opens</p>
                 <p className="text-2xl font-bold text-white">{campaign.open_count ?? 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-400">Clicks</p>
+                <p className="text-sm text-slate-400">Clicks</p>
                 <p className="text-2xl font-bold text-white">{campaign.click_count ?? 0}</p>
               </div>
             </div>

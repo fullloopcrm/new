@@ -92,7 +92,7 @@ export default function LeadsPage() {
 
   const ctaLabels: Record<string, { label: string; color: string }> = {
     call: { label: 'Calls', color: 'bg-green-500' },
-    text: { label: 'Texts', color: 'bg-blue-500' },
+    text: { label: 'Texts', color: 'bg-teal-600' },
     book: { label: 'Bookings', color: 'bg-purple-500' },
     pay: { label: 'Payments', color: 'bg-yellow-500' },
     directions: { label: 'Directions', color: 'bg-orange-500' },
@@ -111,11 +111,11 @@ export default function LeadsPage() {
           <h2 className="text-2xl font-bold text-white">Leads & Analytics</h2>
           <PageSettingsGear open={leadsSettings.open} setOpen={leadsSettings.setOpen} title="Leads" />
         </div>
-        <div className="flex gap-1 bg-gray-800 rounded-lg p-0.5">
+        <div className="flex gap-1 bg-slate-700 rounded-lg p-0.5">
           {(['today', 'week', 'month'] as const).map((p) => (
             <button key={p} onClick={() => setPeriod(p)}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                period === p ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-white'
+                period === p ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-white'
               }`}>
               {p === 'today' ? 'Today' : p === 'week' ? '7 Days' : '30 Days'}
             </button>
@@ -136,56 +136,56 @@ export default function LeadsPage() {
         {({ config, updateConfig }) => (
           <div className="space-y-5">
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Lead Scoring Threshold</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Lead Scoring Threshold</label>
               <div className="grid grid-cols-3 gap-3 max-w-md">
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Hot (min score)</label>
+                  <label className="text-xs text-slate-500 mb-1 block">Hot (min score)</label>
                   <input
                     type="number"
                     min="0"
                     value={(config.hot_threshold as number) ?? 80}
                     onChange={(e) => updateConfig('hot_threshold', parseInt(e.target.value) || 80)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-full"
+                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Warm (min score)</label>
+                  <label className="text-xs text-slate-500 mb-1 block">Warm (min score)</label>
                   <input
                     type="number"
                     min="0"
                     value={(config.warm_threshold as number) ?? 40}
                     onChange={(e) => updateConfig('warm_threshold', parseInt(e.target.value) || 40)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-full"
+                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Cold (below)</label>
+                  <label className="text-xs text-slate-500 mb-1 block">Cold (below)</label>
                   <input
                     type="number"
                     min="0"
                     value={(config.warm_threshold as number) ?? 40}
                     disabled
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-full opacity-50"
+                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full opacity-50"
                   />
                 </div>
               </div>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div className="flex items-center justify-between max-w-sm">
-              <label className="text-sm text-gray-300">Auto-convert lead to client</label>
+              <label className="text-sm text-slate-300">Auto-convert lead to client</label>
               <button
                 onClick={() => updateConfig('auto_convert_lead', !config.auto_convert_lead)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_convert_lead ? 'bg-blue-500' : 'bg-gray-700'}`}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_convert_lead ? 'bg-teal-600' : 'bg-slate-600'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_convert_lead ? 'translate-x-5' : ''}`} />
               </button>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div className="flex items-center justify-between max-w-sm">
-              <label className="text-sm text-gray-300">Lead notification email</label>
+              <label className="text-sm text-slate-300">Lead notification email</label>
               <button
                 onClick={() => updateConfig('lead_notification_email', !config.lead_notification_email)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.lead_notification_email ? 'bg-blue-500' : 'bg-gray-700'}`}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.lead_notification_email ? 'bg-teal-600' : 'bg-slate-600'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.lead_notification_email ? 'translate-x-5' : ''}`} />
               </button>
@@ -195,11 +195,11 @@ export default function LeadsPage() {
       </PageSettingsPanel>
 
       {/* TRACKING CODE — prominent at top */}
-      <div className="bg-gray-900 text-white rounded-xl p-5 mb-6">
+      <div className="bg-slate-800 text-white rounded-xl p-5 mb-6">
         <div className="flex items-start justify-between mb-3">
           <div>
             <h3 className="font-semibold text-sm">Website Tracking Code</h3>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5">
               Add this to your website&apos;s {'<head>'} or before {'</body>'} to track visitors, CTAs, and conversions.
             </p>
           </div>
@@ -213,7 +213,7 @@ export default function LeadsPage() {
         <div className="bg-black/40 rounded-lg p-3 font-mono text-xs text-green-400 overflow-x-auto">
           <code>{trackingCode}</code>
         </div>
-        <div className="flex gap-4 mt-3 text-[11px] text-gray-500">
+        <div className="flex gap-4 mt-3 text-[11px] text-slate-400">
           <span>Tracks: page views, scroll depth, time on page, CTA clicks (calls, texts, bookings)</span>
           <span>&middot;</span>
           <span>No cookies, GDPR-friendly, &lt;2KB</span>
@@ -229,10 +229,10 @@ export default function LeadsPage() {
             { label: 'CTA Clicks', value: stats.ctas, sub: `${stats.convRate}% conversion` },
             { label: 'Avg. Engagement', value: `${stats.avgTime}s`, sub: `${stats.avgScroll}% scroll` },
           ].map((s) => (
-            <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-              <p className="text-[11px] text-gray-500 uppercase tracking-wide">{s.label}</p>
+            <div key={s.label} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wide">{s.label}</p>
               <p className="text-2xl font-bold text-white mt-1">{s.value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{s.sub}</p>
             </div>
           ))}
         </div>
@@ -240,7 +240,7 @@ export default function LeadsPage() {
 
       {/* TRAFFIC TREND CHART */}
       {dailyVisits.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
           <h3 className="text-sm font-semibold text-white mb-4">Visit Trend</h3>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -256,8 +256,8 @@ export default function LeadsPage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex gap-4 mt-2 text-xs text-gray-500">
-            <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-500 inline-block" /> Visits</span>
+          <div className="flex gap-4 mt-2 text-xs text-slate-400">
+            <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-teal-600 inline-block" /> Visits</span>
             <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-green-500 inline-block" /> CTAs</span>
           </div>
         </div>
@@ -265,11 +265,11 @@ export default function LeadsPage() {
 
       {/* CTA BREAKDOWN */}
       {Object.keys(ctaBreakdown).length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
           <h3 className="font-semibold text-white text-sm mb-4">CTA Breakdown</h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {Object.entries(ctaBreakdown).map(([type, count]) => {
-              const info = ctaLabels[type] || { label: type, color: 'bg-gray-500' }
+              const info = ctaLabels[type] || { label: type, color: 'bg-slate-500' }
               const pct = totalCTAs > 0 ? Math.round((count / totalCTAs) * 100) : 0
               return (
                 <div key={type} className="text-center">
@@ -277,7 +277,7 @@ export default function LeadsPage() {
                     <span className="text-white text-lg font-bold">{count}</span>
                   </div>
                   <p className="text-sm font-medium text-white">{info.label}</p>
-                  <p className="text-xs text-gray-400">{pct}%</p>
+                  <p className="text-xs text-slate-400">{pct}%</p>
                 </div>
               )
             })}
@@ -287,10 +287,10 @@ export default function LeadsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* TRAFFIC SOURCES */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
           <h3 className="font-semibold text-white text-sm mb-4">Traffic Sources</h3>
           {sources.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No traffic data yet</p>
+            <p className="text-sm text-slate-400 text-center py-4">No traffic data yet</p>
           ) : (
             <div className="space-y-2.5">
               {sources.map((s) => {
@@ -299,13 +299,13 @@ export default function LeadsPage() {
                 return (
                   <div key={s.source}>
                     <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="font-medium text-gray-300">
+                      <span className="font-medium text-slate-300">
                         {sourceIcons[s.source] || '🌐'} {s.source}
                       </span>
-                      <span className="text-gray-400">{s.count} <span className="text-[10px]">({Math.round(pct)}%)</span></span>
+                      <span className="text-slate-400">{s.count} <span className="text-[10px]">({Math.round(pct)}%)</span></span>
                     </div>
-                    <div className="h-1.5 bg-gray-800 rounded-full">
-                      <div className="h-1.5 bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    <div className="h-1.5 bg-slate-700 rounded-full">
+                      <div className="h-1.5 bg-teal-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )
@@ -315,19 +315,19 @@ export default function LeadsPage() {
         </div>
 
         {/* TOP PAGES */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
           <h3 className="font-semibold text-white text-sm mb-4">Top Pages</h3>
           {topPages.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No page data yet</p>
+            <p className="text-sm text-slate-400 text-center py-4">No page data yet</p>
           ) : (
             <div className="space-y-2">
               {topPages.map((p, i) => (
                 <div key={p.page} className="flex items-center justify-between py-1.5">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[10px] text-gray-400 w-4 text-right">{i + 1}</span>
-                    <span className="text-sm text-gray-300 truncate">{p.page}</span>
+                    <span className="text-[10px] text-slate-400 w-4 text-right">{i + 1}</span>
+                    <span className="text-sm text-slate-300 truncate">{p.page}</span>
                   </div>
-                  <span className="text-sm text-gray-400 font-medium ml-2">{p.count}</span>
+                  <span className="text-sm text-slate-400 font-medium ml-2">{p.count}</span>
                 </div>
               ))}
             </div>
@@ -337,10 +337,10 @@ export default function LeadsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* DEVICE BREAKDOWN CHART */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
           <h3 className="font-semibold text-white text-sm mb-4">Device Breakdown</h3>
           {Object.keys(devices).length === 0 ? (
-            <p className="text-sm text-gray-400">No data</p>
+            <p className="text-sm text-slate-400">No data</p>
           ) : (
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
@@ -356,39 +356,39 @@ export default function LeadsPage() {
         </div>
 
         {/* UTM CAMPAIGNS */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 lg:col-span-2">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 lg:col-span-2">
           <h3 className="font-semibold text-white text-sm mb-4">Recent Activity</h3>
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
             {feed.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">
+              <p className="text-sm text-slate-400 text-center py-4">
                 No visits recorded yet. Add the tracking code to your website to start collecting data.
               </p>
             ) : feed.map((v) => (
-              <div key={v.id} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 text-sm">
+              <div key={v.id} className="flex items-center justify-between py-1.5 border-b border-slate-700/50 text-sm">
                 <div className="flex items-center gap-2 min-w-0">
                   {v.cta_type ? (
                     <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${
                       v.cta_type === 'call' ? 'bg-green-500' :
-                      v.cta_type === 'text' ? 'bg-blue-500' :
-                      v.cta_type === 'book' ? 'bg-purple-500' : 'bg-gray-500'
+                      v.cta_type === 'text' ? 'bg-teal-600' :
+                      v.cta_type === 'book' ? 'bg-purple-500' : 'bg-slate-500'
                     }`}>
                       {v.cta_type === 'call' ? '📞' : v.cta_type === 'text' ? '💬' : v.cta_type === 'book' ? '📅' : '🔗'}
                     </span>
                   ) : (
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs">
                       {v.device === 'mobile' ? '📱' : '💻'}
                     </span>
                   )}
                   <div className="min-w-0">
-                    <p className="text-gray-300 truncate">
+                    <p className="text-slate-300 truncate">
                       {v.cta_type ? (
                         <span className="font-medium capitalize">{v.cta_type}</span>
                       ) : (
                         <span>{v.page_url || '/'}</span>
                       )}
-                      {v.cta_type && v.page_url && <span className="text-gray-400"> on {v.page_url}</span>}
+                      {v.cta_type && v.page_url && <span className="text-slate-400"> on {v.page_url}</span>}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-slate-400">
                       {v.referrer || 'Direct'}
                       {v.utm_source && ` · utm: ${v.utm_source}`}
                       {v.time_on_page ? ` · ${v.time_on_page}s` : ''}
@@ -396,7 +396,7 @@ export default function LeadsPage() {
                     </p>
                   </div>
                 </div>
-                <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
+                <span className="text-xs text-slate-400 flex-shrink-0 ml-2">
                   {new Date(v.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>

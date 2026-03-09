@@ -90,7 +90,7 @@ const dayLabelsFull = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const statusColors: Record<string, string> = {
   active: 'bg-green-500/20 text-green-400 border-green-500/30',
   suspended: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  inactive: 'bg-gray-700 text-gray-400 border-gray-700',
+  inactive: 'bg-slate-600 text-slate-400 border-slate-600',
 }
 
 const roleColors: Record<string, string> = {
@@ -105,7 +105,7 @@ function initials(name: string) {
 
 function avatarColor(name: string) {
   const colors = [
-    'bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500',
+    'bg-teal-600', 'bg-purple-500', 'bg-green-500', 'bg-orange-500',
     'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-red-500',
   ]
   let hash = 0
@@ -320,23 +320,23 @@ export default function TeamPage() {
   return (
     <div>
       {/* PORTAL LINK */}
-      <div className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 mb-6">
+      <div className="flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl px-5 py-3 mb-6">
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-500">Team Portal:</span>
-          <a href={typeof window !== 'undefined' ? `${window.location.origin}/team` : '/team'} target="_blank" rel="noopener noreferrer" className="text-blue-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded hover:text-blue-300">{typeof window !== 'undefined' ? `${window.location.origin}/team` : '/team'}</a>
+          <span className="text-slate-400">Team Portal:</span>
+          <a href={typeof window !== 'undefined' ? `${window.location.origin}/team` : '/team'} target="_blank" rel="noopener noreferrer" className="text-blue-400 font-mono text-xs bg-slate-700 px-2 py-0.5 rounded hover:text-blue-300">{typeof window !== 'undefined' ? `${window.location.origin}/team` : '/team'}</a>
         </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/team`)} className="text-xs text-gray-400 hover:text-white transition-colors">Copy Link</button>
+        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/team`)} className="text-xs text-slate-400 hover:text-white transition-colors">Copy Link</button>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-2xl font-bold text-white">Team</h2>
-            <p className="text-sm text-gray-500">{team.length} members &middot; {activeCount} active</p>
+            <p className="text-sm text-slate-400">{team.length} members &middot; {activeCount} active</p>
           </div>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
+            className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
             title="Team Settings"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -348,12 +348,12 @@ export default function TeamPage() {
         <div className="flex gap-2">
           <button
             onClick={() => downloadCSV(team as unknown as Record<string, unknown>[], 'team', ['name', 'email', 'phone', 'role', 'status', 'pin', 'pay_rate', 'hourly_rate', 'preferred_language', 'created_at'])}
-            className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-2 rounded-lg"
+            className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg"
           >
             Export CSV
           </button>
           <button onClick={() => setShowAdd(!showAdd)}
-            className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">
+            className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700">
             {showAdd ? 'Cancel' : '+ Add Member'}
           </button>
         </div>
@@ -361,40 +361,40 @@ export default function TeamPage() {
 
       {/* TEAM SETTINGS PANEL */}
       {showSettings && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl mb-6 overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl mb-6 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
             <h3 className="font-semibold text-white">Team Settings</h3>
             <div className="flex items-center gap-3">
               {settingsMsg && (
                 <span className={`text-xs ${settingsMsg === 'Settings saved' ? 'text-green-400' : 'text-red-400'}`}>{settingsMsg}</span>
               )}
               {savingSettings && (
-                <span className="text-xs text-gray-500">Saving...</span>
+                <span className="text-xs text-slate-400">Saving...</span>
               )}
-              <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white text-lg leading-none">&times;</button>
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white text-lg leading-none">&times;</button>
             </div>
           </div>
 
           <div className="p-6 space-y-6">
             {/* ROLES CONFIG */}
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-3 block">Roles</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-3 block">Roles</label>
               <div className="flex flex-wrap gap-2 mb-3">
                 {teamConfig.roles.map((role) => (
-                  <span key={role} className="inline-flex items-center gap-1.5 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm">
+                  <span key={role} className="inline-flex items-center gap-1.5 bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm">
                     <span className={`w-2 h-2 rounded-full ${
                       role === 'worker' ? 'bg-blue-400' :
                       role === 'lead' ? 'bg-purple-400' :
                       role === 'manager' ? 'bg-indigo-400' :
-                      'bg-gray-400'
+                      'bg-slate-400'
                     }`} />
-                    <span className="text-gray-300 capitalize">{role}</span>
+                    <span className="text-slate-300 capitalize">{role}</span>
                     {DEFAULT_ROLES.includes(role) ? (
-                      <span className="text-[10px] text-gray-600 ml-1">default</span>
+                      <span className="text-[10px] text-slate-500 ml-1">default</span>
                     ) : (
                       <button
                         onClick={() => removeRole(role)}
-                        className="text-gray-600 hover:text-red-400 ml-1 text-xs leading-none"
+                        className="text-slate-500 hover:text-red-400 ml-1 text-xs leading-none"
                         title={`Remove ${role}`}
                       >
                         &times;
@@ -409,34 +409,34 @@ export default function TeamPage() {
                   value={newRoleInput}
                   onChange={(e) => setNewRoleInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addRole())}
-                  className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm w-48 placeholder-gray-600"
+                  className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm w-48 placeholder-gray-600"
                 />
                 <button
                   onClick={addRole}
                   disabled={!newRoleInput.trim()}
-                  className="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-600 px-3 py-1.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="text-sm text-slate-400 hover:text-white border border-slate-600 hover:border-slate-500 px-3 py-1.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   + Add Role
                 </button>
               </div>
             </div>
 
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
 
             {/* PAY RATE PRESETS */}
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-3 block">Preset Pay Rates</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-3 block">Preset Pay Rates</label>
               {teamConfig.pay_rates.length > 0 ? (
                 <div className="space-y-2 mb-3">
                   {teamConfig.pay_rates.map((rate, i) => (
-                    <div key={i} className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-lg px-4 py-2">
+                    <div key={i} className="flex items-center justify-between bg-slate-700 border border-slate-600 rounded-lg px-4 py-2">
                       <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-300">{rate.label}</span>
+                        <span className="text-sm text-slate-300">{rate.label}</span>
                         <span className="text-sm font-mono text-green-400">${rate.amount}/hr</span>
                       </div>
                       <button
                         onClick={() => removePayRate(i)}
-                        className="text-gray-600 hover:text-red-400 text-sm"
+                        className="text-slate-500 hover:text-red-400 text-sm"
                       >
                         &times;
                       </button>
@@ -444,17 +444,17 @@ export default function TeamPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-600 mb-3">No preset rates defined. Add rate tiers to quickly assign pay rates when creating members.</p>
+                <p className="text-sm text-slate-500 mb-3">No preset rates defined. Add rate tiers to quickly assign pay rates when creating members.</p>
               )}
               <div className="flex gap-2">
                 <input
                   placeholder="Label (e.g. Standard)"
                   value={newRateLabel}
                   onChange={(e) => setNewRateLabel(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm w-40 placeholder-gray-600"
+                  className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm w-40 placeholder-gray-600"
                 />
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
                   <input
                     placeholder="0"
                     type="number"
@@ -463,26 +463,26 @@ export default function TeamPage() {
                     value={newRateAmount}
                     onChange={(e) => setNewRateAmount(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPayRate())}
-                    className="bg-gray-800 border border-gray-700 rounded-lg pl-7 pr-12 py-1.5 text-sm w-32 placeholder-gray-600"
+                    className="bg-slate-700 border border-slate-600 rounded-lg pl-7 pr-12 py-1.5 text-sm w-32 placeholder-gray-600"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">/hr</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">/hr</span>
                 </div>
                 <button
                   onClick={addPayRate}
                   disabled={!newRateLabel.trim() || !newRateAmount}
-                  className="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-600 px-3 py-1.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="text-sm text-slate-400 hover:text-white border border-slate-600 hover:border-slate-500 px-3 py-1.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   + Add Rate
                 </button>
               </div>
             </div>
 
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
 
             {/* DEFAULT WORKING DAYS */}
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-3 block">Default Working Days</label>
-              <p className="text-xs text-gray-600 mb-3">Pre-selected working days when adding a new team member.</p>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-3 block">Default Working Days</label>
+              <p className="text-xs text-slate-500 mb-3">Pre-selected working days when adding a new team member.</p>
               <div className="flex gap-2">
                 {dayLabelsFull.map((label, i) => (
                   <button
@@ -490,8 +490,8 @@ export default function TeamPage() {
                     onClick={() => toggleDefaultDay(i)}
                     className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
                       teamConfig.default_working_days.includes(i)
-                        ? 'bg-white text-gray-900'
-                        : 'bg-gray-800 text-gray-500 hover:bg-gray-700'
+                        ? 'bg-teal-600 text-white'
+                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                     }`}
                   >
                     {label}
@@ -511,8 +511,8 @@ export default function TeamPage() {
           { label: 'Workers', value: team.filter(m => m.role === 'worker').length, color: 'border-l-blue-500' },
           { label: 'Leads / Managers', value: team.filter(m => m.role !== 'worker').length, color: 'border-l-purple-500' },
         ].map((card) => (
-          <div key={card.label} className={`bg-gray-900 rounded-xl border border-gray-800 border-l-4 ${card.color} p-4`}>
-            <p className="text-[11px] text-gray-500 uppercase tracking-wide">{card.label}</p>
+          <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-4`}>
+            <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
             <p className="text-xl font-bold text-white mt-1">{card.value}</p>
           </div>
         ))}
@@ -523,51 +523,51 @@ export default function TeamPage() {
         <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-5 py-4 mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-green-400">Team member created successfully!</p>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <p className="text-sm text-slate-400 mt-0.5">
               Their login PIN is <span className="font-mono font-bold text-white text-lg mx-1">{newPin}</span> -- share this with them to access the Team Portal.
             </p>
           </div>
-          <button onClick={() => setNewPin('')} className="text-gray-500 hover:text-white text-lg">&times;</button>
+          <button onClick={() => setNewPin('')} className="text-slate-400 hover:text-white text-lg">&times;</button>
         </div>
       )}
 
       {/* ADD FORM */}
       {showAdd && (
-        <form onSubmit={addMember} className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+        <form onSubmit={addMember} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
           <h3 className="font-semibold text-white mb-4">Add Team Member</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Name *</label>
-              <input placeholder="Maria Garcia" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Name *</label>
+              <input placeholder="Maria Garcia" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Email</label>
-              <input placeholder="maria@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Email</label>
+              <input placeholder="maria@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Phone</label>
-              <input placeholder="(555) 123-4567" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Phone</label>
+              <input placeholder="(555) 123-4567" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Role</label>
-              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Role</label>
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                 {teamConfig.roles.map((role) => (
                   <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Hourly Rate (charge)</label>
-              <input placeholder="45" type="number" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Hourly Rate (charge)</label>
+              <input placeholder="45" type="number" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 uppercase mb-1 block">Pay Rate ($/hr)</label>
+              <label className="text-xs text-slate-400 uppercase mb-1 block">Pay Rate ($/hr)</label>
               {teamConfig.pay_rates.length > 0 ? (
                 <div className="flex gap-2">
                   <select
                     value={form.pay_rate_preset}
                     onChange={(e) => handlePayRatePreset(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm flex-1 min-w-0"
+                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm flex-1 min-w-0"
                   >
                     <option value="custom">Custom</option>
                     {teamConfig.pay_rates.map((rate) => (
@@ -580,24 +580,24 @@ export default function TeamPage() {
                       type="number"
                       value={form.pay_rate}
                       onChange={(e) => setForm({ ...form, pay_rate: e.target.value })}
-                      className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-24"
+                      className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-24"
                     />
                   )}
                 </div>
               ) : (
-                <input placeholder="25" type="number" value={form.pay_rate} onChange={(e) => setForm({ ...form, pay_rate: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                <input placeholder="25" type="number" value={form.pay_rate} onChange={(e) => setForm({ ...form, pay_rate: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
               )}
             </div>
           </div>
           <div className="mb-4">
-            <label className="text-xs text-gray-500 uppercase mb-2 block">Working Days</label>
+            <label className="text-xs text-slate-400 uppercase mb-2 block">Working Days</label>
             <div className="flex gap-1.5">
               {dayLabels.map((label, i) => (
                 <button key={i} type="button" onClick={() => toggleDay(i)}
                   className={`w-9 h-9 rounded-lg text-xs font-bold transition-colors ${
                     form.working_days.includes(i)
-                      ? 'bg-white text-gray-900'
-                      : 'bg-gray-800 text-gray-500 hover:bg-gray-700'
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                   }`}>
                   {label}
                 </button>
@@ -605,16 +605,16 @@ export default function TeamPage() {
             </div>
           </div>
           <div className="mb-4">
-            <label className="text-xs text-gray-500 uppercase mb-2 block">Photo (optional)</label>
+            <label className="text-xs text-slate-400 uppercase mb-2 block">Photo (optional)</label>
             <input type="file" accept="image/*" ref={createPhotoRef} onChange={handleCreatePhotoUpload} className="hidden" />
             <div className="flex items-center gap-3">
               {form.avatar_url ? (
                 <img src={form.avatar_url} alt="Preview" className="w-16 h-16 rounded-full object-cover" />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center text-gray-500 text-xs">No photo</div>
+                <div className="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center text-slate-400 text-xs">No photo</div>
               )}
               <button type="button" onClick={() => createPhotoRef.current?.click()} disabled={uploadingPhoto}
-                className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50">
+                className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg disabled:opacity-50">
                 {uploadingPhoto ? 'Uploading...' : form.avatar_url ? 'Change Photo' : 'Upload Photo'}
               </button>
             </div>
@@ -624,10 +624,10 @@ export default function TeamPage() {
           )}
           <div className="flex gap-2">
             <button type="submit" disabled={saving || !form.name}
-              className="bg-white text-gray-900 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+              className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
               {saving ? 'Saving...' : 'Save Member'}
             </button>
-            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-white">Cancel</button>
+            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
           </div>
         </form>
       )}
@@ -641,7 +641,7 @@ export default function TeamPage() {
           const upcomingOff = notesData.time_off ? getUpcomingTimeOff(notesData.time_off) : null
           return (
             <Link key={m.id} href={`/dashboard/team/${m.id}`}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition-all">
+              className="bg-slate-800 border border-slate-700 rounded-xl p-5 hover:border-slate-600 transition-all">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   {m.avatar_url ? (
@@ -654,10 +654,10 @@ export default function TeamPage() {
                   <div>
                     <p className="font-semibold text-white">{m.name}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${roleColors[m.role] || 'bg-gray-700 text-gray-400'}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${roleColors[m.role] || 'bg-slate-600 text-slate-400'}`}>
                         {m.role}
                       </span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${statusColors[m.status] || 'bg-gray-700 text-gray-400 border-gray-700'}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${statusColors[m.status] || 'bg-slate-600 text-slate-400 border-slate-600'}`}>
                         {m.status}
                       </span>
                     </div>
@@ -667,18 +667,18 @@ export default function TeamPage() {
 
               <div className="space-y-2 text-sm mb-3">
                 {m.phone && (
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-slate-400">
                     <span className="text-xs w-4 text-center">T</span>
                     <span>{m.phone}</span>
                   </div>
                 )}
                 {m.email && (
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-slate-400">
                     <span className="text-xs w-4 text-center">@</span>
                     <span className="truncate">{m.email}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-gray-500">
+                <div className="flex items-center gap-2 text-slate-400">
                   <span className="text-xs w-4 text-center">$</span>
                   <span>{m.pay_rate ? `$${m.pay_rate}/hr` : 'Not set'}</span>
                 </div>
@@ -688,7 +688,7 @@ export default function TeamPage() {
               <div className="flex gap-1 mb-1">
                 {dayLabels.map((label, i) => (
                   <div key={i} className={`w-7 h-7 rounded text-[10px] font-bold flex items-center justify-center ${
-                    workDays.includes(i) ? 'bg-white text-gray-900' : 'bg-gray-800 text-gray-600'
+                    workDays.includes(i) ? 'bg-teal-600 text-white' : 'bg-slate-700 text-slate-500'
                   }`}>
                     {label}
                   </div>
@@ -697,7 +697,7 @@ export default function TeamPage() {
 
               {/* WORKING HOURS SUMMARY */}
               {hoursSummary && (
-                <p className="text-[10px] text-gray-500 mb-1">{hoursSummary}</p>
+                <p className="text-[10px] text-slate-400 mb-1">{hoursSummary}</p>
               )}
 
               {/* UPCOMING TIME OFF BADGE */}
@@ -712,16 +712,16 @@ export default function TeamPage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between pt-3 border-t border-gray-800">
-                <span className="font-mono text-xs text-gray-400">PIN: {m.pin}</span>
-                <span className="text-[10px] text-gray-400 uppercase">{m.preferred_language || 'EN'}</span>
+              <div className="flex items-center justify-between pt-3 border-t border-slate-700">
+                <span className="font-mono text-xs text-slate-400">PIN: {m.pin}</span>
+                <span className="text-[10px] text-slate-400 uppercase">{m.preferred_language || 'EN'}</span>
               </div>
             </Link>
           )
         })}
 
         {team.length === 0 && (
-          <div className="col-span-full bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-400">
+          <div className="col-span-full bg-slate-800 border border-slate-700 rounded-xl p-8 text-center text-slate-400">
             No team members yet -- add your first one above
           </div>
         )}

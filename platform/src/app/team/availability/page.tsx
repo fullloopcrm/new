@@ -72,17 +72,17 @@ export default function AvailabilityPage() {
 
   return (
     <div className="pb-20">
-      <h1 className="text-xl font-bold text-gray-900 mb-6">{t('Availability', 'Disponibilidad')}</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-6">{t('Availability', 'Disponibilidad')}</h1>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6">
-        <h2 className="font-semibold text-gray-900 mb-3">{t('Working Days', 'Días de Trabajo')}</h2>
+        <h2 className="font-semibold text-slate-800 mb-3">{t('Working Days', 'Días de Trabajo')}</h2>
         <div className="space-y-2">
           {DAYS.map((day, i) => (
             <button
               key={i}
               onClick={() => toggleDay(i)}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm ${
-                workingDays.includes(i) ? 'bg-green-50 text-green-700 font-medium' : 'bg-gray-50 text-gray-400'
+                workingDays.includes(i) ? 'bg-green-50 text-green-700 font-medium' : 'bg-gray-50 text-slate-400'
               }`}
             >
               <span>{t(day.en, day.es)}</span>
@@ -93,10 +93,10 @@ export default function AvailabilityPage() {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6">
-        <h2 className="font-semibold text-gray-900 mb-3">{t('Blocked Dates', 'Fechas Bloqueadas')}</h2>
+        <h2 className="font-semibold text-slate-800 mb-3">{t('Blocked Dates', 'Fechas Bloqueadas')}</h2>
         <div className="flex gap-2 mb-3">
           <input type="date" value={newBlock} onChange={(e) => setNewBlock(e.target.value)} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          <button onClick={addBlockedDate} className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm">{t('Add', 'Agregar')}</button>
+          <button onClick={addBlockedDate} className="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm">{t('Add', 'Agregar')}</button>
         </div>
         <div className="space-y-1">
           {blockedDates.map((d) => (
@@ -107,11 +107,11 @@ export default function AvailabilityPage() {
               </button>
             </div>
           ))}
-          {blockedDates.length === 0 && <p className="text-sm text-gray-400">{t('No blocked dates', 'Sin fechas bloqueadas')}</p>}
+          {blockedDates.length === 0 && <p className="text-sm text-slate-400">{t('No blocked dates', 'Sin fechas bloqueadas')}</p>}
         </div>
       </div>
 
-      <button onClick={save} disabled={saving} className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium disabled:opacity-50">
+      <button onClick={save} disabled={saving} className="w-full bg-slate-800 text-white py-3 rounded-xl font-medium disabled:opacity-50">
         {saving ? t('Saving...', 'Guardando...') : saved ? t('Saved!', '¡Guardado!') : t('Save', 'Guardar')}
       </button>
     </div>

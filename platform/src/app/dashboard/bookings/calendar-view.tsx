@@ -47,7 +47,7 @@ export default function CalendarView({
   }))
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+    <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"

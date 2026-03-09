@@ -60,13 +60,13 @@ export default function CheckOutPage() {
 
   return (
     <div className="flex flex-col items-center pt-12">
-      <h1 className="text-xl font-bold text-gray-900 mb-2">{t('Check Out', 'Registro de Salida')}</h1>
-      <p className="text-sm text-gray-500 mb-8">{t('Verify your location to complete', 'Verifica tu ubicación para completar')}</p>
+      <h1 className="text-xl font-bold text-slate-800 mb-2">{t('Check Out', 'Registro de Salida')}</h1>
+      <p className="text-sm text-slate-400 mb-8">{t('Verify your location to complete', 'Verifica tu ubicación para completar')}</p>
 
       {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
       {status === 'idle' && (
-        <button onClick={getLocation} className="w-40 h-40 rounded-full bg-gray-900 text-white flex flex-col items-center justify-center text-lg font-bold">
+        <button onClick={getLocation} className="w-40 h-40 rounded-full bg-slate-800 text-white flex flex-col items-center justify-center text-lg font-bold">
           <span className="text-3xl mb-1">📍</span>
           {t('Get GPS', 'Obtener GPS')}
         </button>
@@ -74,7 +74,7 @@ export default function CheckOutPage() {
 
       {status === 'getting-gps' && (
         <div className="w-40 h-40 rounded-full bg-gray-200 flex items-center justify-center">
-          <p className="text-sm text-gray-500 text-center">{t('Getting location...', 'Obteniendo ubicación...')}</p>
+          <p className="text-sm text-slate-400 text-center">{t('Getting location...', 'Obteniendo ubicación...')}</p>
         </div>
       )}
 
@@ -94,15 +94,15 @@ export default function CheckOutPage() {
         <div className="text-center space-y-4">
           <p className="text-green-600 font-bold text-lg">{t('Job Complete!', '¡Trabajo Completado!')}</p>
           <div className="bg-white border border-gray-200 rounded-xl p-6 w-64">
-            <p className="text-sm text-gray-400">{t('Hours Worked', 'Horas Trabajadas')}</p>
-            <p className="text-2xl font-bold text-gray-900">{result.hours_worked.toFixed(1)}</p>
-            <p className="text-sm text-gray-400 mt-3">{t('Earnings', 'Ganancias')}</p>
+            <p className="text-sm text-slate-400">{t('Hours Worked', 'Horas Trabajadas')}</p>
+            <p className="text-2xl font-bold text-slate-800">{result.hours_worked.toFixed(1)}</p>
+            <p className="text-sm text-slate-400 mt-3">{t('Earnings', 'Ganancias')}</p>
             <p className="text-2xl font-bold text-green-600">${result.earnings.toFixed(2)}</p>
           </div>
         </div>
       )}
 
-      <button onClick={() => router.push('/team')} className="mt-8 text-sm text-gray-400">
+      <button onClick={() => router.push('/team')} className="mt-8 text-sm text-slate-400">
         {t('Back', 'Volver')}
       </button>
     </div>

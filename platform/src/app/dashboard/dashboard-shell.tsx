@@ -84,7 +84,7 @@ export default function DashboardShell({
   }, [])
 
   return (
-    <div className="min-h-screen flex bg-gray-950 text-white">
+    <div className="min-h-screen flex bg-slate-900 text-white">
       {/* Mobile backdrop overlay */}
       {sidebarOpen && (
         <div
@@ -95,18 +95,18 @@ export default function DashboardShell({
 
       {/* Sidebar */}
       <aside
-        className={`w-56 bg-gray-900 border-r border-gray-800 flex flex-col fixed inset-y-0 left-0 z-40 transform transition-transform md:relative md:translate-x-0 ${
+        className={`w-56 bg-slate-800 border-r border-slate-700 flex flex-col fixed inset-y-0 left-0 z-40 transform transition-transform md:relative md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="px-5 py-4 border-b border-gray-800">
+        <div className="px-5 py-4 border-b border-slate-700">
           <div className="flex items-center justify-between">
-            <h1 className="font-bold text-base truncate" style={{ color: primaryColor }}>
+            <h1 className="font-heading font-bold text-base truncate" style={{ color: primaryColor }}>
               {tenantName}
             </h1>
             <Link
               href="/dashboard/notifications"
-              className="relative text-gray-500 hover:text-white transition-colors"
+              className="relative text-slate-400 hover:text-white transition-colors"
               title="Notifications"
               onClick={() => setSidebarOpen(false)}
             >
@@ -120,13 +120,13 @@ export default function DashboardShell({
               )}
             </Link>
           </div>
-          <p className="text-[10px] text-gray-600 mt-0.5 uppercase tracking-wider">Full Loop CRM</p>
+          <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Full Loop CRM</p>
         </div>
 
         <nav className="flex-1 py-3 overflow-y-auto">
           {navSections.map((section) => (
             <div key={section.label} className="mb-1">
-              <p className="px-5 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+              <p className="px-5 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
                 {section.label}
               </p>
               {section.items.map((item) => {
@@ -138,14 +138,14 @@ export default function DashboardShell({
                     key={item.href}
                     href={item.href}
                     onClick={() => setSidebarOpen(false)}
-                    className="flex items-center justify-between mx-2 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+                    className="flex items-center justify-between mx-2 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
                   >
                     <div className="flex items-center gap-2.5">
                       <span className="text-base w-5 text-center">{item.icon}</span>
                       {item.label}
                     </div>
                     {badgeCount > 0 && (
-                      <span className="bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                      <span className="bg-teal-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
                         {formatBadge(badgeCount)}
                       </span>
                     )}
@@ -156,7 +156,7 @@ export default function DashboardShell({
           ))}
         </nav>
 
-        <div className="border-t border-gray-800 px-4 py-3">
+        <div className="border-t border-slate-700 px-4 py-3">
           <UserButton afterSignOutUrl="/sign-in" />
         </div>
       </aside>
@@ -167,7 +167,7 @@ export default function DashboardShell({
         <div className="p-4 md:p-8">
           {/* Mobile hamburger button */}
           <button
-            className="md:hidden p-2 text-gray-400 hover:text-white mb-4"
+            className="md:hidden p-2 text-slate-400 hover:text-white mb-4"
             onClick={() => setSidebarOpen(true)}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

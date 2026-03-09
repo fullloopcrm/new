@@ -47,8 +47,8 @@ export default function TeamLoginPage() {
 
   return (
     <div className="flex flex-col items-center pt-12">
-      <h1 className="text-xl font-bold text-gray-900 mb-2">{t('Team Login', 'Inicio de Sesión')}</h1>
-      <p className="text-sm text-gray-500 mb-6">{t('Enter your 4-digit PIN', 'Ingresa tu PIN de 4 dígitos')}</p>
+      <h1 className="text-xl font-bold text-slate-800 mb-2">{t('Team Login', 'Inicio de Sesión')}</h1>
+      <p className="text-sm text-slate-400 mb-6">{t('Enter your 4-digit PIN', 'Ingresa tu PIN de 4 dígitos')}</p>
 
       <input
         placeholder={t('Business code', 'Código de negocio')}
@@ -60,7 +60,7 @@ export default function TeamLoginPage() {
       <div className="flex gap-3 mb-6">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-xl font-bold ${
-            i < pin.length ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300'
+            i < pin.length ? 'border-slate-800 bg-slate-800 text-white' : 'border-gray-300'
           }`}>
             {i < pin.length ? '•' : ''}
           </div>
@@ -87,7 +87,7 @@ export default function TeamLoginPage() {
       <button
         onClick={login}
         disabled={pin.length !== 4 || !slug || loading}
-        className="w-64 mt-6 bg-gray-900 text-white py-3 rounded-xl font-medium disabled:opacity-30"
+        className="w-64 mt-6 bg-slate-800 text-white py-3 rounded-xl font-medium disabled:opacity-30"
       >
         {loading ? t('Logging in...', 'Entrando...') : t('Login', 'Entrar')}
       </button>

@@ -28,7 +28,7 @@ const statusColors: Record<string, string> = {
 const planColors: Record<string, string> = {
   pro: 'bg-blue-500/20 text-blue-400',
   starter: 'bg-green-500/20 text-green-400',
-  free: 'bg-gray-700 text-gray-400',
+  free: 'bg-slate-600 text-slate-400',
 }
 
 const statusTabs = [
@@ -58,13 +58,13 @@ export default function TenantsPage() {
     return true
   })
 
-  if (loading) return <p className="text-gray-400">Loading...</p>
+  if (loading) return <p className="text-slate-400">Loading...</p>
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Tenants</h1>
-        <p className="text-sm text-gray-500">{tenants.length} total tenants</p>
+        <p className="text-sm text-slate-400">{tenants.length} total tenants</p>
       </div>
 
       {/* SEARCH + FILTERS */}
@@ -73,22 +73,22 @@ export default function TenantsPage() {
           placeholder="Search name or industry..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full md:w-64 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm placeholder-gray-600"
+          className="w-full md:w-64 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm placeholder-gray-600"
         />
         <div className="flex gap-1">
           {statusTabs.map((tab) => (
             <button key={tab.value} onClick={() => setFilterStatus(tab.value)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 filterStatus === tab.value
-                  ? 'bg-white text-gray-900'
-                  : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-400 hover:bg-slate-700 hover:text-slate-300'
               }`}>
               {tab.label}
             </button>
           ))}
         </div>
         <select value={filterPlan} onChange={(e) => setFilterPlan(e.target.value)}
-          className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+          className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm">
           <option value="all">All Plans</option>
           <option value="free">Free</option>
           <option value="starter">Starter</option>
@@ -97,10 +97,10 @@ export default function TenantsPage() {
       </div>
 
       {/* TABLE */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-800 text-gray-500 text-left">
+            <tr className="border-b border-slate-700 text-slate-400 text-left">
               <th className="px-4 py-3 font-medium">Business</th>
               <th className="px-4 py-3 font-medium">Industry</th>
               <th className="px-4 py-3 font-medium">Plan</th>
@@ -113,25 +113,25 @@ export default function TenantsPage() {
           </thead>
           <tbody>
             {filtered.map((t) => (
-              <tr key={t.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+              <tr key={t.id} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
                 <td className="px-4 py-3">
                   <p className="font-medium">{t.name}</p>
-                  {t.email && <p className="text-xs text-gray-500">{t.email}</p>}
+                  {t.email && <p className="text-xs text-slate-400">{t.email}</p>}
                 </td>
-                <td className="px-4 py-3 text-gray-400 capitalize">{t.industry?.replace(/_/g, ' ')}</td>
+                <td className="px-4 py-3 text-slate-400 capitalize">{t.industry?.replace(/_/g, ' ')}</td>
                 <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${planColors[t.plan || 'free'] || 'bg-gray-700 text-gray-400'}`}>
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${planColors[t.plan || 'free'] || 'bg-slate-600 text-slate-400'}`}>
                     {t.plan || 'free'}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}`}>
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[t.status] || 'bg-slate-600 text-slate-400'}`}>
                     {t.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-400">{t.team_size || 'solo'}</td>
-                <td className="px-4 py-3 text-gray-400">{t.tenant_members?.length || 0}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
+                <td className="px-4 py-3 text-slate-400">{t.team_size || 'solo'}</td>
+                <td className="px-4 py-3 text-slate-400">{t.tenant_members?.length || 0}</td>
+                <td className="px-4 py-3 text-slate-400 text-xs">
                   {new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </td>
                 <td className="px-4 py-3">
@@ -143,7 +143,7 @@ export default function TenantsPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-sm">
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-sm">
                   {search || filterStatus !== 'all' || filterPlan !== 'all' ? 'No matching tenants' : 'No tenants yet'}
                 </td>
               </tr>

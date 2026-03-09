@@ -228,18 +228,18 @@ export default function MapPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-2xl font-bold text-white">Job Map</h2>
-          <p className="text-sm text-gray-500">All jobs mapped by client location</p>
+          <p className="text-sm text-slate-400">All jobs mapped by client location</p>
         </div>
         <button
           onClick={() => setShowStats(!showStats)}
-          className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-2 rounded-lg md:hidden"
+          className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg md:hidden"
         >
           {showStats ? 'Hide Stats' : 'Show Stats'}
         </button>
       </div>
 
       {/* Filter bar */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4 space-y-3">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4 space-y-3">
         {/* Row 1: Status tabs */}
         <div className="flex flex-wrap gap-1">
           {statusTabs.map((tab) => (
@@ -248,8 +248,8 @@ export default function MapPage() {
               onClick={() => setStatusFilter(tab.value)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 statusFilter === tab.value
-                  ? 'bg-white text-gray-900'
-                  : 'text-gray-500 hover:bg-gray-800'
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-400 hover:bg-slate-700'
               }`}
             >
               {tab.label}
@@ -266,8 +266,8 @@ export default function MapPage() {
                 onClick={() => setDateRange(dr.value)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   dateRange === dr.value
-                    ? 'bg-white text-gray-900'
-                    : 'text-gray-500 hover:bg-gray-800'
+                    ? 'bg-teal-600 text-white'
+                    : 'text-slate-400 hover:bg-slate-700'
                 }`}
               >
                 {dr.label}
@@ -278,7 +278,7 @@ export default function MapPage() {
           <select
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
+            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-300"
           >
             <option value="">All Team Members</option>
             {team.map((t) => (
@@ -292,7 +292,7 @@ export default function MapPage() {
             placeholder="Search by client name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full md:w-64 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500"
+            className="w-full md:w-64 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500"
           />
 
           {geocoding && (
@@ -306,7 +306,7 @@ export default function MapPage() {
       {/* Main content: map + stats sidebar */}
       <div className="flex gap-4 flex-1">
         {/* Map */}
-        <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden min-h-[600px]">
+        <div className="flex-1 bg-slate-800 border border-slate-700 rounded-xl overflow-hidden min-h-[600px]">
           <MapView bookings={filteredBookings} fmt={fmt} />
         </div>
 
@@ -314,25 +314,25 @@ export default function MapPage() {
         <div
           className={`w-64 shrink-0 space-y-3 ${showStats ? 'block' : 'hidden'} md:block`}
         >
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
             <h3 className="text-sm font-semibold text-white mb-3">Map Summary</h3>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400">Total Shown</span>
+                <span className="text-xs text-slate-400">Total Shown</span>
                 <span className="text-sm font-bold text-white">{stats.total}</span>
               </div>
 
               {bookings.length > 0 && bookings.length !== filteredBookings.length && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">Total Bookings</span>
-                  <span className="text-xs text-gray-500">{bookings.length}</span>
+                  <span className="text-xs text-slate-400">Total Bookings</span>
+                  <span className="text-xs text-slate-400">{bookings.length}</span>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
             <h3 className="text-sm font-semibold text-white mb-3">By Status</h3>
             <div className="space-y-2">
               {Object.entries(stats.counts)
@@ -341,7 +341,7 @@ export default function MapPage() {
                   <div key={status} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <StatusDot status={status} />
-                      <span className="text-xs text-gray-400 capitalize">
+                      <span className="text-xs text-slate-400 capitalize">
                         {status.replace('_', ' ')}
                       </span>
                     </div>
@@ -349,13 +349,13 @@ export default function MapPage() {
                   </div>
                 ))}
               {Object.keys(stats.counts).length === 0 && (
-                <p className="text-xs text-gray-500">No jobs to display</p>
+                <p className="text-xs text-slate-400">No jobs to display</p>
               )}
             </div>
           </div>
 
           {/* Legend */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
             <h3 className="text-sm font-semibold text-white mb-3">Legend</h3>
             <div className="space-y-1.5">
               {[
@@ -372,7 +372,7 @@ export default function MapPage() {
                     className="w-3 h-3 rounded-full shrink-0"
                     style={{ background: item.color }}
                   />
-                  <span className="text-xs text-gray-400">{item.label}</span>
+                  <span className="text-xs text-slate-400">{item.label}</span>
                 </div>
               ))}
             </div>

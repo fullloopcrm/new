@@ -29,8 +29,8 @@ const categoryColors: Record<string, string> = {
   partnership: 'bg-indigo-500/20 text-indigo-400',
   complaint: 'bg-orange-500/20 text-orange-400',
   praise: 'bg-green-500/20 text-green-400',
-  general: 'bg-gray-700 text-gray-400',
-  other: 'bg-gray-700 text-gray-400',
+  general: 'bg-slate-600 text-slate-400',
+  other: 'bg-slate-600 text-slate-400',
 }
 
 const statusTabs = [
@@ -107,25 +107,25 @@ export default function AdminFeedbackPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Anonymous Feedback</h1>
-        <p className="text-sm text-gray-500">{totalCount} total submissions &middot; {unreadCount} unread</p>
+        <p className="text-sm text-slate-400">{totalCount} total submissions &middot; {unreadCount} unread</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="bg-gray-900 rounded-xl border border-gray-800 border-l-4 border-l-gray-500 p-5">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wide">Total</p>
+        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-gray-500 p-5">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Total</p>
           <p className="text-2xl font-bold mt-1">{totalCount}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl border border-gray-800 border-l-4 border-l-yellow-500 p-5">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wide">Unread</p>
+        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-yellow-500 p-5">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Unread</p>
           <p className="text-2xl font-bold mt-1">{unreadCount}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl border border-gray-800 border-l-4 border-l-red-500 p-5">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wide">Bugs</p>
+        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-red-500 p-5">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Bugs</p>
           <p className="text-2xl font-bold mt-1">{categoryBreakdown.bug || 0}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl border border-gray-800 border-l-4 border-l-blue-500 p-5">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wide">Feature Requests</p>
+        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-blue-500 p-5">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Feature Requests</p>
           <p className="text-2xl font-bold mt-1">{categoryBreakdown.feature || 0}</p>
         </div>
       </div>
@@ -138,13 +138,13 @@ export default function AdminFeedbackPage() {
             onClick={() => setStatusFilter(tab.value)}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
               statusFilter === tab.value
-                ? 'bg-white text-gray-900'
-                : 'text-gray-500 hover:bg-gray-800'
+                ? 'bg-teal-600 text-white'
+                : 'text-slate-400 hover:bg-slate-700'
             }`}
           >
             {tab.label}
             {tab.value === 'unread' && unreadCount > 0 && (
-              <span className="ml-1.5 bg-yellow-500 text-gray-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              <span className="ml-1.5 bg-yellow-500 text-slate-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {unreadCount}
               </span>
             )}
@@ -154,24 +154,24 @@ export default function AdminFeedbackPage() {
 
       {/* Feedback List */}
       {loading ? (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 text-center text-gray-500">
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 text-center text-slate-400">
           Loading feedback...
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map((f) => (
-            <div key={f.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+            <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
               <button
                 onClick={() => {
                   setExpandedId(expandedId === f.id ? null : f.id)
                   if (f.status === 'unread') updateStatus(f.id, 'read')
                 }}
-                className="w-full text-left px-5 py-4 hover:bg-gray-800/30 transition-colors"
+                className="w-full text-left px-5 py-4 hover:bg-slate-700/30 transition-colors"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${categoryColors[f.category] || 'bg-gray-700 text-gray-400'}`}>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${categoryColors[f.category] || 'bg-slate-600 text-slate-400'}`}>
                         {categoryLabels[f.category] || f.category}
                       </span>
                       {f.status === 'unread' && (
@@ -181,27 +181,27 @@ export default function AdminFeedbackPage() {
                         <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-green-500/20 text-green-400">Actioned</span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-300 line-clamp-2">{f.message}</p>
+                    <p className="text-sm text-slate-300 line-clamp-2">{f.message}</p>
                   </div>
-                  <span className="text-xs text-gray-600 ml-4 whitespace-nowrap">{timeAgo(f.created_at)}</span>
+                  <span className="text-xs text-slate-500 ml-4 whitespace-nowrap">{timeAgo(f.created_at)}</span>
                 </div>
               </button>
 
               {expandedId === f.id && (
-                <div className="border-t border-gray-800 px-5 py-4 bg-gray-800/20">
-                  <p className="text-sm text-gray-300 whitespace-pre-wrap mb-4">{f.message}</p>
-                  <p className="text-xs text-gray-600 mb-4">
+                <div className="border-t border-slate-700 px-5 py-4 bg-slate-700/20">
+                  <p className="text-sm text-slate-300 whitespace-pre-wrap mb-4">{f.message}</p>
+                  <p className="text-xs text-slate-500 mb-4">
                     Submitted {new Date(f.created_at).toLocaleString()}
                   </p>
 
                   <div className="mb-4">
-                    <label className="text-xs text-gray-500 uppercase mb-1 block">Admin Notes</label>
+                    <label className="text-xs text-slate-400 uppercase mb-1 block">Admin Notes</label>
                     <textarea
                       defaultValue={f.admin_notes || ''}
                       onBlur={(e) => saveNotes(f.id, e.target.value)}
                       rows={2}
                       placeholder="Internal notes..."
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none"
+                      className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none"
                     />
                   </div>
 
@@ -229,7 +229,7 @@ export default function AdminFeedbackPage() {
           ))}
 
           {filtered.length === 0 && (
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 text-center text-gray-500">
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 text-center text-slate-400">
               {statusFilter ? `No ${statusFilter} feedback` : 'No feedback submitted yet'}
             </div>
           )}

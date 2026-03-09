@@ -89,7 +89,7 @@ export default function JobsMap({ jobs }: { jobs: Job[] }) {
   if (loading) {
     return (
       <div className="w-full h-[250px] bg-gray-100 rounded-lg flex items-center justify-center">
-        <p className="text-sm text-gray-400">Loading map...</p>
+        <p className="text-sm text-slate-400">Loading map...</p>
       </div>
     )
   }
@@ -97,7 +97,7 @@ export default function JobsMap({ jobs }: { jobs: Job[] }) {
   if (geocodedJobs.length === 0) {
     return (
       <div className="w-full h-[250px] bg-gray-100 rounded-lg flex items-center justify-center">
-        <p className="text-sm text-gray-400">No job locations to display</p>
+        <p className="text-sm text-slate-400">No job locations to display</p>
       </div>
     )
   }
@@ -125,7 +125,7 @@ export default function JobsMap({ jobs }: { jobs: Job[] }) {
             <div className="text-sm">
               <p className="font-bold">{job.clients?.name}</p>
               {job.clients?.address && (
-                <p className="text-xs text-gray-500">{job.clients.address}</p>
+                <p className="text-xs text-slate-400">{job.clients.address}</p>
               )}
             </div>
           </Popup>

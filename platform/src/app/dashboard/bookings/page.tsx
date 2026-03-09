@@ -59,8 +59,8 @@ const statusColors: Record<string, string> = {
   completed: 'bg-green-500/20 text-green-400',
   paid: 'bg-emerald-500/20 text-emerald-400',
   cancelled: 'bg-red-500/20 text-red-400',
-  no_show: 'bg-gray-700 text-gray-400',
-  pending: 'bg-gray-700 text-gray-400',
+  no_show: 'bg-slate-600 text-slate-400',
+  pending: 'bg-slate-600 text-slate-400',
 }
 
 const statusTabs = [
@@ -296,19 +296,19 @@ export default function BookingsPage() {
   return (
     <div>
       {/* PORTAL LINK */}
-      <div className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 mb-6">
+      <div className="flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl px-5 py-3 mb-6">
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-500">Client Booking Portal:</span>
-          <code className="text-blue-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal/book` : '/portal/book'}</code>
+          <span className="text-slate-400">Client Booking Portal:</span>
+          <code className="text-blue-400 font-mono text-xs bg-slate-700 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal/book` : '/portal/book'}</code>
         </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal/book`)} className="text-xs text-gray-400 hover:text-white transition-colors">Copy Link</button>
+        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal/book`)} className="text-xs text-slate-400 hover:text-white transition-colors">Copy Link</button>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-2xl font-bold text-white">Bookings</h2>
-            <p className="text-sm text-gray-500">{view === 'schedules' ? `${schedules.length} total schedules` : `${total} total bookings`}</p>
+            <p className="text-sm text-slate-400">{view === 'schedules' ? `${schedules.length} total schedules` : `${total} total bookings`}</p>
           </div>
           <PageSettingsGear open={bookingsSettings.open} setOpen={bookingsSettings.setOpen} title="Bookings" />
         </div>
@@ -330,24 +330,24 @@ export default function BookingsPage() {
                 'bookings',
                 ['date', 'time', 'client', 'service', 'team_member', 'status', 'price', 'payment_status', 'notes']
               )}
-              className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-2 rounded-lg"
+              className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg"
             >
               Export CSV
             </button>
           )}
-          <div className="flex bg-gray-800 rounded-lg p-0.5">
-            <button onClick={() => setView('list')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>List</button>
-            <button onClick={() => setView('calendar')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'calendar' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>Calendar</button>
-            <button onClick={() => setView('schedules')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'schedules' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>Schedules</button>
+          <div className="flex bg-slate-700 rounded-lg p-0.5">
+            <button onClick={() => setView('list')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'list' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>List</button>
+            <button onClick={() => setView('calendar')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'calendar' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>Calendar</button>
+            <button onClick={() => setView('schedules')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'schedules' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>Schedules</button>
           </div>
           {view === 'schedules' ? (
             <button onClick={() => setShowScheduleCreate(!showScheduleCreate)}
-              className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100">
+              className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
               {showScheduleCreate ? 'Cancel' : '+ New Schedule'}
             </button>
           ) : (
             <button onClick={() => setShowCreate(!showCreate)}
-              className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100">
+              className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
               {showCreate ? 'Cancel' : '+ New Booking'}
             </button>
           )}
@@ -367,24 +367,24 @@ export default function BookingsPage() {
         {({ config, updateConfig }) => (
           <div className="space-y-5">
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Default Booking Status</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Booking Status</label>
               <select
                 value={(config.default_status as string) || 'scheduled'}
                 onChange={(e) => updateConfig('default_status', e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               >
                 <option value="scheduled">Scheduled</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="pending">Pending</option>
               </select>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Default Booking Duration</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Booking Duration</label>
               <select
                 value={(config.default_duration as string) || '3'}
                 onChange={(e) => updateConfig('default_duration', e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               >
                 <option value="1">1 hour</option>
                 <option value="1.5">1.5 hours</option>
@@ -397,22 +397,22 @@ export default function BookingsPage() {
                 <option value="8">8 hours</option>
               </select>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-gray-300">Require team member assignment</label>
+              <label className="text-sm text-slate-300">Require team member assignment</label>
               <button
                 onClick={() => updateConfig('require_team_member', !config.require_team_member)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_team_member ? 'bg-blue-500' : 'bg-gray-700'}`}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_team_member ? 'bg-teal-600' : 'bg-slate-600'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.require_team_member ? 'translate-x-5' : ''}`} />
               </button>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-gray-300">Auto-confirm bookings</label>
+              <label className="text-sm text-slate-300">Auto-confirm bookings</label>
               <button
                 onClick={() => updateConfig('auto_confirm', !config.auto_confirm)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_confirm ? 'bg-blue-500' : 'bg-gray-700'}`}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_confirm ? 'bg-teal-600' : 'bg-slate-600'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_confirm ? 'translate-x-5' : ''}`} />
               </button>
@@ -432,7 +432,7 @@ export default function BookingsPage() {
               </button>
             )}
           </div>
-          <button onClick={() => setBookingCreated(false)} className="text-gray-500 hover:text-white">&times;</button>
+          <button onClick={() => setBookingCreated(false)} className="text-slate-400 hover:text-white">&times;</button>
         </div>
       )}
 
@@ -446,8 +446,8 @@ export default function BookingsPage() {
               { label: 'Paused', value: pausedCount, color: 'border-l-yellow-500' },
               { label: 'Weekly', value: schedules.filter(s => s.recurring_type === 'weekly').length, color: 'border-l-blue-500' },
             ].map((card) => (
-              <div key={card.label} className={`bg-gray-900 rounded-xl border border-gray-800 border-l-4 ${card.color} p-5`}>
-                <p className="text-[11px] text-gray-500 uppercase tracking-wide">{card.label}</p>
+              <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
+                <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
                 <p className="text-2xl font-bold text-white mt-1">{card.value}</p>
               </div>
             ))}
@@ -455,37 +455,37 @@ export default function BookingsPage() {
 
           {/* SCHEDULE CREATE FORM */}
           {showScheduleCreate && (
-            <form onSubmit={createSchedule} className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+            <form onSubmit={createSchedule} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
               <h3 className="font-semibold text-white mb-4">Create Recurring Schedule</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Client *</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Client *</label>
                   <select value={scheduleForm.client_id} onChange={(e) => setScheduleForm({ ...scheduleForm, client_id: e.target.value })} required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                     <option value="">Select Client</option>
                     {scheduleClients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Team Member</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Team Member</label>
                   <select value={scheduleForm.team_member_id} onChange={(e) => setScheduleForm({ ...scheduleForm, team_member_id: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                     <option value="">Select Team Member</option>
                     {scheduleTeam.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Service</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Service</label>
                   <select value={scheduleForm.service_type_id} onChange={(e) => setScheduleForm({ ...scheduleForm, service_type_id: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                     <option value="">Select Service</option>
                     {scheduleServices.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Frequency</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Frequency</label>
                   <select value={scheduleForm.recurring_type} onChange={(e) => setScheduleForm({ ...scheduleForm, recurring_type: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                     <option value="weekly">Weekly</option>
                     <option value="biweekly">Every 2 Weeks</option>
                     <option value="triweekly">Every 3 Weeks</option>
@@ -494,34 +494,34 @@ export default function BookingsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Day</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Day</label>
                   <select value={scheduleForm.day_of_week} onChange={(e) => setScheduleForm({ ...scheduleForm, day_of_week: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                     {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Time</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Time</label>
                   <input type="time" value={scheduleForm.preferred_time} onChange={(e) => setScheduleForm({ ...scheduleForm, preferred_time: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Duration (hrs)</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Duration (hrs)</label>
                   <input type="number" step="0.5" value={scheduleForm.duration_hours} onChange={(e) => setScheduleForm({ ...scheduleForm, duration_hours: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Notes</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Notes</label>
                   <input placeholder="Special instructions..." value={scheduleForm.notes} onChange={(e) => setScheduleForm({ ...scheduleForm, notes: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
                 </div>
               </div>
               <div className="flex gap-2">
                 <button type="submit" disabled={scheduleSaving || !scheduleForm.client_id}
-                  className="bg-white text-gray-900 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+                  className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
                   {scheduleSaving ? 'Creating...' : 'Create Schedule'}
                 </button>
-                <button type="button" onClick={() => setShowScheduleCreate(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-white">Cancel</button>
+                <button type="button" onClick={() => setShowScheduleCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
               </div>
             </form>
           )}
@@ -532,7 +532,7 @@ export default function BookingsPage() {
               value={scheduleSearch}
               onChange={(e) => setScheduleSearch(e.target.value)}
               placeholder="Search by client name or service type..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
             />
           </div>
 
@@ -542,8 +542,8 @@ export default function BookingsPage() {
               <button key={tab.value} onClick={() => setScheduleStatusFilter(tab.value)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   scheduleStatusFilter === tab.value
-                    ? 'bg-white text-gray-900'
-                    : 'text-gray-500 hover:bg-gray-800'
+                    ? 'bg-teal-600 text-white'
+                    : 'text-slate-400 hover:bg-slate-700'
                 }`}>
                 {tab.label}
               </button>
@@ -551,10 +551,10 @@ export default function BookingsPage() {
           </div>
 
           {/* SCHEDULE TABLE */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-800 text-left text-gray-500">
+                <tr className="border-b border-slate-700 text-left text-slate-400">
                   <th className="px-4 py-3 font-medium">Client</th>
                   <th className="px-4 py-3 font-medium">Team</th>
                   <th className="px-4 py-3 font-medium">Service</th>
@@ -565,18 +565,18 @@ export default function BookingsPage() {
               </thead>
               <tbody>
                 {filteredSchedules.map((s) => (
-                  <tr key={s.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <tr key={s.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                     <td className="px-4 py-3">
-                      <Link href={`/dashboard/schedules/${s.id}`} className="font-medium text-white hover:text-blue-400">
+                      <Link href={`/dashboard/schedules/${s.id}`} className="font-medium text-white hover:text-teal-400">
                         {s.clients?.name || '\u2014'}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{s.team_members?.name || '\u2014'}</td>
-                    <td className="px-4 py-3 text-gray-500">{s.service_types?.name || '\u2014'}</td>
-                    <td className="px-4 py-3 text-gray-500">{frequencyLabels[s.recurring_type] || s.recurring_type}</td>
+                    <td className="px-4 py-3 text-slate-400">{s.team_members?.name || '\u2014'}</td>
+                    <td className="px-4 py-3 text-slate-400">{s.service_types?.name || '\u2014'}</td>
+                    <td className="px-4 py-3 text-slate-400">{frequencyLabels[s.recurring_type] || s.recurring_type}</td>
                     <td className="px-4 py-3">
                       <p className="text-white font-medium">{s.day_of_week != null ? DAYS[s.day_of_week] : '\u2014'}</p>
-                      <p className="text-xs text-gray-400">{s.preferred_time || ''} {s.duration_hours ? `\u00b7 ${s.duration_hours}hr` : ''}</p>
+                      <p className="text-xs text-slate-400">{s.preferred_time || ''} {s.duration_hours ? `\u00b7 ${s.duration_hours}hr` : ''}</p>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
@@ -587,13 +587,13 @@ export default function BookingsPage() {
                         {s.status}
                       </span>
                       {s.paused_until && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">until {new Date(s.paused_until).toLocaleDateString()}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">until {new Date(s.paused_until).toLocaleDateString()}</p>
                       )}
                     </td>
                   </tr>
                 ))}
                 {filteredSchedules.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                     {scheduleStatusFilter ? `No ${scheduleStatusFilter} schedules` : 'No recurring schedules yet'}
                   </td></tr>
                 )}
@@ -611,10 +611,10 @@ export default function BookingsPage() {
               { label: 'Completed', value: stats.completed, icon: '\u2713', color: 'border-l-green-500', sub: 'this month' },
               { label: 'Revenue', value: fmt(stats.revenue), icon: '$', color: 'border-l-purple-500', sub: 'this month' },
             ].map((card) => (
-              <div key={card.label} className={`bg-gray-900 rounded-xl border border-gray-800 border-l-4 ${card.color} p-5`}>
-                <p className="text-[11px] text-gray-500 uppercase tracking-wide">{card.label}</p>
+              <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
+                <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
                 <p className="text-2xl font-bold text-white mt-1">{card.value}</p>
-                {card.sub && <p className="text-xs text-gray-400 mt-0.5">{card.sub}</p>}
+                {card.sub && <p className="text-xs text-slate-400 mt-0.5">{card.sub}</p>}
               </div>
             ))}
           </div>
@@ -631,16 +631,16 @@ export default function BookingsPage() {
             const total = form.discount ? subtotal * 0.9 : subtotal
 
             return (
-            <form onSubmit={createBooking} className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6 space-y-5">
+            <form onSubmit={createBooking} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6 space-y-5">
               <h3 className="text-lg font-semibold text-white">Create Booking</h3>
 
               {/* Row 1: Client (full width) */}
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Client</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Client</label>
                 {selectedClient ? (
-                  <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                     <span className="text-white flex-1">{selectedClient.name}</span>
-                    <button type="button" onClick={() => { setForm({ ...form, client_id: '' }); setClientSearch(''); }} className="text-gray-400 hover:text-white text-xs">Clear</button>
+                    <button type="button" onClick={() => { setForm({ ...form, client_id: '' }); setClientSearch(''); }} className="text-slate-400 hover:text-white text-xs">Clear</button>
                   </div>
                 ) : (
                   <div className="relative">
@@ -651,10 +651,10 @@ export default function BookingsPage() {
                       onChange={(e) => { setClientSearch(e.target.value); setShowClientDropdown(true) }}
                       onFocus={() => { if (clientSearch.length > 0) setShowClientDropdown(true) }}
                       onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                     />
                     {showClientDropdown && filteredClients.length > 0 && (
-                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg max-h-40 overflow-y-auto shadow-lg">
+                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-700 border border-slate-600 rounded-lg max-h-40 overflow-y-auto shadow-lg">
                         {filteredClients.map((c) => (
                           <button
                             key={c.id}
@@ -665,7 +665,7 @@ export default function BookingsPage() {
                               setClientSearch(c.name)
                               setShowClientDropdown(false)
                             }}
-                            className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                            className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white"
                           >
                             {c.name}
                           </button>
@@ -678,7 +678,7 @@ export default function BookingsPage() {
 
               {/* Row 2: Service (full width) */}
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Service</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Service</label>
                 <select
                   value={form.service_type_id}
                   onChange={(e) => {
@@ -690,7 +690,7 @@ export default function BookingsPage() {
                       rate: svc ? String(svc.default_hourly_rate) : form.rate,
                     })
                   }}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 >
                   <option value="">Select Service</option>
                   {services.map((s) => (
@@ -701,12 +701,12 @@ export default function BookingsPage() {
 
               {/* Row 3: Team Member (full width) */}
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Team Member *</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Team Member *</label>
                 <select
                   value={form.team_member_id}
                   onChange={(e) => setForm({ ...form, team_member_id: e.target.value })}
                   required
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 >
                   <option value="">Select Team Member</option>
                   {team.map((t) => (
@@ -718,11 +718,11 @@ export default function BookingsPage() {
               {/* Row 4: Hours + Rate (2 columns) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Hours</label>
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Hours</label>
                   <select
                     value={form.hours}
                     onChange={(e) => setForm({ ...form, hours: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                   >
                     <option value="">Select Hours</option>
                     {['1', '1.5', '2', '2.5', '3', '3.5', '4', '5', '6', '8'].map((h) => (
@@ -731,11 +731,11 @@ export default function BookingsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Rate</label>
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Rate</label>
                   <select
                     value={form.rate}
                     onChange={(e) => setForm({ ...form, rate: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                   >
                     <option value="">Select Rate</option>
                     {[25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((r) => (
@@ -748,23 +748,23 @@ export default function BookingsPage() {
               {/* Row 5: Date + Time (2 columns) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Date *</label>
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Date *</label>
                   <input
                     type="date"
                     value={form.date}
                     onChange={(e) => setForm({ ...form, date: e.target.value })}
                     required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Time *</label>
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Time *</label>
                   <input
                     type="time"
                     value={form.time}
                     onChange={(e) => setForm({ ...form, time: e.target.value })}
                     required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
               </div>
@@ -773,11 +773,11 @@ export default function BookingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wide">Repeat</label>
+                    <label className="text-[10px] text-slate-400 uppercase tracking-wide">Repeat</label>
                     <button
                       type="button"
                       onClick={() => setForm({ ...form, repeat: !form.repeat })}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.repeat ? 'bg-green-500' : 'bg-gray-600'}`}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.repeat ? 'bg-green-500' : 'bg-slate-600'}`}
                     >
                       <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.repeat ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
                     </button>
@@ -786,7 +786,7 @@ export default function BookingsPage() {
                     <select
                       value={form.repeat_frequency}
                       onChange={(e) => setForm({ ...form, repeat_frequency: e.target.value })}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-2"
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm mt-2"
                     >
                       <option value="weekly">Weekly</option>
                       <option value="biweekly">Biweekly</option>
@@ -796,11 +796,11 @@ export default function BookingsPage() {
                 </div>
                 <div>
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wide">10% Discount</label>
+                    <label className="text-[10px] text-slate-400 uppercase tracking-wide">10% Discount</label>
                     <button
                       type="button"
                       onClick={() => setForm({ ...form, discount: !form.discount })}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.discount ? 'bg-green-500' : 'bg-gray-600'}`}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.discount ? 'bg-green-500' : 'bg-slate-600'}`}
                     >
                       <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.discount ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
                     </button>
@@ -810,14 +810,14 @@ export default function BookingsPage() {
 
               {/* Row 7: Estimate Summary */}
               {hours > 0 && rate > 0 && (
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex items-center justify-between">
-                  <div className="text-sm text-gray-400">
+                <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 flex items-center justify-between">
+                  <div className="text-sm text-slate-400">
                     ~{hours}hrs &times; ${rate}/hr
                   </div>
                   <div className="text-right">
                     {form.discount ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500 line-through">${subtotal.toFixed(0)}</span>
+                        <span className="text-sm text-slate-400 line-through">${subtotal.toFixed(0)}</span>
                         <span className="text-lg font-bold text-green-400">~${total.toFixed(0)}</span>
                       </div>
                     ) : (
@@ -829,11 +829,11 @@ export default function BookingsPage() {
 
               {/* Row 8: Status */}
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Status</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Status</label>
                 <select
                   value={form.status}
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 >
                   <option value="scheduled">Scheduled</option>
                   <option value="confirmed">Confirmed</option>
@@ -843,25 +843,25 @@ export default function BookingsPage() {
 
               {/* Row 9: Notes */}
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Notes</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Notes</label>
                 <textarea
                   placeholder="Access codes, special instructions..."
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   rows={3}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm resize-none"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm resize-none"
                 />
               </div>
 
               {/* Row 10: Actions */}
               <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded-lg transition-colors">
+                <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white border border-slate-600 rounded-lg transition-colors">
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving || !form.date || !form.time || !form.team_member_id}
-                  className="bg-white text-gray-900 px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50 transition-colors"
+                  className="bg-teal-600 text-white px-6 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 disabled:opacity-50 transition-colors"
                 >
                   {saving ? 'Creating...' : 'Create Booking'}
                 </button>
@@ -878,15 +878,15 @@ export default function BookingsPage() {
                   placeholder="Search client, team member, service..."
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full md:w-64 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full md:w-64 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 />
                 <div className="flex gap-1 flex-wrap">
                   {statusTabs.map((tab) => (
                     <button key={tab.value} onClick={() => { setStatusFilter(tab.value); setPage(1) }}
                       className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                         statusFilter === tab.value
-                          ? 'bg-white text-gray-900'
-                          : 'text-gray-500 hover:bg-gray-800'
+                          ? 'bg-teal-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-700'
                       }`}>
                       {tab.label}
                     </button>
@@ -896,10 +896,10 @@ export default function BookingsPage() {
 
               {/* BULK ACTION BAR */}
               {selected.size > 0 && (
-                <div className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 mb-4">
+                <div className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-4">
                   <span className="text-sm text-white font-medium">{selected.size} selected</span>
                   <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm">
+                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm">
                     <option value="">Bulk action...</option>
                     <option value="confirmed">Confirm All</option>
                     <option value="cancelled">Cancel All</option>
@@ -923,18 +923,18 @@ export default function BookingsPage() {
                     setBulkAction('')
                     loadBookings()
                   }} disabled={!bulkAction}
-                    className="bg-white text-gray-900 px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50">
+                    className="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
                     Apply
                   </button>
-                  <button onClick={() => setSelected(new Set())} className="text-xs text-gray-500 hover:text-white ml-auto">Clear</button>
+                  <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-white ml-auto">Clear</button>
                 </div>
               )}
 
               {/* TABLE */}
-              <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+              <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-800 text-left text-gray-500">
+                    <tr className="border-b border-slate-700 text-left text-slate-400">
                       <th className="px-4 py-3 w-10">
                         <input type="checkbox"
                           checked={bookings.length > 0 && selected.size === bookings.length}
@@ -945,7 +945,7 @@ export default function BookingsPage() {
                               setSelected(new Set())
                             }
                           }}
-                          className="rounded border-gray-600 bg-gray-800"
+                          className="rounded border-slate-600 bg-slate-700"
                         />
                       </th>
                       <th className="px-4 py-3 font-medium">Date & Time</th>
@@ -959,7 +959,7 @@ export default function BookingsPage() {
                   </thead>
                   <tbody>
                     {bookings.map((b) => (
-                      <tr key={b.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                      <tr key={b.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                         <td className="px-4 py-3">
                           <input type="checkbox"
                             checked={selected.has(b.id)}
@@ -969,26 +969,26 @@ export default function BookingsPage() {
                               else next.delete(b.id)
                               setSelected(next)
                             }}
-                            className="rounded border-gray-600 bg-gray-800"
+                            className="rounded border-slate-600 bg-slate-700"
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <Link href={`/dashboard/bookings/${b.id}`} className="font-medium text-white hover:text-blue-400">
+                          <Link href={`/dashboard/bookings/${b.id}`} className="font-medium text-white hover:text-teal-400">
                             {new Date(b.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </Link>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-slate-400">
                             {new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                             {b.end_time && ` \u2013 ${new Date(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`}
                           </p>
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-white">{b.clients?.name || '\u2014'}</p>
-                          {b.clients?.phone && <p className="text-xs text-gray-400">{b.clients.phone}</p>}
+                          {b.clients?.phone && <p className="text-xs text-slate-400">{b.clients.phone}</p>}
                         </td>
-                        <td className="px-4 py-3 text-gray-500">{b.service_types?.name || b.service_type || '\u2014'}</td>
-                        <td className="px-4 py-3 text-gray-500">{b.team_members?.name || '\u2014'}</td>
+                        <td className="px-4 py-3 text-slate-400">{b.service_types?.name || b.service_type || '\u2014'}</td>
+                        <td className="px-4 py-3 text-slate-400">{b.team_members?.name || '\u2014'}</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[b.status] || 'bg-gray-700 text-gray-400'}`}>
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[b.status] || 'bg-slate-600 text-slate-400'}`}>
                             {b.status.replace('_', ' ')}
                           </span>
                         </td>
@@ -1001,13 +1001,13 @@ export default function BookingsPage() {
                           ) : b.payment_status === 'pending' ? (
                             <span className="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-medium">Pending</span>
                           ) : (
-                            <span className="text-xs text-gray-400">{'\u2014'}</span>
+                            <span className="text-xs text-slate-400">{'\u2014'}</span>
                           )}
                         </td>
                       </tr>
                     ))}
                     {bookings.length === 0 && (
-                      <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No bookings found</td></tr>
+                      <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">No bookings found</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1016,10 +1016,10 @@ export default function BookingsPage() {
               {total > 50 && (
                 <div className="flex items-center justify-center gap-2 mt-4">
                   <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                    className="px-3 py-1.5 text-sm border border-gray-700 rounded-lg disabled:opacity-30 hover:bg-gray-800">Previous</button>
-                  <span className="px-3 py-1.5 text-sm text-gray-500">Page {page} of {Math.ceil(total / 50)}</span>
+                    className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700">Previous</button>
+                  <span className="px-3 py-1.5 text-sm text-slate-400">Page {page} of {Math.ceil(total / 50)}</span>
                   <button onClick={() => setPage((p) => p + 1)} disabled={page * 50 >= total}
-                    className="px-3 py-1.5 text-sm border border-gray-700 rounded-lg disabled:opacity-30 hover:bg-gray-800">Next</button>
+                    className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700">Next</button>
                 </div>
               )}
             </>

@@ -64,8 +64,8 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
 
   if (!mounted) {
     return (
-      <div className="w-full h-full min-h-[600px] flex items-center justify-center bg-gray-900">
-        <p className="text-gray-500 text-sm">Loading map...</p>
+      <div className="w-full h-full min-h-[600px] flex items-center justify-center bg-slate-800">
+        <p className="text-slate-400 text-sm">Loading map...</p>
       </div>
     )
   }
@@ -86,21 +86,21 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
         <Marker key={b.id} position={[b.lat, b.lng]} icon={statusIcon(b.status)}>
           <Popup>
             <div className="text-sm min-w-[200px]">
-              <p className="font-bold text-gray-900 text-base mb-1">
+              <p className="font-bold text-slate-800 text-base mb-1">
                 {b.clients?.name || 'Unknown Client'}
               </p>
               {b.clients?.address && (
-                <p className="text-gray-600 text-xs mb-2">{b.clients.address}</p>
+                <p className="text-slate-500 text-xs mb-2">{b.clients.address}</p>
               )}
-              <div className="border-t border-gray-200 pt-2 space-y-1">
+              <div className="border-t border-slate-200 pt-2 space-y-1">
                 {b.service_type && (
                   <p className="text-xs">
-                    <span className="font-medium text-gray-700">Service:</span>{' '}
+                    <span className="font-medium text-slate-600">Service:</span>{' '}
                     {b.service_type}
                   </p>
                 )}
                 <p className="text-xs">
-                  <span className="font-medium text-gray-700">Date:</span>{' '}
+                  <span className="font-medium text-slate-600">Date:</span>{' '}
                   {new Date(b.start_time).toLocaleDateString('en-US', {
                     weekday: 'short',
                     month: 'short',
@@ -108,7 +108,7 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
                   })}
                 </p>
                 <p className="text-xs">
-                  <span className="font-medium text-gray-700">Time:</span>{' '}
+                  <span className="font-medium text-slate-600">Time:</span>{' '}
                   {new Date(b.start_time).toLocaleTimeString('en-US', {
                     hour: 'numeric',
                     minute: '2-digit',
@@ -120,23 +120,23 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
                     })}`}
                 </p>
                 <p className="text-xs">
-                  <span className="font-medium text-gray-700">Status:</span>{' '}
+                  <span className="font-medium text-slate-600">Status:</span>{' '}
                   <span className="capitalize">{b.status.replace('_', ' ')}</span>
                 </p>
                 {b.price != null && (
                   <p className="text-xs">
-                    <span className="font-medium text-gray-700">Price:</span>{' '}
+                    <span className="font-medium text-slate-600">Price:</span>{' '}
                     {fmt(b.price)}
                   </p>
                 )}
                 {b.team_members?.name && (
                   <p className="text-xs">
-                    <span className="font-medium text-gray-700">Team:</span>{' '}
+                    <span className="font-medium text-slate-600">Team:</span>{' '}
                     {b.team_members.name}
                   </p>
                 )}
               </div>
-              <div className="mt-2 pt-2 border-t border-gray-200">
+              <div className="mt-2 pt-2 border-t border-slate-200">
                 <Link
                   href={`/dashboard/bookings/${b.id}`}
                   className="text-blue-600 hover:text-blue-800 text-xs font-medium"

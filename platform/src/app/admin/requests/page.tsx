@@ -52,7 +52,7 @@ function StatusBadge({ status }: { status: string }) {
     rejected: 'bg-red-500/20 text-red-400',
   }
   return (
-    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium capitalize ${styles[status] || 'bg-gray-700 text-gray-400'}`}>
+    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium capitalize ${styles[status] || 'bg-slate-600 text-slate-400'}`}>
       {status}
     </span>
   )
@@ -142,40 +142,40 @@ export default function AdminRequestsPage() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Partner Requests</h1>
-        <p className="text-sm text-gray-500">Review and manage incoming partner applications</p>
+        <p className="text-sm text-slate-400">Review and manage incoming partner applications</p>
       </div>
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="bg-gray-900 rounded-xl border border-gray-800 border-l-4 border-l-gray-500 p-5">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wide">Total Requests</p>
+        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-gray-500 p-5">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Total Requests</p>
           <p className="text-2xl font-bold mt-1">{counts.total}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl border border-gray-800 border-l-4 border-l-yellow-500 p-5">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wide">Pending</p>
+        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-yellow-500 p-5">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Pending</p>
           <p className="text-2xl font-bold mt-1">{counts.pending}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl border border-gray-800 border-l-4 border-l-green-500 p-5">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wide">Approved</p>
+        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-green-500 p-5">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Approved</p>
           <p className="text-2xl font-bold mt-1">{counts.approved}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl border border-gray-800 border-l-4 border-l-red-500 p-5">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wide">Rejected</p>
+        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-red-500 p-5">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Rejected</p>
           <p className="text-2xl font-bold mt-1">{counts.rejected}</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-        <div className="flex gap-1 bg-gray-900 rounded-lg p-1 border border-gray-800">
+        <div className="flex gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 activeTab === tab.key
-                  ? 'bg-gray-700 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  ? 'bg-slate-600 text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
               }`}
             >
               {tab.label}
@@ -189,22 +189,22 @@ export default function AdminRequestsPage() {
           placeholder="Search business, city, or service..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-gray-600 w-full sm:w-72"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-slate-600 w-full sm:w-72"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
         {loading ? (
-          <div className="px-5 py-12 text-center text-gray-500 text-sm">Loading requests...</div>
+          <div className="px-5 py-12 text-center text-slate-400 text-sm">Loading requests...</div>
         ) : requests.length === 0 ? (
-          <div className="px-5 py-12 text-center text-gray-500 text-sm">
+          <div className="px-5 py-12 text-center text-slate-400 text-sm">
             {search ? 'No requests match your search' : 'No requests found'}
           </div>
         ) : (
           <div>
             {/* Table header */}
-            <div className="hidden md:grid grid-cols-[2fr_1fr_1.2fr_1fr_0.8fr_0.7fr_0.8fr_1fr] gap-2 px-5 py-3 border-b border-gray-800 text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+            <div className="hidden md:grid grid-cols-[2fr_1fr_1.2fr_1fr_0.8fr_0.7fr_0.8fr_1fr] gap-2 px-5 py-3 border-b border-slate-700 text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
               <div>Business</div>
               <div>Service</div>
               <div>City, State</div>
@@ -221,18 +221,18 @@ export default function AdminRequestsPage() {
                 {/* Main row */}
                 <div
                   onClick={() => setExpandedId(expandedId === req.id ? null : req.id)}
-                  className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1.2fr_1fr_0.8fr_0.7fr_0.8fr_1fr] gap-2 px-5 py-3 border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer transition-colors items-center"
+                  className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1.2fr_1fr_0.8fr_0.7fr_0.8fr_1fr] gap-2 px-5 py-3 border-b border-slate-700/50 hover:bg-slate-700/30 cursor-pointer transition-colors items-center"
                 >
                   <div>
                     <p className="text-sm font-medium">{req.business_name}</p>
-                    <p className="text-xs text-gray-500">{req.contact_name}</p>
+                    <p className="text-xs text-slate-400">{req.contact_name}</p>
                   </div>
-                  <div className="text-sm text-gray-300 capitalize">{req.service_category?.replace(/_/g, ' ')}</div>
-                  <div className="text-sm text-gray-300">{req.city}, {req.state}</div>
-                  <div className="text-sm text-gray-300">{req.monthly_revenue || '-'}</div>
-                  <div className="text-sm text-gray-300">{req.team_size || '-'}</div>
+                  <div className="text-sm text-slate-300 capitalize">{req.service_category?.replace(/_/g, ' ')}</div>
+                  <div className="text-sm text-slate-300">{req.city}, {req.state}</div>
+                  <div className="text-sm text-slate-300">{req.monthly_revenue || '-'}</div>
+                  <div className="text-sm text-slate-300">{req.team_size || '-'}</div>
                   <div><StatusBadge status={req.status} /></div>
-                  <div className="text-xs text-gray-500">{timeAgo(req.created_at)}</div>
+                  <div className="text-xs text-slate-400">{timeAgo(req.created_at)}</div>
                   <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     {req.status === 'pending' ? (
                       <>
@@ -252,28 +252,28 @@ export default function AdminRequestsPage() {
                         </button>
                       </>
                     ) : (
-                      <span className="text-xs text-gray-500 capitalize">{req.status}</span>
+                      <span className="text-xs text-slate-400 capitalize">{req.status}</span>
                     )}
                   </div>
                 </div>
 
                 {/* Expanded detail panel */}
                 {expandedId === req.id && (
-                  <div className="bg-gray-800/40 border-b border-gray-800/50 px-5 py-5">
+                  <div className="bg-slate-700/40 border-b border-slate-700/50 px-5 py-5">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       {/* Contact Info */}
                       <div className="space-y-3">
-                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contact Info</h3>
+                        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Contact Info</h3>
                         <div className="space-y-2">
                           <div>
-                            <p className="text-[10px] text-gray-500 uppercase">Email</p>
+                            <p className="text-[10px] text-slate-400 uppercase">Email</p>
                             <a href={`mailto:${req.email}`} className="text-sm text-blue-400 hover:text-blue-300">
                               {req.email}
                             </a>
                           </div>
                           {req.phone && (
                             <div>
-                              <p className="text-[10px] text-gray-500 uppercase">Phone</p>
+                              <p className="text-[10px] text-slate-400 uppercase">Phone</p>
                               <a href={`tel:${req.phone}`} className="text-sm text-blue-400 hover:text-blue-300">
                                 {req.phone}
                               </a>
@@ -281,7 +281,7 @@ export default function AdminRequestsPage() {
                           )}
                           {req.website && (
                             <div>
-                              <p className="text-[10px] text-gray-500 uppercase">Website</p>
+                              <p className="text-[10px] text-slate-400 uppercase">Website</p>
                               <a
                                 href={req.website.startsWith('http') ? req.website : `https://${req.website}`}
                                 target="_blank"
@@ -297,40 +297,40 @@ export default function AdminRequestsPage() {
 
                       {/* Business Details */}
                       <div className="space-y-3">
-                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Business Details</h3>
+                        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Business Details</h3>
                         <div className="space-y-2">
                           <div>
-                            <p className="text-[10px] text-gray-500 uppercase">Years in Business</p>
-                            <p className="text-sm text-gray-300">{req.years_in_business || 'Not specified'}</p>
+                            <p className="text-[10px] text-slate-400 uppercase">Years in Business</p>
+                            <p className="text-sm text-slate-300">{req.years_in_business || 'Not specified'}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] text-gray-500 uppercase">Team Size</p>
-                            <p className="text-sm text-gray-300">{req.team_size || 'Not specified'}</p>
+                            <p className="text-[10px] text-slate-400 uppercase">Team Size</p>
+                            <p className="text-sm text-slate-300">{req.team_size || 'Not specified'}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] text-gray-500 uppercase">Monthly Revenue</p>
-                            <p className="text-sm text-gray-300">{req.monthly_revenue || 'Not specified'}</p>
+                            <p className="text-[10px] text-slate-400 uppercase">Monthly Revenue</p>
+                            <p className="text-sm text-slate-300">{req.monthly_revenue || 'Not specified'}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] text-gray-500 uppercase">Current System</p>
-                            <p className="text-sm text-gray-300">{req.current_system || 'Not specified'}</p>
+                            <p className="text-[10px] text-slate-400 uppercase">Current System</p>
+                            <p className="text-sm text-slate-300">{req.current_system || 'Not specified'}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] text-gray-500 uppercase">How They Found Us</p>
-                            <p className="text-sm text-gray-300">{req.referral_source || 'Not specified'}</p>
+                            <p className="text-[10px] text-slate-400 uppercase">How They Found Us</p>
+                            <p className="text-sm text-slate-300">{req.referral_source || 'Not specified'}</p>
                           </div>
                         </div>
                       </div>
 
                       {/* Pitch & Actions */}
                       <div className="space-y-3">
-                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Their Pitch</h3>
-                        <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+                        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Their Pitch</h3>
+                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
                           {req.pitch || 'No pitch provided'}
                         </p>
 
                         <div className="pt-2">
-                          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Admin Notes</h3>
+                          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Admin Notes</h3>
                           <textarea
                             value={adminNotes[req.id] ?? req.admin_notes ?? ''}
                             onChange={(e) =>
@@ -338,7 +338,7 @@ export default function AdminRequestsPage() {
                             }
                             placeholder="Add notes about this request..."
                             rows={3}
-                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-gray-500 resize-none"
+                            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-gray-500 resize-none"
                           />
                         </div>
 
@@ -363,8 +363,8 @@ export default function AdminRequestsPage() {
 
                         {req.status !== 'pending' && req.reviewed_at && (
                           <div className="pt-1">
-                            <p className="text-[10px] text-gray-500 uppercase">Reviewed</p>
-                            <p className="text-xs text-gray-400">{timeAgo(req.reviewed_at)}</p>
+                            <p className="text-[10px] text-slate-400 uppercase">Reviewed</p>
+                            <p className="text-xs text-slate-400">{timeAgo(req.reviewed_at)}</p>
                           </div>
                         )}
                       </div>

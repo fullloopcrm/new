@@ -45,26 +45,26 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen flex bg-gray-950 text-white">
-      <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
-        <div className="px-5 py-4 border-b border-gray-800">
+    <div className="min-h-screen flex bg-slate-900 text-white">
+      <aside className="w-56 bg-slate-800 border-r border-slate-700 flex flex-col">
+        <div className="px-5 py-4 border-b border-slate-700">
           <Link href="/admin" className="font-bold text-base">
             Full Loop <span className="text-blue-400">Admin</span>
           </Link>
-          <p className="text-[10px] text-gray-600 mt-0.5 uppercase tracking-wider">Platform Control</p>
+          <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Platform Control</p>
         </div>
 
         <nav className="flex-1 py-3 overflow-y-auto">
           {navSections.map((section) => (
             <div key={section.label} className="mb-1">
-              <p className="px-5 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+              <p className="px-5 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
                 {section.label}
               </p>
               {section.items.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-2.5 mx-2 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+                  className="flex items-center gap-2.5 mx-2 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
                 >
                   <span className="text-base w-5 text-center">{item.icon}</span>
                   {item.label}
@@ -74,10 +74,10 @@ export default async function AdminLayout({
           ))}
         </nav>
 
-        <div className="border-t border-gray-800 px-4 py-3">
+        <div className="border-t border-slate-700 px-4 py-3">
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-800 hover:text-white transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
           >
             &larr; Dashboard
           </Link>

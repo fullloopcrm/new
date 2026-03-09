@@ -101,7 +101,7 @@ export default function AdminLeadsPage() {
     }
   }
 
-  if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>
+  if (loading) return <div className="text-center py-12 text-slate-400">Loading...</div>
 
   const v = (n: number) => n > 0 ? n : '—'
   const drill = getDrilldownData()
@@ -126,7 +126,7 @@ export default function AdminLeadsPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Leads</h1>
-        <p className="text-sm text-gray-500">Website visitor tracking across all businesses</p>
+        <p className="text-sm text-slate-400">Website visitor tracking across all businesses</p>
       </div>
 
       {/* Row 1 — Visitors */}
@@ -135,10 +135,10 @@ export default function AdminLeadsPage() {
           <button
             key={s.label}
             onClick={() => setDrilldown(s.type)}
-            className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center transition-all hover:border-blue-500/50 hover:shadow-md hover:shadow-blue-500/5 cursor-pointer"
+            className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center transition-all hover:border-blue-500/50 hover:shadow-md hover:shadow-blue-500/5 cursor-pointer"
           >
             <p className="text-2xl font-bold text-white">{s.value.toLocaleString()}</p>
-            <p className="text-[10px] font-semibold tracking-widest text-gray-500 uppercase mt-1">{s.label}</p>
+            <p className="text-[10px] font-semibold tracking-widest text-slate-400 uppercase mt-1">{s.label}</p>
           </button>
         ))}
       </div>
@@ -149,10 +149,10 @@ export default function AdminLeadsPage() {
           <button
             key={s.label}
             onClick={() => setDrilldown(s.type)}
-            className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center transition-all hover:border-blue-500/50 hover:shadow-md hover:shadow-blue-500/5 cursor-pointer"
+            className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center transition-all hover:border-blue-500/50 hover:shadow-md hover:shadow-blue-500/5 cursor-pointer"
           >
             <p className="text-2xl font-bold text-white">{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</p>
-            <p className="text-[10px] font-semibold tracking-widest text-gray-500 uppercase mt-1">{s.label}</p>
+            <p className="text-[10px] font-semibold tracking-widest text-slate-400 uppercase mt-1">{s.label}</p>
           </button>
         ))}
       </div>
@@ -162,25 +162,25 @@ export default function AdminLeadsPage() {
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center" onClick={() => setDrilldown(null)}>
           <div className="absolute inset-0 bg-black/60" />
           <div
-            className="relative bg-gray-900 w-full md:max-w-4xl md:rounded-xl rounded-t-xl shadow-2xl max-h-[85vh] flex flex-col border border-gray-800"
+            className="relative bg-slate-800 w-full md:max-w-4xl md:rounded-xl rounded-t-xl shadow-2xl max-h-[85vh] flex flex-col border border-slate-700"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 shrink-0">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest">{drill.label}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{drill.data.length} records</p>
+                <p className="text-xs text-slate-400 mt-0.5">{drill.data.length} records</p>
               </div>
-              <button onClick={() => setDrilldown(null)} className="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
+              <button onClick={() => setDrilldown(null)} className="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
             </div>
 
             {/* Table */}
             <div className="overflow-auto flex-1 p-5">
               {drill.data.length === 0 ? (
-                <p className="text-sm text-gray-500 py-4">No records.</p>
+                <p className="text-sm text-slate-400 py-4">No records.</p>
               ) : drill.kind === 'visitors' ? (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-800/50 border-b border-gray-800 text-left text-[10px] font-semibold tracking-wider uppercase text-gray-500 whitespace-nowrap">
+                  <thead className="bg-slate-700/50 border-b border-slate-700 text-left text-[10px] font-semibold tracking-wider uppercase text-slate-400 whitespace-nowrap">
                     <tr>
                       <th className="px-3 py-2.5 w-10">#</th>
                       <th className="px-3 py-2.5">Page</th>
@@ -191,23 +191,23 @@ export default function AdminLeadsPage() {
                       <th className="px-3 py-2.5 text-right">When</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800/50">
+                  <tbody className="divide-y divide-slate-700/50">
                     {(drill.data as FeedItem[]).map((e, i) => (
-                      <tr key={e.id} className="hover:bg-gray-800/30 transition-colors whitespace-nowrap">
-                        <td className="px-3 py-2 text-xs text-gray-600">{i + 1}</td>
+                      <tr key={e.id} className="hover:bg-slate-700/30 transition-colors whitespace-nowrap">
+                        <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
                         <td className="px-3 py-2 text-white font-medium max-w-[200px] truncate">{e.page_url}</td>
-                        <td className="px-3 py-2 text-gray-400 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
-                        <td className="px-3 py-2 text-center text-gray-400">{e.device}</td>
-                        <td className="px-3 py-2 text-right text-gray-400">{e.scroll_depth > 0 ? `${e.scroll_depth}%` : '—'}</td>
-                        <td className="px-3 py-2 text-right text-gray-400">{e.time_on_page > 0 ? `${e.time_on_page}s` : '—'}</td>
-                        <td className="px-3 py-2 text-right text-gray-500">{timeAgo(e.created_at)}</td>
+                        <td className="px-3 py-2 text-slate-400 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
+                        <td className="px-3 py-2 text-center text-slate-400">{e.device}</td>
+                        <td className="px-3 py-2 text-right text-slate-400">{e.scroll_depth > 0 ? `${e.scroll_depth}%` : '—'}</td>
+                        <td className="px-3 py-2 text-right text-slate-400">{e.time_on_page > 0 ? `${e.time_on_page}s` : '—'}</td>
+                        <td className="px-3 py-2 text-right text-slate-400">{timeAgo(e.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-800/50 border-b border-gray-800 text-left text-[10px] font-semibold tracking-wider uppercase text-gray-500 whitespace-nowrap">
+                  <thead className="bg-slate-700/50 border-b border-slate-700 text-left text-[10px] font-semibold tracking-wider uppercase text-slate-400 whitespace-nowrap">
                     <tr>
                       <th className="px-3 py-2.5 w-10">#</th>
                       <th className="px-3 py-2.5">Action</th>
@@ -216,14 +216,14 @@ export default function AdminLeadsPage() {
                       <th className="px-3 py-2.5 text-right">When</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800/50">
+                  <tbody className="divide-y divide-slate-700/50">
                     {(drill.data as CtaDetail[]).map((e, i) => (
-                      <tr key={i} className="hover:bg-gray-800/30 transition-colors whitespace-nowrap">
-                        <td className="px-3 py-2 text-xs text-gray-600">{i + 1}</td>
+                      <tr key={i} className="hover:bg-slate-700/30 transition-colors whitespace-nowrap">
+                        <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
                         <td className="px-3 py-2 font-medium capitalize text-blue-400">{e.action}</td>
-                        <td className="px-3 py-2 text-gray-400 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
-                        <td className="px-3 py-2 text-center text-gray-400">{e.device}</td>
-                        <td className="px-3 py-2 text-right text-gray-500">{timeAgo(e.created_at)}</td>
+                        <td className="px-3 py-2 text-slate-400 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
+                        <td className="px-3 py-2 text-center text-slate-400">{e.device}</td>
+                        <td className="px-3 py-2 text-right text-slate-400">{timeAgo(e.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -237,11 +237,11 @@ export default function AdminLeadsPage() {
       {/* Live Feed */}
       <Section title={`Live Feed — ${liveFeed.length} Visitors`}>
         {liveFeed.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4">No visitors recorded yet.</p>
+          <p className="text-sm text-slate-400 py-4">No visitors recorded yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-800/50 border-b border-gray-800 text-left text-[10px] font-semibold tracking-wider uppercase text-gray-500 whitespace-nowrap">
+              <thead className="bg-slate-700/50 border-b border-slate-700 text-left text-[10px] font-semibold tracking-wider uppercase text-slate-400 whitespace-nowrap">
                 <tr>
                   <th className="px-3 py-2.5 w-10">#</th>
                   <th className="px-3 py-2.5">Page</th>
@@ -253,17 +253,17 @@ export default function AdminLeadsPage() {
                   <th className="px-3 py-2.5 text-right">When</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/50">
+              <tbody className="divide-y divide-slate-700/50">
                 {liveFeed.map((e, i) => (
-                  <tr key={e.id} className="hover:bg-gray-800/30 transition-colors whitespace-nowrap">
-                    <td className="px-3 py-2 text-xs text-gray-600">{i + 1}</td>
+                  <tr key={e.id} className="hover:bg-slate-700/30 transition-colors whitespace-nowrap">
+                    <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
                     <td className="px-3 py-2 text-white font-medium max-w-[200px] truncate">{e.page_url}</td>
-                    <td className="px-3 py-2 text-gray-400 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
-                    <td className="px-3 py-2 text-center text-gray-400">{e.device}</td>
+                    <td className="px-3 py-2 text-slate-400 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
+                    <td className="px-3 py-2 text-center text-slate-400">{e.device}</td>
                     <td className="px-3 py-2 text-center text-blue-400 font-medium">{e.cta_clicked ? (e.cta_type || 'Y') : '—'}</td>
-                    <td className="px-3 py-2 text-right text-gray-400">{e.scroll_depth > 0 ? `${e.scroll_depth}%` : '—'}</td>
-                    <td className="px-3 py-2 text-right text-gray-400">{e.time_on_page > 0 ? `${e.time_on_page}s` : '—'}</td>
-                    <td className="px-3 py-2 text-right text-gray-500">{timeAgo(e.created_at)}</td>
+                    <td className="px-3 py-2 text-right text-slate-400">{e.scroll_depth > 0 ? `${e.scroll_depth}%` : '—'}</td>
+                    <td className="px-3 py-2 text-right text-slate-400">{e.time_on_page > 0 ? `${e.time_on_page}s` : '—'}</td>
+                    <td className="px-3 py-2 text-right text-slate-400">{timeAgo(e.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -276,11 +276,11 @@ export default function AdminLeadsPage() {
       <div className="mt-6">
         <Section title={`Businesses — ${tenants.length}`}>
           {tenants.length === 0 ? (
-            <p className="text-sm text-gray-500 py-4">No business data yet.</p>
+            <p className="text-sm text-slate-400 py-4">No business data yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-800/50 border-b border-gray-800 text-left text-[10px] font-semibold tracking-wider uppercase text-gray-500 whitespace-nowrap">
+                <thead className="bg-slate-700/50 border-b border-slate-700 text-left text-[10px] font-semibold tracking-wider uppercase text-slate-400 whitespace-nowrap">
                   <tr>
                     <th className="px-3 py-2.5 w-10">#</th>
                     <th className="px-3 py-2.5">Business</th>
@@ -289,14 +289,14 @@ export default function AdminLeadsPage() {
                     <th className="px-3 py-2.5 text-right">Conv %</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/50">
+                <tbody className="divide-y divide-slate-700/50">
                   {tenants.map((t, i) => (
-                    <tr key={t.id} className="hover:bg-gray-800/30 transition-colors whitespace-nowrap">
-                      <td className="px-3 py-2 text-xs text-gray-600">{i + 1}</td>
+                    <tr key={t.id} className="hover:bg-slate-700/30 transition-colors whitespace-nowrap">
+                      <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
                       <td className="px-3 py-2 text-white font-medium">{t.name}</td>
-                      <td className="px-3 py-2 text-center text-gray-400">{v(t.visits)}</td>
+                      <td className="px-3 py-2 text-center text-slate-400">{v(t.visits)}</td>
                       <td className="px-3 py-2 text-center text-blue-400 font-medium">{v(t.ctas)}</td>
-                      <td className="px-3 py-2 text-right text-gray-400">{t.visits > 0 ? `${((t.ctas / t.visits) * 100).toFixed(1)}%` : '—'}</td>
+                      <td className="px-3 py-2 text-right text-slate-400">{t.visits > 0 ? `${((t.ctas / t.visits) * 100).toFixed(1)}%` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -311,9 +311,9 @@ export default function AdminLeadsPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl">
-      <div className="px-5 py-4 border-b border-gray-800">
-        <h3 className="text-xs font-semibold tracking-widest text-gray-500 uppercase">{title}</h3>
+    <div className="bg-slate-800 border border-slate-700 rounded-xl">
+      <div className="px-5 py-4 border-b border-slate-700">
+        <h3 className="text-xs font-semibold tracking-widest text-slate-400 uppercase">{title}</h3>
       </div>
       <div className="p-5">{children}</div>
     </div>

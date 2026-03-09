@@ -52,8 +52,8 @@ function CollapsibleSection({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-4 text-left"
       >
-        <span className="font-semibold text-gray-900">{title}</span>
-        <span className="text-gray-400">{open ? '\u25B2' : '\u25BC'}</span>
+        <span className="font-semibold text-slate-800">{title}</span>
+        <span className="text-slate-400">{open ? '\u25B2' : '\u25BC'}</span>
       </button>
       {open && <div className="px-4 pb-4">{children}</div>}
     </div>
@@ -252,11 +252,11 @@ export default function TeamHomePage() {
               key={item.label}
               className="bg-white border border-green-200 rounded-xl p-3 text-center"
             >
-              <p className="text-xs text-gray-500 font-medium">{item.label}</p>
+              <p className="text-xs text-slate-400 font-medium">{item.label}</p>
               <p className="text-xl font-bold text-green-600 mt-1">
                 ${item.data?.total_earnings?.toFixed(0) || '0'}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5">
                 {item.data?.total_hours?.toFixed(1) || '0'}hrs
               </p>
             </div>
@@ -267,9 +267,9 @@ export default function TeamHomePage() {
       {/* ================ 4. MY JOBS MAP ================ */}
       <CollapsibleSection title={t('My Jobs Map', 'Mapa de Trabajos')} defaultOpen={false}>
         <JobsMap jobs={jobs} />
-        <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+        <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> {t('Upcoming', 'Proximo')}
+            <span className="w-3 h-3 rounded-full bg-teal-600 inline-block" /> {t('Upcoming', 'Proximo')}
           </span>
           <span className="flex items-center gap-1">
             <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block" /> {t('In Progress', 'En Progreso')}
@@ -285,7 +285,7 @@ export default function TeamHomePage() {
         title={t('My Availability', 'Mi Disponibilidad')}
         defaultOpen={false}
       >
-        <p className="text-sm text-gray-500 mb-3">
+        <p className="text-sm text-slate-400 mb-3">
           {t(
             'Manage your working days and blocked dates.',
             'Administra tus dias de trabajo y fechas bloqueadas.'
@@ -293,7 +293,7 @@ export default function TeamHomePage() {
         </p>
         <Link
           href="/team/availability"
-          className="inline-block bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-lg"
+          className="inline-block bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg"
         >
           {t('Edit Availability', 'Editar Disponibilidad')}
         </Link>
@@ -309,12 +309,12 @@ export default function TeamHomePage() {
               className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
             />
           ) : (
-            <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-2xl text-gray-400">
+            <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-2xl text-slate-400">
               {auth.member.name?.charAt(0)?.toUpperCase() || '?'}
             </div>
           )}
           <div>
-            <label className="inline-block bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer">
+            <label className="inline-block bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer">
               {photoUploading
                 ? t('Uploading...', 'Subiendo...')
                 : t('Change Photo', 'Cambiar Foto')}
@@ -326,7 +326,7 @@ export default function TeamHomePage() {
                 disabled={photoUploading}
               />
             </label>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               {t('Max 5MB, JPG/PNG', 'Max 5MB, JPG/PNG')}
             </p>
           </div>
@@ -338,7 +338,7 @@ export default function TeamHomePage() {
         title={t('Notifications', 'Notificaciones')}
         defaultOpen={false}
       >
-        <p className="text-sm text-gray-500 mb-3">
+        <p className="text-sm text-slate-400 mb-3">
           {t(
             'Manage your notification preferences.',
             'Administra tus preferencias de notificaciones.'
@@ -346,7 +346,7 @@ export default function TeamHomePage() {
         </p>
         <Link
           href="/team/notifications"
-          className="inline-block bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-lg"
+          className="inline-block bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg"
         >
           {t('Notification Settings', 'Configuracion de Notificaciones')}
         </Link>
@@ -357,13 +357,13 @@ export default function TeamHomePage() {
         <div className="grid grid-cols-2 gap-3">
           <a
             href={`tel:${tenantPhone}`}
-            className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl py-4 text-sm font-semibold text-gray-900 active:bg-gray-50"
+            className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl py-4 text-sm font-semibold text-slate-800 active:bg-gray-50"
           >
             <span>&#x1F4DE;</span> {t('Call Office', 'Llamar Oficina')}
           </a>
           <a
             href={`sms:${tenantPhone}`}
-            className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl py-4 text-sm font-semibold text-gray-900 active:bg-gray-50"
+            className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl py-4 text-sm font-semibold text-slate-800 active:bg-gray-50"
           >
             <span>&#x1F4AC;</span> {t('Text Office', 'Texto Oficina')}
           </a>
@@ -372,11 +372,11 @@ export default function TeamHomePage() {
 
       {/* ================ 9. TODAY'S JOBS ================ */}
       <div>
-        <h2 className="font-bold text-gray-900 text-lg mb-3">
+        <h2 className="font-bold text-slate-800 text-lg mb-3">
           {t("Today's Jobs", 'Trabajos de Hoy')}{' '}
-          <span className="text-sm font-normal text-gray-400">({jobs.length})</span>
+          <span className="text-sm font-normal text-slate-400">({jobs.length})</span>
         </h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-slate-400 mb-4">
           {new Date().toLocaleDateString(undefined, {
             weekday: 'long',
             month: 'long',
@@ -386,10 +386,10 @@ export default function TeamHomePage() {
 
         {jobs.length === 0 && (
           <div className="text-center py-12 bg-white border border-gray-200 rounded-xl">
-            <p className="text-lg text-gray-400 mb-1">
+            <p className="text-lg text-slate-400 mb-1">
               {t('No jobs today', 'Sin trabajos hoy')}
             </p>
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-slate-300">
               {t('Enjoy your day off!', 'Disfruta tu dia libre!')}
             </p>
           </div>
@@ -403,10 +403,10 @@ export default function TeamHomePage() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-semibold text-slate-800">
                     {job.clients?.name || t('Client', 'Cliente')}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-slate-400">
                     {job.service_type}
                   </p>
                 </div>
@@ -419,7 +419,7 @@ export default function TeamHomePage() {
                 </span>
               </div>
 
-              <div className="text-sm text-gray-600 mb-3">
+              <div className="text-sm text-slate-500 mb-3">
                 <p>
                   {new Date(job.start_time).toLocaleTimeString([], {
                     hour: '2-digit',
@@ -432,7 +432,7 @@ export default function TeamHomePage() {
                     })}`}
                 </p>
                 {job.clients?.address && (
-                  <p className="text-gray-400 mt-1">{job.clients.address}</p>
+                  <p className="text-slate-400 mt-1">{job.clients.address}</p>
                 )}
                 {job.clients?.special_instructions && (
                   <p className="text-yellow-600 mt-1 text-xs">
@@ -475,7 +475,7 @@ export default function TeamHomePage() {
                   !job.check_in_time && (
                     <button
                       onClick={() => router.push(`/team/checkin/${job.id}`)}
-                      className="flex-1 bg-gray-900 text-white text-center py-2 rounded-lg text-sm font-medium"
+                      className="flex-1 bg-slate-800 text-white text-center py-2 rounded-lg text-sm font-medium"
                     >
                       {t('Check In', 'Registrar')}
                     </button>
@@ -484,7 +484,7 @@ export default function TeamHomePage() {
                 {job.status === 'in_progress' && !job.check_out_time && (
                   <button
                     onClick={() => router.push(`/team/checkout/${job.id}`)}
-                    className="flex-1 bg-gray-900 text-white text-center py-2 rounded-lg text-sm font-medium"
+                    className="flex-1 bg-slate-800 text-white text-center py-2 rounded-lg text-sm font-medium"
                   >
                     {t('Check Out', 'Salida')}
                   </button>

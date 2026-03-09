@@ -87,19 +87,19 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
           <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
             <div className="max-w-lg mx-auto flex items-center justify-between">
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-sm text-gray-900 truncate">{auth.tenant.name}</p>
-                <p className="text-xs text-gray-400 truncate">{auth.member.name}</p>
+                <p className="font-bold text-sm text-slate-800 truncate">{auth.tenant.name}</p>
+                <p className="text-xs text-slate-400 truncate">{auth.member.name}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
-                  className="text-xs bg-gray-100 px-2 py-1 rounded font-medium text-gray-600"
+                  className="text-xs bg-gray-100 px-2 py-1 rounded font-medium text-slate-500"
                 >
                   {lang === 'en' ? 'ES' : 'EN'}
                 </button>
                 <Link
                   href="/team/rules"
-                  className="text-xs bg-gray-100 px-2 py-1 rounded font-medium text-gray-600"
+                  className="text-xs bg-gray-100 px-2 py-1 rounded font-medium text-slate-500"
                 >
                   {t('Rules', 'Reglas')}
                 </Link>
@@ -131,7 +131,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
                     key={item.href}
                     href={item.href}
                     className={`flex flex-col items-center text-xs py-1 ${
-                      isActive ? 'text-green-600 font-semibold' : 'text-gray-500'
+                      isActive ? 'text-green-600 font-semibold' : 'text-slate-400'
                     }`}
                   >
                     <span className="text-lg mb-0.5">{item.icon}</span>

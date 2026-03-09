@@ -26,7 +26,7 @@ const TYPE_COLORS: Record<string, string> = {
   review_received: 'bg-yellow-500/20 text-yellow-400',
   new_client: 'bg-purple-500/20 text-purple-400',
   new_booking: 'bg-blue-500/20 text-blue-400',
-  daily_summary: 'bg-gray-700 text-gray-300',
+  daily_summary: 'bg-slate-600 text-slate-300',
 }
 
 export default function NotificationsPage() {
@@ -62,12 +62,12 @@ export default function NotificationsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by title or message..."
-          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
+          className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
         />
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+          className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
         >
           <option value="">All Types</option>
           {Array.from(new Set(notifications.map((n) => n.type))).sort().map((t) => (
@@ -85,24 +85,24 @@ export default function NotificationsPage() {
           }
           return true
         }).map((n) => (
-          <div key={n.id} className={`bg-gray-900 border border-gray-800 rounded-xl p-4 ${!n.metadata?.read ? 'border-l-4 border-l-blue-500' : ''}`}>
+          <div key={n.id} className={`bg-slate-800 border border-slate-700 rounded-xl p-4 ${!n.metadata?.read ? 'border-l-4 border-l-blue-500' : ''}`}>
             <div className="flex items-start justify-between mb-1">
               <div className="flex items-center gap-2">
-                <span className={`text-xs px-2 py-0.5 rounded font-medium ${TYPE_COLORS[n.type] || 'bg-gray-700 text-gray-400'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded font-medium ${TYPE_COLORS[n.type] || 'bg-slate-600 text-slate-400'}`}>
                   {n.type.replace(/_/g, ' ')}
                 </span>
-                <span className={`text-xs ${n.status === 'sent' ? 'text-green-500' : n.status === 'failed' ? 'text-red-500' : 'text-gray-400'}`}>
+                <span className={`text-xs ${n.status === 'sent' ? 'text-green-500' : n.status === 'failed' ? 'text-red-500' : 'text-slate-400'}`}>
                   {n.status}
                 </span>
               </div>
-              <span className="text-xs text-gray-400">{new Date(n.created_at).toLocaleString()}</span>
+              <span className="text-xs text-slate-400">{new Date(n.created_at).toLocaleString()}</span>
             </div>
             <p className="font-medium text-sm text-white">{n.title}</p>
-            <p className="text-sm text-gray-500 mt-1">{n.message}</p>
+            <p className="text-sm text-slate-400 mt-1">{n.message}</p>
           </div>
         ))}
         {notifications.length === 0 && !search && !typeFilter && (
-          <p className="text-center py-12 text-gray-400">No notifications yet</p>
+          <p className="text-center py-12 text-slate-400">No notifications yet</p>
         )}
         {(search || typeFilter) && notifications.filter((n) => {
           if (typeFilter && n.type !== typeFilter) return false
@@ -112,7 +112,7 @@ export default function NotificationsPage() {
           }
           return true
         }).length === 0 && notifications.length > 0 && (
-          <p className="text-center py-12 text-gray-400">No notifications match your filters</p>
+          <p className="text-center py-12 text-slate-400">No notifications match your filters</p>
         )}
       </div>
     </div>

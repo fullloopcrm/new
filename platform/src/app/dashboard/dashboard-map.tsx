@@ -195,9 +195,9 @@ export default function DashboardMap() {
     '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
       {/* Header with inline filters */}
-      <div className="px-5 py-4 border-b border-gray-800">
+      <div className="px-5 py-4 border-b border-slate-700">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h3 className="font-semibold text-white text-sm uppercase tracking-wide">Job Map</h3>
@@ -205,7 +205,7 @@ export default function DashboardMap() {
               <span className="text-[10px] text-yellow-400 animate-pulse">Geocoding...</span>
             )}
             {!loading && !geocoding && (
-              <span className="text-[10px] text-gray-500">{geocoded.length} mapped</span>
+              <span className="text-[10px] text-slate-400">{geocoded.length} mapped</span>
             )}
           </div>
 
@@ -214,7 +214,7 @@ export default function DashboardMap() {
             <select
               value={teamFilter}
               onChange={(e) => setTeamFilter(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300"
+              className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-xs text-slate-300"
             >
               <option value="">All Team Members</option>
               {team.map((t) => (
@@ -230,8 +230,8 @@ export default function DashboardMap() {
                   onClick={() => setStatusFilter(tab.value)}
                   className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors ${
                     statusFilter === tab.value
-                      ? 'bg-white text-gray-900'
-                      : 'text-gray-500 hover:bg-gray-800'
+                      ? 'bg-teal-600 text-white'
+                      : 'text-slate-400 hover:bg-slate-700'
                   }`}
                 >
                   {tab.label}
@@ -250,8 +250,8 @@ export default function DashboardMap() {
                   onClick={() => setDateRange(dr.value)}
                   className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors ${
                     dateRange === dr.value
-                      ? 'bg-white text-gray-900'
-                      : 'text-gray-500 hover:bg-gray-800'
+                      ? 'bg-teal-600 text-white'
+                      : 'text-slate-400 hover:bg-slate-700'
                   }`}
                 >
                   {dr.label}
@@ -259,7 +259,7 @@ export default function DashboardMap() {
               ))}
             </div>
 
-            <Link href="/dashboard/map" className="text-[11px] text-blue-500 hover:underline ml-1">
+            <Link href="/dashboard/map" className="text-[11px] text-teal-500 hover:underline ml-1">
               Full Map
             </Link>
           </div>
@@ -269,8 +269,8 @@ export default function DashboardMap() {
       {/* Map */}
       <div style={{ height: '400px' }}>
         {loading && geocoded.length === 0 ? (
-          <div className="w-full h-full flex items-center justify-center bg-gray-900">
-            <p className="text-gray-500 text-sm">Loading map...</p>
+          <div className="w-full h-full flex items-center justify-center bg-slate-800">
+            <p className="text-slate-400 text-sm">Loading map...</p>
           </div>
         ) : (
           <MapView bookings={geocoded} fmt={fmt} />

@@ -421,19 +421,19 @@ export default function SettingsPage() {
     setImportResult(null)
   }
 
-  if (!tenant) return <p className="text-gray-400">Loading...</p>
+  if (!tenant) return <p className="text-slate-400">Loading...</p>
 
   return (
     <div>
       <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
 
-      <div className="flex gap-1 mb-6 border-b border-gray-800 overflow-x-auto">
+      <div className="flex gap-1 mb-6 border-b border-slate-700 overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              tab === t ? 'border-white text-white' : 'border-transparent text-gray-400 hover:text-gray-400'
+              tab === t ? 'border-white text-white' : 'border-transparent text-slate-400 hover:text-slate-400'
             }`}
           >
             {t}
@@ -442,11 +442,11 @@ export default function SettingsPage() {
       </div>
 
       {tab === 'Business' && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4 max-w-2xl">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4 max-w-2xl">
           <div>
-            <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Global Timezone</label>
-            <p className="text-xs text-gray-500 mb-2">All scheduling, reminders, and cron jobs use this timezone</p>
-            <select value={form.timezone || 'America/New_York'} onChange={(e) => setForm({ ...form, timezone: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+            <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Global Timezone</label>
+            <p className="text-xs text-slate-400 mb-2">All scheduling, reminders, and cron jobs use this timezone</p>
+            <select value={form.timezone || 'America/New_York'} onChange={(e) => setForm({ ...form, timezone: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
               <option value="America/New_York">America/New_York (Eastern)</option>
               <option value="America/Chicago">America/Chicago (Central)</option>
               <option value="America/Denver">America/Denver (Mountain)</option>
@@ -456,27 +456,27 @@ export default function SettingsPage() {
             </select>
           </div>
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Business Name</label>
-            <input value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+            <label className="text-sm text-slate-400 block mb-1">Business Name</label>
+            <input value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Phone</label>
-              <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-sm text-slate-400 block mb-1">Phone</label>
+              <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Email</label>
-              <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-sm text-slate-400 block mb-1">Email</label>
+              <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Address</label>
-            <AddressAutocomplete value={form.address || ''} onChange={(v) => setForm({ ...form, address: v })} placeholder="123 Main St, City, State" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+            <label className="text-sm text-slate-400 block mb-1">Address</label>
+            <AddressAutocomplete value={form.address || ''} onChange={(v) => setForm({ ...form, address: v })} placeholder="123 Main St, City, State" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Industry</label>
-              <select value={form.industry || 'cleaning'} onChange={(e) => setForm({ ...form, industry: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+              <label className="text-sm text-slate-400 block mb-1">Industry</label>
+              <select value={form.industry || 'cleaning'} onChange={(e) => setForm({ ...form, industry: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                 <option value="cleaning">Cleaning / Maid Service</option>
                 <option value="plumbing">Plumbing</option>
                 <option value="electrical">Electrical</option>
@@ -516,25 +516,25 @@ export default function SettingsPage() {
               </select>
             </div>
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Zip Code</label>
-              <input value={form.zip_code || ''} onChange={(e) => setForm({ ...form, zip_code: e.target.value.replace(/\D/g, '').slice(0, 5) })} placeholder="60614" maxLength={5} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-sm text-slate-400 block mb-1">Zip Code</label>
+              <input value={form.zip_code || ''} onChange={(e) => setForm({ ...form, zip_code: e.target.value.replace(/\D/g, '').slice(0, 5) })} placeholder="60614" maxLength={5} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Team Size</label>
-              <select value={form.team_size || 'solo'} onChange={(e) => setForm({ ...form, team_size: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+              <label className="text-sm text-slate-400 block mb-1">Team Size</label>
+              <select value={form.team_size || 'solo'} onChange={(e) => setForm({ ...form, team_size: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                 <option value="solo">Just Me</option>
                 <option value="2-5">2-5</option>
                 <option value="6+">6+</option>
               </select>
             </div>
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Business Hours</label>
-              <input value={form.business_hours || ''} onChange={(e) => setForm({ ...form, business_hours: e.target.value })} placeholder="e.g. Mon-Fri 8am-6pm" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-sm text-slate-400 block mb-1">Business Hours</label>
+              <input value={form.business_hours || ''} onChange={(e) => setForm({ ...form, business_hours: e.target.value })} placeholder="e.g. Mon-Fri 8am-6pm" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
-          <button onClick={saveTenant} disabled={saving} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+          <button onClick={saveTenant} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
           </button>
         </div>
@@ -543,63 +543,63 @@ export default function SettingsPage() {
       {tab === 'Services' && (
         <div className="space-y-4 max-w-2xl">
           <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-500">{services.length} service types</p>
-            <button onClick={() => setAddingService(true)} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100">
+            <p className="text-sm text-slate-400">{services.length} service types</p>
+            <button onClick={() => setAddingService(true)} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
               + Add Service
             </button>
           </div>
 
           {addingService && (
-            <form onSubmit={addService} className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
-              <input placeholder="Service Name *" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+            <form onSubmit={addService} className="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3">
+              <input placeholder="Service Name *" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} required className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
               <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Duration (hours)" type="number" step="0.5" value={newService.default_duration_hours} onChange={(e) => setNewService({ ...newService, default_duration_hours: e.target.value })} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
-                <input placeholder="Hourly Rate ($)" type="number" value={newService.default_hourly_rate} onChange={(e) => setNewService({ ...newService, default_hourly_rate: e.target.value })} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                <input placeholder="Duration (hours)" type="number" step="0.5" value={newService.default_duration_hours} onChange={(e) => setNewService({ ...newService, default_duration_hours: e.target.value })} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                <input placeholder="Hourly Rate ($)" type="number" value={newService.default_hourly_rate} onChange={(e) => setNewService({ ...newService, default_hourly_rate: e.target.value })} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div className="flex gap-2">
-                <button type="submit" className="bg-white text-gray-900 px-3 py-1.5 rounded text-sm">Save</button>
-                <button type="button" onClick={() => setAddingService(false)} className="text-sm text-gray-500">Cancel</button>
+                <button type="submit" className="bg-teal-600 text-white px-3 py-1.5 rounded text-sm font-cta font-semibold">Save</button>
+                <button type="button" onClick={() => setAddingService(false)} className="text-sm text-slate-400">Cancel</button>
               </div>
             </form>
           )}
 
           <div className="space-y-2">
             {services.map((s) => (
-              <div key={s.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+              <div key={s.id} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
                 {editingServiceId === s.id ? (
                   <div className="space-y-3">
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Service Name</label>
-                      <input value={editServiceForm.name} onChange={(e) => setEditServiceForm({ ...editServiceForm, name: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                      <label className="text-xs text-slate-400 block mb-1">Service Name</label>
+                      <input value={editServiceForm.name} onChange={(e) => setEditServiceForm({ ...editServiceForm, name: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs text-gray-500 block mb-1">Duration (hours)</label>
-                        <input type="number" step="0.5" value={editServiceForm.default_duration_hours} onChange={(e) => setEditServiceForm({ ...editServiceForm, default_duration_hours: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                        <label className="text-xs text-slate-400 block mb-1">Duration (hours)</label>
+                        <input type="number" step="0.5" value={editServiceForm.default_duration_hours} onChange={(e) => setEditServiceForm({ ...editServiceForm, default_duration_hours: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500 block mb-1">Hourly Rate ($)</label>
-                        <input type="number" value={editServiceForm.default_hourly_rate} onChange={(e) => setEditServiceForm({ ...editServiceForm, default_hourly_rate: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                        <label className="text-xs text-slate-400 block mb-1">Hourly Rate ($)</label>
+                        <input type="number" value={editServiceForm.default_hourly_rate} onChange={(e) => setEditServiceForm({ ...editServiceForm, default_hourly_rate: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => saveEditService(s.id)} disabled={savingService} className="bg-white text-gray-900 px-3 py-1.5 rounded text-sm font-medium disabled:opacity-50">
+                      <button onClick={() => saveEditService(s.id)} disabled={savingService} className="bg-teal-600 text-white px-3 py-1.5 rounded text-sm font-cta font-semibold disabled:opacity-50">
                         {savingService ? 'Saving...' : 'Save'}
                       </button>
-                      <button onClick={() => setEditingServiceId(null)} className="text-sm text-gray-500 hover:text-white">Cancel</button>
+                      <button onClick={() => setEditingServiceId(null)} className="text-sm text-slate-400 hover:text-white">Cancel</button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className={`font-medium text-sm ${s.active ? 'text-white' : 'text-gray-400 line-through'}`}>{s.name}</p>
-                      <p className="text-xs text-gray-400">{s.default_duration_hours}hr &middot; ${s.default_hourly_rate}/hr</p>
+                      <p className={`font-medium text-sm ${s.active ? 'text-white' : 'text-slate-400 line-through'}`}>{s.name}</p>
+                      <p className="text-xs text-slate-400">{s.default_duration_hours}hr &middot; ${s.default_hourly_rate}/hr</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <button onClick={() => startEditService(s)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
                       <button
                         onClick={() => toggleService(s.id, !s.active)}
-                        className={`text-xs px-2 py-1 rounded ${s.active ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-400'}`}
+                        className={`text-xs px-2 py-1 rounded ${s.active ? 'bg-green-500/20 text-green-400' : 'bg-slate-600 text-slate-400'}`}
                       >
                         {s.active ? 'Active' : 'Inactive'}
                       </button>
@@ -614,14 +614,14 @@ export default function SettingsPage() {
       )}
 
       {tab === 'Scheduling' && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4 max-w-2xl">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4 max-w-2xl">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Business Hours Start</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Business Hours Start</label>
               <select
                 value={form.business_hours_start || '08:00'}
                 onChange={(e) => setForm({ ...form, business_hours_start: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
                 {BUSINESS_HOURS_START_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -629,11 +629,11 @@ export default function SettingsPage() {
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Business Hours End</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Business Hours End</label>
               <select
                 value={form.business_hours_end || '18:00'}
                 onChange={(e) => setForm({ ...form, business_hours_end: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
                 {BUSINESS_HOURS_END_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -643,11 +643,11 @@ export default function SettingsPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Default Job Duration (hours)</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Default Job Duration (hours)</label>
               <select
                 value={form.default_duration_hours ?? '3'}
                 onChange={(e) => setForm({ ...form, default_duration_hours: Number(e.target.value) })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
                 {[1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 8].map((v) => (
                   <option key={v} value={v}>{v}</option>
@@ -655,26 +655,26 @@ export default function SettingsPage() {
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Booking Buffer (minutes)</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Booking Buffer (minutes)</label>
               <select
                 value={form.booking_buffer_minutes ?? '30'}
                 onChange={(e) => setForm({ ...form, booking_buffer_minutes: Number(e.target.value) })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
                 {[0, 15, 30, 45, 60, 90, 120].map((v) => (
                   <option key={v} value={v}>{v}</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">Min time between bookings</p>
+              <p className="text-xs text-slate-400 mt-1">Min time between bookings</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Minimum Days Ahead</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Minimum Days Ahead</label>
               <select
                 value={form.min_days_ahead ?? '1'}
                 onChange={(e) => setForm({ ...form, min_days_ahead: Number(e.target.value) })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
                 <option value={0}>0 (same day)</option>
                 <option value={1}>1</option>
@@ -685,11 +685,11 @@ export default function SettingsPage() {
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Allow Same-Day Bookings</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Allow Same-Day Bookings</label>
               <button
                 onClick={() => setForm({ ...form, allow_same_day: !form.allow_same_day })}
                 className={`mt-1 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  form.allow_same_day ? 'bg-green-500' : 'bg-gray-600'
+                  form.allow_same_day ? 'bg-green-500' : 'bg-slate-600'
                 }`}
               >
                 <span
@@ -698,19 +698,19 @@ export default function SettingsPage() {
                   }`}
                 />
               </button>
-              <p className="text-xs text-gray-500 mt-1">{form.allow_same_day ? 'Enabled' : 'Disabled'}</p>
+              <p className="text-xs text-slate-400 mt-1">{form.allow_same_day ? 'Enabled' : 'Disabled'}</p>
             </div>
           </div>
           <div>
-            <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-2">Payment Methods Accepted</label>
+            <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-2">Payment Methods Accepted</label>
             <div className="grid grid-cols-3 gap-2">
               {PAYMENT_METHOD_OPTIONS.map((pm) => (
-                <label key={pm.value} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <label key={pm.value} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={(form.payment_methods || []).includes(pm.value)}
                     onChange={() => togglePaymentMethod(pm.value)}
-                    className="rounded border-gray-700 bg-gray-800 text-green-500 focus:ring-green-500"
+                    className="rounded border-slate-600 bg-slate-700 text-green-500 focus:ring-green-500"
                   />
                   {pm.label}
                 </label>
@@ -721,41 +721,41 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               {(form.payment_methods || []).includes('zelle') && (
                 <div>
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Zelle Email</label>
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Zelle Email</label>
                   <input
                     value={form.zelle_email || ''}
                     onChange={(e) => setForm({ ...form, zelle_email: e.target.value })}
                     placeholder="payments@example.com"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
               )}
               {(form.payment_methods || []).includes('apple_pay') && (
                 <div>
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Apple Cash Phone</label>
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Apple Cash Phone</label>
                   <input
                     value={form.apple_cash_phone || ''}
                     onChange={(e) => setForm({ ...form, apple_cash_phone: e.target.value })}
                     placeholder="+1 (555) 123-4567"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
               )}
             </div>
           ) : null}
-          <button onClick={saveTenant} disabled={saving} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+          <button onClick={saveTenant} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Scheduling'}
           </button>
         </div>
       )}
 
       {tab === 'Referrals & Policies' && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-6 max-w-2xl">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-6 max-w-2xl">
           <div>
             <h3 className="font-semibold text-white mb-3">Referral Program</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Commission Rate (%)</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Commission Rate (%)</label>
                 <input
                   type="number"
                   min={0}
@@ -764,23 +764,23 @@ export default function SettingsPage() {
                   value={form.commission_rate ?? ''}
                   onChange={(e) => setForm({ ...form, commission_rate: e.target.value ? Number(e.target.value) : null })}
                   placeholder="10"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 />
-                <p className="text-xs text-gray-500 mt-1">Referrers earn this % of each booking</p>
+                <p className="text-xs text-slate-400 mt-1">Referrers earn this % of each booking</p>
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Attribution Window (hours)</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Attribution Window (hours)</label>
                 <select
                   value={form.attribution_window_hours ?? '72'}
                   onChange={(e) => setForm({ ...form, attribution_window_hours: Number(e.target.value) })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 >
                   <option value={24}>24 hours</option>
                   <option value={48}>48 hours</option>
                   <option value={72}>72 hours</option>
                   <option value={168}>168 hours (1 week)</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">How long a referral link stays active</p>
+                <p className="text-xs text-slate-400 mt-1">How long a referral link stays active</p>
               </div>
             </div>
           </div>
@@ -788,24 +788,24 @@ export default function SettingsPage() {
             <h3 className="font-semibold text-white mb-3">Client Lifecycle</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Active Client Threshold (days)</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Active Client Threshold (days)</label>
                 <input
                   type="number"
                   value={form.active_client_threshold_days ?? 45}
                   onChange={(e) => setForm({ ...form, active_client_threshold_days: Number(e.target.value) })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 />
-                <p className="text-xs text-gray-500 mt-1">Clients without bookings in this many days become &quot;At Risk&quot;</p>
+                <p className="text-xs text-slate-400 mt-1">Clients without bookings in this many days become &quot;At Risk&quot;</p>
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">At-Risk Threshold (days)</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">At-Risk Threshold (days)</label>
                 <input
                   type="number"
                   value={form.at_risk_threshold_days ?? 90}
                   onChange={(e) => setForm({ ...form, at_risk_threshold_days: Number(e.target.value) })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 />
-                <p className="text-xs text-gray-500 mt-1">At-risk clients without bookings become &quot;Churned&quot;</p>
+                <p className="text-xs text-slate-400 mt-1">At-risk clients without bookings become &quot;Churned&quot;</p>
               </div>
             </div>
           </div>
@@ -813,109 +813,109 @@ export default function SettingsPage() {
             <h3 className="font-semibold text-white mb-3">Cancellation &amp; Rescheduling</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Reschedule Notice (days)</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Reschedule Notice (days)</label>
                 <input
                   type="number"
                   value={form.reschedule_notice_days ?? 7}
                   onChange={(e) => setForm({ ...form, reschedule_notice_days: Number(e.target.value) })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 />
-                <p className="text-xs text-gray-500 mt-1">Min notice required for recurring rescheduling</p>
+                <p className="text-xs text-slate-400 mt-1">Min notice required for recurring rescheduling</p>
               </div>
             </div>
           </div>
-          <button onClick={saveTenant} disabled={saving} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+          <button onClick={saveTenant} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Policies'}
           </button>
         </div>
       )}
 
       {tab === 'Integrations' && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-6 max-w-2xl">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-6 max-w-2xl">
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Resend API Key (Email)</label>
+            <label className="text-sm text-slate-400 block mb-1">Resend API Key (Email)</label>
             <input
               value={form.resend_api_key || ''}
               onChange={(e) => setForm({ ...form, resend_api_key: e.target.value })}
               placeholder={maskKey(tenant.resend_api_key) || 'Enter Resend API key'}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-mono"
             />
           </div>
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Telnyx API Key (SMS)</label>
+            <label className="text-sm text-slate-400 block mb-1">Telnyx API Key (SMS)</label>
             <input
               value={form.telnyx_api_key || ''}
               onChange={(e) => setForm({ ...form, telnyx_api_key: e.target.value })}
               placeholder={maskKey(tenant.telnyx_api_key) || 'Enter Telnyx API key'}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-mono"
             />
           </div>
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Telnyx Phone Number</label>
+            <label className="text-sm text-slate-400 block mb-1">Telnyx Phone Number</label>
             <input
               value={form.telnyx_phone || ''}
               onChange={(e) => setForm({ ...form, telnyx_phone: e.target.value })}
               placeholder={tenant.telnyx_phone || '+1XXXXXXXXXX'}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Stripe Account ID</label>
+            <label className="text-sm text-slate-400 block mb-1">Stripe Account ID</label>
             <input
               value={form.stripe_account_id || ''}
               onChange={(e) => setForm({ ...form, stripe_account_id: e.target.value })}
               placeholder={maskKey(tenant.stripe_account_id) || 'acct_XXXX'}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-mono"
             />
           </div>
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Google Place ID (Reviews)</label>
+            <label className="text-sm text-slate-400 block mb-1">Google Place ID (Reviews)</label>
             <input
               value={form.google_place_id || ''}
               onChange={(e) => setForm({ ...form, google_place_id: e.target.value })}
               placeholder={tenant.google_place_id || 'ChIJ...'}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-mono"
             />
           </div>
-          <button onClick={saveTenant} disabled={saving} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+          <button onClick={saveTenant} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Integrations'}
           </button>
         </div>
       )}
 
       {tab === 'Branding' && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4 max-w-2xl">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4 max-w-2xl">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Primary Color</label>
+              <label className="text-sm text-slate-400 block mb-1">Primary Color</label>
               <div className="flex gap-2">
-                <input type="color" value={form.primary_color || '#000000'} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} className="h-10 w-10 rounded border border-gray-700 cursor-pointer" />
-                <input value={form.primary_color || ''} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono" />
+                <input type="color" value={form.primary_color || '#000000'} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} className="h-10 w-10 rounded border border-slate-600 cursor-pointer" />
+                <input value={form.primary_color || ''} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-mono" />
               </div>
             </div>
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Secondary Color</label>
+              <label className="text-sm text-slate-400 block mb-1">Secondary Color</label>
               <div className="flex gap-2">
-                <input type="color" value={form.secondary_color || '#666666'} onChange={(e) => setForm({ ...form, secondary_color: e.target.value })} className="h-10 w-10 rounded border border-gray-700 cursor-pointer" />
-                <input value={form.secondary_color || ''} onChange={(e) => setForm({ ...form, secondary_color: e.target.value })} className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono" />
+                <input type="color" value={form.secondary_color || '#666666'} onChange={(e) => setForm({ ...form, secondary_color: e.target.value })} className="h-10 w-10 rounded border border-slate-600 cursor-pointer" />
+                <input value={form.secondary_color || ''} onChange={(e) => setForm({ ...form, secondary_color: e.target.value })} className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-mono" />
               </div>
             </div>
           </div>
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Logo URL</label>
-            <input value={form.logo_url || ''} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+            <label className="text-sm text-slate-400 block mb-1">Logo URL</label>
+            <input value={form.logo_url || ''} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://..." className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Tagline</label>
-            <input value={form.tagline || ''} onChange={(e) => setForm({ ...form, tagline: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+            <label className="text-sm text-slate-400 block mb-1">Tagline</label>
+            <input value={form.tagline || ''} onChange={(e) => setForm({ ...form, tagline: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="text-sm text-gray-500 block mb-1">Website URL</label>
-            <input value={form.website_url || ''} onChange={(e) => setForm({ ...form, website_url: e.target.value })} placeholder="https://..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+            <label className="text-sm text-slate-400 block mb-1">Website URL</label>
+            <input value={form.website_url || ''} onChange={(e) => setForm({ ...form, website_url: e.target.value })} placeholder="https://..." className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
           </div>
           {form.primary_color && (
-            <div className="p-4 rounded-lg border border-gray-800">
-              <p className="text-sm text-gray-400 mb-2">Preview</p>
+            <div className="p-4 rounded-lg border border-slate-700">
+              <p className="text-sm text-slate-400 mb-2">Preview</p>
               <div className="flex gap-3 items-center">
                 <div className="w-8 h-8 rounded-full" style={{ backgroundColor: form.primary_color }} />
                 <div className="w-8 h-8 rounded-full" style={{ backgroundColor: form.secondary_color || '#666' }} />
@@ -923,7 +923,7 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-          <button onClick={saveTenant} disabled={saving} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+          <button onClick={saveTenant} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Branding'}
           </button>
         </div>
@@ -931,9 +931,9 @@ export default function SettingsPage() {
 
       {tab === 'Notifications' && (
         <div className="max-w-2xl">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Notification Preferences</h3>
-            <p className="text-xs text-gray-500 mb-4">Choose which notifications you receive and how.</p>
+            <p className="text-xs text-slate-400 mb-4">Choose which notifications you receive and how.</p>
             <div className="space-y-3">
               {[
                 { key: 'booking_reminder', label: 'Booking Reminders', desc: 'Reminders before appointments' },
@@ -945,14 +945,14 @@ export default function SettingsPage() {
                 { key: 'follow_up', label: 'Follow-up Sent', desc: 'Post-service thank you messages' },
                 { key: 'team_checkin', label: 'Team Check-in', desc: 'When team members check in to jobs' },
               ].map(pref => (
-                <div key={pref.key} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+                <div key={pref.key} className="flex items-center justify-between py-2 border-b border-slate-700 last:border-0">
                   <div>
                     <p className="text-sm text-white">{pref.label}</p>
-                    <p className="text-xs text-gray-500">{pref.desc}</p>
+                    <p className="text-xs text-slate-400">{pref.desc}</p>
                   </div>
                   <div className="flex gap-3">
                     {['email', 'sms', 'in_app'].map(channel => (
-                      <label key={channel} className="flex items-center gap-1.5 text-xs text-gray-400">
+                      <label key={channel} className="flex items-center gap-1.5 text-xs text-slate-400">
                         <input
                           type="checkbox"
                           checked={notifPrefs[pref.key]?.[channel] ?? (channel === 'in_app')}
@@ -971,7 +971,7 @@ export default function SettingsPage() {
                               body: JSON.stringify({ preferences: updated }),
                             })
                           }}
-                          className="rounded border-gray-700 bg-gray-800"
+                          className="rounded border-slate-600 bg-slate-700"
                         />
                         {channel === 'in_app' ? 'App' : channel.toUpperCase()}
                       </label>
@@ -986,42 +986,42 @@ export default function SettingsPage() {
 
       {tab === 'Guidelines' && (
         <div className="max-w-3xl space-y-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h3 className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Team Member Guidelines</h3>
-            <p className="text-sm text-gray-400 mb-6">Bilingual guidelines shown to team members on their dashboard. Displayed as a popup they must review.</p>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h3 className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Team Member Guidelines</h3>
+            <p className="text-sm text-slate-400 mb-6">Bilingual guidelines shown to team members on their dashboard. Displayed as a popup they must review.</p>
 
             <div className="space-y-6">
               <div>
-                <label className="text-xs text-gray-500 uppercase block mb-2">English</label>
+                <label className="text-xs text-slate-400 uppercase block mb-2">English</label>
                 <textarea
                   rows={12}
                   value={form.guidelines_en || ''}
                   onChange={(e) => setForm({ ...form, guidelines_en: e.target.value })}
                   placeholder={"1. CHECK YOUR SCHEDULE DAILY\n\u2014 Log into your portal every morning\n\u2014 Review all assigned jobs for the day\n\u2014 Confirm arrival times\n\n2. PROFESSIONALISM\n\u2014 Arrive on time\n\u2014 Wear company uniform\n\u2014 Be courteous and respectful"}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-sm font-mono"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-sm font-mono"
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 uppercase block mb-2">
-                  Spanish / Espa&ntilde;ol <span className="normal-case text-gray-600">(auto-translated on save)</span>
+                <label className="text-xs text-slate-400 uppercase block mb-2">
+                  Spanish / Espa&ntilde;ol <span className="normal-case text-slate-500">(auto-translated on save)</span>
                 </label>
                 <textarea
                   rows={12}
                   value={form.guidelines_es || ''}
                   onChange={(e) => setForm({ ...form, guidelines_es: e.target.value })}
                   placeholder={"1. REVISA TU HORARIO DIARIAMENTE\n\u2014 Inicia sesi\u00f3n en tu portal cada ma\u00f1ana\n\u2014 Revisa todos los trabajos asignados para el d\u00eda\n\u2014 Confirma las horas de llegada"}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-sm font-mono"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-sm font-mono"
                 />
               </div>
             </div>
 
             <div className="flex gap-3 mt-6">
-              <button onClick={saveTenant} disabled={saving} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+              <button onClick={saveTenant} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
                 {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Guidelines'}
               </button>
               <button
                 onClick={broadcastGuidelines}
-                className="border border-gray-700 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:border-gray-600 hover:text-white transition-colors"
+                className="border border-slate-600 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:border-slate-500 hover:text-white transition-colors"
               >
                 Broadcast to All Team Members
               </button>
@@ -1032,9 +1032,9 @@ export default function SettingsPage() {
 
       {tab === 'Tools' && (
         <div className="max-w-2xl space-y-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-3">Data Export</h3>
-            <p className="text-sm text-gray-400 mb-4">Download your data as CSV files.</p>
+            <p className="text-sm text-slate-400 mb-4">Download your data as CSV files.</p>
             <div className="flex gap-3 flex-wrap">
               {[
                 { key: 'clients', label: 'Export Clients' },
@@ -1046,23 +1046,23 @@ export default function SettingsPage() {
                   key={item.key}
                   onClick={() => exportData(item.key)}
                   disabled={exporting === item.key}
-                  className="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:border-gray-600 hover:text-white transition-colors disabled:opacity-50"
+                  className="bg-slate-700 border border-slate-600 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:border-slate-500 hover:text-white transition-colors disabled:opacity-50"
                 >
                   {exporting === item.key ? 'Exporting...' : item.label}
                 </button>
               ))}
             </div>
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-3">Import Clients from CSV</h3>
 
             {/* Instructions */}
-            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-300 font-medium mb-2">How to format your CSV file:</p>
-              <ul className="text-sm text-gray-400 space-y-1 list-disc list-inside">
+            <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-4">
+              <p className="text-sm text-slate-300 font-medium mb-2">How to format your CSV file:</p>
+              <ul className="text-sm text-slate-400 space-y-1 list-disc list-inside">
                 <li>The first row must be column headers</li>
                 <li><span className="text-white font-medium">Required columns:</span> name, phone</li>
-                <li><span className="text-gray-300">Optional columns:</span> email, address, source, notes, status</li>
+                <li><span className="text-slate-300">Optional columns:</span> email, address, source, notes, status</li>
                 <li>Status values: active, lead, at_risk, churned, inactive (defaults to &quot;active&quot;)</li>
                 <li>Phone formats accepted: 555-123-4567, (555) 123-4567, +15551234567</li>
                 <li>If a field contains commas, wrap it in double quotes (e.g. &quot;123 Main St, Apt 4&quot;)</li>
@@ -1078,7 +1078,7 @@ export default function SettingsPage() {
 
             {/* File upload */}
             {!csvFile && !importResult && (
-              <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
+              <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center">
                 <input
                   type="file"
                   accept=".csv"
@@ -1091,13 +1091,13 @@ export default function SettingsPage() {
                   }}
                 />
                 <label htmlFor="csv-upload" className="cursor-pointer">
-                  <div className="text-gray-400 mb-2">
+                  <div className="text-slate-400 mb-2">
                     <svg className="mx-auto h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-400">Click to select a <span className="text-white font-medium">.csv</span> file</p>
-                  <p className="text-xs text-gray-500 mt-1">or drag and drop</p>
+                  <p className="text-sm text-slate-400">Click to select a <span className="text-white font-medium">.csv</span> file</p>
+                  <p className="text-xs text-slate-400 mt-1">or drag and drop</p>
                 </label>
               </div>
             )}
@@ -1113,29 +1113,29 @@ export default function SettingsPage() {
             {csvParsed.length > 0 && !importResult && (
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-gray-300">
+                  <p className="text-sm text-slate-300">
                     Preview: showing {Math.min(5, csvParsed.length)} of <span className="text-white font-medium">{csvParsed.length}</span> rows
                   </p>
-                  <button onClick={resetImport} className="text-xs text-gray-500 hover:text-gray-300">
+                  <button onClick={resetImport} className="text-xs text-slate-400 hover:text-slate-300">
                     Clear
                   </button>
                 </div>
-                <div className="overflow-x-auto rounded-lg border border-gray-700">
+                <div className="overflow-x-auto rounded-lg border border-slate-600">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-800">
-                        <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">#</th>
+                      <tr className="bg-slate-700">
+                        <th className="text-left px-3 py-2 text-xs text-slate-400 font-medium">#</th>
                         {csvHeaders.map((h) => (
-                          <th key={h} className="text-left px-3 py-2 text-xs text-gray-500 font-medium uppercase">{h}</th>
+                          <th key={h} className="text-left px-3 py-2 text-xs text-slate-400 font-medium uppercase">{h}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-800">
+                    <tbody className="divide-y divide-slate-700">
                       {csvParsed.slice(0, 5).map((row, i) => (
-                        <tr key={i} className="hover:bg-gray-800/50">
-                          <td className="px-3 py-2 text-gray-500">{i + 1}</td>
+                        <tr key={i} className="hover:bg-slate-700/50">
+                          <td className="px-3 py-2 text-slate-400">{i + 1}</td>
                           {csvHeaders.map((h) => (
-                            <td key={h} className={`px-3 py-2 ${row[h] ? 'text-gray-300' : 'text-gray-600'}`}>
+                            <td key={h} className={`px-3 py-2 ${row[h] ? 'text-slate-300' : 'text-slate-500'}`}>
                               {row[h] || '\u2014'}
                             </td>
                           ))}
@@ -1145,7 +1145,7 @@ export default function SettingsPage() {
                   </table>
                 </div>
                 {csvParsed.length > 5 && (
-                  <p className="text-xs text-gray-500 mt-2">...and {csvParsed.length - 5} more rows</p>
+                  <p className="text-xs text-slate-400 mt-2">...and {csvParsed.length - 5} more rows</p>
                 )}
 
                 {/* Import button */}
@@ -1153,11 +1153,11 @@ export default function SettingsPage() {
                   <button
                     onClick={importClients}
                     disabled={importing}
-                    className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:bg-gray-100 transition-colors"
+                    className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 hover:bg-teal-700 transition-colors"
                   >
                     {importing ? 'Importing...' : `Import ${csvParsed.length} Client${csvParsed.length === 1 ? '' : 's'}`}
                   </button>
-                  <button onClick={resetImport} className="text-sm text-gray-400 hover:text-white transition-colors">
+                  <button onClick={resetImport} className="text-sm text-slate-400 hover:text-white transition-colors">
                     Cancel
                   </button>
                 </div>
@@ -1187,25 +1187,25 @@ export default function SettingsPage() {
                     </ul>
                   </div>
                 )}
-                <button onClick={resetImport} className="text-sm text-gray-400 hover:text-white transition-colors">
+                <button onClick={resetImport} className="text-sm text-slate-400 hover:text-white transition-colors">
                   Import another file
                 </button>
               </div>
             )}
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-3">Daily Backup</h3>
-            <p className="text-sm text-gray-400 mb-4">Automated daily backups run at midnight. Last backup data is emailed to your business email.</p>
+            <p className="text-sm text-slate-400 mb-4">Automated daily backups run at midnight. Last backup data is emailed to your business email.</p>
             <button
               onClick={runBackup}
-              className="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:border-gray-600 hover:text-white transition-colors"
+              className="bg-slate-700 border border-slate-600 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:border-slate-500 hover:text-white transition-colors"
             >
               Run Backup Now
             </button>
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-3">Danger Zone</h3>
-            <p className="text-sm text-gray-400 mb-4">Irreversible actions.</p>
+            <p className="text-sm text-slate-400 mb-4">Irreversible actions.</p>
             <button
               onClick={deleteAllData}
               className="text-red-400 border border-red-400/30 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-400/10 transition-colors"

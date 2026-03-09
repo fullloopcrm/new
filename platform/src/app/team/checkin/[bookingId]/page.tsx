@@ -59,15 +59,15 @@ export default function CheckInPage() {
 
   return (
     <div className="flex flex-col items-center pt-12">
-      <h1 className="text-xl font-bold text-gray-900 mb-2">{t('Check In', 'Registro de Entrada')}</h1>
-      <p className="text-sm text-gray-500 mb-8">{t('Verify your location to start the job', 'Verifica tu ubicación para iniciar')}</p>
+      <h1 className="text-xl font-bold text-slate-800 mb-2">{t('Check In', 'Registro de Entrada')}</h1>
+      <p className="text-sm text-slate-400 mb-8">{t('Verify your location to start the job', 'Verifica tu ubicación para iniciar')}</p>
 
       {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
       {status === 'idle' && (
         <button
           onClick={getLocation}
-          className="w-40 h-40 rounded-full bg-gray-900 text-white flex flex-col items-center justify-center text-lg font-bold"
+          className="w-40 h-40 rounded-full bg-slate-800 text-white flex flex-col items-center justify-center text-lg font-bold"
         >
           <span className="text-3xl mb-1">📍</span>
           {t('Get GPS', 'Obtener GPS')}
@@ -76,7 +76,7 @@ export default function CheckInPage() {
 
       {status === 'getting-gps' && (
         <div className="w-40 h-40 rounded-full bg-gray-200 flex items-center justify-center">
-          <p className="text-sm text-gray-500 text-center">{t('Getting location...', 'Obteniendo ubicación...')}</p>
+          <p className="text-sm text-slate-400 text-center">{t('Getting location...', 'Obteniendo ubicación...')}</p>
         </div>
       )}
 
@@ -101,7 +101,7 @@ export default function CheckInPage() {
         </div>
       )}
 
-      <button onClick={() => router.push('/team')} className="mt-8 text-sm text-gray-400">
+      <button onClick={() => router.push('/team')} className="mt-8 text-sm text-slate-400">
         {t('Back', 'Volver')}
       </button>
     </div>

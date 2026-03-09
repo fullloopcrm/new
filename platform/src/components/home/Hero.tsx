@@ -1,7 +1,4 @@
-"use client";
-
 import Link from "next/link";
-import { motion } from "framer-motion";
 
 const trustBadges = [
   { label: "All-in-One Home Service CRM", href: "/full-loop-crm-service-features" },
@@ -30,23 +27,16 @@ export default function Hero() {
       {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-36 pb-20">
         {/* Pre-headline badge */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          className="mb-4"
-        >
+        <div className="mb-4 animate-hero-fade-in">
           <span className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-[0.15em] uppercase px-5 py-2.5 font-cta">
             The Only Full-Service CRM Built for Home Service Businesses
           </span>
-        </motion.div>
+        </div>
 
         {/* Main headline */}
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.15 }}
-          className="font-extrabold text-white leading-[1.1] font-heading mb-6"
+        <h1
+          className="font-extrabold text-white leading-[1.1] font-heading mb-6 animate-hero-slide-up"
+          style={{ animationDelay: "0.15s" }}
         >
           <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl">
             First click to
@@ -57,52 +47,44 @@ export default function Hero() {
           <span className="block text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-slate-300 mt-4">
             One platform. Full Loop.
           </span>
-        </motion.h1>
+        </h1>
 
         {/* Price block */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex items-center justify-center gap-4 mb-6"
+        <div
+          className="flex items-center justify-center gap-4 mb-6 animate-hero-slide-up"
+          style={{ animationDelay: "0.3s" }}
         >
           <span className="text-2xl sm:text-3xl text-white/40 line-through font-mono">$178,800</span>
           <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">$2,500<span className="text-lg sm:text-xl text-white/60 font-normal">/mo</span></span>
           <span className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-wider uppercase px-3 py-1.5 rounded font-cta">
             SAVE 83%
           </span>
-        </motion.div>
+        </div>
 
         {/* Description */}
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-base sm:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed mb-4"
+        <p
+          className="text-base sm:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed mb-4 animate-hero-slide-up"
+          style={{ animationDelay: "0.4s" }}
         >
 
           Full Loop is the first <Link href="/full-loop-crm-101-educational-tips" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">home service CRM</Link> that handles every stage of your business &mdash; from <Link href="/full-loop-crm-service-features" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">AI-powered lead generation</Link> and automated sales to scheduling, GPS field operations, payments, review management, and <Link href="/full-loop-crm-service-features" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">customer retargeting</Link>. One partner per trade per metro. Exclusively yours.
-        </motion.p>
+        </p>
 
         {/* Autonomy line */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="flex items-center justify-center gap-2 mb-10"
+        <div
+          className="flex items-center justify-center gap-2 mb-10 animate-hero-fade-in"
+          style={{ animationDelay: "0.5s" }}
         >
           <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse" />
           <span className="text-teal-400 text-sm sm:text-base font-semibold font-cta">
             Flip one switch &mdash; 100% autonomous. Your business runs itself.
           </span>
-        </motion.div>
+        </div>
 
         {/* CTAs */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6"
+        <div
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6 animate-hero-slide-up"
+          style={{ animationDelay: "0.6s" }}
         >
           <a
             href="sms:+12122029220"
@@ -116,25 +98,21 @@ export default function Hero() {
           >
             Call Us
           </a>
-        </motion.div>
+        </div>
 
         {/* Footer note */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.7 }}
-          className="text-slate-400 text-sm mb-10"
+        <p
+          className="text-slate-400 text-sm mb-10 animate-hero-fade-in"
+          style={{ animationDelay: "0.7s" }}
         >
 
           Currently accepting <Link href="/crm-partnership-request-form" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">CRM partnership requests</Link> for qualified home service business owners across <Link href="/full-loop-crm-service-business-industries" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">50+ industries</Link>.
-        </motion.p>
+        </p>
 
         {/* Trust badges */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="flex flex-wrap items-center justify-center gap-3 sm:gap-4"
+        <div
+          className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 animate-hero-slide-up"
+          style={{ animationDelay: "0.8s" }}
         >
           {trustBadges.map((badge) => (
             <Link
@@ -145,7 +123,7 @@ export default function Hero() {
               {badge.label}
             </Link>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

@@ -65,7 +65,7 @@ function Check({ done, onClick }: { done: boolean; onClick?: () => void }) {
   return (
     <button type="button" onClick={onClick}
       className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
-        done ? 'bg-green-500/20 border border-green-500/50' : 'border border-gray-700 hover:border-gray-500'
+        done ? 'bg-green-500/20 border border-green-500/50' : 'border border-slate-600 hover:border-gray-500'
       } ${onClick ? 'cursor-pointer' : ''}`}>
       {done && (
         <svg className="w-3 h-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -84,10 +84,10 @@ function SectionHeader({ title, items, icon }: { title: string; items: boolean[]
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-2">
         <span className="text-sm">{icon}</span>
-        <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400">{title}</h3>
+        <h3 className="font-semibold text-xs uppercase tracking-wider text-slate-400">{title}</h3>
       </div>
       <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-        allDone ? 'bg-green-500/20 text-green-400' : done > 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-700 text-gray-500'
+        allDone ? 'bg-green-500/20 text-green-400' : done > 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-slate-600 text-slate-400'
       }`}>{done}/{total}</span>
     </div>
   )
@@ -101,10 +101,10 @@ function Item({ done, label, detail, onClick, auto }: {
       <Check done={done} onClick={onClick} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className={`text-sm ${done ? 'text-gray-500 line-through' : 'text-gray-200'}`}>{label}</p>
-          {auto && <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 uppercase">auto</span>}
+          <p className={`text-sm ${done ? 'text-slate-400 line-through' : 'text-gray-200'}`}>{label}</p>
+          {auto && <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 uppercase">auto</span>}
         </div>
-        {detail && <p className="text-xs text-gray-600 mt-0.5">{detail}</p>}
+        {detail && <p className="text-xs text-slate-500 mt-0.5">{detail}</p>}
       </div>
     </div>
   )
@@ -240,14 +240,14 @@ export default function BusinessDetailPage() {
     else setInviteResult({ error: data.error || 'Failed' })
   }
 
-  if (loading) return <p className="text-gray-400 p-8">Loading...</p>
-  if (!biz) return <p className="text-gray-400 p-8">Not found</p>
+  if (loading) return <p className="text-slate-400 p-8">Loading...</p>
+  if (!biz) return <p className="text-slate-400 p-8">Not found</p>
 
   const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
 
   return (
     <div>
-      <Link href="/admin/businesses" className="text-sm text-gray-400 hover:text-white mb-4 inline-block">&larr; All Businesses</Link>
+      <Link href="/admin/businesses" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">&larr; All Businesses</Link>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
@@ -260,22 +260,22 @@ export default function BusinessDetailPage() {
               biz.status === 'suspended' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
             }`}>{biz.status}</span>
           </div>
-          <p className="text-xs text-gray-500 mt-1 capitalize">{biz.industry?.replace(/_/g, ' ')} &middot; {biz.zip_code || '—'} &middot; {biz.timezone}</p>
+          <p className="text-xs text-slate-400 mt-1 capitalize">{biz.industry?.replace(/_/g, ' ')} &middot; {biz.zip_code || '—'} &middot; {biz.timezone}</p>
         </div>
         <button onClick={startImpersonation} disabled={impersonating}
-          className="bg-blue-600 hover:bg-blue-500 px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
+          className="bg-blue-600 hover:bg-teal-600 px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
           {impersonating ? 'Entering...' : 'Log In as Business'}
         </button>
       </div>
 
       {/* Progress */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-5">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-5">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">Onboarding Progress</span>
-          <span className="text-sm text-gray-400">{progress.completed}/{progress.total} &middot; {pct}%</span>
+          <span className="text-sm text-slate-400">{progress.completed}/{progress.total} &middot; {pct}%</span>
         </div>
-        <div className="w-full bg-gray-800 rounded-full h-2">
-          <div className={`h-2 rounded-full transition-all ${pct === 100 ? 'bg-green-500' : pct >= 50 ? 'bg-blue-500' : 'bg-orange-500'}`} style={{ width: `${pct}%` }} />
+        <div className="w-full bg-slate-700 rounded-full h-2">
+          <div className={`h-2 rounded-full transition-all ${pct === 100 ? 'bg-green-500' : pct >= 50 ? 'bg-teal-600' : 'bg-orange-500'}`} style={{ width: `${pct}%` }} />
         </div>
       </div>
 
@@ -289,8 +289,8 @@ export default function BusinessDetailPage() {
             { label: 'Services', value: stats.services, color: 'border-l-orange-500' },
             { label: 'Revenue', value: `$${(stats.revenue / 100).toLocaleString()}`, color: 'border-l-emerald-500' },
           ].map((s) => (
-            <div key={s.label} className={`bg-gray-900 border border-gray-800 border-l-4 ${s.color} rounded-xl p-4`}>
-              <p className="text-[11px] text-gray-500 uppercase tracking-wide">{s.label}</p>
+            <div key={s.label} className={`bg-slate-800 border border-slate-700 border-l-4 ${s.color} rounded-xl p-4`}>
+              <p className="text-[11px] text-slate-400 uppercase tracking-wide">{s.label}</p>
               <p className="text-xl font-bold mt-1">{s.value}</p>
             </div>
           ))}
@@ -303,7 +303,7 @@ export default function BusinessDetailPage() {
           {cl && (
             <>
               {/* 1. ACCOUNTS */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Accounts" icon="📧" items={Object.values(cl.accounts)} />
                 <Item done={cl.accounts.gmail_created} label="Gmail account created"
                   detail={biz.gmail_account || 'Enter below'} />
@@ -317,24 +317,24 @@ export default function BusinessDetailPage() {
                 <Item done={cl.accounts.domain_registrar_noted} label="Registrar noted (Namecheap, GoDaddy, etc.)"
                   onClick={() => toggleCheck('domain_registrar_noted')} />
 
-                <div className="mt-3 pt-3 border-t border-gray-800 grid grid-cols-2 gap-2">
+                <div className="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] text-gray-500 uppercase">Gmail Account</label>
+                    <label className="text-[10px] text-slate-400 uppercase">Gmail Account</label>
                     <input value={gmailAccount} onChange={(e) => setGmailAccount(e.target.value)}
                       onBlur={() => { if (gmailAccount !== (biz.gmail_account || '')) saveField({ gmail_account: gmailAccount || null }) }}
-                      placeholder="business@gmail.com" className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-xs mt-0.5" />
+                      placeholder="business@gmail.com" className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-xs mt-0.5" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-gray-500 uppercase">Domain</label>
+                    <label className="text-[10px] text-slate-400 uppercase">Domain</label>
                     <input value={domainName} onChange={(e) => setDomainName(e.target.value)}
                       onBlur={() => { if (domainName !== (biz.domain_name || '')) saveField({ domain_name: domainName || null }) }}
-                      placeholder="sparkleclean.com" className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-xs mt-0.5" />
+                      placeholder="sparkleclean.com" className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-xs mt-0.5" />
                   </div>
                 </div>
               </div>
 
               {/* 2. DNS & HOSTING */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="DNS & Hosting" icon="🌐" items={Object.values(cl.dns_hosting)} />
                 <Item done={cl.dns_hosting.domain_added_vercel} label="Domain added to Vercel project"
                   onClick={() => toggleCheck('domain_added_vercel')} />
@@ -357,7 +357,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 3. RESEND — EMAIL */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Resend — Email" icon="✉️" items={Object.values(cl.resend)} />
                 <Item done={cl.resend.resend_account_created} label="Resend account created"
                   detail="resend.com — sign up with business Gmail"
@@ -384,7 +384,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 4. TELNYX — SMS */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Telnyx — SMS" icon="💬" items={Object.values(cl.telnyx)} />
                 <Item done={cl.telnyx.telnyx_account_created} label="Telnyx account created"
                   detail="telnyx.com — sign up with business Gmail"
@@ -410,7 +410,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 5. STRIPE — PAYMENTS */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Stripe — Payments" icon="💰" items={Object.values(cl.stripe)} />
                 <Item done={cl.stripe.stripe_account_created} label="Stripe account created"
                   detail="stripe.com — sign up with business Gmail"
@@ -432,7 +432,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 6. GOOGLE */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Google" icon="🔍" items={Object.values(cl.google)} />
                 <Item done={cl.google.gbp_created} label="Google Business Profile created"
                   detail="business.google.com — claim or create listing"
@@ -454,7 +454,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 7. WEBSITE */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Website" icon="🖥️" items={Object.values(cl.website)} />
                 <Item done={cl.website.vercel_project_created} label="Vercel project created"
                   detail="From template repo — vercel.com/new"
@@ -481,7 +481,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 8. CRM SETUP */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="CRM Setup" icon="⚙️" items={Object.values(cl.crm_setup)} />
                 <Item done={cl.crm_setup.services} label={`Services configured${stats ? ` (${stats.services} active)` : ''}`}
                   detail="Via Log In as Business → Settings → Services" auto />
@@ -494,7 +494,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 9. BILLING */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Billing" icon="💳" items={Object.values(cl.billing)} />
                 <Item done={cl.billing.rate_set} label={`Monthly rate set${monthlyRate ? ` ($${monthlyRate}/mo)` : ''}`} auto />
                 <Item done={cl.billing.payment_method} label={`Payment method${paymentMethod ? ` (${paymentMethod})` : ' not set'}`} auto />
@@ -503,7 +503,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 10. CREDENTIALS & SECURITY */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Credentials & Security" icon="🔐" items={Object.values(cl.credentials)} />
                 <Item done={cl.credentials.gmail_password_changed} label="Gmail — password changed by owner"
                   detail="Owner changes from temp password we set up"
@@ -523,7 +523,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 11. TESTING */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Testing" icon="🧪" items={Object.values(cl.testing)} />
                 <Item done={cl.testing.test_booking} label="Test booking created & completed"
                   detail="Full flow: create → confirm → complete → mark paid"
@@ -552,7 +552,7 @@ export default function BusinessDetailPage() {
               </div>
 
               {/* 12. HANDOFF */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
                 <SectionHeader title="Handoff" icon="🤝" items={Object.values(cl.handoff)} />
                 <Item done={cl.handoff.credentials_doc} label="Credentials document shared"
                   detail="Gmail login, dashboard URL, booking link, SMS number, all passwords"
@@ -567,13 +567,13 @@ export default function BusinessDetailPage() {
 
                 {/* Invite form */}
                 {!cl.handoff.invite_accepted && (
-                  <div className="mt-3 pt-3 border-t border-gray-800">
+                  <div className="mt-3 pt-3 border-t border-slate-700">
                     <div className="flex gap-2">
                       <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
                         placeholder={ownerEmail || 'owner@email.com'}
-                        className="flex-1 bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-xs placeholder-gray-600" />
+                        className="flex-1 bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-xs placeholder-gray-600" />
                       <button onClick={sendInvite} disabled={sendingInvite}
-                        className="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 whitespace-nowrap">
+                        className="bg-blue-600 hover:bg-teal-600 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 whitespace-nowrap">
                         {sendingInvite ? 'Sending...' : 'Send Invite'}
                       </button>
                     </div>
@@ -582,7 +582,7 @@ export default function BusinessDetailPage() {
                     {invites.length > 0 && (
                       <div className="mt-2 space-y-1">
                         {invites.map((inv) => (
-                          <div key={inv.id} className="flex items-center justify-between text-[11px] text-gray-500">
+                          <div key={inv.id} className="flex items-center justify-between text-[11px] text-slate-400">
                             <span>{inv.email}</span>
                             <span className={inv.accepted ? 'text-green-400' : new Date(inv.expires_at) < new Date() ? 'text-red-400' : 'text-yellow-400'}>
                               {inv.accepted ? 'Accepted' : new Date(inv.expires_at) < new Date() ? 'Expired' : 'Pending'}
@@ -601,63 +601,63 @@ export default function BusinessDetailPage() {
         {/* RIGHT SIDEBAR */}
         <div className="space-y-3">
           {/* Business Contact */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400 mb-3">Business Contact</h3>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <h3 className="font-semibold text-xs uppercase tracking-wider text-slate-400 mb-3">Business Contact</h3>
             <div className="space-y-2">
               <div>
-                <label className="text-[10px] text-gray-500 uppercase">Name</label>
+                <label className="text-[10px] text-slate-400 uppercase">Name</label>
                 <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)}
-                  placeholder="Owner name" className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-sm mt-0.5" />
+                  placeholder="Owner name" className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase">Email</label>
+                <label className="text-[10px] text-slate-400 uppercase">Email</label>
                 <input value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)}
-                  placeholder="owner@email.com" className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-sm mt-0.5" />
+                  placeholder="owner@email.com" className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase">Phone</label>
+                <label className="text-[10px] text-slate-400 uppercase">Phone</label>
                 <input value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)}
-                  placeholder="(555) 123-4567" className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-sm mt-0.5" />
+                  placeholder="(555) 123-4567" className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm mt-0.5" />
               </div>
             </div>
           </div>
 
           {/* Billing */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400 mb-3">Billing</h3>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <h3 className="font-semibold text-xs uppercase tracking-wider text-slate-400 mb-3">Billing</h3>
             <div className="space-y-2">
               <div>
-                <label className="text-[10px] text-gray-500 uppercase">Account Status</label>
+                <label className="text-[10px] text-slate-400 uppercase">Account Status</label>
                 <select value={status} onChange={(e) => setStatus(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-sm mt-0.5">
+                  className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm mt-0.5">
                   <option value="setup">Setup</option><option value="active">Active</option>
                   <option value="suspended">Suspended</option><option value="cancelled">Cancelled</option>
                 </select>
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase">Billing Status</label>
+                <label className="text-[10px] text-slate-400 uppercase">Billing Status</label>
                 <select value={billingStatus} onChange={(e) => setBillingStatus(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-sm mt-0.5">
+                  className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm mt-0.5">
                   <option value="setup">Setup</option><option value="active">Active</option>
                   <option value="past_due">Past Due</option><option value="cancelled">Cancelled</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] text-gray-500">Monthly ($)</label>
+                  <label className="text-[10px] text-slate-400">Monthly ($)</label>
                   <input type="number" value={monthlyRate} onChange={(e) => setMonthlyRate(Number(e.target.value))}
-                    className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-sm mt-0.5" />
+                    className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm mt-0.5" />
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-500">Setup ($)</label>
+                  <label className="text-[10px] text-slate-400">Setup ($)</label>
                   <input type="number" value={setupFee} onChange={(e) => setSetupFee(Number(e.target.value))}
-                    className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-sm mt-0.5" />
+                    className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm mt-0.5" />
                 </div>
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase">Payment Method</label>
+                <label className="text-[10px] text-slate-400 uppercase">Payment Method</label>
                 <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-sm mt-0.5">
+                  className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm mt-0.5">
                   <option value="">Not set</option><option value="zelle">Zelle</option>
                   <option value="apple_cash">Apple Cash</option><option value="stripe">Stripe</option>
                   <option value="check">Check</option><option value="cash">Cash</option>
@@ -666,7 +666,7 @@ export default function BusinessDetailPage() {
               <button
                 onClick={() => save({ setup_fee_paid_at: biz?.setup_fee_paid_at ? null : new Date().toISOString() })}
                 className={`w-full text-xs py-1.5 rounded font-medium ${
-                  biz?.setup_fee_paid_at ? 'bg-green-500/20 text-green-400' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  biz?.setup_fee_paid_at ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                 }`}>
                 {biz?.setup_fee_paid_at ? `Setup fee paid ${new Date(biz.setup_fee_paid_at).toLocaleDateString()}` : 'Mark setup fee as paid'}
               </button>
@@ -674,20 +674,20 @@ export default function BusinessDetailPage() {
           </div>
 
           {/* Notes */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400 mb-3">Notes</h3>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <h3 className="font-semibold text-xs uppercase tracking-wider text-slate-400 mb-3">Notes</h3>
             <textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)}
               placeholder="Private notes..." rows={5}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-2 text-sm resize-none placeholder-gray-600" />
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2.5 py-2 text-sm resize-none placeholder-gray-600" />
           </div>
 
           {/* Save */}
           <button onClick={() => save()} disabled={saving}
-            className="w-full bg-blue-600 hover:bg-blue-500 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+            className="w-full bg-blue-600 hover:bg-teal-600 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Save All Changes'}
           </button>
           <button onClick={() => { if (confirm(`Delete "${biz.name}"?`)) { fetch(`/api/admin/businesses/${id}`, { method: 'DELETE' }).then(() => router.push('/admin/businesses')) } }}
-            className="w-full bg-gray-800 hover:bg-red-900/50 text-gray-500 hover:text-red-400 py-1.5 rounded-lg text-xs">
+            className="w-full bg-slate-700 hover:bg-red-900/50 text-slate-400 hover:text-red-400 py-1.5 rounded-lg text-xs">
             Delete Business
           </button>
         </div>

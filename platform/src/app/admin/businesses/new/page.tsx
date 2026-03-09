@@ -104,7 +104,7 @@ export default function NewBusinessPage() {
 
   return (
     <div className="max-w-2xl">
-      <Link href="/admin/businesses" className="text-sm text-gray-400 hover:text-white mb-4 inline-block">
+      <Link href="/admin/businesses" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">
         &larr; All Businesses
       </Link>
       <h1 className="text-2xl font-bold mb-6">Add New Business</h1>
@@ -117,25 +117,25 @@ export default function NewBusinessPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Business Info */}
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
           <h2 className="font-semibold text-sm mb-4">Business Info</h2>
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Business Name *</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Business Name *</label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 placeholder="e.g. Sparkle Clean NYC"
                 required
               />
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Industry *</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Industry *</label>
               <select
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
                 {industries.map((i) => (
                   <option key={i.value} value={i.value}>{i.label}</option>
@@ -144,21 +144,21 @@ export default function NewBusinessPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Zip Code</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Zip Code</label>
                 <input
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                   placeholder="10001"
                   maxLength={5}
                 />
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Team Size</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Team Size</label>
                 <select
                   value={teamSize}
                   onChange={(e) => setTeamSize(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 >
                   <option value="solo">Just Me (Solo)</option>
                   <option value="small">2-5 People</option>
@@ -170,35 +170,35 @@ export default function NewBusinessPage() {
         </div>
 
         {/* Owner Info */}
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
           <h2 className="font-semibold text-sm mb-4">Owner Info</h2>
-          <p className="text-xs text-gray-500 mb-4">Contact info for the business owner. Used for invite emails and communication.</p>
+          <p className="text-xs text-slate-400 mb-4">Contact info for the business owner. Used for invite emails and communication.</p>
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Owner Name</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Owner Name</label>
               <input
                 value={ownerName}
                 onChange={(e) => setOwnerName(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 placeholder="John Smith"
               />
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Owner Email</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Owner Email</label>
               <input
                 type="email"
                 value={ownerEmail}
                 onChange={(e) => setOwnerEmail(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 placeholder="john@sparkleclean.com"
               />
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Owner Phone</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Owner Phone</label>
               <input
                 value={ownerPhone}
                 onChange={(e) => setOwnerPhone(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 placeholder="(555) 123-4567"
               />
             </div>
@@ -206,35 +206,35 @@ export default function NewBusinessPage() {
         </div>
 
         {/* Billing */}
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
           <h2 className="font-semibold text-sm mb-4">Billing</h2>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Monthly Rate ($)</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Monthly Rate ($)</label>
                 <input
                   type="number"
                   value={monthlyRate}
                   onChange={(e) => setMonthlyRate(Number(e.target.value))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Setup Fee ($)</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Setup Fee ($)</label>
                 <input
                   type="number"
                   value={setupFee}
                   onChange={(e) => setSetupFee(Number(e.target.value))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
             </div>
             <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-1 block">Payment Method</label>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Payment Method</label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
                 <option value="">Not set yet</option>
                 <option value="zelle">Zelle</option>
@@ -248,9 +248,9 @@ export default function NewBusinessPage() {
         </div>
 
         {/* Workflow hint */}
-        <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
-          <p className="text-xs text-gray-400 leading-relaxed">
-            <strong className="text-gray-300">After creating:</strong> The business will be in &quot;Setup&quot; status with default services pre-loaded.
+        <div className="bg-slate-700/50 rounded-xl border border-slate-600/50 p-4">
+          <p className="text-xs text-slate-400 leading-relaxed">
+            <strong className="text-slate-300">After creating:</strong> The business will be in &quot;Setup&quot; status with default services pre-loaded.
             Use &quot;Log In as Business&quot; from the detail page to configure their account (settings, services, team, integrations),
             then send an invite to the owner when ready.
           </p>
@@ -259,7 +259,7 @@ export default function NewBusinessPage() {
         <button
           type="submit"
           disabled={saving || !name.trim()}
-          className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+          className="w-full bg-blue-600 hover:bg-teal-600 py-3 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
         >
           {saving ? 'Creating...' : 'Create Business'}
         </button>

@@ -132,7 +132,7 @@ export default function FinancePage() {
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-2xl font-bold text-white">Finance</h2>
-            <p className="text-sm text-gray-500">Revenue, payroll, expenses & P&L</p>
+            <p className="text-sm text-slate-400">Revenue, payroll, expenses & P&L</p>
           </div>
           <PageSettingsGear open={financeSettings.open} setOpen={financeSettings.setOpen} title="Finance" />
         </div>
@@ -151,32 +151,32 @@ export default function FinancePage() {
         {({ config, updateConfig }) => (
           <div className="space-y-5">
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Fiscal Year Start Month</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Fiscal Year Start Month</label>
               <select
                 value={(config.fiscal_year_start as string) || '1'}
                 onChange={(e) => updateConfig('fiscal_year_start', e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               >
                 {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
                   <option key={i + 1} value={String(i + 1)}>{m}</option>
                 ))}
               </select>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Default Expense Categories</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Expense Categories</label>
               <input
                 type="text"
                 value={(config.expense_categories as string) || 'supplies, transport, insurance, software, marketing, meals, rent, utilities, other'}
                 onChange={(e) => updateConfig('expense_categories', e.target.value)}
                 placeholder="Comma-separated list"
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-full"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full"
               />
-              <p className="text-xs text-gray-600 mt-1">Comma-separated list of expense categories</p>
+              <p className="text-xs text-slate-500 mt-1">Comma-separated list of expense categories</p>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Tax Rate % (for estimates)</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Tax Rate % (for estimates)</label>
               <input
                 type="number"
                 min="0"
@@ -185,18 +185,18 @@ export default function FinancePage() {
                 value={(config.tax_rate as number) ?? ''}
                 onChange={(e) => updateConfig('tax_rate', parseFloat(e.target.value) || 0)}
                 placeholder="e.g. 8.5"
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-32"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-32"
               />
-              <span className="text-xs text-gray-500 ml-2">%</span>
+              <span className="text-xs text-slate-400 ml-2">%</span>
             </div>
-            <div className="border-t border-gray-800" />
+            <div className="border-t border-slate-700" />
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Currency Symbol</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Currency Symbol</label>
               <input
                 type="text"
                 value={(config.currency_symbol as string) || '$'}
                 onChange={(e) => updateConfig('currency_symbol', e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm w-20"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-20"
                 maxLength={3}
               />
             </div>
@@ -212,10 +212,10 @@ export default function FinancePage() {
           { label: 'This Month', value: revenue.month, count: revenue.monthCount, color: 'border-l-purple-500' },
           { label: 'Year to Date', value: revenue.year, count: revenue.yearCount, color: 'border-l-orange-500' },
         ].map((card) => (
-          <div key={card.label} className={`bg-gray-900 rounded-xl border border-gray-800 border-l-4 ${card.color} p-5`}>
-            <p className="text-[11px] text-gray-500 uppercase tracking-wide">{card.label}</p>
+          <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
+            <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
             <p className="text-2xl font-bold text-white mt-1">{fmt(card.value)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{card.count} paid job{card.count !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{card.count} paid job{card.count !== 1 ? 's' : ''}</p>
           </div>
         ))}
       </div>
@@ -225,7 +225,7 @@ export default function FinancePage() {
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              tab === t ? 'bg-white text-gray-900' : 'text-gray-500 hover:bg-gray-800'
+              tab === t ? 'bg-teal-600 text-white' : 'text-slate-400 hover:bg-slate-700'
             }`}>
             {t === 'pnl' ? 'P&L' : t === '1099' ? '1099' : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
@@ -234,7 +234,7 @@ export default function FinancePage() {
 
       {/* REVENUE TAB */}
       {tab === 'revenue' && (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
           <h3 className="font-semibold text-white text-sm mb-4">Revenue Breakdown</h3>
           <div className="space-y-3">
             {[
@@ -245,10 +245,10 @@ export default function FinancePage() {
             ].map((row) => (
               <div key={row.label}>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-gray-400">{row.label}</span>
-                  <span className="font-medium text-white">{fmt(row.value)} <span className="text-gray-400 text-xs">({row.count} jobs)</span></span>
+                  <span className="text-slate-400">{row.label}</span>
+                  <span className="font-medium text-white">{fmt(row.value)} <span className="text-slate-400 text-xs">({row.count} jobs)</span></span>
                 </div>
-                <div className="h-1.5 bg-gray-800 rounded-full">
+                <div className="h-1.5 bg-slate-700 rounded-full">
                   <div className="h-1.5 bg-green-500 rounded-full transition-all" style={{ width: `${Math.min(row.pct, 100)}%` }} />
                 </div>
               </div>
@@ -259,7 +259,7 @@ export default function FinancePage() {
 
       {/* REVENUE TREND CHART */}
       {tab === 'revenue' && monthlyRevenue.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6 mt-6">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6 mt-6">
           <h3 className="text-sm font-semibold text-white mb-4">Revenue Trend (Last 12 Months)</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -286,20 +286,20 @@ export default function FinancePage() {
 
       {/* PAYROLL TAB */}
       {tab === 'payroll' && (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
             <h3 className="font-semibold text-white text-sm">Pending Payroll</h3>
-            <span className="text-xs text-gray-400">${pendingPayTotal.toFixed(2)} pending</span>
+            <span className="text-xs text-slate-400">${pendingPayTotal.toFixed(2)} pending</span>
           </div>
           {payroll.length === 0 ? (
-            <div className="px-5 py-8 text-center text-gray-400 text-sm">No team members</div>
+            <div className="px-5 py-8 text-center text-slate-400 text-sm">No team members</div>
           ) : (
-            <div className="divide-y divide-gray-800/50">
+            <div className="divide-y divide-slate-700/50">
               {payroll.map((p) => (
                 <div key={p.id} className="flex items-center justify-between px-5 py-3">
                   <div>
                     <p className="text-sm font-medium text-white">{p.name}</p>
-                    <p className="text-xs text-gray-400">{p.jobs} job{p.jobs !== 1 ? 's' : ''} &middot; {p.pending_hours.toFixed(1)} hrs</p>
+                    <p className="text-xs text-slate-400">{p.jobs} job{p.jobs !== 1 ? 's' : ''} &middot; {p.pending_hours.toFixed(1)} hrs</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-white">${p.pending_pay.toFixed(2)}</span>
@@ -322,16 +322,16 @@ export default function FinancePage() {
         <div>
           {/* Expense breakdown */}
           {Object.keys(expenseByCategory).length > 0 && (
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 mb-4">
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 mb-4">
               <h3 className="font-semibold text-white text-sm mb-3">By Category</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {Object.entries(expenseByCategory).sort((a, b) => b[1] - a[1]).map(([cat, amount]) => (
-                  <div key={cat} className="flex items-center gap-2 p-2 bg-gray-800/50 rounded-lg">
-                    <span className="w-7 h-7 rounded bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400">
+                  <div key={cat} className="flex items-center gap-2 p-2 bg-slate-700/50 rounded-lg">
+                    <span className="w-7 h-7 rounded bg-slate-600 flex items-center justify-center text-xs font-bold text-slate-400">
                       {categoryIcons[cat] || 'O'}
                     </span>
                     <div>
-                      <p className="text-xs text-gray-500 capitalize">{cat}</p>
+                      <p className="text-xs text-slate-400 capitalize">{cat}</p>
                       <p className="text-sm font-medium text-white">{fmt(amount)}</p>
                     </div>
                   </div>
@@ -342,7 +342,7 @@ export default function FinancePage() {
 
           {/* EXPENSE BREAKDOWN PIE CHART */}
           {expenses.length > 0 && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4">
+            <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-4">
               <h3 className="text-sm font-semibold text-white mb-4">Expense Breakdown</h3>
               <div className="h-64 flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
@@ -381,56 +381,56 @@ export default function FinancePage() {
               expenses.map(e => ({ ...e, amount: (e.amount / 100).toFixed(2) })) as unknown as Record<string, unknown>[],
               'expenses',
               ['category', 'description', 'amount', 'date', 'created_at']
-            )} className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-2 rounded-lg">
+            )} className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg">
               Export Expenses
             </button>
             <button onClick={() => setShowAddExpense(!showAddExpense)}
-              className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100">
+              className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
               {showAddExpense ? 'Cancel' : '+ Add Expense'}
             </button>
           </div>
 
           {showAddExpense && (
-            <form onSubmit={addExpense} className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
+            <form onSubmit={addExpense} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-4">
               <h3 className="font-semibold text-white mb-4">Add Expense</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Category</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Category</label>
                   <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                     {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Amount ($) *</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Amount ($) *</label>
                   <input placeholder="0.00" type="number" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Description</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Description</label>
                   <input placeholder="What was this for?" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 uppercase mb-1 block">Date</label>
+                  <label className="text-xs text-slate-400 uppercase mb-1 block">Date</label>
                   <input type="date" value={expenseForm.date} onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
                 </div>
               </div>
               <div className="flex gap-2">
                 <button type="submit" disabled={saving || !expenseForm.amount}
-                  className="bg-white text-gray-900 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+                  className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
                   {saving ? 'Saving...' : 'Save Expense'}
                 </button>
-                <button type="button" onClick={() => setShowAddExpense(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-white">Cancel</button>
+                <button type="button" onClick={() => setShowAddExpense(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
               </div>
             </form>
           )}
 
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-800 text-left text-gray-500">
+                <tr className="border-b border-slate-700 text-left text-slate-400">
                   <th className="px-4 py-3 font-medium">Category</th>
                   <th className="px-4 py-3 font-medium">Description</th>
                   <th className="px-4 py-3 font-medium">Date</th>
@@ -440,10 +440,10 @@ export default function FinancePage() {
               </thead>
               <tbody>
                 {expenses.map((exp) => (
-                  <tr key={exp.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <tr key={exp.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                     <td className="px-4 py-3 capitalize text-white font-medium">{exp.category}</td>
-                    <td className="px-4 py-3 text-gray-500">{exp.description || '—'}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{new Date(exp.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+                    <td className="px-4 py-3 text-slate-400">{exp.description || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-400">{new Date(exp.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
                     <td className="px-4 py-3 text-right font-medium text-red-600">{fmt(exp.amount)}</td>
                     <td className="px-4 py-3 text-right">
                       <button onClick={() => deleteExpense(exp.id)} className="text-xs text-red-400 hover:text-red-600">Delete</button>
@@ -451,7 +451,7 @@ export default function FinancePage() {
                   </tr>
                 ))}
                 {expenses.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No expenses recorded</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">No expenses recorded</td></tr>
                 )}
               </tbody>
             </table>
@@ -462,37 +462,37 @@ export default function FinancePage() {
       {/* P&L TAB */}
       {tab === 'pnl' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Profit & Loss (YTD)</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between py-1.5">
-                <span className="text-gray-500">Revenue</span>
+                <span className="text-slate-400">Revenue</span>
                 <span className="font-medium text-green-600">{fmt(totalRevenue)}</span>
               </div>
               <div className="flex justify-between py-1.5">
-                <span className="text-gray-500">Labor Cost</span>
+                <span className="text-slate-400">Labor Cost</span>
                 <span className="text-red-600">-{fmt(totalLabor)}</span>
               </div>
-              <div className="border-t border-gray-800 pt-2 flex justify-between py-1.5">
-                <span className="text-gray-500">Gross Profit</span>
+              <div className="border-t border-slate-700 pt-2 flex justify-between py-1.5">
+                <span className="text-slate-400">Gross Profit</span>
                 <span className="font-medium">{fmt(grossProfit)}</span>
               </div>
               <div className="flex justify-between py-1.5">
-                <span className="text-gray-500">Gross Margin</span>
+                <span className="text-slate-400">Gross Margin</span>
                 <span className="font-medium">{grossMargin.toFixed(1)}%</span>
               </div>
               <div className="flex justify-between py-1.5">
-                <span className="text-gray-500">Operating Expenses</span>
+                <span className="text-slate-400">Operating Expenses</span>
                 <span className="text-red-600">-{fmt(totalExpenses)}</span>
               </div>
-              <div className="border-t border-gray-800 pt-3 flex justify-between">
+              <div className="border-t border-slate-700 pt-3 flex justify-between">
                 <span className="font-bold text-white">Net Profit</span>
                 <span className={`font-bold text-lg ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {fmt(netProfit)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Net Margin</span>
+                <span className="text-slate-400">Net Margin</span>
                 <span className={`font-medium ${netMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{netMargin.toFixed(1)}%</span>
               </div>
             </div>
@@ -506,10 +506,10 @@ export default function FinancePage() {
               { label: 'Total Expenses', value: fmt(totalExpenses), color: 'border-l-orange-500', sub: `${expenses.length} entries` },
               { label: 'Net Profit', value: fmt(netProfit), color: netProfit >= 0 ? 'border-l-green-500' : 'border-l-red-500', sub: `${netMargin.toFixed(1)}% margin` },
             ].map((card) => (
-              <div key={card.label} className={`bg-gray-900 rounded-xl border border-gray-800 border-l-4 ${card.color} p-5`}>
-                <p className="text-[11px] text-gray-500 uppercase tracking-wide">{card.label}</p>
+              <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
+                <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
                 <p className="text-xl font-bold text-white mt-1">{card.value}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{card.sub}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{card.sub}</p>
               </div>
             ))}
           </div>
@@ -520,7 +520,7 @@ export default function FinancePage() {
       {tab === '1099' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-500">Per-contractor YTD totals</p>
+            <p className="text-sm text-slate-400">Per-contractor YTD totals</p>
             <button
               onClick={() => {
                 const csv = ['Name,YTD Earnings,Threshold Met']
@@ -533,14 +533,14 @@ export default function FinancePage() {
                 a.download = '1099-report.csv'
                 a.click()
               }}
-              className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100">
+              className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
               Export CSV
             </button>
           </div>
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-800 text-left text-gray-500">
+                <tr className="border-b border-slate-700 text-left text-slate-400">
                   <th className="px-4 py-3 font-medium">Name</th>
                   <th className="px-4 py-3 font-medium">YTD Earnings</th>
                   <th className="px-4 py-3 font-medium">$600 Threshold</th>
@@ -548,12 +548,12 @@ export default function FinancePage() {
               </thead>
               <tbody>
                 {payroll.map((p) => (
-                  <tr key={p.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <tr key={p.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                     <td className="px-4 py-3 font-medium text-white">{p.name}</td>
-                    <td className="px-4 py-3 text-gray-400">${p.pending_pay.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-slate-400">${p.pending_pay.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                        p.pending_pay >= 600 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-700 text-gray-400'
+                        p.pending_pay >= 600 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-slate-600 text-slate-400'
                       }`}>
                         {p.pending_pay >= 600 ? '1099 Required' : 'Below Threshold'}
                       </span>
@@ -561,7 +561,7 @@ export default function FinancePage() {
                   </tr>
                 ))}
                 {payroll.length === 0 && (
-                  <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-400">No contractors</td></tr>
+                  <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-400">No contractors</td></tr>
                 )}
               </tbody>
             </table>

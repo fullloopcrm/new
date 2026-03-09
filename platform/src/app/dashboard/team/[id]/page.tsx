@@ -76,7 +76,7 @@ function initials(name: string) {
 
 function avatarColor(name: string) {
   const colors = [
-    'bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500',
+    'bg-teal-600', 'bg-purple-500', 'bg-green-500', 'bg-orange-500',
     'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-red-500',
   ]
   let hash = 0
@@ -331,7 +331,7 @@ export default function TeamMemberDetailPage() {
     return null
   }, [member?.notes])
 
-  if (!member) return <p className="text-gray-400">Loading...</p>
+  if (!member) return <p className="text-slate-400">Loading...</p>
 
   // Calculate earnings from completed bookings
   const completedBookings = bookings.filter((b) => b.status === 'completed' || b.status === 'paid')
@@ -345,14 +345,14 @@ export default function TeamMemberDetailPage() {
 
   return (
     <div>
-      <Link href="/dashboard/team" className="text-sm text-gray-400 hover:text-white mb-4 inline-block">
+      <Link href="/dashboard/team" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">
         &larr; All Team
       </Link>
 
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-white">{member.name}</h2>
         <div className="flex gap-2">
-          <button onClick={() => setEditing(!editing)} className="px-4 py-2 text-sm border border-gray-700 rounded-lg hover:bg-gray-800/30">
+          <button onClick={() => setEditing(!editing)} className="px-4 py-2 text-sm border border-slate-600 rounded-lg hover:bg-slate-700/30">
             {editing ? 'Cancel' : 'Edit'}
           </button>
           <button onClick={deleteMember} className="px-4 py-2 text-sm text-red-400 border border-red-200 rounded-lg hover:bg-red-50">
@@ -364,7 +364,7 @@ export default function TeamMemberDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Profile Section */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Profile</h3>
             {editing ? (
               <div className="space-y-3">
@@ -378,25 +378,25 @@ export default function TeamMemberDetailPage() {
                     </div>
                   )}
                   <button type="button" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto}
-                    className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50">
+                    className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg disabled:opacity-50">
                     {uploadingPhoto ? 'Uploading...' : 'Change Photo'}
                   </button>
                 </div>
-                <input value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
-                <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
-                <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="Phone" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
-                <select value={form.role || 'worker'} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                <input value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="Phone" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                <select value={form.role || 'worker'} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                   <option value="worker">Worker</option>
                   <option value="lead">Lead</option>
                   <option value="manager">Manager</option>
                 </select>
-                <select value={form.status || 'active'} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                <select value={form.status || 'active'} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                   <option value="suspended">Suspended</option>
                 </select>
-                <input value={form.pay_rate || ''} onChange={(e) => setForm({ ...form, pay_rate: Number(e.target.value) })} placeholder="Pay Rate ($/hr)" type="number" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" />
-                <button onClick={save} disabled={saving} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+                <input value={form.pay_rate || ''} onChange={(e) => setForm({ ...form, pay_rate: Number(e.target.value) })} placeholder="Pay Rate ($/hr)" type="number" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                <button onClick={save} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
@@ -412,25 +412,25 @@ export default function TeamMemberDetailPage() {
                   )}
                   <div>
                     <p className="text-white font-semibold text-lg">{member.name}</p>
-                    <p className="text-gray-400 text-sm capitalize">{member.role}</p>
+                    <p className="text-slate-400 text-sm capitalize">{member.role}</p>
                   </div>
                 </div>
                 <dl className="space-y-3 text-sm">
-                  <div className="flex justify-between"><dt className="text-gray-400">Email</dt><dd>{member.email || '—'}</dd></div>
-                  <div className="flex justify-between"><dt className="text-gray-400">Phone</dt><dd>{member.phone || '—'}</dd></div>
-                  <div className="flex justify-between"><dt className="text-gray-400">Role</dt><dd className="capitalize">{member.role}</dd></div>
-                  <div className="flex justify-between"><dt className="text-gray-400">Status</dt><dd className="capitalize">{member.status}</dd></div>
-                  <div className="flex justify-between"><dt className="text-gray-400">PIN</dt><dd className="font-mono">{member.pin}</dd></div>
-                  <div className="flex justify-between"><dt className="text-gray-400">Pay Rate</dt><dd>{member.pay_rate ? `$${member.pay_rate}/hr` : '—'}</dd></div>
-                  <div className="flex justify-between"><dt className="text-gray-400">Language</dt><dd className="uppercase">{member.preferred_language || 'en'}</dd></div>
-                  {displayNotes && <div><dt className="text-gray-400 mb-1">Notes</dt><dd className="bg-gray-800/50 rounded p-2">{displayNotes}</dd></div>}
+                  <div className="flex justify-between"><dt className="text-slate-400">Email</dt><dd>{member.email || '—'}</dd></div>
+                  <div className="flex justify-between"><dt className="text-slate-400">Phone</dt><dd>{member.phone || '—'}</dd></div>
+                  <div className="flex justify-between"><dt className="text-slate-400">Role</dt><dd className="capitalize">{member.role}</dd></div>
+                  <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize">{member.status}</dd></div>
+                  <div className="flex justify-between"><dt className="text-slate-400">PIN</dt><dd className="font-mono">{member.pin}</dd></div>
+                  <div className="flex justify-between"><dt className="text-slate-400">Pay Rate</dt><dd>{member.pay_rate ? `$${member.pay_rate}/hr` : '—'}</dd></div>
+                  <div className="flex justify-between"><dt className="text-slate-400">Language</dt><dd className="uppercase">{member.preferred_language || 'en'}</dd></div>
+                  {displayNotes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-700/50 rounded p-2">{displayNotes}</dd></div>}
                 </dl>
               </>
             )}
           </div>
 
           {/* Schedule & Availability Section */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-white">Schedule &amp; Availability</h3>
               {scheduleMessage && (
@@ -448,7 +448,7 @@ export default function TeamMemberDetailPage() {
                       type="button"
                       onClick={() => toggleDay(i)}
                       className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
-                        isOn ? 'bg-green-500' : 'bg-gray-700'
+                        isOn ? 'bg-green-500' : 'bg-slate-600'
                       }`}
                     >
                       <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -456,7 +456,7 @@ export default function TeamMemberDetailPage() {
                       }`} />
                     </button>
                     {/* Day label */}
-                    <span className={`w-24 text-sm font-medium ${isOn ? 'text-white' : 'text-gray-500'}`}>
+                    <span className={`w-24 text-sm font-medium ${isOn ? 'text-white' : 'text-slate-400'}`}>
                       {dayName}
                     </span>
                     {/* Time selects */}
@@ -465,17 +465,17 @@ export default function TeamMemberDetailPage() {
                         <select
                           value={entry?.start || '08:00'}
                           onChange={(e) => updateDayTime(i, 'start', e.target.value)}
-                          className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white"
+                          className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-white"
                         >
                           {TIME_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
-                        <span className="text-gray-500 text-xs">to</span>
+                        <span className="text-slate-400 text-xs">to</span>
                         <select
                           value={entry?.end || '17:00'}
                           onChange={(e) => updateDayTime(i, 'end', e.target.value)}
-                          className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white"
+                          className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-white"
                         >
                           {TIME_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -483,17 +483,17 @@ export default function TeamMemberDetailPage() {
                         </select>
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-500">Day off</span>
+                      <span className="text-xs text-slate-400">Day off</span>
                     )}
                   </div>
                 )
               })}
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-800">
+            <div className="mt-4 pt-4 border-t border-slate-700">
               <button
                 onClick={saveSchedule}
                 disabled={savingSchedule}
-                className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50"
               >
                 {savingSchedule ? 'Saving...' : 'Save Schedule'}
               </button>
@@ -501,7 +501,7 @@ export default function TeamMemberDetailPage() {
           </div>
 
           {/* Time Off Section */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-white">Time Off</h3>
               {timeOffMessage && (
@@ -520,7 +520,7 @@ export default function TeamMemberDetailPage() {
                     <div
                       key={i}
                       className={`flex items-center justify-between p-3 rounded-lg border ${
-                        isPast ? 'border-gray-800 opacity-50' : 'border-gray-700'
+                        isPast ? 'border-slate-700 opacity-50' : 'border-slate-600'
                       }`}
                     >
                       <div>
@@ -529,10 +529,10 @@ export default function TeamMemberDetailPage() {
                           {entry.start !== entry.end && (
                             <> &mdash; {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
                           )}
-                          {isPast && <span className="text-xs text-gray-500 ml-2">(past)</span>}
+                          {isPast && <span className="text-xs text-slate-400 ml-2">(past)</span>}
                         </p>
                         {entry.reason && (
-                          <p className="text-xs text-gray-400 mt-0.5">{entry.reason}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{entry.reason}</p>
                         )}
                       </div>
                       <button
@@ -547,46 +547,46 @@ export default function TeamMemberDetailPage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 mb-4">No time off scheduled</p>
+              <p className="text-sm text-slate-400 mb-4">No time off scheduled</p>
             )}
 
             {/* Add time off form */}
-            <div className="border-t border-gray-800 pt-4">
-              <label className="text-[10px] text-gray-500 uppercase tracking-wide mb-2 block">Add Time Off</label>
+            <div className="border-t border-slate-700 pt-4">
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Add Time Off</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] text-gray-500 uppercase mb-1 block">Start Date</label>
+                  <label className="text-[10px] text-slate-400 uppercase mb-1 block">Start Date</label>
                   <input
                     type="date"
                     value={timeOffStart}
                     onChange={(e) => setTimeOffStart(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-500 uppercase mb-1 block">End Date</label>
+                  <label className="text-[10px] text-slate-400 uppercase mb-1 block">End Date</label>
                   <input
                     type="date"
                     value={timeOffEnd}
                     onChange={(e) => setTimeOffEnd(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-500 uppercase mb-1 block">Reason (optional)</label>
+                  <label className="text-[10px] text-slate-400 uppercase mb-1 block">Reason (optional)</label>
                   <input
                     type="text"
                     value={timeOffReason}
                     onChange={(e) => setTimeOffReason(e.target.value)}
                     placeholder="Vacation, sick day, etc."
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"
                   />
                 </div>
               </div>
               <button
                 onClick={addTimeOff}
                 disabled={savingTimeOff || !timeOffStart || !timeOffEnd}
-                className="mt-3 bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                className="mt-3 bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50"
               >
                 {savingTimeOff ? 'Saving...' : 'Add Time Off'}
               </button>
@@ -594,23 +594,23 @@ export default function TeamMemberDetailPage() {
           </div>
 
           {/* Job History Section */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Job History</h3>
             {bookings.length === 0 ? (
-              <p className="text-sm text-gray-400">No jobs yet</p>
+              <p className="text-sm text-slate-400">No jobs yet</p>
             ) : (
               <div className="space-y-2">
                 {bookings.map((b) => (
-                  <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-800/30 border border-gray-800">
+                  <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-700/30 border border-slate-700">
                     <div>
                       <p className="text-sm font-medium">{b.service_type || 'Service'}</p>
-                      <p className="text-xs text-gray-400">{new Date(b.start_time).toLocaleString()}</p>
+                      <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleString()}</p>
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded ${
                       b.status === 'completed' ? 'bg-green-500/20 text-green-400' :
                       b.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
                       b.status === 'cancelled' ? 'bg-red-500/20 text-red-400' :
-                      'bg-gray-700 text-gray-400'
+                      'bg-slate-600 text-slate-400'
                     }`}>{b.status}</span>
                   </Link>
                 ))}
@@ -620,15 +620,15 @@ export default function TeamMemberDetailPage() {
         </div>
 
         <div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="font-semibold text-white mb-4">Earnings</h3>
             <div className="space-y-3">
               <div>
-                <p className="text-sm text-gray-400">Total Earned</p>
+                <p className="text-sm text-slate-400">Total Earned</p>
                 <p className="text-2xl font-bold text-white">${totalEarnings.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-400">Jobs Completed</p>
+                <p className="text-sm text-slate-400">Jobs Completed</p>
                 <p className="text-lg font-semibold text-white">{completedBookings.length}</p>
               </div>
             </div>

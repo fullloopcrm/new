@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import {
   JsonLd,
   webPageSchema,
@@ -8,34 +9,35 @@ import {
 } from "@/lib/schema";
 import { faqs } from "@/lib/siteData";
 
-// Home page sections
-// import StickyBar from "@/components/home/StickyBar";
+// Above the fold — static imports (no lazy loading)
 import Hero from "@/components/home/Hero";
 import QuickTips from "@/components/home/QuickTips";
 import Welcome from "@/components/home/Welcome";
 import ResultsTicker from "@/components/home/ResultsTicker";
-import CostBreakdown from "@/components/home/CostBreakdown";
-import PricingSlider from "@/components/home/PricingSlider";
-import Testimonials from "@/components/home/Testimonials";
-import TopServices from "@/components/home/TopServices";
-import ServiceDeepDives from "@/components/home/ServiceDeepDives";
-import Process from "@/components/home/Process";
-import BeforeAfter from "@/components/home/BeforeAfter";
-import Industries from "@/components/home/Industries";
-import WhyNYC from "@/components/home/WhyNYC";
-import Competitors from "@/components/home/Competitors";
-import Comparison from "@/components/home/Comparison";
-import SocialProof from "@/components/home/SocialProof";
-import ROICalculator from "@/components/home/ROICalculator";
-import TechStack from "@/components/home/TechStack";
-import Guarantees from "@/components/home/Guarantees";
-import WhatIsDigitalMarketing from "@/components/home/WhatIsDigitalMarketing";
-import FreeResources from "@/components/home/FreeResources";
-import ExpandedFAQ from "@/components/home/ExpandedFAQ";
-import CaseStudies from "@/components/home/CaseStudies";
-import BlogPreview from "@/components/home/BlogPreview";
-import FinalCTA from "@/components/home/FinalCTA";
-import ExitIntent from "@/components/home/ExitIntent";
+
+// Below the fold — lazy loaded
+const CostBreakdown = dynamic(() => import("@/components/home/CostBreakdown"));
+const PricingSlider = dynamic(() => import("@/components/home/PricingSlider"));
+const Testimonials = dynamic(() => import("@/components/home/Testimonials"));
+const TopServices = dynamic(() => import("@/components/home/TopServices"));
+const ServiceDeepDives = dynamic(() => import("@/components/home/ServiceDeepDives"));
+const Process = dynamic(() => import("@/components/home/Process"));
+const BeforeAfter = dynamic(() => import("@/components/home/BeforeAfter"));
+const Industries = dynamic(() => import("@/components/home/Industries"));
+const WhyNYC = dynamic(() => import("@/components/home/WhyNYC"));
+const Competitors = dynamic(() => import("@/components/home/Competitors"));
+const Comparison = dynamic(() => import("@/components/home/Comparison"));
+const SocialProof = dynamic(() => import("@/components/home/SocialProof"));
+const ROICalculator = dynamic(() => import("@/components/home/ROICalculator"));
+const TechStack = dynamic(() => import("@/components/home/TechStack"));
+const Guarantees = dynamic(() => import("@/components/home/Guarantees"));
+const WhatIsDigitalMarketing = dynamic(() => import("@/components/home/WhatIsDigitalMarketing"));
+const FreeResources = dynamic(() => import("@/components/home/FreeResources"));
+const ExpandedFAQ = dynamic(() => import("@/components/home/ExpandedFAQ"));
+const CaseStudies = dynamic(() => import("@/components/home/CaseStudies"));
+const BlogPreview = dynamic(() => import("@/components/home/BlogPreview"));
+const FinalCTA = dynamic(() => import("@/components/home/FinalCTA"));
+const ExitIntent = dynamic(() => import("@/components/home/ExitIntent"));
 
 const breadcrumbs = [{ name: "Home", url: "https://fullloopcrm.com" }];
 

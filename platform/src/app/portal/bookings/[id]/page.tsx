@@ -73,31 +73,31 @@ export default function PortalBookingDetailPage() {
     setShowCancelConfirm(false)
   }
 
-  if (!auth || !booking) return <p className="text-gray-400 pt-8 text-center">Loading...</p>
+  if (!auth || !booking) return <p className="text-slate-400 pt-8 text-center">Loading...</p>
 
   const canReschedule = ['pending', 'scheduled', 'confirmed'].includes(booking.status)
   const canCancel = ['scheduled', 'confirmed'].includes(booking.status)
 
   return (
     <div>
-      <Link href="/portal" className="text-sm text-gray-400 hover:text-gray-600 mb-4 inline-block">
+      <Link href="/portal" className="text-sm text-slate-400 hover:text-slate-500 mb-4 inline-block">
         &larr; Back
       </Link>
 
-      <h1 className="text-xl font-bold text-gray-900 mb-6">{booking.service_type || 'Booking'}</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-6">{booking.service_type || 'Booking'}</h1>
 
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-3 mb-6">
-        <div className="flex justify-between text-sm"><span className="text-gray-400">Status</span><span className="capitalize font-medium">{booking.status}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-gray-400">Date</span><span>{new Date(booking.start_time).toLocaleString()}</span></div>
-        {booking.end_time && <div className="flex justify-between text-sm"><span className="text-gray-400">End</span><span>{new Date(booking.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>}
-        {booking.price != null && <div className="flex justify-between text-sm"><span className="text-gray-400">Price</span><span>${(booking.price / 100).toFixed(2)}</span></div>}
-        {booking.team_members && <div className="flex justify-between text-sm"><span className="text-gray-400">Team Member</span><span>{booking.team_members.name}</span></div>}
-        {booking.notes && <div className="text-sm"><span className="text-gray-400">Notes: </span>{booking.notes}</div>}
+        <div className="flex justify-between text-sm"><span className="text-slate-400">Status</span><span className="capitalize font-medium">{booking.status}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-slate-400">Date</span><span>{new Date(booking.start_time).toLocaleString()}</span></div>
+        {booking.end_time && <div className="flex justify-between text-sm"><span className="text-slate-400">End</span><span>{new Date(booking.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>}
+        {booking.price != null && <div className="flex justify-between text-sm"><span className="text-slate-400">Price</span><span>${(booking.price / 100).toFixed(2)}</span></div>}
+        {booking.team_members && <div className="flex justify-between text-sm"><span className="text-slate-400">Team Member</span><span>{booking.team_members.name}</span></div>}
+        {booking.notes && <div className="text-sm"><span className="text-slate-400">Notes: </span>{booking.notes}</div>}
       </div>
 
       {canReschedule && (
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <h2 className="font-semibold text-sm text-gray-900 mb-3">Reschedule</h2>
+          <h2 className="font-semibold text-sm text-slate-800 mb-3">Reschedule</h2>
           <input
             type="datetime-local"
             value={rescheduleDate}
@@ -107,7 +107,7 @@ export default function PortalBookingDetailPage() {
           <button
             onClick={reschedule}
             disabled={!rescheduleDate || rescheduling}
-            className="w-full bg-gray-900 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+            className="w-full bg-slate-800 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
           >
             {rescheduling ? 'Rescheduling...' : 'Reschedule'}
           </button>
