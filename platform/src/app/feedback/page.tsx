@@ -9,12 +9,12 @@ function SiteNav() {
   const pathname = usePathname()
   const links = [
     { href: '/', label: 'Home' },
-    { href: '/pricing', label: 'Pricing' },
-    { href: '/features', label: 'Features' },
+    { href: '/full-loop-crm-pricing', label: 'Pricing' },
+    { href: '/full-loop-crm-service-features', label: 'Features' },
     { href: '/businesses', label: 'Businesses' },
     { href: '/locations', label: 'Locations' },
-    { href: '/about', label: 'About' },
-    { href: '/faq', label: 'FAQ' },
+    { href: '/about-full-loop-crm', label: 'About' },
+    { href: '/full-loop-crm-frequently-asked-questions', label: 'FAQ' },
     { href: '/contact', label: 'Contact' },
   ]
   return (
@@ -191,19 +191,19 @@ export default function FeedbackPage() {
             </div>
             <div>
               <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-4">Platform</h4>
-              <Link href="/features" className="block text-sm py-1 hover:text-white transition-colors">Features</Link>
-              <Link href="/pricing" className="block text-sm py-1 hover:text-white transition-colors">Pricing</Link>
-              <Link href="/businesses" className="block text-sm py-1 hover:text-white transition-colors">Businesses</Link>
+              <Link href="/full-loop-crm-service-features" className="block text-sm py-1 hover:text-white transition-colors">Features</Link>
+              <Link href="/full-loop-crm-pricing" className="block text-sm py-1 hover:text-white transition-colors">Pricing</Link>
+              <Link href="/full-loop-crm-service-business-industries" className="block text-sm py-1 hover:text-white transition-colors">Industries</Link>
               <Link href="/locations" className="block text-sm py-1 hover:text-white transition-colors">Locations</Link>
-              <Link href="/faq" className="block text-sm py-1 hover:text-white transition-colors">FAQ</Link>
+              <Link href="/full-loop-crm-frequently-asked-questions" className="block text-sm py-1 hover:text-white transition-colors">FAQ</Link>
             </div>
             <div>
               <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-4">Company</h4>
-              <Link href="/about" className="block text-sm py-1 hover:text-white transition-colors">About</Link>
+              <Link href="/about-full-loop-crm" className="block text-sm py-1 hover:text-white transition-colors">About</Link>
               <Link href="/crm-partnership-request-form" className="block text-sm py-1 hover:text-white transition-colors">Apply for Partnership</Link>
               <Link href="/contact" className="block text-sm py-1 hover:text-white transition-colors">Contact</Link>
               <Link href="/feedback" className="block text-sm py-1 hover:text-white transition-colors">Feedback</Link>
-              <a href="https://www.consortiumnyc.com" target="_blank" rel="noopener noreferrer" className="block text-sm py-1 hover:text-white transition-colors">Built by Consortium NYC</a>
+              <a href="https://consortiumnyc.com" target="_blank" rel="noopener noreferrer" className="block text-sm py-1 hover:text-white transition-colors">Built by Consortium NYC</a>
             </div>
             <div>
               <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-4">Contact</h4>
@@ -215,7 +215,7 @@ export default function FeedbackPage() {
           </div>
           <div className="border-t border-gray-800 pt-6 flex flex-col sm:flex-row justify-between items-center text-sm gap-2">
             <span>&copy; 2026 Full Loop CRM. All rights reserved.</span>
-            <span>Built by <a href="https://www.consortiumnyc.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-400 transition-colors">Consortium NYC</a></span>
+            <span>Built by <a href="https://consortiumnyc.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-400 transition-colors">Consortium NYC</a></span>
           </div>
         </div>
       </footer>

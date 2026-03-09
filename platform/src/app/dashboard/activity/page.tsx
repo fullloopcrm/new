@@ -1,0 +1,154 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+
+type AuditLog = {
+  id: string
+  action: string
+  entity_type: string
+  entity_id: string | null
+  user_id: string | null
+  details: Record<string, unknown> | null
+  ip_address: string | null
+  created_at: string
+}
+
+const ACTION_COLORS: Record<string, string> = {
+  created: 'bg-green-500/20 text-green-400',
+  updated: 'bg-blue-500/20 text-blue-400',
+  deleted: 'bg-red-500/20 text-red-400',
+  status_changed: 'bg-yellow-500/20 text-yellow-400',
+  sent: 'bg-purple-500/20 text-purple-400',
+  login: 'bg-indigo-500/20 text-indigo-400',
+  checkin: 'bg-teal-500/20 text-teal-400',
+  checkout: 'bg-teal-500/20 text-teal-400',
+  received: 'bg-emerald-500/20 text-emerald-400',
+  paid: 'bg-emerald-500/20 text-emerald-400',
+  requested: 'bg-orange-500/20 text-orange-400',
+}
+
+function getActionColor(action: string): string {
+  const suffix = action.split('.').pop() || ''
+  return ACTION_COLORS[suffix] || 'bg-gray-700 text-gray-400'
+}
+
+function formatAction(action: string): string {
+  return action.replace('.', ' › ').replace(/_/g, ' ')
+}
+
+export default function ActivityPage() {
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [entityFilter, setEntityFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const limit = 30
+
+  useEffect(() => {
+    const params = new URLSearchParams()
+    params.set('limit', String(limit))
+    params.set('offset', String((page - 1) * limit))
+    if (entityFilter) params.set('entity_type', entityFilter)
+
+    fetch(`/api/audit?${params}`)
+      .then(r => r.json())
+      .then(data => {
+        setLogs(data.logs || [])
+        setTotal(data.total || 0)
+      })
+      .catch(() => {})
+  }, [page, entityFilter])
+
+  const filtered = search
+    ? logs.filter(l => l.action.includes(search.toLowerCase()) || l.entity_type.includes(search.toLowerCase()) || JSON.stringify(l.details || {}).toLowerCase().includes(search.toLowerCase()))
+    : logs
+
+  const entityTypes = ['client', 'booking', 'team_member', 'schedule', 'campaign', 'review', 'referral', 'expense', 'service']
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Activity Log</h2>
+          <p className="text-sm text-gray-500">{total} total events</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-3 mb-4">
+        <input
+          placeholder="Search actions..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full md:w-64 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
+        />
+        <select
+          value={entityFilter}
+          onChange={e => { setEntityFilter(e.target.value); setPage(1) }}
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">All entities</option>
+          {entityTypes.map(t => (
+            <option key={t} value={t}>{t.replace('_', ' ')}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <div className="divide-y divide-gray-800/50">
+          {filtered.map(log => (
+            <div key={log.id} className="px-5 py-3 flex items-start gap-4">
+              <div className="flex-shrink-0 mt-0.5">
+                <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${getActionColor(log.action)}`}>
+                  {log.action.split('.').pop()?.replace(/_/g, ' ')}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white">{formatAction(log.action)}</p>
+                {log.details && (
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">
+                    {Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                  </p>
+                )}
+              </div>
+              <div className="flex-shrink-0 text-right">
+                <p className="text-xs text-gray-500">
+                  {new Date(log.created_at).toLocaleString('en-US', {
+                    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+                  })}
+                </p>
+                <p className="text-[10px] text-gray-600">{log.entity_type}</p>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div className="px-5 py-12 text-center text-gray-400 text-sm">
+              {search || entityFilter ? 'No matching events' : 'No activity logged yet'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {total > limit && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1.5 text-sm border border-gray-700 rounded-lg disabled:opacity-30 hover:bg-gray-800"
+          >
+            Previous
+          </button>
+          <span className="px-3 py-1.5 text-sm text-gray-500">
+            Page {page} of {Math.ceil(total / limit)}
+          </span>
+          <button
+            onClick={() => setPage(p => p + 1)}
+            disabled={page * limit >= total}
+            className="px-3 py-1.5 text-sm border border-gray-700 rounded-lg disabled:opacity-30 hover:bg-gray-800"
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}

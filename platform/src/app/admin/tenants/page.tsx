@@ -1,0 +1,156 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+
+type Tenant = {
+  id: string
+  name: string
+  slug: string
+  industry: string
+  status: string
+  plan: string
+  zip_code: string | null
+  team_size: string
+  email: string | null
+  phone: string | null
+  created_at: string
+  tenant_members: { id: string }[]
+}
+
+const statusColors: Record<string, string> = {
+  active: 'bg-green-500/20 text-green-400',
+  setup: 'bg-blue-500/20 text-blue-400',
+  suspended: 'bg-yellow-500/20 text-yellow-400',
+  cancelled: 'bg-red-500/20 text-red-400',
+}
+
+const planColors: Record<string, string> = {
+  pro: 'bg-blue-500/20 text-blue-400',
+  starter: 'bg-green-500/20 text-green-400',
+  free: 'bg-gray-700 text-gray-400',
+}
+
+const statusTabs = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'setup', label: 'Setup' },
+  { value: 'suspended', label: 'Suspended' },
+]
+
+export default function TenantsPage() {
+  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterPlan, setFilterPlan] = useState('all')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/admin/tenants')
+      .then((r) => r.json())
+      .then((data) => { setTenants(data.tenants || []); setLoading(false) })
+  }, [])
+
+  const filtered = tenants.filter((t) => {
+    if (search && !t.name.toLowerCase().includes(search.toLowerCase()) && !t.industry.includes(search.toLowerCase())) return false
+    if (filterStatus !== 'all' && t.status !== filterStatus) return false
+    if (filterPlan !== 'all' && (t.plan || 'free') !== filterPlan) return false
+    return true
+  })
+
+  if (loading) return <p className="text-gray-400">Loading...</p>
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Tenants</h1>
+        <p className="text-sm text-gray-500">{tenants.length} total tenants</p>
+      </div>
+
+      {/* SEARCH + FILTERS */}
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mb-4">
+        <input
+          placeholder="Search name or industry..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full md:w-64 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm placeholder-gray-600"
+        />
+        <div className="flex gap-1">
+          {statusTabs.map((tab) => (
+            <button key={tab.value} onClick={() => setFilterStatus(tab.value)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                filterStatus === tab.value
+                  ? 'bg-white text-gray-900'
+                  : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+              }`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <select value={filterPlan} onChange={(e) => setFilterPlan(e.target.value)}
+          className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+          <option value="all">All Plans</option>
+          <option value="free">Free</option>
+          <option value="starter">Starter</option>
+          <option value="pro">Pro</option>
+        </select>
+      </div>
+
+      {/* TABLE */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-800 text-gray-500 text-left">
+              <th className="px-4 py-3 font-medium">Business</th>
+              <th className="px-4 py-3 font-medium">Industry</th>
+              <th className="px-4 py-3 font-medium">Plan</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Team</th>
+              <th className="px-4 py-3 font-medium">Members</th>
+              <th className="px-4 py-3 font-medium">Joined</th>
+              <th className="px-4 py-3 font-medium"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((t) => (
+              <tr key={t.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                <td className="px-4 py-3">
+                  <p className="font-medium">{t.name}</p>
+                  {t.email && <p className="text-xs text-gray-500">{t.email}</p>}
+                </td>
+                <td className="px-4 py-3 text-gray-400 capitalize">{t.industry?.replace(/_/g, ' ')}</td>
+                <td className="px-4 py-3">
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${planColors[t.plan || 'free'] || 'bg-gray-700 text-gray-400'}`}>
+                    {t.plan || 'free'}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[t.status] || 'bg-gray-700 text-gray-400'}`}>
+                    {t.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-gray-400">{t.team_size || 'solo'}</td>
+                <td className="px-4 py-3 text-gray-400">{t.tenant_members?.length || 0}</td>
+                <td className="px-4 py-3 text-gray-500 text-xs">
+                  {new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </td>
+                <td className="px-4 py-3">
+                  <Link href={`/admin/tenants/${t.id}`} className="text-xs text-blue-400 hover:text-blue-300">
+                    View
+                  </Link>
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500 text-sm">
+                  {search || filterStatus !== 'all' || filterPlan !== 'all' ? 'No matching tenants' : 'No tenants yet'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
