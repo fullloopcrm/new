@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
 
-const defaultResend = new Resend(process.env.RESEND_API_KEY)
+const defaultResend = new Resend(process.env.RESEND_API_KEY || 'placeholder')
 
 export async function sendEmail({
   to,
