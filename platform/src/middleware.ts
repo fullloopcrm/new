@@ -38,6 +38,11 @@ const isPublicRoute = createRouteMatcher([
   '/api/leads/visits(.*)',  // Visit tracking pixel
   '/api/referrals/track(.*)', // Referral click tracking
   '/api/health',              // Health check endpoint
+  '/api/requests',            // Partnership form submissions
+  '/api/feedback',            // Feedback form submissions
+  '/sitemap.xml',             // Sitemap
+  '/robots.txt',              // Robots
+  '/(.*)-crm-(.*)',           // Combo pages (industry x location)
 ])
 
 export default clerkMiddleware(async (auth, req) => {
