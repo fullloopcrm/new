@@ -41,13 +41,13 @@ type Stats = {
 
 const statusColors: Record<string, string> = {
   active: 'bg-green-500/20 text-green-400',
-  setup: 'bg-blue-500/20 text-blue-400',
+  setup: 'bg-teal-500/20 text-teal-400',
   suspended: 'bg-yellow-500/20 text-yellow-400',
   cancelled: 'bg-red-500/20 text-red-400',
 }
 
 const planColors: Record<string, string> = {
-  pro: 'bg-blue-500/20 text-blue-400',
+  pro: 'bg-teal-500/20 text-teal-400',
   starter: 'bg-green-500/20 text-green-400',
   free: 'bg-slate-600 text-slate-400',
 }
@@ -117,13 +117,13 @@ export default function TenantDetailPage() {
 
   return (
     <div>
-      <Link href="/admin/tenants" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">
+      <Link href="/admin/tenants" className="text-sm text-teal-400 hover:text-teal-300 mb-4 inline-block">
         &larr; All Tenants
       </Link>
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold">{tenant.name}</h1>
+        <h1 className="text-2xl font-bold font-heading">{tenant.name}</h1>
         <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[tenant.status] || 'bg-slate-600 text-slate-400'}`}>
           {tenant.status}
         </span>
@@ -136,14 +136,14 @@ export default function TenantDetailPage() {
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           {[
-            { label: 'Clients', value: stats.clients, color: 'border-l-blue-500' },
+            { label: 'Clients', value: stats.clients, color: 'border-l-teal-500' },
             { label: 'Bookings', value: stats.bookings, color: 'border-l-green-500' },
             { label: 'Team Members', value: stats.team_members, color: 'border-l-purple-500' },
             { label: 'Revenue', value: `$${(stats.revenue / 100).toLocaleString()}`, color: 'border-l-emerald-500' },
           ].map((s) => (
             <div key={s.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${s.color} p-5`}>
               <p className="text-[11px] text-slate-400 uppercase tracking-wide">{s.label}</p>
-              <p className="text-2xl font-bold mt-1">{s.value}</p>
+              <p className="text-2xl font-bold font-mono mt-1">{s.value}</p>
             </div>
           ))}
         </div>
@@ -182,7 +182,7 @@ export default function TenantDetailPage() {
                 <option value="pro">Pro</option>
               </select>
             </div>
-            <button onClick={updateTenant} disabled={saving} className="bg-blue-600 hover:bg-teal-600 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 w-full transition-colors">
+            <button onClick={updateTenant} disabled={saving} className="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-cta font-semibold text-white disabled:opacity-50 w-full transition-colors">
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
@@ -235,7 +235,7 @@ export default function TenantDetailPage() {
               rows={3}
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm mb-3 resize-none placeholder-gray-600"
             />
-            <button onClick={sendMessage} disabled={sending || !message.trim()} className="bg-blue-600 hover:bg-teal-600 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 w-full transition-colors">
+            <button onClick={sendMessage} disabled={sending || !message.trim()} className="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-cta font-semibold text-white disabled:opacity-50 w-full transition-colors">
               {sending ? 'Sending...' : sent ? 'Sent!' : 'Send Message'}
             </button>
           </div>

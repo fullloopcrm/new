@@ -104,10 +104,10 @@ export default function NewBusinessPage() {
 
   return (
     <div className="max-w-2xl">
-      <Link href="/admin/businesses" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">
+      <Link href="/admin/businesses" className="text-sm text-teal-400 hover:text-teal-300 mb-4 inline-block">
         &larr; All Businesses
       </Link>
-      <h1 className="text-2xl font-bold mb-6">Add New Business</h1>
+      <h1 className="text-2xl font-bold font-heading mb-6">Add New Business</h1>
 
       {error && (
         <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-3 text-sm text-red-400 mb-6">
@@ -118,7 +118,7 @@ export default function NewBusinessPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Business Info */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h2 className="font-semibold text-sm mb-4">Business Info</h2>
+          <h2 className="font-semibold font-heading text-sm mb-4">Business Info</h2>
           <div className="space-y-4">
             <div>
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Business Name *</label>
@@ -171,7 +171,7 @@ export default function NewBusinessPage() {
 
         {/* Owner Info */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h2 className="font-semibold text-sm mb-4">Owner Info</h2>
+          <h2 className="font-semibold font-heading text-sm mb-4">Owner Info</h2>
           <p className="text-xs text-slate-400 mb-4">Contact info for the business owner. Used for invite emails and communication.</p>
           <div className="space-y-4">
             <div>
@@ -207,7 +207,7 @@ export default function NewBusinessPage() {
 
         {/* Billing */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h2 className="font-semibold text-sm mb-4">Billing</h2>
+          <h2 className="font-semibold font-heading text-sm mb-4">Billing</h2>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -259,7 +259,7 @@ export default function NewBusinessPage() {
         <button
           type="submit"
           disabled={saving || !name.trim()}
-          className="w-full bg-blue-600 hover:bg-teal-600 py-3 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+          className="w-full bg-teal-600 hover:bg-teal-500 text-white py-3 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors"
         >
           {saving ? 'Creating...' : 'Create Business'}
         </button>

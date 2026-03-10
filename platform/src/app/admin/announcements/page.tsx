@@ -17,7 +17,7 @@ type Announcement = {
 const typeColors: Record<string, string> = {
   changelog: 'bg-purple-500/20 text-purple-400',
   maintenance: 'bg-yellow-500/20 text-yellow-400',
-  direct: 'bg-blue-500/20 text-blue-400',
+  direct: 'bg-teal-500/20 text-teal-400',
   announcement: 'bg-slate-600 text-slate-300',
 }
 
@@ -102,11 +102,11 @@ export default function AnnouncementsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Announcements</h1>
+          <h1 className="text-2xl font-bold font-heading">Announcements</h1>
           <p className="text-sm text-slate-400">{announcements.length} total &middot; {publishedCount} published &middot; {draftCount} drafts</p>
         </div>
         <button onClick={() => setComposing(!composing)}
-          className="bg-blue-600 hover:bg-teal-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+          className="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-cta font-semibold text-white transition-colors">
           {composing ? 'Cancel' : '+ New Announcement'}
         </button>
       </div>
@@ -178,11 +178,11 @@ export default function AnnouncementsPage() {
             )}
             <div className="flex gap-2">
               <button onClick={createAndPublish} disabled={saving || !form.title || !form.body}
-                className="bg-blue-600 hover:bg-teal-600 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
+                className="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-cta font-semibold text-white disabled:opacity-50 transition-colors">
                 {saving ? 'Sending...' : 'Publish & Send'}
               </button>
               <button onClick={saveDraft} disabled={saving || !form.title || !form.body}
-                className="bg-slate-600 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
+                className="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
                 Save Draft
               </button>
               <button onClick={() => setComposing(false)} className="text-sm text-slate-400 hover:text-white px-3 py-2">

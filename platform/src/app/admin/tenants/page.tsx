@@ -20,13 +20,13 @@ type Tenant = {
 
 const statusColors: Record<string, string> = {
   active: 'bg-green-500/20 text-green-400',
-  setup: 'bg-blue-500/20 text-blue-400',
+  setup: 'bg-teal-500/20 text-teal-400',
   suspended: 'bg-yellow-500/20 text-yellow-400',
   cancelled: 'bg-red-500/20 text-red-400',
 }
 
 const planColors: Record<string, string> = {
-  pro: 'bg-blue-500/20 text-blue-400',
+  pro: 'bg-teal-500/20 text-teal-400',
   starter: 'bg-green-500/20 text-green-400',
   free: 'bg-slate-600 text-slate-400',
 }
@@ -63,7 +63,7 @@ export default function TenantsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Tenants</h1>
+        <h1 className="text-2xl font-bold font-heading">Tenants</h1>
         <p className="text-sm text-slate-400">{tenants.length} total tenants</p>
       </div>
 
@@ -130,12 +130,12 @@ export default function TenantsPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-400">{t.team_size || 'solo'}</td>
-                <td className="px-4 py-3 text-slate-400">{t.tenant_members?.length || 0}</td>
+                <td className="px-4 py-3 text-slate-400 font-mono">{t.tenant_members?.length || 0}</td>
                 <td className="px-4 py-3 text-slate-400 text-xs">
                   {new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </td>
                 <td className="px-4 py-3">
-                  <Link href={`/admin/tenants/${t.id}`} className="text-xs text-blue-400 hover:text-blue-300">
+                  <Link href={`/admin/tenants/${t.id}`} className="text-xs text-teal-400 hover:text-teal-300">
                     View
                   </Link>
                 </td>

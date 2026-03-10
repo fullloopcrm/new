@@ -125,7 +125,7 @@ export default function AdminLeadsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Leads</h1>
+        <h1 className="text-2xl font-bold font-heading">Leads</h1>
         <p className="text-sm text-slate-400">Website visitor tracking across all businesses</p>
       </div>
 
@@ -135,9 +135,9 @@ export default function AdminLeadsPage() {
           <button
             key={s.label}
             onClick={() => setDrilldown(s.type)}
-            className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center transition-all hover:border-blue-500/50 hover:shadow-md hover:shadow-blue-500/5 cursor-pointer"
+            className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center transition-all hover:border-teal-500/50 hover:shadow-md hover:shadow-teal-500/5 cursor-pointer"
           >
-            <p className="text-2xl font-bold text-white">{s.value.toLocaleString()}</p>
+            <p className="text-2xl font-bold font-mono text-white">{s.value.toLocaleString()}</p>
             <p className="text-[10px] font-semibold tracking-widest text-slate-400 uppercase mt-1">{s.label}</p>
           </button>
         ))}
@@ -149,9 +149,9 @@ export default function AdminLeadsPage() {
           <button
             key={s.label}
             onClick={() => setDrilldown(s.type)}
-            className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center transition-all hover:border-blue-500/50 hover:shadow-md hover:shadow-blue-500/5 cursor-pointer"
+            className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center transition-all hover:border-teal-500/50 hover:shadow-md hover:shadow-teal-500/5 cursor-pointer"
           >
-            <p className="text-2xl font-bold text-white">{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</p>
+            <p className="text-2xl font-bold font-mono text-white">{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</p>
             <p className="text-[10px] font-semibold tracking-widest text-slate-400 uppercase mt-1">{s.label}</p>
           </button>
         ))}
@@ -220,7 +220,7 @@ export default function AdminLeadsPage() {
                     {(drill.data as CtaDetail[]).map((e, i) => (
                       <tr key={i} className="hover:bg-slate-700/30 transition-colors whitespace-nowrap">
                         <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
-                        <td className="px-3 py-2 font-medium capitalize text-blue-400">{e.action}</td>
+                        <td className="px-3 py-2 font-medium capitalize text-teal-400">{e.action}</td>
                         <td className="px-3 py-2 text-slate-400 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
                         <td className="px-3 py-2 text-center text-slate-400">{e.device}</td>
                         <td className="px-3 py-2 text-right text-slate-400">{timeAgo(e.created_at)}</td>
@@ -260,7 +260,7 @@ export default function AdminLeadsPage() {
                     <td className="px-3 py-2 text-white font-medium max-w-[200px] truncate">{e.page_url}</td>
                     <td className="px-3 py-2 text-slate-400 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
                     <td className="px-3 py-2 text-center text-slate-400">{e.device}</td>
-                    <td className="px-3 py-2 text-center text-blue-400 font-medium">{e.cta_clicked ? (e.cta_type || 'Y') : '—'}</td>
+                    <td className="px-3 py-2 text-center text-teal-400 font-medium">{e.cta_clicked ? (e.cta_type || 'Y') : '—'}</td>
                     <td className="px-3 py-2 text-right text-slate-400">{e.scroll_depth > 0 ? `${e.scroll_depth}%` : '—'}</td>
                     <td className="px-3 py-2 text-right text-slate-400">{e.time_on_page > 0 ? `${e.time_on_page}s` : '—'}</td>
                     <td className="px-3 py-2 text-right text-slate-400">{timeAgo(e.created_at)}</td>
@@ -295,7 +295,7 @@ export default function AdminLeadsPage() {
                       <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
                       <td className="px-3 py-2 text-white font-medium">{t.name}</td>
                       <td className="px-3 py-2 text-center text-slate-400">{v(t.visits)}</td>
-                      <td className="px-3 py-2 text-center text-blue-400 font-medium">{v(t.ctas)}</td>
+                      <td className="px-3 py-2 text-center text-teal-400 font-medium">{v(t.ctas)}</td>
                       <td className="px-3 py-2 text-right text-slate-400">{t.visits > 0 ? `${((t.ctas / t.visits) * 100).toFixed(1)}%` : '—'}</td>
                     </tr>
                   ))}

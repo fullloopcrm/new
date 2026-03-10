@@ -4,8 +4,8 @@ import Link from 'next/link'
 const eventColors: Record<string, string> = {
   suspicious_login: 'bg-red-500/20 text-red-400',
   api_key_change: 'bg-yellow-500/20 text-yellow-400',
-  status_change: 'bg-blue-500/20 text-blue-400',
-  plan_change: 'bg-blue-500/20 text-blue-400',
+  status_change: 'bg-teal-500/20 text-teal-400',
+  plan_change: 'bg-teal-500/20 text-teal-400',
   login: 'bg-green-500/20 text-green-400',
   impersonation: 'bg-purple-500/20 text-purple-400',
 }
@@ -27,7 +27,7 @@ export default async function AdminSecurityPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Security Events</h1>
+        <h1 className="text-2xl font-bold font-heading">Security Events</h1>
         <p className="text-sm text-slate-400">Last 100 events across all businesses</p>
       </div>
 
@@ -38,10 +38,10 @@ export default async function AdminSecurityPage() {
             type === 'suspicious_login' ? 'border-l-red-500' :
             type === 'api_key_change' ? 'border-l-yellow-500' :
             type === 'login' ? 'border-l-green-500' :
-            'border-l-blue-500'
+            'border-l-teal-500'
           } p-5`}>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide">{type.replace(/_/g, ' ')}</p>
-            <p className="text-2xl font-bold mt-1">{count}</p>
+            <p className="text-2xl font-bold font-mono mt-1">{count}</p>
           </div>
         )) : (
           <div className="col-span-4 bg-slate-800 rounded-xl border border-slate-700 p-5">
@@ -69,7 +69,7 @@ export default async function AdminSecurityPage() {
                 <tr key={e.id} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
                   <td className="px-4 py-3">
                     {tenant ? (
-                      <Link href={`/admin/businesses/${e.tenant_id}`} className="text-blue-400 hover:text-blue-300 text-sm">
+                      <Link href={`/admin/businesses/${e.tenant_id}`} className="text-teal-400 hover:text-teal-300 text-sm">
                         {tenant.name}
                       </Link>
                     ) : (

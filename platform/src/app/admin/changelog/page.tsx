@@ -58,11 +58,11 @@ export default function ChangelogAdminPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Changelog</h1>
+          <h1 className="text-2xl font-bold font-heading">Changelog</h1>
           <p className="text-sm text-slate-400">{entries.length} entries &middot; visible to all businesses</p>
         </div>
         <button onClick={() => setComposing(!composing)}
-          className="bg-blue-600 hover:bg-teal-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+          className="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-cta font-semibold text-white transition-colors">
           {composing ? 'Cancel' : '+ New Entry'}
         </button>
       </div>
@@ -92,7 +92,7 @@ export default function ChangelogAdminPage() {
           </div>
           <div className="flex gap-2">
             <button onClick={publish} disabled={saving || !title || !body}
-              className="bg-blue-600 hover:bg-teal-600 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
+              className="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-cta font-semibold text-white disabled:opacity-50 transition-colors">
               {saving ? 'Publishing...' : 'Publish'}
             </button>
             <button onClick={() => setComposing(false)} className="text-sm text-slate-400 hover:text-white px-3 py-2">Cancel</button>
@@ -121,7 +121,7 @@ export default function ChangelogAdminPage() {
                 </div>
               </div>
               <button onClick={() => deleteEntry(e.id)}
-                className="text-xs text-red-400 hover:text-red-300 ml-4 flex-shrink-0 transition-colors">
+                className="text-xs text-red-400 hover:text-red-300 ml-4 flex-shrink-0 font-cta transition-colors">
                 Delete
               </button>
             </div>

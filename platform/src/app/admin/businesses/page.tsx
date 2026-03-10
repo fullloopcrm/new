@@ -28,7 +28,7 @@ type Business = {
 
 const statusColors: Record<string, string> = {
   active: 'bg-green-500/20 text-green-400',
-  setup: 'bg-blue-500/20 text-blue-400',
+  setup: 'bg-teal-500/20 text-teal-400',
   suspended: 'bg-yellow-500/20 text-yellow-400',
   cancelled: 'bg-red-500/20 text-red-400',
   deleted: 'bg-slate-600 text-slate-400',
@@ -36,7 +36,7 @@ const statusColors: Record<string, string> = {
 
 const billingColors: Record<string, string> = {
   active: 'bg-green-500/20 text-green-400',
-  setup: 'bg-blue-500/20 text-blue-400',
+  setup: 'bg-teal-500/20 text-teal-400',
   past_due: 'bg-red-500/20 text-red-400',
   cancelled: 'bg-slate-600 text-slate-400',
 }
@@ -103,11 +103,11 @@ export default function BusinessesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Businesses</h1>
+          <h1 className="text-2xl font-bold font-heading">Businesses</h1>
           <p className="text-sm text-slate-400">{businesses.length} total &middot; {activeCount} active &middot; {setupCount} in setup</p>
         </div>
         <Link href="/admin/businesses/new"
-          className="bg-blue-600 hover:bg-teal-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+          className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold transition-colors">
           + Add Business
         </Link>
       </div>
@@ -117,12 +117,12 @@ export default function BusinessesPage() {
         {[
           { label: 'Total', value: businesses.length, color: 'border-l-gray-500' },
           { label: 'Active', value: activeCount, color: 'border-l-green-500' },
-          { label: 'In Setup', value: setupCount, color: 'border-l-blue-500' },
+          { label: 'In Setup', value: setupCount, color: 'border-l-teal-500' },
           { label: 'MRR', value: `$${mrr.toLocaleString()}`, color: 'border-l-purple-500' },
         ].map((card) => (
           <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-            <p className="text-2xl font-bold mt-1">{card.value}</p>
+            <p className="text-2xl font-bold font-mono mt-1">{card.value}</p>
           </div>
         ))}
       </div>

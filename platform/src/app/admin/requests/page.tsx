@@ -141,7 +141,7 @@ export default function AdminRequestsPage() {
     <div>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Partner Requests</h1>
+        <h1 className="text-2xl font-bold font-heading">Partner Requests</h1>
         <p className="text-sm text-slate-400">Review and manage incoming partner applications</p>
       </div>
 
@@ -149,19 +149,19 @@ export default function AdminRequestsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-gray-500 p-5">
           <p className="text-[11px] text-slate-400 uppercase tracking-wide">Total Requests</p>
-          <p className="text-2xl font-bold mt-1">{counts.total}</p>
+          <p className="text-2xl font-bold font-mono mt-1">{counts.total}</p>
         </div>
         <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-yellow-500 p-5">
           <p className="text-[11px] text-slate-400 uppercase tracking-wide">Pending</p>
-          <p className="text-2xl font-bold mt-1">{counts.pending}</p>
+          <p className="text-2xl font-bold font-mono mt-1">{counts.pending}</p>
         </div>
         <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-green-500 p-5">
           <p className="text-[11px] text-slate-400 uppercase tracking-wide">Approved</p>
-          <p className="text-2xl font-bold mt-1">{counts.approved}</p>
+          <p className="text-2xl font-bold font-mono mt-1">{counts.approved}</p>
         </div>
         <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-red-500 p-5">
           <p className="text-[11px] text-slate-400 uppercase tracking-wide">Rejected</p>
-          <p className="text-2xl font-bold mt-1">{counts.rejected}</p>
+          <p className="text-2xl font-bold font-mono mt-1">{counts.rejected}</p>
         </div>
       </div>
 
@@ -174,7 +174,7 @@ export default function AdminRequestsPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 activeTab === tab.key
-                  ? 'bg-slate-600 text-white'
+                  ? 'bg-teal-600 text-white'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700'
               }`}
             >
@@ -239,14 +239,14 @@ export default function AdminRequestsPage() {
                         <button
                           onClick={() => handleAction(req.id, 'approved')}
                           disabled={actionLoading === req.id}
-                          className="px-2.5 py-1 rounded text-[11px] font-medium bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors disabled:opacity-50"
+                          className="px-2.5 py-1 rounded text-[11px] font-cta font-semibold bg-teal-600 text-white hover:bg-teal-500 transition-colors disabled:opacity-50"
                         >
                           Approve
                         </button>
                         <button
                           onClick={() => handleAction(req.id, 'rejected')}
                           disabled={actionLoading === req.id}
-                          className="px-2.5 py-1 rounded text-[11px] font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                          className="px-2.5 py-1 rounded text-[11px] font-cta font-semibold bg-red-600/20 text-red-400 hover:bg-red-600/30 transition-colors disabled:opacity-50"
                         >
                           Reject
                         </button>
@@ -267,14 +267,14 @@ export default function AdminRequestsPage() {
                         <div className="space-y-2">
                           <div>
                             <p className="text-[10px] text-slate-400 uppercase">Email</p>
-                            <a href={`mailto:${req.email}`} className="text-sm text-blue-400 hover:text-blue-300">
+                            <a href={`mailto:${req.email}`} className="text-sm text-teal-400 hover:text-teal-300">
                               {req.email}
                             </a>
                           </div>
                           {req.phone && (
                             <div>
                               <p className="text-[10px] text-slate-400 uppercase">Phone</p>
-                              <a href={`tel:${req.phone}`} className="text-sm text-blue-400 hover:text-blue-300">
+                              <a href={`tel:${req.phone}`} className="text-sm text-teal-400 hover:text-teal-300">
                                 {req.phone}
                               </a>
                             </div>
@@ -286,7 +286,7 @@ export default function AdminRequestsPage() {
                                 href={req.website.startsWith('http') ? req.website : `https://${req.website}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-sm text-blue-400 hover:text-blue-300"
+                                className="text-sm text-teal-400 hover:text-teal-300"
                               >
                                 {req.website}
                               </a>
@@ -347,14 +347,14 @@ export default function AdminRequestsPage() {
                             <button
                               onClick={() => handleAction(req.id, 'approved')}
                               disabled={actionLoading === req.id}
-                              className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30 transition-colors disabled:opacity-50"
+                              className="flex-1 px-3 py-2 rounded-lg text-sm font-cta font-semibold bg-teal-600 text-white hover:bg-teal-500 transition-colors disabled:opacity-50"
                             >
                               {actionLoading === req.id ? 'Updating...' : 'Approve'}
                             </button>
                             <button
                               onClick={() => handleAction(req.id, 'rejected')}
                               disabled={actionLoading === req.id}
-                              className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 transition-colors disabled:opacity-50"
+                              className="flex-1 px-3 py-2 rounded-lg text-sm font-cta font-semibold bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-500/30 transition-colors disabled:opacity-50"
                             >
                               {actionLoading === req.id ? 'Updating...' : 'Reject'}
                             </button>

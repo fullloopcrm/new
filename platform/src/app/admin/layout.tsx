@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
+import AdminLogout from './AdminLogout'
 
 const navSections = [
   {
@@ -43,46 +44,57 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-900 text-white">
-      <aside className="w-56 bg-slate-800 border-r border-slate-700 flex flex-col">
-        <div className="px-5 py-4 border-b border-slate-700">
-          <Link href="/admin" className="font-bold text-base">
-            Full Loop <span className="text-teal-400">Admin</span>
+    <div className="min-h-screen flex bg-slate-900 text-white font-body">
+      {/* Sidebar */}
+      <aside className="w-60 bg-slate-800/80 backdrop-blur border-r border-slate-700/50 flex flex-col">
+        {/* Logo */}
+        <div className="px-5 py-5 border-b border-slate-700/50">
+          <Link href="/admin" className="font-heading font-bold text-lg tracking-tight">
+            Full Loop <span className="bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">Admin</span>
           </Link>
-          <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Platform Control</p>
+          <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-widest font-medium">Platform Control</p>
         </div>
 
-        <nav className="flex-1 py-3 overflow-y-auto">
+        {/* Navigation */}
+        <nav className="flex-1 py-4 overflow-y-auto">
           {navSections.map((section) => (
-            <div key={section.label} className="mb-1">
-              <p className="px-5 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+            <div key={section.label} className="mb-2">
+              <p className="px-5 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
                 {section.label}
               </p>
               {section.items.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-2.5 mx-2 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+                  className="flex items-center gap-3 mx-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/60 hover:text-white transition-all duration-150"
                 >
-                  <span className="text-base w-5 text-center">{item.icon}</span>
-                  {item.label}
+                  <span className="text-base w-5 text-center opacity-60">{item.icon}</span>
+                  <span className="font-medium">{item.label}</span>
                 </Link>
               ))}
             </div>
           ))}
         </nav>
 
-        <div className="border-t border-slate-700 px-4 py-3">
+        {/* Bottom actions */}
+        <div className="border-t border-slate-700/50 px-3 py-3 space-y-1">
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/60 hover:text-white transition-all duration-150"
           >
-            &larr; Dashboard
+            <span className="opacity-60">&larr;</span>
+            <span className="font-medium">Dashboard</span>
           </Link>
+          <AdminLogout />
         </div>
       </aside>
 
-      <main className="flex-1 p-8 min-w-0">{children}</main>
+      {/* Main content */}
+      <main className="flex-1 min-w-0 overflow-y-auto">
+        <div className="p-8 max-w-7xl">
+          {children}
+        </div>
+      </main>
     </div>
   )
 }

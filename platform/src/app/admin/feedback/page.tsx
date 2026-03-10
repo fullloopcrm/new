@@ -24,7 +24,7 @@ const categoryLabels: Record<string, string> = {
 
 const categoryColors: Record<string, string> = {
   bug: 'bg-red-500/20 text-red-400',
-  feature: 'bg-blue-500/20 text-blue-400',
+  feature: 'bg-teal-500/20 text-teal-400',
   pricing: 'bg-purple-500/20 text-purple-400',
   partnership: 'bg-indigo-500/20 text-indigo-400',
   complaint: 'bg-orange-500/20 text-orange-400',
@@ -106,7 +106,7 @@ export default function AdminFeedbackPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Anonymous Feedback</h1>
+        <h1 className="text-2xl font-bold font-heading">Anonymous Feedback</h1>
         <p className="text-sm text-slate-400">{totalCount} total submissions &middot; {unreadCount} unread</p>
       </div>
 
@@ -114,19 +114,19 @@ export default function AdminFeedbackPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-gray-500 p-5">
           <p className="text-[11px] text-slate-400 uppercase tracking-wide">Total</p>
-          <p className="text-2xl font-bold mt-1">{totalCount}</p>
+          <p className="text-2xl font-bold font-mono mt-1">{totalCount}</p>
         </div>
         <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-yellow-500 p-5">
           <p className="text-[11px] text-slate-400 uppercase tracking-wide">Unread</p>
-          <p className="text-2xl font-bold mt-1">{unreadCount}</p>
+          <p className="text-2xl font-bold font-mono mt-1">{unreadCount}</p>
         </div>
         <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-red-500 p-5">
           <p className="text-[11px] text-slate-400 uppercase tracking-wide">Bugs</p>
-          <p className="text-2xl font-bold mt-1">{categoryBreakdown.bug || 0}</p>
+          <p className="text-2xl font-bold font-mono mt-1">{categoryBreakdown.bug || 0}</p>
         </div>
-        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-blue-500 p-5">
+        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-teal-500 p-5">
           <p className="text-[11px] text-slate-400 uppercase tracking-wide">Feature Requests</p>
-          <p className="text-2xl font-bold mt-1">{categoryBreakdown.feature || 0}</p>
+          <p className="text-2xl font-bold font-mono mt-1">{categoryBreakdown.feature || 0}</p>
         </div>
       </div>
 

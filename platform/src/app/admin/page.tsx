@@ -50,7 +50,7 @@ export default async function AdminOverviewPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Platform Overview</h1>
+        <h1 className="text-2xl font-bold font-heading">Platform Overview</h1>
         <p className="text-sm text-slate-400">All businesses across Full Loop CRM</p>
       </div>
 
@@ -59,13 +59,13 @@ export default async function AdminOverviewPage() {
         {[
           { label: 'Total Businesses', value: totalTenants || 0, color: 'border-l-gray-500' },
           { label: 'Active', value: activeTenants || 0, color: 'border-l-green-500' },
-          { label: 'New This Week', value: newThisWeek || 0, color: 'border-l-blue-500' },
+          { label: 'New This Week', value: newThisWeek || 0, color: 'border-l-teal-500' },
           { label: '30-Day Revenue', value: fmt(monthlyRevenue), color: 'border-l-purple-500' },
           { label: 'Pending Requests', value: pendingRequests || 0, color: 'border-l-yellow-500' },
         ].map((s) => (
           <div key={s.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${s.color} p-5`}>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide">{s.label}</p>
-            <p className="text-2xl font-bold mt-1">{s.value}</p>
+            <p className="text-2xl font-bold font-mono mt-1">{s.value}</p>
           </div>
         ))}
       </div>
@@ -79,9 +79,9 @@ export default async function AdminOverviewPage() {
           <div key={s.label} className="bg-slate-800 rounded-xl border border-slate-700 p-4">
             <div className="flex items-center justify-between mb-1">
               <p className="text-[11px] text-slate-400 uppercase tracking-wide">{s.label}</p>
-              {s.href && <Link href={s.href} className="text-[10px] text-blue-400 hover:text-blue-300">View</Link>}
+              {s.href && <Link href={s.href} className="text-[10px] text-teal-400 hover:text-teal-300">View</Link>}
             </div>
-            <p className="text-xl font-bold">{s.value}</p>
+            <p className="text-xl font-bold font-mono">{s.value}</p>
           </div>
         ))}
       </div>
@@ -91,7 +91,7 @@ export default async function AdminOverviewPage() {
         <div className="bg-slate-800 border border-slate-700 rounded-xl">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
             <h2 className="font-semibold text-sm">Recent Signups</h2>
-            <Link href="/admin/businesses" className="text-xs text-blue-400 hover:text-blue-300">View All</Link>
+            <Link href="/admin/businesses" className="text-xs text-teal-400 hover:text-teal-300">View All</Link>
           </div>
           <div className="divide-y divide-slate-700/50">
             {(recentTenants || []).map((t) => (
@@ -104,7 +104,7 @@ export default async function AdminOverviewPage() {
                 <div className="text-right">
                   <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${
                     t.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                    t.status === 'setup' ? 'bg-blue-500/20 text-blue-400' :
+                    t.status === 'setup' ? 'bg-teal-500/20 text-teal-400' :
                     'bg-slate-600 text-slate-400'
                   }`}>
                     {t.status}
@@ -123,7 +123,7 @@ export default async function AdminOverviewPage() {
         <div className="bg-slate-800 border border-slate-700 rounded-xl">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
             <h2 className="font-semibold text-sm">Recent Announcements</h2>
-            <Link href="/admin/announcements" className="text-xs text-blue-400 hover:text-blue-300">Manage</Link>
+            <Link href="/admin/announcements" className="text-xs text-teal-400 hover:text-teal-300">Manage</Link>
           </div>
           <div className="divide-y divide-slate-700/50">
             {(recentAnnouncements || []).map((a) => (
@@ -156,7 +156,7 @@ export default async function AdminOverviewPage() {
               </span>
             )}
           </div>
-          <Link href="/admin/requests" className="text-xs text-blue-400 hover:text-blue-300">View All</Link>
+          <Link href="/admin/requests" className="text-xs text-teal-400 hover:text-teal-300">View All</Link>
         </div>
         <div className="divide-y divide-slate-700/50">
           {(recentRequests || []).map((r) => (

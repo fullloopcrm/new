@@ -50,14 +50,14 @@ export default async function AnalyticsPage() {
   ])
 
   const planColors: Record<string, string> = {
-    pro: 'bg-blue-500/20 text-blue-400',
+    pro: 'bg-teal-500/20 text-teal-400',
     starter: 'bg-green-500/20 text-green-400',
     free: 'bg-slate-600 text-slate-400',
   }
 
   const statusColors: Record<string, string> = {
     active: 'bg-green-500/20 text-green-400',
-    setup: 'bg-blue-500/20 text-blue-400',
+    setup: 'bg-teal-500/20 text-teal-400',
     suspended: 'bg-yellow-500/20 text-yellow-400',
     cancelled: 'bg-red-500/20 text-red-400',
   }
@@ -65,7 +65,7 @@ export default async function AnalyticsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Platform Analytics</h1>
+        <h1 className="text-2xl font-bold font-heading">Platform Analytics</h1>
         <p className="text-sm text-slate-400">Aggregate data across all businesses</p>
       </div>
 
@@ -73,13 +73,13 @@ export default async function AnalyticsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {[
           { label: 'Total Businesses', value: allTenants.length, color: 'border-l-gray-500' },
-          { label: 'Total Bookings', value: totalBookings || 0, color: 'border-l-blue-500' },
+          { label: 'Total Bookings', value: totalBookings || 0, color: 'border-l-teal-500' },
           { label: 'Paid Bookings', value: paidBookings || 0, color: 'border-l-green-500' },
           { label: 'Industries', value: industries.length, color: 'border-l-purple-500' },
         ].map((s) => (
           <div key={s.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${s.color} p-5`}>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide">{s.label}</p>
-            <p className="text-2xl font-bold mt-1">{s.value}</p>
+            <p className="text-2xl font-bold font-mono mt-1">{s.value}</p>
           </div>
         ))}
       </div>
@@ -90,7 +90,7 @@ export default async function AnalyticsPage() {
         <div className="flex items-end gap-3 h-32">
           {months.map((m) => (
             <div key={m.label} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-xs text-slate-400 font-medium">{m.count}</span>
+              <span className="text-xs text-slate-400 font-medium font-mono">{m.count}</span>
               <div
                 className="w-full bg-teal-600 rounded-t transition-all"
                 style={{ height: `${(m.count / maxMonth) * 100}%`, minHeight: m.count > 0 ? '4px' : '0' }}
@@ -115,7 +115,7 @@ export default async function AnalyticsPage() {
                 <div key={ind}>
                   <div className="flex items-center justify-between text-sm mb-1">
                     <span className="text-slate-400 capitalize truncate">{ind.replace(/_/g, ' ')}</span>
-                    <span className="font-medium ml-2">{count}</span>
+                    <span className="font-medium font-mono ml-2">{count}</span>
                   </div>
                   <div className="h-1 bg-slate-700 rounded-full">
                     <div className="h-1 bg-teal-600 rounded-full" style={{ width: `${pct}%` }} />
@@ -136,7 +136,7 @@ export default async function AnalyticsPage() {
             {Object.entries(planMap).sort((a, b) => b[1] - a[1]).map(([p, count]) => (
               <div key={p} className="flex items-center justify-between">
                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${planColors[p] || 'bg-slate-600 text-slate-400'}`}>{p}</span>
-                <span className="font-medium text-sm">{count}</span>
+                <span className="font-medium font-mono text-sm">{count}</span>
               </div>
             ))}
           </div>
@@ -151,7 +151,7 @@ export default async function AnalyticsPage() {
             {Object.entries(teamMap).sort((a, b) => b[1] - a[1]).map(([size, count]) => (
               <div key={size} className="flex items-center justify-between text-sm">
                 <span className="text-slate-400">{size === 'solo' ? 'Just Me' : size}</span>
-                <span className="font-medium">{count}</span>
+                <span className="font-medium font-mono">{count}</span>
               </div>
             ))}
           </div>
@@ -166,7 +166,7 @@ export default async function AnalyticsPage() {
             {Object.entries(statusMap).sort((a, b) => b[1] - a[1]).map(([s, count]) => (
               <div key={s} className="flex items-center justify-between">
                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[s] || 'bg-slate-600 text-slate-400'}`}>{s}</span>
-                <span className="font-medium text-sm">{count}</span>
+                <span className="font-medium font-mono text-sm">{count}</span>
               </div>
             ))}
           </div>

@@ -247,23 +247,23 @@ export default function BusinessDetailPage() {
 
   return (
     <div>
-      <Link href="/admin/businesses" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">&larr; All Businesses</Link>
+      <Link href="/admin/businesses" className="text-sm text-teal-400 hover:text-teal-300 mb-4 inline-block">&larr; All Businesses</Link>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{biz.name}</h1>
+            <h1 className="text-2xl font-bold font-heading">{biz.name}</h1>
             <span className={`px-2 py-0.5 rounded text-xs font-medium ${
               biz.status === 'active' ? 'bg-green-500/20 text-green-400' :
-              biz.status === 'setup' ? 'bg-blue-500/20 text-blue-400' :
+              biz.status === 'setup' ? 'bg-teal-500/20 text-teal-400' :
               biz.status === 'suspended' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
             }`}>{biz.status}</span>
           </div>
           <p className="text-xs text-slate-400 mt-1 capitalize">{biz.industry?.replace(/_/g, ' ')} &middot; {biz.zip_code || '—'} &middot; {biz.timezone}</p>
         </div>
         <button onClick={startImpersonation} disabled={impersonating}
-          className="bg-blue-600 hover:bg-teal-600 px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
+          className="bg-teal-600 hover:bg-teal-500 text-white px-5 py-2.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
           {impersonating ? 'Entering...' : 'Log In as Business'}
         </button>
       </div>
@@ -283,7 +283,7 @@ export default function BusinessDetailPage() {
       {stats && (
         <div className="grid grid-cols-5 gap-3 mb-5">
           {[
-            { label: 'Clients', value: stats.clients, color: 'border-l-blue-500' },
+            { label: 'Clients', value: stats.clients, color: 'border-l-teal-500' },
             { label: 'Bookings', value: stats.bookings, color: 'border-l-green-500' },
             { label: 'Team', value: stats.team_members, color: 'border-l-purple-500' },
             { label: 'Services', value: stats.services, color: 'border-l-orange-500' },
@@ -291,7 +291,7 @@ export default function BusinessDetailPage() {
           ].map((s) => (
             <div key={s.label} className={`bg-slate-800 border border-slate-700 border-l-4 ${s.color} rounded-xl p-4`}>
               <p className="text-[11px] text-slate-400 uppercase tracking-wide">{s.label}</p>
-              <p className="text-xl font-bold mt-1">{s.value}</p>
+              <p className="text-xl font-bold font-mono mt-1">{s.value}</p>
             </div>
           ))}
         </div>
@@ -573,7 +573,7 @@ export default function BusinessDetailPage() {
                         placeholder={ownerEmail || 'owner@email.com'}
                         className="flex-1 bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-xs placeholder-gray-600" />
                       <button onClick={sendInvite} disabled={sendingInvite}
-                        className="bg-blue-600 hover:bg-teal-600 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 whitespace-nowrap">
+                        className="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded text-xs font-cta font-semibold disabled:opacity-50 whitespace-nowrap transition-colors">
                         {sendingInvite ? 'Sending...' : 'Send Invite'}
                       </button>
                     </div>
@@ -683,7 +683,7 @@ export default function BusinessDetailPage() {
 
           {/* Save */}
           <button onClick={() => save()} disabled={saving}
-            className="w-full bg-blue-600 hover:bg-teal-600 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+            className="w-full bg-teal-600 hover:bg-teal-500 text-white py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Save All Changes'}
           </button>
           <button onClick={() => { if (confirm(`Delete "${biz.name}"?`)) { fetch(`/api/admin/businesses/${id}`, { method: 'DELETE' }).then(() => router.push('/admin/businesses')) } }}
