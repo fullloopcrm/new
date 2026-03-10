@@ -40,7 +40,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/health',              // Health check endpoint
   '/admin(.*)',               // Admin uses PIN auth, not Clerk
   '/admin-login',             // Admin PIN login page
-  '/api/admin-auth',          // Admin PIN auth endpoint
+  '/api/admin-auth(.*)',       // Admin PIN auth endpoint
+  '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
   '/api/requests',            // Partnership form submissions
   '/api/feedback',            // Feedback form submissions
   '/sitemap.xml',             // Sitemap
