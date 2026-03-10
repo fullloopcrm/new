@@ -1,10 +1,7 @@
-import { auth } from '@clerk/nextjs/server'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-
-const SUPER_ADMIN_IDS = [
-  process.env.SUPER_ADMIN_CLERK_ID || '',
-]
+import { verifyAdminToken } from '@/app/api/admin-auth/route'
 
 const navSections = [
   {
@@ -38,10 +35,11 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { userId } = await auth()
+  const cookieStore = await cookies()
+  const token = cookieStore.get('admin_token')?.value
 
-  if (!userId || !SUPER_ADMIN_IDS.includes(userId)) {
-    redirect('/')
+  if (!token || !verifyAdminToken(token)) {
+    redirect('/admin-login')
   }
 
   return (
@@ -49,7 +47,7 @@ export default async function AdminLayout({
       <aside className="w-56 bg-slate-800 border-r border-slate-700 flex flex-col">
         <div className="px-5 py-4 border-b border-slate-700">
           <Link href="/admin" className="font-bold text-base">
-            Full Loop <span className="text-blue-400">Admin</span>
+            Full Loop <span className="text-teal-400">Admin</span>
           </Link>
           <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Platform Control</p>
         </div>

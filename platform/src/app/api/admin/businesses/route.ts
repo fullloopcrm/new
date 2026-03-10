@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
-
-const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
+import { requireAdmin } from '@/lib/require-admin'
 
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId || !SUPER_ADMIN_IDS.includes(userId)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const authError = await requireAdmin()
+  if (authError) return authError
 
   const { data: businesses } = await supabaseAdmin
     .from('tenants')
@@ -19,10 +15,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth()
-  if (!userId || !SUPER_ADMIN_IDS.includes(userId)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const authError = await requireAdmin()
+  if (authError) return authError
 
   const body = await request.json()
   const {

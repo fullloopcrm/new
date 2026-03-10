@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { sendEmail } from '@/lib/email'
+import { requireAdmin } from '@/lib/require-admin'
 
 /*
   SQL to create the partner_requests table:
@@ -34,8 +34,6 @@ import { sendEmail } from '@/lib/email'
   CREATE INDEX idx_partner_requests_city ON partner_requests(city, service_category);
 */
 
-const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -43,10 +41,8 @@ export async function GET(request: NextRequest) {
 
     // If requesting filtered list by status, require super admin auth
     if (status) {
-      const { userId } = await auth()
-      if (!userId || !SUPER_ADMIN_IDS.includes(userId)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
+      const authError = await requireAdmin()
+      if (authError) return authError
 
       const { data, error } = await supabaseAdmin
         .from('partner_requests')

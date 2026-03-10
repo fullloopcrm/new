@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { logSecurityEvent } from '@/lib/security'
+import { requireAdmin } from '@/lib/require-admin'
 import crypto from 'crypto'
-
-const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 
 // Create and send an invite
 export async function POST(request: Request) {
-  const { userId } = await auth()
-  if (!userId || !SUPER_ADMIN_IDS.includes(userId)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const authError = await requireAdmin()
+  if (authError) return authError
 
   const { tenant_id, email, role } = await request.json()
 

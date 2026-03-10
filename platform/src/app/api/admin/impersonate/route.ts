@@ -1,19 +1,16 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
+import { requireAdmin } from '@/lib/require-admin'
 
-const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 const COOKIE_NAME = 'fl_impersonate'
 const MAX_AGE = 3600 // 1 hour
 
 // Start impersonation
 export async function POST(request: Request) {
-  const { userId } = await auth()
-  if (!userId || !SUPER_ADMIN_IDS.includes(userId)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const authError = await requireAdmin()
+  if (authError) return authError
 
   const { tenantId } = await request.json()
   if (!tenantId) {
@@ -53,10 +50,8 @@ export async function POST(request: Request) {
 
 // Stop impersonation
 export async function DELETE() {
-  const { userId } = await auth()
-  if (!userId || !SUPER_ADMIN_IDS.includes(userId)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const authError = await requireAdmin()
+  if (authError) return authError
 
   const cookieStore = await cookies()
   const tenantId = cookieStore.get(COOKIE_NAME)?.value

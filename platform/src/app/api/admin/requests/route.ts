@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
-
-const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
+import { requireAdmin } from '@/lib/require-admin'
 
 export async function GET(request: NextRequest) {
-  const { userId } = await auth()
-  if (!userId || !SUPER_ADMIN_IDS.includes(userId)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const authError = await requireAdmin()
+  if (authError) return authError
 
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
@@ -66,10 +62,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const { userId } = await auth()
-  if (!userId || !SUPER_ADMIN_IDS.includes(userId)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const authError = await requireAdmin()
+  if (authError) return authError
 
   try {
     const body = await request.json()
@@ -86,7 +80,7 @@ export async function PATCH(request: NextRequest) {
     const updateData: Record<string, unknown> = {
       status,
       reviewed_at: new Date().toISOString(),
-      reviewed_by: userId,
+      reviewed_by: 'admin',
     }
 
     if (admin_notes !== undefined) {
