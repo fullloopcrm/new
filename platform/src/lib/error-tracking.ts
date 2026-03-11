@@ -22,7 +22,22 @@ export async function trackError(error: unknown, context: ErrorContext) {
   const stack = error instanceof Error ? error.stack : undefined
   const severity = context.severity || 'medium'
 
-  // 1. Log to notifications table (always shows in dashboard)
+  // 1. Log to error_logs table (persistent, queryable, resolvable)
+  try {
+    await supabaseAdmin.from('error_logs').insert({
+      severity,
+      message: message.slice(0, 1000),
+      stack: stack?.slice(0, 2000) || null,
+      tenant_id: context.tenantId || null,
+      route: context.source || null,
+      action: context.source || null,
+      metadata: context.extra ? { extra: context.extra } : null,
+    })
+  } catch (e) {
+    console.error('Failed to log to error_logs:', e)
+  }
+
+  // 2. Also log to notifications table (shows in dashboard)
   try {
     await supabaseAdmin.from('notifications').insert({
       tenant_id: context.tenantId || null,

@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     .from('tenants')
     .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
     .eq('status', 'active')
-    .limit(100) // Guard against scale
+    .limit(1000)
 
   let totalSent = 0
   const stats = { tenants_processed: 0, summaries_sent: 0, errors: 0 }

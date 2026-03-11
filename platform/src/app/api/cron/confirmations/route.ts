@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     .from('tenants')
     .select('id, name, telnyx_api_key, telnyx_phone')
     .eq('status', 'active')
-    .limit(100) // Guard against scale
+    .limit(1000)
 
   for (const tenant of tenants || []) {
     if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue

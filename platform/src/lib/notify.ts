@@ -63,8 +63,8 @@ export async function notify({
   bookingId?: string
   metadata?: Record<string, unknown>
 }): Promise<{ success: boolean; error?: string }> {
-  // Create notification record
-  await supabaseAdmin.from('notifications').insert({
+  // Create notification record — capture ID for accurate status updates
+  const { data: notifRecord } = await supabaseAdmin.from('notifications').insert({
     tenant_id: tenantId,
     type,
     title,
@@ -75,7 +75,10 @@ export async function notify({
     booking_id: bookingId || null,
     status: 'pending',
     metadata: metadata || null,
-  })
+    retry_count: 0,
+  }).select('id').single()
+
+  const notifId = notifRecord?.id
 
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
@@ -160,7 +163,20 @@ export async function notify({
       break
   }
 
-  // Send via channel
+  // Helper to update this specific notification by ID (no race condition)
+  const updateNotif = async (status: string, extra?: Record<string, unknown>) => {
+    if (!notifId) return
+    await supabaseAdmin
+      .from('notifications')
+      .update({ status, ...(extra || {}) })
+      .eq('id', notifId)
+  }
+
+  // Send via channel — with fallback: if email fails, try SMS
+  let sent = false
+  let lastError = ''
+
+  // Attempt primary channel
   try {
     if (channel === 'email' && email) {
       await sendEmail({
@@ -169,6 +185,7 @@ export async function notify({
         html: htmlBody || `<p>${message.replace(/\n/g, '<br>')}</p>`,
         resendApiKey: tenant.resend_api_key,
       })
+      sent = true
     } else if (channel === 'sms' && phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
       await sendSMS({
         to: phone,
@@ -176,36 +193,59 @@ export async function notify({
         telnyxApiKey: tenant.telnyx_api_key,
         telnyxPhone: tenant.telnyx_phone,
       })
+      sent = true
+    } else if (channel === 'email' && !email) {
+      lastError = 'No email address for recipient'
+    } else if (channel === 'sms' && (!phone || !tenant.telnyx_api_key)) {
+      lastError = !phone ? 'No phone number for recipient' : 'Telnyx not configured for tenant'
     }
-
-    // Mark as sent
-    await supabaseAdmin
-      .from('notifications')
-      .update({ status: 'sent' })
-      .eq('tenant_id', tenantId)
-      .eq('type', type)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    return { success: true }
   } catch (e) {
-    const errorMessage = e instanceof Error ? e.message : String(e)
-    console.error(`Notification send error (${type}):`, e)
-
-    // Log the failure with error details in metadata
-    await supabaseAdmin
-      .from('notifications')
-      .update({
-        status: 'failed',
-        metadata: { ...(metadata || {}), _error: errorMessage, _failedAt: new Date().toISOString() },
-      })
-      .eq('tenant_id', tenantId)
-      .eq('type', type)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    return { success: false, error: errorMessage }
+    lastError = e instanceof Error ? e.message : String(e)
+    console.error(`Notification primary send error (${type}):`, lastError)
   }
+
+  // Fallback: email failed → try SMS, SMS failed → try email
+  if (!sent && recipientId) {
+    try {
+      if (channel === 'email' && phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // Email failed, fall back to SMS
+        await sendSMS({
+          to: phone,
+          body: `${title}: ${message}`.slice(0, 320),
+          telnyxApiKey: tenant.telnyx_api_key,
+          telnyxPhone: tenant.telnyx_phone,
+        })
+        sent = true
+        await updateNotif('sent', {
+          metadata: { ...(metadata || {}), _fallback: 'sms', _primaryError: lastError },
+        })
+      } else if (channel === 'sms' && email && tenant.resend_api_key) {
+        // SMS failed, fall back to email
+        await sendEmail({
+          to: email,
+          subject: title,
+          html: htmlBody || `<p>${message.replace(/\n/g, '<br>')}</p>`,
+          resendApiKey: tenant.resend_api_key,
+        })
+        sent = true
+        await updateNotif('sent', {
+          metadata: { ...(metadata || {}), _fallback: 'email', _primaryError: lastError },
+        })
+      }
+    } catch (fallbackErr) {
+      console.error(`Notification fallback also failed (${type}):`, fallbackErr)
+    }
+  }
+
+  if (sent) {
+    await updateNotif('sent')
+    return { success: true }
+  }
+
+  // Both primary and fallback failed — mark for retry
+  await updateNotif('failed', {
+    metadata: { ...(metadata || {}), _error: lastError, _failedAt: new Date().toISOString() },
+  })
+
+  return { success: false, error: lastError }
 }

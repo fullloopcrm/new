@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     .from('tenants')
     .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
     .eq('status', 'active')
-    .limit(100) // Guard against scale
+    .limit(1000)
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
@@ -240,7 +240,7 @@ export async function GET(request: Request) {
           type: 'payment_received' as const,
           title: 'Payment Due Soon',
           message: `${clientName} — $${amount} due in 15 min (${memberName})`,
-          channel: 'push' as 'email',
+          channel: 'email',
           recipientType: 'admin',
           metadata: { dedup: 'payment_due' },
         })
