@@ -200,10 +200,18 @@ export async function PUT(
     'status', 'plan', 'admin_notes', 'billing_status',
     'monthly_rate', 'setup_fee', 'setup_fee_paid_at', 'payment_method',
     'owner_name', 'owner_email', 'owner_phone',
-    // New onboarding fields
+    // Onboarding fields
     'gmail_account', 'domain_name', 'dns_configured',
     'email_domain_verified', 'sms_number',
     'website_published', 'website_content', 'setup_progress',
+    // Integration fields
+    'resend_api_key', 'resend_domain', 'email_from',
+    'telnyx_api_key', 'telnyx_phone',
+    'stripe_account_id',
+    'google_place_id',
+    // Business info
+    'phone', 'email', 'website_url', 'address', 'tagline',
+    'business_hours', 'logo_url', 'primary_color', 'secondary_color',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {

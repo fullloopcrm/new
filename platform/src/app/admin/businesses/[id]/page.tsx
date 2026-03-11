@@ -35,11 +35,20 @@ type Business = {
   website_published: boolean
   setup_progress: Record<string, boolean>
   resend_api_key: string | null
+  resend_domain: string | null
+  email_from: string | null
   telnyx_api_key: string | null
   google_place_id: string | null
+  google_tokens: { access_token?: string; refresh_token?: string; expires_at?: number } | null
+  google_business: { account_name?: string; location_name?: string; location_title?: string } | null
+  stripe_account_id: string | null
   logo_url: string | null
   primary_color: string
+  secondary_color: string | null
+  website_url: string | null
   business_hours: string | null
+  address: string | null
+  tagline: string | null
 }
 
 type Invite = { id: string; email: string; role: string; accepted: boolean; expires_at: string; created_at: string }
@@ -113,7 +122,7 @@ export default function BusinessDetailPage() {
   const [cl, setCl] = useState<Checklist | null>(null)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'onboarding' | 'billing' | 'contact' | 'notes'>('onboarding')
+  const [tab, setTab] = useState<'onboarding' | 'integrations' | 'billing' | 'contact' | 'notes'>('onboarding')
 
   const [ownerName, setOwnerName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
@@ -132,6 +141,24 @@ export default function BusinessDetailPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteResult, setInviteResult] = useState<{ ok?: boolean; error?: string } | null>(null)
+
+  // Integration fields
+  const [resendApiKey, setResendApiKey] = useState('')
+  const [resendDomain, setResendDomain] = useState('')
+  const [emailFrom, setEmailFrom] = useState('')
+  const [telnyxApiKey, setTelnyxApiKey] = useState('')
+  const [telnyxPhone, setTelnyxPhone] = useState('')
+  const [stripeAccountId, setStripeAccountId] = useState('')
+  const [googlePlaceId, setGooglePlaceId] = useState('')
+  const [businessPhone, setBusinessPhone] = useState('')
+  const [businessEmail, setBusinessEmail] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [businessAddress, setBusinessAddress] = useState('')
+  const [tagline, setTagline] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [primaryColor, setPrimaryColor] = useState('#0d9488')
+  const [secondaryColor, setSecondaryColor] = useState('')
+  const [businessHours, setBusinessHours] = useState('')
 
   const fetchData = useCallback(() => {
     fetch(`/api/admin/businesses/${id}`)
@@ -154,6 +181,23 @@ export default function BusinessDetailPage() {
           setPaymentMethod(b.payment_method || '')
           setAdminNotes(b.admin_notes || '')
           setStatus(b.status || 'setup')
+          // Integration fields
+          setResendApiKey(b.resend_api_key || '')
+          setResendDomain(b.resend_domain || '')
+          setEmailFrom(b.email_from || '')
+          setTelnyxApiKey(b.telnyx_api_key || '')
+          setTelnyxPhone(b.telnyx_phone || '')
+          setStripeAccountId(b.stripe_account_id || '')
+          setGooglePlaceId(b.google_place_id || '')
+          setBusinessPhone(b.phone || '')
+          setBusinessEmail(b.email || '')
+          setWebsiteUrl(b.website_url || '')
+          setBusinessAddress(b.address || '')
+          setTagline(b.tagline || '')
+          setLogoUrl(b.logo_url || '')
+          setPrimaryColor(b.primary_color || '#0d9488')
+          setSecondaryColor(b.secondary_color || '')
+          setBusinessHours(b.business_hours || '')
         }
         setLoading(false)
       })
@@ -235,6 +279,7 @@ export default function BusinessDetailPage() {
 
   const tabs = [
     { key: 'onboarding' as const, label: `Onboarding (${pct}%)` },
+    { key: 'integrations' as const, label: 'Integrations' },
     { key: 'billing' as const, label: 'Billing' },
     { key: 'contact' as const, label: 'Contact & Access' },
     { key: 'notes' as const, label: 'Notes' },
@@ -436,6 +481,176 @@ export default function BusinessDetailPage() {
           ) : (
             <p className="text-slate-400">No checklist data available.</p>
           )}
+        </div>
+      )}
+
+      {/* TAB: Integrations */}
+      {tab === 'integrations' && (
+        <div className="max-w-2xl space-y-8">
+
+          {/* Business Info */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-4 pb-2 border-b border-slate-200">Business Info</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Business Phone</label>
+                <input value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)}
+                  placeholder="+12125551234" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Business Email</label>
+                <input value={businessEmail} onChange={(e) => setBusinessEmail(e.target.value)}
+                  placeholder="hello@business.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-slate-400 uppercase">Address</label>
+                <input value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)}
+                  placeholder="123 Main St, City, ST 12345" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-slate-400 uppercase">Website URL</label>
+                <input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://business.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-slate-400 uppercase">Tagline</label>
+                <input value={tagline} onChange={(e) => setTagline(e.target.value)}
+                  placeholder="Your trusted local cleaning service" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-slate-400 uppercase">Business Hours</label>
+                <input value={businessHours} onChange={(e) => setBusinessHours(e.target.value)}
+                  placeholder="Mon-Fri 9am-5pm" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+            </div>
+          </div>
+
+          {/* Branding */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-4 pb-2 border-b border-slate-200">Branding</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="text-xs text-slate-400 uppercase">Logo URL</label>
+                <input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+                {logoUrl && <img src={logoUrl} alt="Logo preview" className="mt-2 h-10 object-contain" />}
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Primary Color</label>
+                <div className="flex gap-2 mt-1">
+                  <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-10 h-10 rounded border border-slate-300 cursor-pointer" />
+                  <input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Secondary Color</label>
+                <div className="flex gap-2 mt-1">
+                  <input type="color" value={secondaryColor || '#64748b'} onChange={(e) => setSecondaryColor(e.target.value)}
+                    className="w-10 h-10 rounded border border-slate-300 cursor-pointer" />
+                  <input value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)}
+                    placeholder="#64748b" className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Resend — Email */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Resend — Email</h3>
+            <p className="text-xs text-slate-400 mb-4">API key and sending domain from Resend dashboard</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 uppercase">API Key</label>
+                <input value={resendApiKey} onChange={(e) => setResendApiKey(e.target.value)} type="password"
+                  placeholder="re_xxxxxxxxx" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-slate-400 uppercase">Sending Domain</label>
+                  <input value={resendDomain} onChange={(e) => setResendDomain(e.target.value)}
+                    placeholder="send.business.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 uppercase">From Address</label>
+                  <input value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)}
+                    placeholder="hello@send.business.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Telnyx — SMS */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Telnyx — SMS</h3>
+            <p className="text-xs text-slate-400 mb-4">API key and phone number from Telnyx dashboard</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-slate-400 uppercase">API Key</label>
+                <input value={telnyxApiKey} onChange={(e) => setTelnyxApiKey(e.target.value)} type="password"
+                  placeholder="KEY_xxxxxxxxx" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Phone Number</label>
+                <input value={telnyxPhone} onChange={(e) => setTelnyxPhone(e.target.value)}
+                  placeholder="+12125551234" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+            </div>
+          </div>
+
+          {/* Stripe — Payments */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Stripe — Payments</h3>
+            <p className="text-xs text-slate-400 mb-4">Stripe Connect account ID</p>
+            <div>
+              <label className="text-xs text-slate-400 uppercase">Account ID</label>
+              <input value={stripeAccountId} onChange={(e) => setStripeAccountId(e.target.value)}
+                placeholder="acct_xxxxxxxxx" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+            </div>
+          </div>
+
+          {/* Google — Reviews & Posts */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Google — Business Profile</h3>
+            <p className="text-xs text-slate-400 mb-4">Place ID for reviews. OAuth handled via Connect button in dashboard.</p>
+            <div>
+              <label className="text-xs text-slate-400 uppercase">Google Place ID</label>
+              <input value={googlePlaceId} onChange={(e) => setGooglePlaceId(e.target.value)}
+                placeholder="ChIJxxxxxxxxx" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+            </div>
+            {biz.google_tokens?.refresh_token && (
+              <p className="text-xs text-green-600 mt-2">Google OAuth connected</p>
+            )}
+            {biz.google_business?.location_title && (
+              <p className="text-xs text-slate-500 mt-1">Location: {biz.google_business.location_title}</p>
+            )}
+          </div>
+
+          {/* Save */}
+          <div className="pt-4 border-t border-slate-200">
+            <button onClick={() => save({
+              resend_api_key: resendApiKey || null,
+              resend_domain: resendDomain || null,
+              email_from: emailFrom || null,
+              telnyx_api_key: telnyxApiKey || null,
+              telnyx_phone: telnyxPhone || null,
+              stripe_account_id: stripeAccountId || null,
+              google_place_id: googlePlaceId || null,
+              phone: businessPhone || null,
+              email: businessEmail || null,
+              website_url: websiteUrl || null,
+              address: businessAddress || null,
+              tagline: tagline || null,
+              business_hours: businessHours || null,
+              logo_url: logoUrl || null,
+              primary_color: primaryColor,
+              secondary_color: secondaryColor || null,
+            })} disabled={saving}
+              className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-lg text-sm font-cta font-bold disabled:opacity-50 transition-colors">
+              {saving ? 'Saving...' : saved ? 'Saved!' : 'Save All Integrations'}
+            </button>
+          </div>
         </div>
       )}
 
