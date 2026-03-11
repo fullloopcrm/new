@@ -14,10 +14,9 @@ export default function AdminLogout() {
   return (
     <button
       onClick={handleLogout}
-      className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-red-900/30 hover:text-red-400 transition-all duration-150"
+      className="block w-full text-left px-5 py-2.5 text-[15px] font-heading font-semibold text-white/50 hover:text-white hover:bg-white/10 transition-colors"
     >
-      <span className="opacity-60">⏻</span>
-      <span className="font-medium">Logout</span>
+      Logout
     </button>
   )
 }

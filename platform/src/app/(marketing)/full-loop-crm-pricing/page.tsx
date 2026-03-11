@@ -25,12 +25,12 @@ export const metadata: Metadata = {
     "all-in-one CRM pricing",
     "Full Loop CRM pricing",
   ],
-  alternates: { canonical: "https://fullloopcrm.com/full-loop-crm-pricing" },
+  alternates: { canonical: "https://www.fullloopcrm.com/full-loop-crm-pricing" },
   openGraph: {
     title: "Pricing | Full Loop CRM — $2,500/mo All-Inclusive",
     description:
       "One flat price. No tiers, no upsells, no hidden fees. Everything your home service business needs for $2,500/mo.",
-    url: "https://fullloopcrm.com/full-loop-crm-pricing",
+    url: "https://www.fullloopcrm.com/full-loop-crm-pricing",
     siteName: "Full Loop CRM",
     type: "website",
   },
@@ -46,8 +46,8 @@ export const metadata: Metadata = {
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 const breadcrumbs = [
-  { name: "Home", url: "https://fullloopcrm.com" },
-  { name: "Pricing", url: "https://fullloopcrm.com/full-loop-crm-pricing" },
+  { name: "Home", url: "https://www.fullloopcrm.com" },
+  { name: "Pricing", url: "https://www.fullloopcrm.com/full-loop-crm-pricing" },
 ];
 
 const includedFeatures = [
@@ -147,7 +147,7 @@ export default function PricingPage() {
         data={webPageSchema(
           "Pricing | Full Loop CRM",
           "One flat price, zero tiers, zero upsells. Full Loop CRM replaces your receptionist, salesperson, CRM, website, SEO, review management, and retargeting for $2,500/mo.",
-          "https://fullloopcrm.com/full-loop-crm-pricing",
+          "https://www.fullloopcrm.com/full-loop-crm-pricing",
           breadcrumbs
         )}
       />

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
+import AdminTodoList from './AdminTodoList'
 
 export default async function AdminOverviewPage() {
   const now = new Date()
@@ -50,9 +51,12 @@ export default async function AdminOverviewPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold font-heading">Platform Overview</h1>
-        <p className="text-sm text-slate-400">All businesses across Full Loop CRM</p>
+        <h1 className="text-slate-900 font-heading text-2xl font-bold">Platform Overview</h1>
+        <p className="text-sm text-slate-500">All businesses across Full Loop CRM</p>
       </div>
+
+      {/* BUILD TO-DO */}
+      <AdminTodoList />
 
       {/* STAT CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
@@ -63,49 +67,49 @@ export default async function AdminOverviewPage() {
           { label: '30-Day Revenue', value: fmt(monthlyRevenue), color: 'border-l-purple-500' },
           { label: 'Pending Requests', value: pendingRequests || 0, color: 'border-l-yellow-500' },
         ].map((s) => (
-          <div key={s.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${s.color} p-5`}>
-            <p className="text-[11px] text-slate-400 uppercase tracking-wide">{s.label}</p>
-            <p className="text-2xl font-bold font-mono mt-1">{s.value}</p>
+          <div key={s.label} className={`border-l-4 ${s.color} pl-4 py-3`}>
+            <p className="text-[11px] text-slate-500 uppercase tracking-wide">{s.label}</p>
+            <p className="text-2xl font-bold font-mono mt-1 text-slate-900">{s.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 mb-6 border-b border-slate-200 pb-6">
         {[
           { label: 'Bookings', value: totalBookings || 0, href: '/admin/analytics' },
           { label: 'Clients', value: totalClients || 0 },
           { label: 'Team Members', value: totalTeamMembers || 0 },
         ].map((s) => (
-          <div key={s.label} className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+          <div key={s.label} className="py-3">
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[11px] text-slate-400 uppercase tracking-wide">{s.label}</p>
-              {s.href && <Link href={s.href} className="text-[10px] text-teal-400 hover:text-teal-300">View</Link>}
+              <p className="text-[11px] text-slate-500 uppercase tracking-wide">{s.label}</p>
+              {s.href && <Link href={s.href} className="text-[10px] text-teal-600 hover:text-teal-700">View</Link>}
             </div>
-            <p className="text-xl font-bold font-mono">{s.value}</p>
+            <p className="text-xl font-bold font-mono text-slate-900">{s.value}</p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* RECENT SIGNUPS */}
-        <div className="bg-slate-800 border border-slate-700 rounded-xl">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
-            <h2 className="font-semibold text-sm">Recent Signups</h2>
-            <Link href="/admin/businesses" className="text-xs text-teal-400 hover:text-teal-300">View All</Link>
+        <div>
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
+            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Recent Signups</h2>
+            <Link href="/admin/businesses" className="text-xs text-teal-600 hover:text-teal-700">View All</Link>
           </div>
-          <div className="divide-y divide-slate-700/50">
+          <div className="divide-y divide-slate-200">
             {(recentTenants || []).map((t) => (
               <Link key={t.id} href={`/admin/businesses/${t.id}`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-slate-700/30 transition-colors">
+                className="flex items-center justify-between py-3 hover:bg-slate-50 transition-colors">
                 <div>
-                  <p className="text-sm font-medium">{t.name}</p>
-                  <p className="text-xs text-slate-400 capitalize">{t.industry?.replace(/_/g, ' ')}</p>
+                  <p className="text-sm font-medium text-slate-900">{t.name}</p>
+                  <p className="text-xs text-slate-500 capitalize">{t.industry?.replace(/_/g, ' ')}</p>
                 </div>
                 <div className="text-right">
                   <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${
-                    t.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                    t.status === 'setup' ? 'bg-teal-500/20 text-teal-400' :
-                    'bg-slate-600 text-slate-400'
+                    t.status === 'active' ? 'bg-green-50 text-green-600 border border-green-200' :
+                    t.status === 'setup' ? 'bg-teal-50 text-teal-600 border border-teal-200' :
+                    'bg-slate-200 text-slate-400'
                   }`}>
                     {t.status}
                   </span>
@@ -114,66 +118,66 @@ export default async function AdminOverviewPage() {
               </Link>
             ))}
             {(!recentTenants || recentTenants.length === 0) && (
-              <div className="px-5 py-8 text-center text-slate-400 text-sm">No businesses yet</div>
+              <div className="py-8 text-center text-slate-500 text-sm">No businesses yet</div>
             )}
           </div>
         </div>
 
         {/* RECENT ANNOUNCEMENTS */}
-        <div className="bg-slate-800 border border-slate-700 rounded-xl">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
-            <h2 className="font-semibold text-sm">Recent Announcements</h2>
-            <Link href="/admin/announcements" className="text-xs text-teal-400 hover:text-teal-300">Manage</Link>
+        <div>
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
+            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Recent Announcements</h2>
+            <Link href="/admin/announcements" className="text-xs text-teal-600 hover:text-teal-700">Manage</Link>
           </div>
-          <div className="divide-y divide-slate-700/50">
+          <div className="divide-y divide-slate-200">
             {(recentAnnouncements || []).map((a) => (
-              <div key={a.id} className="flex items-center justify-between px-5 py-3">
+              <div key={a.id} className="flex items-center justify-between py-3">
                 <div>
-                  <p className="text-sm font-medium">{a.title}</p>
-                  <p className="text-xs text-slate-400 capitalize">{a.type}</p>
+                  <p className="text-sm font-medium text-slate-900">{a.title}</p>
+                  <p className="text-xs text-slate-500 capitalize">{a.type}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${a.published ? 'bg-green-400' : 'bg-slate-600'}`} />
-                  <span className="text-xs text-slate-400">{new Date(a.created_at).toLocaleDateString()}</span>
+                  <span className={`w-2 h-2 rounded-full ${a.published ? 'bg-green-400' : 'bg-slate-200'}`} />
+                  <span className="text-xs text-slate-500">{new Date(a.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
             ))}
             {(!recentAnnouncements || recentAnnouncements.length === 0) && (
-              <div className="px-5 py-8 text-center text-slate-400 text-sm">No announcements yet</div>
+              <div className="py-8 text-center text-slate-500 text-sm">No announcements yet</div>
             )}
           </div>
         </div>
       </div>
 
       {/* RECENT REQUESTS */}
-      <div className="bg-slate-800 border border-slate-700 border-l-4 border-l-yellow-500 rounded-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+      <div className="border-l-4 border-l-yellow-500 pl-4">
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
           <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-sm">Recent Requests</h2>
+            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Recent Requests</h2>
             {(pendingRequests || 0) > 0 && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-yellow-500/20 text-yellow-400">
+              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-yellow-50 text-yellow-600 border border-yellow-200">
                 {pendingRequests} pending
               </span>
             )}
           </div>
-          <Link href="/admin/requests" className="text-xs text-teal-400 hover:text-teal-300">View All</Link>
+          <Link href="/admin/requests" className="text-xs text-teal-600 hover:text-teal-700">View All</Link>
         </div>
-        <div className="divide-y divide-slate-700/50">
+        <div className="divide-y divide-slate-200">
           {(recentRequests || []).map((r) => (
             <Link key={r.id} href="/admin/requests"
-              className="flex items-center justify-between px-5 py-3 hover:bg-slate-700/30 transition-colors">
+              className="flex items-center justify-between py-3 hover:bg-slate-50 transition-colors">
               <div>
-                <p className="text-sm font-medium">{r.business_name}</p>
-                <p className="text-xs text-slate-400 capitalize">{r.service_category?.replace(/_/g, ' ')}</p>
+                <p className="text-sm font-medium text-slate-900">{r.business_name}</p>
+                <p className="text-xs text-slate-500 capitalize">{r.service_category?.replace(/_/g, ' ')}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-slate-400">{r.city}, {r.state}</p>
+                <p className="text-xs text-slate-500">{r.city}, {r.state}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{timeAgo(r.created_at)}</p>
               </div>
             </Link>
           ))}
           {(!recentRequests || recentRequests.length === 0) && (
-            <div className="px-5 py-8 text-center text-slate-400 text-sm">No pending requests</div>
+            <div className="py-8 text-center text-slate-500 text-sm">No pending requests</div>
           )}
         </div>
       </div>

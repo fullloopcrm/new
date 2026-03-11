@@ -115,7 +115,7 @@ export default function SchedulesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-white">Schedules</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Schedules</h2>
           <p className="text-sm text-slate-400">{schedules.length} total &middot; {activeCount} active &middot; {pausedCount} paused</p>
         </div>
         <button onClick={() => setShowCreate(!showCreate)}
@@ -132,22 +132,22 @@ export default function SchedulesPage() {
           { label: 'Paused', value: pausedCount, color: 'border-l-yellow-500' },
           { label: 'Weekly', value: schedules.filter(s => s.recurring_type === 'weekly').length, color: 'border-l-blue-500' },
         ].map((card) => (
-          <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
+          <div key={card.label} className={`border border-slate-200 rounded-lg border-l-4 ${card.color} p-5`}>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-            <p className="text-2xl font-bold text-white mt-1">{card.value}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{card.value}</p>
           </div>
         ))}
       </div>
 
       {/* CREATE FORM */}
       {showCreate && (
-        <form onSubmit={createSchedule} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-          <h3 className="font-semibold text-white mb-4">Create Recurring Schedule</h3>
+        <form onSubmit={createSchedule} className="border border-slate-200 rounded-lg p-6 mb-6">
+          <h3 className="font-semibold text-slate-900 mb-4">Create Recurring Schedule</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Client *</label>
               <select value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} required
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 <option value="">Select Client</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -155,7 +155,7 @@ export default function SchedulesPage() {
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Team Member</label>
               <select value={form.team_member_id} onChange={(e) => setForm({ ...form, team_member_id: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 <option value="">Select Team Member</option>
                 {team.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
@@ -163,7 +163,7 @@ export default function SchedulesPage() {
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Service</label>
               <select value={form.service_type_id} onChange={(e) => setForm({ ...form, service_type_id: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 <option value="">Select Service</option>
                 {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -171,7 +171,7 @@ export default function SchedulesPage() {
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Frequency</label>
               <select value={form.recurring_type} onChange={(e) => setForm({ ...form, recurring_type: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 <option value="weekly">Weekly</option>
                 <option value="biweekly">Every 2 Weeks</option>
                 <option value="triweekly">Every 3 Weeks</option>
@@ -182,24 +182,24 @@ export default function SchedulesPage() {
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Day</label>
               <select value={form.day_of_week} onChange={(e) => setForm({ ...form, day_of_week: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Time</label>
               <input type="time" value={form.preferred_time} onChange={(e) => setForm({ ...form, preferred_time: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Duration (hrs)</label>
               <input type="number" step="0.5" value={form.duration_hours} onChange={(e) => setForm({ ...form, duration_hours: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="md:col-span-2">
               <label className="text-xs text-slate-400 uppercase mb-1 block">Notes</label>
               <input placeholder="Special instructions..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
           <div className="flex gap-2">
@@ -207,7 +207,7 @@ export default function SchedulesPage() {
               className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
               {saving ? 'Creating...' : 'Create Schedule'}
             </button>
-            <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+            <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
           </div>
         </form>
       )}
@@ -218,7 +218,7 @@ export default function SchedulesPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by client name or service type..."
-          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
+          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
         />
       </div>
 
@@ -229,7 +229,7 @@ export default function SchedulesPage() {
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
               statusFilter === tab.value
                 ? 'bg-teal-600 text-white'
-                : 'text-slate-400 hover:bg-slate-700'
+                : 'text-slate-400 hover:bg-slate-50'
             }`}>
             {tab.label}
           </button>
@@ -237,10 +237,10 @@ export default function SchedulesPage() {
       </div>
 
       {/* TABLE */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-700 text-left text-slate-400">
+            <tr className="border-b border-slate-200 text-left text-slate-400">
               <th className="px-4 py-3 font-medium">Client</th>
               <th className="px-4 py-3 font-medium">Team</th>
               <th className="px-4 py-3 font-medium">Service</th>
@@ -251,9 +251,9 @@ export default function SchedulesPage() {
           </thead>
           <tbody>
             {filtered.map((s) => (
-              <tr key={s.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+              <tr key={s.id} className="border-b border-slate-200/50 hover:bg-slate-50">
                 <td className="px-4 py-3">
-                  <Link href={`/dashboard/schedules/${s.id}`} className="font-medium text-white hover:text-teal-400">
+                  <Link href={`/dashboard/schedules/${s.id}`} className="font-medium text-slate-900 hover:text-teal-600">
                     {s.clients?.name || '—'}
                   </Link>
                 </td>
@@ -261,14 +261,14 @@ export default function SchedulesPage() {
                 <td className="px-4 py-3 text-slate-400">{s.service_types?.name || '—'}</td>
                 <td className="px-4 py-3 text-slate-400">{frequencyLabels[s.recurring_type] || s.recurring_type}</td>
                 <td className="px-4 py-3">
-                  <p className="text-white font-medium">{s.day_of_week != null ? DAYS[s.day_of_week] : '—'}</p>
+                  <p className="text-slate-900 font-medium">{s.day_of_week != null ? DAYS[s.day_of_week] : '—'}</p>
                   <p className="text-xs text-slate-400">{s.preferred_time || ''} {s.duration_hours ? `· ${s.duration_hours}hr` : ''}</p>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                    s.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                    s.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' :
-                    'bg-red-500/20 text-red-400'
+                    s.status === 'active' ? 'bg-green-50 text-green-700' :
+                    s.status === 'paused' ? 'bg-yellow-50 text-yellow-700' :
+                    'bg-red-50 text-red-700'
                   }`}>
                     {s.status}
                   </span>

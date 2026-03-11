@@ -6,6 +6,7 @@ import { downloadCSV } from '@/lib/csv'
 import { formatPhone } from '@/lib/phone'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { CLIENT_STATUS_COLORS } from '@/lib/constants'
 
 type Client = {
   id: string
@@ -35,11 +36,7 @@ const statusTabs = [
   { value: 'do_not_contact', label: 'Do Not Contact' },
 ]
 
-const statusColors: Record<string, string> = {
-  active: 'bg-green-500/20 text-green-400',
-  inactive: 'bg-slate-600 text-slate-400',
-  do_not_contact: 'bg-red-500/20 text-red-400',
-}
+const statusColors = CLIENT_STATUS_COLORS
 
 const sourceLabels: Record<string, string> = {
   manual: 'Manual',
@@ -111,7 +108,6 @@ export default function ClientsPage() {
       setClients((prev) => [client, ...prev])
       setShowAdd(false)
       setForm({ name: '', email: '', phone: '', address: '', source: 'manual' })
-      // Refresh stats
       fetch('/api/clients/stats').then(r => r.json()).then(setStats).catch(() => {})
     }
     setSaving(false)
@@ -120,18 +116,18 @@ export default function ClientsPage() {
   return (
     <div>
       {/* PORTAL LINK */}
-      <div className="flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl px-5 py-3 mb-6">
+      <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-slate-400">Client Portal:</span>
-          <code className="text-blue-400 font-mono text-xs bg-slate-700 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal` : '/portal'}</code>
+          <code className="text-teal-600 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal` : '/portal'}</code>
         </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal`)} className="text-xs text-slate-400 hover:text-white transition-colors">Copy Link</button>
+        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal`)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Copy Link</button>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-white">Clients</h2>
+            <h1 className="text-2xl font-heading font-bold text-slate-900">Clients</h1>
             <p className="text-sm text-slate-400">{total} total clients</p>
           </div>
           <PageSettingsGear open={clientsSettings.open} setOpen={clientsSettings.setOpen} title="Clients" />
@@ -139,12 +135,12 @@ export default function ClientsPage() {
         <div className="flex gap-2">
           <button
             onClick={() => downloadCSV(clients as unknown as Record<string, unknown>[], 'clients', ['name', 'email', 'phone', 'address', 'status', 'source', 'created_at'])}
-            className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg"
+            className="text-sm text-slate-500 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg"
           >
             Export CSV
           </button>
           <button onClick={() => setShowAdd(!showAdd)}
-            className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
+            className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition-colors">
             {showAdd ? 'Cancel' : '+ Add Client'}
           </button>
         </div>
@@ -163,55 +159,43 @@ export default function ClientsPage() {
         {({ config, updateConfig }) => (
           <div className="space-y-5">
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Client Status</label>
+              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Default Client Status</label>
               <select
                 value={(config.default_status as string) || 'active'}
                 onChange={(e) => updateConfig('default_status', e.target.value)}
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               >
                 <option value="active">Active</option>
                 <option value="lead">Lead</option>
               </select>
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Days inactive before At-Risk</label>
-              <input
-                type="number"
-                min="1"
-                value={(config.at_risk_days as number) || 30}
+              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Days inactive before At-Risk</label>
+              <input type="number" min="1" value={(config.at_risk_days as number) || 30}
                 onChange={(e) => updateConfig('at_risk_days', parseInt(e.target.value) || 30)}
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-32"
-              />
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32" />
               <span className="text-xs text-slate-400 ml-2">days</span>
             </div>
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Days inactive before Churned</label>
-              <input
-                type="number"
-                min="1"
-                value={(config.churned_days as number) || 60}
+              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Days inactive before Churned</label>
+              <input type="number" min="1" value={(config.churned_days as number) || 60}
                 onChange={(e) => updateConfig('churned_days', parseInt(e.target.value) || 60)}
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-32"
-              />
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32" />
               <span className="text-xs text-slate-400 ml-2">days</span>
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-300">Require phone number</label>
-              <button
-                onClick={() => updateConfig('require_phone', !config.require_phone)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_phone ? 'bg-teal-600' : 'bg-slate-600'}`}
-              >
+              <label className="text-sm text-slate-700">Require phone number</label>
+              <button onClick={() => updateConfig('require_phone', !config.require_phone)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_phone ? 'bg-teal-600' : 'bg-slate-300'}`}>
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.require_phone ? 'translate-x-5' : ''}`} />
               </button>
             </div>
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-300">Require email address</label>
-              <button
-                onClick={() => updateConfig('require_email', !config.require_email)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_email ? 'bg-teal-600' : 'bg-slate-600'}`}
-              >
+              <label className="text-sm text-slate-700">Require email address</label>
+              <button onClick={() => updateConfig('require_email', !config.require_email)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_email ? 'bg-teal-600' : 'bg-slate-300'}`}>
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.require_email ? 'translate-x-5' : ''}`} />
               </button>
             </div>
@@ -223,16 +207,16 @@ export default function ClientsPage() {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           {[
-            { label: 'Total', value: stats.total, color: 'border-l-gray-400' },
+            { label: 'Total', value: stats.total, color: 'border-l-slate-400' },
             { label: 'Active', value: stats.active, color: 'border-l-green-500' },
             { label: 'New', value: stats.newThisMonth, color: 'border-l-blue-500', sub: 'this month' },
-            { label: 'Inactive', value: stats.inactive, color: 'border-l-gray-300' },
+            { label: 'Inactive', value: stats.inactive, color: 'border-l-slate-300' },
             { label: 'Referrals', value: stats.referrals, color: 'border-l-purple-500' },
             { label: 'Avg LTV', value: fmt(stats.avgLtv), color: 'border-l-orange-500' },
           ].map((card) => (
-            <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-4`}>
-              <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-              <p className="text-xl font-bold text-white mt-1">{card.value}</p>
+            <div key={card.label} className={`border-l-4 ${card.color} pl-3 py-2`}>
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide">{card.label}</p>
+              <p className="text-xl font-bold font-mono text-slate-900">{card.value}</p>
               {card.sub && <p className="text-[10px] text-slate-400">{card.sub}</p>}
             </div>
           ))}
@@ -241,28 +225,28 @@ export default function ClientsPage() {
 
       {/* ADD FORM */}
       {showAdd && (
-        <form onSubmit={addClient} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-          <h3 className="font-semibold text-white mb-4">Add Client</h3>
+        <form onSubmit={addClient} className="border border-slate-200 rounded-lg p-6 mb-6">
+          <h3 className="font-semibold text-slate-900 mb-4">Add Client</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="text-xs text-slate-400 uppercase mb-1 block">Name *</label>
-              <input placeholder="Jane Smith" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-500 uppercase mb-1 block">Name *</label>
+              <input placeholder="Jane Smith" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-slate-400 uppercase mb-1 block">Email</label>
-              <input placeholder="jane@example.com" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-500 uppercase mb-1 block">Email</label>
+              <input placeholder="jane@example.com" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-slate-400 uppercase mb-1 block">Phone</label>
-              <input placeholder="(555) 123-4567" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-500 uppercase mb-1 block">Phone</label>
+              <input placeholder="(555) 123-4567" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-slate-400 uppercase mb-1 block">Address</label>
-              <AddressAutocomplete value={form.address} onChange={(v) => setForm({ ...form, address: v })} placeholder="123 Main St, City, State" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <label className="text-xs text-slate-500 uppercase mb-1 block">Address</label>
+              <AddressAutocomplete value={form.address} onChange={(v) => setForm({ ...form, address: v })} placeholder="123 Main St, City, State" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-slate-400 uppercase mb-1 block">Source</label>
-              <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+              <label className="text-xs text-slate-500 uppercase mb-1 block">Source</label>
+              <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 <option value="manual">Manual</option>
                 <option value="referral">Referral</option>
                 <option value="website">Website</option>
@@ -273,10 +257,10 @@ export default function ClientsPage() {
           </div>
           <div className="flex gap-2">
             <button type="submit" disabled={saving || !form.name}
-              className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
+              className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
               {saving ? 'Saving...' : 'Save Client'}
             </button>
-            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
           </div>
         </form>
       )}
@@ -287,7 +271,7 @@ export default function ClientsPage() {
           placeholder="Search by name, email, phone..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-          className="w-full md:w-64 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+          className="w-full md:w-64 border border-slate-200 rounded-lg px-3 py-2 text-sm"
         />
         <div className="flex gap-1">
           {statusTabs.map((tab) => (
@@ -295,7 +279,7 @@ export default function ClientsPage() {
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 statusFilter === tab.value
                   ? 'bg-teal-600 text-white'
-                  : 'text-slate-400 hover:bg-slate-700'
+                  : 'text-slate-500 hover:bg-slate-100'
               }`}>
               {tab.label}
             </button>
@@ -305,10 +289,10 @@ export default function ClientsPage() {
 
       {/* BULK ACTIONS */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-4">
-          <span className="text-sm text-white font-medium">{selected.size} selected</span>
+        <div className="flex items-center gap-3 border border-slate-200 rounded-lg px-4 py-3 mb-4">
+          <span className="text-sm text-slate-900 font-medium">{selected.size} selected</span>
           <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value)}
-            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm">
+            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm">
             <option value="">Bulk action...</option>
             <option value="active">Set Active</option>
             <option value="inactive">Set Inactive</option>
@@ -330,7 +314,6 @@ export default function ClientsPage() {
             }
             setSelected(new Set())
             setBulkAction('')
-            // Refresh
             const params = new URLSearchParams()
             if (search) params.set('search', search)
             if (statusFilter) params.set('status', statusFilter)
@@ -338,25 +321,23 @@ export default function ClientsPage() {
             fetch(`/api/clients?${params}`).then(r => r.json()).then(data => { setClients(data.clients || []); setTotal(data.total || 0) })
             fetch('/api/clients/stats').then(r => r.json()).then(setStats).catch(() => {})
           }} disabled={!bulkAction}
-            className="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
+            className="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold disabled:opacity-50">
             Apply
           </button>
-          <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-white ml-auto">
-            Clear
-          </button>
+          <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-900 ml-auto">Clear</button>
         </div>
       )}
 
       {/* TABLE */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-700 text-left text-slate-400">
+            <tr className="border-b border-slate-200 text-left text-slate-500">
               <th className="px-4 py-3 w-10">
                 <input type="checkbox"
                   checked={selected.size === clients.length && clients.length > 0}
                   onChange={(e) => setSelected(e.target.checked ? new Set(clients.map(c => c.id)) : new Set())}
-                  className="rounded border-slate-600 bg-slate-700"
+                  className="rounded border-slate-300"
                 />
               </th>
               <th className="px-4 py-3 font-medium">Client</th>
@@ -368,7 +349,7 @@ export default function ClientsPage() {
           </thead>
           <tbody>
             {clients.map((c) => (
-              <tr key={c.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+              <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="px-4 py-3">
                   <input type="checkbox"
                     checked={selected.has(c.id)}
@@ -377,30 +358,30 @@ export default function ClientsPage() {
                       e.target.checked ? next.add(c.id) : next.delete(c.id)
                       setSelected(next)
                     }}
-                    className="rounded border-slate-600 bg-slate-700"
+                    className="rounded border-slate-300"
                   />
                 </td>
                 <td className="px-4 py-3">
                   <Link href={`/dashboard/clients/${c.id}`} className="flex items-center gap-3 group">
-                    <div className={`w-8 h-8 rounded-full ${avatarColor(c.name)} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+                    <div className={`w-8 h-8 rounded-full ${avatarColor(c.name)} flex items-center justify-center text-slate-900 text-xs font-bold flex-shrink-0`}>
                       {initials(c.name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-white group-hover:text-teal-400 truncate">{c.name}</p>
+                      <p className="font-medium text-slate-900 group-hover:text-teal-600 truncate">{c.name}</p>
                       {c.address && <p className="text-[11px] text-slate-400 truncate max-w-[200px]">{c.address}</p>}
                     </div>
                   </Link>
                 </td>
                 <td className="px-4 py-3">
-                  {c.email && <p className="text-sm text-slate-400">{c.email}</p>}
+                  {c.email && <p className="text-sm text-slate-600">{c.email}</p>}
                   {c.phone && <p className="text-xs text-slate-400">{c.phone}</p>}
-                  {!c.email && !c.phone && <span className="text-slate-500">—</span>}
+                  {!c.email && !c.phone && <span className="text-slate-300">—</span>}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs text-slate-400">{sourceLabels[c.source || 'unknown'] || c.source}</span>
+                  <span className="text-xs text-slate-500">{sourceLabels[c.source || 'unknown'] || c.source}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[c.status] || 'bg-slate-600 text-slate-400'}`}>
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[c.status] || 'bg-slate-100 text-slate-500'}`}>
                     {c.status.replace('_', ' ')}
                   </span>
                 </td>
@@ -419,10 +400,10 @@ export default function ClientsPage() {
       {total > 50 && (
         <div className="flex items-center justify-center gap-2 mt-4">
           <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-            className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700">Previous</button>
+            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50">Previous</button>
           <span className="px-3 py-1.5 text-sm text-slate-400">Page {page} of {Math.ceil(total / 50)}</span>
           <button onClick={() => setPage((p) => p + 1)} disabled={page * 50 >= total}
-            className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700">Next</button>
+            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50">Next</button>
         </div>
       )}
     </div>

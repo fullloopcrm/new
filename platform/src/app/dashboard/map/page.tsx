@@ -227,19 +227,19 @@ export default function MapPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">Job Map</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Job Map</h2>
           <p className="text-sm text-slate-400">All jobs mapped by client location</p>
         </div>
         <button
           onClick={() => setShowStats(!showStats)}
-          className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg md:hidden"
+          className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg md:hidden"
         >
           {showStats ? 'Hide Stats' : 'Show Stats'}
         </button>
       </div>
 
       {/* Filter bar */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4 space-y-3">
+      <div className="border border-slate-200 rounded-lg p-4 mb-4 space-y-3">
         {/* Row 1: Status tabs */}
         <div className="flex flex-wrap gap-1">
           {statusTabs.map((tab) => (
@@ -249,7 +249,7 @@ export default function MapPage() {
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 statusFilter === tab.value
                   ? 'bg-teal-600 text-white'
-                  : 'text-slate-400 hover:bg-slate-700'
+                  : 'text-slate-400 hover:bg-slate-50'
               }`}
             >
               {tab.label}
@@ -267,7 +267,7 @@ export default function MapPage() {
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   dateRange === dr.value
                     ? 'bg-teal-600 text-white'
-                    : 'text-slate-400 hover:bg-slate-700'
+                    : 'text-slate-400 hover:bg-slate-50'
                 }`}
               >
                 {dr.label}
@@ -278,7 +278,7 @@ export default function MapPage() {
           <select
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
-            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-300"
+            className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700"
           >
             <option value="">All Team Members</option>
             {team.map((t) => (
@@ -292,7 +292,7 @@ export default function MapPage() {
             placeholder="Search by client name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full md:w-64 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500"
+            className="w-full md:w-64 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder-gray-500"
           />
 
           {geocoding && (
@@ -306,7 +306,7 @@ export default function MapPage() {
       {/* Main content: map + stats sidebar */}
       <div className="flex gap-4 flex-1">
         {/* Map */}
-        <div className="flex-1 bg-slate-800 border border-slate-700 rounded-xl overflow-hidden min-h-[600px]">
+        <div className="flex-1 border border-slate-200 rounded-lg overflow-hidden min-h-[600px]">
           <MapView bookings={filteredBookings} fmt={fmt} />
         </div>
 
@@ -314,13 +314,13 @@ export default function MapPage() {
         <div
           className={`w-64 shrink-0 space-y-3 ${showStats ? 'block' : 'hidden'} md:block`}
         >
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-white mb-3">Map Summary</h3>
+          <div className="border border-slate-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-slate-900 mb-3">Map Summary</h3>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-400">Total Shown</span>
-                <span className="text-sm font-bold text-white">{stats.total}</span>
+                <span className="text-sm font-bold text-slate-900">{stats.total}</span>
               </div>
 
               {bookings.length > 0 && bookings.length !== filteredBookings.length && (
@@ -332,8 +332,8 @@ export default function MapPage() {
             </div>
           </div>
 
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-white mb-3">By Status</h3>
+          <div className="border border-slate-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-slate-900 mb-3">By Status</h3>
             <div className="space-y-2">
               {Object.entries(stats.counts)
                 .sort(([a], [b]) => a.localeCompare(b))
@@ -345,7 +345,7 @@ export default function MapPage() {
                         {status.replace('_', ' ')}
                       </span>
                     </div>
-                    <span className="text-sm font-medium text-white">{count}</span>
+                    <span className="text-sm font-medium text-slate-900">{count}</span>
                   </div>
                 ))}
               {Object.keys(stats.counts).length === 0 && (
@@ -355,8 +355,8 @@ export default function MapPage() {
           </div>
 
           {/* Legend */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-white mb-3">Legend</h3>
+          <div className="border border-slate-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-slate-900 mb-3">Legend</h3>
             <div className="space-y-1.5">
               {[
                 { label: 'Scheduled', color: '#3b82f6' },

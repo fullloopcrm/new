@@ -33,39 +33,43 @@ export const useTeamAuth = () => useContext(AuthContext)
 export default function TeamLayout({ children }: { children: React.ReactNode }) {
   const [auth, setAuthState] = useState<AuthState>(null)
   const [lang, setLangState] = useState<Lang>('en')
+  const [unreadCount, setUnreadCount] = useState(0)
   const pathname = usePathname()
 
-  // Load from localStorage on mount
   useEffect(() => {
     try {
       const storedAuth = localStorage.getItem(AUTH_KEY)
-      if (storedAuth) {
-        setAuthState(JSON.parse(storedAuth))
-      }
-    } catch {
-      // ignore parse errors
-    }
+      if (storedAuth) setAuthState(JSON.parse(storedAuth))
+    } catch { /* ignore */ }
     try {
       const storedLang = localStorage.getItem(LANG_KEY)
-      if (storedLang === 'en' || storedLang === 'es') {
-        setLangState(storedLang)
-      }
-    } catch {
-      // ignore
-    }
+      if (storedLang === 'en' || storedLang === 'es') setLangState(storedLang)
+    } catch { /* ignore */ }
   }, [])
 
-  // Wrapper that syncs auth to localStorage
+  // Poll notification count
+  useEffect(() => {
+    if (!auth) return
+    function fetchCount() {
+      fetch('/api/team-portal/notifications', { headers: { Authorization: `Bearer ${auth!.token}` } })
+        .then((r) => r.json())
+        .then((data) => {
+          const notifs = data.notifications || []
+          setUnreadCount(notifs.filter((n: { read: boolean }) => !n.read).length)
+        })
+        .catch(() => {})
+    }
+    fetchCount()
+    const interval = setInterval(fetchCount, 60000)
+    return () => clearInterval(interval)
+  }, [auth])
+
   const setAuth = useCallback((a: AuthState) => {
     setAuthState(a)
-    if (a) {
-      localStorage.setItem(AUTH_KEY, JSON.stringify(a))
-    } else {
-      localStorage.removeItem(AUTH_KEY)
-    }
+    if (a) localStorage.setItem(AUTH_KEY, JSON.stringify(a))
+    else localStorage.removeItem(AUTH_KEY)
   }, [])
 
-  // Wrapper that syncs lang to localStorage
   const setLang = useCallback((l: Lang) => {
     setLangState(l)
     localStorage.setItem(LANG_KEY, l)
@@ -74,9 +78,9 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
   const t = (en: string, es: string) => (lang === 'es' ? es : en)
 
   const navItems = [
-    { href: '/team', icon: '\u25EB', label: t('Jobs', 'Trabajos') },
+    { href: '/team', icon: '◻', label: t('Jobs', 'Trabajos') },
     { href: '/team/earnings', icon: '$', label: t('Earnings', 'Ganancias') },
-    { href: '/team/availability', icon: '\u25C8', label: t('Schedule', 'Horario') },
+    { href: '/team/availability', icon: '◈', label: t('Schedule', 'Horario') },
     { href: '/team/jobs', icon: '!', label: t('Open', 'Abierto') },
   ]
 
@@ -97,19 +101,18 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
                 >
                   {lang === 'en' ? 'ES' : 'EN'}
                 </button>
-                <Link
-                  href="/team/rules"
-                  className="text-xs bg-gray-100 px-2 py-1 rounded font-medium text-slate-500"
-                >
+                <Link href="/team/rules" className="text-xs bg-gray-100 px-2 py-1 rounded font-medium text-slate-500">
                   {t('Rules', 'Reglas')}
                 </Link>
                 <Link href="/team/notifications" className="relative p-1">
-                  <span className="text-lg">&#x1F514;</span>
+                  <span className="text-lg">🔔</span>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-[16px] text-center leading-none">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
-                <button
-                  onClick={() => setAuth(null)}
-                  className="text-xs text-red-500 font-medium"
-                >
+                <button onClick={() => setAuth(null)} className="text-xs text-red-500 font-medium">
                   {t('Logout', 'Salir')}
                 </button>
               </div>

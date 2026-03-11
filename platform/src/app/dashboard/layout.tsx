@@ -17,14 +17,22 @@ export default async function DashboardLayout({
   const tenant = await getCurrentTenant()
 
   if (!tenant) {
-    const { userId } = await auth()
-    if (userId && SUPER_ADMIN_IDS.includes(userId)) {
-      redirect('/admin')
+    try {
+      const { userId } = await auth()
+      if (userId && SUPER_ADMIN_IDS.includes(userId)) {
+        redirect('/admin')
+      }
+    } catch {
+      // auth() may fail during admin PIN impersonation — that's ok
     }
     redirect('/onboarding')
   }
 
   const impersonating = await isImpersonating()
+
+  // Check if this is admin PIN impersonation (vs Clerk super admin)
+  const cookieStore = await (await import('next/headers')).cookies()
+  const isAdminImpersonation = impersonating && !!cookieStore.get('admin_token')?.value
 
   // Track login activity (only for real users, not impersonation)
   if (!impersonating) {
@@ -50,6 +58,7 @@ export default async function DashboardLayout({
       tenantName={tenant.name}
       primaryColor={tenant.primary_color}
       impersonationBanner={impersonating ? <ImpersonationBanner tenantName={tenant.name} /> : null}
+      isAdminImpersonation={isAdminImpersonation}
     >
       {children}
     </DashboardShell>

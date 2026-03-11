@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from './supabase'
+import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import type { Tenant } from './tenant'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
@@ -14,19 +15,15 @@ export type TenantContext = {
 }
 
 // Auth + tenant lookup — used by every API route
-// Supports admin impersonation via cookie
+// Supports admin impersonation via cookie (PIN auth or Clerk super admin)
 export async function getTenantForRequest(): Promise<TenantContext> {
-  const { userId } = await auth()
-  if (!userId) {
-    throw new AuthError('Unauthorized', 401)
-  }
+  const cookieStore = await cookies()
+  const impersonateId = cookieStore.get(IMPERSONATE_COOKIE)?.value
 
-  // Check impersonation: super admin + cookie = use that tenant
-  if (SUPER_ADMIN_IDS.includes(userId)) {
-    const cookieStore = await cookies()
-    const impersonateId = cookieStore.get(IMPERSONATE_COOKIE)?.value
-
-    if (impersonateId) {
+  // Admin PIN impersonation — no Clerk needed
+  if (impersonateId) {
+    const adminToken = cookieStore.get('admin_token')?.value
+    if (adminToken && verifyAdminToken(adminToken)) {
       const { data: tenant } = await supabaseAdmin
         .from('tenants')
         .select('*')
@@ -35,11 +32,35 @@ export async function getTenantForRequest(): Promise<TenantContext> {
 
       if (tenant) {
         return {
-          userId,
+          userId: 'admin',
           tenantId: tenant.id,
           tenant,
-          role: 'owner', // Admin gets full access when impersonating
+          role: 'owner',
         }
+      }
+    }
+  }
+
+  // Clerk auth flow
+  const { userId } = await auth()
+  if (!userId) {
+    throw new AuthError('Unauthorized', 401)
+  }
+
+  // Clerk super admin impersonation
+  if (SUPER_ADMIN_IDS.includes(userId) && impersonateId) {
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('*')
+      .eq('id', impersonateId)
+      .single()
+
+    if (tenant) {
+      return {
+        userId,
+        tenantId: tenant.id,
+        tenant,
+        role: 'owner',
       }
     }
   }

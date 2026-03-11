@@ -14,22 +14,22 @@ type AuditLog = {
 }
 
 const ACTION_COLORS: Record<string, string> = {
-  created: 'bg-green-500/20 text-green-400',
-  updated: 'bg-blue-500/20 text-blue-400',
-  deleted: 'bg-red-500/20 text-red-400',
-  status_changed: 'bg-yellow-500/20 text-yellow-400',
-  sent: 'bg-purple-500/20 text-purple-400',
-  login: 'bg-indigo-500/20 text-indigo-400',
-  checkin: 'bg-teal-500/20 text-teal-400',
-  checkout: 'bg-teal-500/20 text-teal-400',
-  received: 'bg-emerald-500/20 text-emerald-400',
-  paid: 'bg-emerald-500/20 text-emerald-400',
-  requested: 'bg-orange-500/20 text-orange-400',
+  created: 'bg-green-50 text-green-700',
+  updated: 'bg-blue-50 text-blue-700',
+  deleted: 'bg-red-50 text-red-700',
+  status_changed: 'bg-yellow-50 text-yellow-700',
+  sent: 'bg-purple-50 text-purple-700',
+  login: 'bg-indigo-50 text-indigo-700',
+  checkin: 'bg-teal-50 text-teal-700',
+  checkout: 'bg-teal-50 text-teal-700',
+  received: 'bg-emerald-50 text-emerald-700',
+  paid: 'bg-emerald-50 text-emerald-700',
+  requested: 'bg-orange-50 text-orange-700',
 }
 
 function getActionColor(action: string): string {
   const suffix = action.split('.').pop() || ''
-  return ACTION_COLORS[suffix] || 'bg-slate-600 text-slate-400'
+  return ACTION_COLORS[suffix] || 'bg-slate-100 text-slate-500'
 }
 
 function formatAction(action: string): string {
@@ -69,7 +69,7 @@ export default function ActivityPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-white">Activity Log</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Activity Log</h2>
           <p className="text-sm text-slate-400">{total} total events</p>
         </div>
       </div>
@@ -79,12 +79,12 @@ export default function ActivityPage() {
           placeholder="Search actions..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full md:w-64 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
+          className="w-full md:w-64 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
         />
         <select
           value={entityFilter}
           onChange={e => { setEntityFilter(e.target.value); setPage(1) }}
-          className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+          className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
         >
           <option value="">All entities</option>
           {entityTypes.map(t => (
@@ -93,7 +93,7 @@ export default function ActivityPage() {
         </select>
       </div>
 
-      <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
         <div className="divide-y divide-slate-700/50">
           {filtered.map(log => (
             <div key={log.id} className="px-5 py-3 flex items-start gap-4">
@@ -103,7 +103,7 @@ export default function ActivityPage() {
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-white">{formatAction(log.action)}</p>
+                <p className="text-sm text-slate-900">{formatAction(log.action)}</p>
                 {log.details && (
                   <p className="text-xs text-slate-400 mt-0.5 truncate">
                     {Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
@@ -133,7 +133,7 @@ export default function ActivityPage() {
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700"
+            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50"
           >
             Previous
           </button>
@@ -143,7 +143,7 @@ export default function ActivityPage() {
           <button
             onClick={() => setPage(p => p + 1)}
             disabled={page * limit >= total}
-            className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700"
+            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50"
           >
             Next
           </button>

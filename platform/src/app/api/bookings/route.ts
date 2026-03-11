@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { checkMemberDayOff } from '@/lib/availability'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = url.searchParams.get('date_from')
     const dateTo = url.searchParams.get('date_to')
     const page = parseInt(url.searchParams.get('page') || '1')
-    const limit = parseInt(url.searchParams.get('limit') || '50')
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
     const offset = (page - 1) * limit
 
     let query = supabaseAdmin
@@ -65,6 +66,18 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
+
+    // Check if team member has the day off or doesn't work that day
+    if (validated.team_member_id && validated.start_time && !body.force) {
+      const bookingDate = (validated.start_time as string).split('T')[0]
+      const dayOff = await checkMemberDayOff(tenantId, validated.team_member_id as string, bookingDate)
+      if (dayOff.unavailable) {
+        return NextResponse.json({
+          error: dayOff.reason,
+          unavailable: true,
+        }, { status: 409 })
+      }
+    }
 
     // Check for team member scheduling conflicts
     if (validated.team_member_id && validated.start_time) {

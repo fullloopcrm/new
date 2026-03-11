@@ -7,19 +7,19 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://fullloopcrm.com" },
-  { name: "Terms of Service", url: "https://fullloopcrm.com/terms" },
+  { name: "Home", url: "https://www.fullloopcrm.com" },
+  { name: "Terms of Service", url: "https://www.fullloopcrm.com/terms" },
 ];
 
 export const metadata: Metadata = {
   title: "Terms of Service | Full Loop CRM",
   description:
     "Full Loop CRM terms of service. Read the terms governing use of the Full Loop CRM platform and partnership agreements.",
-  alternates: { canonical: "https://fullloopcrm.com/terms" },
+  alternates: { canonical: "https://www.fullloopcrm.com/terms" },
   openGraph: {
     title: "Terms of Service | Full Loop CRM",
     description: "Terms governing use of the Full Loop CRM platform and partnership agreements.",
-    url: "https://fullloopcrm.com/terms",
+    url: "https://www.fullloopcrm.com/terms",
     type: "website",
   },
   twitter: {
@@ -36,7 +36,7 @@ export default function TermsPage() {
         data={webPageSchema(
           "Terms of Service | Full Loop CRM",
           "Terms governing use of the Full Loop CRM platform.",
-          "https://fullloopcrm.com/terms",
+          "https://www.fullloopcrm.com/terms",
           breadcrumbs
         )}
       />

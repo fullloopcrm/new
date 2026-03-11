@@ -6,9 +6,9 @@ import { JsonLd, organizationSchema, websiteSchema } from '@/lib/schema'
 import '../globals.css'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://fullloopcrm.com'),
+  metadataBase: new URL('https://www.fullloopcrm.com'),
   applicationName: 'Full Loop CRM',
-  authors: [{ name: 'Full Loop CRM', url: 'https://fullloopcrm.com' }],
+  authors: [{ name: 'Full Loop CRM', url: 'https://www.fullloopcrm.com' }],
   creator: 'Full Loop CRM',
   publisher: 'Full Loop CRM',
   formatDetection: { telephone: true, email: true, address: true },

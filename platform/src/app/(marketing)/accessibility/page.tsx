@@ -7,19 +7,19 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://fullloopcrm.com" },
-  { name: "Accessibility", url: "https://fullloopcrm.com/accessibility" },
+  { name: "Home", url: "https://www.fullloopcrm.com" },
+  { name: "Accessibility", url: "https://www.fullloopcrm.com/accessibility" },
 ];
 
 export const metadata: Metadata = {
   title: "Accessibility | Full Loop CRM",
   description:
     "Full Loop CRM is committed to digital accessibility for all users. Learn about our accessibility standards and how to report issues.",
-  alternates: { canonical: "https://fullloopcrm.com/accessibility" },
+  alternates: { canonical: "https://www.fullloopcrm.com/accessibility" },
   openGraph: {
     title: "Accessibility | Full Loop CRM",
     description: "Our commitment to digital accessibility for all users.",
-    url: "https://fullloopcrm.com/accessibility",
+    url: "https://www.fullloopcrm.com/accessibility",
     type: "website",
   },
   twitter: {
@@ -36,7 +36,7 @@ export default function AccessibilityPage() {
         data={webPageSchema(
           "Accessibility | Full Loop CRM",
           "Full Loop CRM accessibility statement.",
-          "https://fullloopcrm.com/accessibility",
+          "https://www.fullloopcrm.com/accessibility",
           breadcrumbs
         )}
       />

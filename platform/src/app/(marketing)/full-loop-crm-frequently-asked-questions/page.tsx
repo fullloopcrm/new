@@ -24,11 +24,11 @@ export const metadata: Metadata = {
     title: "FAQ | Full Loop CRM",
     description:
       "Get answers to 30+ questions about Full Loop CRM pricing, features, territory, and ownership.",
-    url: "https://fullloopcrm.com/full-loop-crm-frequently-asked-questions",
+    url: "https://www.fullloopcrm.com/full-loop-crm-frequently-asked-questions",
     type: "website",
   },
   alternates: {
-    canonical: "https://fullloopcrm.com/full-loop-crm-frequently-asked-questions",
+    canonical: "https://www.fullloopcrm.com/full-loop-crm-frequently-asked-questions",
   },
   twitter: {
     card: "summary_large_image",
@@ -39,8 +39,8 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://fullloopcrm.com" },
-  { name: "FAQ", url: "https://fullloopcrm.com/full-loop-crm-frequently-asked-questions" },
+  { name: "Home", url: "https://www.fullloopcrm.com" },
+  { name: "FAQ", url: "https://www.fullloopcrm.com/full-loop-crm-frequently-asked-questions" },
 ];
 
 interface FaqItem {
@@ -284,7 +284,7 @@ export default function FAQPage() {
         data={webPageSchema(
           "FAQ | Full Loop CRM",
           "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, and Selenas AI.",
-          "https://fullloopcrm.com/full-loop-crm-frequently-asked-questions",
+          "https://www.fullloopcrm.com/full-loop-crm-frequently-asked-questions",
           breadcrumbs
         )}
       />

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: "Request Your CRM Partnership | Full Loop CRM",
     description:
       "One partner per trade per metro. Apply to lock your exclusive territory with Full Loop CRM.",
-    url: "https://fullloopcrm.com/crm-partnership-request-form",
+    url: "https://www.fullloopcrm.com/crm-partnership-request-form",
     type: "website",
   },
 };
@@ -28,11 +28,11 @@ const jsonLd = {
   name: "CRM Partnership Request Form",
   description:
     "Apply for an exclusive CRM territory. One partner per trade per metro area.",
-  url: "https://fullloopcrm.com/crm-partnership-request-form",
+  url: "https://www.fullloopcrm.com/crm-partnership-request-form",
   publisher: {
     "@type": "Organization",
     name: "Full Loop CRM",
-    url: "https://fullloopcrm.com",
+    url: "https://www.fullloopcrm.com",
   },
 };
 

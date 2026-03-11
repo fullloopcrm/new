@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic'
 import { downloadCSV } from '@/lib/csv'
 import { usePoll } from '@/lib/use-poll'
 import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { BOOKING_STATUS_COLORS } from '@/lib/constants'
+import { formatTime } from '@/lib/format'
 
 const CalendarView = dynamic(() => import('./calendar-view'), { ssr: false })
 
@@ -52,16 +54,7 @@ const frequencyLabels: Record<string, string> = {
   monthly_weekday: 'Monthly (weekday)',
 }
 
-const statusColors: Record<string, string> = {
-  scheduled: 'bg-blue-500/20 text-blue-400',
-  confirmed: 'bg-indigo-500/20 text-indigo-400',
-  in_progress: 'bg-yellow-500/20 text-yellow-400',
-  completed: 'bg-green-500/20 text-green-400',
-  paid: 'bg-emerald-500/20 text-emerald-400',
-  cancelled: 'bg-red-500/20 text-red-400',
-  no_show: 'bg-slate-600 text-slate-400',
-  pending: 'bg-slate-600 text-slate-400',
-}
+const statusColors = BOOKING_STATUS_COLORS
 
 const statusTabs = [
   { value: '', label: 'All' },
@@ -296,18 +289,18 @@ export default function BookingsPage() {
   return (
     <div>
       {/* PORTAL LINK */}
-      <div className="flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl px-5 py-3 mb-6">
+      <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-slate-400">Client Booking Portal:</span>
-          <code className="text-blue-400 font-mono text-xs bg-slate-700 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal/book` : '/portal/book'}</code>
+          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal/book` : '/portal/book'}</code>
         </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal/book`)} className="text-xs text-slate-400 hover:text-white transition-colors">Copy Link</button>
+        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal/book`)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Copy Link</button>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-white">Bookings</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Bookings</h2>
             <p className="text-sm text-slate-400">{view === 'schedules' ? `${schedules.length} total schedules` : `${total} total bookings`}</p>
           </div>
           <PageSettingsGear open={bookingsSettings.open} setOpen={bookingsSettings.setOpen} title="Bookings" />
@@ -330,15 +323,15 @@ export default function BookingsPage() {
                 'bookings',
                 ['date', 'time', 'client', 'service', 'team_member', 'status', 'price', 'payment_status', 'notes']
               )}
-              className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg"
+              className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg"
             >
               Export CSV
             </button>
           )}
-          <div className="flex bg-slate-700 rounded-lg p-0.5">
-            <button onClick={() => setView('list')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'list' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>List</button>
-            <button onClick={() => setView('calendar')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'calendar' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>Calendar</button>
-            <button onClick={() => setView('schedules')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'schedules' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>Schedules</button>
+          <div className="flex bg-slate-50 rounded-lg p-0.5">
+            <button onClick={() => setView('list')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'list' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>List</button>
+            <button onClick={() => setView('calendar')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'calendar' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>Calendar</button>
+            <button onClick={() => setView('schedules')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'schedules' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>Schedules</button>
           </div>
           {view === 'schedules' ? (
             <button onClick={() => setShowScheduleCreate(!showScheduleCreate)}
@@ -371,20 +364,20 @@ export default function BookingsPage() {
               <select
                 value={(config.default_status as string) || 'scheduled'}
                 onChange={(e) => updateConfig('default_status', e.target.value)}
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               >
                 <option value="scheduled">Scheduled</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="pending">Pending</option>
               </select>
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div>
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Booking Duration</label>
               <select
                 value={(config.default_duration as string) || '3'}
                 onChange={(e) => updateConfig('default_duration', e.target.value)}
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               >
                 <option value="1">1 hour</option>
                 <option value="1.5">1.5 hours</option>
@@ -397,9 +390,9 @@ export default function BookingsPage() {
                 <option value="8">8 hours</option>
               </select>
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-300">Require team member assignment</label>
+              <label className="text-sm text-slate-700">Require team member assignment</label>
               <button
                 onClick={() => updateConfig('require_team_member', !config.require_team_member)}
                 className={`relative w-10 h-5 rounded-full transition-colors ${config.require_team_member ? 'bg-teal-600' : 'bg-slate-600'}`}
@@ -407,9 +400,9 @@ export default function BookingsPage() {
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.require_team_member ? 'translate-x-5' : ''}`} />
               </button>
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-300">Auto-confirm bookings</label>
+              <label className="text-sm text-slate-700">Auto-confirm bookings</label>
               <button
                 onClick={() => updateConfig('auto_confirm', !config.auto_confirm)}
                 className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_confirm ? 'bg-teal-600' : 'bg-slate-600'}`}
@@ -422,7 +415,7 @@ export default function BookingsPage() {
       </PageSettingsPanel>
 
       {bookingCreated && (
-        <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-5 py-3 mb-4 flex items-center justify-between">
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-green-400 text-lg">&#10003;</span>
             <span className="text-sm text-green-400 font-medium">Booking created successfully!</span>
@@ -432,7 +425,7 @@ export default function BookingsPage() {
               </button>
             )}
           </div>
-          <button onClick={() => setBookingCreated(false)} className="text-slate-400 hover:text-white">&times;</button>
+          <button onClick={() => setBookingCreated(false)} className="text-slate-400 hover:text-slate-900">&times;</button>
         </div>
       )}
 
@@ -446,22 +439,22 @@ export default function BookingsPage() {
               { label: 'Paused', value: pausedCount, color: 'border-l-yellow-500' },
               { label: 'Weekly', value: schedules.filter(s => s.recurring_type === 'weekly').length, color: 'border-l-blue-500' },
             ].map((card) => (
-              <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
+              <div key={card.label} className={`border border-slate-200 rounded-lg border-l-4 ${card.color} p-5`}>
                 <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-                <p className="text-2xl font-bold text-white mt-1">{card.value}</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">{card.value}</p>
               </div>
             ))}
           </div>
 
           {/* SCHEDULE CREATE FORM */}
           {showScheduleCreate && (
-            <form onSubmit={createSchedule} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-              <h3 className="font-semibold text-white mb-4">Create Recurring Schedule</h3>
+            <form onSubmit={createSchedule} className="border border-slate-200 rounded-lg p-6 mb-6">
+              <h3 className="font-semibold text-slate-900 mb-4">Create Recurring Schedule</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Client *</label>
                   <select value={scheduleForm.client_id} onChange={(e) => setScheduleForm({ ...scheduleForm, client_id: e.target.value })} required
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                     <option value="">Select Client</option>
                     {scheduleClients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
@@ -469,7 +462,7 @@ export default function BookingsPage() {
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Team Member</label>
                   <select value={scheduleForm.team_member_id} onChange={(e) => setScheduleForm({ ...scheduleForm, team_member_id: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                     <option value="">Select Team Member</option>
                     {scheduleTeam.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
@@ -477,7 +470,7 @@ export default function BookingsPage() {
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Service</label>
                   <select value={scheduleForm.service_type_id} onChange={(e) => setScheduleForm({ ...scheduleForm, service_type_id: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                     <option value="">Select Service</option>
                     {scheduleServices.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
@@ -485,7 +478,7 @@ export default function BookingsPage() {
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Frequency</label>
                   <select value={scheduleForm.recurring_type} onChange={(e) => setScheduleForm({ ...scheduleForm, recurring_type: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                     <option value="weekly">Weekly</option>
                     <option value="biweekly">Every 2 Weeks</option>
                     <option value="triweekly">Every 3 Weeks</option>
@@ -496,24 +489,24 @@ export default function BookingsPage() {
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Day</label>
                   <select value={scheduleForm.day_of_week} onChange={(e) => setScheduleForm({ ...scheduleForm, day_of_week: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                     {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Time</label>
                   <input type="time" value={scheduleForm.preferred_time} onChange={(e) => setScheduleForm({ ...scheduleForm, preferred_time: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Duration (hrs)</label>
                   <input type="number" step="0.5" value={scheduleForm.duration_hours} onChange={(e) => setScheduleForm({ ...scheduleForm, duration_hours: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Notes</label>
                   <input placeholder="Special instructions..." value={scheduleForm.notes} onChange={(e) => setScheduleForm({ ...scheduleForm, notes: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
               </div>
               <div className="flex gap-2">
@@ -521,7 +514,7 @@ export default function BookingsPage() {
                   className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
                   {scheduleSaving ? 'Creating...' : 'Create Schedule'}
                 </button>
-                <button type="button" onClick={() => setShowScheduleCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+                <button type="button" onClick={() => setShowScheduleCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
               </div>
             </form>
           )}
@@ -532,7 +525,7 @@ export default function BookingsPage() {
               value={scheduleSearch}
               onChange={(e) => setScheduleSearch(e.target.value)}
               placeholder="Search by client name or service type..."
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
             />
           </div>
 
@@ -543,7 +536,7 @@ export default function BookingsPage() {
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   scheduleStatusFilter === tab.value
                     ? 'bg-teal-600 text-white'
-                    : 'text-slate-400 hover:bg-slate-700'
+                    : 'text-slate-400 hover:bg-slate-50'
                 }`}>
                 {tab.label}
               </button>
@@ -551,10 +544,10 @@ export default function BookingsPage() {
           </div>
 
           {/* SCHEDULE TABLE */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-700 text-left text-slate-400">
+                <tr className="border-b border-slate-200 text-left text-slate-400">
                   <th className="px-4 py-3 font-medium">Client</th>
                   <th className="px-4 py-3 font-medium">Team</th>
                   <th className="px-4 py-3 font-medium">Service</th>
@@ -565,9 +558,9 @@ export default function BookingsPage() {
               </thead>
               <tbody>
                 {filteredSchedules.map((s) => (
-                  <tr key={s.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                  <tr key={s.id} className="border-b border-slate-200/50 hover:bg-slate-50">
                     <td className="px-4 py-3">
-                      <Link href={`/dashboard/schedules/${s.id}`} className="font-medium text-white hover:text-teal-400">
+                      <Link href={`/dashboard/schedules/${s.id}`} className="font-medium text-slate-900 hover:text-teal-600">
                         {s.clients?.name || '\u2014'}
                       </Link>
                     </td>
@@ -575,14 +568,14 @@ export default function BookingsPage() {
                     <td className="px-4 py-3 text-slate-400">{s.service_types?.name || '\u2014'}</td>
                     <td className="px-4 py-3 text-slate-400">{frequencyLabels[s.recurring_type] || s.recurring_type}</td>
                     <td className="px-4 py-3">
-                      <p className="text-white font-medium">{s.day_of_week != null ? DAYS[s.day_of_week] : '\u2014'}</p>
+                      <p className="text-slate-900 font-medium">{s.day_of_week != null ? DAYS[s.day_of_week] : '\u2014'}</p>
                       <p className="text-xs text-slate-400">{s.preferred_time || ''} {s.duration_hours ? `\u00b7 ${s.duration_hours}hr` : ''}</p>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                        s.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                        s.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-red-500/20 text-red-400'
+                        s.status === 'active' ? 'bg-green-50 text-green-700' :
+                        s.status === 'paused' ? 'bg-yellow-50 text-yellow-700' :
+                        'bg-red-50 text-red-700'
                       }`}>
                         {s.status}
                       </span>
@@ -611,9 +604,9 @@ export default function BookingsPage() {
               { label: 'Completed', value: stats.completed, icon: '\u2713', color: 'border-l-green-500', sub: 'this month' },
               { label: 'Revenue', value: fmt(stats.revenue), icon: '$', color: 'border-l-purple-500', sub: 'this month' },
             ].map((card) => (
-              <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
+              <div key={card.label} className={`border border-slate-200 rounded-lg border-l-4 ${card.color} p-5`}>
                 <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-                <p className="text-2xl font-bold text-white mt-1">{card.value}</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">{card.value}</p>
                 {card.sub && <p className="text-xs text-slate-400 mt-0.5">{card.sub}</p>}
               </div>
             ))}
@@ -631,16 +624,16 @@ export default function BookingsPage() {
             const total = form.discount ? subtotal * 0.9 : subtotal
 
             return (
-            <form onSubmit={createBooking} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6 space-y-5">
-              <h3 className="text-lg font-semibold text-white">Create Booking</h3>
+            <form onSubmit={createBooking} className="border border-slate-200 rounded-lg p-6 mb-6 space-y-5">
+              <h3 className="text-lg font-semibold text-slate-900">Create Booking</h3>
 
               {/* Row 1: Client (full width) */}
               <div>
                 <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Client</label>
                 {selectedClient ? (
-                  <div className="flex items-center gap-2 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
-                    <span className="text-white flex-1">{selectedClient.name}</span>
-                    <button type="button" onClick={() => { setForm({ ...form, client_id: '' }); setClientSearch(''); }} className="text-slate-400 hover:text-white text-xs">Clear</button>
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    <span className="text-slate-900 flex-1">{selectedClient.name}</span>
+                    <button type="button" onClick={() => { setForm({ ...form, client_id: '' }); setClientSearch(''); }} className="text-slate-400 hover:text-slate-900 text-xs">Clear</button>
                   </div>
                 ) : (
                   <div className="relative">
@@ -651,10 +644,10 @@ export default function BookingsPage() {
                       onChange={(e) => { setClientSearch(e.target.value); setShowClientDropdown(true) }}
                       onFocus={() => { if (clientSearch.length > 0) setShowClientDropdown(true) }}
                       onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
-                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                     />
                     {showClientDropdown && filteredClients.length > 0 && (
-                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-700 border border-slate-600 rounded-lg max-h-40 overflow-y-auto shadow-lg">
+                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-50 border border-slate-200 rounded-lg max-h-40 overflow-y-auto shadow-lg">
                         {filteredClients.map((c) => (
                           <button
                             key={c.id}
@@ -665,7 +658,7 @@ export default function BookingsPage() {
                               setClientSearch(c.name)
                               setShowClientDropdown(false)
                             }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white"
+                            className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                           >
                             {c.name}
                           </button>
@@ -690,7 +683,7 @@ export default function BookingsPage() {
                       rate: svc ? String(svc.default_hourly_rate) : form.rate,
                     })
                   }}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                 >
                   <option value="">Select Service</option>
                   {services.map((s) => (
@@ -706,7 +699,7 @@ export default function BookingsPage() {
                   value={form.team_member_id}
                   onChange={(e) => setForm({ ...form, team_member_id: e.target.value })}
                   required
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                 >
                   <option value="">Select Team Member</option>
                   {team.map((t) => (
@@ -722,7 +715,7 @@ export default function BookingsPage() {
                   <select
                     value={form.hours}
                     onChange={(e) => setForm({ ...form, hours: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                   >
                     <option value="">Select Hours</option>
                     {['1', '1.5', '2', '2.5', '3', '3.5', '4', '5', '6', '8'].map((h) => (
@@ -735,7 +728,7 @@ export default function BookingsPage() {
                   <select
                     value={form.rate}
                     onChange={(e) => setForm({ ...form, rate: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                   >
                     <option value="">Select Rate</option>
                     {[25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((r) => (
@@ -754,7 +747,7 @@ export default function BookingsPage() {
                     value={form.date}
                     onChange={(e) => setForm({ ...form, date: e.target.value })}
                     required
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
@@ -764,7 +757,7 @@ export default function BookingsPage() {
                     value={form.time}
                     onChange={(e) => setForm({ ...form, time: e.target.value })}
                     required
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
               </div>
@@ -786,7 +779,7 @@ export default function BookingsPage() {
                     <select
                       value={form.repeat_frequency}
                       onChange={(e) => setForm({ ...form, repeat_frequency: e.target.value })}
-                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm mt-2"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-2"
                     >
                       <option value="weekly">Weekly</option>
                       <option value="biweekly">Biweekly</option>
@@ -810,7 +803,7 @@ export default function BookingsPage() {
 
               {/* Row 7: Estimate Summary */}
               {hours > 0 && rate > 0 && (
-                <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 flex items-center justify-between">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between">
                   <div className="text-sm text-slate-400">
                     ~{hours}hrs &times; ${rate}/hr
                   </div>
@@ -821,7 +814,7 @@ export default function BookingsPage() {
                         <span className="text-lg font-bold text-green-400">~${total.toFixed(0)}</span>
                       </div>
                     ) : (
-                      <span className="text-lg font-bold text-white">~${total.toFixed(0)}</span>
+                      <span className="text-lg font-bold text-slate-900">~${total.toFixed(0)}</span>
                     )}
                   </div>
                 </div>
@@ -833,7 +826,7 @@ export default function BookingsPage() {
                 <select
                   value={form.status}
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                 >
                   <option value="scheduled">Scheduled</option>
                   <option value="confirmed">Confirmed</option>
@@ -849,13 +842,13 @@ export default function BookingsPage() {
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   rows={3}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm resize-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none"
                 />
               </div>
 
               {/* Row 10: Actions */}
               <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white border border-slate-600 rounded-lg transition-colors">
+                <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900 border border-slate-200 rounded-lg transition-colors">
                   Cancel
                 </button>
                 <button
@@ -878,7 +871,7 @@ export default function BookingsPage() {
                   placeholder="Search client, team member, service..."
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full md:w-64 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                  className="w-full md:w-64 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                 />
                 <div className="flex gap-1 flex-wrap">
                   {statusTabs.map((tab) => (
@@ -886,7 +879,7 @@ export default function BookingsPage() {
                       className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                         statusFilter === tab.value
                           ? 'bg-teal-600 text-white'
-                          : 'text-slate-400 hover:bg-slate-700'
+                          : 'text-slate-400 hover:bg-slate-50'
                       }`}>
                       {tab.label}
                     </button>
@@ -896,10 +889,10 @@ export default function BookingsPage() {
 
               {/* BULK ACTION BAR */}
               {selected.size > 0 && (
-                <div className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-4">
-                  <span className="text-sm text-white font-medium">{selected.size} selected</span>
+                <div className="flex items-center gap-3 border border-slate-200 rounded-lg px-4 py-3 mb-4">
+                  <span className="text-sm text-slate-900 font-medium">{selected.size} selected</span>
                   <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value)}
-                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm">
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm">
                     <option value="">Bulk action...</option>
                     <option value="confirmed">Confirm All</option>
                     <option value="cancelled">Cancel All</option>
@@ -926,15 +919,15 @@ export default function BookingsPage() {
                     className="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
                     Apply
                   </button>
-                  <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-white ml-auto">Clear</button>
+                  <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-900 ml-auto">Clear</button>
                 </div>
               )}
 
               {/* TABLE */}
-              <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-700 text-left text-slate-400">
+                    <tr className="border-b border-slate-200 text-left text-slate-400">
                       <th className="px-4 py-3 w-10">
                         <input type="checkbox"
                           checked={bookings.length > 0 && selected.size === bookings.length}
@@ -945,7 +938,7 @@ export default function BookingsPage() {
                               setSelected(new Set())
                             }
                           }}
-                          className="rounded border-slate-600 bg-slate-700"
+                          className="rounded border-slate-200 bg-slate-50"
                         />
                       </th>
                       <th className="px-4 py-3 font-medium">Date & Time</th>
@@ -959,7 +952,7 @@ export default function BookingsPage() {
                   </thead>
                   <tbody>
                     {bookings.map((b) => (
-                      <tr key={b.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                      <tr key={b.id} className="border-b border-slate-200/50 hover:bg-slate-50">
                         <td className="px-4 py-3">
                           <input type="checkbox"
                             checked={selected.has(b.id)}
@@ -969,37 +962,37 @@ export default function BookingsPage() {
                               else next.delete(b.id)
                               setSelected(next)
                             }}
-                            className="rounded border-slate-600 bg-slate-700"
+                            className="rounded border-slate-200 bg-slate-50"
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <Link href={`/dashboard/bookings/${b.id}`} className="font-medium text-white hover:text-teal-400">
+                          <Link href={`/dashboard/bookings/${b.id}`} className="font-medium text-slate-900 hover:text-teal-600">
                             {new Date(b.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </Link>
                           <p className="text-xs text-slate-400">
-                            {new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                            {b.end_time && ` \u2013 ${new Date(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`}
+                            {formatTime(b.start_time)}
+                            {b.end_time && ` \u2013 ${formatTime(b.end_time)}`}
                           </p>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="text-white">{b.clients?.name || '\u2014'}</p>
+                          <p className="text-slate-900">{b.clients?.name || '\u2014'}</p>
                           {b.clients?.phone && <p className="text-xs text-slate-400">{b.clients.phone}</p>}
                         </td>
                         <td className="px-4 py-3 text-slate-400">{b.service_types?.name || b.service_type || '\u2014'}</td>
                         <td className="px-4 py-3 text-slate-400">{b.team_members?.name || '\u2014'}</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[b.status] || 'bg-slate-600 text-slate-400'}`}>
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[b.status] || 'bg-slate-100 text-slate-500'}`}>
                             {b.status.replace('_', ' ')}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-medium text-white">
+                        <td className="px-4 py-3 font-medium text-slate-900">
                           {b.price != null ? fmt(b.price) : '\u2014'}
                         </td>
                         <td className="px-4 py-3">
                           {b.payment_status === 'paid' ? (
-                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">Paid</span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">Paid</span>
                           ) : b.payment_status === 'pending' ? (
-                            <span className="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-medium">Pending</span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-yellow-50 text-yellow-700 font-medium">Pending</span>
                           ) : (
                             <span className="text-xs text-slate-400">{'\u2014'}</span>
                           )}
@@ -1016,10 +1009,10 @@ export default function BookingsPage() {
               {total > 50 && (
                 <div className="flex items-center justify-center gap-2 mt-4">
                   <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                    className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700">Previous</button>
+                    className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50">Previous</button>
                   <span className="px-3 py-1.5 text-sm text-slate-400">Page {page} of {Math.ceil(total / 50)}</span>
                   <button onClick={() => setPage((p) => p + 1)} disabled={page * 50 >= total}
-                    className="px-3 py-1.5 text-sm border border-slate-600 rounded-lg disabled:opacity-30 hover:bg-slate-700">Next</button>
+                    className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50">Next</button>
                 </div>
               )}
             </>

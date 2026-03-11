@@ -131,7 +131,7 @@ export default function FinancePage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-white">Finance</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Finance</h2>
             <p className="text-sm text-slate-400">Revenue, payroll, expenses & P&L</p>
           </div>
           <PageSettingsGear open={financeSettings.open} setOpen={financeSettings.setOpen} title="Finance" />
@@ -155,14 +155,14 @@ export default function FinancePage() {
               <select
                 value={(config.fiscal_year_start as string) || '1'}
                 onChange={(e) => updateConfig('fiscal_year_start', e.target.value)}
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               >
                 {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
                   <option key={i + 1} value={String(i + 1)}>{m}</option>
                 ))}
               </select>
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div>
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Expense Categories</label>
               <input
@@ -170,11 +170,11 @@ export default function FinancePage() {
                 value={(config.expense_categories as string) || 'supplies, transport, insurance, software, marketing, meals, rent, utilities, other'}
                 onChange={(e) => updateConfig('expense_categories', e.target.value)}
                 placeholder="Comma-separated list"
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full"
               />
               <p className="text-xs text-slate-500 mt-1">Comma-separated list of expense categories</p>
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div>
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Tax Rate % (for estimates)</label>
               <input
@@ -185,18 +185,18 @@ export default function FinancePage() {
                 value={(config.tax_rate as number) ?? ''}
                 onChange={(e) => updateConfig('tax_rate', parseFloat(e.target.value) || 0)}
                 placeholder="e.g. 8.5"
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-32"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-32"
               />
               <span className="text-xs text-slate-400 ml-2">%</span>
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div>
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Currency Symbol</label>
               <input
                 type="text"
                 value={(config.currency_symbol as string) || '$'}
                 onChange={(e) => updateConfig('currency_symbol', e.target.value)}
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-20"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-20"
                 maxLength={3}
               />
             </div>
@@ -212,9 +212,9 @@ export default function FinancePage() {
           { label: 'This Month', value: revenue.month, count: revenue.monthCount, color: 'border-l-purple-500' },
           { label: 'Year to Date', value: revenue.year, count: revenue.yearCount, color: 'border-l-orange-500' },
         ].map((card) => (
-          <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
+          <div key={card.label} className={`border border-slate-200 rounded-lg border-l-4 ${card.color} p-5`}>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-            <p className="text-2xl font-bold text-white mt-1">{fmt(card.value)}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{fmt(card.value)}</p>
             <p className="text-xs text-slate-400 mt-0.5">{card.count} paid job{card.count !== 1 ? 's' : ''}</p>
           </div>
         ))}
@@ -225,7 +225,7 @@ export default function FinancePage() {
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              tab === t ? 'bg-teal-600 text-white' : 'text-slate-400 hover:bg-slate-700'
+              tab === t ? 'bg-teal-600 text-white' : 'text-slate-400 hover:bg-slate-50'
             }`}>
             {t === 'pnl' ? 'P&L' : t === '1099' ? '1099' : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
@@ -234,8 +234,8 @@ export default function FinancePage() {
 
       {/* REVENUE TAB */}
       {tab === 'revenue' && (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
-          <h3 className="font-semibold text-white text-sm mb-4">Revenue Breakdown</h3>
+        <div className="border border-slate-200 rounded-lg p-5">
+          <h3 className="font-semibold text-slate-900 text-sm mb-4">Revenue Breakdown</h3>
           <div className="space-y-3">
             {[
               { label: 'Today', value: revenue.today, count: revenue.todayCount, pct: revenue.month > 0 ? (revenue.today / revenue.month * 100) : 0 },
@@ -246,9 +246,9 @@ export default function FinancePage() {
               <div key={row.label}>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="text-slate-400">{row.label}</span>
-                  <span className="font-medium text-white">{fmt(row.value)} <span className="text-slate-400 text-xs">({row.count} jobs)</span></span>
+                  <span className="font-medium text-slate-900">{fmt(row.value)} <span className="text-slate-400 text-xs">({row.count} jobs)</span></span>
                 </div>
-                <div className="h-1.5 bg-slate-700 rounded-full">
+                <div className="h-1.5 bg-slate-50 rounded-full">
                   <div className="h-1.5 bg-green-500 rounded-full transition-all" style={{ width: `${Math.min(row.pct, 100)}%` }} />
                 </div>
               </div>
@@ -259,8 +259,8 @@ export default function FinancePage() {
 
       {/* REVENUE TREND CHART */}
       {tab === 'revenue' && monthlyRevenue.length > 0 && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6 mt-6">
-          <h3 className="text-sm font-semibold text-white mb-4">Revenue Trend (Last 12 Months)</h3>
+        <div className="border border-slate-200 rounded-lg p-5 mb-6 mt-6">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">Revenue Trend (Last 12 Months)</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyRevenue}>
@@ -286,9 +286,9 @@ export default function FinancePage() {
 
       {/* PAYROLL TAB */}
       {tab === 'payroll' && (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
-            <h3 className="font-semibold text-white text-sm">Pending Payroll</h3>
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+            <h3 className="font-semibold text-slate-900 text-sm">Pending Payroll</h3>
             <span className="text-xs text-slate-400">${pendingPayTotal.toFixed(2)} pending</span>
           </div>
           {payroll.length === 0 ? (
@@ -298,14 +298,14 @@ export default function FinancePage() {
               {payroll.map((p) => (
                 <div key={p.id} className="flex items-center justify-between px-5 py-3">
                   <div>
-                    <p className="text-sm font-medium text-white">{p.name}</p>
+                    <p className="text-sm font-medium text-slate-900">{p.name}</p>
                     <p className="text-xs text-slate-400">{p.jobs} job{p.jobs !== 1 ? 's' : ''} &middot; {p.pending_hours.toFixed(1)} hrs</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-white">${p.pending_pay.toFixed(2)}</span>
+                    <span className="text-sm font-bold text-slate-900">${p.pending_pay.toFixed(2)}</span>
                     {p.pending_pay > 0 && (
                       <button onClick={() => markPaid(p.id, p.pending_pay)}
-                        className="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg font-medium hover:bg-emerald-500/30">
+                        className="text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg font-medium hover:bg-emerald-500/30">
                         Mark Paid
                       </button>
                     )}
@@ -322,17 +322,17 @@ export default function FinancePage() {
         <div>
           {/* Expense breakdown */}
           {Object.keys(expenseByCategory).length > 0 && (
-            <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 mb-4">
-              <h3 className="font-semibold text-white text-sm mb-3">By Category</h3>
+            <div className="border border-slate-200 rounded-lg p-5 mb-4">
+              <h3 className="font-semibold text-slate-900 text-sm mb-3">By Category</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {Object.entries(expenseByCategory).sort((a, b) => b[1] - a[1]).map(([cat, amount]) => (
-                  <div key={cat} className="flex items-center gap-2 p-2 bg-slate-700/50 rounded-lg">
-                    <span className="w-7 h-7 rounded bg-slate-600 flex items-center justify-center text-xs font-bold text-slate-400">
+                  <div key={cat} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                    <span className="w-7 h-7 rounded bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-400">
                       {categoryIcons[cat] || 'O'}
                     </span>
                     <div>
                       <p className="text-xs text-slate-400 capitalize">{cat}</p>
-                      <p className="text-sm font-medium text-white">{fmt(amount)}</p>
+                      <p className="text-sm font-medium text-slate-900">{fmt(amount)}</p>
                     </div>
                   </div>
                 ))}
@@ -342,8 +342,8 @@ export default function FinancePage() {
 
           {/* EXPENSE BREAKDOWN PIE CHART */}
           {expenses.length > 0 && (
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-4">
-              <h3 className="text-sm font-semibold text-white mb-4">Expense Breakdown</h3>
+            <div className="border border-slate-200 rounded-lg p-5 mb-4">
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Expense Breakdown</h3>
               <div className="h-64 flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -381,7 +381,7 @@ export default function FinancePage() {
               expenses.map(e => ({ ...e, amount: (e.amount / 100).toFixed(2) })) as unknown as Record<string, unknown>[],
               'expenses',
               ['category', 'description', 'amount', 'date', 'created_at']
-            )} className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg">
+            )} className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg">
               Export Expenses
             </button>
             <button onClick={() => setShowAddExpense(!showAddExpense)}
@@ -391,30 +391,30 @@ export default function FinancePage() {
           </div>
 
           {showAddExpense && (
-            <form onSubmit={addExpense} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-4">
-              <h3 className="font-semibold text-white mb-4">Add Expense</h3>
+            <form onSubmit={addExpense} className="border border-slate-200 rounded-lg p-6 mb-4">
+              <h3 className="font-semibold text-slate-900 mb-4">Add Expense</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Category</label>
                   <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                     {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Amount ($) *</label>
                   <input placeholder="0.00" type="number" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} required
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Description</label>
                   <input placeholder="What was this for?" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 uppercase mb-1 block">Date</label>
                   <input type="date" value={expenseForm.date} onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
               </div>
               <div className="flex gap-2">
@@ -422,15 +422,15 @@ export default function FinancePage() {
                   className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
                   {saving ? 'Saving...' : 'Save Expense'}
                 </button>
-                <button type="button" onClick={() => setShowAddExpense(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+                <button type="button" onClick={() => setShowAddExpense(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
               </div>
             </form>
           )}
 
-          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-700 text-left text-slate-400">
+                <tr className="border-b border-slate-200 text-left text-slate-400">
                   <th className="px-4 py-3 font-medium">Category</th>
                   <th className="px-4 py-3 font-medium">Description</th>
                   <th className="px-4 py-3 font-medium">Date</th>
@@ -440,8 +440,8 @@ export default function FinancePage() {
               </thead>
               <tbody>
                 {expenses.map((exp) => (
-                  <tr key={exp.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                    <td className="px-4 py-3 capitalize text-white font-medium">{exp.category}</td>
+                  <tr key={exp.id} className="border-b border-slate-200/50 hover:bg-slate-50">
+                    <td className="px-4 py-3 capitalize text-slate-900 font-medium">{exp.category}</td>
                     <td className="px-4 py-3 text-slate-400">{exp.description || '—'}</td>
                     <td className="px-4 py-3 text-xs text-slate-400">{new Date(exp.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
                     <td className="px-4 py-3 text-right font-medium text-red-600">{fmt(exp.amount)}</td>
@@ -462,8 +462,8 @@ export default function FinancePage() {
       {/* P&L TAB */}
       {tab === 'pnl' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Profit & Loss (YTD)</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Profit & Loss (YTD)</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between py-1.5">
                 <span className="text-slate-400">Revenue</span>
@@ -473,7 +473,7 @@ export default function FinancePage() {
                 <span className="text-slate-400">Labor Cost</span>
                 <span className="text-red-600">-{fmt(totalLabor)}</span>
               </div>
-              <div className="border-t border-slate-700 pt-2 flex justify-between py-1.5">
+              <div className="border-t border-slate-200 pt-2 flex justify-between py-1.5">
                 <span className="text-slate-400">Gross Profit</span>
                 <span className="font-medium">{fmt(grossProfit)}</span>
               </div>
@@ -485,8 +485,8 @@ export default function FinancePage() {
                 <span className="text-slate-400">Operating Expenses</span>
                 <span className="text-red-600">-{fmt(totalExpenses)}</span>
               </div>
-              <div className="border-t border-slate-700 pt-3 flex justify-between">
-                <span className="font-bold text-white">Net Profit</span>
+              <div className="border-t border-slate-200 pt-3 flex justify-between">
+                <span className="font-bold text-slate-900">Net Profit</span>
                 <span className={`font-bold text-lg ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {fmt(netProfit)}
                 </span>
@@ -506,9 +506,9 @@ export default function FinancePage() {
               { label: 'Total Expenses', value: fmt(totalExpenses), color: 'border-l-orange-500', sub: `${expenses.length} entries` },
               { label: 'Net Profit', value: fmt(netProfit), color: netProfit >= 0 ? 'border-l-green-500' : 'border-l-red-500', sub: `${netMargin.toFixed(1)}% margin` },
             ].map((card) => (
-              <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
+              <div key={card.label} className={`border border-slate-200 rounded-lg border-l-4 ${card.color} p-5`}>
                 <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-                <p className="text-xl font-bold text-white mt-1">{card.value}</p>
+                <p className="text-xl font-bold text-slate-900 mt-1">{card.value}</p>
                 <p className="text-xs text-slate-400 mt-0.5">{card.sub}</p>
               </div>
             ))}
@@ -537,10 +537,10 @@ export default function FinancePage() {
               Export CSV
             </button>
           </div>
-          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-700 text-left text-slate-400">
+                <tr className="border-b border-slate-200 text-left text-slate-400">
                   <th className="px-4 py-3 font-medium">Name</th>
                   <th className="px-4 py-3 font-medium">YTD Earnings</th>
                   <th className="px-4 py-3 font-medium">$600 Threshold</th>
@@ -548,12 +548,12 @@ export default function FinancePage() {
               </thead>
               <tbody>
                 {payroll.map((p) => (
-                  <tr key={p.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                    <td className="px-4 py-3 font-medium text-white">{p.name}</td>
+                  <tr key={p.id} className="border-b border-slate-200/50 hover:bg-slate-50">
+                    <td className="px-4 py-3 font-medium text-slate-900">{p.name}</td>
                     <td className="px-4 py-3 text-slate-400">${p.pending_pay.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                        p.pending_pay >= 600 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-slate-600 text-slate-400'
+                        p.pending_pay >= 600 ? 'bg-yellow-50 text-yellow-700' : 'bg-slate-100 text-slate-500'
                       }`}>
                         {p.pending_pay >= 600 ? '1099 Required' : 'Below Threshold'}
                       </span>

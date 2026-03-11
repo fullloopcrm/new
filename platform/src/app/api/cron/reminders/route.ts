@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { smsReminder } from '@/lib/sms-templates'
+import { sendSMS } from '@/lib/sms'
+import type {
+  BookingWithClientAndTeam,
+  BookingWith2HourReminder,
+  BookingWithPaymentAlert,
+  BookingWithThankYou,
+  BookingPending,
+} from '@/lib/types'
 
-// 4-stage reminder cascade: 7d, 3d, 1d, 2hr before booking
+export const maxDuration = 300 // Vercel pro plan
+
+// Comprehensive reminder cron — runs hourly
+// Handles: day-based reminders, hour-based reminders, payment alerts,
+// thank-you emails, unpaid team alerts, pending booking alerts
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -10,42 +23,395 @@ export async function GET(request: Request) {
   }
 
   const now = new Date()
-  const intervals = [
-    { hours: 168, label: '7 days' },   // 7 days
-    { hours: 72, label: '3 days' },    // 3 days
-    { hours: 24, label: 'tomorrow' },  // 1 day
-    { hours: 2, label: '2 hours' },    // 2 hours
-  ]
+  const results: { type: string; booking_id: string; tenant_id: string }[] = []
+  let sent = 0
+  let failed = 0
+  const errors: string[] = []
 
-  let totalSent = 0
+  // Get all active tenants
+  const { data: tenants } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+    .eq('status', 'active')
+    .limit(100) // Guard against scale
 
-  for (const interval of intervals) {
-    const target = new Date(now.getTime() + interval.hours * 3600 * 1000)
-    const windowStart = new Date(target.getTime() - 30 * 60 * 1000) // 30 min window
-    const windowEnd = new Date(target.getTime() + 30 * 60 * 1000)
+  for (const tenant of tenants || []) {
+    const tenantId = tenant.id
 
-    const { data: bookings } = await supabaseAdmin
-      .from('bookings')
-      .select('id, tenant_id, client_id, service_type, start_time, clients(name, phone)')
-      .in('status', ['scheduled', 'confirmed'])
-      .gte('start_time', windowStart.toISOString())
-      .lte('start_time', windowEnd.toISOString())
+    try {
+      // ============================================
+      // DAY-BASED REMINDERS — send at 8am (per server TZ)
+      // 3 days before + 1 day before
+      // ============================================
+      if (now.getHours() === 8) {
+        for (const daysOut of [3, 1]) {
+          const target = new Date(now)
+          target.setDate(target.getDate() + daysOut)
+          target.setHours(0, 0, 0, 0)
+          const targetEnd = new Date(target)
+          targetEnd.setHours(23, 59, 59, 999)
+          const label = daysOut === 1 ? 'tomorrow' : `in ${daysOut} days`
+          const emailType = `reminder_${daysOut}day`
 
-    for (const booking of bookings || []) {
-      const clientName = (booking.clients as unknown as { name: string } | null)?.name || 'there'
-      await notify({
-        tenantId: booking.tenant_id,
-        type: 'booking_reminder',
-        title: `Reminder: Appointment ${interval.label}`,
-        message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${interval.label} away on ${new Date(booking.start_time).toLocaleString()}.`,
-        channel: 'sms',
-        recipientType: 'client',
-        recipientId: booking.client_id,
-        bookingId: booking.id,
-      })
-      totalSent++
+          const { data: bookings } = await supabaseAdmin
+            .from('bookings')
+            .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email), team_members(name, phone, email)')
+            .eq('tenant_id', tenantId)
+            .in('status', ['scheduled', 'confirmed'])
+            .gte('start_time', target.toISOString())
+            .lte('start_time', targetEnd.toISOString())
+            .limit(500)
+            .returns<BookingWithClientAndTeam[]>()
+
+          for (const booking of bookings || []) {
+            // Deduplication
+            const { data: existing } = await supabaseAdmin
+              .from('notifications')
+              .select('id')
+              .eq('tenant_id', tenantId)
+              .eq('booking_id', booking.id)
+              .eq('type', emailType)
+              .limit(1)
+            if (existing && existing.length > 0) continue
+
+            const client = booking.clients
+            const clientName = client?.name?.split(' ')[0] || 'there'
+
+            // Client email reminder
+            if (client?.email) {
+              await notify({
+                tenantId,
+                type: 'booking_reminder',
+                title: `Reminder: Appointment ${label}`,
+                message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${label} on ${new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.`,
+                channel: 'email',
+                recipientType: 'client',
+                recipientId: booking.client_id ?? undefined,
+                bookingId: booking.id,
+                metadata: { clientName: client?.name, timeUntil: label, dedup: emailType },
+              })
+            }
+
+            // Client SMS reminder
+            if (client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+              const smsData = { start_time: booking.start_time, team_members: booking.team_members }
+              const smsBody = smsReminder(tenant.name, smsData, label)
+              try {
+                await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+                sent++
+              } catch (smsErr) {
+                failed++
+                errors.push(`SMS to ${client.phone} for booking ${booking.id}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
+              }
+            }
+
+            // Team member reminder (day before only)
+            if (daysOut === 1 && booking.team_member_id) {
+              const member = booking.team_members
+              if (member) {
+                await notify({
+                  tenantId,
+                  type: 'booking_reminder',
+                  title: 'Job Tomorrow',
+                  message: `${client?.name || 'Client'} - ${label} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+                  channel: 'sms',
+                  recipientType: 'team_member',
+                  recipientId: booking.team_member_id,
+                  bookingId: booking.id,
+                })
+              }
+            }
+
+            results.push({ type: emailType, booking_id: booking.id, tenant_id: tenantId })
+            sent++
+          }
+        }
+      }
+
+      // ============================================
+      // HOUR-BASED REMINDERS — runs every hour, sends 2hr before
+      // ============================================
+      const twoHoursAhead = new Date(now.getTime() + 2 * 60 * 60 * 1000)
+      const hourWindowStart = new Date(twoHoursAhead)
+      hourWindowStart.setMinutes(0, 0, 0)
+      const hourWindowEnd = new Date(hourWindowStart)
+      hourWindowEnd.setMinutes(59, 59, 999)
+
+      const { data: hourBookings } = await supabaseAdmin
+        .from('bookings')
+        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email), team_members(name, phone)')
+        .eq('tenant_id', tenantId)
+        .in('status', ['scheduled', 'confirmed'])
+        .gte('start_time', hourWindowStart.toISOString())
+        .lte('start_time', hourWindowEnd.toISOString())
+        .limit(500)
+        .returns<BookingWith2HourReminder[]>()
+
+      for (const booking of hourBookings || []) {
+        const emailType = 'reminder_2hour'
+        const { data: existing } = await supabaseAdmin
+          .from('notifications')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('booking_id', booking.id)
+          .eq('type', emailType)
+          .limit(1)
+        if (existing && existing.length > 0) continue
+
+        const client = booking.clients
+        const member = booking.team_members
+        const memberFirst = member?.name?.split(' ')[0] || 'Your pro'
+
+        // Client SMS — 2hr reminder
+        if (client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+          const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
+          try {
+            await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+            sent++
+          } catch (smsErr) {
+            failed++
+            errors.push(`2hr SMS to client ${booking.client_id}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
+          }
+        }
+
+        // Team member SMS — 2hr reminder
+        if (booking.team_member_id && member?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+          const smsBody = `${tenant.name}: Job in 2 hours — ${client?.name || 'Client'} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          try {
+            await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+            sent++
+          } catch (smsErr) {
+            failed++
+            errors.push(`2hr SMS to team ${booking.team_member_id}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
+          }
+        }
+
+        // Log as notification for dedup
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: emailType,
+          title: 'Reminder: 2 hours',
+          message: `Sent to ${client?.name || 'client'}`,
+          booking_id: booking.id,
+          channel: 'sms',
+          recipient_type: 'client',
+          recipient_id: booking.client_id,
+          status: 'sent',
+        })
+
+        results.push({ type: emailType, booking_id: booking.id, tenant_id: tenantId })
+      }
+
+      // ============================================
+      // PAYMENT ALERT — 15 min before booking end_time
+      // ============================================
+      const payWindowStart = new Date(now.getTime() + 10 * 60 * 1000)
+      const payWindowEnd = new Date(now.getTime() + 20 * 60 * 1000)
+
+      const { data: endingSoon } = await supabaseAdmin
+        .from('bookings')
+        .select('id, client_id, start_time, end_time, hourly_rate, clients(name), team_members(name)')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'in_progress')
+        .gte('end_time', payWindowStart.toISOString())
+        .lte('end_time', payWindowEnd.toISOString())
+        .limit(500)
+        .returns<BookingWithPaymentAlert[]>()
+
+      for (const booking of endingSoon || []) {
+        const { data: existing } = await supabaseAdmin
+          .from('notifications')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('booking_id', booking.id)
+          .eq('type', 'payment_due')
+          .limit(1)
+        if (existing && existing.length > 0) continue
+
+        const durationMs = new Date(booking.end_time).getTime() - new Date(booking.start_time).getTime()
+        const hours = durationMs / (1000 * 60 * 60)
+        const rate = booking.hourly_rate || 75
+        const amount = (hours * rate).toFixed(0)
+        const clientName = booking.clients?.name || 'Client'
+        const memberName = booking.team_members?.name || 'Team member'
+
+        await notify({
+          tenantId,
+          type: 'payment_received' as const,
+          title: 'Payment Due Soon',
+          message: `${clientName} — $${amount} due in 15 min (${memberName})`,
+          channel: 'push' as 'email',
+          recipientType: 'admin',
+          metadata: { dedup: 'payment_due' },
+        })
+
+        // Also create in-app notification
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'payment_due',
+          title: 'Payment Due Soon',
+          message: `${clientName} — $${amount} due in 15 min (${memberName})`,
+          booking_id: booking.id,
+          channel: 'in_app',
+          status: 'sent',
+        })
+
+        results.push({ type: 'payment_due', booking_id: booking.id, tenant_id: tenantId })
+        sent++
+      }
+
+      // ============================================
+      // THANK YOU EMAIL — 3 days after first booking (8am only)
+      // ============================================
+      if (now.getHours() === 8) {
+        const threeDaysAgo = new Date(now)
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+        threeDaysAgo.setHours(0, 0, 0, 0)
+        const threeDaysAgoEnd = new Date(threeDaysAgo)
+        threeDaysAgoEnd.setHours(23, 59, 59, 999)
+
+        const { data: completedBookings } = await supabaseAdmin
+          .from('bookings')
+          .select('id, client_id, service_type, clients(name, email)')
+          .eq('tenant_id', tenantId)
+          .in('status', ['completed', 'paid'])
+          .gte('end_time', threeDaysAgo.toISOString())
+          .lte('end_time', threeDaysAgoEnd.toISOString())
+          .limit(500) // Don't process more than 500 per tenant per run
+          .returns<BookingWithThankYou[]>()
+
+        for (const booking of completedBookings || []) {
+          const client = booking.clients
+          if (!client?.email || !booking.client_id) continue
+
+          // Check if thank-you already sent to this client (in last year)
+          const oneYearAgo = new Date(now)
+          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+          const { data: alreadySent } = await supabaseAdmin
+            .from('notifications')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('type', 'follow_up')
+            .eq('recipient_id', booking.client_id)
+            .gte('created_at', oneYearAgo.toISOString())
+            .limit(1)
+          if (alreadySent && alreadySent.length > 0) continue
+
+          // Check this was their first booking
+          const { count } = await supabaseAdmin
+            .from('bookings')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId)
+            .eq('client_id', booking.client_id)
+            .in('status', ['completed', 'paid'])
+            .lt('end_time', threeDaysAgo.toISOString())
+
+          if ((count || 0) === 0) {
+            await notify({
+              tenantId,
+              type: 'follow_up',
+              title: `Thank you from ${tenant.name}!`,
+              message: `Hi ${client.name?.split(' ')[0] || 'there'}, thank you for choosing ${tenant.name}! We hope you enjoyed your ${booking.service_type || 'service'}. Book again and mention THANKYOU for 10% off.`,
+              channel: 'email',
+              recipientType: 'client',
+              recipientId: booking.client_id,
+              bookingId: booking.id,
+              metadata: { clientName: client.name, serviceName: booking.service_type, discountCode: 'THANKYOU' },
+            })
+            results.push({ type: 'thank_you', booking_id: booking.id, tenant_id: tenantId })
+            sent++
+          }
+        }
+      }
+
+      // ============================================
+      // UNPAID TEAM ALERTS — 8am, completed 2+ days ago with unpaid team
+      // ============================================
+      if (now.getHours() === 8) {
+        const twoDaysAgo = new Date(now)
+        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+
+        const { data: unpaidBookings } = await supabaseAdmin
+          .from('bookings')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'completed')
+          .lt('end_time', twoDaysAgo.toISOString())
+          .or('team_paid.is.null,team_paid.eq.false')
+          .limit(500) // Don't process more than 500 per tenant per run
+
+        if (unpaidBookings && unpaidBookings.length > 0) {
+          await supabaseAdmin.from('notifications').insert({
+            tenant_id: tenantId,
+            type: 'unpaid_team',
+            title: 'Unpaid Team',
+            message: `${unpaidBookings.length} completed job${unpaidBookings.length !== 1 ? 's' : ''} with unpaid team`,
+            channel: 'in_app',
+            status: 'sent',
+          })
+          results.push({ type: 'unpaid_team', booking_id: 'admin', tenant_id: tenantId })
+          sent++
+        }
+      }
+
+      // ============================================
+      // PENDING BOOKING ALERTS — 8am and 2pm, unassigned bookings
+      // ============================================
+      if (now.getHours() === 8 || now.getHours() === 14) {
+        const { data: pendingBookings } = await supabaseAdmin
+          .from('bookings')
+          .select('id, start_time, clients(name)')
+          .eq('tenant_id', tenantId)
+          .in('status', ['pending', 'scheduled'])
+          .is('team_member_id', null)
+          .order('start_time', { ascending: true })
+          .limit(500) // Don't process more than 500 per tenant per run
+          .returns<BookingPending[]>()
+
+        if (pendingBookings && pendingBookings.length > 0) {
+          const details = pendingBookings.slice(0, 5).map(b => {
+            const clientName = b.clients?.name || 'Unknown'
+            const date = new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            return `${clientName} - ${date}`
+          }).join(', ')
+
+          await supabaseAdmin.from('notifications').insert({
+            tenant_id: tenantId,
+            type: 'pending_reminder',
+            title: 'Unassigned Bookings',
+            message: `${pendingBookings.length} booking${pendingBookings.length !== 1 ? 's' : ''} need team assignment: ${details}`,
+            channel: 'in_app',
+            status: 'sent',
+          })
+
+          // Also send admin email
+          await notify({
+            tenantId,
+            type: 'booking_reminder',
+            title: `${pendingBookings.length} Unassigned Booking${pendingBookings.length !== 1 ? 's' : ''}`,
+            message: `${pendingBookings.length} booking${pendingBookings.length !== 1 ? 's' : ''} still need team assignment. Review and assign in the dashboard.`,
+            channel: 'email',
+            recipientType: 'admin',
+          })
+
+          results.push({ type: 'pending_reminder', booking_id: 'admin', tenant_id: tenantId })
+          sent++
+        }
+      }
+    } catch (tenantErr) {
+      // Don't let one tenant's failure crash the whole cron
+      failed++
+      const errMsg = `Tenant ${tenant.name} (${tenantId}): ${tenantErr instanceof Error ? tenantErr.message : String(tenantErr)}`
+      errors.push(errMsg)
+      console.error('Cron reminder error:', errMsg)
     }
   }
 
-  return NextResponse.json({ reminders_sent: totalSent })
+  return NextResponse.json({
+    success: true,
+    sent,
+    failed,
+    errors: errors.slice(0, 20), // Cap error list to prevent huge responses
+    results,
+  })
 }

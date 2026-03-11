@@ -74,19 +74,19 @@ export default function SetupChecklist() {
   return (
     <div className="mb-8">
       {/* Header */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-3">
+      <div className="border border-slate-200 rounded-lg p-5 mb-3">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 className="text-lg font-semibold text-white">Getting Started</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Getting Started</h3>
             <p className="text-sm text-slate-400 mt-0.5">
               {completed} of {total} complete &mdash; {completed === 0 ? "Let's set up your business" : pct >= 75 ? 'Almost there!' : 'Keep going!'}
             </p>
           </div>
-          <button onClick={dismiss} className="text-xs text-slate-400 hover:text-white transition-colors">
+          <button onClick={dismiss} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">
             Dismiss
           </button>
         </div>
-        <div className="w-full bg-slate-700 rounded-full h-2">
+        <div className="w-full bg-slate-50 rounded-full h-2">
           <div
             className={`h-2 rounded-full transition-all duration-500 ${pct === 100 ? 'bg-green-500' : pct >= 50 ? 'bg-teal-600' : 'bg-orange-500'}`}
             style={{ width: `${pct}%` }}
@@ -102,14 +102,14 @@ export default function SetupChecklist() {
           const allDone = sectionDone === sectionTotal
 
           return (
-            <div key={section.id} className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <div key={section.id} className="border border-slate-200 rounded-lg p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm">{section.icon}</span>
                   <h4 className="font-semibold text-xs uppercase tracking-wider text-slate-400">{section.title}</h4>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                  allDone ? 'bg-green-500/20 text-green-400' : sectionDone > 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-slate-600 text-slate-400'
+                  allDone ? 'bg-green-50 text-green-700' : sectionDone > 0 ? 'bg-yellow-50 text-yellow-700' : 'bg-slate-100 text-slate-500'
                 }`}>{sectionDone}/{sectionTotal}</span>
               </div>
 
@@ -145,8 +145,8 @@ export default function SetupChecklist() {
                               ? 'bg-green-500/20 border border-green-400 hover:border-red-400 cursor-pointer'
                               : 'bg-green-500/20 border border-green-400'
                             : isManual
-                              ? 'border border-slate-600 hover:border-blue-400 cursor-pointer'
-                              : 'border border-slate-600'
+                              ? 'border border-slate-200 hover:border-blue-400 cursor-pointer'
+                              : 'border border-slate-200'
                         }`}
                       >
                         {item.done && (
@@ -156,7 +156,7 @@ export default function SetupChecklist() {
                         )}
                       </button>
                       <Link href={item.href} className="min-w-0 flex-1">
-                        <p className={`text-sm ${item.done ? 'line-through text-slate-400' : 'text-white font-medium group-hover:text-teal-400'}`}>
+                        <p className={`text-sm ${item.done ? 'line-through text-slate-400' : 'text-slate-900 font-medium group-hover:text-teal-600'}`}>
                           {item.label}
                         </p>
                         {!item.done && (

@@ -43,7 +43,7 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['name', 'email', 'phone', 'address', 'status', 'source', 'notes'])
+    const fields = pick(body, ['name', 'email', 'phone', 'address', 'status', 'source', 'notes', 'preferred_team_member_id', 'sms_consent'])
 
     const { data, error } = await supabaseAdmin
       .from('clients')

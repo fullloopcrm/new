@@ -122,7 +122,7 @@ export default function CampaignsPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-white">Campaigns</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Campaigns</h2>
             <p className="text-sm text-slate-400">{campaigns.length} total &middot; {draftCount} drafts &middot; {sentCount} sent</p>
           </div>
           <PageSettingsGear open={campaignsSettings.open} setOpen={campaignsSettings.setOpen} title="Campaigns" />
@@ -150,14 +150,14 @@ export default function CampaignsPage() {
               <select
                 value={(config.default_type as string) || 'email'}
                 onChange={(e) => updateConfig('default_type', e.target.value)}
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               >
                 <option value="email">Email</option>
                 <option value="sms">SMS</option>
                 <option value="both">Email + SMS</option>
               </select>
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div>
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Sender Name</label>
               <input
@@ -165,12 +165,12 @@ export default function CampaignsPage() {
                 value={(config.default_sender_name as string) || ''}
                 onChange={(e) => updateConfig('default_sender_name', e.target.value)}
                 placeholder="e.g. My Business"
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
               />
             </div>
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-300">Auto-add unsubscribe link</label>
+              <label className="text-sm text-slate-700">Auto-add unsubscribe link</label>
               <button
                 onClick={() => updateConfig('auto_unsubscribe', config.auto_unsubscribe === false ? true : !config.auto_unsubscribe)}
                 className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_unsubscribe !== false ? 'bg-teal-600' : 'bg-slate-600'}`}
@@ -179,7 +179,7 @@ export default function CampaignsPage() {
               </button>
             </div>
             <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-300">Campaign approval required</label>
+              <label className="text-sm text-slate-700">Campaign approval required</label>
               <button
                 onClick={() => updateConfig('approval_required', !config.approval_required)}
                 className={`relative w-10 h-5 rounded-full transition-colors ${config.approval_required ? 'bg-teal-600' : 'bg-slate-600'}`}
@@ -193,8 +193,8 @@ export default function CampaignsPage() {
 
       {/* CREATE FORM */}
       {showCreate && (
-        <form onSubmit={create} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-          <h3 className="font-semibold text-white mb-4">Create Campaign</h3>
+        <form onSubmit={create} className="border border-slate-200 rounded-lg p-6 mb-6">
+          <h3 className="font-semibold text-slate-900 mb-4">Create Campaign</h3>
 
           {/* Step 1: Basics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
@@ -202,12 +202,12 @@ export default function CampaignsPage() {
               <label className="text-xs text-slate-400 uppercase mb-1 block">Campaign Name *</label>
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Spring promo blast" required
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Type</label>
               <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 <option value="email">Email Only</option>
                 <option value="sms">SMS Only</option>
                 <option value="both">Email + SMS</option>
@@ -217,7 +217,7 @@ export default function CampaignsPage() {
               <label className="text-xs text-slate-400 uppercase mb-1 block">Schedule (optional)</label>
               <input type="datetime-local" value={form.scheduled_at}
                 onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
 
@@ -231,7 +231,7 @@ export default function CampaignsPage() {
                   className={`text-left border rounded-lg p-2.5 transition-colors ${
                     form.recipient_filter === f.value
                       ? 'border-blue-500 bg-blue-500/20'
-                      : 'border-slate-700 hover:border-slate-600'
+                      : 'border-slate-200 hover:border-slate-200'
                   }`}>
                   <p className="text-sm font-medium text-slate-200">{f.label}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">{f.desc}</p>
@@ -246,7 +246,7 @@ export default function CampaignsPage() {
               <label className="text-xs text-slate-400 uppercase mb-1 block">Subject Line {form.type === 'both' && <span className="text-slate-500 normal-case">(for email)</span>}</label>
               <input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
                 placeholder="Don't miss out — 15% off your next booking!"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
           )}
 
@@ -266,11 +266,11 @@ export default function CampaignsPage() {
                 ? 'Hi {name}! {business} has a special offer just for you...'
                 : 'Write your email content here... Use {name} and {business} merge tags.'}
               rows={form.type === 'sms' ? 4 : 8}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-mono" />
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
           </div>
 
           {/* AI Writing Assist */}
-          <div className="bg-slate-700/50 border border-slate-700 rounded-lg p-4 mb-5">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-5">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-sm">✧</span>
               <h4 className="text-xs font-semibold text-slate-400 uppercase">Selenas AI — Write Assist</h4>
@@ -279,7 +279,7 @@ export default function CampaignsPage() {
               <input value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="e.g. 15% off first booking for new clients, warm and friendly tone"
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); aiWrite() } }}
-                className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
               <button type="button" onClick={aiWrite} disabled={aiLoading || !aiPrompt.trim()}
                 className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 whitespace-nowrap">
                 {aiLoading ? 'Writing...' : 'Generate'}
@@ -289,7 +289,7 @@ export default function CampaignsPage() {
               {['Promo discount', 'Seasonal reminder', 'Win-back offer', 'Thank you', 'Holiday greeting'].map((tag) => (
                 <button key={tag} type="button"
                   onClick={() => { setAiPrompt(tag.toLowerCase()); }}
-                  className="text-[10px] px-2 py-0.5 rounded-full bg-slate-600 text-slate-400 hover:bg-slate-600">
+                  className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-100">
                   {tag}
                 </button>
               ))}
@@ -298,24 +298,24 @@ export default function CampaignsPage() {
 
           {/* Preview */}
           {form.body && (
-            <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-5">
+            <div className="bg-white border border-slate-200 rounded-lg p-4 mb-5">
               <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">Preview</h4>
               {form.type === 'both' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-[10px] text-blue-400 uppercase font-semibold mb-1.5">Email</p>
                     {form.subject && (
-                      <p className="font-semibold text-white text-sm mb-2">
+                      <p className="font-semibold text-slate-900 text-sm mb-2">
                         {form.subject.replace(/\{name\}/g, 'Sarah').replace(/\{business\}/g, 'My Business')}
                       </p>
                     )}
-                    <div className="text-sm text-slate-300 whitespace-pre-wrap">
+                    <div className="text-sm text-slate-700 whitespace-pre-wrap">
                       {form.body.replace(/\{name\}/g, 'Sarah').replace(/\{business\}/g, 'My Business')}
                     </div>
                   </div>
                   <div>
                     <p className="text-[10px] text-green-400 uppercase font-semibold mb-1.5">SMS</p>
-                    <div className="text-sm text-slate-300 whitespace-pre-wrap bg-green-500/20 rounded-lg p-3 max-w-xs">
+                    <div className="text-sm text-slate-700 whitespace-pre-wrap bg-green-500/20 rounded-lg p-3 max-w-xs">
                       {form.body.replace(/\{name\}/g, 'Sarah').replace(/\{business\}/g, 'My Business')}
                     </div>
                   </div>
@@ -323,11 +323,11 @@ export default function CampaignsPage() {
               ) : (
                 <>
                   {form.type === 'email' && form.subject && (
-                    <p className="font-semibold text-white text-sm mb-2">
+                    <p className="font-semibold text-slate-900 text-sm mb-2">
                       {form.subject.replace(/\{name\}/g, 'Sarah').replace(/\{business\}/g, 'My Business')}
                     </p>
                   )}
-                  <div className={`text-sm text-slate-300 whitespace-pre-wrap ${form.type === 'sms' ? 'bg-green-500/20 rounded-lg p-3 max-w-xs' : ''}`}>
+                  <div className={`text-sm text-slate-700 whitespace-pre-wrap ${form.type === 'sms' ? 'bg-green-500/20 rounded-lg p-3 max-w-xs' : ''}`}>
                     {form.body.replace(/\{name\}/g, 'Sarah').replace(/\{business\}/g, 'My Business')}
                   </div>
                 </>
@@ -341,7 +341,7 @@ export default function CampaignsPage() {
               {saving ? 'Saving...' : 'Save as Draft'}
             </button>
             <button type="button" onClick={() => setShowCreate(false)}
-              className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+              className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
           </div>
         </form>
       )}
@@ -358,7 +358,7 @@ export default function CampaignsPage() {
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
               activeTab === tab.value
                 ? 'bg-teal-600 text-white'
-                : 'text-slate-400 hover:bg-slate-700'
+                : 'text-slate-400 hover:bg-slate-50'
             }`}>
             {tab.label} {tab.count > 0 && <span className="ml-1 opacity-60">{tab.count}</span>}
           </button>
@@ -371,15 +371,15 @@ export default function CampaignsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search campaigns by name..."
-          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
+          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
         />
       </div>
 
       {/* CAMPAIGN LIST */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-700 text-left text-slate-400">
+            <tr className="border-b border-slate-200 text-left text-slate-400">
               <th className="px-4 py-3 font-medium">Campaign</th>
               <th className="px-4 py-3 font-medium">Type</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -392,25 +392,25 @@ export default function CampaignsPage() {
           </thead>
           <tbody>
             {filtered.map((c) => (
-              <tr key={c.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+              <tr key={c.id} className="border-b border-slate-200/50 hover:bg-slate-50">
                 <td className="px-4 py-3">
-                  <Link href={`/dashboard/campaigns/${c.id}`} className="font-medium text-white hover:text-teal-400">
+                  <Link href={`/dashboard/campaigns/${c.id}`} className="font-medium text-slate-900 hover:text-teal-600">
                     {c.name}
                   </Link>
                   {c.subject && <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{c.subject}</p>}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                    c.type === 'both' ? 'bg-purple-500/20 text-purple-400' :
-                    c.type === 'email' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
+                    c.type === 'both' ? 'bg-purple-50 text-purple-700' :
+                    c.type === 'email' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'
                   }`}>{c.type === 'both' ? 'email + sms' : c.type}</span>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                    c.status === 'sent' ? 'bg-green-500/20 text-green-400' :
-                    c.status === 'scheduled' ? 'bg-yellow-500/20 text-yellow-400' :
-                    c.status === 'sending' ? 'bg-blue-500/20 text-blue-400' :
-                    'bg-slate-600 text-slate-400'
+                    c.status === 'sent' ? 'bg-green-50 text-green-700' :
+                    c.status === 'scheduled' ? 'bg-yellow-50 text-yellow-700' :
+                    c.status === 'sending' ? 'bg-blue-50 text-blue-700' :
+                    'bg-slate-100 text-slate-500'
                   }`}>{c.status}</span>
                 </td>
                 <td className="px-4 py-3 text-slate-400">{c.recipient_count ?? '—'}</td>

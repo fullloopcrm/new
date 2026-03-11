@@ -169,6 +169,40 @@ export async function checkAvailability(
 }
 
 /**
+ * Check if a team member is unavailable on a specific date (day off or not a working day).
+ * Returns { unavailable: false } or { unavailable: true, reason: string }.
+ */
+export async function checkMemberDayOff(
+  tenantId: string,
+  memberId: string,
+  date: string
+): Promise<{ unavailable: boolean; reason?: string; memberName?: string }> {
+  const dayIndex = new Date(date + 'T12:00:00').getDay()
+  const dayName = DAY_SHORT[dayIndex] || ''
+
+  const { data: member } = await supabaseAdmin
+    .from('team_members')
+    .select('name, notes')
+    .eq('id', memberId)
+    .eq('tenant_id', tenantId)
+    .single()
+
+  if (!member) return { unavailable: false }
+
+  const avail = parseAvailability(member.notes)
+
+  if (avail.blocked_dates.includes(date)) {
+    return { unavailable: true, reason: `${member.name} has requested ${date} off. Cannot assign.`, memberName: member.name }
+  }
+
+  if (!avail.working_days.includes(dayIndex)) {
+    return { unavailable: true, reason: `${member.name} does not work on ${dayName}s.`, memberName: member.name }
+  }
+
+  return { unavailable: false }
+}
+
+/**
  * Admin: which team members are available for a specific time slot?
  * Returns all active team members with available/conflict status.
  */

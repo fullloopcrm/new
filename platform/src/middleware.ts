@@ -51,6 +51,20 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
+    // Allow admin impersonation to bypass Clerk on dashboard + its API routes
+    const impersonateCookie = req.cookies.get('fl_impersonate')?.value
+    const adminCookie = req.cookies.get('admin_token')?.value
+    if (impersonateCookie && adminCookie) {
+      const p = req.nextUrl.pathname
+      if (p.startsWith('/dashboard') || p.startsWith('/api/bookings') || p.startsWith('/api/clients') ||
+          p.startsWith('/api/team') || p.startsWith('/api/finance') || p.startsWith('/api/campaigns') ||
+          p.startsWith('/api/referrals') || p.startsWith('/api/settings') || p.startsWith('/api/google') ||
+          p.startsWith('/api/social') || p.startsWith('/api/changelog') || p.startsWith('/api/feedback') ||
+          p.startsWith('/api/security') || p.startsWith('/api/availability') || p.startsWith('/api/setup-checklist') ||
+          p.startsWith('/api/notifications')) {
+        return
+      }
+    }
     await auth.protect()
   }
 })

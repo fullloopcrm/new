@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { audit } from '@/lib/audit'
+import { notify } from '@/lib/notify'
 
 /**
  * Batch update multiple bookings in parallel.
@@ -10,7 +11,7 @@ import { audit } from '@/lib/audit'
  * Used for "all future bookings" edits on recurring series.
  *
  * PUT /api/bookings/batch-update
- * Body: { updates: [{ id: "uuid", data: { start_time, end_time, ... } }] }
+ * Body: { updates: [{ id: "uuid", data: { start_time, end_time, ... } }], notify_type?: string }
  */
 export async function PUT(request: Request) {
   const { tenant, error: authError } = await requirePermission('bookings.edit')
@@ -18,7 +19,7 @@ export async function PUT(request: Request) {
 
   try {
     const { tenantId } = tenant
-    const { updates } = await request.json()
+    const { updates, notify_type } = await request.json()
 
     if (!Array.isArray(updates) || updates.length === 0) {
       return NextResponse.json({ error: 'updates array required' }, { status: 400 })
@@ -31,7 +32,7 @@ export async function PUT(request: Request) {
           .update(u.data)
           .eq('id', u.id)
           .eq('tenant_id', tenantId)
-          .select('*, clients(name), team_members(name)')
+          .select('*, clients(name, phone, email), team_members(name, phone, email)')
           .single()
         return { id: u.id, data, error }
       })
@@ -51,16 +52,32 @@ export async function PUT(request: Request) {
       const [y, m, d] = dp.split('-').map(Number)
       const [h, min] = (tp || '00:00').split(':').map(Number)
       const bookingDate = new Date(y, m - 1, d, h, min).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const clientName = first.clients?.name || 'Client'
 
       await supabaseAdmin.from('notifications').insert({
         tenant_id: tenantId,
-        type: 'booking_updated',
+        type: notify_type || 'booking_updated',
         title: 'Series Updated',
-        message: `${first.clients?.name || 'Client'} - ${results.length} bookings updated from ${bookingDate}`,
+        message: `${clientName} — ${results.length} bookings updated from ${bookingDate}`,
         booking_id: first.id,
-        channel: 'dashboard',
+        channel: 'in_app',
         recipient_type: 'admin',
+        status: 'sent',
       })
+
+      // Notify team member if rescheduled
+      if (notify_type === 'rescheduled' && first.team_member_id) {
+        await notify({
+          tenantId,
+          type: 'booking_reminder',
+          title: 'Schedule Updated',
+          message: `${clientName} — ${results.length} bookings rescheduled from ${bookingDate}`,
+          channel: 'sms',
+          recipientType: 'team_member',
+          recipientId: first.team_member_id,
+          bookingId: first.id,
+        })
+      }
 
       await audit({ tenantId, action: 'booking.batch_updated', entityType: 'booking', entityId: first.id, details: { count: results.length } })
     }

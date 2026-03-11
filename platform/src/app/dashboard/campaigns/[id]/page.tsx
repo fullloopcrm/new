@@ -51,12 +51,12 @@ export default function CampaignDetailPage() {
 
   return (
     <div>
-      <Link href="/dashboard/campaigns" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">
+      <Link href="/dashboard/campaigns" className="text-sm text-slate-400 hover:text-slate-900 mb-4 inline-block">
         &larr; All Campaigns
       </Link>
 
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">{campaign.name}</h2>
+        <h2 className="text-2xl font-bold text-slate-900">{campaign.name}</h2>
         <div className="flex gap-2">
           {campaign.status === 'draft' && (
             <button onClick={sendCampaign} disabled={sending} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
@@ -71,7 +71,7 @@ export default function CampaignDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+          <div className="border border-slate-200 rounded-lg p-6">
             <dl className="space-y-3 text-sm mb-6">
               <div className="flex justify-between"><dt className="text-slate-400">Type</dt><dd className="uppercase">{campaign.type}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize font-medium">{campaign.status}</dd></div>
@@ -80,28 +80,28 @@ export default function CampaignDetailPage() {
               {campaign.sent_at && <div className="flex justify-between"><dt className="text-slate-400">Sent</dt><dd>{new Date(campaign.sent_at).toLocaleString()}</dd></div>}
             </dl>
 
-            <h3 className="font-semibold text-white mb-2">Message</h3>
-            <div className="bg-slate-700/50 rounded-lg p-4 text-sm whitespace-pre-wrap">
+            <h3 className="font-semibold text-slate-900 mb-2">Message</h3>
+            <div className="bg-slate-50 rounded-lg p-4 text-sm whitespace-pre-wrap">
               {campaign.body || 'No body'}
             </div>
           </div>
         </div>
 
         <div>
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Delivery Stats</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Delivery Stats</h3>
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-slate-400">Recipients</p>
-                <p className="text-2xl font-bold text-white">{campaign.recipient_count ?? 0}</p>
+                <p className="text-2xl font-bold text-slate-900">{campaign.recipient_count ?? 0}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-400">Opens</p>
-                <p className="text-2xl font-bold text-white">{campaign.open_count ?? 0}</p>
+                <p className="text-2xl font-bold text-slate-900">{campaign.open_count ?? 0}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-400">Clicks</p>
-                <p className="text-2xl font-bold text-white">{campaign.click_count ?? 0}</p>
+                <p className="text-2xl font-bold text-slate-900">{campaign.click_count ?? 0}</p>
               </div>
             </div>
           </div>

@@ -64,7 +64,7 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
 
   if (!mounted) {
     return (
-      <div className="w-full h-full min-h-[600px] flex items-center justify-center bg-slate-800">
+      <div className="w-full h-full min-h-[600px] flex items-center justify-center bg-white border border-slate-200">
         <p className="text-slate-400 text-sm">Loading map...</p>
       </div>
     )

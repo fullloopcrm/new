@@ -31,6 +31,16 @@ export type NotificationType =
   | 'follow_up'
   | 'expense_added'
   | 'payroll_paid'
+  | 'sms_received'
+  | 'sms_opt_out'
+  | 'sms_opt_in'
+  | 'team_confirmed'
+  | 'team_confirm_request'
+  | 'team_no_confirm_alert'
+  | 'client_confirm_request'
+  | 'pending_reminder'
+  | 'unpaid_team'
+  | 'payment_due'
 
 export async function notify({
   tenantId,
@@ -52,7 +62,7 @@ export async function notify({
   recipientId?: string
   bookingId?: string
   metadata?: Record<string, unknown>
-}) {
+}): Promise<{ success: boolean; error?: string }> {
   // Create notification record
   await supabaseAdmin.from('notifications').insert({
     tenant_id: tenantId,
@@ -74,7 +84,7 @@ export async function notify({
     .eq('id', tenantId)
     .single()
 
-  if (!tenant) return
+  if (!tenant) return { success: false, error: 'Tenant not found' }
 
   // Get recipient contact info
   let email: string | null = null
@@ -177,15 +187,25 @@ export async function notify({
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
+
+    return { success: true }
   } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : String(e)
     console.error(`Notification send error (${type}):`, e)
+
+    // Log the failure with error details in metadata
     await supabaseAdmin
       .from('notifications')
-      .update({ status: 'failed' })
+      .update({
+        status: 'failed',
+        metadata: { ...(metadata || {}), _error: errorMessage, _failedAt: new Date().toISOString() },
+      })
       .eq('tenant_id', tenantId)
       .eq('type', type)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
+
+    return { success: false, error: errorMessage }
   }
 }

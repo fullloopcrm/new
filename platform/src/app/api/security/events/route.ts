@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const { tenant } = await getTenantForRequest()
 
   const url = new URL(request.url)
-  const limit = parseInt(url.searchParams.get('limit') || '50')
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
 
   const { data: events } = await supabaseAdmin
     .from('security_events')

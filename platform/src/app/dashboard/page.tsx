@@ -1,3 +1,5 @@
+import { BOOKING_STATUS_COLORS } from '@/lib/constants'
+import { formatTime, formatDateTime } from '@/lib/format'
 import { getCurrentTenant } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import SetupChecklist from './setup-checklist'
@@ -42,23 +44,16 @@ export default async function DashboardPage() {
     supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'active'),
     supabaseAdmin.from('recurring_schedules').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'active'),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).in('status', ['scheduled', 'confirmed']),
-    // Revenue queries - paid bookings by period
     supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('payment_status', 'paid').gte('payment_date', todayStart).lt('payment_date', todayEnd),
     supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('payment_status', 'paid').gte('payment_date', weekStart),
     supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('payment_status', 'paid').gte('payment_date', monthStart),
     supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('payment_status', 'paid').gte('payment_date', yearStart),
-    // Today's jobs
     supabaseAdmin.from('bookings').select('id, start_time, end_time, status, price, notes, clients(name, phone), team_members(name), service_types(name)').eq('tenant_id', tenant.id).gte('start_time', todayStart).lt('start_time', todayEnd).order('start_time', { ascending: true }).limit(20),
-    // Upcoming 14 days
     supabaseAdmin.from('bookings').select('id, start_time, status, price, clients(name), team_members(name), service_types(name)').eq('tenant_id', tenant.id).gte('start_time', todayEnd).lt('start_time', next14).in('status', ['scheduled', 'confirmed']).order('start_time', { ascending: true }).limit(20),
-    // Completed this month
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'completed').gte('start_time', monthStart),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'cancelled').gte('start_time', monthStart),
-    // Owed: completed bookings with pending/null payment
     supabaseAdmin.from('bookings').select('price, payment_status').eq('tenant_id', tenant.id).eq('status', 'completed').or('payment_status.eq.pending,payment_status.is.null'),
-    // Monthly scheduled revenue for current year
     supabaseAdmin.from('bookings').select('start_time, price').eq('tenant_id', tenant.id).in('status', ['scheduled', 'confirmed']).gte('start_time', yearStart),
-    // Total bookings this year (all statuses)
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('start_time', yearStart),
   ])
 
@@ -71,16 +66,12 @@ export default async function DashboardPage() {
   const yearRev = sumRevenue(yearRevBookings)
   const owedRev = sumRevenue(owedBookings as { price: number }[] | null)
 
-  // Group scheduled bookings by month for the scheduled revenue row
-  const scheduledByMonth: Record<number, { amount: number; count: number }> = {}
-  for (let m = 0; m < 12; m++) {
-    scheduledByMonth[m] = { amount: 0, count: 0 }
-  }
-
-  // Also compute scheduled today, week, month
   const scheduledToday = { amount: 0, count: 0 }
   const scheduledWeek = { amount: 0, count: 0 }
   const scheduledMonth = { amount: 0, count: 0 }
+
+  const scheduledByMonth: Record<number, { amount: number; count: number }> = {}
+  for (let m = 0; m < 12; m++) scheduledByMonth[m] = { amount: 0, count: 0 }
 
   for (const b of (scheduledRevBookings || []) as { start_time: string; price: number }[]) {
     const d = new Date(b.start_time)
@@ -88,22 +79,9 @@ export default async function DashboardPage() {
     const price = b.price || 0
     scheduledByMonth[month].amount += price
     scheduledByMonth[month].count += 1
-
-    // Check if today
-    if (b.start_time >= todayStart && b.start_time < todayEnd) {
-      scheduledToday.amount += price
-      scheduledToday.count += 1
-    }
-    // Check if this week
-    if (b.start_time >= todayStart && b.start_time < weekEnd) {
-      scheduledWeek.amount += price
-      scheduledWeek.count += 1
-    }
-    // Check if this month
-    if (b.start_time >= monthStart && b.start_time < monthEnd) {
-      scheduledMonth.amount += price
-      scheduledMonth.count += 1
-    }
+    if (b.start_time >= todayStart && b.start_time < todayEnd) { scheduledToday.amount += price; scheduledToday.count += 1 }
+    if (b.start_time >= todayStart && b.start_time < weekEnd) { scheduledWeek.amount += price; scheduledWeek.count += 1 }
+    if (b.start_time >= monthStart && b.start_time < monthEnd) { scheduledMonth.amount += price; scheduledMonth.count += 1 }
   }
 
   function fmt(cents: number) {
@@ -112,14 +90,8 @@ export default async function DashboardPage() {
 
   const showChecklist = !tenant.setup_dismissed
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type BookingRow = {
-    id: string
-    start_time: string
-    end_time?: string
-    status: string
-    price: number
-    notes?: string
+    id: string; start_time: string; end_time?: string; status: string; price: number; notes?: string
     clients: { name: string; phone?: string } | null
     team_members: { name: string } | null
     service_types: { name: string } | null
@@ -134,15 +106,7 @@ export default async function DashboardPage() {
     } as BookingRow
   }
 
-  const statusColors: Record<string, string> = {
-    scheduled: 'bg-blue-500/20 text-blue-400',
-    confirmed: 'bg-indigo-500/20 text-indigo-400',
-    in_progress: 'bg-yellow-500/20 text-yellow-400',
-    completed: 'bg-green-500/20 text-green-400',
-    paid: 'bg-emerald-500/20 text-emerald-400',
-    cancelled: 'bg-red-500/20 text-red-400',
-    no_show: 'bg-slate-700 text-slate-400',
-  }
+  const statusColors = BOOKING_STATUS_COLORS
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const currentMonth = now.getMonth()
@@ -151,10 +115,10 @@ export default async function DashboardPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-heading font-bold text-white">Dashboard</h2>
+          <h1 className="text-2xl font-heading font-bold text-slate-900">Dashboard</h1>
           <p className="text-sm text-slate-400">Welcome back, {tenant.name}</p>
         </div>
-        <Link href="/dashboard/bookings" className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25">
+        <Link href="/dashboard/bookings" className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition-colors">
           + New Booking
         </Link>
       </div>
@@ -169,79 +133,56 @@ export default async function DashboardPage() {
           { label: 'This Week', value: weekRev, count: weekRevBookings?.length || 0, color: 'border-l-blue-500', sub: 'paid' },
           { label: 'This Month', value: monthRev, count: monthRevBookings?.length || 0, color: 'border-l-purple-500', sub: 'paid' },
         ].map((card) => (
-          <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-5`}>
-            <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-            <p className="text-2xl font-bold text-white mt-1">{fmt(card.value)}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{card.count} {card.sub} job{card.count !== 1 ? 's' : ''}</p>
+          <div key={card.label} className={`border-l-4 ${card.color} pl-3 py-2`}>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide">{card.label}</p>
+            <p className="text-xl font-bold font-mono text-slate-900">{fmt(card.value)}</p>
+            <p className="text-xs text-slate-400">{card.count} {card.sub} job{card.count !== 1 ? 's' : ''}</p>
           </div>
         ))}
-
-        {/* YTD Card - dual display */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-cyan-500 p-5">
-          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Year to Date</p>
-          <p className="text-2xl font-bold text-white mt-1">
-            <span className="text-lg text-slate-300">{fmt(monthRev)}</span>
-            <span className="text-slate-500 mx-1">/</span>
+        <div className="border-l-4 border-l-cyan-500 pl-3 py-2">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Year to Date</p>
+          <p className="text-xl font-bold font-mono text-slate-900">
+            <span className="text-base text-slate-500">{fmt(monthRev)}</span>
+            <span className="text-slate-300 mx-1">/</span>
             {fmt(yearRev)}
           </p>
-          <p className="text-xs text-slate-400 mt-0.5">{now.getFullYear()} ({yearTotalBookings || 0} jobs booked)</p>
+          <p className="text-xs text-slate-400">{now.getFullYear()} ({yearTotalBookings || 0} jobs booked)</p>
         </div>
-
-        {/* Owed Card */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-orange-500 p-5">
-          <p className="text-[11px] text-slate-400 uppercase tracking-wide">Owed</p>
-          <p className="text-2xl font-bold text-orange-400 mt-1">{fmt(owedRev)}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{(owedBookings || []).length} unpaid job{(owedBookings || []).length !== 1 ? 's' : ''}</p>
+        <div className="border-l-4 border-l-orange-500 pl-3 py-2">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Owed</p>
+          <p className="text-xl font-bold font-mono text-orange-600">{fmt(owedRev)}</p>
+          <p className="text-xs text-slate-400">{(owedBookings || []).length} unpaid job{(owedBookings || []).length !== 1 ? 's' : ''}</p>
         </div>
       </div>
 
-      {/* SCHEDULED (UPCOMING) REVENUE ROW */}
+      {/* SCHEDULED REVENUE ROW */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-white uppercase tracking-wide">Scheduled Revenue</h3>
+          <h3 className="text-sm font-heading font-semibold text-slate-900 uppercase tracking-wide">Scheduled Revenue</h3>
           <span className="text-[11px] text-slate-400">Upcoming confirmed/scheduled jobs</span>
         </div>
-        <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-700">
+        <div className="overflow-x-auto pb-2">
           <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
-            {/* Today, Week, Month summary cards */}
             {[
               { label: 'Today', amount: scheduledToday.amount, count: scheduledToday.count, highlight: true },
               { label: 'Week', amount: scheduledWeek.amount, count: scheduledWeek.count, highlight: false },
               { label: 'Month', amount: scheduledMonth.amount, count: scheduledMonth.count, highlight: false },
             ].map((card) => (
-              <div
-                key={card.label}
-                className={`min-w-[100px] rounded-lg px-3 py-2.5 border ${
-                  card.highlight
-                    ? 'bg-green-500/10 border-green-500/40 text-green-400'
-                    : 'bg-slate-700/50 border-slate-600/50 text-slate-300'
-                }`}
-              >
-                <p className="text-[10px] uppercase tracking-wide opacity-70">{card.label}</p>
-                <p className="text-base font-bold mt-0.5">{fmt(card.amount)}</p>
-                <p className="text-[10px] opacity-60">{card.count} job{card.count !== 1 ? 's' : ''}</p>
+              <div key={card.label} className={`min-w-[100px] rounded-lg px-3 py-2.5 border ${card.highlight ? 'border-green-300 bg-green-50' : 'border-slate-200'}`}>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wide">{card.label}</p>
+                <p className={`text-base font-bold mt-0.5 ${card.highlight ? 'text-green-700' : 'text-slate-900'}`}>{fmt(card.amount)}</p>
+                <p className="text-[10px] text-slate-400">{card.count} job{card.count !== 1 ? 's' : ''}</p>
               </div>
             ))}
-
-            {/* Separator */}
-            <div className="w-px bg-slate-700/50 self-stretch mx-1" />
-
-            {/* Monthly cards Jan - Dec */}
+            <div className="w-px bg-slate-200 self-stretch mx-1" />
             {monthNames.map((name, idx) => {
               const data = scheduledByMonth[idx]
               const isCurrent = idx === currentMonth
               return (
-                <div
-                  key={name}
-                  className={`min-w-[100px] rounded-lg px-3 py-2.5 border ${
-                    isCurrent
-                      ? 'bg-green-500/10 border-green-500/40 text-green-400'
-                      : 'bg-slate-700/50 border-slate-600/50 text-slate-300'
-                  }`}
-                >
-                  <p className="text-[10px] uppercase tracking-wide opacity-70">{name}</p>
-                  <p className="text-base font-bold mt-0.5">{fmt(data.amount)}</p>
-                  <p className="text-[10px] opacity-60">{data.count} job{data.count !== 1 ? 's' : ''}</p>
+                <div key={name} className={`min-w-[100px] rounded-lg px-3 py-2.5 border ${isCurrent ? 'border-green-300 bg-green-50' : 'border-slate-200'}`}>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wide">{name}</p>
+                  <p className={`text-base font-bold mt-0.5 ${isCurrent ? 'text-green-700' : 'text-slate-900'}`}>{fmt(data.amount)}</p>
+                  <p className="text-[10px] text-slate-400">{data.count} job{data.count !== 1 ? 's' : ''}</p>
                 </div>
               )
             })}
@@ -252,19 +193,18 @@ export default async function DashboardPage() {
       {/* OVERVIEW STATS */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {[
-          { label: 'Upcoming', value: upcomingBookingCount || 0, icon: '◫', href: '/dashboard/bookings' },
-          { label: 'Completed', value: completedThisMonth || 0, icon: '✓', sub: 'this month' },
-          { label: 'Cancelled', value: cancelledThisMonth || 0, icon: '✕', sub: 'this month' },
-          { label: 'Clients', value: clientCount || 0, icon: '◉', href: '/dashboard/clients' },
-          { label: 'New Clients', value: newClientsThisMonth || 0, icon: '◇', sub: 'this month' },
-          { label: 'Team', value: teamCount || 0, icon: '◎', href: '/dashboard/team' },
+          { label: 'Upcoming', value: upcomingBookingCount || 0, href: '/dashboard/bookings' },
+          { label: 'Completed', value: completedThisMonth || 0, sub: 'this month' },
+          { label: 'Cancelled', value: cancelledThisMonth || 0, sub: 'this month' },
+          { label: 'Clients', value: clientCount || 0, href: '/dashboard/clients' },
+          { label: 'New Clients', value: newClientsThisMonth || 0, sub: 'this month' },
+          { label: 'Team', value: teamCount || 0, href: '/dashboard/team' },
         ].map((s) => (
-          <div key={s.label} className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+          <div key={s.label} className="border border-slate-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-base">{s.icon}</span>
-              {s.href && <Link href={s.href} className="text-[10px] text-teal-500 hover:underline">View</Link>}
+              {s.href && <Link href={s.href} className="text-[10px] text-teal-600 hover:underline">View</Link>}
             </div>
-            <p className="text-xl font-bold text-white">{s.value}</p>
+            <p className="text-xl font-bold font-mono text-slate-900">{s.value}</p>
             <p className="text-[11px] text-slate-400">{s.label}{s.sub ? ` · ${s.sub}` : ''}</p>
           </div>
         ))}
@@ -272,36 +212,34 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* TODAY'S JOBS */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
-            <h3 className="font-semibold text-white text-sm">Today&apos;s Jobs</h3>
+        <div className="border border-slate-200 rounded-lg">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+            <h3 className="font-heading font-semibold text-slate-900 text-sm">Today&apos;s Jobs</h3>
             <span className="text-xs text-slate-400">{(todaysJobs || []).length} job{(todaysJobs || []).length !== 1 ? 's' : ''}</span>
           </div>
-          <div className="divide-y divide-slate-700/50">
+          <div className="divide-y divide-slate-100">
             {(!todaysJobs || todaysJobs.length === 0) ? (
-              <div className="px-5 py-8 text-center text-slate-400 text-sm">
-                No jobs scheduled for today
-              </div>
+              <div className="px-5 py-8 text-center text-slate-400 text-sm">No jobs scheduled for today</div>
             ) : ((todaysJobs || []) as Record<string, unknown>[]).map(normalizeBooking).map((job) => (
-              <Link key={job.id} href={`/dashboard/bookings/${job.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-slate-700/30 transition-colors">
+              <Link key={job.id} href={`/dashboard/bookings/${job.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-white truncate">{job.clients?.name || 'Unknown'}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${statusColors[job.status] || 'bg-slate-700 text-slate-400'}`}>
+                    <p className="text-sm font-medium text-slate-900 truncate">{job.clients?.name || 'Unknown'}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${statusColors[job.status] || 'bg-slate-100 text-slate-500'}`}>
                       {job.status.replace('_', ' ')}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <p className="text-xs text-slate-400">
-                      {new Date(job.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                      {job.end_time && ` – ${new Date(job.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`}
+                      {formatTime(job.start_time)}
+                      {job.end_time && ` – ${formatTime(job.end_time)}`}
                     </p>
                     {job.team_members?.name && <span className="text-xs text-slate-400">· {job.team_members.name}</span>}
                     {job.service_types?.name && <span className="text-xs text-slate-400">· {job.service_types.name}</span>}
                   </div>
                 </div>
                 <div className="text-right ml-3">
-                  <p className="text-sm font-medium text-white">{job.price ? fmt(job.price) : '—'}</p>
+                  <p className="text-sm font-medium text-slate-900">{job.price ? fmt(job.price) : '—'}</p>
                 </div>
               </Link>
             ))}
@@ -309,35 +247,33 @@ export default async function DashboardPage() {
         </div>
 
         {/* UPCOMING 14 DAYS */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
-            <h3 className="font-semibold text-white text-sm">Upcoming 14 Days</h3>
-            <Link href="/dashboard/bookings" className="text-xs text-teal-500 hover:underline">View All</Link>
+        <div className="border border-slate-200 rounded-lg">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+            <h3 className="font-heading font-semibold text-slate-900 text-sm">Upcoming 14 Days</h3>
+            <Link href="/dashboard/bookings" className="text-xs text-teal-600 hover:underline">View All</Link>
           </div>
-          <div className="divide-y divide-slate-700/50">
+          <div className="divide-y divide-slate-100">
             {(!upcomingJobs || upcomingJobs.length === 0) ? (
-              <div className="px-5 py-8 text-center text-slate-400 text-sm">
-                No upcoming bookings
-              </div>
+              <div className="px-5 py-8 text-center text-slate-400 text-sm">No upcoming bookings</div>
             ) : ((upcomingJobs || []) as Record<string, unknown>[]).map(normalizeBooking).map((job) => {
               const jobDate = new Date(job.start_time)
               const isThisWeek = jobDate.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).getTime()
               return (
-                <Link key={job.id} href={`/dashboard/bookings/${job.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-slate-700/30 transition-colors">
+                <Link key={job.id} href={`/dashboard/bookings/${job.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-white truncate">{job.clients?.name || 'Unknown'}</p>
-                      {isThisWeek && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium">This week</span>}
+                      <p className="text-sm font-medium text-slate-900 truncate">{job.clients?.name || 'Unknown'}</p>
+                      {isThisWeek && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">This week</span>}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <p className="text-xs text-slate-400">
-                        {jobDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {jobDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        {formatDateTime(jobDate)}
                       </p>
                       {job.team_members?.name && <span className="text-xs text-slate-400">· {job.team_members.name}</span>}
                     </div>
                   </div>
                   <div className="text-right ml-3">
-                    <p className="text-sm text-slate-400">{job.service_types?.name || ''}</p>
+                    <p className="text-sm text-slate-500">{job.service_types?.name || ''}</p>
                     <p className="text-xs text-slate-400">{job.price ? fmt(job.price) : ''}</p>
                   </div>
                 </Link>
@@ -355,15 +291,14 @@ export default async function DashboardPage() {
       {/* QUICK LINKS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'New Client', href: '/dashboard/clients', icon: '◉', desc: 'Add a client' },
-          { label: 'Campaigns', href: '/dashboard/campaigns', icon: '◆', desc: 'Send email or SMS' },
-          { label: 'Schedules', href: '/dashboard/schedules', icon: '◈', desc: `${scheduleCount || 0} active` },
-          { label: 'Finance', href: '/dashboard/finance', icon: '$', desc: 'Revenue & payroll' },
+          { label: 'New Client', href: '/dashboard/clients', desc: 'Add a client' },
+          { label: 'Campaigns', href: '/dashboard/campaigns', desc: 'Send email or SMS' },
+          { label: 'Schedules', href: '/dashboard/schedules', desc: `${scheduleCount || 0} active` },
+          { label: 'Finance', href: '/dashboard/finance', desc: 'Revenue & payroll' },
         ].map((link) => (
           <Link key={link.href} href={link.href}
-            className="bg-slate-800 border border-slate-700 rounded-xl p-4 hover:border-slate-600 transition-all">
-            <span className="text-lg">{link.icon}</span>
-            <p className="text-sm font-medium text-white mt-1.5">{link.label}</p>
+            className="border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-all">
+            <p className="text-sm font-medium text-slate-900 mt-1">{link.label}</p>
             <p className="text-[11px] text-slate-400">{link.desc}</p>
           </Link>
         ))}

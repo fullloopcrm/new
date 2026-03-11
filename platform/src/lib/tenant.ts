@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from './supabase'
+import { verifyAdminToken } from '@/app/api/admin-auth/route'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 const IMPERSONATE_COOKIE = 'fl_impersonate'
@@ -51,8 +52,26 @@ export type Tenant = {
   setup_progress: Record<string, boolean>
 }
 
-// Check if current user is super admin impersonating a tenant
-async function getImpersonatedTenant(userId: string): Promise<Tenant | null> {
+// Check for admin PIN impersonation (no Clerk needed)
+async function getAdminImpersonatedTenant(): Promise<Tenant | null> {
+  const cookieStore = await cookies()
+  const impersonateId = cookieStore.get(IMPERSONATE_COOKIE)?.value
+  const adminToken = cookieStore.get('admin_token')?.value
+
+  if (!impersonateId || !adminToken) return null
+  if (!verifyAdminToken(adminToken)) return null
+
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('*')
+    .eq('id', impersonateId)
+    .single()
+
+  return tenant
+}
+
+// Check if current user is super admin impersonating a tenant (Clerk-based)
+async function getClerkImpersonatedTenant(userId: string): Promise<Tenant | null> {
   if (!SUPER_ADMIN_IDS.includes(userId)) return null
 
   const cookieStore = await cookies()
@@ -70,12 +89,16 @@ async function getImpersonatedTenant(userId: string): Promise<Tenant | null> {
 
 // Get the current tenant for the logged-in user (server-side)
 export async function getCurrentTenant(): Promise<Tenant | null> {
+  // Admin PIN impersonation — no Clerk needed
+  const adminImpersonated = await getAdminImpersonatedTenant()
+  if (adminImpersonated) return adminImpersonated
+
   const { userId } = await auth()
   if (!userId) return null
 
-  // Check impersonation first
-  const impersonated = await getImpersonatedTenant(userId)
-  if (impersonated) return impersonated
+  // Clerk super admin impersonation
+  const clerkImpersonated = await getClerkImpersonatedTenant(userId)
+  if (clerkImpersonated) return clerkImpersonated
 
   // Normal flow: look up which tenant this Clerk user belongs to
   const { data: membership } = await supabaseAdmin
@@ -97,11 +120,19 @@ export async function getCurrentTenant(): Promise<Tenant | null> {
 
 // Check if current session is an impersonation
 export async function isImpersonating(): Promise<boolean> {
-  const { userId } = await auth()
-  if (!userId || !SUPER_ADMIN_IDS.includes(userId)) return false
-
   const cookieStore = await cookies()
-  return !!cookieStore.get(IMPERSONATE_COOKIE)?.value
+  const impersonateId = cookieStore.get(IMPERSONATE_COOKIE)?.value
+  if (!impersonateId) return false
+
+  // Admin PIN impersonation
+  const adminToken = cookieStore.get('admin_token')?.value
+  if (adminToken && verifyAdminToken(adminToken)) return true
+
+  // Clerk super admin impersonation
+  const { userId } = await auth()
+  if (userId && SUPER_ADMIN_IDS.includes(userId)) return true
+
+  return false
 }
 
 // Get tenant by slug (for subdomain routing)

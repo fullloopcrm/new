@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const available = request.nextUrl.searchParams.get('available')
+  const upcoming = request.nextUrl.searchParams.get('upcoming')
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -31,6 +32,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ jobs: data })
   }
 
+  if (upcoming === 'true') {
+    // Return next 14 days of jobs (excluding today)
+    const futureEnd = new Date(today)
+    futureEnd.setDate(futureEnd.getDate() + 14)
+
+    const { data, error } = await supabaseAdmin
+      .from('bookings')
+      .select('*, clients(name, phone, address, special_instructions)')
+      .eq('tenant_id', auth.tid)
+      .eq('team_member_id', auth.id)
+      .gte('start_time', tomorrow.toISOString())
+      .lt('start_time', futureEnd.toISOString())
+      .not('status', 'eq', 'cancelled')
+      .order('start_time')
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ jobs: data })
+  }
+
   // Default: return today's jobs for the authenticated team member
   const { data, error } = await supabaseAdmin
     .from('bookings')
@@ -39,6 +59,7 @@ export async function GET(request: NextRequest) {
     .eq('team_member_id', auth.id)
     .gte('start_time', today.toISOString())
     .lt('start_time', tomorrow.toISOString())
+    .not('status', 'eq', 'cancelled')
     .order('start_time')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

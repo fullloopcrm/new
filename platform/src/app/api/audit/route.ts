@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const limit = Number(request.nextUrl.searchParams.get('limit')) || 50
+  const limit = Math.min(Number(request.nextUrl.searchParams.get('limit')) || 50, 200)
   const offset = Number(request.nextUrl.searchParams.get('offset')) || 0
   const entityType = request.nextUrl.searchParams.get('entity_type')
 

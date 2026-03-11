@@ -345,14 +345,14 @@ export default function TeamMemberDetailPage() {
 
   return (
     <div>
-      <Link href="/dashboard/team" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">
+      <Link href="/dashboard/team" className="text-sm text-slate-400 hover:text-slate-900 mb-4 inline-block">
         &larr; All Team
       </Link>
 
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">{member.name}</h2>
+        <h2 className="text-2xl font-bold text-slate-900">{member.name}</h2>
         <div className="flex gap-2">
-          <button onClick={() => setEditing(!editing)} className="px-4 py-2 text-sm border border-slate-600 rounded-lg hover:bg-slate-700/30">
+          <button onClick={() => setEditing(!editing)} className="px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-slate-50">
             {editing ? 'Cancel' : 'Edit'}
           </button>
           <button onClick={deleteMember} className="px-4 py-2 text-sm text-red-400 border border-red-200 rounded-lg hover:bg-red-50">
@@ -364,8 +364,8 @@ export default function TeamMemberDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Profile Section */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Profile</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Profile</h3>
             {editing ? (
               <div className="space-y-3">
                 <input type="file" accept="image/*" ref={photoInputRef} onChange={handlePhotoUpload} className="hidden" />
@@ -373,29 +373,29 @@ export default function TeamMemberDetailPage() {
                   {(form.avatar_url || member.avatar_url) ? (
                     <img src={(form.avatar_url || member.avatar_url)!} alt={member.name} className="w-16 h-16 rounded-full object-cover" />
                   ) : (
-                    <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-white text-lg font-bold`}>
+                    <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-slate-900 text-lg font-bold`}>
                       {initials(member.name)}
                     </div>
                   )}
                   <button type="button" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto}
-                    className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg disabled:opacity-50">
+                    className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg disabled:opacity-50">
                     {uploadingPhoto ? 'Uploading...' : 'Change Photo'}
                   </button>
                 </div>
-                <input value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
-                <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
-                <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="Phone" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
-                <select value={form.role || 'worker'} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                <input value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="Phone" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                <select value={form.role || 'worker'} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                   <option value="worker">Worker</option>
                   <option value="lead">Lead</option>
                   <option value="manager">Manager</option>
                 </select>
-                <select value={form.status || 'active'} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+                <select value={form.status || 'active'} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                   <option value="suspended">Suspended</option>
                 </select>
-                <input value={form.pay_rate || ''} onChange={(e) => setForm({ ...form, pay_rate: Number(e.target.value) })} placeholder="Pay Rate ($/hr)" type="number" className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                <input value={form.pay_rate || ''} onChange={(e) => setForm({ ...form, pay_rate: Number(e.target.value) })} placeholder="Pay Rate ($/hr)" type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 <button onClick={save} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -406,12 +406,12 @@ export default function TeamMemberDetailPage() {
                   {member.avatar_url ? (
                     <img src={member.avatar_url} alt={member.name} className="w-16 h-16 rounded-full object-cover" />
                   ) : (
-                    <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-white text-lg font-bold`}>
+                    <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-slate-900 text-lg font-bold`}>
                       {initials(member.name)}
                     </div>
                   )}
                   <div>
-                    <p className="text-white font-semibold text-lg">{member.name}</p>
+                    <p className="text-slate-900 font-semibold text-lg">{member.name}</p>
                     <p className="text-slate-400 text-sm capitalize">{member.role}</p>
                   </div>
                 </div>
@@ -423,16 +423,16 @@ export default function TeamMemberDetailPage() {
                   <div className="flex justify-between"><dt className="text-slate-400">PIN</dt><dd className="font-mono">{member.pin}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Pay Rate</dt><dd>{member.pay_rate ? `$${member.pay_rate}/hr` : '—'}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Language</dt><dd className="uppercase">{member.preferred_language || 'en'}</dd></div>
-                  {displayNotes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-700/50 rounded p-2">{displayNotes}</dd></div>}
+                  {displayNotes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2">{displayNotes}</dd></div>}
                 </dl>
               </>
             )}
           </div>
 
           {/* Schedule & Availability Section */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+          <div className="border border-slate-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-white">Schedule &amp; Availability</h3>
+              <h3 className="font-semibold text-slate-900">Schedule &amp; Availability</h3>
               {scheduleMessage && (
                 <span className="text-xs text-green-400">{scheduleMessage}</span>
               )}
@@ -456,7 +456,7 @@ export default function TeamMemberDetailPage() {
                       }`} />
                     </button>
                     {/* Day label */}
-                    <span className={`w-24 text-sm font-medium ${isOn ? 'text-white' : 'text-slate-400'}`}>
+                    <span className={`w-24 text-sm font-medium ${isOn ? 'text-slate-900' : 'text-slate-400'}`}>
                       {dayName}
                     </span>
                     {/* Time selects */}
@@ -465,7 +465,7 @@ export default function TeamMemberDetailPage() {
                         <select
                           value={entry?.start || '08:00'}
                           onChange={(e) => updateDayTime(i, 'start', e.target.value)}
-                          className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-white"
+                          className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
                         >
                           {TIME_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -475,7 +475,7 @@ export default function TeamMemberDetailPage() {
                         <select
                           value={entry?.end || '17:00'}
                           onChange={(e) => updateDayTime(i, 'end', e.target.value)}
-                          className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-white"
+                          className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
                         >
                           {TIME_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -489,7 +489,7 @@ export default function TeamMemberDetailPage() {
                 )
               })}
             </div>
-            <div className="mt-4 pt-4 border-t border-slate-700">
+            <div className="mt-4 pt-4 border-t border-slate-200">
               <button
                 onClick={saveSchedule}
                 disabled={savingSchedule}
@@ -501,9 +501,9 @@ export default function TeamMemberDetailPage() {
           </div>
 
           {/* Time Off Section */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+          <div className="border border-slate-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-white">Time Off</h3>
+              <h3 className="font-semibold text-slate-900">Time Off</h3>
               {timeOffMessage && (
                 <span className="text-xs text-green-400">{timeOffMessage}</span>
               )}
@@ -520,11 +520,11 @@ export default function TeamMemberDetailPage() {
                     <div
                       key={i}
                       className={`flex items-center justify-between p-3 rounded-lg border ${
-                        isPast ? 'border-slate-700 opacity-50' : 'border-slate-600'
+                        isPast ? 'border-slate-200 opacity-50' : 'border-slate-200'
                       }`}
                     >
                       <div>
-                        <p className="text-sm text-white">
+                        <p className="text-sm text-slate-900">
                           {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           {entry.start !== entry.end && (
                             <> &mdash; {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
@@ -551,7 +551,7 @@ export default function TeamMemberDetailPage() {
             )}
 
             {/* Add time off form */}
-            <div className="border-t border-slate-700 pt-4">
+            <div className="border-t border-slate-200 pt-4">
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Add Time Off</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -560,7 +560,7 @@ export default function TeamMemberDetailPage() {
                     type="date"
                     value={timeOffStart}
                     onChange={(e) => setTimeOffStart(e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900"
                   />
                 </div>
                 <div>
@@ -569,7 +569,7 @@ export default function TeamMemberDetailPage() {
                     type="date"
                     value={timeOffEnd}
                     onChange={(e) => setTimeOffEnd(e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900"
                   />
                 </div>
                 <div>
@@ -579,7 +579,7 @@ export default function TeamMemberDetailPage() {
                     value={timeOffReason}
                     onChange={(e) => setTimeOffReason(e.target.value)}
                     placeholder="Vacation, sick day, etc."
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900"
                   />
                 </div>
               </div>
@@ -594,23 +594,23 @@ export default function TeamMemberDetailPage() {
           </div>
 
           {/* Job History Section */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Job History</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Job History</h3>
             {bookings.length === 0 ? (
               <p className="text-sm text-slate-400">No jobs yet</p>
             ) : (
               <div className="space-y-2">
                 {bookings.map((b) => (
-                  <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-700/30 border border-slate-700">
+                  <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-slate-200">
                     <div>
                       <p className="text-sm font-medium">{b.service_type || 'Service'}</p>
                       <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleString()}</p>
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded ${
-                      b.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                      b.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
-                      b.status === 'cancelled' ? 'bg-red-500/20 text-red-400' :
-                      'bg-slate-600 text-slate-400'
+                      b.status === 'completed' ? 'bg-green-50 text-green-700' :
+                      b.status === 'in_progress' ? 'bg-blue-50 text-blue-700' :
+                      b.status === 'cancelled' ? 'bg-red-50 text-red-700' :
+                      'bg-slate-100 text-slate-500'
                     }`}>{b.status}</span>
                   </Link>
                 ))}
@@ -620,16 +620,16 @@ export default function TeamMemberDetailPage() {
         </div>
 
         <div>
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Earnings</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Earnings</h3>
             <div className="space-y-3">
               <div>
                 <p className="text-sm text-slate-400">Total Earned</p>
-                <p className="text-2xl font-bold text-white">${totalEarnings.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-slate-900">${totalEarnings.toFixed(2)}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-400">Jobs Completed</p>
-                <p className="text-lg font-semibold text-white">{completedBookings.length}</p>
+                <p className="text-lg font-semibold text-slate-900">{completedBookings.length}</p>
               </div>
             </div>
           </div>

@@ -195,12 +195,12 @@ export default function DashboardMap() {
     '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })
 
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+    <div className="border border-slate-200 rounded-lg overflow-hidden">
       {/* Header with inline filters */}
-      <div className="px-5 py-4 border-b border-slate-700">
+      <div className="px-5 py-4 border-b border-slate-200">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h3 className="font-semibold text-white text-sm uppercase tracking-wide">Job Map</h3>
+            <h3 className="font-semibold text-slate-900 text-sm uppercase tracking-wide">Job Map</h3>
             {geocoding && (
               <span className="text-[10px] text-yellow-400 animate-pulse">Geocoding...</span>
             )}
@@ -214,7 +214,7 @@ export default function DashboardMap() {
             <select
               value={teamFilter}
               onChange={(e) => setTeamFilter(e.target.value)}
-              className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-xs text-slate-300"
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-300"
             >
               <option value="">All Team Members</option>
               {team.map((t) => (
@@ -231,7 +231,7 @@ export default function DashboardMap() {
                   className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors ${
                     statusFilter === tab.value
                       ? 'bg-teal-600 text-white'
-                      : 'text-slate-400 hover:bg-slate-700'
+                      : 'text-slate-400 hover:bg-slate-50'
                   }`}
                 >
                   {tab.label}
@@ -251,7 +251,7 @@ export default function DashboardMap() {
                   className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors ${
                     dateRange === dr.value
                       ? 'bg-teal-600 text-white'
-                      : 'text-slate-400 hover:bg-slate-700'
+                      : 'text-slate-400 hover:bg-slate-50'
                   }`}
                 >
                   {dr.label}
@@ -259,7 +259,7 @@ export default function DashboardMap() {
               ))}
             </div>
 
-            <Link href="/dashboard/map" className="text-[11px] text-teal-500 hover:underline ml-1">
+            <Link href="/dashboard/map" className="text-[11px] text-teal-600 hover:underline ml-1">
               Full Map
             </Link>
           </div>
@@ -269,7 +269,7 @@ export default function DashboardMap() {
       {/* Map */}
       <div style={{ height: '400px' }}>
         {loading && geocoded.length === 0 ? (
-          <div className="w-full h-full flex items-center justify-center bg-slate-800">
+          <div className="w-full h-full flex items-center justify-center bg-white border border-slate-200">
             <p className="text-slate-400 text-sm">Loading map...</p>
           </div>
         ) : (

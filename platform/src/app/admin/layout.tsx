@@ -6,27 +6,50 @@ import AdminLogout from './AdminLogout'
 
 const navSections = [
   {
-    label: 'PLATFORM',
+    title: 'System',
     items: [
-      { label: 'Overview', href: '/admin', icon: '◐' },
-      { label: 'Requests', href: '/admin/requests', icon: '◈' },
-      { label: 'Businesses', href: '/admin/businesses', icon: '◉' },
-      { label: 'Leads', href: '/admin/leads', icon: '◎' },
-      { label: 'Analytics', href: '/admin/analytics', icon: '◇' },
+      { label: 'Overview', href: '/admin' },
+      { label: 'Businesses', href: '/admin/businesses' },
+      { label: 'Requests', href: '/admin/requests' },
+      { label: 'Announcements', href: '/admin/announcements' },
+      { label: 'Changelog', href: '/admin/changelog' },
+      { label: 'Security', href: '/admin/security' },
+      { label: 'Settings', href: '/admin/settings' },
+      { label: 'Docs', href: '/admin/docs' },
     ],
   },
   {
-    label: 'COMMUNICATIONS',
+    title: 'Sales',
     items: [
-      { label: 'Announcements', href: '/admin/announcements', icon: '◆' },
-      { label: 'Feedback', href: '/admin/feedback', icon: '◇' },
-      { label: 'Changelog', href: '/admin/changelog', icon: '◫' },
+      { label: 'Leads', href: '/admin/leads' },
+      { label: 'Activate Accounts', href: '/admin/sales' },
+      { label: 'Billing', href: '/admin/billing' },
     ],
   },
   {
-    label: 'SYSTEM',
+    title: 'Dashboards',
     items: [
-      { label: 'Security', href: '/admin/security', icon: '◈' },
+      { label: 'Notifications', href: '/admin/notifications' },
+      { label: 'Bookings', href: '/admin/bookings' },
+      { label: 'Calendar', href: '/admin/calendar' },
+      { label: 'Clients', href: '/admin/clients' },
+      { label: 'Finance', href: '/admin/finance' },
+      { label: 'Team', href: '/admin/team' },
+      { label: 'Analytics', href: '/admin/analytics' },
+      { label: 'Feedback', href: '/admin/feedback' },
+    ],
+  },
+  {
+    title: 'Tools',
+    items: [
+      { label: 'Websites', href: '/admin/websites' },
+      { label: 'Marketing', href: '/admin/marketing' },
+      { label: 'Referrals', href: '/admin/referrals' },
+      { label: 'Google Profile', href: '/admin/google-profile' },
+      { label: 'Social Media', href: '/admin/social' },
+      { label: 'Selena AI', href: '/admin/ai' },
+      { label: 'Email', href: '/admin/email' },
+      { label: 'SMS', href: '/admin/sms' },
     ],
   },
 ]
@@ -44,53 +67,45 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-900 text-white font-body">
+    <div className="min-h-screen flex font-body">
       {/* Sidebar */}
-      <aside className="w-60 bg-slate-800/80 backdrop-blur border-r border-slate-700/50 flex flex-col">
+      <aside className="w-44 bg-slate-900 flex flex-col fixed inset-y-0 left-0 z-30">
         {/* Logo */}
-        <div className="px-5 py-5 border-b border-slate-700/50">
-          <Link href="/admin" className="font-heading font-bold text-lg tracking-tight">
-            Full Loop <span className="bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">Admin</span>
+        <div className="px-4 py-3 border-b border-white/10">
+          <Link href="/admin" className="font-heading font-bold text-base text-white leading-none">
+            Full Loop
           </Link>
-          <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-widest font-medium">Platform Control</p>
+          <p className="text-[10px] text-white/30 mt-0.5 font-medium">Admin</p>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 overflow-y-auto">
+        <nav className="flex-1 py-1 overflow-y-auto">
           {navSections.map((section) => (
-            <div key={section.label} className="mb-2">
-              <p className="px-5 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-                {section.label}
+            <div key={section.title} className="mt-4 first:mt-2">
+              <p className="px-4 pb-0.5 text-[11px] uppercase tracking-wider font-semibold text-white">
+                {section.title}
               </p>
               {section.items.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-3 mx-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/60 hover:text-white transition-all duration-150"
+                  className="block px-4 py-1 text-[13px] font-heading font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors leading-snug"
                 >
-                  <span className="text-base w-5 text-center opacity-60">{item.icon}</span>
-                  <span className="font-medium">{item.label}</span>
+                  {item.label}
                 </Link>
               ))}
             </div>
           ))}
         </nav>
 
-        {/* Bottom actions */}
-        <div className="border-t border-slate-700/50 px-3 py-3 space-y-1">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/60 hover:text-white transition-all duration-150"
-          >
-            <span className="opacity-60">&larr;</span>
-            <span className="font-medium">Dashboard</span>
-          </Link>
+        {/* Bottom */}
+        <div className="border-t border-white/10 px-3 py-2">
           <AdminLogout />
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 overflow-y-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto ml-44 bg-white text-slate-800">
         <div className="p-8 max-w-7xl">
           {children}
         </div>

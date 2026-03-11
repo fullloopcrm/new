@@ -30,12 +30,12 @@ type Booking = {
 const STATUS_ACTIONS: Record<string, { label: string; next: string; color: string }[]> = {
   scheduled: [
     { label: 'Confirm', next: 'confirmed', color: 'bg-indigo-600 text-white' },
-    { label: 'Cancel', next: 'cancelled', color: 'bg-red-500/20 text-red-400' },
+    { label: 'Cancel', next: 'cancelled', color: 'bg-red-50 text-red-700' },
   ],
   confirmed: [
     { label: 'Start', next: 'in_progress', color: 'bg-yellow-600 text-white' },
-    { label: 'No Show', next: 'no_show', color: 'bg-slate-600 text-white' },
-    { label: 'Cancel', next: 'cancelled', color: 'bg-red-500/20 text-red-400' },
+    { label: 'No Show', next: 'no_show', color: 'bg-teal-600 text-white' },
+    { label: 'Cancel', next: 'cancelled', color: 'bg-red-50 text-red-700' },
   ],
   in_progress: [
     { label: 'Complete', next: 'completed', color: 'bg-green-600 text-white' },
@@ -116,13 +116,13 @@ export default function BookingDetailPage() {
 
   return (
     <div>
-      <Link href="/dashboard/bookings" className="text-sm text-slate-400 hover:text-white mb-4 inline-block">
+      <Link href="/dashboard/bookings" className="text-sm text-slate-400 hover:text-slate-900 mb-4 inline-block">
         &larr; All Bookings
       </Link>
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-white">
+          <h2 className="text-2xl font-bold text-slate-900">
             {booking.service_type || 'Booking'}
           </h2>
           <p className="text-sm text-slate-400">
@@ -144,7 +144,7 @@ export default function BookingDetailPage() {
                 pay_rate: booking.pay_rate?.toString() || '',
               })
             }
-          }} className="px-4 py-2 text-sm text-slate-400 border border-slate-600 rounded-lg hover:text-white hover:bg-slate-700">
+          }} className="px-4 py-2 text-sm text-slate-400 border border-slate-200 rounded-lg hover:text-slate-900 hover:bg-slate-50">
             {editing ? 'Cancel Edit' : 'Edit'}
           </button>
           <button onClick={deleteBooking} className="px-4 py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10">
@@ -154,7 +154,7 @@ export default function BookingDetailPage() {
       </div>
 
       {actions.length > 0 && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6 flex items-center gap-3">
+        <div className="border border-slate-200 rounded-lg p-4 mb-6 flex items-center gap-3">
           <span className="text-sm text-slate-400 mr-2">Actions:</span>
           {actions.map((a) => (
             <button
@@ -169,7 +169,7 @@ export default function BookingDetailPage() {
             <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
-              className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Payment method</option>
               <option value="cash">Cash</option>
@@ -184,57 +184,57 @@ export default function BookingDetailPage() {
       )}
 
       {editing && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-          <h3 className="font-semibold text-white mb-4">Edit Booking</h3>
+        <div className="border border-slate-200 rounded-lg p-6 mb-6">
+          <h3 className="font-semibold text-slate-900 mb-4">Edit Booking</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Start Time</label>
-              <input type="datetime-local" value={editForm.start_time} onChange={e => setEditForm({...editForm, start_time: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <input type="datetime-local" value={editForm.start_time} onChange={e => setEditForm({...editForm, start_time: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">End Time</label>
-              <input type="datetime-local" value={editForm.end_time} onChange={e => setEditForm({...editForm, end_time: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <input type="datetime-local" value={editForm.end_time} onChange={e => setEditForm({...editForm, end_time: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Hourly Rate</label>
-              <input type="number" value={editForm.hourly_rate} onChange={e => setEditForm({...editForm, hourly_rate: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <input type="number" value={editForm.hourly_rate} onChange={e => setEditForm({...editForm, hourly_rate: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Pay Rate</label>
-              <input type="number" value={editForm.pay_rate} onChange={e => setEditForm({...editForm, pay_rate: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <input type="number" value={editForm.pay_rate} onChange={e => setEditForm({...editForm, pay_rate: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="md:col-span-2">
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Notes</label>
-              <textarea value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <textarea value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="md:col-span-2">
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Special Instructions</label>
-              <textarea value={editForm.special_instructions} onChange={e => setEditForm({...editForm, special_instructions: e.target.value})} rows={2} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <textarea value={editForm.special_instructions} onChange={e => setEditForm({...editForm, special_instructions: e.target.value})} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
           <div className="flex gap-2">
             <button onClick={saveEdit} className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold">Save Changes</button>
-            <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+            <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Details</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Details</h3>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize font-medium">{booking.status.replace('_', ' ')}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Service</dt><dd>{booking.service_type || '—'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Price</dt><dd>{booking.price != null ? `$${(booking.price / 100).toFixed(2)}` : '—'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Hourly Rate</dt><dd>{booking.hourly_rate ? `$${booking.hourly_rate}/hr` : '—'}</dd></div>
-              {booking.notes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-700/50 rounded p-2">{booking.notes}</dd></div>}
+              {booking.notes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2">{booking.notes}</dd></div>}
               {booking.special_instructions && <div><dt className="text-slate-400 mb-1">Special Instructions</dt><dd className="bg-yellow-500/10 rounded p-2">{booking.special_instructions}</dd></div>}
             </dl>
           </div>
 
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Check-in/out</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Check-in/out</h3>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-slate-400">Check-in</dt>
@@ -259,8 +259,8 @@ export default function BookingDetailPage() {
             </dl>
           </div>
 
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Payment</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Payment</h3>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize">{booking.payment_status || 'unpaid'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Method</dt><dd className="capitalize">{booking.payment_method?.replace('_', ' ') || '—'}</dd></div>
@@ -268,7 +268,7 @@ export default function BookingDetailPage() {
               <div className="flex justify-between"><dt className="text-slate-400">Tip</dt><dd>{booking.tip_amount != null ? `$${(booking.tip_amount / 100).toFixed(2)}` : '—'}</dd></div>
             </dl>
             {booking.payment_status !== 'paid' && booking.price && booking.price > 0 && (
-              <div className="flex gap-2 mt-4 pt-4 border-t border-slate-700">
+              <div className="flex gap-2 mt-4 pt-4 border-t border-slate-200">
                 <button
                   onClick={async () => {
                     const res = await fetch('/api/payments/link', {
@@ -282,7 +282,7 @@ export default function BookingDetailPage() {
                       alert('Payment link copied!')
                     }
                   }}
-                  className="flex-1 text-sm bg-purple-500/20 text-purple-400 py-2 rounded-lg font-medium hover:bg-purple-500/30"
+                  className="flex-1 text-sm bg-purple-50 text-purple-700 py-2 rounded-lg font-medium hover:bg-purple-500/30"
                 >
                   Send Payment Link
                 </button>
@@ -298,7 +298,7 @@ export default function BookingDetailPage() {
                       if (url) window.open(url, '_blank')
                     }
                   }}
-                  className="flex-1 text-sm bg-green-500/20 text-green-400 py-2 rounded-lg font-medium hover:bg-green-500/30"
+                  className="flex-1 text-sm bg-green-50 text-green-700 py-2 rounded-lg font-medium hover:bg-green-500/30"
                 >
                   Collect via Stripe
                 </button>
@@ -308,8 +308,8 @@ export default function BookingDetailPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Client</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Client</h3>
             {booking.clients ? (
               <dl className="space-y-2 text-sm">
                 <dd className="font-medium">{booking.clients.name}</dd>
@@ -322,8 +322,8 @@ export default function BookingDetailPage() {
             )}
           </div>
 
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 className="font-semibold text-white mb-4">Team Member</h3>
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Team Member</h3>
             {booking.team_members ? (
               <dl className="space-y-2 text-sm">
                 <dd className="font-medium">{booking.team_members.name}</dd>

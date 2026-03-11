@@ -3,16 +3,16 @@
 export const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "@id": "https://fullloopcrm.com/#organization",
+  "@id": "https://www.fullloopcrm.com/#organization",
   name: "Full Loop CRM",
-  url: "https://fullloopcrm.com",
+  url: "https://www.fullloopcrm.com",
   logo: {
     "@type": "ImageObject",
-    url: "https://fullloopcrm.com/logo.png",
+    url: "https://www.fullloopcrm.com/logo.png",
     width: 600,
     height: 60,
   },
-  image: "https://fullloopcrm.com/opengraph-image",
+  image: "https://www.fullloopcrm.com/opengraph-image",
   description:
     "Full Loop CRM is the first full-cycle CRM for home service businesses — AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
   email: "hello@fullloopcrm.com",
@@ -71,13 +71,13 @@ export const organizationSchema = {
 export const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "@id": "https://fullloopcrm.com/#website",
-  url: "https://fullloopcrm.com",
+  "@id": "https://www.fullloopcrm.com/#website",
+  url: "https://www.fullloopcrm.com",
   name: "Full Loop CRM",
   description:
     "The first full-cycle CRM for home service businesses. AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
   publisher: {
-    "@id": "https://fullloopcrm.com/#organization",
+    "@id": "https://www.fullloopcrm.com/#organization",
   },
   inLanguage: "en-US",
 };
@@ -86,10 +86,10 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "@id": `https://fullloopcrm.com/${area.toLowerCase().replace(/\s+/g, "-")}/#software`,
+    "@id": `https://www.fullloopcrm.com/${area.toLowerCase().replace(/\s+/g, "-")}/#software`,
     name: `Full Loop CRM - ${area}`,
-    image: "https://fullloopcrm.com/opengraph-image",
-    url: `https://fullloopcrm.com/${area.toLowerCase().replace(/\s+/g, "-")}`,
+    image: "https://www.fullloopcrm.com/opengraph-image",
+    url: `https://www.fullloopcrm.com/${area.toLowerCase().replace(/\s+/g, "-")}`,
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     offers: {
@@ -108,7 +108,7 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
       name: area,
     },
     provider: {
-      "@id": "https://fullloopcrm.com/#organization",
+      "@id": "https://www.fullloopcrm.com/#organization",
     },
   };
 }
@@ -122,14 +122,14 @@ export function serviceSchema(
   const base: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Service",
-    "@id": `https://fullloopcrm.com/${serviceSlug}/#service`,
+    "@id": `https://www.fullloopcrm.com/${serviceSlug}/#service`,
     name: serviceName,
     description,
     url: area
-      ? `https://fullloopcrm.com/${serviceSlug}/${area.toLowerCase().replace(/\s+/g, "-")}`
-      : `https://fullloopcrm.com/${serviceSlug}`,
+      ? `https://www.fullloopcrm.com/${serviceSlug}/${area.toLowerCase().replace(/\s+/g, "-")}`
+      : `https://www.fullloopcrm.com/${serviceSlug}`,
     provider: {
-      "@id": "https://fullloopcrm.com/#organization",
+      "@id": "https://www.fullloopcrm.com/#organization",
     },
     serviceType: serviceName,
     areaServed: area
@@ -181,8 +181,8 @@ export function webPageSchema(
     url,
     name: title,
     description,
-    isPartOf: { "@id": "https://fullloopcrm.com/#website" },
-    about: { "@id": "https://fullloopcrm.com/#organization" },
+    isPartOf: { "@id": "https://www.fullloopcrm.com/#website" },
+    about: { "@id": "https://www.fullloopcrm.com/#organization" },
     datePublished: "2025-01-01",
     dateModified: new Date().toISOString().split("T")[0],
     inLanguage: "en-US",
@@ -209,14 +209,14 @@ export function articleSchema(
     headline: title,
     description,
     url,
-    image: image || "https://fullloopcrm.com/opengraph-image",
+    image: image || "https://www.fullloopcrm.com/opengraph-image",
     datePublished,
     dateModified,
     author: {
-      "@id": "https://fullloopcrm.com/#organization",
+      "@id": "https://www.fullloopcrm.com/#organization",
     },
     publisher: {
-      "@id": "https://fullloopcrm.com/#organization",
+      "@id": "https://www.fullloopcrm.com/#organization",
     },
     mainEntityOfPage: {
       "@type": "WebPage",
@@ -249,14 +249,14 @@ export function softwareApplicationSchema(
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "@id": "https://fullloopcrm.com/#software",
+    "@id": "https://www.fullloopcrm.com/#software",
     name: "Full Loop CRM",
     description:
       "The first full-cycle CRM for home service businesses — AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
-    url: "https://fullloopcrm.com",
+    url: "https://www.fullloopcrm.com",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
-    image: "https://fullloopcrm.com/opengraph-image",
+    image: "https://www.fullloopcrm.com/opengraph-image",
     offers: {
       "@type": "Offer",
       price,
@@ -267,7 +267,7 @@ export function softwareApplicationSchema(
         .toISOString()
         .split("T")[0],
       availability: "https://schema.org/InStock",
-      url: "https://fullloopcrm.com/full-loop-crm-pricing",
+      url: "https://www.fullloopcrm.com/full-loop-crm-pricing",
       priceSpecification: {
         "@type": "UnitPriceSpecification",
         price,
@@ -288,7 +288,7 @@ export function softwareApplicationSchema(
       worstRating: "1",
     },
     provider: {
-      "@id": "https://fullloopcrm.com/#organization",
+      "@id": "https://www.fullloopcrm.com/#organization",
     },
     featureList: [
       "AI-Powered Lead Generation",
@@ -335,7 +335,7 @@ export function howToSchema(
     name,
     description,
     totalTime: "PT30M",
-    image: "https://fullloopcrm.com/opengraph-image",
+    image: "https://www.fullloopcrm.com/opengraph-image",
     step: steps.map((step, index) => ({
       "@type": "HowToStep",
       position: index + 1,

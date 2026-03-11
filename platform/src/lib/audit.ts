@@ -30,9 +30,9 @@ export async function audit({
   userId?: string
   details?: Record<string, unknown>
   ip?: string
-}) {
+}): Promise<{ success: boolean }> {
   try {
-    await supabaseAdmin.from('audit_logs').insert({
+    const { error } = await supabaseAdmin.from('audit_logs').insert({
       tenant_id: tenantId,
       action,
       entity_type: entityType,
@@ -41,8 +41,21 @@ export async function audit({
       details: details || null,
       ip_address: ip || null,
     })
+    if (error) throw error
+    return { success: true }
   } catch (e) {
-    // Audit logging should never break the main flow
-    console.error('Audit log error:', e)
+    // Fallback: try inserting a simpler error record so the failure is visible in the DB
+    try {
+      await supabaseAdmin.from('audit_logs').insert({
+        tenant_id: tenantId,
+        action,
+        entity_type: entityType,
+        details: { _audit_error: String(e), originalDetails: details || null },
+      })
+    } catch (fallbackError) {
+      // Last resort — both inserts failed, log to console
+      console.error('Audit log error (primary + fallback both failed):', e, fallbackError)
+    }
+    return { success: false }
   }
 }

@@ -7,19 +7,19 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://fullloopcrm.com" },
-  { name: "Privacy Policy", url: "https://fullloopcrm.com/privacy-policy" },
+  { name: "Home", url: "https://www.fullloopcrm.com" },
+  { name: "Privacy Policy", url: "https://www.fullloopcrm.com/privacy-policy" },
 ];
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Full Loop CRM",
   description:
     "Full Loop CRM privacy policy. Learn how we collect, use, and protect your data.",
-  alternates: { canonical: "https://fullloopcrm.com/privacy-policy" },
+  alternates: { canonical: "https://www.fullloopcrm.com/privacy-policy" },
   openGraph: {
     title: "Privacy Policy | Full Loop CRM",
     description: "Learn how Full Loop CRM collects, uses, and protects your data.",
-    url: "https://fullloopcrm.com/privacy-policy",
+    url: "https://www.fullloopcrm.com/privacy-policy",
     type: "website",
   },
   twitter: {
@@ -36,7 +36,7 @@ export default function PrivacyPolicyPage() {
         data={webPageSchema(
           "Privacy Policy | Full Loop CRM",
           "Full Loop CRM privacy policy.",
-          "https://fullloopcrm.com/privacy-policy",
+          "https://www.fullloopcrm.com/privacy-policy",
           breadcrumbs
         )}
       />

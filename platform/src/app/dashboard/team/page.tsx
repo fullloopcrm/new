@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { downloadCSV } from '@/lib/csv'
 import { formatPhone } from '@/lib/phone'
+import { TEAM_STATUS_COLORS, ROLE_COLORS } from '@/lib/constants'
+import { formatDateLong } from '@/lib/format'
 
 type TeamMember = {
   id: string
@@ -20,6 +22,23 @@ type TeamMember = {
   avatar_url: string | null
   notes: string | null
   created_at: string
+}
+
+type Application = {
+  id: string
+  name: string
+  email: string | null
+  phone: string
+  address: string | null
+  experience: string | null
+  availability: string | null
+  referral_source: string | null
+  references: { name: string; phone: string }[] | null
+  notes: string | null
+  photo_url: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  reviewed_at: string | null
 }
 
 type TeamConfig = {
@@ -87,17 +106,9 @@ function getUpcomingTimeOff(entries: TimeOffEntry[]): TimeOffEntry | null {
 const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const dayLabelsFull = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-const statusColors: Record<string, string> = {
-  active: 'bg-green-500/20 text-green-400 border-green-500/30',
-  suspended: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  inactive: 'bg-slate-600 text-slate-400 border-slate-600',
-}
+const statusColors = TEAM_STATUS_COLORS
 
-const roleColors: Record<string, string> = {
-  worker: 'bg-blue-500/20 text-blue-400',
-  lead: 'bg-purple-500/20 text-purple-400',
-  manager: 'bg-indigo-500/20 text-indigo-400',
-}
+const roleColors = ROLE_COLORS
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -135,6 +146,13 @@ export default function TeamPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const createPhotoRef = useRef<HTMLInputElement>(null)
 
+  // Applications tab state
+  const [activeTab, setActiveTab] = useState<'team' | 'applications'>('team')
+  const [applications, setApplications] = useState<Application[]>([])
+  const [loadingApps, setLoadingApps] = useState(false)
+  const [appActionLoading, setAppActionLoading] = useState<string | null>(null)
+  const [appNewPin, setAppNewPin] = useState('')
+
   // Load team members
   useEffect(() => {
     fetch('/api/team')
@@ -155,6 +173,87 @@ export default function TeamPage() {
       })
       .catch(() => { /* use defaults */ })
   }, [])
+
+  // Load applications
+  useEffect(() => {
+    setLoadingApps(true)
+    fetch('/api/team-applications')
+      .then((r) => r.json())
+      .then((data) => setApplications(data.applications || []))
+      .catch(() => {})
+      .finally(() => setLoadingApps(false))
+  }, [])
+
+  const pendingApps = applications.filter(a => a.status === 'pending')
+  const pastApps = applications.filter(a => a.status !== 'pending')
+
+  async function approveApplication(app: Application) {
+    setAppActionLoading(app.id)
+    setAppNewPin('')
+    try {
+      // Update application status
+      const res = await fetch('/api/team-applications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: app.id, status: 'approved' }),
+      })
+      if (!res.ok) { setAppActionLoading(null); return }
+
+      // Create team member from application
+      const memberRes = await fetch('/api/team', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: app.name,
+          email: app.email || undefined,
+          phone: app.phone || undefined,
+          avatar_url: app.photo_url || undefined,
+        }),
+      })
+      const memberData = await memberRes.json()
+      if (memberRes.ok) {
+        setTeam((prev) => [memberData.member, ...prev])
+        setAppNewPin(memberData.member.pin)
+      }
+
+      setApplications((prev) =>
+        prev.map((a) => a.id === app.id ? { ...a, status: 'approved' as const, reviewed_at: new Date().toISOString() } : a)
+      )
+    } catch { /* ignore */ }
+    setAppActionLoading(null)
+  }
+
+  async function rejectApplication(id: string) {
+    setAppActionLoading(id)
+    try {
+      const res = await fetch('/api/team-applications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'rejected' }),
+      })
+      if (res.ok) {
+        setApplications((prev) =>
+          prev.map((a) => a.id === id ? { ...a, status: 'rejected' as const, reviewed_at: new Date().toISOString() } : a)
+        )
+      }
+    } catch { /* ignore */ }
+    setAppActionLoading(null)
+  }
+
+  async function deleteApplication(id: string) {
+    setAppActionLoading(id)
+    try {
+      const res = await fetch('/api/team-applications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (res.ok) {
+        setApplications((prev) => prev.filter((a) => a.id !== id))
+      }
+    } catch { /* ignore */ }
+    setAppActionLoading(null)
+  }
 
   async function saveTeamConfig(config: TeamConfig) {
     setSavingSettings(true)
@@ -320,23 +419,23 @@ export default function TeamPage() {
   return (
     <div>
       {/* PORTAL LINK */}
-      <div className="flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl px-5 py-3 mb-6">
+      <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-slate-400">Team Portal:</span>
-          <a href={typeof window !== 'undefined' ? `${window.location.origin}/team` : '/team'} target="_blank" rel="noopener noreferrer" className="text-blue-400 font-mono text-xs bg-slate-700 px-2 py-0.5 rounded hover:text-blue-300">{typeof window !== 'undefined' ? `${window.location.origin}/team` : '/team'}</a>
+          <a href={typeof window !== 'undefined' ? `${window.location.origin}/team` : '/team'} target="_blank" rel="noopener noreferrer" className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded hover:text-blue-300">{typeof window !== 'undefined' ? `${window.location.origin}/team` : '/team'}</a>
         </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/team`)} className="text-xs text-slate-400 hover:text-white transition-colors">Copy Link</button>
+        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/team`)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Copy Link</button>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-white">Team</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Team</h2>
             <p className="text-sm text-slate-400">{team.length} members &middot; {activeCount} active</p>
           </div>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+            className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
             title="Team Settings"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -348,7 +447,7 @@ export default function TeamPage() {
         <div className="flex gap-2">
           <button
             onClick={() => downloadCSV(team as unknown as Record<string, unknown>[], 'team', ['name', 'email', 'phone', 'role', 'status', 'pin', 'pay_rate', 'hourly_rate', 'preferred_language', 'created_at'])}
-            className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg"
+            className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg"
           >
             Export CSV
           </button>
@@ -359,11 +458,41 @@ export default function TeamPage() {
         </div>
       </div>
 
+      {/* TABS */}
+      <div className="flex gap-0 border-b border-slate-200 mb-6">
+        <button
+          onClick={() => setActiveTab('team')}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'team'
+              ? 'border-teal-600 text-teal-600'
+              : 'border-transparent text-slate-400 hover:text-slate-700'
+          }`}
+        >
+          Team Members
+        </button>
+        <button
+          onClick={() => setActiveTab('applications')}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'applications'
+              ? 'border-teal-600 text-teal-600'
+              : 'border-transparent text-slate-400 hover:text-slate-700'
+          }`}
+        >
+          Applications
+          {pendingApps.length > 0 && (
+            <span className="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+              {pendingApps.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'team' && (<>
       {/* TEAM SETTINGS PANEL */}
       {showSettings && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl mb-6 overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-            <h3 className="font-semibold text-white">Team Settings</h3>
+        <div className="border border-slate-200 rounded-lg mb-6 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 className="font-semibold text-slate-900">Team Settings</h3>
             <div className="flex items-center gap-3">
               {settingsMsg && (
                 <span className={`text-xs ${settingsMsg === 'Settings saved' ? 'text-green-400' : 'text-red-400'}`}>{settingsMsg}</span>
@@ -371,7 +500,7 @@ export default function TeamPage() {
               {savingSettings && (
                 <span className="text-xs text-slate-400">Saving...</span>
               )}
-              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white text-lg leading-none">&times;</button>
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-900 text-lg leading-none">&times;</button>
             </div>
           </div>
 
@@ -381,7 +510,7 @@ export default function TeamPage() {
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-3 block">Roles</label>
               <div className="flex flex-wrap gap-2 mb-3">
                 {teamConfig.roles.map((role) => (
-                  <span key={role} className="inline-flex items-center gap-1.5 bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm">
+                  <span key={role} className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm">
                     <span className={`w-2 h-2 rounded-full ${
                       role === 'worker' ? 'bg-blue-400' :
                       role === 'lead' ? 'bg-purple-400' :
@@ -409,19 +538,19 @@ export default function TeamPage() {
                   value={newRoleInput}
                   onChange={(e) => setNewRoleInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addRole())}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm w-48 placeholder-gray-600"
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-48 placeholder-gray-600"
                 />
                 <button
                   onClick={addRole}
                   disabled={!newRoleInput.trim()}
-                  className="text-sm text-slate-400 hover:text-white border border-slate-600 hover:border-slate-500 px-3 py-1.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 hover:border-slate-500 px-3 py-1.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   + Add Role
                 </button>
               </div>
             </div>
 
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
 
             {/* PAY RATE PRESETS */}
             <div>
@@ -429,9 +558,9 @@ export default function TeamPage() {
               {teamConfig.pay_rates.length > 0 ? (
                 <div className="space-y-2 mb-3">
                   {teamConfig.pay_rates.map((rate, i) => (
-                    <div key={i} className="flex items-center justify-between bg-slate-700 border border-slate-600 rounded-lg px-4 py-2">
+                    <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-4 py-2">
                       <div className="flex items-center gap-3">
-                        <span className="text-sm text-slate-300">{rate.label}</span>
+                        <span className="text-sm text-slate-700">{rate.label}</span>
                         <span className="text-sm font-mono text-green-400">${rate.amount}/hr</span>
                       </div>
                       <button
@@ -451,7 +580,7 @@ export default function TeamPage() {
                   placeholder="Label (e.g. Standard)"
                   value={newRateLabel}
                   onChange={(e) => setNewRateLabel(e.target.value)}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm w-40 placeholder-gray-600"
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-40 placeholder-gray-600"
                 />
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
@@ -463,21 +592,21 @@ export default function TeamPage() {
                     value={newRateAmount}
                     onChange={(e) => setNewRateAmount(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPayRate())}
-                    className="bg-slate-700 border border-slate-600 rounded-lg pl-7 pr-12 py-1.5 text-sm w-32 placeholder-gray-600"
+                    className="bg-slate-50 border border-slate-200 rounded-lg pl-7 pr-12 py-1.5 text-sm w-32 placeholder-gray-600"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">/hr</span>
                 </div>
                 <button
                   onClick={addPayRate}
                   disabled={!newRateLabel.trim() || !newRateAmount}
-                  className="text-sm text-slate-400 hover:text-white border border-slate-600 hover:border-slate-500 px-3 py-1.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 hover:border-slate-500 px-3 py-1.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   + Add Rate
                 </button>
               </div>
             </div>
 
-            <div className="border-t border-slate-700" />
+            <div className="border-t border-slate-200" />
 
             {/* DEFAULT WORKING DAYS */}
             <div>
@@ -491,7 +620,7 @@ export default function TeamPage() {
                     className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
                       teamConfig.default_working_days.includes(i)
                         ? 'bg-teal-600 text-white'
-                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                        : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
                     }`}
                   >
                     {label}
@@ -511,46 +640,46 @@ export default function TeamPage() {
           { label: 'Workers', value: team.filter(m => m.role === 'worker').length, color: 'border-l-blue-500' },
           { label: 'Leads / Managers', value: team.filter(m => m.role !== 'worker').length, color: 'border-l-purple-500' },
         ].map((card) => (
-          <div key={card.label} className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${card.color} p-4`}>
+          <div key={card.label} className={`border border-slate-200 rounded-lg border-l-4 ${card.color} p-4`}>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-            <p className="text-xl font-bold text-white mt-1">{card.value}</p>
+            <p className="text-xl font-bold text-slate-900 mt-1">{card.value}</p>
           </div>
         ))}
       </div>
 
       {/* PIN SUCCESS BANNER */}
       {newPin && (
-        <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-5 py-4 mb-6 flex items-center justify-between">
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-5 py-4 mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-green-400">Team member created successfully!</p>
             <p className="text-sm text-slate-400 mt-0.5">
-              Their login PIN is <span className="font-mono font-bold text-white text-lg mx-1">{newPin}</span> -- share this with them to access the Team Portal.
+              Their login PIN is <span className="font-mono font-bold text-slate-900 text-lg mx-1">{newPin}</span> -- share this with them to access the Team Portal.
             </p>
           </div>
-          <button onClick={() => setNewPin('')} className="text-slate-400 hover:text-white text-lg">&times;</button>
+          <button onClick={() => setNewPin('')} className="text-slate-400 hover:text-slate-900 text-lg">&times;</button>
         </div>
       )}
 
       {/* ADD FORM */}
       {showAdd && (
-        <form onSubmit={addMember} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-          <h3 className="font-semibold text-white mb-4">Add Team Member</h3>
+        <form onSubmit={addMember} className="border border-slate-200 rounded-lg p-6 mb-6">
+          <h3 className="font-semibold text-slate-900 mb-4">Add Team Member</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Name *</label>
-              <input placeholder="Maria Garcia" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="Maria Garcia" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Email</label>
-              <input placeholder="maria@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="maria@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Phone</label>
-              <input placeholder="(555) 123-4567" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="(555) 123-4567" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Role</label>
-              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 {teamConfig.roles.map((role) => (
                   <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>
                 ))}
@@ -558,7 +687,7 @@ export default function TeamPage() {
             </div>
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Hourly Rate (charge)</label>
-              <input placeholder="45" type="number" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+              <input placeholder="45" type="number" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Pay Rate ($/hr)</label>
@@ -567,7 +696,7 @@ export default function TeamPage() {
                   <select
                     value={form.pay_rate_preset}
                     onChange={(e) => handlePayRatePreset(e.target.value)}
-                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm flex-1 min-w-0"
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-0"
                   >
                     <option value="custom">Custom</option>
                     {teamConfig.pay_rates.map((rate) => (
@@ -580,12 +709,12 @@ export default function TeamPage() {
                       type="number"
                       value={form.pay_rate}
                       onChange={(e) => setForm({ ...form, pay_rate: e.target.value })}
-                      className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-24"
+                      className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-24"
                     />
                   )}
                 </div>
               ) : (
-                <input placeholder="25" type="number" value={form.pay_rate} onChange={(e) => setForm({ ...form, pay_rate: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm" />
+                <input placeholder="25" type="number" value={form.pay_rate} onChange={(e) => setForm({ ...form, pay_rate: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
               )}
             </div>
           </div>
@@ -597,7 +726,7 @@ export default function TeamPage() {
                   className={`w-9 h-9 rounded-lg text-xs font-bold transition-colors ${
                     form.working_days.includes(i)
                       ? 'bg-teal-600 text-white'
-                      : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                      : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
                   }`}>
                   {label}
                 </button>
@@ -611,10 +740,10 @@ export default function TeamPage() {
               {form.avatar_url ? (
                 <img src={form.avatar_url} alt="Preview" className="w-16 h-16 rounded-full object-cover" />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center text-slate-400 text-xs">No photo</div>
+                <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 text-xs">No photo</div>
               )}
               <button type="button" onClick={() => createPhotoRef.current?.click()} disabled={uploadingPhoto}
-                className="text-sm text-slate-400 hover:text-white border border-slate-600 px-3 py-2 rounded-lg disabled:opacity-50">
+                className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg disabled:opacity-50">
                 {uploadingPhoto ? 'Uploading...' : form.avatar_url ? 'Change Photo' : 'Upload Photo'}
               </button>
             </div>
@@ -627,7 +756,7 @@ export default function TeamPage() {
               className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
               {saving ? 'Saving...' : 'Save Member'}
             </button>
-            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
           </div>
         </form>
       )}
@@ -641,23 +770,23 @@ export default function TeamPage() {
           const upcomingOff = notesData.time_off ? getUpcomingTimeOff(notesData.time_off) : null
           return (
             <Link key={m.id} href={`/dashboard/team/${m.id}`}
-              className="bg-slate-800 border border-slate-700 rounded-xl p-5 hover:border-slate-600 transition-all">
+              className="border border-slate-200 rounded-lg p-5 hover:border-slate-200 transition-all">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   {m.avatar_url ? (
                     <img src={m.avatar_url} alt={m.name} className="w-11 h-11 rounded-full object-cover" />
                   ) : (
-                    <div className={`w-11 h-11 rounded-full ${avatarColor(m.name)} flex items-center justify-center text-white text-sm font-bold`}>
+                    <div className={`w-11 h-11 rounded-full ${avatarColor(m.name)} flex items-center justify-center text-slate-900 text-sm font-bold`}>
                       {initials(m.name)}
                     </div>
                   )}
                   <div>
-                    <p className="font-semibold text-white">{m.name}</p>
+                    <p className="font-semibold text-slate-900">{m.name}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${roleColors[m.role] || 'bg-slate-600 text-slate-400'}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${roleColors[m.role] || 'bg-slate-100 text-slate-500'}`}>
                         {m.role}
                       </span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${statusColors[m.status] || 'bg-slate-600 text-slate-400 border-slate-600'}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${statusColors[m.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                         {m.status}
                       </span>
                     </div>
@@ -688,7 +817,7 @@ export default function TeamPage() {
               <div className="flex gap-1 mb-1">
                 {dayLabels.map((label, i) => (
                   <div key={i} className={`w-7 h-7 rounded text-[10px] font-bold flex items-center justify-center ${
-                    workDays.includes(i) ? 'bg-teal-600 text-white' : 'bg-slate-700 text-slate-500'
+                    workDays.includes(i) ? 'bg-teal-600 text-white' : 'bg-slate-50 text-slate-500'
                   }`}>
                     {label}
                   </div>
@@ -703,7 +832,7 @@ export default function TeamPage() {
               {/* UPCOMING TIME OFF BADGE */}
               {upcomingOff && (
                 <div className="mb-1">
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 font-medium">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 font-medium">
                     Off {new Date(upcomingOff.start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     {upcomingOff.start !== upcomingOff.end && (
                       <> - {new Date(upcomingOff.end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
@@ -712,7 +841,7 @@ export default function TeamPage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between pt-3 border-t border-slate-700">
+              <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                 <span className="font-mono text-xs text-slate-400">PIN: {m.pin}</span>
                 <span className="text-[10px] text-slate-400 uppercase">{m.preferred_language || 'EN'}</span>
               </div>
@@ -721,11 +850,166 @@ export default function TeamPage() {
         })}
 
         {team.length === 0 && (
-          <div className="col-span-full bg-slate-800 border border-slate-700 rounded-xl p-8 text-center text-slate-400">
+          <div className="col-span-full border border-slate-200 rounded-lg p-8 text-center text-slate-400">
             No team members yet -- add your first one above
           </div>
         )}
       </div>
+      </>)}
+
+      {/* APPLICATIONS TAB */}
+      {activeTab === 'applications' && (
+        <div>
+          {/* Approved PIN banner */}
+          {appNewPin && (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-5 py-4 mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-700">Application approved & team member created!</p>
+                <p className="text-sm text-slate-600 mt-0.5">
+                  Their login PIN is <span className="font-mono font-bold text-slate-900 text-lg mx-1">{appNewPin}</span> -- share this with them to access the Team Portal.
+                </p>
+              </div>
+              <button onClick={() => setAppNewPin('')} className="text-slate-400 hover:text-slate-900 text-lg">&times;</button>
+            </div>
+          )}
+
+          {loadingApps ? (
+            <div className="border border-slate-200 rounded-lg p-8 text-center text-slate-400">Loading applications...</div>
+          ) : (
+            <>
+              {/* PENDING APPLICATIONS */}
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                  <h3 className="text-sm font-semibold text-orange-600 uppercase tracking-wide">Pending Applications ({pendingApps.length})</h3>
+                </div>
+                {pendingApps.length === 0 ? (
+                  <div className="border border-slate-200 rounded-lg p-6 text-center text-slate-400 text-sm">No pending applications</div>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingApps.map((app) => (
+                      <div key={app.id} className="border border-orange-200 bg-orange-50/30 rounded-lg p-5">
+                        <div className="flex items-start gap-4">
+                          {app.photo_url ? (
+                            <img src={app.photo_url} alt={app.name} className="w-14 h-14 rounded-full object-cover flex-shrink-0" />
+                          ) : (
+                            <div className={`w-14 h-14 rounded-full ${avatarColor(app.name)} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
+                              {initials(app.name)}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <p className="font-semibold text-slate-900 text-lg">{app.name}</p>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-slate-600">
+                                  {app.phone && <span>Tel: {app.phone}</span>}
+                                  {app.email && <span>Email: {app.email}</span>}
+                                  {app.address && <span>Addr: {app.address}</span>}
+                                </div>
+                              </div>
+                              <span className="text-xs text-slate-400 whitespace-nowrap">
+                                {formatDateLong(app.created_at)}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
+                              {app.experience && (
+                                <span className="text-slate-600"><span className="text-slate-400">Experience:</span> {app.experience}</span>
+                              )}
+                              {app.availability && (
+                                <span className="text-slate-600"><span className="text-slate-400">Availability:</span> {app.availability}</span>
+                              )}
+                              {app.referral_source && (
+                                <span className="text-slate-600"><span className="text-slate-400">Referral:</span> {app.referral_source}</span>
+                              )}
+                            </div>
+                            {app.references && app.references.length > 0 && (
+                              <div className="mt-2 text-sm text-slate-600">
+                                <span className="text-slate-400">References:</span>{' '}
+                                {app.references.map((ref, i) => (
+                                  <span key={i}>{ref.name} ({ref.phone}){i < app.references!.length - 1 ? ', ' : ''}</span>
+                                ))}
+                              </div>
+                            )}
+                            {app.notes && (
+                              <p className="mt-2 text-sm text-slate-500 italic">{app.notes}</p>
+                            )}
+                            <div className="flex gap-2 mt-4">
+                              <button
+                                onClick={() => approveApplication(app)}
+                                disabled={appActionLoading === app.id}
+                                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+                              >
+                                {appActionLoading === app.id ? 'Processing...' : 'Approve & Add'}
+                              </button>
+                              <button
+                                onClick={() => rejectApplication(app.id)}
+                                disabled={appActionLoading === app.id}
+                                className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* PAST APPLICATIONS */}
+              {pastApps.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 rounded-full bg-slate-400" />
+                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Past Applications ({pastApps.length})</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {pastApps.map((app) => (
+                      <div key={app.id} className="border border-slate-200 rounded-lg p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {app.photo_url ? (
+                            <img src={app.photo_url} alt={app.name} className="w-10 h-10 rounded-full object-cover" />
+                          ) : (
+                            <div className={`w-10 h-10 rounded-full ${avatarColor(app.name)} flex items-center justify-center text-white text-xs font-bold`}>
+                              {initials(app.name)}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-slate-900">{app.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                app.status === 'approved'
+                                  ? 'bg-green-50 text-green-700'
+                                  : 'bg-red-50 text-red-700'
+                              }`}>
+                                {app.status}
+                              </span>
+                              <span className="text-xs text-slate-400">
+                                {formatDateLong(app.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => deleteApplication(app.id)}
+                          disabled={appActionLoading === app.id}
+                          className="text-slate-400 hover:text-red-500 text-sm disabled:opacity-50 transition-colors"
+                          title="Delete application"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

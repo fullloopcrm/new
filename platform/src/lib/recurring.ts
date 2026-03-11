@@ -90,3 +90,27 @@ export function generateRecurringDates({
 
   return dates
 }
+
+export function getRecurringDisplayName(
+  repeatType: string,
+  startDate: string
+): string | null {
+  if (!startDate) return null
+
+  const date = new Date(startDate + 'T12:00:00')
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dayName = dayNames[date.getDay()]
+  const weekNum = Math.ceil(date.getDate() / 7)
+  const weekNames = ['1st', '2nd', '3rd', '4th', '5th']
+
+  switch (repeatType) {
+    case 'daily': return 'Daily'
+    case 'weekly': return 'Weekly'
+    case 'biweekly': return 'Bi-weekly'
+    case 'triweekly': return 'Tri-weekly'
+    case 'monthly_date': return 'Monthly'
+    case 'monthly_day': return `${weekNames[weekNum-1]} ${dayName}`
+    case 'custom': return 'Custom'
+    default: return null
+  }
+}
