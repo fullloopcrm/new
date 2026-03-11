@@ -14,8 +14,7 @@ export async function GET(request: Request) {
   const { data: settings } = await supabaseAdmin
     .from('tenant_settings')
     .select('tenant_id')
-    .eq('key', 'google_auto_reply')
-    .eq('value', 'true')
+    .eq('google_auto_reply', true)
 
   if (!settings || settings.length === 0) {
     return NextResponse.json({ message: 'No tenants with auto-reply enabled' })

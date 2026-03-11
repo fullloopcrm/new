@@ -38,9 +38,8 @@ export async function GET() {
     // Check auto-reply setting
     const { data: autoReplySetting } = await supabaseAdmin
       .from('tenant_settings')
-      .select('value')
+      .select('google_auto_reply')
       .eq('tenant_id', tenant.id)
-      .eq('key', 'google_auto_reply')
       .single()
 
     return NextResponse.json({
@@ -49,7 +48,7 @@ export async function GET() {
       avgRating: Math.round(avgRating * 10) / 10,
       totalReviews: allReviews.length,
       totalPosts: postCount || 0,
-      autoReplyEnabled: autoReplySetting?.value === 'true',
+      autoReplyEnabled: autoReplySetting?.google_auto_reply === true,
     })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })

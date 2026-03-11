@@ -19,9 +19,8 @@ export async function GET() {
     // Check if auto-reply is enabled
     const { data: autoReplySetting } = await supabaseAdmin
       .from('tenant_settings')
-      .select('value')
+      .select('google_auto_reply')
       .eq('tenant_id', tenant.id)
-      .eq('key', 'google_auto_reply')
       .single()
 
     const business = await getGoogleBusiness(tenant.id)
@@ -30,7 +29,7 @@ export async function GET() {
       reviews: reviews || [],
       connected: !!business?.location_name,
       locationTitle: business?.location_title || null,
-      autoReplyEnabled: autoReplySetting?.value === 'true',
+      autoReplyEnabled: autoReplySetting?.google_auto_reply === true,
     })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
@@ -113,8 +112,8 @@ export async function PUT(request: NextRequest) {
     await supabaseAdmin
       .from('tenant_settings')
       .upsert(
-        { tenant_id: tenant.id, key: 'google_auto_reply', value: autoReply ? 'true' : 'false' },
-        { onConflict: 'tenant_id,key' }
+        { tenant_id: tenant.id, google_auto_reply: !!autoReply, updated_at: new Date().toISOString() },
+        { onConflict: 'tenant_id' }
       )
 
     return NextResponse.json({ success: true, autoReply })

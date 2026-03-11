@@ -78,12 +78,11 @@ export async function autoReplyReviews(tenantId: string): Promise<number> {
   // Check if auto-reply is enabled for this tenant
   const { data: settings } = await supabaseAdmin
     .from('tenant_settings')
-    .select('value')
+    .select('google_auto_reply')
     .eq('tenant_id', tenantId)
-    .eq('key', 'google_auto_reply')
     .single()
 
-  if (!settings || settings.value !== 'true') return 0
+  if (!settings || !settings.google_auto_reply) return 0
 
   // Get unreplied reviews
   const { data: unreplied } = await supabaseAdmin

@@ -20,13 +20,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    // Get tenant-specific settings from tenant_settings table
+    // Get tenant-specific settings (wide-form, one row per tenant)
     const { data: settings } = await supabaseAdmin
       .from('tenant_settings')
       .select('*')
       .eq('tenant_id', tenantId)
+      .single()
 
-    return NextResponse.json({ tenant, settings: settings || [] })
+    return NextResponse.json({ tenant, settings: settings || null })
   }
 
   // Platform-wide settings
@@ -54,10 +55,18 @@ export async function PUT(request: NextRequest) {
   const { tenant_id, key, value } = body
 
   if (tenant_id) {
-    // Update tenant-specific setting
+    // Update tenant-specific setting as a column on the wide-form table
+    if (!key) {
+      return NextResponse.json({ error: 'key is required' }, { status: 400 })
+    }
+
+    // Upsert the tenant_settings row, updating the specific column
     const { error } = await supabaseAdmin
       .from('tenant_settings')
-      .upsert({ tenant_id, key, value }, { onConflict: 'tenant_id,key' })
+      .upsert(
+        { tenant_id, [key]: value, updated_at: new Date().toISOString() },
+        { onConflict: 'tenant_id' }
+      )
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -65,14 +74,14 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true })
   }
 
-  // Update platform setting
+  // Update platform setting (key-value store)
   if (!key) {
     return NextResponse.json({ error: 'key is required' }, { status: 400 })
   }
 
   const { error } = await supabaseAdmin
     .from('platform_settings')
-    .upsert({ key, value }, { onConflict: 'key' })
+    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' })
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

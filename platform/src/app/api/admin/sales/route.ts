@@ -22,13 +22,15 @@ export async function GET() {
   if (tenantIds.length > 0) {
     const { data: settings } = await supabaseAdmin
       .from('tenant_settings')
-      .select('tenant_id, key, value')
+      .select('tenant_id, billing_email, stripe_customer_id, subscription_status')
       .in('tenant_id', tenantIds)
-      .in('key', ['billing_email', 'stripe_customer_id', 'subscription_status'])
 
     for (const s of settings || []) {
-      if (!settingsMap[s.tenant_id]) settingsMap[s.tenant_id] = {}
-      settingsMap[s.tenant_id][s.key as keyof typeof settingsMap[string]] = s.value
+      settingsMap[s.tenant_id] = {
+        billing_email: s.billing_email || undefined,
+        stripe_customer_id: s.stripe_customer_id || undefined,
+        subscription_status: s.subscription_status || undefined,
+      }
     }
   }
 
