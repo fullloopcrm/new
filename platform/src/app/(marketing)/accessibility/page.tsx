@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   title: "Accessibility | Full Loop CRM",
   description:
     "Full Loop CRM is committed to digital accessibility for all users. Learn about our accessibility standards and how to report issues.",
+  keywords: "accessibility, WCAG, ADA compliance, Full Loop CRM, web accessibility, screen reader",
   alternates: { canonical: "https://www.fullloopcrm.com/accessibility" },
   openGraph: {
     title: "Accessibility | Full Loop CRM",

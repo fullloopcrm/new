@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   title: "Terms of Service | Full Loop CRM",
   description:
     "Full Loop CRM terms of service. Read the terms governing use of the Full Loop CRM platform and partnership agreements.",
+  keywords: "terms of service, service agreement, Full Loop CRM, user agreement, legal terms",
   alternates: { canonical: "https://www.fullloopcrm.com/terms" },
   openGraph: {
     title: "Terms of Service | Full Loop CRM",

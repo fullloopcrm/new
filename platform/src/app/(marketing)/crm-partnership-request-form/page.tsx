@@ -20,6 +20,12 @@ export const metadata: Metadata = {
     url: "https://www.fullloopcrm.com/crm-partnership-request-form",
     type: "website",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Request Your CRM Partnership | Full Loop CRM",
+    description:
+      "One partner per trade per metro. Apply to lock your exclusive territory with Full Loop CRM.",
+  },
 };
 
 const jsonLd = {

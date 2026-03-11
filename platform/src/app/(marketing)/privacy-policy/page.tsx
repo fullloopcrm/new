@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   title: "Privacy Policy | Full Loop CRM",
   description:
     "Full Loop CRM privacy policy. Learn how we collect, use, and protect your data.",
+  keywords: "privacy policy, data protection, Full Loop CRM, GDPR, CCPA, user data",
   alternates: { canonical: "https://www.fullloopcrm.com/privacy-policy" },
   openGraph: {
     title: "Privacy Policy | Full Loop CRM",
