@@ -7,6 +7,7 @@ import { formatPhone } from '@/lib/phone'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
 import { CLIENT_STATUS_COLORS } from '@/lib/constants'
+import CsvImport from '@/components/CsvImport'
 
 type Client = {
   id: string
@@ -70,6 +71,7 @@ export default function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
   const [showAdd, setShowAdd] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', source: 'manual' })
   const [saving, setSaving] = useState(false)
   const [stats, setStats] = useState<Stats | null>(null)
@@ -139,7 +141,11 @@ export default function ClientsPage() {
           >
             Export CSV
           </button>
-          <button onClick={() => setShowAdd(!showAdd)}
+          <button onClick={() => { setShowImport(!showImport); if (!showImport) setShowAdd(false) }}
+            className="text-sm text-slate-500 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg">
+            {showImport ? 'Cancel' : 'Import CSV'}
+          </button>
+          <button onClick={() => { setShowAdd(!showAdd); if (!showAdd) setShowImport(false) }}
             className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition-colors">
             {showAdd ? 'Cancel' : '+ Add Client'}
           </button>
@@ -220,6 +226,13 @@ export default function ClientsPage() {
               {card.sub && <p className="text-[10px] text-slate-400">{card.sub}</p>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* IMPORT CSV */}
+      {showImport && (
+        <div className="mb-6">
+          <CsvImport onComplete={() => { setShowImport(false); setPage(1); setSearch('') }} />
         </div>
       )}
 

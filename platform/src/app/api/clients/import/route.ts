@@ -106,29 +106,60 @@ export async function POST(request: Request) {
       )
     }
 
-    if (clients.length > 500) {
+    if (clients.length > 5000) {
       return NextResponse.json(
-        { error: 'Maximum 500 clients per import. Please split your file into smaller batches.' },
+        { error: 'Maximum 5,000 clients per import.' },
         { status: 400 }
       )
     }
 
+    // Load existing clients for duplicate detection
+    const { data: existing } = await supabaseAdmin
+      .from('clients')
+      .select('email, phone')
+      .eq('tenant_id', tenantId)
+
+    const existingEmails = new Set(
+      (existing || []).map(c => c.email?.toLowerCase()).filter(Boolean) as string[]
+    )
+    const existingPhones = new Set(
+      (existing || []).map(c => c.phone?.replace(/\D/g, '')).filter((p): p is string => !!p && p.length >= 10)
+    )
+
     const validRows: Record<string, unknown>[] = []
     const errors: string[] = []
+    const duplicates: string[] = []
 
     for (let i = 0; i < clients.length; i++) {
       const result = validateRow(clients[i], i)
-      if (result.valid && result.data) {
-        validRows.push({ ...result.data, tenant_id: tenantId })
-      } else if (result.error) {
-        errors.push(result.error)
+      if (!result.valid || !result.data) {
+        if (result.error) errors.push(result.error)
+        continue
       }
+
+      // Duplicate check
+      const email = result.data.email as string | undefined
+      const phone = (result.data.phone as string | undefined)?.replace(/\D/g, '') || ''
+
+      if (email && existingEmails.has(email)) {
+        duplicates.push(`Row ${i + 1}: ${clients[i].name} — email ${email} already exists`)
+        continue
+      }
+      if (phone.length >= 10 && existingPhones.has(phone)) {
+        duplicates.push(`Row ${i + 1}: ${clients[i].name} — phone ${clients[i].phone} already exists`)
+        continue
+      }
+
+      // Track within batch to prevent self-duplication
+      if (email) existingEmails.add(email)
+      if (phone.length >= 10) existingPhones.add(phone)
+
+      validRows.push({ ...result.data, tenant_id: tenantId, source: result.data.source || 'csv_import' })
     }
 
     let imported = 0
     if (validRows.length > 0) {
-      // Insert in batches of 50 to avoid payload limits
-      const batchSize = 50
+      const batchSize = 200
       for (let i = 0; i < validRows.length; i += batchSize) {
         const batch = validRows.slice(i, i + batchSize)
         const { data, error } = await supabaseAdmin
@@ -150,10 +181,10 @@ export async function POST(request: Request) {
       tenantId,
       action: 'client.created',
       entityType: 'client',
-      details: { type: 'csv_import', imported, skipped, totalRows: clients.length },
+      details: { type: 'csv_import', imported, skipped, duplicates: duplicates.length, totalRows: clients.length },
     })
 
-    return NextResponse.json({ imported, skipped, errors })
+    return NextResponse.json({ imported, skipped, duplicates: duplicates.length, duplicateDetails: duplicates.slice(0, 20), errors })
   } catch (e) {
     console.error('Import error:', e)
     return NextResponse.json(
