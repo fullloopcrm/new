@@ -28,7 +28,18 @@ export async function PUT(request: Request) {
     delete body.id
     delete body.status
 
-    // Track sensitive field changes
+    // Block tenant from editing admin-managed integration fields
+    const adminOnlyFields = [
+      'resend_api_key', 'resend_domain', 'email_from',
+      'telnyx_api_key', 'telnyx_phone',
+      'stripe_account_id',
+      'google_place_id', 'google_tokens', 'google_business',
+    ]
+    for (const f of adminOnlyFields) {
+      delete body[f]
+    }
+
+    // Track sensitive field changes (none should remain, but just in case)
     const sensitiveFields = ['resend_api_key', 'telnyx_api_key', 'telnyx_phone', 'stripe_account_id']
     const changedSensitive = sensitiveFields.filter((f) => body[f] !== undefined)
 

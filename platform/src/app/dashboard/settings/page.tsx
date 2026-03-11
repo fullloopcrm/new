@@ -22,6 +22,8 @@ type Tenant = {
   tagline: string | null
   website_url: string | null
   resend_api_key: string | null
+  resend_domain: string | null
+  email_from: string | null
   telnyx_api_key: string | null
   telnyx_phone: string | null
   stripe_account_id: string | null
@@ -831,55 +833,26 @@ export default function SettingsPage() {
       )}
 
       {tab === 'Integrations' && (
-        <div className="border border-slate-200 rounded-lg p-6 space-y-6 max-w-2xl">
-          <div>
-            <label className="text-sm text-slate-400 block mb-1">Resend API Key (Email)</label>
-            <input
-              value={form.resend_api_key || ''}
-              onChange={(e) => setForm({ ...form, resend_api_key: e.target.value })}
-              placeholder={maskKey(tenant.resend_api_key) || 'Enter Resend API key'}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-slate-400 block mb-1">Telnyx API Key (SMS)</label>
-            <input
-              value={form.telnyx_api_key || ''}
-              onChange={(e) => setForm({ ...form, telnyx_api_key: e.target.value })}
-              placeholder={maskKey(tenant.telnyx_api_key) || 'Enter Telnyx API key'}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-slate-400 block mb-1">Telnyx Phone Number</label>
-            <input
-              value={form.telnyx_phone || ''}
-              onChange={(e) => setForm({ ...form, telnyx_phone: e.target.value })}
-              placeholder={tenant.telnyx_phone || '+1XXXXXXXXXX'}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-slate-400 block mb-1">Stripe Account ID</label>
-            <input
-              value={form.stripe_account_id || ''}
-              onChange={(e) => setForm({ ...form, stripe_account_id: e.target.value })}
-              placeholder={maskKey(tenant.stripe_account_id) || 'acct_XXXX'}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-slate-400 block mb-1">Google Place ID (Reviews)</label>
-            <input
-              value={form.google_place_id || ''}
-              onChange={(e) => setForm({ ...form, google_place_id: e.target.value })}
-              placeholder={tenant.google_place_id || 'ChIJ...'}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono"
-            />
-          </div>
-          <button onClick={saveTenant} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
-            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Integrations'}
-          </button>
+        <div className="border border-slate-200 rounded-lg p-6 space-y-5 max-w-2xl">
+          <p className="text-xs text-slate-400">Integrations are managed by the platform admin. Contact support to make changes.</p>
+          {[
+            { label: 'Email (Resend)', connected: !!tenant.resend_api_key, detail: tenant.email_from || tenant.resend_domain || null },
+            { label: 'SMS (Telnyx)', connected: !!(tenant.telnyx_api_key && tenant.telnyx_phone), detail: tenant.telnyx_phone || null },
+            { label: 'Payments (Stripe)', connected: !!tenant.stripe_account_id, detail: tenant.stripe_account_id ? `Connected` : null },
+            { label: 'Google Business', connected: !!tenant.google_place_id, detail: tenant.google_place_id ? `Place ID configured` : null },
+          ].map((svc) => (
+            <div key={svc.label} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
+              <div>
+                <p className="text-sm font-medium text-slate-700">{svc.label}</p>
+                {svc.detail && <p className="text-xs text-slate-400 mt-0.5 font-mono">{svc.detail}</p>}
+              </div>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${
+                svc.connected ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'
+              }`}>
+                {svc.connected ? 'Connected' : 'Not configured'}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
