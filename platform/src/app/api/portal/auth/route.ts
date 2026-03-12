@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     // Look up tenant
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone')
+      .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
       .eq('slug', tenant_slug)
       .eq('status', 'active')
       .single()
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     // Look up client by phone
     const { data: client } = await supabaseAdmin
       .from('clients')
-      .select('id, name, phone')
+      .select('id, name, phone, email')
       .eq('tenant_id', tenant.id)
       .eq('phone', phone)
       .single()
@@ -101,7 +101,9 @@ export async function POST(request: Request) {
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     })
 
-    // Send SMS if tenant has Telnyx configured
+    // Send code via SMS (preferred) or email (fallback)
+    let channel: 'sms' | 'email' = 'sms'
+
     if (tenant.telnyx_api_key && tenant.telnyx_phone) {
       try {
         const { sendSMS } = await import('@/lib/sms')
@@ -113,10 +115,31 @@ export async function POST(request: Request) {
         })
       } catch (e) {
         console.error('SMS send error:', e)
+        channel = 'email'
       }
+    } else {
+      channel = 'email'
     }
 
-    return NextResponse.json({ sent: true })
+    // Fallback to email if SMS unavailable or failed
+    if (channel === 'email' && client.email) {
+      try {
+        const { sendEmail } = await import('@/lib/email')
+        await sendEmail({
+          to: client.email,
+          subject: `Your ${tenant.name} verification code`,
+          html: `<p>Your verification code is: <strong>${code}</strong></p><p>This code expires in 10 minutes.</p>`,
+          resendApiKey: tenant.resend_api_key,
+        })
+      } catch (e) {
+        console.error('Email send error:', e)
+        return NextResponse.json({ error: 'Unable to send verification code. Contact the business.' }, { status: 503 })
+      }
+    } else if (channel === 'email' && !client.email) {
+      return NextResponse.json({ error: 'SMS not configured and no email on file. Contact the business.' }, { status: 503 })
+    }
+
+    return NextResponse.json({ sent: true, channel })
   }
 
   if (action === 'verify_code') {

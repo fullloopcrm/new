@@ -21,8 +21,11 @@ CREATE TABLE tenants (
 
   -- Per-tenant API keys (they own their own accounts)
   resend_api_key TEXT,
+  resend_domain TEXT,
+  email_from TEXT,
   telnyx_api_key TEXT,
   telnyx_phone TEXT,
+  stripe_api_key TEXT,                         -- Stripe secret key
   stripe_account_id TEXT,                      -- Stripe Connect account
   google_place_id TEXT,                        -- for review collection
 
@@ -30,7 +33,34 @@ CREATE TABLE tenants (
   business_hours TEXT DEFAULT '24/7',
   tagline TEXT,
   website_url TEXT,
+  zip_code TEXT,
+  team_size TEXT DEFAULT 'solo',
 
+  -- Scheduling
+  booking_buffer_minutes INTEGER DEFAULT 60,
+  default_duration_hours NUMERIC DEFAULT 3,
+  min_days_ahead INTEGER DEFAULT 1,
+  allow_same_day BOOLEAN DEFAULT false,
+  business_hours_start TEXT DEFAULT '09:00',
+  business_hours_end TEXT DEFAULT '17:00',
+
+  -- Policies
+  commission_rate NUMERIC DEFAULT 10,
+  active_client_threshold_days INTEGER DEFAULT 45,
+  at_risk_threshold_days INTEGER DEFAULT 90,
+  reschedule_notice_days INTEGER DEFAULT 2,
+
+  -- Guidelines
+  guidelines_en TEXT,
+  guidelines_es TEXT,
+  guidelines_updated_at TIMESTAMPTZ,
+
+  -- Payment methods
+  payment_methods TEXT[] DEFAULT ARRAY['zelle','stripe'],
+  zelle_email TEXT,
+  apple_cash_phone TEXT,
+
+  last_active_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

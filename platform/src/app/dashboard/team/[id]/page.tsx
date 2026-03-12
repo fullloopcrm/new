@@ -417,7 +417,18 @@ export default function TeamMemberDetailPage() {
                 </div>
                 <dl className="space-y-3 text-sm">
                   <div className="flex justify-between"><dt className="text-slate-400">Email</dt><dd>{member.email || '—'}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-400">Phone</dt><dd>{member.phone || '—'}</dd></div>
+                  <div className="flex justify-between items-center">
+                    <dt className="text-slate-400">Phone</dt>
+                    <dd className="flex items-center gap-2">
+                      <span>{member.phone || '—'}</span>
+                      {member.phone && (
+                        <>
+                          <a href={`tel:${member.phone}`} className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
+                          <a href={`sms:${member.phone}`} className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
+                        </>
+                      )}
+                    </dd>
+                  </div>
                   <div className="flex justify-between"><dt className="text-slate-400">Role</dt><dd className="capitalize">{member.role}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize">{member.status}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">PIN</dt><dd className="font-mono">{member.pin}</dd></div>
@@ -619,7 +630,7 @@ export default function TeamMemberDetailPage() {
           </div>
         </div>
 
-        <div>
+        <div className="space-y-6">
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-4">Earnings</h3>
             <div className="space-y-3">
@@ -631,6 +642,87 @@ export default function TeamMemberDetailPage() {
                 <p className="text-sm text-slate-400">Jobs Completed</p>
                 <p className="text-lg font-semibold text-slate-900">{completedBookings.length}</p>
               </div>
+              {member.pay_rate && (
+                <div>
+                  <p className="text-sm text-slate-400">Avg Per Job</p>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {completedBookings.length > 0 ? `$${(totalEarnings / completedBookings.length).toFixed(0)}` : '—'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Quick Actions</h3>
+            <div className="space-y-2">
+              {member.phone && (
+                <>
+                  <a href={`tel:${member.phone}`} className="w-full block text-center text-sm bg-blue-50 text-blue-700 py-2 rounded-lg font-medium hover:bg-blue-100">
+                    Call
+                  </a>
+                  <a href={`sms:${member.phone}`} className="w-full block text-center text-sm bg-green-50 text-green-700 py-2 rounded-lg font-medium hover:bg-green-100">
+                    Text
+                  </a>
+                </>
+              )}
+              <button
+                onClick={() => {
+                  const link = `${window.location.origin}/team-portal`
+                  navigator.clipboard.writeText(link)
+                  setScheduleMessage('Team portal link copied!')
+                  setTimeout(() => setScheduleMessage(''), 2000)
+                }}
+                className="w-full text-sm bg-slate-50 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-100"
+              >
+                Copy Team Portal Link
+              </button>
+            </div>
+          </div>
+
+          {/* Notification Preferences */}
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Notification Preferences</h3>
+            <div className="space-y-3">
+              {[
+                { key: 'notify_new_job', label: 'New job assigned' },
+                { key: 'notify_schedule_change', label: 'Schedule changes' },
+                { key: 'notify_day_summary', label: 'Daily summary' },
+                { key: 'notify_payment', label: 'Payment confirmed' },
+              ].map(({ key, label }) => {
+                const notesData = parseNotesData(member.notes)
+                const prefs = (notesData.notification_prefs || {}) as Record<string, boolean>
+                const isOn = prefs[key] !== false // default on
+                return (
+                  <div key={key} className="flex items-center justify-between">
+                    <span className="text-sm text-slate-700">{label}</span>
+                    <button
+                      onClick={async () => {
+                        const existing = parseNotesData(member.notes)
+                        const currentPrefs = (existing.notification_prefs || {}) as Record<string, boolean>
+                        currentPrefs[key] = !isOn
+                        const notes = JSON.stringify({ ...existing, notification_prefs: currentPrefs })
+                        const res = await fetch(`/api/team/${id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ notes }),
+                        })
+                        if (res.ok) {
+                          const { member: updated } = await res.json()
+                          setMember(updated)
+                        }
+                      }}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${isOn ? 'bg-green-500' : 'bg-slate-300'}`}
+                    >
+                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isOn ? 'left-5' : 'left-0.5'}`} />
+                    </button>
+                  </div>
+                )
+              })}
+              <p className="text-[10px] text-slate-400 mt-2">
+                Notifications sent via {member.phone ? 'SMS' : member.email ? 'email' : 'team portal'}
+              </p>
             </div>
           </div>
         </div>

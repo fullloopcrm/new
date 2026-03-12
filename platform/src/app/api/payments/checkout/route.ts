@@ -32,6 +32,11 @@ export async function POST(request: Request) {
     .eq('id', tenant.tenantId)
     .single()
 
+  const stripeApiKey = tenantData?.stripe_api_key || process.env.STRIPE_SECRET_KEY
+  if (!stripeApiKey) {
+    return NextResponse.json({ error: 'Payments not configured. Add Stripe API key in Settings.' }, { status: 400 })
+  }
+
   const amount = booking.price || 0
   if (amount <= 0) return NextResponse.json({ error: 'No price set on booking' }, { status: 400 })
 

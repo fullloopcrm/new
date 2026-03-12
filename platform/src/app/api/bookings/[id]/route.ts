@@ -44,7 +44,7 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate'])
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
 
     // Check if team member has the day off or doesn't work that day
     if (fields.team_member_id && !body.force) {

@@ -31,6 +31,7 @@ const navSections = [
       { label: 'Leads', href: '/dashboard/leads' },
       { label: 'Finance', href: '/dashboard/finance' },
       { label: 'Team', href: '/dashboard/team' },
+      { label: 'SMS Inbox', href: '/dashboard/sms' },
     ],
   },
   {
@@ -38,11 +39,13 @@ const navSections = [
     items: [
       { label: 'Websites', href: '/dashboard/websites' },
       { label: 'Analytics', href: '/dashboard/analytics' },
+      { label: 'Reviews', href: '/dashboard/reviews' },
       { label: 'Referrals', href: '/dashboard/referrals' },
       { label: 'Feedback', href: '/dashboard/feedback' },
       { label: 'Marketing', href: '/dashboard/campaigns' },
       { label: 'Google Profile', href: '/dashboard/google' },
       { label: 'Social Media', href: '/dashboard/social' },
+      { label: 'Map', href: '/dashboard/map' },
     ],
   },
   {
@@ -51,6 +54,7 @@ const navSections = [
       { label: 'Settings', href: '/dashboard/settings' },
       { label: 'Docs', href: '/dashboard/docs' },
       { label: 'Notifications', href: '/dashboard/notifications' },
+      { label: 'Activity Log', href: '/dashboard/activity' },
     ],
   },
 ]

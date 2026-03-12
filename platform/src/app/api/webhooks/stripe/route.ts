@@ -13,7 +13,10 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event
   try {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
+    }
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
     event = stripe.webhooks.constructEvent(body, sig!, webhookSecret)
   } catch (err) {
     console.error('Webhook signature verification failed:', err)

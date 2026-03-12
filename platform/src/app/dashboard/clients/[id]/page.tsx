@@ -35,6 +35,20 @@ type Booking = {
   payment_status: string | null
 }
 
+type Activity = {
+  type: string
+  title: string
+  description: string
+  timestamp: string
+}
+
+type SmsMessage = {
+  id: string
+  direction: string
+  message: string
+  created_at: string
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -44,6 +58,9 @@ export default function ClientDetailPage() {
   const [form, setForm] = useState<Partial<Client>>({})
   const [saving, setSaving] = useState(false)
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
+  const [tab, setTab] = useState<'bookings' | 'activity' | 'sms'>('bookings')
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [smsMessages, setSmsMessages] = useState<SmsMessage[]>([])
 
   useEffect(() => {
     fetch(`/api/clients/${id}`)
@@ -61,6 +78,26 @@ export default function ClientDetailPage() {
       .then((data) => setTeamMembers((data.team_members || data.team || []).map((m: TeamMemberOption) => ({ id: m.id, name: m.name }))))
       .catch(() => {})
   }, [id])
+
+  // Load activity feed
+  useEffect(() => {
+    if (tab === 'activity') {
+      fetch(`/api/clients/${id}/activity`)
+        .then((r) => r.json())
+        .then((data) => setActivities(Array.isArray(data) ? data : data.activities || []))
+        .catch(() => {})
+    }
+  }, [id, tab])
+
+  // Load SMS transcript
+  useEffect(() => {
+    if (tab === 'sms') {
+      fetch(`/api/clients/${id}/transcript`)
+        .then((r) => r.json())
+        .then((data) => setSmsMessages(Array.isArray(data) ? data : []))
+        .catch(() => {})
+    }
+  }, [id, tab])
 
   async function save() {
     setSaving(true)
@@ -85,6 +122,21 @@ export default function ClientDetailPage() {
 
   if (!client) return <p className="text-slate-400">Loading...</p>
 
+  const totalSpent = bookings.filter(b => b.payment_status === 'paid').reduce((sum, b) => sum + (b.price || 0), 0)
+  const completedCount = bookings.filter(b => b.status === 'completed' || b.status === 'paid').length
+
+  const activityIcon = (type: string) => {
+    switch (type) {
+      case 'client_created': return 'bg-blue-100 text-blue-600'
+      case 'booking_created': return 'bg-indigo-100 text-indigo-600'
+      case 'check_in': return 'bg-green-100 text-green-600'
+      case 'check_out': return 'bg-orange-100 text-orange-600'
+      case 'payment_received': return 'bg-emerald-100 text-emerald-600'
+      case 'booking_cancelled': return 'bg-red-100 text-red-600'
+      default: return 'bg-slate-100 text-slate-600'
+    }
+  }
+
   return (
     <div>
       <Link href="/dashboard/clients" className="text-sm text-slate-400 hover:text-slate-900 mb-4 inline-block">
@@ -92,7 +144,13 @@ export default function ClientDetailPage() {
       </Link>
 
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-slate-900">{client.name}</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">{client.name}</h2>
+          <p className="text-sm text-slate-400">
+            {completedCount} jobs completed
+            {totalSpent > 0 && ` \u00b7 $${(totalSpent / 100).toFixed(0)} total spent`}
+          </p>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => setEditing(!editing)}
@@ -111,6 +169,7 @@ export default function ClientDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* CONTACT INFO */}
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-4">Contact Info</h3>
             {editing ? (
@@ -143,10 +202,36 @@ export default function ClientDetailPage() {
               </div>
             ) : (
               <dl className="space-y-3 text-sm">
-                <div className="flex justify-between"><dt className="text-slate-400">Email</dt><dd>{client.email || '—'}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-400">Phone</dt><dd>{client.phone || '—'}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-400">Address</dt><dd>{client.address || '—'}{client.unit ? `, ${client.unit}` : ''}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-400">Source</dt><dd className="capitalize">{client.source || '—'}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-400">Email</dt><dd>{client.email || '\u2014'}</dd></div>
+                <div className="flex justify-between items-center">
+                  <dt className="text-slate-400">Phone</dt>
+                  <dd className="flex items-center gap-2">
+                    <span>{client.phone || '\u2014'}</span>
+                    {client.phone && (
+                      <>
+                        <a href={`tel:${client.phone}`} className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
+                        <a href={`sms:${client.phone}`} className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
+                      </>
+                    )}
+                  </dd>
+                </div>
+                <div className="flex justify-between items-start">
+                  <dt className="text-slate-400">Address</dt>
+                  <dd className="text-right">
+                    <span>{client.address || '\u2014'}{client.unit ? `, ${client.unit}` : ''}</span>
+                    {client.address && (
+                      <a
+                        href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-xs text-blue-600 hover:underline mt-0.5"
+                      >
+                        Open in Maps
+                      </a>
+                    )}
+                  </dd>
+                </div>
+                <div className="flex justify-between"><dt className="text-slate-400">Source</dt><dd className="capitalize">{client.source || '\u2014'}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize">{client.status}</dd></div>
                 {client.notes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2">{client.notes}</dd></div>}
                 {client.special_instructions && <div><dt className="text-slate-400 mb-1">Special Instructions</dt><dd className="bg-yellow-500/10 rounded p-2">{client.special_instructions}</dd></div>}
@@ -154,34 +239,136 @@ export default function ClientDetailPage() {
             )}
           </div>
 
-          <div className="border border-slate-200 rounded-lg p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">Booking History</h3>
-            {bookings.length === 0 ? (
-              <p className="text-sm text-slate-400">No bookings yet</p>
-            ) : (
-              <div className="space-y-2">
-                {bookings.map((b) => (
-                  <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-slate-200">
-                    <div>
-                      <p className="text-sm font-medium">{b.service_type || 'Service'}</p>
-                      <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleString()}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        b.status === 'completed' ? 'bg-green-50 text-green-700' :
-                        b.status === 'cancelled' ? 'bg-red-50 text-red-700' :
-                        'bg-blue-50 text-blue-700'
-                      }`}>{b.status}</span>
-                      {b.price != null && <p className="text-xs text-slate-400 mt-1">${(b.price / 100).toFixed(2)}</p>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+          {/* TABS: Bookings / Activity / SMS */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <div className="flex border-b border-slate-200">
+              {(['bookings', 'activity', 'sms'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    tab === t ? 'bg-white text-teal-600 border-b-2 border-teal-600' : 'bg-slate-50 text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  {t === 'bookings' ? `Bookings (${bookings.length})` : t === 'activity' ? 'Activity Feed' : 'SMS Transcript'}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-6">
+              {/* BOOKINGS TAB */}
+              {tab === 'bookings' && (
+                bookings.length === 0 ? (
+                  <p className="text-sm text-slate-400">No bookings yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {bookings.map((b) => (
+                      <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-slate-200">
+                        <div>
+                          <p className="text-sm font-medium">{b.service_type || 'Service'}</p>
+                          <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            b.status === 'completed' || b.status === 'paid' ? 'bg-green-50 text-green-700' :
+                            b.status === 'cancelled' ? 'bg-red-50 text-red-700' :
+                            'bg-blue-50 text-blue-700'
+                          }`}>{b.status}</span>
+                          {b.price != null && <p className="text-xs text-slate-400 mt-1">${(b.price / 100).toFixed(2)}</p>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* ACTIVITY TAB */}
+              {tab === 'activity' && (
+                activities.length === 0 ? (
+                  <p className="text-sm text-slate-400">No activity yet</p>
+                ) : (
+                  <div className="space-y-4">
+                    {activities.map((a, i) => (
+                      <div key={i} className="flex gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs ${activityIcon(a.type)}`}>
+                          {a.type === 'check_in' ? '\u2192' :
+                           a.type === 'check_out' ? '\u2190' :
+                           a.type === 'payment_received' ? '$' :
+                           a.type === 'booking_cancelled' ? '\u2717' :
+                           a.type === 'client_created' ? '+' :
+                           '\u25CF'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900">{a.title}</p>
+                          <p className="text-xs text-slate-400">{a.description}</p>
+                          <p className="text-[10px] text-slate-300 mt-0.5">
+                            {new Date(a.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* SMS TRANSCRIPT TAB */}
+              {tab === 'sms' && (
+                smsMessages.length === 0 ? (
+                  <p className="text-sm text-slate-400">No SMS messages yet</p>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {smsMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-[75%] rounded-lg px-3 py-2 ${
+                          msg.direction === 'outbound'
+                            ? 'bg-teal-600 text-white'
+                            : 'bg-slate-100 text-slate-900'
+                        }`}>
+                          <p className="text-sm">{msg.message}</p>
+                          <p className={`text-[10px] mt-1 ${
+                            msg.direction === 'outbound' ? 'text-teal-200' : 'text-slate-400'
+                          }`}>
+                            {new Date(msg.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
           </div>
         </div>
 
+        {/* RIGHT SIDEBAR */}
         <div className="space-y-6">
+          {/* QUICK STATS */}
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Summary</h3>
+            <dl className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-slate-400">Total Bookings</dt>
+                <dd className="font-medium">{bookings.length}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-400">Completed</dt>
+                <dd className="font-medium">{completedCount}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-400">Total Spent</dt>
+                <dd className="font-medium">{totalSpent > 0 ? `$${(totalSpent / 100).toFixed(0)}` : '\u2014'}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-400">Member Since</dt>
+                <dd>{new Date(client.created_at).toLocaleDateString()}</dd>
+              </div>
+            </dl>
+          </div>
+
+          {/* PREFERENCES */}
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-4">Preferences</h3>
             <dl className="space-y-3 text-sm">
@@ -199,11 +386,24 @@ export default function ClientDetailPage() {
             </dl>
           </div>
 
+          {/* QUICK ACTIONS */}
           <div className="border border-slate-200 rounded-lg p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">Timeline</h3>
-            <p className="text-sm text-slate-400">
-              Added {new Date(client.created_at).toLocaleDateString()}
-            </p>
+            <h3 className="font-semibold text-slate-900 mb-4">Quick Actions</h3>
+            <div className="space-y-2">
+              {client.phone && (
+                <>
+                  <a href={`tel:${client.phone}`} className="w-full block text-center text-sm bg-blue-50 text-blue-700 py-2 rounded-lg font-medium hover:bg-blue-100">
+                    Call Client
+                  </a>
+                  <a href={`sms:${client.phone}`} className="w-full block text-center text-sm bg-green-50 text-green-700 py-2 rounded-lg font-medium hover:bg-green-100">
+                    Text Client
+                  </a>
+                </>
+              )}
+              <Link href={`/dashboard/bookings?client_id=${id}`} className="w-full block text-center text-sm bg-slate-50 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-100">
+                View All Bookings
+              </Link>
+            </div>
           </div>
         </div>
       </div>

@@ -176,9 +176,13 @@ export async function notify({
   let sent = false
   let lastError = ''
 
+  // Check if integrations are configured
+  const hasEmail = !!(tenant.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
+  const hasSMS = !!(tenant.telnyx_api_key && tenant.telnyx_phone)
+
   // Attempt primary channel
   try {
-    if (channel === 'email' && email) {
+    if (channel === 'email' && email && hasEmail) {
       await sendEmail({
         to: email,
         subject: title,
@@ -186,7 +190,7 @@ export async function notify({
         resendApiKey: tenant.resend_api_key,
       })
       sent = true
-    } else if (channel === 'sms' && phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    } else if (channel === 'sms' && phone && hasSMS) {
       await sendSMS({
         to: phone,
         body: message,
@@ -196,8 +200,12 @@ export async function notify({
       sent = true
     } else if (channel === 'email' && !email) {
       lastError = 'No email address for recipient'
-    } else if (channel === 'sms' && (!phone || !tenant.telnyx_api_key)) {
-      lastError = !phone ? 'No phone number for recipient' : 'Telnyx not configured for tenant'
+    } else if (channel === 'email' && !hasEmail) {
+      lastError = 'Email not configured — no Resend API key'
+    } else if (channel === 'sms' && !phone) {
+      lastError = 'No phone number for recipient'
+    } else if (channel === 'sms' && !hasSMS) {
+      lastError = 'SMS not configured — no Telnyx API key'
     }
   } catch (e) {
     lastError = e instanceof Error ? e.message : String(e)
@@ -207,7 +215,7 @@ export async function notify({
   // Fallback: email failed → try SMS, SMS failed → try email
   if (!sent && recipientId) {
     try {
-      if (channel === 'email' && phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+      if (channel === 'email' && phone && hasSMS) {
         // Email failed, fall back to SMS
         await sendSMS({
           to: phone,
@@ -219,7 +227,7 @@ export async function notify({
         await updateNotif('sent', {
           metadata: { ...(metadata || {}), _fallback: 'sms', _primaryError: lastError },
         })
-      } else if (channel === 'sms' && email && tenant.resend_api_key) {
+      } else if (channel === 'sms' && email && hasEmail) {
         // SMS failed, fall back to email
         await sendEmail({
           to: email,

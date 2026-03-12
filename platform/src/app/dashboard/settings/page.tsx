@@ -26,6 +26,7 @@ type Tenant = {
   email_from: string | null
   telnyx_api_key: string | null
   telnyx_phone: string | null
+  stripe_api_key: string | null
   stripe_account_id: string | null
   google_place_id: string | null
 
@@ -833,26 +834,86 @@ export default function SettingsPage() {
       )}
 
       {tab === 'Integrations' && (
-        <div className="border border-slate-200 rounded-lg p-6 space-y-5 max-w-2xl">
-          <p className="text-xs text-slate-400">Integrations are managed by the platform admin. Contact support to make changes.</p>
-          {[
-            { label: 'Email (Resend)', connected: !!tenant.resend_api_key, detail: tenant.email_from || tenant.resend_domain || null },
-            { label: 'SMS (Telnyx)', connected: !!(tenant.telnyx_api_key && tenant.telnyx_phone), detail: tenant.telnyx_phone || null },
-            { label: 'Payments (Stripe)', connected: !!tenant.stripe_account_id, detail: tenant.stripe_account_id ? `Connected` : null },
-            { label: 'Google Business', connected: !!tenant.google_place_id, detail: tenant.google_place_id ? `Place ID configured` : null },
-          ].map((svc) => (
-            <div key={svc.label} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
-              <div>
-                <p className="text-sm font-medium text-slate-700">{svc.label}</p>
-                {svc.detail && <p className="text-xs text-slate-400 mt-0.5 font-mono">{svc.detail}</p>}
-              </div>
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${
-                svc.connected ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'
-              }`}>
-                {svc.connected ? 'Connected' : 'Not configured'}
+        <div className="border border-slate-200 rounded-lg p-6 space-y-6 max-w-2xl">
+          <p className="text-xs text-slate-400">Connect your accounts to enable email, SMS, payments, and reviews. Sign up with each provider and paste your keys below.</p>
+
+          {/* Email — Resend */}
+          <div className="space-y-3 pb-5 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">Email (Resend)</h3>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.resend_api_key ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                {form.resend_api_key ? 'Connected' : 'Not configured'}
               </span>
             </div>
-          ))}
+            <p className="text-xs text-slate-400">Sign up at resend.com and create an API key.</p>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">API Key</label>
+              <input value={form.resend_api_key || ''} onChange={(e) => setForm({ ...form, resend_api_key: e.target.value || null })} placeholder="re_xxxx" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm text-slate-400 block mb-1">Sending Domain</label>
+                <input value={form.resend_domain || ''} onChange={(e) => setForm({ ...form, resend_domain: e.target.value || null })} placeholder="mail.yourbusiness.com" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-sm text-slate-400 block mb-1">From Address</label>
+                <input value={form.email_from || ''} onChange={(e) => setForm({ ...form, email_from: e.target.value || null })} placeholder="noreply@yourbusiness.com" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+          </div>
+
+          {/* SMS — Telnyx */}
+          <div className="space-y-3 pb-5 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">SMS (Telnyx)</h3>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.telnyx_api_key && form.telnyx_phone ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                {form.telnyx_api_key && form.telnyx_phone ? 'Connected' : 'Not configured'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Sign up at telnyx.com, create an API key, and purchase a phone number.</p>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">API Key</label>
+              <input value={form.telnyx_api_key || ''} onChange={(e) => setForm({ ...form, telnyx_api_key: e.target.value || null })} placeholder="KEY_xxxx" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+            </div>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">Phone Number</label>
+              <input value={form.telnyx_phone || ''} onChange={(e) => setForm({ ...form, telnyx_phone: e.target.value || null })} placeholder="+12125551234" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+            </div>
+          </div>
+
+          {/* Payments — Stripe */}
+          <div className="space-y-3 pb-5 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">Payments (Stripe)</h3>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.stripe_api_key ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                {form.stripe_api_key ? 'Connected' : 'Not configured'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Sign up at stripe.com and copy your Secret Key from the Developers section.</p>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">Secret Key</label>
+              <input value={form.stripe_api_key || ''} onChange={(e) => setForm({ ...form, stripe_api_key: e.target.value || null })} placeholder="sk_live_xxxx" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+            </div>
+          </div>
+
+          {/* Google Business */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">Google Business</h3>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.google_place_id ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                {form.google_place_id ? 'Connected' : 'Not configured'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Find your Place ID at developers.google.com/maps/documentation/places/web-service/place-id</p>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">Place ID</label>
+              <input value={form.google_place_id || ''} onChange={(e) => setForm({ ...form, google_place_id: e.target.value || null })} placeholder="ChIJxxxx" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+            </div>
+          </div>
+
+          <button onClick={saveTenant} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
+            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Integrations'}
+          </button>
         </div>
       )}
 

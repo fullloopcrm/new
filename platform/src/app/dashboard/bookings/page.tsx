@@ -73,10 +73,42 @@ const scheduleStatusTabs = [
   { value: 'inactive', label: 'Inactive' },
 ]
 
+type CloseoutBooking = {
+  id: string
+  service_type: string | null
+  start_time: string
+  end_time: string | null
+  status: string
+  price: number | null
+  hourly_rate: number | null
+  pay_rate: number | null
+  actual_hours: number | null
+  team_pay: number | null
+  payment_status: string | null
+  payment_method: string | null
+  team_paid: boolean | null
+  discount_enabled: boolean | null
+  check_in_time: string | null
+  check_out_time: string | null
+  clients: { name: string; phone: string | null; address: string | null } | null
+  team_members: { name: string } | null
+}
+
+type RecentClosed = {
+  id: string
+  service_type: string | null
+  start_time: string
+  price: number | null
+  payment_method: string | null
+  team_pay: number | null
+  clients: { name: string } | null
+  team_members: { name: string } | null
+}
+
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [total, setTotal] = useState(0)
-  const [view, setView] = useState<'list' | 'calendar' | 'schedules'>('calendar')
+  const [view, setView] = useState<'list' | 'calendar' | 'schedules' | 'closeout'>('calendar')
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -113,6 +145,11 @@ export default function BookingsPage() {
     hourly_rate: '', pay_rate: '', notes: '',
   })
   const [scheduleSaving, setScheduleSaving] = useState(false)
+
+  // Close-out state
+  const [closeoutJobs, setCloseoutJobs] = useState<CloseoutBooking[]>([])
+  const [recentlyClosed, setRecentlyClosed] = useState<RecentClosed[]>([])
+  const [closeoutUpdating, setCloseoutUpdating] = useState<string | null>(null)
 
   const bookingsSettings = usePageSettings('bookings')
 
@@ -160,6 +197,19 @@ export default function BookingsPage() {
         .then((data) => setSchedules(data.schedules || []))
     }
   }, [view])
+
+  // Load close-out data when closeout view is active
+  const loadCloseout = useCallback(() => {
+    if (view !== 'closeout') return
+    fetch('/api/bookings/closeout')
+      .then((r) => r.json())
+      .then((data) => {
+        setCloseoutJobs(data.needsCloseout || [])
+        setRecentlyClosed(data.recentlyClosed || [])
+      })
+  }, [view])
+
+  useEffect(() => { loadCloseout() }, [loadCloseout])
 
   // Load schedule form dropdowns when schedule create form opens
   useEffect(() => {
@@ -269,6 +319,20 @@ export default function BookingsPage() {
     setScheduleSaving(false)
   }
 
+  async function updateCloseout(id: string, updates: Record<string, unknown>) {
+    setCloseoutUpdating(id)
+    try {
+      await fetch(`/api/bookings/${id}/payment`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      loadCloseout()
+    } finally {
+      setCloseoutUpdating(null)
+    }
+  }
+
   const fmt = (cents: number) => '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })
 
   // Schedule computed values
@@ -306,7 +370,7 @@ export default function BookingsPage() {
           <PageSettingsGear open={bookingsSettings.open} setOpen={bookingsSettings.setOpen} title="Bookings" />
         </div>
         <div className="flex gap-2">
-          {view !== 'schedules' && (
+          {view !== 'schedules' && view !== 'closeout' && (
             <button
               onClick={() => downloadCSV(
                 bookings.map(b => ({
@@ -332,11 +396,19 @@ export default function BookingsPage() {
             <button onClick={() => setView('list')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'list' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>List</button>
             <button onClick={() => setView('calendar')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'calendar' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>Calendar</button>
             <button onClick={() => setView('schedules')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'schedules' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>Schedules</button>
+            <button onClick={() => setView('closeout')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'closeout' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>
+              Close Out{closeoutJobs.length > 0 ? ` (${closeoutJobs.length})` : ''}
+            </button>
           </div>
           {view === 'schedules' ? (
             <button onClick={() => setShowScheduleCreate(!showScheduleCreate)}
               className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
               {showScheduleCreate ? 'Cancel' : '+ New Schedule'}
+            </button>
+          ) : view === 'closeout' ? (
+            <button onClick={loadCloseout}
+              className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg">
+              Refresh
             </button>
           ) : (
             <button onClick={() => setShowCreate(!showCreate)}
@@ -429,7 +501,209 @@ export default function BookingsPage() {
         </div>
       )}
 
-      {view === 'schedules' ? (
+      {view === 'closeout' ? (
+        <>
+          {/* CLOSE-OUT: NEEDS ATTENTION */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Needs Close-Out ({closeoutJobs.length})</h3>
+            {closeoutJobs.length === 0 ? (
+              <div className="border border-slate-200 rounded-lg p-8 text-center text-slate-400">
+                All caught up! No jobs need close-out.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {closeoutJobs.map((job) => {
+                  const isUpdating = closeoutUpdating === job.id
+                  const isPaid = job.payment_status === 'paid'
+                  const isTeamPaid = job.team_paid === true
+                  const price = job.price != null ? job.price / 100 : null
+                  const teamPay = job.team_pay != null ? job.team_pay / 100 : null
+                  const checkedIn = !!job.check_in_time
+                  const checkedOut = !!job.check_out_time
+                  const isCompleted = job.status === 'completed' || job.status === 'paid'
+
+                  return (
+                    <div key={job.id} className="border border-slate-200 rounded-lg p-4">
+                      {/* Top row: job info */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <Link href={`/dashboard/bookings/${job.id}`} className="font-medium text-slate-900 hover:text-teal-600">
+                            {job.clients?.name || 'Unknown Client'}
+                          </Link>
+                          <p className="text-xs text-slate-400">
+                            {new Date(job.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {' \u00b7 '}
+                            {formatTime(job.start_time)}
+                            {job.end_time && ` \u2013 ${formatTime(job.end_time)}`}
+                            {job.team_members?.name && ` \u00b7 ${job.team_members.name}`}
+                          </p>
+                          {job.clients?.address && (
+                            <p className="text-xs text-slate-400 mt-0.5">{job.clients.address}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {price != null && (
+                            <p className="text-lg font-bold text-slate-900">${price.toFixed(0)}</p>
+                          )}
+                          {teamPay != null && (
+                            <p className="text-xs text-slate-400">Team: ${teamPay.toFixed(0)}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Status indicators */}
+                      <div className="flex items-center gap-2 mb-3 text-xs">
+                        <span className={`px-2 py-0.5 rounded font-medium ${
+                          isCompleted ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'
+                        }`}>
+                          {job.status.replace('_', ' ')}
+                        </span>
+                        {checkedIn && (
+                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">Checked In</span>
+                        )}
+                        {checkedOut && (
+                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">Checked Out</span>
+                        )}
+                        {job.actual_hours && (
+                          <span className="text-slate-400">{job.actual_hours}hr actual</span>
+                        )}
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Step 1: Mark Job Done */}
+                        {!isCompleted && (
+                          <button
+                            onClick={() => {
+                              fetch(`/api/bookings/${job.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'completed' }),
+                              }).then(() => loadCloseout())
+                            }}
+                            disabled={isUpdating}
+                            className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
+                          >
+                            Job Done
+                          </button>
+                        )}
+
+                        {/* Step 2: Mark Paid + payment method */}
+                        {!isPaid && (
+                          <>
+                            <button
+                              onClick={() => updateCloseout(job.id, { payment_status: 'paid', payment_method: 'zelle' })}
+                              disabled={isUpdating}
+                              className="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-purple-700 disabled:opacity-50"
+                            >
+                              Zelle
+                            </button>
+                            <button
+                              onClick={() => updateCloseout(job.id, { payment_status: 'paid', payment_method: 'apple_pay' })}
+                              disabled={isUpdating}
+                              className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-900 disabled:opacity-50"
+                            >
+                              Apple Pay
+                            </button>
+                            <button
+                              onClick={() => updateCloseout(job.id, { payment_status: 'paid', payment_method: 'cash' })}
+                              disabled={isUpdating}
+                              className="bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              Cash
+                            </button>
+                            <button
+                              onClick={() => updateCloseout(job.id, { payment_status: 'paid', payment_method: 'stripe' })}
+                              disabled={isUpdating}
+                              className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                              Stripe
+                            </button>
+                          </>
+                        )}
+
+                        {/* Step 2 done indicator */}
+                        {isPaid && (
+                          <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Paid ({job.payment_method?.replace('_', ' ') || 'unknown'})
+                          </span>
+                        )}
+
+                        {/* Divider */}
+                        {isPaid && !isTeamPaid && (
+                          <span className="text-slate-300">|</span>
+                        )}
+
+                        {/* Step 3: Mark Team Paid */}
+                        {isPaid && !isTeamPaid && (
+                          <button
+                            onClick={() => updateCloseout(job.id, { team_paid: true })}
+                            disabled={isUpdating}
+                            className="bg-teal-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-teal-700 disabled:opacity-50"
+                          >
+                            Team Paid
+                          </button>
+                        )}
+
+                        {isTeamPaid && (
+                          <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+                            Team Paid
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* RECENTLY CLOSED */}
+          {recentlyClosed.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Recently Closed (Last 7 Days)</h3>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-slate-400">
+                      <th className="px-4 py-3 font-medium">Date</th>
+                      <th className="px-4 py-3 font-medium">Client</th>
+                      <th className="px-4 py-3 font-medium">Team</th>
+                      <th className="px-4 py-3 font-medium">Service</th>
+                      <th className="px-4 py-3 font-medium">Price</th>
+                      <th className="px-4 py-3 font-medium">Team Pay</th>
+                      <th className="px-4 py-3 font-medium">Method</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentlyClosed.map((job) => (
+                      <tr key={job.id} className="border-b border-slate-200/50 hover:bg-slate-50">
+                        <td className="px-4 py-3 text-slate-900">
+                          {new Date(job.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </td>
+                        <td className="px-4 py-3 text-slate-900">{job.clients?.name || '\u2014'}</td>
+                        <td className="px-4 py-3 text-slate-400">{job.team_members?.name || '\u2014'}</td>
+                        <td className="px-4 py-3 text-slate-400">{job.service_type || '\u2014'}</td>
+                        <td className="px-4 py-3 font-medium text-slate-900">
+                          {job.price != null ? `$${(job.price / 100).toFixed(0)}` : '\u2014'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">
+                          {job.team_pay != null ? `$${(job.team_pay / 100).toFixed(0)}` : '\u2014'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
+                            {job.payment_method?.replace('_', ' ') || '\u2014'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      ) : view === 'schedules' ? (
         <>
           {/* SCHEDULE STATS CARDS */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">

@@ -42,6 +42,11 @@ export async function POST(
     const sendEmails = campaign.type === 'email' || campaign.type === 'both'
     const sendSMSMessages = campaign.type === 'sms' || campaign.type === 'both'
 
+    const hasEmail = !!(tenant.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
+
+    if (sendEmails && !hasEmail) {
+      return NextResponse.json({ error: 'Email not configured. Add Resend API key in Settings.' }, { status: 400 })
+    }
     if (sendSMSMessages && (!tenant.telnyx_api_key || !tenant.telnyx_phone)) {
       return NextResponse.json({ error: 'SMS not configured. Add Telnyx keys in Settings.' }, { status: 400 })
     }

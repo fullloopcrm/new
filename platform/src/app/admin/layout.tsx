@@ -9,6 +9,7 @@ const navSections = [
     title: 'System',
     items: [
       { label: 'Overview', href: '/admin' },
+      { label: 'System Status', href: '/admin/status' },
       { label: 'Businesses', href: '/admin/businesses' },
       { label: 'Requests', href: '/admin/requests' },
       { label: 'Announcements', href: '/admin/announcements' },

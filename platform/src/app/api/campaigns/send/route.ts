@@ -68,9 +68,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, total: 0, sent: 0, failed: 0 })
     }
 
-    // Build recipient rows respecting per-channel opt-outs
+    // Check integration availability before building recipients
     const sendEmail = campaign.type === 'email' || campaign.type === 'both'
     const sendSms = campaign.type === 'sms' || campaign.type === 'both'
+
+    // Check if required integrations are configured
+    const { data: tenantConfig } = await supabaseAdmin
+      .from('tenants')
+      .select('resend_api_key, telnyx_api_key, telnyx_phone')
+      .eq('id', tenantId)
+      .single()
+
+    const hasEmail = !!(tenantConfig?.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
+    const hasSMS = !!(tenantConfig?.telnyx_api_key && tenantConfig?.telnyx_phone)
+
+    if (sendEmail && !hasEmail) {
+      await supabaseAdmin.from('campaigns').update({ status: 'draft' }).eq('id', campaign_id)
+      return NextResponse.json({ error: 'Email not configured. Add Resend API key in Settings before sending email campaigns.' }, { status: 400 })
+    }
+    if (sendSms && !hasSMS) {
+      await supabaseAdmin.from('campaigns').update({ status: 'draft' }).eq('id', campaign_id)
+      return NextResponse.json({ error: 'SMS not configured. Add Telnyx API key in Settings before sending SMS campaigns.' }, { status: 400 })
+    }
 
     type RecipientRow = {
       campaign_id: string

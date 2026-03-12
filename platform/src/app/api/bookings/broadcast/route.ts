@@ -52,6 +52,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No active team members' }, { status: 400 })
   }
 
+  // Check if at least one notification channel is configured
+  const hasEmail = !!(tenantConfig.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
+  const hasSMS = !!(tenantConfig.telnyx_api_key && tenantConfig.telnyx_phone)
+
+  if (!hasEmail && !hasSMS) {
+    return NextResponse.json({ error: 'No notification channels configured. Add Resend or Telnyx keys in Settings.' }, { status: 400 })
+  }
+
   const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const jobTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const endTime = booking.end_time ? new Date(booking.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''

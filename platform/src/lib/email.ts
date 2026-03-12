@@ -1,7 +1,10 @@
 import { Resend } from 'resend'
 import { withRetry } from './retry'
 
-const defaultResend = new Resend(process.env.RESEND_API_KEY || 'placeholder')
+// Only create default client if a real key is configured
+const defaultResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null
 
 export async function sendEmail({
   to,
@@ -16,8 +19,16 @@ export async function sendEmail({
   from?: string
   resendApiKey?: string | null
 }) {
+  // Determine which client to use — fail fast if no key available
+  const client = resendApiKey
+    ? new Resend(resendApiKey)
+    : defaultResend
+
+  if (!client) {
+    throw new Error('Email not configured — no Resend API key available')
+  }
+
   return withRetry(async () => {
-    const client = resendApiKey ? new Resend(resendApiKey) : defaultResend
     const sender = from || 'Full Loop CRM <noreply@fullloopcrm.com>'
 
     const { data, error } = await client.emails.send({

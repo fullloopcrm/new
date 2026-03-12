@@ -103,7 +103,7 @@ export async function GET(request: Request) {
   try {
     const { data: tenants } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, resend_api_key, telnyx_api_key, telnyx_phone, stripe_account_id')
+      .select('id, name, resend_api_key, telnyx_api_key, telnyx_phone, stripe_api_key')
       .eq('status', 'active')
 
     const missingIntegrations: string[] = []
@@ -112,7 +112,7 @@ export async function GET(request: Request) {
       const missing: string[] = []
       if (!t.resend_api_key) missing.push('email')
       if (!t.telnyx_api_key || !t.telnyx_phone) missing.push('sms')
-      if (!t.stripe_account_id) missing.push('payments')
+      if (!t.stripe_api_key) missing.push('payments')
 
       // Only flag if they have clients (active business, not just onboarding)
       if (missing.length > 0) {

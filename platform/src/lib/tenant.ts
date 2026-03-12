@@ -40,7 +40,10 @@ export type Tenant = {
   resend_api_key: string | null
   telnyx_api_key: string | null
   telnyx_phone: string | null
+  stripe_api_key: string | null
   stripe_account_id: string | null
+  resend_domain: string | null
+  email_from: string | null
   google_place_id: string | null
   gmail_account: string | null
   domain_name: string | null
