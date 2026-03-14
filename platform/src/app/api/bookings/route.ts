@@ -5,6 +5,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { checkMemberDayOff } from '@/lib/availability'
+import { notify } from '@/lib/notify'
+import { sendSMS } from '@/lib/sms'
+import { smsBookingConfirmation, smsJobAssignment } from '@/lib/sms-templates'
 
 export async function GET(request: NextRequest) {
   try {
@@ -125,6 +128,56 @@ export async function POST(request: Request) {
     }
 
     await audit({ tenantId, action: 'booking.created', entityType: 'booking', entityId: data.id, details: { service: validated.service_type_id } })
+
+    // Send notifications to client + team member
+    try {
+      const { data: tenantData } = await supabaseAdmin
+        .from('tenants')
+        .select('name, telnyx_api_key, telnyx_phone')
+        .eq('id', tenantId)
+        .single()
+      const bizName = tenantData?.name || 'Your Business'
+      const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
+
+      // Client confirmation email
+      if (data.clients?.phone || true) {
+        await notify({
+          tenantId,
+          type: 'booking_confirmed',
+          title: `Booking Confirmed — ${date}`,
+          message: `Your appointment on ${date} at ${time} with ${memberName} is confirmed.`,
+          channel: 'email',
+          recipientType: 'client',
+          recipientId: data.client_id,
+          bookingId: data.id,
+          metadata: { clientName: data.clients?.name, serviceName: data.service_type },
+        })
+      }
+
+      // Client confirmation SMS
+      if (data.clients?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+        sendSMS({
+          to: data.clients.phone,
+          body: smsBookingConfirmation(bizName, { start_time: data.start_time, team_members: data.team_members }),
+          telnyxApiKey: tenantData.telnyx_api_key,
+          telnyxPhone: tenantData.telnyx_phone,
+        }).catch(err => console.error('Client confirmation SMS error:', err))
+      }
+
+      // Team member assignment SMS
+      if (data.team_members?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+        sendSMS({
+          to: data.team_members.phone,
+          body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),
+          telnyxApiKey: tenantData.telnyx_api_key,
+          telnyxPhone: tenantData.telnyx_phone,
+        }).catch(err => console.error('Team assignment SMS error:', err))
+      }
+    } catch (notifErr) {
+      console.error('Booking notification error:', notifErr)
+    }
 
     return NextResponse.json({ booking: data }, { status: 201 })
   } catch (e) {

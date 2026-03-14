@@ -398,6 +398,122 @@ export async function GET(request: Request) {
           sent++
         }
       }
+      // ============================================
+      // 8PM DAILY OPS RECAP — today's jobs + financials + tomorrow preview
+      // ============================================
+      if (now.getHours() === 20) {
+        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
+        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
+        const tomorrowStart = new Date(now); tomorrowStart.setDate(tomorrowStart.getDate() + 1); tomorrowStart.setHours(0, 0, 0, 0)
+        const tomorrowEnd = new Date(tomorrowStart); tomorrowEnd.setHours(23, 59, 59, 999)
+
+        const { data: todayBookings } = await supabaseAdmin
+          .from('bookings')
+          .select('id, start_time, end_time, price, payment_status, service_type, clients(name), team_members(name)')
+          .eq('tenant_id', tenantId)
+          .gte('start_time', todayStart.toISOString())
+          .lte('start_time', todayEnd.toISOString())
+          .neq('status', 'cancelled')
+          .order('start_time')
+          .limit(500)
+
+        const { data: tomorrowBookings } = await supabaseAdmin
+          .from('bookings')
+          .select('id, start_time, end_time, price, service_type, clients(name), team_members(name)')
+          .eq('tenant_id', tenantId)
+          .gte('start_time', tomorrowStart.toISOString())
+          .lte('start_time', tomorrowEnd.toISOString())
+          .in('status', ['scheduled', 'confirmed'])
+          .order('start_time')
+          .limit(500)
+
+        const fmt = (cents: number) => '$' + (cents / 100).toFixed(0)
+        const todayRevenue = (todayBookings || []).reduce((s: number, b: { price?: number }) => s + (b.price || 0), 0)
+        const todayPaid = (todayBookings || []).filter((b: { payment_status?: string }) => b.payment_status === 'paid').length
+        const todayUnpaid = (todayBookings || []).length - todayPaid
+
+        const todayDateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+        const tomorrowDateObj = new Date(now); tomorrowDateObj.setDate(tomorrowDateObj.getDate() + 1)
+        const tomorrowDateStr = tomorrowDateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+        const todayJobsList = (todayBookings || []).map((b: any) => ({
+          clientName: b.clients?.name || 'Unknown',
+          teamMemberName: b.team_members?.name || 'Unassigned',
+          time: `${new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${new Date(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+          revenue: fmt(b.price || 0),
+          paymentStatus: b.payment_status || 'pending',
+        }))
+
+        const tomorrowJobsList = (tomorrowBookings || []).map((b: any) => ({
+          clientName: b.clients?.name || 'Unknown',
+          teamMemberName: b.team_members?.name || 'Unassigned',
+          time: `${new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${new Date(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+          revenue: fmt(b.price || 0),
+        }))
+
+        await notify({
+          tenantId,
+          type: 'daily_ops_recap',
+          title: `Daily Ops Recap — ${todayDateStr}`,
+          message: `Today: ${todayJobsList.length} jobs, ${fmt(todayRevenue)} revenue · Tomorrow: ${tomorrowJobsList.length} jobs`,
+          channel: 'email',
+          recipientType: 'admin',
+          metadata: {
+            todayDate: todayDateStr, tomorrowDate: tomorrowDateStr,
+            todayJobs: todayJobsList, tomorrowJobs: tomorrowJobsList,
+            todayRevenue: fmt(todayRevenue), todayJobCount: todayJobsList.length,
+            tomorrowJobCount: tomorrowJobsList.length, todayPaid, todayUnpaid,
+          },
+        })
+
+        results.push({ type: 'daily_ops_recap', booking_id: 'admin', tenant_id: tenantId })
+        sent++
+      }
+
+      // ============================================
+      // 9PM NIGHTLY DIGEST — summary of all notifications sent today
+      // ============================================
+      if (now.getHours() === 21) {
+        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
+        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
+
+        const { data: todayNotifs } = await supabaseAdmin
+          .from('notifications')
+          .select('type, channel, recipient_type, created_at, status')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'sent')
+          .gte('created_at', todayStart.toISOString())
+          .lte('created_at', todayEnd.toISOString())
+          .not('type', 'in', '("daily_ops_recap","daily_digest")')
+          .order('created_at')
+          .limit(500)
+
+        const emailCount = (todayNotifs || []).filter((n: { channel?: string }) => n.channel === 'email').length
+        const smsCount = (todayNotifs || []).filter((n: { channel?: string }) => n.channel === 'sms').length
+
+        const entries = (todayNotifs || []).map((n: any) => ({
+          type: n.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          recipient: n.recipient_type || 'unknown',
+          time: new Date(n.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+          channel: n.channel || 'email',
+        }))
+
+        const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+        await notify({
+          tenantId,
+          type: 'daily_digest',
+          title: `Daily Digest: ${emailCount} emails, ${smsCount} texts — ${dateStr}`,
+          message: `${emailCount} email${emailCount !== 1 ? 's' : ''}, ${smsCount} text${smsCount !== 1 ? 's' : ''} sent to clients today`,
+          channel: 'email',
+          recipientType: 'admin',
+          metadata: { date: dateStr, emailCount, smsCount, entries },
+        })
+
+        results.push({ type: 'daily_digest', booking_id: 'admin', tenant_id: tenantId })
+        sent++
+      }
+
     } catch (tenantErr) {
       // Don't let one tenant's failure crash the whole cron
       failed++

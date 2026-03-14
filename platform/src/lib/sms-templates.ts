@@ -10,12 +10,18 @@ const STOP_TEXT_ES = '\nResponde STOP para cancelar.'
 // CLIENT SMS
 // ============================================
 
+export function smsBookingReceived(bizName: string, booking: { start_time: string }): string {
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${bizName}: We received your booking request for ${date} at ${time}. We'll confirm with details shortly.${STOP_TEXT}`
+}
+
 export function smsBookingConfirmation(bizName: string, booking: { start_time: string; team_members?: { name: string } | null }, portalUrl?: string): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const memberName = booking.team_members?.name?.split(' ')[0] || 'Your pro'
   const link = portalUrl ? ` Details: ${portalUrl}` : ''
-  return `${bizName}: Your appointment is confirmed for ${date} at ${time} with ${memberName}.${link}${STOP_TEXT}`
+  return `${bizName}: Confirmed — ${date} at ${time} with ${memberName}. Payment collected at end of service.${link}${STOP_TEXT}`
 }
 
 export function smsReminder(bizName: string, booking: { start_time: string; team_members?: { name: string } | null }, timeframe: string): string {
@@ -107,6 +113,12 @@ export function smsNewApplication(bizName: string, name: string): string {
 // ============================================
 // SPANISH / BILINGUAL SMS (for tenants with Spanish-speaking clients/team)
 // ============================================
+
+export function smsBookingReceivedES(bizName: string, booking: { start_time: string }): string {
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${bizName}: Recibimos su solicitud de cita para ${date} a las ${time}. Confirmaremos con detalles pronto.${STOP_TEXT_ES}`
+}
 
 export function smsBookingConfirmationES(bizName: string, booking: { start_time: string; team_members?: { name: string } | null }): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })

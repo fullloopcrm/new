@@ -157,3 +157,29 @@ export async function PUT(request: Request) {
     throw e
   }
 }
+
+// DELETE - Delete application (admin only)
+export async function DELETE(request: Request) {
+  const { tenant, error: authError } = await requirePermission('team.edit')
+  if (authError) return authError
+
+  try {
+    const { id } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID required' }, { status: 400 })
+    }
+
+    const { error } = await supabaseAdmin
+      .from('team_applications')
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', tenant.tenantId)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (e) {
+    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
+    throw e
+  }
+}

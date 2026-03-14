@@ -226,6 +226,9 @@ export default function CalendarPage() {
       if (warning) setPanelWarning(warning)
       else closePanel()
       if (dateRange) loadBookings(dateRange.from, dateRange.to)
+    } else if (res.status === 409) {
+      const data = await res.json()
+      setPanelWarning(data.error || 'Team member is unavailable on this date')
     } else {
       setPanelWarning('Failed to confirm booking')
     }
@@ -246,6 +249,9 @@ export default function CalendarPage() {
       if (warning) setPanelWarning(warning)
       else closePanel()
       if (dateRange) loadBookings(dateRange.from, dateRange.to)
+    } else if (res.status === 409) {
+      const data = await res.json()
+      setPanelWarning(data.error || 'Team member is unavailable on this date')
     } else {
       setPanelWarning('Failed to assign team member')
     }
@@ -532,33 +538,40 @@ export default function CalendarPage() {
                 <p className="text-sm text-slate-400">Checking availability...</p>
               ) : (
                 <div className="space-y-1.5">
-                  {(panelMembers.length > 0 ? panelMembers : teamMembers.map(m => ({ id: m.id, name: m.name, available: true, conflict: undefined as string | undefined, preferred: false, history_count: 0, jobs_today: 0, tags: [] as string[], score: 0, meets_requirements: true, missing_skills: [] as string[] }))).map((m, idx) => (
+                  {(panelMembers.length > 0 ? panelMembers : teamMembers.map(m => ({ id: m.id, name: m.name, available: true, conflict: undefined as string | undefined, preferred: false, history_count: 0, jobs_today: 0, tags: [] as string[], score: 0, meets_requirements: true, missing_skills: [] as string[] }))).map((m, idx) => {
+                    const isOff = !m.available && (m.conflict === 'Day off' || m.conflict?.includes('off') || m.conflict?.includes('Not scheduled') || m.conflict?.includes('unavailable'))
+                    return (
                     <button
                       key={m.id}
-                      onClick={() => setPanelMemberId(m.id)}
+                      onClick={() => !isOff && setPanelMemberId(m.id)}
+                      disabled={isOff}
                       className={`w-full flex items-center justify-between p-3 rounded-lg border text-left text-sm transition-colors ${
-                        panelMemberId === m.id
-                          ? 'border-teal-600 bg-teal-50'
-                          : m.available
-                            ? m.preferred ? 'border-amber-300 bg-amber-50/50 hover:bg-amber-50' : 'border-slate-200 hover:bg-slate-50'
-                            : 'border-slate-100 bg-slate-50 opacity-60'
+                        isOff
+                          ? 'border-red-200 bg-red-50 opacity-70 cursor-not-allowed'
+                          : panelMemberId === m.id
+                            ? 'border-teal-600 bg-teal-50'
+                            : m.available
+                              ? m.preferred ? 'border-amber-300 bg-amber-50/50 hover:bg-amber-50' : 'border-slate-200 hover:bg-slate-50'
+                              : 'border-yellow-200 bg-yellow-50'
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: memberColors[m.id] || '#666' }} />
-                        <span className={`font-medium truncate ${panelMemberId === m.id ? 'text-teal-700' : 'text-slate-700'}`}>{m.name}</span>
+                        <span className={`font-medium truncate ${isOff ? 'text-red-400' : panelMemberId === m.id ? 'text-teal-700' : 'text-slate-700'}`}>{m.name}</span>
                         {m.preferred && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold flex-shrink-0">PREFERRED</span>}
                         {!m.preferred && (m.history_count || 0) > 0 && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-medium flex-shrink-0">{m.history_count}x</span>}
                         {idx === 0 && m.available && panelMembers.length > 0 && <span className="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-[10px] font-medium flex-shrink-0">BEST</span>}
                         {m.missing_skills && m.missing_skills.length > 0 && <span className="px-1.5 py-0.5 bg-red-50 text-red-500 rounded text-[10px] font-medium flex-shrink-0">missing: {m.missing_skills.join(', ')}</span>}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {m.available && (m.jobs_today != null) && <span className="text-[10px] text-slate-400">{m.jobs_today === 0 ? 'light day' : `${m.jobs_today} today`}</span>}
-                        {!m.available && m.conflict && <span className="text-xs text-red-500">{m.conflict}</span>}
-                        {m.available && <span className="text-xs text-green-600">Available</span>}
+                        {isOff && <span className="text-xs text-red-600 font-medium">OFF — Cannot assign</span>}
+                        {!isOff && m.available && (m.jobs_today != null) && <span className="text-[10px] text-slate-400">{m.jobs_today === 0 ? 'light day' : `${m.jobs_today} today`}</span>}
+                        {!isOff && !m.available && m.conflict && <span className="text-xs text-yellow-600">{m.conflict}</span>}
+                        {!isOff && m.available && <span className="text-xs text-green-600">Available</span>}
                       </div>
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

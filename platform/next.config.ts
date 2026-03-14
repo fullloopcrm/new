@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
         destination: 'https://www.fullloopcrm.com/:path*',
         permanent: true,
       },
+      {
+        source: '/sm.xml',
+        destination: '/sitemap.xml',
+        permanent: true,
+      },
     ]
   },
   async headers() {

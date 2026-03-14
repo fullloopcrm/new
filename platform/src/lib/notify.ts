@@ -3,8 +3,12 @@ import { sendEmail } from './email'
 import { sendSMS } from './sms'
 import {
   bookingReminderEmail,
+  bookingConfirmationEmail,
+  bookingReceivedEmail,
   followUpEmail,
   dailySummaryEmail,
+  dailyOpsRecapEmail,
+  notificationDigestEmail,
   reviewRequestEmail,
   paymentReceiptEmail,
 } from './email-templates'
@@ -41,6 +45,9 @@ export type NotificationType =
   | 'pending_reminder'
   | 'unpaid_team'
   | 'payment_due'
+  | 'daily_ops_recap'
+  | 'daily_digest'
+  | 'booking_received'
 
 export async function notify({
   tenantId,
@@ -159,6 +166,26 @@ export async function notify({
         amount: (metadata?.amount as string) || '$0',
         date: (metadata?.date as string) || new Date().toLocaleDateString(),
         paymentMethod: (metadata?.paymentMethod as string) || 'Card',
+      })
+      break
+    case 'booking_confirmed':
+      htmlBody = bookingConfirmationEmail({
+        ...templateData,
+        clientName,
+        serviceName: serviceName || 'Appointment',
+        dateTime: message,
+        teamMemberName: (metadata?.teamMemberName as string) || 'Your pro',
+        address: metadata?.address as string | undefined,
+        price: metadata?.price as string | undefined,
+        portalUrl: metadata?.portalUrl as string | undefined,
+      })
+      break
+    case 'booking_received':
+      htmlBody = bookingReceivedEmail({
+        ...templateData,
+        clientName,
+        serviceName: serviceName || 'Appointment',
+        dateTime: message,
       })
       break
   }
