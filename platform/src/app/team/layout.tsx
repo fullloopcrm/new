@@ -34,6 +34,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
   const [auth, setAuthState] = useState<AuthState>(null)
   const [lang, setLangState] = useState<Lang>('en')
   const [unreadCount, setUnreadCount] = useState(0)
+  const [connectUnread, setConnectUnread] = useState(0)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -64,6 +65,20 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
     return () => clearInterval(interval)
   }, [auth])
 
+  // Poll connect unread count
+  useEffect(() => {
+    if (!auth) return
+    function fetchConnectUnread() {
+      fetch('/api/team-portal/connect/unread', { headers: { Authorization: `Bearer ${auth!.token}` } })
+        .then((r) => r.json())
+        .then((data) => setConnectUnread(data.unread || 0))
+        .catch(() => {})
+    }
+    fetchConnectUnread()
+    const interval = setInterval(fetchConnectUnread, 15000)
+    return () => clearInterval(interval)
+  }, [auth])
+
   const setAuth = useCallback((a: AuthState) => {
     setAuthState(a)
     if (a) localStorage.setItem(AUTH_KEY, JSON.stringify(a))
@@ -82,6 +97,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
     { href: '/team/earnings', icon: '$', label: t('Earnings', 'Ganancias') },
     { href: '/team/availability', icon: '◈', label: t('Schedule', 'Horario') },
     { href: '/team/jobs', icon: '!', label: t('Open', 'Abierto') },
+    { href: '/team/connect', icon: '💬', label: t('Connect', 'Chat'), badge: connectUnread },
   ]
 
   return (
@@ -137,7 +153,14 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
                       isActive ? 'text-green-600 font-semibold' : 'text-slate-400'
                     }`}
                   >
-                    <span className="text-lg mb-0.5">{item.icon}</span>
+                    <span className="relative text-lg mb-0.5">
+                      {item.icon}
+                      {'badge' in item && (item as { badge?: number }).badge ? (
+                        <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[8px] font-bold px-1 py-0.5 rounded-full min-w-[14px] text-center leading-none">
+                          {(item as { badge?: number }).badge! > 9 ? '9+' : (item as { badge?: number }).badge}
+                        </span>
+                      ) : null}
+                    </span>
                     {item.label}
                   </Link>
                 )

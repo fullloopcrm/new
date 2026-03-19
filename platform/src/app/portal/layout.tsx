@@ -27,6 +27,7 @@ export const usePortalAuth = () => useContext(PortalContext)
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const [auth, setAuthState] = useState<PortalAuth>(null)
   const [lang, setLangState] = useState<Lang>('en')
+  const [connectUnread, setConnectUnread] = useState(0)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -39,6 +40,20 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       if (storedLang === 'en' || storedLang === 'es') setLangState(storedLang)
     } catch { /* ignore */ }
   }, [])
+
+  // Poll connect unread count
+  useEffect(() => {
+    if (!auth) return
+    function fetchConnectUnread() {
+      fetch('/api/portal/connect/unread', { headers: { Authorization: `Bearer ${auth!.token}` } })
+        .then((r) => r.json())
+        .then((data) => setConnectUnread(data.unread || 0))
+        .catch(() => {})
+    }
+    fetchConnectUnread()
+    const interval = setInterval(fetchConnectUnread, 15000)
+    return () => clearInterval(interval)
+  }, [auth])
 
   const setAuth = useCallback((a: PortalAuth) => {
     setAuthState(a)
@@ -57,6 +72,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     { href: '/portal', icon: '◻', label: t('Home', 'Inicio') },
     { href: '/portal/book', icon: '+', label: t('Book', 'Reservar') },
     { href: '/portal/feedback', icon: '★', label: t('Feedback', 'Opinión') },
+    { href: '/portal/connect', icon: '💬', label: t('Chat', 'Chat'), badge: connectUnread },
   ]
 
   return (
@@ -103,7 +119,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       isActive ? 'text-slate-800 font-semibold' : 'text-slate-400'
                     }`}
                   >
-                    <span className="text-lg mb-0.5">{item.icon}</span>
+                    <span className="relative text-lg mb-0.5">
+                      {item.icon}
+                      {'badge' in item && (item as { badge?: number }).badge ? (
+                        <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[8px] font-bold px-1 py-0.5 rounded-full min-w-[14px] text-center leading-none">
+                          {(item as { badge?: number }).badge! > 9 ? '9+' : (item as { badge?: number }).badge}
+                        </span>
+                      ) : null}
+                    </span>
                     {item.label}
                   </Link>
                 )

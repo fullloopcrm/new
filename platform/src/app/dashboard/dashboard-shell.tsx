@@ -11,6 +11,7 @@ type SidebarCounts = {
   bookings: number
   leads: number
   notifications: number
+  connect: number
 }
 
 const badgeMap: Record<string, keyof SidebarCounts> = {
@@ -18,6 +19,7 @@ const badgeMap: Record<string, keyof SidebarCounts> = {
   Clients: 'clients',
   Leads: 'leads',
   Notifications: 'notifications',
+  Connect: 'connect',
 }
 
 const navSections = [
@@ -37,6 +39,7 @@ const navSections = [
   {
     label: 'Tools',
     items: [
+      { label: 'Connect', href: '/dashboard/connect' },
       { label: 'Websites', href: '/dashboard/websites' },
       { label: 'Analytics', href: '/dashboard/analytics' },
       { label: 'Reviews', href: '/dashboard/reviews' },
