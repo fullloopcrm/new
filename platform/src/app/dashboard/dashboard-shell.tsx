@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Script from 'next/script'
 import { UserButton } from '@clerk/nextjs'
 import ToastProvider from './toast-provider'
+import AiAssistant from '@/components/ai-assistant'
 
 type SidebarCounts = {
   clients: number
@@ -176,7 +177,7 @@ export default function DashboardShell({
       </aside>
 
       {/* Main content — white bg like admin */}
-      <main className="flex-1 min-w-0 overflow-y-auto ml-44 bg-white text-slate-800">
+      <main className="flex-1 min-w-0 overflow-y-auto ml-44 bg-white text-slate-800 pb-20">
         {impersonationBanner}
         <div className="p-8 max-w-7xl">
           {/* Mobile hamburger */}
@@ -191,6 +192,7 @@ export default function DashboardShell({
           {children}
         </div>
       </main>
+      <AiAssistant />
       <ToastProvider />
       <Script id="tawk-to" strategy="lazyOnload">
         {`var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();

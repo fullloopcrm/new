@@ -127,6 +127,27 @@ export default function BookingsPage() {
   const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [saving, setSaving] = useState(false)
   const [bookingCreated, setBookingCreated] = useState(false)
+  const [teamAvailability, setTeamAvailability] = useState<{ id: string; name: string; available: boolean; conflict?: string; tags?: string[]; preferred?: boolean }[]>([])
+  const [loadingAvailability, setLoadingAvailability] = useState(false)
+
+  // Fetch team availability when date/time/hours change
+  useEffect(() => {
+    if (!form.date || !form.time) { setTeamAvailability([]); return }
+    const fetchAvailability = async () => {
+      setLoadingAvailability(true)
+      try {
+        const params = new URLSearchParams({ date: form.date, start_time: form.time, duration: form.hours || '2' })
+        if (form.client_id) params.set('client_id', form.client_id)
+        const res = await fetch(`/api/team-availability?${params}`)
+        if (res.ok) {
+          const data = await res.json()
+          setTeamAvailability(data.members || [])
+        }
+      } catch { /* ignore */ }
+      setLoadingAvailability(false)
+    }
+    fetchAvailability()
+  }, [form.date, form.time, form.hours, form.client_id])
   const [stats, setStats] = useState({ upcoming: 0, thisWeek: 0, completed: 0, revenue: 0 })
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkAction, setBulkAction] = useState('')
@@ -966,23 +987,80 @@ export default function BookingsPage() {
                 </select>
               </div>
 
-              {/* Row 3: Team Member (full width) */}
-              <div>
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Team Member *</label>
-                <select
-                  value={form.team_member_id}
-                  onChange={(e) => setForm({ ...form, team_member_id: e.target.value })}
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">Select Team Member</option>
-                  {team.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+              {/* Row 3: Date + Time (2 columns) — moved above team member for availability */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Date *</label>
+                  <input
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Time *</label>
+                  <input
+                    type="time"
+                    value={form.time}
+                    onChange={(e) => setForm({ ...form, time: e.target.value })}
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
               </div>
 
-              {/* Row 4: Hours + Rate (2 columns) */}
+              {/* Row 4: Team Member with availability */}
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Team Member *</label>
+                {form.date && teamAvailability.length > 0 ? (
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {teamAvailability.map((t) => {
+                      const selected = form.team_member_id === t.id
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setForm({ ...form, team_member_id: t.id })}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors ${
+                            selected
+                              ? 'border-teal-500 bg-teal-50 text-slate-900'
+                              : t.available
+                                ? 'border-slate-200 hover:border-slate-300 text-slate-700'
+                                : 'border-slate-200 text-slate-400'
+                          }`}
+                        >
+                          <span className={`flex items-center gap-2 ${selected ? 'font-medium' : ''}`}>
+                            {t.name}
+                            {t.preferred && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Preferred</span>}
+                          </span>
+                          {t.available
+                            ? <span className="text-xs text-green-600 font-medium">Available</span>
+                            : <span className="text-xs text-red-500">Not Available</span>
+                          }
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : loadingAvailability ? (
+                  <div className="text-xs text-slate-400 py-2">Checking availability...</div>
+                ) : (
+                  <select
+                    value={form.team_member_id}
+                    onChange={(e) => setForm({ ...form, team_member_id: e.target.value })}
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="">Select date first for availability</option>
+                    {team.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Row 5: Hours + Rate (2 columns) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Hours</label>
@@ -1009,30 +1087,6 @@ export default function BookingsPage() {
                       <option key={r} value={String(r)}>${r}/hr</option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              {/* Row 5: Date + Time (2 columns) */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Date *</label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Time *</label>
-                  <input
-                    type="time"
-                    value={form.time}
-                    onChange={(e) => setForm({ ...form, time: e.target.value })}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  />
                 </div>
               </div>
 
