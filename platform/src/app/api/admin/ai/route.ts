@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
 
-  const { message, tenantId, conversationId, transcript, phone, clientExists, clientName } = await request.json()
+  const { message, tenantId, conversationId } = await request.json()
 
   if (!message || typeof message !== 'string') {
     return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -19,12 +19,9 @@ export async function POST(request: NextRequest) {
   try {
     const response = await askSelena(
       tenantId,
+      'web',
       message,
       conversationId || 'admin-test',
-      transcript || [],
-      phone || '',
-      clientExists ?? false,
-      clientName || null,
     )
     return NextResponse.json({ response })
   } catch (e) {

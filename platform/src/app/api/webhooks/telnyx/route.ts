@@ -491,28 +491,12 @@ export async function POST(request: Request) {
             message: text,
           })
 
-          // Load transcript for AI context
-          const { data: transcriptRows } = await supabaseAdmin
-            .from('sms_conversation_messages')
-            .select('direction, message')
-            .eq('conversation_id', convo.id)
-            .order('created_at', { ascending: true })
-            .limit(30)
-
-          const transcript = (transcriptRows || []).map(row => ({
-            role: (row.direction === 'inbound' ? 'user' : 'assistant') as 'user' | 'assistant',
-            content: row.message,
-          }))
-
-          // Call Selena AI
+          // Call Selena AI (loads transcript from DB internally)
           const aiResult = await askSelena(
             tenantId,
+            'sms',
             text,
             convo.id,
-            transcript,
-            cleanPhone,
-            clientExists,
-            clientName,
           )
 
           if (aiResult?.text) {

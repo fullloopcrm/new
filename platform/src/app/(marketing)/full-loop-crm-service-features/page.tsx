@@ -89,6 +89,10 @@ const dashboardPages = [
     name: "Documentation",
     desc: "Built-in guides, video walkthroughs, and API documentation for your team.",
   },
+  {
+    name: "Connect",
+    desc: "Slack-style in-app chat with channels for your team, clients, and entire business — all in one place.",
+  },
 ];
 
 export default function FeaturesPage() {
@@ -641,7 +645,7 @@ export default function FeaturesPage() {
               Your Command Center
             </p>
             <h2 className="font-heading text-3xl sm:text-4xl font-extrabold text-white mb-6">
-              11 Dashboard Pages. Zero Tab Switching.
+              12 Dashboard Pages. Zero Tab Switching.
             </h2>
             <p className="text-lg text-slate-300 max-w-3xl mx-auto">
               Every aspect of your business lives in one platform. No more logging into 5 different
