@@ -38,13 +38,15 @@ export default function SelenaPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ConvoMessage[]>([])
   const [msgLoading, setMsgLoading] = useState(false)
+  const [resetting, setResetting] = useState<string | null>(null)
+  const [since, setSince] = useState(() => new Date().toISOString().split('T')[0])
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData() }, [since])
 
   async function fetchData() {
     setLoading(true)
     try {
-      const res = await fetch('/api/selena')
+      const res = await fetch(`/api/selena?since=${since}T00:00:00Z`)
       if (res.ok) {
         const data = await res.json()
         setConvos(data.conversations || [])
@@ -53,6 +55,23 @@ export default function SelenaPage() {
       }
     } catch {}
     setLoading(false)
+  }
+
+  async function resetConversation(convoId: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm('Reset this conversation? This will expire it and send a recovery text to the client.')) return
+    setResetting(convoId)
+    try {
+      const res = await fetch('/api/selena', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: convoId }),
+      })
+      if (res.ok) await fetchData()
+    } catch (err) {
+      console.error('Reset failed:', err)
+    }
+    setResetting(null)
   }
 
   async function loadMessages(convoId: string) {
@@ -98,6 +117,29 @@ export default function SelenaPage() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Selena — AI Concierge</h1>
+
+      {/* Date Filter */}
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-gray-600">Stats since:</label>
+        <input
+          type="date"
+          value={since}
+          onChange={(e) => setSince(e.target.value)}
+          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-slate-900"
+        />
+        <button
+          onClick={() => setSince(new Date().toISOString().split('T')[0])}
+          className="text-xs px-3 py-1.5 bg-slate-900 text-white rounded-lg hover:bg-slate-700"
+        >
+          Today
+        </button>
+        <button
+          onClick={() => setSince('2025-01-01')}
+          className="text-xs px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+        >
+          All Time
+        </button>
+      </div>
 
       {/* KPIs */}
       {stats && (
@@ -184,7 +226,18 @@ export default function SelenaPage() {
                       <span className={`text-xs px-2 py-0.5 rounded-full ${channel === 'sms' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{channel}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor(status)}`}>{status}</span>
                     </div>
-                    <span className="text-xs text-gray-400">{timeAgo(c.updated_at || c.created_at)}</span>
+                    <div className="flex items-center gap-2">
+                      {!c.expired && !c.completed_at && (
+                        <button
+                          onClick={(e) => resetConversation(c.id, e)}
+                          disabled={resetting === c.id}
+                          className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
+                        >
+                          {resetting === c.id ? 'Resetting...' : 'Reset'}
+                        </button>
+                      )}
+                      <span className="text-xs text-gray-400">{timeAgo(c.updated_at || c.created_at)}</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-gray-500">
                     <span>Checklist: {checkCount}/10</span>

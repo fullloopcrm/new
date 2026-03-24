@@ -26,6 +26,8 @@ type Booking = {
   check_out_time: string | null
   check_out_lat: number | null
   check_out_lng: number | null
+  walkthrough_video_url: string | null
+  final_video_url: string | null
   payment_status: string | null
   payment_method: string | null
   payment_date: string | null
@@ -450,6 +452,37 @@ export default function BookingDetailPage() {
               </button>
             )}
           </div>
+
+          {/* JOB VIDEOS */}
+          {(booking.walkthrough_video_url || booking.final_video_url) && (
+            <div className="border border-slate-200 rounded-lg p-6">
+              <h3 className="font-semibold text-slate-900 mb-4">Job Videos</h3>
+              <div className="space-y-4">
+                {booking.walkthrough_video_url && (
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Walkthrough</p>
+                    <video
+                      src={booking.walkthrough_video_url}
+                      controls
+                      className="w-full rounded-lg max-h-[300px]"
+                      preload="metadata"
+                    />
+                  </div>
+                )}
+                {booking.final_video_url && (
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Final</p>
+                    <video
+                      src={booking.final_video_url}
+                      controls
+                      className="w-full rounded-lg max-h-[300px]"
+                      preload="metadata"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* PAYMENT + TEAM PAY */}
           <div className="border border-slate-200 rounded-lg p-6">

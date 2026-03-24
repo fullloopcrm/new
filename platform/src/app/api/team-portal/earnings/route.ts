@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/route'
 
-// Round up to nearest half hour: 2.25 → 2.5, 2.1 → 2.5, 2.75 → 3.0
-const roundToHalfHour = (hours: number) => Math.ceil(hours * 2) / 2
+// Round to half hour with 10-min grace: under 10 min past = round down, 10+ min = round up
+const roundToHalfHour = (hours: number) => {
+  const totalMinutes = hours * 60
+  const halfHours = Math.floor(totalMinutes / 30)
+  const remainder = totalMinutes - halfHours * 30
+  return remainder >= 10 ? (halfHours + 1) * 0.5 : halfHours * 0.5
+}
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')

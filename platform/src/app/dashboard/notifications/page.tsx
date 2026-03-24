@@ -27,6 +27,8 @@ const TYPE_COLORS: Record<string, string> = {
   new_client: 'bg-purple-50 text-purple-700',
   new_booking: 'bg-blue-50 text-blue-700',
   daily_summary: 'bg-slate-100 text-slate-500',
+  video_uploaded: 'bg-violet-50 text-violet-700',
+  '15min_warning': 'bg-amber-50 text-amber-700',
 }
 
 export default function NotificationsPage() {

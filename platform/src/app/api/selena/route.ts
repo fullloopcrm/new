@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sendSMS } from '@/lib/sms'
+import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena'
 
 const CHECKLIST_FIELDS = ['service_type', 'bedrooms', 'bathrooms', 'rate', 'day', 'time', 'name', 'phone', 'address', 'email']
 
@@ -9,6 +11,7 @@ export async function GET(req: NextRequest) {
     const { tenantId } = await getTenantForRequest()
     const { searchParams } = new URL(req.url)
     const convoId = searchParams.get('convoId')
+    const since = searchParams.get('since')
 
     if (convoId) {
       const { data: messages } = await supabaseAdmin
@@ -19,10 +22,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ messages: messages || [] })
     }
 
-    const { data: allConvos } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('sms_conversations')
       .select('id, phone, name, client_id, state, created_at, updated_at, completed_at, expired, outcome, summary, booking_checklist, booking_id')
       .eq('tenant_id', tenantId)
+    if (since) query = query.gte('created_at', since)
+    const { data: allConvos } = await query
       .order('updated_at', { ascending: false })
       .limit(100)
 
@@ -91,5 +96,88 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error('Selena API error:', err)
     return NextResponse.json({ error: 'Failed to load' }, { status: 500 })
+  }
+}
+
+// ── Reset a stuck conversation ──────────────────────────────────────────────
+
+export async function POST(req: NextRequest) {
+  try {
+    const { tenantId } = await getTenantForRequest()
+    const { conversationId } = await req.json()
+    if (!conversationId) return NextResponse.json({ error: 'conversationId required' }, { status: 400 })
+
+    // 1. Load the conversation (scoped to tenant)
+    const { data: convo } = await supabaseAdmin
+      .from('sms_conversations')
+      .select('id, phone, client_id, booking_checklist, tenant_id')
+      .eq('id', conversationId)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!convo) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+
+    // 2. Expire the stuck conversation
+    await supabaseAdmin.from('sms_conversations').update({
+      expired: true,
+      outcome: 'reset',
+      summary: 'Admin reset — conversation was stuck',
+      updated_at: new Date().toISOString(),
+    }).eq('id', conversationId)
+
+    // 3. If SMS, create a fresh conversation and send recovery text
+    const isSMS = convo.phone && !convo.phone.startsWith('web-')
+    let newConvoId: string | null = null
+
+    if (isSMS) {
+      const cleanPhone = convo.phone.replace(/\D/g, '').slice(-10)
+
+      // Pre-fill from client profile if returning
+      const prefilled: Record<string, unknown> = { ...EMPTY_CHECKLIST, status: 'collecting', phone: `+1${cleanPhone}`, channel: 'sms' }
+      if (convo.client_id) {
+        try {
+          const profile = JSON.parse(await getClientProfile(tenantId, cleanPhone))
+          if (profile.name) prefilled.name = profile.name
+          if (profile.address) prefilled.address = profile.address
+          if (profile.email) prefilled.email = profile.email
+          if (profile.last_rate) prefilled.rate = profile.last_rate
+        } catch {}
+      }
+
+      const { data: newConvo } = await supabaseAdmin.from('sms_conversations')
+        .insert({ phone: cleanPhone, state: 'active', client_id: convo.client_id, booking_checklist: prefilled, tenant_id: tenantId })
+        .select('id').single()
+      newConvoId = newConvo?.id || null
+
+      // Get tenant SMS credentials
+      const { data: tenant } = await supabaseAdmin
+        .from('tenants')
+        .select('telnyx_api_key, telnyx_phone')
+        .eq('id', tenantId)
+        .single()
+
+      if (tenant?.telnyx_api_key && tenant?.telnyx_phone) {
+        const recoveryMsg = "Hey! Sorry about that — we had a hiccup on our end. Let's start fresh. What can I help you with?"
+        await sendSMS({
+          to: `+1${cleanPhone}`,
+          body: recoveryMsg,
+          telnyxApiKey: tenant.telnyx_api_key,
+          telnyxPhone: tenant.telnyx_phone,
+        })
+
+        // Log the outbound
+        if (newConvoId) {
+          await supabaseAdmin.from('sms_conversation_messages').insert({
+            conversation_id: newConvoId,
+            direction: 'outbound',
+            message: recoveryMsg,
+          })
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, expired: conversationId, newConversation: newConvoId })
+  } catch (err) {
+    console.error('Selena reset error:', err)
+    return NextResponse.json({ error: 'Reset failed' }, { status: 500 })
   }
 }

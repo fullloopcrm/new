@@ -64,33 +64,33 @@ export function smsJobAssignment(bizName: string, booking: { start_time: string;
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const clientName = booking.clients?.name || 'Client'
   const link = portalUrl ? ` Portal: ${portalUrl}` : ''
-  return `${bizName}: New job ${date} ${time} - ${clientName}.${link}${STOP_TEXT}`
+  return `${bizName}: New job ${date} ${time} - ${clientName}.${link}\n---\n${bizName}: Nuevo trabajo ${date} ${time} - ${clientName}.${link}${STOP_TEXT}`
 }
 
 export function smsDailySummary(bizName: string, memberName: string, count: number, portalUrl?: string): string {
   const firstName = memberName.split(' ')[0]
   const link = portalUrl ? ` Portal: ${portalUrl}` : ''
-  return `${bizName}: Hi ${firstName}, you have ${count} job${count === 1 ? '' : 's'} in the next 3 days.${link}${STOP_TEXT}`
+  return `${bizName}: Hi ${firstName}, you have ${count} job${count === 1 ? '' : 's'} in the next 3 days.${link}\n---\n${bizName}: Hola ${firstName}, tienes ${count} trabajo${count === 1 ? '' : 's'} en los proximos 3 dias.${link}${STOP_TEXT}`
 }
 
 export function smsJobCancelled(bizName: string, booking: { start_time: string; clients?: { name: string } | null }): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const clientName = booking.clients?.name || 'Client'
-  return `${bizName}: Cancelled - ${date} job (${clientName}).${STOP_TEXT}`
+  return `${bizName}: Cancelled - ${date} job (${clientName}).\n---\n${bizName}: Cancelado - trabajo del ${date} (${clientName}).${STOP_TEXT}`
 }
 
 export function smsJobRescheduled(bizName: string, booking: { start_time: string; clients?: { name: string } | null }): string {
   const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const clientName = booking.clients?.name || 'Client'
-  return `${bizName}: Rescheduled - ${clientName} moved to ${newDate} ${newTime}.${STOP_TEXT}`
+  return `${bizName}: Rescheduled - ${clientName} moved to ${newDate} ${newTime}.\n---\n${bizName}: Reprogramado - ${clientName} movido a ${newDate} ${newTime}.${STOP_TEXT}`
 }
 
 export function smsUrgentBroadcast(bizName: string, booking: { start_time: string; team_pay_rate?: number }): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const payRate = booking.team_pay_rate || 40
-  return `${bizName} URGENT: $${payRate}/hr job available ${date} ${time}. Respond to claim.${STOP_TEXT}`
+  return `${bizName} URGENT: $${payRate}/hr job available ${date} ${time}. Respond to claim.\n---\n${bizName} URGENTE: Trabajo $${payRate}/hr disponible ${date} ${time}. Responde para reclamar.${STOP_TEXT}`
 }
 
 // ============================================

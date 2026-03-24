@@ -48,6 +48,11 @@ export type NotificationType =
   | 'daily_ops_recap'
   | 'daily_digest'
   | 'booking_received'
+  | 'new_lead'
+  | 'selena_error'
+  | 'escalation'
+  | 'video_uploaded'
+  | '15min_warning'
 
 export async function notify({
   tenantId,

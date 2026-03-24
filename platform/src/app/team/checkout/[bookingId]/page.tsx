@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useTeamAuth } from '../../layout'
+import VideoUpload from '@/components/VideoUpload'
 
 export default function CheckOutPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
@@ -79,10 +80,19 @@ export default function CheckOutPage() {
       )}
 
       {status === 'confirming' && coords && (
-        <div className="text-center">
-          <div className="w-40 h-40 rounded-full bg-blue-50 border-4 border-blue-500 flex flex-col items-center justify-center mb-4">
+        <div className="text-center space-y-4">
+          <div className="w-40 h-40 rounded-full bg-blue-50 border-4 border-blue-500 flex flex-col items-center justify-center mb-4 mx-auto">
             <span className="text-3xl mb-1">✓</span>
             <p className="text-xs text-blue-700 font-mono">{coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>
+          </div>
+          <div className="w-full max-w-sm mx-auto">
+            <VideoUpload
+              bookingId={bookingId}
+              type="final"
+              token={auth!.token}
+              t={t}
+              onUploaded={() => {}}
+            />
           </div>
           <button onClick={checkOut} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-medium">
             {t('Confirm Check Out', 'Confirmar Salida')}

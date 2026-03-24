@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useTeamAuth } from '../../layout'
+import VideoUpload from '@/components/VideoUpload'
 
 export default function CheckInPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
@@ -44,7 +45,8 @@ export default function CheckInPage() {
       }),
     })
     if (res.ok) {
-      router.push('/team')
+      // Stay on page so team member can upload walkthrough video
+      setStatus('done')
     } else {
       const data = await res.json()
       setError(data.error || 'Check-in failed')
@@ -96,14 +98,31 @@ export default function CheckInPage() {
       )}
 
       {status === 'done' && (
-        <div className="text-center">
+        <div className="text-center space-y-4">
           <p className="text-green-600 font-bold text-lg">{t('Checked In!', '¡Registrado!')}</p>
+          <div className="w-full max-w-sm mx-auto">
+            <VideoUpload
+              bookingId={bookingId}
+              type="walkthrough"
+              token={auth!.token}
+              t={t}
+              onUploaded={() => {}}
+            />
+          </div>
+          <button
+            onClick={() => router.push('/team')}
+            className="bg-slate-800 text-white px-8 py-3 rounded-xl font-medium"
+          >
+            {t('Continue', 'Continuar')}
+          </button>
         </div>
       )}
 
-      <button onClick={() => router.push('/team')} className="mt-8 text-sm text-slate-400">
-        {t('Back', 'Volver')}
-      </button>
+      {status !== 'done' && (
+        <button onClick={() => router.push('/team')} className="mt-8 text-sm text-slate-400">
+          {t('Back', 'Volver')}
+        </button>
+      )}
     </div>
   )
 }

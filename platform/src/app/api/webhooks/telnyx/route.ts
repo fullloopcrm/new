@@ -605,6 +605,11 @@ export async function POST(request: Request) {
             convo.id,
           )
 
+          // Prevent silent failure — if Selena returns nothing, send a fallback
+          if (aiResult && !aiResult.text) {
+            aiResult.text = "Sorry, nothing came through on my end! Could you resend that? \u{1F60A}"
+          }
+
           if (aiResult?.text) {
             // Send AI response
             await sendSMS({

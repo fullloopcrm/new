@@ -65,7 +65,7 @@ function getClient(): Anthropic {
 // ─── State Machine ──────────────────────────────────────────────────────────
 
 export function getNextStep(cl: BookingChecklist): NextStep {
-  if (cl.status === 'recap') return { field: null, instruction: 'Do the recap now using ALL collected info.' }
+  if (cl.status === 'recap') return { field: null, instruction: 'The client has seen the recap OR you need to do the recap now. If the client just said "yes" or confirmed, call create_booking immediately to lock in the booking — do NOT recap again or ask for more info. If the recap hasn\'t been shown yet, do it now using ALL collected info.' }
   if (cl.status === 'confirmed') return { field: null, instruction: 'Booking confirmed. Thank them warmly, tell them booking is pending and will be confirmed by the team. Then ask: "How would you rate this chat? 1-5"' }
   if (cl.status === 'rating') return { field: 'rating', instruction: 'They gave a rating. Thank them. If 5: "That means a lot!" If below: "We appreciate the feedback." Then close.' }
   if (cl.status === 'closed') return { field: null, instruction: 'Conversation complete.' }
@@ -171,11 +171,13 @@ async function buildSystemPrompt(tenantId: string): Promise<string> {
 
   return `You are Selena, the booking concierge for ${bizName}.
 
-PERSONALITY: Warm, real, direct. Not a bot. Never sound like one.
+PERSONALITY: Warm, welcoming, grateful, real. Say please and thank you naturally. Make the client feel appreciated — like they're talking to a real person who genuinely cares. A little funny when it fits. Not a bot. Never sound like one.
 
 STYLE:
-- SHORT. One question per message. Never combine two asks.
+- SHORT but warm. "Perfect, thank you!" is a full response.
+- ONE question per message. Never combine two asks.
 - Match their energy. One line = one line.
+- Say "please" when asking for info. Say "thank you" when they give it.
 - 😊 only emoji. Once per message max.
 - NEVER say: "certainly" "absolutely" "of course" "great question" "happy to help"
 - Under 300 chars. Max 480. Recap exception.
@@ -193,6 +195,9 @@ ${s.business_phone ? `- Phone: ${s.business_phone}` : ''}
 ${s.business_website ? `- Website: ${s.business_website}` : ''}
 
 RECAP: After all info collected, read it all back and ask to confirm.
+
+AFTER RECAP — CRITICAL:
+When the client confirms the recap (says "yes", "correct", "looks good", "confirmed", etc.), IMMEDIATELY call create_booking. Do NOT ask for more info, do NOT recap again, do NOT ask for email or anything else. Everything is already collected. Just book it.
 
 POST-CONFIRMATION: "Thank you [Name]! We appreciate you. Your booking is pending and will be confirmed by our team shortly — you'll be notified once it's all set!"
 
@@ -541,6 +546,7 @@ export async function askSelena(
   channel: 'sms' | 'web',
   message: string,
   conversationId: string,
+  phone?: string,
 ): Promise<SelenaResult> {
   const result: SelenaResult = { text: '', checklist: EMPTY_CHECKLIST }
 
@@ -560,13 +566,13 @@ export async function askSelena(
     const checklistPrompt = buildChecklistPrompt(checklist, nextStep)
 
     let clientContext = ''
-    if (channel === 'sms') {
-      const { data: convo } = await supabaseAdmin
-        .from('sms_conversations').select('phone').eq('id', conversationId).single()
-      if (convo?.phone && !convo.phone.startsWith('web-')) {
-        const profile = await getClientProfile(tenantId, convo.phone)
-        if (!profile.includes('"error"')) clientContext = `\n\nCLIENT PROFILE:\n${profile}`
-      }
+    // SMS: look up by conversation phone. Web: use provided phone if returning client.
+    const lookupPhone = channel === 'sms'
+      ? await supabaseAdmin.from('sms_conversations').select('phone').eq('id', conversationId).single().then(r => r.data?.phone)
+      : phone || null
+    if (lookupPhone && !lookupPhone.startsWith('web-')) {
+      const profile = await getClientProfile(tenantId, lookupPhone)
+      if (!profile.includes('"error"')) clientContext = `\n\nCLIENT PROFILE:\n${profile}`
     }
 
     const systemPrompt = systemPromptBase + calendar + '\n' + checklistPrompt + clientContext
@@ -630,10 +636,15 @@ export async function askSelena(
         }
 
         currentMessages.push({ role: 'user', content: toolResults })
-        if (response.stop_reason === 'end_turn' && textBlocks.length > 0) {
-          result.text = textBlocks.map(b => b.text).join(' ').trim()
-          break
-        }
+      }
+      // If tool loop finished without capturing text, force a text-only response
+      if (!result.text) {
+        const fallback = await getClient().messages.create(
+          { model: 'claude-haiku-4-5-20251001', max_tokens: 700, system: systemPrompt, messages: currentMessages },
+          { signal: controller.signal }
+        )
+        const fallbackText = fallback.content.filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
+        if (fallbackText.length > 0) result.text = fallbackText.map(b => b.text).join(' ').trim()
       }
     } finally {
       clearTimeout(timeout)
@@ -641,7 +652,7 @@ export async function askSelena(
 
     if (!result.text) {
       await selenaError(tenantId, 'empty_response', new Error('Selena returned no text'), conversationId)
-      result.text = ''
+      result.text = "Sorry, nothing came through on my end! Could you resend that? 😊"
     }
     if (result.text.length > 600) result.text = result.text.slice(0, 597) + '...'
 
