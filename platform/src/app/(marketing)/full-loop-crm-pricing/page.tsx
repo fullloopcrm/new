@@ -271,6 +271,11 @@ export default function PricingPage() {
             No contracts. Month to month. Cancel anytime. $999 one-time setup
             included with every tier.
           </p>
+          <p className="mt-3 text-center">
+            <Link href="/agreement" className="text-teal-600 underline underline-offset-2 hover:text-teal-700 text-sm font-medium">
+              See Transparent Terms &rarr;
+            </Link>
+          </p>
         </div>
       </section>
 
@@ -508,6 +513,11 @@ export default function PricingPage() {
               </ul>
             </div>
           </div>
+          <p className="mt-10 text-center">
+            <Link href="/agreement" className="text-teal-600 underline underline-offset-2 hover:text-teal-700 text-sm font-medium">
+              Read the full ownership terms in plain language &rarr;
+            </Link>
+          </p>
         </div>
       </section>
 
@@ -683,6 +693,12 @@ export default function PricingPage() {
               className="text-teal-400 underline underline-offset-2 hover:text-teal-300"
             >
               CRM 101
+            </Link>
+            <Link
+              href="/agreement"
+              className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200"
+            >
+              See Transparent Terms
             </Link>
           </nav>
         </div>
