@@ -74,8 +74,8 @@ const dashboardPages = [
     desc: "Centralized alerts for new leads, bookings, payments, and team activity.",
   },
   {
-    name: "AI Dashboard",
-    desc: "Monitor Selenas AI performance — response times, conversion rates, and conversation logs.",
+    name: "Selena AI Dashboard",
+    desc: "Live conversation feed, booking conversion rate, error log, conversation transcripts, stats by date range, and one-click conversation reset.",
   },
   {
     name: "Referral Program",
@@ -265,23 +265,68 @@ export default function FeaturesPage() {
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
-                Lead Qualification
+                State Machine Booking Flow
               </h3>
               <p className="text-slate-600">
-                Before booking, Selenas asks the right questions — service type, property size,
-                preferred dates, and budget range. She filters out tire-kickers and sends you only
-                qualified leads that are ready to book, saving you hours of back-and-forth.
+                Selenas doesn&apos;t wing it — she follows a deterministic 10-field booking checklist
+                (service type, bedrooms, bathrooms, rate, day, time, name, phone, address, email).
+                She collects one field at a time, never re-asks for info she already has, and
+                handles numbered SMS replies so clients can book with just &quot;1&quot;, &quot;2&quot;, &quot;3&quot;.
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
-                12+ Automated Responses
+                Returning Client Recognition
               </h3>
               <p className="text-slate-600">
-                Selenas handles the most common questions your leads ask — pricing, availability,
-                service areas, cancellation policies, payment methods, and more. She&apos;s trained
-                on 12+ question categories so she can hold a natural conversation without human
-                intervention.
+                When a returning client texts in, Selenas pulls their full profile — name, address,
+                previous bookings, preferred cleaner, last rate, and conversation history. She greets
+                them by name and skips questions she already knows the answers to, making rebooking
+                feel effortless.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                Web Chat + SMS — Same AI
+              </h3>
+              <p className="text-slate-600">
+                Selenas works on your website too — not just SMS. Website visitors can chat with
+                Selenas directly, choose &quot;new client&quot; or &quot;returning client,&quot; and book without
+                ever making a phone call. Returning clients enter their phone number and Selenas
+                pulls up their full history instantly.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                Smart Escalation
+              </h3>
+              <p className="text-slate-600">
+                When a client is upset, reports damage, or has a request outside normal flow,
+                Selenas doesn&apos;t guess — she escalates to a human with full conversation context.
+                You get an instant notification with the transcript so you can jump in informed,
+                not cold.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                AI Performance Dashboard
+              </h3>
+              <p className="text-slate-600">
+                Monitor Selenas in real time — total conversations, booking conversion rate, average
+                messages per booking, checklist completion, and channel breakdown (SMS vs web).
+                Filter stats by date to track performance over any period. Every error is logged
+                with full context for troubleshooting.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                Conversation Reset
+              </h3>
+              <p className="text-slate-600">
+                If a conversation gets stuck, one click resets it — expires the old conversation,
+                creates a fresh one with the client&apos;s profile pre-filled, and sends a recovery
+                text: &quot;Sorry about that — let&apos;s start fresh.&quot; The client never has to
+                re-explain anything.
               </p>
             </div>
           </div>
@@ -401,12 +446,45 @@ export default function FeaturesPage() {
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                Video Walkthroughs (Before & After)
+              </h3>
+              <p className="text-slate-600">
+                After check-in, team members record a 1-2 minute walkthrough video of the space
+                before starting. Before check-out, they record the finished result. Both videos are
+                stored on the booking and viewable in your admin dashboard — instant proof of quality
+                if a client ever disputes the work. Videos auto-delete after 30 days to save storage.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                15-Minute Heads Up
+              </h3>
+              <p className="text-slate-600">
+                When your team is 15 minutes from finishing, they tap one button and you get an
+                instant SMS with the client name, team member, and exact amount to collect — both
+                what the client owes and what the team member earned. No mental math, no phone calls.
+                The button disappears after sending so it can&apos;t be double-tapped.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                Smart Half-Hour Rounding
+              </h3>
+              <p className="text-slate-600">
+                Time is billed in half-hour increments with a 10-minute grace period. If your team
+                finishes at 3:09, you bill for 3 hours. At 3:10, it rounds to 3.5 hours. Fair for
+                clients, fair for your team — and completely automatic based on GPS check-out time.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
                 Bilingual Team Portal (EN/ES)
               </h3>
               <p className="text-slate-600">
                 Your field team accesses their daily schedule, job details, and check-in system
                 through a mobile-optimized portal available in both English and Spanish. No app
-                download required — it works in any mobile browser.
+                download required — it works in any mobile browser and can be saved to the home
+                screen like a native app.
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">
@@ -416,7 +494,18 @@ export default function FeaturesPage() {
               <p className="text-slate-600">
                 Each team member gets a unique PIN for secure, fast login — no passwords to forget.
                 Hours are calculated automatically from check-in/out times and multiplied by their
-                pay rate. Payroll is ready before you even ask.
+                pay rate. Weekly, monthly, and yearly earnings are tracked in the portal so your
+                team always knows where they stand.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                All Team Notifications Bilingual
+              </h3>
+              <p className="text-slate-600">
+                Every SMS sent to your team — job assignments, cancellations, reschedules, guideline
+                updates, daily summaries — arrives in both English and Spanish in a single message.
+                No language settings to configure. It just works for everyone on your team.
               </p>
             </div>
           </div>
