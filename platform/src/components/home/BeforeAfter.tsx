@@ -8,36 +8,36 @@ const replacements = [
     before: {
       role: "Receptionist",
       cost: "$38K/yr",
-      description: "Answers calls 9-5, misses after-hours leads",
+      description: "Answers calls 9-5, misses after-hours leads, loses context between conversations",
     },
     after: {
       role: "Selenas Sales Agent",
       description:
-        "Engages every inbound lead via SMS within seconds. 24/7. Qualifies, quotes pricing, books appointments.",
+        "Engages every inbound lead via SMS and web chat within seconds. 24/7, bilingual EN/ES. Follows a 10-field booking checklist — service type, size, rate, date, time, name, phone, address, email — collecting one at a time, never re-asking.",
     },
   },
   {
     before: {
       role: "Salesperson",
       cost: "$48K/yr",
-      description: "Follows up manually, forgets leads",
+      description: "Follows up manually, forgets leads, no after-hours coverage",
     },
     after: {
       role: "Selenas Lead Closer",
       description:
-        "Closes at 80%+ from day one. Handles objections, offers pricing tiers, creates urgency, books the job.",
+        "Closes at 80%+ from day one. Handles objections, offers pricing tiers, creates urgency, does the full recap, and books the job — all in one conversation. Returning clients are recognized by phone number with their full profile pre-loaded.",
     },
   },
   {
     before: {
       role: "Customer Service",
       cost: "$35K/yr",
-      description: "Handles complaints, rescheduling",
+      description: "Handles complaints, rescheduling, always starting from scratch",
     },
     after: {
       role: "Selenas Client Manager",
       description:
-        "Every inbound text matched to client file instantly. Reviews full account before responding. She doesn\u2019t just respond. She remembers.",
+        "Every inbound text matched to client file instantly — past bookings, preferred team member, last rate, conversation history. Escalates complex issues to you with full transcript. One-click conversation reset if anything gets stuck.",
     },
   },
 ];

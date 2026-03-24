@@ -76,24 +76,34 @@ const stages: Stage[] = [
     ),
     features: [
       {
-        name: "24/7 SMS Sales Agent",
+        name: "State Machine Booking Flow",
         description:
-          "Engages new leads within seconds. Qualifies by location, service, budget. Bilingual English/Spanish.",
+          "10-field checklist collected one at a time. Numbered SMS replies (1, 2, 3) for fast booking. Never re-asks for info already collected.",
       },
       {
-        name: "Automated Lead Closing",
+        name: "SMS + Web Chat — Same AI",
         description:
-          "Handles objections, offers pricing tiers, creates urgency, books the job. 80%+ close rate.",
+          "Works on SMS and your website. New clients start fresh; returning clients enter their phone and Selenas loads their full profile instantly.",
       },
       {
-        name: "Existing Client Context",
+        name: "Returning Client Recognition",
         description:
-          "Knows booking history, next appointment, assigned team member. Handles rescheduling and complaints.",
+          "Knows name, address, past bookings, preferred team member, last rate. Greets by name, skips known fields, makes rebooking effortless.",
       },
       {
-        name: "Full Conversation Logging",
+        name: "Smart Escalation & Recovery",
         description:
-          "Every SMS transcript logged and viewable in admin dashboard. TCPA-compliant.",
+          "Detects frustration, damage reports, or unusual requests — escalates with full transcript. One-click conversation reset if anything gets stuck.",
+      },
+      {
+        name: "AI Performance Dashboard",
+        description:
+          "Conversion rate, avg messages, checklist completion, channel breakdown. Filter by date. Every error logged with context.",
+      },
+      {
+        name: "24/7 Bilingual Coverage",
+        description:
+          "English and Spanish. 11 PM Sunday or 10 AM Tuesday — same fast, warm response. Texts in Spanish? Responds entirely in Spanish.",
       },
     ],
   },
@@ -153,22 +163,32 @@ const stages: Stage[] = [
       {
         name: "GPS Check-In/Out",
         description:
-          "GPS verified with 528-foot threshold. Auto-calculates hours and pay.",
+          "GPS verified with 528-foot threshold. Auto-calculates hours with 10-minute grace rounding.",
+      },
+      {
+        name: "Video Walkthroughs",
+        description:
+          "Before and after video recordings from the job site. Stored 30 days. Proof of quality if disputes arise.",
+      },
+      {
+        name: "15-Minute Heads Up",
+        description:
+          "One tap sends you SMS with client name, team member, amount to collect, and team pay. No math needed.",
       },
       {
         name: "Bilingual Team Portal",
         description:
-          "PIN login, today\u2019s jobs, one-tap navigation. Full English/Spanish.",
+          "PIN login, today\u2019s jobs, one-tap navigation. Full EN/ES. Saves to home screen like a native app.",
       },
       {
         name: "Earnings Dashboard",
         description:
-          "Weekly, monthly, yearly totals. Per-job pay visibility.",
+          "Weekly, monthly, yearly totals. Per-job pay. All SMS notifications bilingual.",
       },
       {
         name: "Emergency Broadcasting",
         description:
-          "One-click broadcast to all team via email, SMS, and push.",
+          "One-click broadcast to all team via email, SMS, and push. Bilingual EN/ES.",
       },
     ],
   },
