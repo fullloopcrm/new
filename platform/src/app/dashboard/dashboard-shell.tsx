@@ -31,6 +31,7 @@ const navSections = [
       { label: 'Bookings', href: '/dashboard/bookings' },
       { label: 'Calendar', href: '/dashboard/calendar' },
       { label: 'Clients', href: '/dashboard/clients' },
+      { label: 'Selena', href: '/dashboard/selena' },
       { label: 'Leads', href: '/dashboard/leads' },
       { label: 'Finance', href: '/dashboard/finance' },
       { label: 'Team', href: '/dashboard/team' },

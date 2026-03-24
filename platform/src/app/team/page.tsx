@@ -19,6 +19,7 @@ type Job = {
   status: string
   check_in_time: string | null
   check_out_time: string | null
+  hourly_rate: number | null
   clients: {
     name: string
     phone: string | null
@@ -150,10 +151,10 @@ function CollapsibleSection({ title, badge, defaultOpen = false, children }: {
 // Job Card (expandable, like nycmaid)
 // ---------------------------------------------------------------------------
 
-function JobCard({ job, t, showDate, onCheckIn, onCheckOut, checkingIn, checkingOut }: {
+function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, checkingIn, checkingOut, sendingHeadsUp }: {
   job: Job; t: (en: string, es: string) => string; showDate?: boolean
-  onCheckIn: (id: string) => void; onCheckOut: (id: string) => void
-  checkingIn: string | null; checkingOut: string | null
+  onCheckIn: (id: string) => void; onCheckOut: (id: string) => void; onHeadsUp: (job: Job) => void
+  checkingIn: string | null; checkingOut: string | null; sendingHeadsUp: string | null
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -268,6 +269,13 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, checkingIn, checking
               {checkingIn === job.id ? t('Checking In...', 'Registrando...') : t('Check In', 'Registrar Entrada')}
             </button>
           )}
+          {/* 15-Min Heads Up — after check-in, before check-out */}
+          {job.check_in_time && !job.check_out_time && (
+            <button onClick={() => onHeadsUp(job)} disabled={sendingHeadsUp === job.id}
+              className="w-full bg-yellow-500 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
+              {sendingHeadsUp === job.id ? t('Sending...', 'Enviando...') : t('15-Min Heads Up', 'Aviso de 15 Min')}
+            </button>
+          )}
           {canCheckOut && (
             <button onClick={() => onCheckOut(job.id)} disabled={checkingOut === job.id}
               className="w-full bg-red-600 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
@@ -375,6 +383,7 @@ export default function TeamHomePage() {
   const [checkingIn, setCheckingIn] = useState<string | null>(null)
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
   const [claimingJob, setClaimingJob] = useState<string | null>(null)
+  const [sendingHeadsUp, setSendingHeadsUp] = useState<string | null>(null)
 
   const payRate = auth?.member?.pay_rate || 0
   const tenantPhone = auth?.tenant?.phone || ''
@@ -538,6 +547,42 @@ export default function TeamHomePage() {
     })
     if (res.ok) fetchData()
     setCheckingOut(null)
+  }
+
+  async function handleHeadsUp(job: Job) {
+    if (!auth) return
+    const checkIn = new Date(job.check_in_time!)
+    const now = new Date()
+    const hoursWorked = ((now.getTime() - checkIn.getTime()) / 3600000)
+    const rate = job.hourly_rate || payRate || 0
+    const estimated = Math.round(hoursWorked * rate)
+
+    const msg = t(
+      `Send 15-minute heads up to ${job.clients?.name || 'client'}?\n\nTime worked: ${hoursWorked.toFixed(1)} hrs\nEstimated amount: $${estimated}`,
+      `Enviar aviso de 15 minutos a ${job.clients?.name || 'cliente'}?\n\nTiempo trabajado: ${hoursWorked.toFixed(1)} hrs\nMonto estimado: $${estimated}`
+    )
+    if (!confirm(msg)) return
+
+    setSendingHeadsUp(job.id)
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({
+          type: '15min_warning',
+          booking_id: job.id,
+          message: `15-min heads up for ${job.clients?.name || 'client'} — ${hoursWorked.toFixed(1)} hrs, ~$${estimated}`,
+        }),
+      })
+      if (res.ok) {
+        alert(t('Heads up sent!', 'Aviso enviado!'))
+      } else {
+        alert(t('Failed to send', 'Error al enviar'))
+      }
+    } catch {
+      alert(t('Failed to send', 'Error al enviar'))
+    }
+    setSendingHeadsUp(null)
   }
 
   async function claimJob(jobId: string) {
@@ -935,7 +980,7 @@ export default function TeamHomePage() {
         ) : (
           <div className="space-y-2">
             {todayJobs.map((job) => (
-              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} checkingIn={checkingIn} checkingOut={checkingOut} />
+              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} />
             ))}
           </div>
         )}
@@ -950,7 +995,7 @@ export default function TeamHomePage() {
           </h2>
           <div className="space-y-2">
             {upcomingJobs.map((job) => (
-              <JobCard key={job.id} job={job} t={t} showDate onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} checkingIn={checkingIn} checkingOut={checkingOut} />
+              <JobCard key={job.id} job={job} t={t} showDate onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} />
             ))}
           </div>
         </div>

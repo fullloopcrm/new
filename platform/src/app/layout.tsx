@@ -43,6 +43,29 @@ export default function RootLayout({
       <html lang="en">
         <body className={`${sora.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${jetbrains.variable} antialiased`}>
           {children}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                window.addEventListener('error', function(e) {
+                  if (e.message && (e.message.includes('Failed to fetch dynamically imported module') ||
+                      e.message.includes('ChunkLoadError') ||
+                      e.message.includes('Loading chunk') ||
+                      e.message.includes('Failed to load chunk'))) {
+                    window.location.reload();
+                  }
+                });
+                window.addEventListener('unhandledrejection', function(e) {
+                  var reason = e.reason && (e.reason.message || String(e.reason));
+                  if (reason && (reason.includes('Failed to fetch dynamically imported module') ||
+                      reason.includes('ChunkLoadError') ||
+                      reason.includes('Loading chunk') ||
+                      reason.includes('Failed to load chunk'))) {
+                    window.location.reload();
+                  }
+                });
+              `,
+            }}
+          />
         </body>
       </html>
     </ClerkProvider>

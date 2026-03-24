@@ -60,6 +60,7 @@ export default function BookingDetailPage() {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ start_time: '', end_time: '', notes: '', special_instructions: '', hourly_rate: '', pay_rate: '' })
   const [copied, setCopied] = useState('')
+  const [sendingHeadsUp, setSendingHeadsUp] = useState(false)
 
   useEffect(() => {
     fetch(`/api/bookings/${id}`)
@@ -411,6 +412,43 @@ export default function BookingDetailPage() {
                 </div>
               )}
             </dl>
+            {/* 15-Min Heads Up button — visible when checked in but not checked out */}
+            {booking.check_in_time && !booking.check_out_time && (
+              <button
+                disabled={sendingHeadsUp}
+                onClick={async () => {
+                  const checkIn = new Date(booking.check_in_time!)
+                  const now = new Date()
+                  const hoursWorked = (now.getTime() - checkIn.getTime()) / 3600000
+                  const rate = booking.hourly_rate || 0
+                  const estimated = Math.round(hoursWorked * rate)
+                  const clientName = booking.clients?.name || 'Client'
+
+                  if (!confirm(`Send 15-minute heads up to ${clientName}?\n\nTime worked: ${hoursWorked.toFixed(1)} hrs\nEstimated amount: $${estimated}`)) return
+
+                  setSendingHeadsUp(true)
+                  try {
+                    const res = await fetch('/api/notifications', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        type: '15min_warning',
+                        booking_id: booking.id,
+                        message: `15-min heads up for ${clientName} — ${hoursWorked.toFixed(1)} hrs, ~$${estimated}`,
+                      }),
+                    })
+                    if (res.ok) alert('Heads up sent!')
+                    else alert('Failed to send')
+                  } catch {
+                    alert('Failed to send')
+                  }
+                  setSendingHeadsUp(false)
+                }}
+                className="mt-4 w-full bg-yellow-500 text-white py-2 rounded-lg text-sm font-semibold hover:bg-yellow-600 disabled:opacity-50"
+              >
+                {sendingHeadsUp ? 'Sending...' : '15-Min Heads Up'}
+              </button>
+            )}
           </div>
 
           {/* PAYMENT + TEAM PAY */}

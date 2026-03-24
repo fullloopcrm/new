@@ -322,6 +322,112 @@ export async function POST(request: Request) {
     }
 
     // ============================================
+    // RATING INTERCEPT — single digit 1-5 after follow-up
+    // ============================================
+    if (/^[1-5]$/.test(text.trim())) {
+      const rating = parseInt(text.trim(), 10)
+
+      // Find client by phone
+      const { data: ratingClient } = await supabaseAdmin
+        .from('clients')
+        .select('id, name')
+        .eq('tenant_id', tenantId)
+        .eq('phone', from)
+        .single()
+
+      if (ratingClient) {
+        // Find recently completed booking with [FOLLOWUP_SENT] in notes (last 48hrs)
+        const fortyEightHrsAgo = new Date(Date.now() - 48 * 60 * 60 * 1000)
+
+        const { data: recentBooking } = await supabaseAdmin
+          .from('bookings')
+          .select('id, notes')
+          .eq('tenant_id', tenantId)
+          .eq('client_id', ratingClient.id)
+          .eq('status', 'completed')
+          .gte('check_out_time', fortyEightHrsAgo.toISOString())
+          .like('notes', '%[FOLLOWUP_SENT]%')
+          .order('check_out_time', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (recentBooking) {
+          // Store rating in booking notes
+          const ratingNote = `[RATING:${rating}] by ${ratingClient.name} on ${new Date().toLocaleDateString()}`
+          const updatedNotes = recentBooking.notes
+            ? `${recentBooking.notes}\n${ratingNote}`
+            : ratingNote
+
+          await supabaseAdmin
+            .from('bookings')
+            .update({ notes: updatedNotes })
+            .eq('id', recentBooking.id)
+
+          // Log inbound SMS
+          await supabaseAdmin.from('client_sms_messages').insert({
+            tenant_id: tenantId,
+            client_id: ratingClient.id,
+            direction: 'inbound',
+            message: text,
+          })
+
+          // Respond based on rating
+          let replyMsg = ''
+          if (rating === 5) {
+            replyMsg = `Thank you so much, ${ratingClient.name?.split(' ')[0]}! We're thrilled you had a great experience! Would you mind leaving us a Google review? It really helps us out! \u{1F64F}`
+          } else if (rating >= 3) {
+            replyMsg = `Thanks for the feedback, ${ratingClient.name?.split(' ')[0]}! We appreciate you sharing.`
+          } else {
+            replyMsg = `We're sorry to hear that, ${ratingClient.name?.split(' ')[0]}. Your feedback has been shared with our team and we'll work to do better.`
+
+            // Notify admin about low rating
+            await supabaseAdmin.from('notifications').insert({
+              tenant_id: tenantId,
+              type: 'review_received',
+              title: `Low Rating: ${ratingClient.name} (${rating}/5)`,
+              message: `${ratingClient.name} rated their experience ${rating}/5. Follow up recommended.`,
+              channel: 'in_app',
+              booking_id: recentBooking.id,
+              metadata: { client_id: ratingClient.id, rating, phone: from },
+              status: 'sent',
+            })
+          }
+
+          if (replyMsg && tenant.telnyx_api_key && tenant.telnyx_phone) {
+            await sendSMS({
+              to: from,
+              body: replyMsg,
+              telnyxApiKey: tenant.telnyx_api_key,
+              telnyxPhone: tenant.telnyx_phone,
+            })
+
+            // Log outbound to client transcript
+            await supabaseAdmin.from('client_sms_messages').insert({
+              tenant_id: tenantId,
+              client_id: ratingClient.id,
+              direction: 'outbound',
+              message: replyMsg,
+            })
+          }
+
+          // Log rating notification
+          await supabaseAdmin.from('notifications').insert({
+            tenant_id: tenantId,
+            type: 'review_received',
+            title: `Rating: ${ratingClient.name} (${rating}/5)`,
+            message: `${ratingClient.name} rated their experience ${rating}/5`,
+            channel: 'in_app',
+            booking_id: recentBooking.id,
+            metadata: { client_id: ratingClient.id, rating, phone: from },
+            status: 'sent',
+          })
+
+          return NextResponse.json({ received: true, action: 'rating_captured', rating })
+        }
+      }
+    }
+
+    // ============================================
     // GENERAL INBOUND SMS — Log, notify admin, chatbot
     // ============================================
     const { data: client } = await supabaseAdmin
