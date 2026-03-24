@@ -533,6 +533,7 @@ function ResourcesPanel() {
         </div>
         <div className="flex flex-col gap-0.5">
           <MegaItem href="/full-loop-crm-frequently-asked-questions" icon="&#9673;" title="FAQ" desc="Common questions answered" />
+          <MegaItem href="/agreement" icon="&#9673;" title="Agreement" desc="Plain language partnership terms" />
           <MegaItem href="/feedback" icon="&#9673;" title="Feedback" desc="Help us improve Full Loop CRM" />
         </div>
       </div>

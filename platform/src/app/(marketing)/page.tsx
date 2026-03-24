@@ -25,6 +25,7 @@ const Process = dynamic(() => import("@/components/home/Process"));
 const BeforeAfter = dynamic(() => import("@/components/home/BeforeAfter"));
 const Industries = dynamic(() => import("@/components/home/Industries"));
 const WhyNYC = dynamic(() => import("@/components/home/WhyNYC"));
+const AssetPricing = dynamic(() => import("@/components/home/AssetPricing"));
 const Competitors = dynamic(() => import("@/components/home/Competitors"));
 const Comparison = dynamic(() => import("@/components/home/Comparison"));
 const SocialProof = dynamic(() => import("@/components/home/SocialProof"));
@@ -95,6 +96,9 @@ export default function Home() {
 
       {/* 11. 50+ industries */}
       <Industries />
+
+      {/* 11b. Asset pricing — buy now or pay later */}
+      <AssetPricing />
 
       {/* 12. Founder story */}
       <WhyNYC />

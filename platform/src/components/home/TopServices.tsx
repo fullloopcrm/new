@@ -14,7 +14,7 @@ const stages = [
   {
     badge: "Stage 2",
     title: "AI Sales",
-    desc: "24/7 bilingual AI sales assistant engages, qualifies, and books leads via SMS within seconds.",
+    desc: "Selena AI books jobs via SMS and web chat using a state machine. Recognizes returning clients. Bilingual. 24/7.",
     href: "/full-loop-crm-service-features",
     emoji: "🤖",
   },
@@ -28,7 +28,7 @@ const stages = [
   {
     badge: "Stage 4",
     title: "Field Operations",
-    desc: "GPS-verified check-in/out, bilingual team portal, earnings dashboard, emergency job broadcasting.",
+    desc: "GPS check-in, video walkthroughs, 15-min payment alert, hiring pages for every neighborhood. Bilingual team portal.",
     href: "/full-loop-crm-service-features",
     emoji: "📍",
   },

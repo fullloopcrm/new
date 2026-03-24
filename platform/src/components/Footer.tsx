@@ -13,6 +13,7 @@ const company = [
   { label: "Why Full Loop", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
   { label: "Partners", href: "/partner-with-full-loop-crm" },
   { label: "FAQ", href: "/full-loop-crm-frequently-asked-questions" },
+  { label: "Agreement", href: "/agreement" },
 ];
 
 const topLocations = [

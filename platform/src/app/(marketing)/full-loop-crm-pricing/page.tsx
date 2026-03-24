@@ -14,9 +14,9 @@ import {
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
   title:
-    "Pricing | Full Loop CRM — $2,500/mo All-Inclusive Home Service CRM",
+    "Pricing | Full Loop CRM — Plans Starting at $199/mo for Home Service Businesses",
   description:
-    "One flat price, zero tiers, zero upsells. Full Loop CRM replaces your receptionist, salesperson, CRM, website, SEO, review management, and retargeting for $2,500/mo. Compare to $178,800/yr the traditional way.",
+    "4 simple tiers, all features included. Full Loop CRM replaces 9+ tools — CRM, website, SEO, AI booking agent, team portal, review automation and more. Plans from $199/mo. No contracts.",
   keywords: [
     "home service CRM pricing",
     "field service CRM cost",
@@ -24,21 +24,22 @@ export const metadata: Metadata = {
     "home service business CRM",
     "all-in-one CRM pricing",
     "Full Loop CRM pricing",
+    "affordable home service CRM",
   ],
   alternates: { canonical: "https://www.fullloopcrm.com/full-loop-crm-pricing" },
   openGraph: {
-    title: "Pricing | Full Loop CRM — $2,500/mo All-Inclusive",
+    title: "Pricing | Full Loop CRM — All Features, Every Tier",
     description:
-      "One flat price. No tiers, no upsells, no hidden fees. Everything your home service business needs for $2,500/mo.",
+      "4 tiers starting at $199/mo. Every plan gets the same platform, same Selena AI, same website, same CRM. The only difference is team size. No contracts.",
     url: "https://www.fullloopcrm.com/full-loop-crm-pricing",
     siteName: "Full Loop CRM",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pricing | Full Loop CRM — $2,500/mo All-Inclusive",
+    title: "Pricing | Full Loop CRM — All Features, Every Tier",
     description:
-      "One flat price. No tiers, no upsells, no hidden fees. Everything your home service business needs for $2,500/mo.",
+      "4 tiers starting at $199/mo. Every plan gets the same platform. No contracts, cancel anytime.",
   },
 };
 
@@ -50,84 +51,96 @@ const breadcrumbs = [
   { name: "Pricing", url: "https://www.fullloopcrm.com/full-loop-crm-pricing" },
 ];
 
+const tiers = [
+  {
+    name: "Starter",
+    price: "$199",
+    period: "/mo",
+    revenue: "$0 – $100K revenue",
+    teamMembers: "1 team member (solo)",
+    cta: "Get Started",
+    highlighted: false,
+  },
+  {
+    name: "Growth",
+    price: "$499",
+    period: "/mo",
+    revenue: "$100K – $250K revenue",
+    teamMembers: "Up to 5 team members",
+    cta: "Get Started",
+    highlighted: false,
+  },
+  {
+    name: "Pro",
+    price: "$999",
+    period: "/mo",
+    revenue: "$250K – $1M revenue",
+    teamMembers: "Unlimited team members",
+    cta: "Get Started",
+    highlighted: true,
+    badge: "Most Popular",
+  },
+  {
+    name: "Enterprise",
+    price: "Get Pricing",
+    period: "",
+    revenue: "$1M+ revenue",
+    teamMembers: "Unlimited + multi-location",
+    cta: "Contact Us",
+    highlighted: false,
+  },
+];
+
 const includedFeatures = [
-  "Selenas AI — 24/7 receptionist, sales closer & follow-up engine",
-  "Organic lead generation across 10+ branded domains",
-  "Full SEO site — built, hosted & managed by Full Loop",
-  "Google Business Profile creation & optimization",
-  "CRM dashboard — leads, jobs, invoices, payments",
-  "Smart scheduling with GPS-based field routing",
-  "Automated quoting & invoicing",
-  "Integrated payments (credit card, ACH, Zelle)",
-  "Business phone number via Telnyx (you own the account)",
-  "Business email via Resend (you own the account)",
-  "Two-way SMS & email follow-ups",
-  "Automated review requests & monitoring",
-  "Retargeting & win-back campaigns",
-  "Monthly performance reports",
-  "Dedicated partnership manager",
-  "Territory exclusivity — one partner per industry per zone",
+  "Custom Next.js website with auto-generated pages (services + areas + hiring)",
+  "Selena AI booking agent (SMS + web chat, bilingual EN/ES)",
+  "Full CRM (clients, bookings, calendar, finance)",
+  "Team portal (GPS check-in/out, video walkthroughs, 15-min heads up, earnings)",
+  "Hiring pages with Google Jobs schema — applications flow to dashboard",
+  "Review automation and referral program",
+  "SMS + email campaigns",
+  "Client portal",
+  "Full SEO management",
+  "White-glove onboarding ($999 setup — we do it all)",
 ];
 
 const traditionalCosts = [
-  { item: "Receptionist / Office Manager", cost: "$38,000" },
-  { item: "Salesperson / Lead Closer", cost: "$48,000" },
-  { item: "Customer Service Rep", cost: "$35,000" },
-  { item: "Website + SEO Agency", cost: "$18,000" },
-  { item: "Google Ads / Paid Lead Gen", cost: "$24,000" },
-  { item: "CRM / Scheduling Software", cost: "$3,600" },
-  { item: "SMS / Phone System", cost: "$2,400" },
-  { item: "Review Management Software", cost: "$1,800" },
-  { item: "Retargeting / Email Marketing", cost: "$3,600" },
-  { item: "Bookkeeping / Invoicing Tools", cost: "$4,400" },
-];
-
-const youOwn = [
-  "Your Telnyx phone account & number",
-  "Your Resend email account",
-  "Your business name / LLC",
-  "Any $500 microsites you purchase",
-  "Full SEO site (if buyout is completed)",
-];
-
-const fullLoopOwns = [
-  "CRM platform & Selenas AI engine",
-  "Full SEO site & domain (until buyout)",
-  "Google Business Profiles we create",
-  "All website code & templates",
-  "SEO architecture & strategy IP",
+  { item: "Receptionist / answering service", cost: "$2,400" },
+  { item: "CRM software (Jobber, Housecall Pro, etc.)", cost: "$1,800" },
+  { item: "Website design + hosting", cost: "$6,000" },
+  { item: "SEO agency", cost: "$12,000" },
+  { item: "SMS / phone system", cost: "$1,200" },
+  { item: "Review management software", cost: "$1,200" },
+  { item: "Email marketing platform", cost: "$1,200" },
+  { item: "Team scheduling / GPS tracking", cost: "$2,400" },
+  { item: "Hiring / job board postings", cost: "$3,600" },
 ];
 
 const pricingFaqs = [
   {
-    question: "Why is there only one price?",
+    question: "Is there a contract?",
     answer:
-      "We intentionally avoid tiered pricing because every home service partner deserves the full stack — lead generation, AI sales, scheduling, payments, reviews, and retargeting. Tiers create a race to the bottom where the cheapest plan gets a hobbled product. One price means every partner gets everything, and we succeed only when you succeed.",
+      "No. Full Loop is month-to-month from day one. No annual commitments, no early termination fees. You stay because the platform works, not because you're locked in.",
   },
   {
-    question: "Are there any setup fees or contracts?",
+    question: "What if I cancel?",
     answer:
-      "There are no setup fees. Your partnership is month-to-month after the first 90 days. We ask for a 90-day minimum because it takes time to build your SEO presence, configure Selenas AI for your trade, and start generating organic leads. After that, you can cancel anytime.",
+      "Give us 30 days notice. We export all your client data for free (CSV format, always yours). Your website goes dark and your Selena AI stops responding, but your data walks out the door with you — no fees, no games.",
   },
   {
-    question: "What happens to my leads and data if I cancel?",
+    question: "Can I buy my website?",
     answer:
-      "You keep your Telnyx phone number, Resend email account, business name, and any microsites you purchased. We export your customer list and job history in CSV format. The CRM platform, full SEO site, Google Business Profiles we created, and lead network remain with Full Loop.",
+      "Yes. You can buy your custom Next.js site from day one for $5,000 and own it outright. If you don't buy upfront, the site is included in your subscription. You can buy it later at a buyout price of $20,000 + 10%/mo compound — this reflects the accrued SEO value we build over time (aged domain, backlinks, rankings).",
   },
   {
-    question: "Can I buy the SEO site and domain outright?",
+    question: "What's the setup fee?",
     answer:
-      "Yes. We offer a buyout schedule based on accrued SEO value: $25,000 in Year 1, $35,000 in Year 2, $45,000 in Year 3, $55,000 in Year 4, and $65,000 in Year 5+. This reflects the compounding value of aged domains, backlink profiles, and organic rankings we build over time.",
+      "$999 one-time, same for every tier. This covers white-glove onboarding: we build your custom website, configure Selena AI for your trade, import your existing clients, set up your service areas and pricing, and test everything end-to-end before you go live. You don't lift a finger.",
   },
   {
-    question: "Do I need to pay for ads or buy leads separately?",
+    question: "Do I own my client data?",
     answer:
-      "No. Full Loop generates leads organically through multi-domain SEO, Google Business Profiles, and content marketing. You never pay for Google Ads, Thumbtack, Angi, or any other pay-per-lead platform. When you stop paying those platforms, leads stop. With Full Loop, organic leads keep compounding.",
-  },
-  {
-    question: "What is territory exclusivity?",
-    answer:
-      "We accept only one partner per industry per geographic zone. If you're a plumber in Brooklyn, no other plumber in Brooklyn can join Full Loop. This means every lead in your territory goes to you — zero competition from within our own network.",
+      "Yes, always. Your client data is yours from the moment it enters the system. You can export a full CSV anytime — no fees, no waiting, no hoops. If you cancel, we export everything for free as part of the offboarding process.",
   },
 ];
 
@@ -135,18 +148,17 @@ const pricingFaqs = [
 /*  Page component                                                     */
 /* ------------------------------------------------------------------ */
 export default function PricingPage() {
-  const traditionalTotal = 178_800;
-  const fullLoopTotal = 30_000;
-  const savings = traditionalTotal - fullLoopTotal;
-  const savingsPct = Math.round((savings / traditionalTotal) * 100);
+  const traditionalTotal = traditionalCosts.reduce((sum, { cost }) => {
+    return sum + parseInt(cost.replace(/[$,]/g, ""), 10);
+  }, 0);
 
   return (
     <>
-      {/* ── Schema ─────────────────────────────────────────────── */}
+      {/* -- Schema ------------------------------------------------- */}
       <JsonLd
         data={webPageSchema(
           "Pricing | Full Loop CRM",
-          "One flat price, zero tiers, zero upsells. Full Loop CRM replaces your receptionist, salesperson, CRM, website, SEO, review management, and retargeting for $2,500/mo.",
+          "4 simple tiers, all features included. Full Loop CRM replaces 9+ tools for home service businesses. Plans from $199/mo. No contracts.",
           "https://www.fullloopcrm.com/full-loop-crm-pricing",
           breadcrumbs
         )}
@@ -154,88 +166,153 @@ export default function PricingPage() {
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd data={faqSchema(pricingFaqs)} />
       <JsonLd data={localBusinessSchema("United States", "Country")} />
-      <JsonLd data={softwareApplicationSchema("2500", "USD")} />
+      <JsonLd data={softwareApplicationSchema("199", "USD")} />
 
-      {/* ── 1. Hero ────────────────────────────────────────────── */}
+      {/* -- 1. Hero ------------------------------------------------ */}
       <section className="bg-slate-900 py-24 px-6 sm:py-32">
         <div className="mx-auto max-w-4xl text-center">
           <p className="mb-4 text-sm font-mono uppercase tracking-widest text-teal-400">
             Home Service CRM Pricing
           </p>
           <h1 className="text-4xl font-extrabold font-heading text-white sm:text-5xl lg:text-6xl">
-            One Price. One Partner.{" "}
-            <span className="text-yellow-300">Full Loop.</span>
+            All Features. Every Tier.{" "}
+            <span className="text-yellow-300">No Upsells.</span>
           </h1>
           <p className="mt-6 text-lg text-slate-300 sm:text-xl max-w-2xl mx-auto">
-            No tiers, no upsells, no hidden fees. Everything your home service
-            business needs to generate leads, close sales, and grow — in one
-            flat monthly partnership.
+            Every tier gets the same platform. Same Selena AI. Same website.
+            Same CRM. Same everything. The only difference is how many team
+            members you need.
+          </p>
+          <p className="mt-4 text-sm font-mono text-teal-400 tracking-wide">
+            No contracts. Month to month. Cancel anytime.
           </p>
         </div>
       </section>
 
-      {/* ── 2. Main Pricing Card ───────────────────────────────── */}
-      <section className="py-20 px-6 bg-white" id="pricing-card">
-        <div className="mx-auto max-w-3xl">
-          <div className="rounded-2xl border-2 border-teal-600 shadow-xl overflow-hidden">
-            {/* Card header */}
-            <div className="bg-teal-600 px-8 py-8 text-center text-white">
-              <p className="text-sm font-mono uppercase tracking-widest text-teal-100">
-                The Full Loop Partnership
-              </p>
-              <p className="mt-4 flex items-baseline justify-center gap-2">
-                <span className="text-6xl font-extrabold font-heading">
-                  $2,500
-                </span>
-                <span className="text-xl text-teal-100">/mo</span>
-              </p>
-              <p className="mt-2 text-teal-100">
-                $30,000/year &middot; billed monthly &middot; no contracts after
-                90&nbsp;days
-              </p>
-            </div>
+      {/* -- 2. Pricing Tiers --------------------------------------- */}
+      <section className="py-20 px-6 bg-white" id="pricing-tiers">
+        <div className="mx-auto max-w-6xl">
+          <div className="text-center mb-6">
+            <p className="text-sm font-mono uppercase tracking-widest text-teal-600 mb-2">
+              $999 one-time setup fee — same for every tier
+            </p>
+          </div>
 
-            {/* Features list */}
-            <div className="px-8 py-10">
-              <p className="text-lg font-semibold text-slate-900 font-heading mb-6">
-                Everything included:
-              </p>
-              <ul className="grid gap-3 sm:grid-cols-2">
-                {includedFeatures.map((feature) => (
-                  <li
-                    key={feature}
-                    className="flex items-start gap-3 text-slate-700"
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {tiers.map((tier) => (
+              <div
+                key={tier.name}
+                className={`relative rounded-2xl border-2 p-8 flex flex-col ${
+                  tier.highlighted
+                    ? "border-teal-600 shadow-xl scale-[1.02] bg-white"
+                    : "border-slate-200 bg-white shadow-sm"
+                }`}
+              >
+                {tier.highlighted && (
+                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-teal-600 px-4 py-1 text-xs font-bold uppercase tracking-wider text-white">
+                    {tier.badge}
+                  </span>
+                )}
+
+                <h3 className="text-lg font-bold font-heading text-slate-900">
+                  {tier.name}
+                </h3>
+
+                <p className="mt-4 flex items-baseline gap-1">
+                  <span
+                    className={`text-4xl font-extrabold font-heading ${
+                      tier.highlighted ? "text-teal-600" : "text-slate-900"
+                    }`}
                   >
-                    <span
-                      className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600"
-                      aria-hidden="true"
-                    >
-                      &#10003;
+                    {tier.price}
+                  </span>
+                  {tier.period && (
+                    <span className="text-base text-slate-500">
+                      {tier.period}
                     </span>
-                    <span className="text-sm">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA */}
-              <div className="mt-10 text-center">
-                <Link
-                  href="/crm-partnership-request-form"
-                  className="inline-block rounded-lg bg-teal-600 px-8 py-4 text-lg font-cta font-semibold text-white shadow-md hover:bg-teal-700 transition-colors"
-                >
-                  Request Your Partnership
-                </Link>
-                <p className="mt-3 text-sm text-slate-500">
-                  90-day minimum &middot; cancel anytime after
+                  )}
                 </p>
+
+                <p className="mt-2 text-sm text-slate-500">{tier.revenue}</p>
+
+                <div className="mt-4 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600 text-xs"
+                    aria-hidden="true"
+                  >
+                    &#10003;
+                  </span>
+                  <span className="text-sm font-medium text-slate-700">
+                    {tier.teamMembers}
+                  </span>
+                </div>
+
+                <p className="mt-4 text-xs text-slate-500 leading-relaxed">
+                  All features included — same platform as every other tier.
+                </p>
+
+                <div className="mt-auto pt-6">
+                  <Link
+                    href="/crm-partnership-request-form"
+                    className={`block w-full rounded-lg px-6 py-3 text-center text-sm font-cta font-semibold shadow-sm transition-colors ${
+                      tier.highlighted
+                        ? "bg-teal-600 text-white hover:bg-teal-700"
+                        : "bg-slate-900 text-white hover:bg-slate-800"
+                    }`}
+                  >
+                    {tier.cta}
+                  </Link>
+                </div>
               </div>
-            </div>
+            ))}
+          </div>
+
+          <p className="mt-8 text-center text-sm text-slate-500">
+            No contracts. Month to month. Cancel anytime. $999 one-time setup
+            included with every tier.
+          </p>
+        </div>
+      </section>
+
+      {/* -- 3. What Every Tier Includes ----------------------------- */}
+      <section className="py-20 px-6 bg-slate-50" id="whats-included">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-14">
+            <p className="mb-2 text-sm font-mono uppercase tracking-widest text-teal-600">
+              Zero Feature Gates
+            </p>
+            <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
+              What Every Tier Includes
+            </h2>
+            <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
+              There are no premium features behind a paywall. Every single
+              tenant on Full Loop gets the complete platform from day one.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-10 shadow-sm">
+            <ul className="grid gap-4 sm:grid-cols-2">
+              {includedFeatures.map((feature) => (
+                <li
+                  key={feature}
+                  className="flex items-start gap-3 text-slate-700"
+                >
+                  <span
+                    className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600"
+                    aria-hidden="true"
+                  >
+                    &#10003;
+                  </span>
+                  <span className="text-sm">{feature}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
-      {/* ── 3. Add-Ons ─────────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-slate-50" id="add-ons">
+      {/* -- 4. Add-Ons --------------------------------------------- */}
+      <section className="py-20 px-6 bg-white" id="add-ons">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-14">
             <p className="mb-2 text-sm font-mono uppercase tracking-widest text-teal-600">
@@ -247,16 +324,16 @@ export default function PricingPage() {
           </div>
 
           <div className="grid gap-8 md:grid-cols-2">
-            {/* Microsites */}
+            {/* EMD Microsites */}
             <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
               <h3 className="text-xl font-bold font-heading text-slate-900 mb-2">
-                Microsites
+                EMD Micro Sites
               </h3>
               <p className="text-3xl font-extrabold font-heading text-teal-600 mb-1">
                 $500
                 <span className="text-base font-normal text-slate-500">
                   {" "}
-                  /site &middot; one-time
+                  build + $99/yr
                 </span>
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-700">
@@ -266,153 +343,175 @@ export default function PricingPage() {
                   </span>
                   <span>
                     <strong>You own the domain</strong> — exact-match domain
-                    (EMD) registered in your name
+                    registered in your name
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-teal-600 mt-0.5" aria-hidden="true">
                     &#10003;
                   </span>
-                  <span>
-                    Built, designed & optimized by Full Loop
-                  </span>
+                  <span>Built, designed &amp; optimized by Full Loop</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-teal-600 mt-0.5" aria-hidden="true">
                     &#10003;
                   </span>
                   <span>
-                    Hosting included in first year; <strong>$60/yr</strong>{" "}
-                    thereafter
+                    $99/yr hosting &amp; maintenance after build
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-teal-600 mt-0.5" aria-hidden="true">
                     &#10003;
                   </span>
-                  <span>
-                    Yours to keep even if you cancel
-                  </span>
+                  <span>Yours to keep even if you cancel</span>
                 </li>
               </ul>
             </div>
 
-            {/* Full SEO site */}
+            {/* GMB Setup */}
             <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
               <h3 className="text-xl font-bold font-heading text-slate-900 mb-2">
-                Full SEO Site &amp; Domain
+                Google Business Profile Setup
               </h3>
               <p className="text-3xl font-extrabold font-heading text-teal-600 mb-1">
-                Included
+                $999
                 <span className="text-base font-normal text-slate-500">
                   {" "}
-                  in partnership
+                  one-time
                 </span>
               </p>
-              <p className="text-sm text-slate-600 mt-2 mb-4">
-                Full Loop builds, owns & operates your primary SEO site. Want to
-                own it outright? Buyout is available:
-              </p>
-              <div className="overflow-hidden rounded-lg border border-slate-200">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-100 text-left">
-                      <th className="px-4 py-2 font-semibold text-slate-700">
-                        Year
-                      </th>
-                      <th className="px-4 py-2 font-semibold text-slate-700 text-right">
-                        Buyout Price
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {[
-                      ["Year 1", "$25,000"],
-                      ["Year 2", "$35,000"],
-                      ["Year 3", "$45,000"],
-                      ["Year 4", "$55,000"],
-                      ["Year 5+", "$65,000"],
-                    ].map(([year, price]) => (
-                      <tr key={year}>
-                        <td className="px-4 py-2 text-slate-700">{year}</td>
-                        <td className="px-4 py-2 text-right font-mono font-semibold text-slate-900">
-                          {price}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="mt-3 text-xs text-slate-500">
-                +$10,000/yr reflects accrued SEO value (aged domain, backlinks,
-                rankings).
-              </p>
+              <ul className="mt-4 space-y-2 text-sm text-slate-700">
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5" aria-hidden="true">
+                    &#10003;
+                  </span>
+                  <span>
+                    Full GMB creation, verification &amp; optimization
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5" aria-hidden="true">
+                    &#10003;
+                  </span>
+                  <span>Service area setup, categories, photos, posts</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5" aria-hidden="true">
+                    &#10003;
+                  </span>
+                  <span>Connected to your CRM for review automation</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5" aria-hidden="true">
+                    &#10003;
+                  </span>
+                  <span>
+                    Buyout: $999 + 10%/mo compound if you leave
+                  </span>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 4. Ownership Transparency ──────────────────────────── */}
-      <section className="py-20 px-6 bg-white" id="ownership">
+      {/* -- 5. Asset Ownership ------------------------------------- */}
+      <section className="py-20 px-6 bg-slate-50" id="ownership">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-14">
             <p className="mb-2 text-sm font-mono uppercase tracking-widest text-teal-600">
               Full Transparency
             </p>
             <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
-              Who Owns What
+              Asset Ownership
             </h2>
             <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
-              We believe you should know exactly what you own from day one. No
-              surprises, no lock-in games.
+              We believe you should know exactly what you own, what you can buy,
+              and what happens if you leave. No surprises.
             </p>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-2">
-            {/* You Own */}
+          <div className="grid gap-8 md:grid-cols-3">
+            {/* Website */}
             <div className="rounded-xl border-2 border-teal-600 bg-teal-50/40 p-8">
-              <h3 className="text-lg font-bold font-heading text-teal-700 mb-5">
-                You Own
+              <h3 className="text-lg font-bold font-heading text-teal-700 mb-4">
+                Your Website
               </h3>
-              <ul className="space-y-3">
-                {youOwn.map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-slate-700">
-                    <span
-                      className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600 text-xs font-bold"
-                      aria-hidden="true"
-                    >
-                      &#10003;
-                    </span>
-                    <span className="text-sm">{item}</span>
-                  </li>
-                ))}
+              <ul className="space-y-3 text-sm text-slate-700">
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
+                  <span>
+                    <strong>Buy now: $5,000</strong> — own it from day one
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
+                  <span>
+                    Included in subscription — we build, host &amp; manage
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-slate-400 mt-0.5" aria-hidden="true">&#8594;</span>
+                  <span>
+                    Later buyout: $20,000 + 10%/mo compound (reflects accrued
+                    SEO value)
+                  </span>
+                </li>
               </ul>
             </div>
 
-            {/* Full Loop Owns */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-8">
-              <h3 className="text-lg font-bold font-heading text-slate-700 mb-5">
-                Full Loop Owns
+            {/* GMB */}
+            <div className="rounded-xl border border-slate-200 bg-white p-8">
+              <h3 className="text-lg font-bold font-heading text-slate-700 mb-4">
+                Google Business Profile
               </h3>
-              <ul className="space-y-3">
-                {fullLoopOwns.map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-slate-700">
-                    <span
-                      className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-500 text-xs font-bold"
-                      aria-hidden="true"
-                    >
-                      &#8594;
-                    </span>
-                    <span className="text-sm">{item}</span>
-                  </li>
-                ))}
+              <ul className="space-y-3 text-sm text-slate-700">
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
+                  <span>
+                    We set up &amp; manage it as an add-on ($999)
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-slate-400 mt-0.5" aria-hidden="true">&#8594;</span>
+                  <span>
+                    Buyout if you leave: $999 + 10%/mo compound
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Client Data */}
+            <div className="rounded-xl border-2 border-teal-600 bg-teal-50/40 p-8">
+              <h3 className="text-lg font-bold font-heading text-teal-700 mb-4">
+                Your Client Data
+              </h3>
+              <ul className="space-y-3 text-sm text-slate-700">
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
+                  <span>
+                    <strong>Always yours</strong> — from the moment it enters
+                    the system
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
+                  <span>Free CSV export anytime — no fees, no waiting</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
+                  <span>
+                    Full export included in offboarding if you cancel
+                  </span>
+                </li>
               </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 5. Cost Comparison ─────────────────────────────────── */}
+      {/* -- 6. What You're Replacing -------------------------------- */}
       <section className="py-20 px-6 bg-slate-900" id="cost-comparison">
         <div className="mx-auto max-w-4xl">
           <div className="text-center mb-14">
@@ -420,8 +519,12 @@ export default function PricingPage() {
               The Math
             </p>
             <h2 className="text-3xl font-extrabold font-heading text-white sm:text-4xl">
-              Traditional Costs vs. Full Loop
+              9 Tools You're Replacing
             </h2>
+            <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
+              Most home service businesses cobble together a stack of tools that
+              don't talk to each other. Full Loop replaces all of them.
+            </p>
           </div>
 
           {/* Table */}
@@ -430,10 +533,10 @@ export default function PricingPage() {
               <thead>
                 <tr className="bg-slate-800 text-left">
                   <th className="px-5 py-3 font-semibold text-slate-300">
-                    Expense
+                    Tool You're Replacing
                   </th>
                   <th className="px-5 py-3 font-semibold text-slate-300 text-right">
-                    Traditional / yr
+                    Typical Cost / yr
                   </th>
                 </tr>
               </thead>
@@ -450,7 +553,7 @@ export default function PricingPage() {
               <tfoot>
                 <tr className="border-t border-slate-700 bg-slate-800">
                   <td className="px-5 py-3 font-semibold text-white">
-                    Traditional Total
+                    Total without Full Loop
                   </td>
                   <td className="px-5 py-3 text-right font-mono font-semibold text-red-400">
                     ${traditionalTotal.toLocaleString()}/yr
@@ -464,7 +567,7 @@ export default function PricingPage() {
           <div className="mt-10 grid gap-6 sm:grid-cols-3 text-center">
             <div className="rounded-xl bg-slate-800 p-6">
               <p className="text-sm text-slate-400 mb-1 font-mono uppercase tracking-wider">
-                Traditional
+                Without Full Loop
               </p>
               <p className="text-3xl font-extrabold font-heading text-red-400">
                 ${traditionalTotal.toLocaleString()}
@@ -473,113 +576,27 @@ export default function PricingPage() {
             </div>
             <div className="rounded-xl border-2 border-teal-400 bg-slate-800 p-6">
               <p className="text-sm text-teal-400 mb-1 font-mono uppercase tracking-wider">
-                Full Loop
+                Full Loop Starter
               </p>
               <p className="text-3xl font-extrabold font-heading text-teal-400">
-                ${fullLoopTotal.toLocaleString()}
+                $2,388
                 <span className="text-base text-teal-600">/yr</span>
               </p>
             </div>
             <div className="rounded-xl bg-slate-800 p-6">
               <p className="text-sm text-yellow-300 mb-1 font-mono uppercase tracking-wider">
-                You Save
+                You Save Up To
               </p>
               <p className="text-3xl font-extrabold font-heading text-yellow-300">
-                ${savings.toLocaleString()}
-                <span className="text-base text-yellow-400">
-                  /yr ({savingsPct}%)
-                </span>
+                ${(traditionalTotal - 2_388).toLocaleString()}
+                <span className="text-base text-yellow-400">/yr</span>
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 6. What Happens If I Cancel ────────────────────────── */}
-      <section className="py-20 px-6 bg-white" id="cancellation">
-        <div className="mx-auto max-w-4xl">
-          <div className="text-center mb-14">
-            <p className="mb-2 text-sm font-mono uppercase tracking-widest text-teal-600">
-              No Lock-In
-            </p>
-            <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
-              What Happens If I Cancel?
-            </h2>
-            <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
-              We want partners, not hostages. Here is exactly what happens if
-              you decide to part ways.
-            </p>
-          </div>
-
-          <div className="grid gap-8 md:grid-cols-2">
-            {/* You keep */}
-            <div className="rounded-xl border-2 border-teal-600 bg-teal-50/40 p-8">
-              <h3 className="text-lg font-bold font-heading text-teal-700 mb-5">
-                You Keep
-              </h3>
-              <ul className="space-y-3 text-sm text-slate-700">
-                {[
-                  "Your phone number (Telnyx account is yours)",
-                  "Your email account (Resend account is yours)",
-                  "Your business name & LLC",
-                  "Any microsites you purchased ($500 each)",
-                  "Exported customer list & job history (CSV)",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <span
-                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600 text-xs font-bold"
-                      aria-hidden="true"
-                    >
-                      &#10003;
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Full Loop keeps */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-8">
-              <h3 className="text-lg font-bold font-heading text-slate-700 mb-5">
-                Full Loop Keeps
-              </h3>
-              <ul className="space-y-3 text-sm text-slate-700">
-                {[
-                  "CRM platform access & Selenas AI",
-                  "Full SEO site & domain (unless buyout completed)",
-                  "Google Business Profiles we created",
-                  "Lead generation network & pipeline",
-                  "All website code, templates & IP",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <span
-                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-500 text-xs font-bold"
-                      aria-hidden="true"
-                    >
-                      &#8594;
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="mt-10 rounded-xl bg-slate-50 border border-slate-200 p-6 text-center">
-            <p className="text-slate-700 text-sm">
-              <strong>Want to buy the full SEO site?</strong> You can exercise
-              the buyout option at appraised value based on the{" "}
-              <a href="#add-ons" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">
-                buyout schedule above
-              </a>
-              . After cancellation your territory opens for the next partner in
-              your industry.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 7. FAQ ─────────────────────────────────────────────── */}
+      {/* -- 7. FAQ ------------------------------------------------- */}
       <section className="py-20 px-6 bg-slate-50" id="faq">
         <div className="mx-auto max-w-3xl">
           <div className="text-center mb-14">
@@ -609,22 +626,22 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── 8. Final CTA ───────────────────────────────────────── */}
+      {/* -- 8. Final CTA ------------------------------------------- */}
       <section className="py-20 px-6 bg-slate-900">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-extrabold font-heading text-white sm:text-4xl">
             Ready to Close the Loop?
           </h2>
           <p className="mt-4 text-lg text-slate-300 max-w-xl mx-auto">
-            One price. One partner. Everything your home service business needs
-            to dominate your territory.
+            No contracts. No feature gates. No upsells. Just the full platform
+            from day one — starting at $199/mo.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/crm-partnership-request-form"
               className="inline-block rounded-lg bg-yellow-300 px-8 py-4 text-lg font-cta font-semibold text-slate-900 shadow-md hover:bg-yellow-400 transition-colors"
             >
-              Request Your Partnership
+              Get Started Today
             </Link>
             <a
               href="tel:+12122029220"

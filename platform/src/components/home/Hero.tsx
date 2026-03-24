@@ -63,11 +63,17 @@ export default function Hero() {
 
         {/* Description */}
         <p
-          className="text-base sm:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed mb-4 animate-hero-slide-up"
+          className="text-base sm:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed mb-2 animate-hero-slide-up"
           style={{ animationDelay: "0.4s" }}
         >
-
-          Full Loop is the first <Link href="/full-loop-crm-101-educational-tips" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">home service CRM</Link> that handles every stage of your business &mdash; from <Link href="/full-loop-crm-service-features" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">AI-powered lead generation</Link> and automated sales to scheduling, GPS field operations, payments, review management, and <Link href="/full-loop-crm-service-features" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">customer retargeting</Link>. One partner per trade per metro. Exclusively yours.
+          Every plan gets everything. Website. AI. CRM. Team portal. Hiring pages. SEO.{" "}
+          <Link href="/full-loop-crm-pricing" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">$199/mo to start.</Link>
+        </p>
+        <p
+          className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed mb-4 animate-hero-slide-up"
+          style={{ animationDelay: "0.45s" }}
+        >
+          No contracts. Month to month. We set it all up.
         </p>
 
         {/* Autonomy line */}
