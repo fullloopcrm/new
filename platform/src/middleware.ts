@@ -1,4 +1,31 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
+
+// Hosts that are the marketing site / main app (not tenant sites)
+const MAIN_HOSTS = new Set([
+  'fullloopcrm.com',
+  'www.fullloopcrm.com',
+  'localhost',
+  '127.0.0.1',
+])
+
+function isMainHost(hostname: string): boolean {
+  // Strip port for comparison
+  const host = hostname.split(':')[0]
+  return MAIN_HOSTS.has(host)
+}
+
+function extractSubdomain(hostname: string): string | null {
+  const host = hostname.split(':')[0]
+  // Match *.fullloopcrm.com
+  const match = host.match(/^([a-z0-9-]+)\.fullloopcrm\.com$/)
+  if (match && match[1] !== 'www') {
+    return match[1]
+  }
+  return null
+}
 
 // Public routes that don't require auth
 const isPublicRoute = createRouteMatcher([
@@ -47,9 +74,34 @@ const isPublicRoute = createRouteMatcher([
   '/sitemap.xml',             // Sitemap
   '/robots.txt',              // Robots
   '/(.*)-crm-(.*)',           // Combo pages (industry x location)
+  '/site(.*)',                // Tenant sites are public
 ])
 
-export default clerkMiddleware(async (auth, req) => {
+export default clerkMiddleware(async (auth, req: NextRequest) => {
+  const hostname = req.headers.get('host') || 'localhost'
+
+  // --- Tenant subdomain routing ---
+  const subdomain = extractSubdomain(hostname)
+  if (subdomain) {
+    const tenant = await getTenantBySlug(subdomain)
+    if (tenant && tenant.status === 'active') {
+      return rewriteToSite(req, tenant.id, tenant.slug)
+    }
+    // Unknown subdomain — let it 404 naturally
+    return NextResponse.next()
+  }
+
+  // --- Custom domain routing ---
+  if (!isMainHost(hostname)) {
+    const tenant = await getTenantByDomain(hostname)
+    if (tenant && tenant.status === 'active') {
+      return rewriteToSite(req, tenant.id, tenant.slug)
+    }
+    // Unknown domain — let it 404 naturally
+    return NextResponse.next()
+  }
+
+  // --- Main site / dashboard (existing behavior) ---
   if (!isPublicRoute(req)) {
     // Allow admin impersonation to bypass Clerk on dashboard + its API routes
     const impersonateCookie = req.cookies.get('fl_impersonate')?.value
@@ -68,6 +120,38 @@ export default clerkMiddleware(async (auth, req) => {
     await auth.protect()
   }
 })
+
+/**
+ * Rewrite the request to the /site route group, passing tenant context via headers.
+ * External URL stays clean (e.g. the-nyc-maid.fullloopcrm.com/services)
+ * but internally Next.js renders /site/services.
+ */
+function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): NextResponse {
+  const pathname = req.nextUrl.pathname // e.g. "/" or "/services" or "/about"
+  const sitePathname = pathname === '/' ? '/site' : `/site${pathname}`
+
+  const url = req.nextUrl.clone()
+  url.pathname = sitePathname
+
+  const response = NextResponse.rewrite(url)
+  response.headers.set('x-tenant-id', tenantId)
+  response.headers.set('x-tenant-slug', tenantSlug)
+
+  // Also set request headers so server components / route handlers can read them
+  const requestHeaders = new Headers(req.headers)
+  requestHeaders.set('x-tenant-id', tenantId)
+  requestHeaders.set('x-tenant-slug', tenantSlug)
+
+  // NextResponse.rewrite with modified headers
+  const rewriteUrl = req.nextUrl.clone()
+  rewriteUrl.pathname = sitePathname
+  return NextResponse.rewrite(rewriteUrl, {
+    headers: response.headers,
+    request: {
+      headers: requestHeaders,
+    },
+  })
+}
 
 export const config = {
   matcher: [

@@ -1,19 +1,37 @@
 import Link from "next/link";
+import { getTenantFromHeaders } from "@/lib/tenant-site";
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
-  // Placeholder — middleware will inject tenant data later
-  const businessName = "Your Business Name";
-  const phone = "(555) 123-4567";
-  const email = "hello@yourbusiness.com";
-  const address = "123 Main Street, Suite 100, New York, NY 10001";
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  const tenant = await getTenantFromHeaders();
+
+  if (!tenant) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-slate-900">Site Not Found</h1>
+          <p className="mt-4 text-slate-600">
+            The site you are looking for does not exist or is not configured.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const businessName = tenant.name || "Business";
+  const phone = tenant.phone || "";
+  const email = tenant.email || "";
+  const address = tenant.address || "";
+  const primaryColor = tenant.primary_color || "oklch(0.55 0.15 175)";
+  const secondaryColor = tenant.secondary_color || "oklch(0.48 0.15 175)";
+  const tagline = tenant.tagline || "";
 
   return (
     <div
       className="min-h-screen flex flex-col"
       style={
         {
-          "--brand": "oklch(0.55 0.15 175)",
-          "--brand-dark": "oklch(0.48 0.15 175)",
+          "--brand": primaryColor,
+          "--brand-dark": secondaryColor,
         } as React.CSSProperties
       }
     >
@@ -22,7 +40,11 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link href="/site" className="text-xl font-bold text-slate-900 hover:text-[var(--brand)] transition-colors">
-              {businessName}
+              {tenant.logo_url ? (
+                <img src={tenant.logo_url} alt={businessName} className="h-10 w-auto" />
+              ) : (
+                businessName
+              )}
             </Link>
 
             {/* Desktop Nav */}
@@ -86,10 +108,14 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
             {/* Business Info */}
             <div>
               <h3 className="text-lg font-bold text-white mb-4">{businessName}</h3>
-              <p className="text-sm leading-relaxed">
-                Professional, reliable, and trusted by hundreds of customers.
-                We take pride in delivering exceptional service every time.
-              </p>
+              {tagline && (
+                <p className="text-sm leading-relaxed">{tagline}</p>
+              )}
+              {!tagline && (
+                <p className="text-sm leading-relaxed">
+                  Professional, reliable, and trusted. We take pride in delivering exceptional service every time.
+                </p>
+              )}
             </div>
 
             {/* Quick Links */}
@@ -121,13 +147,17 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
             <div>
               <h3 className="text-lg font-bold text-white mb-4">Contact Us</h3>
               <ul className="space-y-2 text-sm">
-                <li>{address}</li>
-                <li>
-                  <a href={`tel:${phone}`} className="hover:text-white transition-colors">{phone}</a>
-                </li>
-                <li>
-                  <a href={`mailto:${email}`} className="hover:text-white transition-colors">{email}</a>
-                </li>
+                {address && <li>{address}</li>}
+                {phone && (
+                  <li>
+                    <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} className="hover:text-white transition-colors">{phone}</a>
+                  </li>
+                )}
+                {email && (
+                  <li>
+                    <a href={`mailto:${email}`} className="hover:text-white transition-colors">{email}</a>
+                  </li>
+                )}
               </ul>
             </div>
           </div>
