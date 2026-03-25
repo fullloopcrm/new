@@ -4,6 +4,7 @@ import {
   getTenantServices,
   getTenantReviews,
   getTenantAreas,
+  getTenantTeamCount,
   toSlug,
 } from "@/lib/tenant-site";
 import {
@@ -14,6 +15,7 @@ import {
   generateTenantFAQs,
 } from "@/lib/tenant-schema";
 import type { Metadata } from "next";
+import HeroChat from "./HeroChat";
 
 /* ---------- Metadata ---------- */
 
@@ -46,27 +48,43 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /* ---------- Helpers ---------- */
 
-function StarRating({ rating }: { rating: number }) {
+function Stars({ rating }: { rating: number }) {
   return (
-    <div className="flex gap-0.5 text-amber-400" aria-label={`${rating} out of 5 stars`}>
+    <span className="flex gap-0.5" aria-label={`${rating} out of 5 stars`}>
       {Array.from({ length: 5 }).map((_, i) => (
         <svg
           key={i}
-          className={`w-5 h-5 ${i < rating ? "fill-current" : "text-slate-300"}`}
+          className={`w-4 h-4 ${i < Math.round(rating) ? "text-amber-400 fill-current" : "text-white/20 fill-current"}`}
           viewBox="0 0 20 20"
           aria-hidden="true"
         >
           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
         </svg>
       ))}
-    </div>
+    </span>
+  );
+}
+
+function ReviewStars({ rating }: { rating: number }) {
+  return (
+    <span className="flex gap-0.5" aria-label={`${rating} out of 5 stars`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <svg
+          key={i}
+          className={`w-5 h-5 ${i < Math.round(rating) ? "text-amber-400 fill-current" : "text-slate-300 fill-current"}`}
+          viewBox="0 0 20 20"
+          aria-hidden="true"
+        >
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+      ))}
+    </span>
   );
 }
 
 /** Auto-assign an SVG icon based on service name keywords */
 function ServiceIcon({ name }: { name: string }) {
   const n = name.toLowerCase();
-  // Cleaning
   if (/clean|maid|house|janitorial|sanitiz/i.test(n)) {
     return (
       <svg className="w-8 h-8 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -74,7 +92,6 @@ function ServiceIcon({ name }: { name: string }) {
       </svg>
     );
   }
-  // Repair / maintenance / handyman
   if (/repair|fix|maintain|handyman|plumb|electr/i.test(n)) {
     return (
       <svg className="w-8 h-8 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -83,7 +100,6 @@ function ServiceIcon({ name }: { name: string }) {
       </svg>
     );
   }
-  // Lawn / garden / landscaping
   if (/lawn|garden|landscape|yard|mow|tree|trim/i.test(n)) {
     return (
       <svg className="w-8 h-8 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -91,7 +107,6 @@ function ServiceIcon({ name }: { name: string }) {
       </svg>
     );
   }
-  // Moving / delivery
   if (/mov|delivery|haul|transport|pack/i.test(n)) {
     return (
       <svg className="w-8 h-8 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -99,7 +114,6 @@ function ServiceIcon({ name }: { name: string }) {
       </svg>
     );
   }
-  // Painting
   if (/paint|wall|interior|exterior/i.test(n)) {
     return (
       <svg className="w-8 h-8 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -107,7 +121,6 @@ function ServiceIcon({ name }: { name: string }) {
       </svg>
     );
   }
-  // Pest / exterminator
   if (/pest|exterminat|bug|rodent|termite/i.test(n)) {
     return (
       <svg className="w-8 h-8 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -115,7 +128,6 @@ function ServiceIcon({ name }: { name: string }) {
       </svg>
     );
   }
-  // Default service icon
   return (
     <svg className="w-8 h-8 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
@@ -129,19 +141,25 @@ export default async function HomePage() {
   const tenant = await getTenantFromHeaders();
   if (!tenant) return null;
 
-  const [services, reviews, areas] = await Promise.all([
+  const [services, reviews, areas, teamCount] = await Promise.all([
     getTenantServices(tenant.id),
     getTenantReviews(tenant.id),
     getTenantAreas(tenant.id),
+    getTenantTeamCount(tenant.id),
   ]);
 
+  const selenaConfig = (tenant.selena_config || {}) as Record<string, unknown>;
   const businessName = tenant.name || "Our Business";
   const tagline = tenant.tagline || "Professional Service You Can Trust";
   const phone = tenant.phone || "";
   const industry = tenant.industry || "professional services";
-  const selenaEnabled = !!(tenant.selena_config as Record<string, unknown> | null)?.enabled;
+  const selenaEnabled = !!selenaConfig?.enabled;
+  const aiName = (selenaConfig?.ai_name as string) || "Selena";
   const baseUrl =
     tenant.website_url || `https://${tenant.slug}.fullloopcrm.com`;
+
+  // Pricing tiers from selena_config
+  const pricingTiers = (selenaConfig?.pricing_tiers as Array<{ label: string; price: number }>) || [];
 
   // Reviews stats
   const avgRating =
@@ -151,7 +169,7 @@ export default async function HomePage() {
           0
         ) / reviews.length
       : 0;
-  const topReviews = reviews.slice(0, 3);
+  const topReviews = reviews.slice(0, 6);
 
   // Min rate for pricing
   const rates = (services as Array<{ default_hourly_rate?: number }>)
@@ -159,6 +177,13 @@ export default async function HomePage() {
     .filter((r): r is number => r != null && r > 0)
     .sort((a, b) => a - b);
   const minRate = rates[0] || null;
+
+  // Primary area
+  const primaryArea = areas[0] || "Your Area";
+
+  // Year founded (from created_at)
+  const createdAt = tenant.created_at ? new Date(tenant.created_at) : new Date();
+  const foundedYear = createdAt.getFullYear();
 
   // Generate FAQs
   const faqs = generateTenantFAQs(tenant, services, areas);
@@ -199,226 +224,250 @@ export default async function HomePage() {
         }}
       />
 
-      {/* ===== HERO ===== */}
-      <section className="bg-gradient-to-br from-slate-50 to-slate-100 py-20 lg:py-28">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight">
-            {businessName}
-          </h1>
-          <p className="mt-4 text-xl sm:text-2xl text-[var(--brand)] font-semibold">
-            {tagline}
-          </p>
-          <p className="mt-6 text-lg text-slate-600 max-w-2xl mx-auto">
-            Book online in minutes and experience the difference that true
-            professionals make.
-          </p>
+      {/* ===== HERO — dark navy gradient ===== */}
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[color-mix(in_srgb,var(--brand),white_12%)] pt-12 md:pt-16 pb-14 md:pb-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-          {/* CTAs */}
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* Social proof bar */}
+          <div className="flex flex-wrap items-center gap-4 mb-8">
+            {reviews.length > 0 && (
+              <>
+                <span className="flex items-center gap-2">
+                  <Stars rating={avgRating} />
+                  <span className="text-blue-200/70 text-sm">
+                    {avgRating.toFixed(1)} on Google
+                  </span>
+                </span>
+                <span className="text-white/20">|</span>
+              </>
+            )}
+            <span className="text-blue-200/70 text-sm">
+              Trusted since {foundedYear}
+            </span>
+            <span className="text-white/20">|</span>
+            <span className="text-blue-200/70 text-sm">Insured</span>
+          </div>
+
+          {/* H1 */}
+          <h1 className="font-[family-name:var(--font-bebas)] text-5xl md:text-7xl lg:text-8xl text-white tracking-wide leading-[0.95]">
+            {primaryArea.toUpperCase()}&apos;S #1 RATED {industry.toUpperCase()}
+            {minRate && <> &mdash; FROM ${minRate}/HR</>}
+          </h1>
+
+          {/* Trust points */}
+          <div className="mt-6 flex flex-wrap gap-x-6 text-[var(--brand-accent)] text-sm font-medium">
+            <span>&#10003; No money upfront</span>
+            <span>&#10003; Payment upon completion</span>
+            <span>&#10003; No contracts</span>
+            <span>&#10003; Flat hourly pricing</span>
+          </div>
+
+          {/* Divider */}
+          <div className="mt-8 w-3/4 h-[1px] bg-white/20" />
+
+          {/* Selena section */}
+          {selenaEnabled && (
+            <div className="mt-10">
+              <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide leading-[0.95]">
+                BOOK INSTANTLY WITH {aiName.toUpperCase()} (AVG 30 SECONDS)
+              </h2>
+              <p className="mt-2 text-white/80 italic text-sm">
+                {aiName} is our AI booking assistant &mdash; available 24/7.
+              </p>
+              <p className="mt-2 text-blue-200/70 text-sm max-w-2xl">
+                Tell {aiName} what you need, when you need it, and where.
+                {aiName} will check availability and book you in seconds &mdash;
+                no phone calls, no waiting.
+              </p>
+
+              <div className="mt-6 max-w-xl">
+                <HeroChat tenantId={tenant.id} accentColor="var(--brand-accent)" />
+              </div>
+            </div>
+          )}
+
+          {/* Pricing cards */}
+          {pricingTiers.length > 0 && (
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl">
+              {pricingTiers.map((tier, idx) => {
+                const isPopular = pricingTiers.length === 3 && idx === 1;
+                return (
+                  <div
+                    key={tier.label}
+                    className={`relative rounded-2xl p-8 backdrop-blur-sm ${
+                      isPopular
+                        ? "bg-[var(--brand-accent)]/10 border border-[var(--brand-accent)]/30"
+                        : "bg-white/[0.08] border border-white/15"
+                    }`}
+                  >
+                    {isPopular && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[var(--brand-accent)] text-white text-xs font-bold tracking-[0.15em] uppercase px-4 py-1 rounded-full">
+                        MOST POPULAR
+                      </span>
+                    )}
+                    <p className="text-xs tracking-[0.2em] uppercase text-[var(--brand-accent)] font-medium">
+                      {tier.label}
+                    </p>
+                    <p className="mt-3 font-[family-name:var(--font-bebas)] text-5xl text-white">
+                      ${tier.price}
+                      <span className="text-lg text-blue-200/60 ml-1">/hr</span>
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* CTA buttons */}
+          <div className="mt-10 flex flex-col sm:flex-row items-start gap-4">
             <Link
               href="/site/book"
-              className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-[var(--brand)] hover:bg-[var(--brand-dark)] rounded-lg transition-colors shadow-lg"
+              className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-[var(--brand-accent)] hover:brightness-110 rounded-lg transition shadow-lg"
             >
               Book Now
             </Link>
             {phone && (
               <a
                 href={`tel:${phone.replace(/[^+\d]/g, "")}`}
-                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-colors"
+                className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg transition"
               >
                 Call {phone}
               </a>
             )}
           </div>
-
-          {/* Trust badges */}
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
-              Licensed &amp; Insured
-            </span>
-            <span className="flex items-center gap-1.5">
-              <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
-              Background-Checked
-            </span>
-            <span className="flex items-center gap-1.5">
-              <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>
-              Satisfaction Guaranteed
-            </span>
-            {selenaEnabled && (
-              <span className="flex items-center gap-1.5">
-                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" /></svg>
-                24/7 AI Booking
-              </span>
-            )}
-          </div>
-
-          {/* Review summary in hero */}
-          {reviews.length > 0 && (
-            <div className="mt-8 flex items-center justify-center gap-2">
-              <StarRating rating={Math.round(avgRating)} />
-              <span className="text-sm text-slate-600">
-                {avgRating.toFixed(1)} average from {reviews.length} review{reviews.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-          )}
         </div>
       </section>
 
-      {/* ===== SERVICES GRID ===== */}
-      {services.length > 0 && (
-        <section id="services" className="py-16 lg:py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-slate-900">
-                Our Services
+      {/* ===== WELCOME — white bg ===== */}
+      <section className="py-16 lg:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+            {/* Left */}
+            <div>
+              <p className="text-xs tracking-[0.2em] uppercase text-[var(--brand-accent)] font-medium mb-3">
+                About Us
+              </p>
+              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-slate-900 tracking-wide leading-[0.95]">
+                WELCOME TO {businessName.toUpperCase()}
               </h2>
-              <p className="mt-3 text-slate-600 max-w-xl mx-auto">
-                Professional {industry} tailored to your needs.
+              <div className="mt-4 w-12 h-[2px] bg-[var(--brand-accent)]" />
+              <p className="mt-6 text-slate-600 leading-relaxed">
+                {businessName} provides professional {industry.toLowerCase()} services
+                throughout {primaryArea} and surrounding areas. Our dedicated team
+                delivers consistent, high-quality results with transparent pricing,
+                no contracts, and complete satisfaction guaranteed.
+              </p>
+              <p className="mt-4 text-slate-600 leading-relaxed">
+                {tagline}
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(
-                services as Array<{
-                  id: string;
-                  name: string;
-                  description?: string;
-                  default_hourly_rate?: number;
-                  slug?: string;
-                }>
-              ).map((service) => (
-                <Link
-                  key={service.id}
-                  href={`/site/services/${toSlug(service.name)}`}
-                  className="group bg-white border border-slate-200 rounded-xl p-6 hover:shadow-lg hover:border-[var(--brand)]/30 transition-all flex flex-col"
-                >
-                  <div className="mb-4">
-                    <ServiceIcon name={service.name} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 group-hover:text-[var(--brand)] transition-colors">
-                    {service.name}
-                  </h3>
-                  {service.description && (
-                    <p className="mt-2 text-sm text-slate-600 leading-relaxed flex-1">
-                      {service.description}
-                    </p>
-                  )}
-                  {service.default_hourly_rate != null && (
-                    <p className="mt-4 text-sm font-semibold text-[var(--brand)]">
-                      Starting at ${service.default_hourly_rate}/hr
-                    </p>
-                  )}
-                </Link>
-              ))}
+
+            {/* Right — stats box */}
+            <div className="bg-[#F5FBF8] border border-[var(--brand-accent)]/30 rounded-2xl p-8">
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <p className="font-[family-name:var(--font-bebas)] text-3xl text-slate-900">
+                    {reviews.length > 0 ? `${reviews.length}+` : "100+"}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">Happy Clients</p>
+                </div>
+                <div>
+                  <p className="font-[family-name:var(--font-bebas)] text-3xl text-slate-900">
+                    {teamCount || "5+"}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">Team Members</p>
+                </div>
+                <div>
+                  <p className="font-[family-name:var(--font-bebas)] text-3xl text-slate-900">
+                    {new Date().getFullYear() - foundedYear || 1}+
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">Years in Business</p>
+                </div>
+                <div>
+                  <p className="font-[family-name:var(--font-bebas)] text-3xl text-slate-900">
+                    {areas.length || "1"}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">Areas Served</p>
+                </div>
+              </div>
             </div>
-            <div className="text-center mt-10">
-              <Link
-                href="/site/services"
-                className="inline-flex items-center text-sm font-semibold text-[var(--brand)] hover:text-[var(--brand-dark)] transition-colors"
-              >
-                View All Services &rarr;
-              </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== SERVICES ===== */}
+      {services.length > 0 && (
+        <section id="services" className="py-16 lg:py-20 bg-slate-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <p className="text-xs tracking-[0.2em] uppercase text-[var(--brand-accent)] font-medium mb-3">
+                What We Offer
+              </p>
+              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-slate-900 tracking-wide leading-[0.95]">
+                OUR SERVICES
+              </h2>
+              <div className="mt-4 w-12 h-[2px] bg-[var(--brand-accent)] mx-auto" />
+              <p className="mt-4 text-slate-600 max-w-xl mx-auto">
+                Professional {industry.toLowerCase()} tailored to your needs.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {(services as Array<{ id: string; name: string; description?: string; default_hourly_rate?: number }>).map(
+                (service) => (
+                  <Link
+                    key={service.id}
+                    href={`/site/services/${toSlug(service.name)}`}
+                    className="group bg-white rounded-2xl border border-slate-200 p-8 hover:shadow-lg hover:border-[var(--brand-accent)]/40 transition-all"
+                  >
+                    <div className="mb-4">
+                      <ServiceIcon name={service.name} />
+                    </div>
+                    <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-slate-900 tracking-wide group-hover:text-[var(--brand)]">
+                      {service.name.toUpperCase()}
+                    </h3>
+                    {service.description && (
+                      <p className="mt-2 text-slate-600 text-sm line-clamp-3">
+                        {service.description}
+                      </p>
+                    )}
+                    {service.default_hourly_rate != null &&
+                      service.default_hourly_rate > 0 && (
+                        <p className="mt-4 text-[var(--brand-accent)] font-semibold text-sm">
+                          From ${service.default_hourly_rate}/hr
+                        </p>
+                      )}
+                    <span className="mt-4 inline-flex items-center text-sm font-medium text-[var(--brand)] group-hover:underline">
+                      Learn more &rarr;
+                    </span>
+                  </Link>
+                )
+              )}
             </div>
           </div>
         </section>
       )}
 
-      {/* ===== WHY CHOOSE US ===== */}
-      <section className="py-16 lg:py-20 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-slate-900">
-              Why Choose {businessName}
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Card 1 */}
-            <div className="bg-white rounded-xl p-6 text-center border border-slate-200">
-              <div className="w-12 h-12 mx-auto rounded-full bg-[var(--brand)]/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-slate-900">
-                Licensed &amp; Insured
-              </h3>
-              <p className="mt-2 text-sm text-slate-600">
-                Fully licensed and carrying comprehensive liability insurance
-                for your complete peace of mind.
-              </p>
-            </div>
-            {/* Card 2 */}
-            <div className="bg-white rounded-xl p-6 text-center border border-slate-200">
-              <div className="w-12 h-12 mx-auto rounded-full bg-[var(--brand)]/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-slate-900">
-                Background-Checked Team
-              </h3>
-              <p className="mt-2 text-sm text-slate-600">
-                Every team member undergoes thorough background screening before
-                they step foot in your space.
-              </p>
-            </div>
-            {/* Card 3 */}
-            <div className="bg-white rounded-xl p-6 text-center border border-slate-200">
-              <div className="w-12 h-12 mx-auto rounded-full bg-[var(--brand)]/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-slate-900">
-                Satisfaction Guaranteed
-              </h3>
-              <p className="mt-2 text-sm text-slate-600">
-                Not happy with the results? We will make it right — no
-                questions asked. Your satisfaction is our priority.
-              </p>
-            </div>
-            {/* Card 4 */}
-            <div className="bg-white rounded-xl p-6 text-center border border-slate-200">
-              <div className="w-12 h-12 mx-auto rounded-full bg-[var(--brand)]/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  {selenaEnabled ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  )}
-                </svg>
-              </div>
-              <h3 className="font-semibold text-slate-900">
-                {selenaEnabled ? "24/7 AI Booking" : "Easy Online Booking"}
-              </h3>
-              <p className="mt-2 text-sm text-slate-600">
-                {selenaEnabled
-                  ? "Book anytime day or night with our AI assistant Selena — via text, chat, or online."
-                  : "Schedule appointments online in minutes. No phone tag, no waiting."}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ===== SERVICE AREAS ===== */}
       {areas.length > 0 && (
-        <section id="areas" className="py-16 lg:py-20">
+        <section className="py-16 lg:py-20 bg-[var(--brand-accent)]/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-slate-900">
-                Areas We Serve
-              </h2>
-              <p className="mt-3 text-slate-600 max-w-xl mx-auto">
-                Proudly serving these communities and surrounding neighborhoods.
+              <p className="text-xs tracking-[0.2em] uppercase text-[var(--brand-accent)] font-medium mb-3">
+                Where We Work
               </p>
+              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-slate-900 tracking-wide leading-[0.95]">
+                SERVICE AREAS
+              </h2>
+              <div className="mt-4 w-12 h-[2px] bg-[var(--brand-accent)] mx-auto" />
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+
+            <div className="flex flex-wrap justify-center gap-3">
               {areas.map((area) => (
                 <Link
                   key={area}
                   href={`/site/areas/${toSlug(area)}`}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-full hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
+                  className="px-5 py-2.5 rounded-full bg-white border border-[var(--brand-accent)]/30 text-slate-700 text-sm font-medium hover:bg-[var(--brand-accent)] hover:text-white hover:border-[var(--brand-accent)] transition-colors"
                 >
                   {area}
                 </Link>
@@ -429,274 +478,181 @@ export default async function HomePage() {
       )}
 
       {/* ===== HOW IT WORKS ===== */}
-      <section className="py-16 lg:py-20 bg-slate-50">
+      <section className="py-16 lg:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-slate-900">How It Works</h2>
-            <p className="mt-3 text-slate-600">
-              Getting started is simple. Three easy steps.
+            <p className="text-xs tracking-[0.2em] uppercase text-[var(--brand-accent)] font-medium mb-3">
+              Simple Process
             </p>
+            <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-slate-900 tracking-wide leading-[0.95]">
+              HOW IT WORKS
+            </h2>
+            <div className="mt-4 w-12 h-[2px] bg-[var(--brand-accent)] mx-auto" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {/* Step 1 */}
-            <div className="text-center">
-              <div className="w-14 h-14 mx-auto rounded-full bg-[var(--brand)] text-white flex items-center justify-center text-xl font-bold mb-4">
-                1
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-4xl mx-auto">
+            {[
+              {
+                step: "1",
+                title: "Book Online or Text Us",
+                desc: `Use ${selenaEnabled ? aiName : "our website"} to book in seconds, or text us directly. No phone tag needed.`,
+              },
+              {
+                step: "2",
+                title: "We Send Our Team",
+                desc: "Our vetted, insured professionals arrive on time with everything needed to get the job done right.",
+              },
+              {
+                step: "3",
+                title: "Enjoy the Results",
+                desc: "Sit back while we handle the work. Pay only when you are 100% satisfied.",
+              },
+            ].map((item) => (
+              <div key={item.step} className="text-center">
+                <div className="w-14 h-14 rounded-full bg-[var(--brand)] text-white flex items-center justify-center mx-auto mb-4">
+                  <span className="font-[family-name:var(--font-bebas)] text-2xl">
+                    {item.step}
+                  </span>
+                </div>
+                <h3 className="font-[family-name:var(--font-bebas)] text-xl text-slate-900 tracking-wide mb-2">
+                  {item.title.toUpperCase()}
+                </h3>
+                <p className="text-slate-600 text-sm">{item.desc}</p>
               </div>
-              <h3 className="font-semibold text-slate-900">
-                Book Online or Text Us
-              </h3>
-              <p className="mt-2 text-sm text-slate-600">
-                Pick your service, choose a time, and book in minutes
-                {phone ? ` — or text us at ${phone}` : ""}.
-              </p>
-            </div>
-            {/* Step 2 */}
-            <div className="text-center">
-              <div className="w-14 h-14 mx-auto rounded-full bg-[var(--brand)] text-white flex items-center justify-center text-xl font-bold mb-4">
-                2
-              </div>
-              <h3 className="font-semibold text-slate-900">
-                We Send Our Team
-              </h3>
-              <p className="mt-2 text-sm text-slate-600">
-                A vetted, background-checked professional arrives on time with
-                everything needed.
-              </p>
-            </div>
-            {/* Step 3 */}
-            <div className="text-center">
-              <div className="w-14 h-14 mx-auto rounded-full bg-[var(--brand)] text-white flex items-center justify-center text-xl font-bold mb-4">
-                3
-              </div>
-              <h3 className="font-semibold text-slate-900">
-                Enjoy the Results
-              </h3>
-              <p className="mt-2 text-sm text-slate-600">
-                Sit back and enjoy. Not satisfied? We will make it right — guaranteed.
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ===== REVIEWS ===== */}
       {topReviews.length > 0 && (
-        <section id="reviews" className="py-16 lg:py-20">
+        <section className="py-16 lg:py-20 bg-slate-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-slate-900">
-                What Our Clients Say
+              <p className="text-xs tracking-[0.2em] uppercase text-[var(--brand-accent)] font-medium mb-3">
+                Testimonials
+              </p>
+              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-slate-900 tracking-wide leading-[0.95]">
+                WHAT OUR CLIENTS SAY
               </h2>
+              <div className="mt-4 w-12 h-[2px] bg-[var(--brand-accent)] mx-auto" />
               {reviews.length > 0 && (
-                <div className="mt-4 flex items-center justify-center gap-2">
-                  <StarRating rating={Math.round(avgRating)} />
-                  <span className="text-lg font-semibold text-slate-900">
-                    {avgRating.toFixed(1)}
-                  </span>
-                  <span className="text-slate-500">
-                    ({reviews.length} review{reviews.length !== 1 ? "s" : ""})
-                  </span>
-                </div>
+                <p className="mt-4 text-slate-600">
+                  {avgRating.toFixed(1)} average rating from {reviews.length} review
+                  {reviews.length !== 1 ? "s" : ""}
+                </p>
               )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {topReviews.map(
-                (
-                  review: {
-                    id?: string;
-                    author_name?: string;
-                    rating?: number;
-                    text?: string;
-                  },
-                  i: number
-                ) => (
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {(topReviews as Array<{ id?: string; reviewer_name?: string; rating: number; text?: string; review_text?: string }>).map(
+                (review, idx) => (
                   <div
-                    key={review.id || i}
-                    className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm"
+                    key={review.id || idx}
+                    className="bg-white rounded-2xl border border-slate-200 p-8"
                   >
-                    <StarRating rating={review.rating || 5} />
-                    {review.text && (
-                      <p className="mt-4 text-slate-700 leading-relaxed line-clamp-4">
-                        &ldquo;{review.text}&rdquo;
-                      </p>
-                    )}
-                    {review.author_name && (
+                    <ReviewStars rating={review.rating} />
+                    <p className="mt-4 text-slate-700 text-sm leading-relaxed line-clamp-5">
+                      &ldquo;{review.text || review.review_text}&rdquo;
+                    </p>
+                    {review.reviewer_name && (
                       <p className="mt-4 text-sm font-semibold text-slate-900">
-                        &mdash; {review.author_name}
+                        &mdash; {review.reviewer_name}
                       </p>
                     )}
                   </div>
                 )
               )}
             </div>
-            <div className="text-center mt-10">
-              <Link
-                href="/site/reviews"
-                className="inline-flex items-center text-sm font-semibold text-[var(--brand)] hover:text-[var(--brand-dark)] transition-colors"
-              >
-                Read All Reviews &rarr;
-              </Link>
-            </div>
+
+            {reviews.length > 6 && (
+              <div className="mt-10 text-center">
+                <Link
+                  href="/site/reviews"
+                  className="text-[var(--brand)] font-semibold hover:underline"
+                >
+                  See all {reviews.length} reviews &rarr;
+                </Link>
+              </div>
+            )}
           </div>
         </section>
       )}
 
-      {/* ===== PRICING ===== */}
-      {services.length > 0 && (
-        <section id="pricing" className="py-16 lg:py-20 bg-slate-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ===== FAQ ===== */}
+      {faqs.length > 0 && (
+        <section className="py-16 lg:py-20 bg-white">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-slate-900">
-                Transparent Pricing
-              </h2>
-              <p className="mt-3 text-slate-600 max-w-xl mx-auto">
-                Simple, honest rates. No hidden fees.
-                {minRate && ` Starting from $${minRate}/hr.`}
+              <p className="text-xs tracking-[0.2em] uppercase text-[var(--brand-accent)] font-medium mb-3">
+                Common Questions
               </p>
+              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-slate-900 tracking-wide leading-[0.95]">
+                FREQUENTLY ASKED QUESTIONS
+              </h2>
+              <div className="mt-4 w-12 h-[2px] bg-[var(--brand-accent)] mx-auto" />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-              {(
-                services as Array<{
-                  id: string;
-                  name: string;
-                  default_hourly_rate?: number;
-                  default_duration_hours?: number;
-                }>
-              ).map((service) => (
-                <div
-                  key={service.id}
-                  className="bg-white border border-slate-200 rounded-xl p-6 text-center"
+
+            <div className="space-y-3">
+              {faqs.map((faq, idx) => (
+                <details
+                  key={idx}
+                  className="group bg-slate-50 rounded-xl border border-slate-200 overflow-hidden"
                 >
-                  <h3 className="font-semibold text-slate-900">
-                    {service.name}
-                  </h3>
-                  <div className="mt-3">
-                    {service.default_hourly_rate != null ? (
-                      <>
-                        <span className="text-3xl font-bold text-[var(--brand)]">
-                          ${service.default_hourly_rate}
-                        </span>
-                        <span className="text-slate-500">/hr</span>
-                      </>
-                    ) : (
-                      <span className="text-lg text-slate-500">
-                        Contact for pricing
-                      </span>
-                    )}
+                  <summary className="cursor-pointer px-6 py-5 text-slate-900 font-medium flex items-center justify-between hover:bg-slate-100 transition-colors">
+                    <span>{faq.q}</span>
+                    <svg
+                      className="w-5 h-5 text-slate-400 shrink-0 ml-4 group-open:rotate-180 transition-transform"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </summary>
+                  <div className="px-6 pb-5 text-slate-600 text-sm leading-relaxed">
+                    {faq.a}
                   </div>
-                  {service.default_duration_hours != null && (
-                    <p className="mt-2 text-xs text-slate-500">
-                      Typical duration: ~
-                      {service.default_duration_hours}{" "}
-                      {service.default_duration_hours === 1 ? "hour" : "hours"}
-                    </p>
-                  )}
-                  <Link
-                    href="/site/book"
-                    className="mt-4 inline-flex items-center px-5 py-2 text-sm font-semibold text-white bg-[var(--brand)] hover:bg-[var(--brand-dark)] rounded-lg transition-colors"
-                  >
-                    Book Now
-                  </Link>
-                </div>
+                </details>
               ))}
             </div>
           </div>
         </section>
       )}
 
-      {/* ===== FAQ ===== */}
-      <section id="faq" className="py-16 lg:py-20">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-slate-900">
-              Frequently Asked Questions
-            </h2>
-          </div>
-          <div className="space-y-4">
-            {faqs.map((faq, i) => (
-              <details
-                key={i}
-                className="group bg-white border border-slate-200 rounded-xl overflow-hidden"
-              >
-                <summary className="flex items-center justify-between p-5 cursor-pointer text-left font-semibold text-slate-900 hover:text-[var(--brand)] transition-colors">
-                  <span>{faq.q}</span>
-                  <svg
-                    className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform shrink-0 ml-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19.5 8.25l-7.5 7.5-7.5-7.5"
-                    />
-                  </svg>
-                </summary>
-                <div className="px-5 pb-5 text-sm text-slate-600 leading-relaxed">
-                  {faq.a}
-                </div>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ===== FINAL CTA ===== */}
       <section className="py-16 lg:py-20 bg-[var(--brand)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-white">
-            Ready to Get Started?
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide leading-[0.95]">
+            READY TO BOOK?
           </h2>
-          <p className="mt-4 text-lg text-white/80 max-w-xl mx-auto">
-            {phone
-              ? `Call or text us at ${phone}, or book online in just a few minutes.`
-              : "Book your first appointment online in just a few minutes. No commitment required."}
+          <p className="mt-4 text-blue-200/70 max-w-xl mx-auto">
+            Get started in seconds. No contracts, no hassle &mdash; just
+            professional {industry.toLowerCase()} you can count on.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/site/book"
-              className="inline-flex items-center px-8 py-3.5 text-base font-semibold text-[var(--brand)] bg-white hover:bg-slate-50 rounded-lg transition-colors shadow-lg"
+              className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-[var(--brand)] bg-white hover:bg-slate-100 rounded-lg transition shadow-lg"
             >
               Book Now
             </Link>
             {phone && (
               <a
                 href={`tel:${phone.replace(/[^+\d]/g, "")}`}
-                className="inline-flex items-center px-8 py-3.5 text-base font-semibold text-white border-2 border-white/50 hover:bg-white/10 rounded-lg transition-colors"
+                className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg transition"
               >
                 Call {phone}
               </a>
             )}
-            {selenaEnabled && (
-              <Link
-                href="/site/chat"
-                className="inline-flex items-center px-8 py-3.5 text-base font-semibold text-white border-2 border-white/50 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                Chat with Selena
-              </Link>
-            )}
           </div>
         </div>
       </section>
-
-      {/* Selena Web Chat Widget */}
-      {selenaEnabled && (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                var s = document.createElement('script');
-                s.src = '/selena-widget.js';
-                s.dataset.tenantId = '${tenant.id}';
-                document.body.appendChild(s);
-              })();
-            `,
-          }}
-        />
-      )}
     </div>
   );
 }
