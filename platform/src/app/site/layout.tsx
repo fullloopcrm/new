@@ -1,7 +1,54 @@
 import Link from "next/link";
 import { getTenantFromHeaders } from "@/lib/tenant-site";
+import type { Metadata } from "next";
 
-export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getTenantFromHeaders();
+  if (!tenant) return {};
+
+  const name = tenant.name || "Business";
+  const tagline = tenant.tagline || "Professional service you can trust.";
+  const url =
+    tenant.website_url || `https://${tenant.slug}.fullloopcrm.com`;
+
+  return {
+    title: {
+      default: `${name} | ${tagline}`,
+      template: `%s | ${name}`,
+    },
+    description: tagline,
+    metadataBase: new URL(url),
+    robots: { index: true, follow: true },
+    openGraph: {
+      siteName: name,
+      type: "website",
+      url,
+      title: `${name} | ${tagline}`,
+      description: tagline,
+      ...(tenant.logo_url && {
+        images: [{ url: tenant.logo_url, alt: name }],
+      }),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${name} | ${tagline}`,
+      description: tagline,
+      ...(tenant.logo_url && { images: [tenant.logo_url] }),
+    },
+    alternates: {
+      canonical: url,
+    },
+    other: {
+      "format-detection": "telephone=no",
+    },
+  };
+}
+
+export default async function SiteLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const tenant = await getTenantFromHeaders();
 
   if (!tenant) {
@@ -24,6 +71,23 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const primaryColor = tenant.primary_color || "oklch(0.55 0.15 175)";
   const secondaryColor = tenant.secondary_color || "oklch(0.48 0.15 175)";
   const tagline = tenant.tagline || "";
+  const baseUrl =
+    tenant.website_url || `https://${tenant.slug}.fullloopcrm.com`;
+
+  // Organization schema for the whole site
+  const orgSchema = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: businessName,
+    url: baseUrl,
+    ...(phone && { telephone: phone }),
+    ...(email && { email }),
+    ...(address && {
+      address: { "@type": "PostalAddress", streetAddress: address },
+    }),
+    ...(tenant.logo_url && { logo: tenant.logo_url }),
+    ...(tagline && { description: tagline }),
+  };
 
   return (
     <div
@@ -35,13 +99,33 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         } as React.CSSProperties
       }
     >
+      {/* Site-wide Organization Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }}
+      />
+
+      {/* Sitemap link hint */}
+      <link
+        rel="sitemap"
+        type="application/xml"
+        href={`/api/tenant-sitemap?slug=${tenant.slug}`}
+      />
+
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link href="/site" className="text-xl font-bold text-slate-900 hover:text-[var(--brand)] transition-colors">
+            <Link
+              href="/site"
+              className="text-xl font-bold text-slate-900 hover:text-[var(--brand)] transition-colors"
+            >
               {tenant.logo_url ? (
-                <img src={tenant.logo_url} alt={businessName} className="h-10 w-auto" />
+                <img
+                  src={tenant.logo_url}
+                  alt={businessName}
+                  className="h-10 w-auto"
+                />
               ) : (
                 businessName
               )}
@@ -49,16 +133,28 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
 
             {/* Desktop Nav */}
             <nav className="hidden md:flex items-center gap-8">
-              <Link href="/site/services" className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors">
+              <Link
+                href="/site/services"
+                className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors"
+              >
                 Services
               </Link>
-              <Link href="/site/about" className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors">
+              <Link
+                href="/site/about"
+                className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors"
+              >
                 About
               </Link>
-              <Link href="/site/reviews" className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors">
+              <Link
+                href="/site/reviews"
+                className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors"
+              >
                 Reviews
               </Link>
-              <Link href="/site/contact" className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors">
+              <Link
+                href="/site/contact"
+                className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors"
+              >
                 Contact
               </Link>
               <Link
@@ -82,16 +178,28 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
 
           {/* Mobile Nav */}
           <nav className="md:hidden flex items-center gap-6 pb-3 overflow-x-auto">
-            <Link href="/site/services" className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors whitespace-nowrap">
+            <Link
+              href="/site/services"
+              className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors whitespace-nowrap"
+            >
               Services
             </Link>
-            <Link href="/site/about" className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors whitespace-nowrap">
+            <Link
+              href="/site/about"
+              className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors whitespace-nowrap"
+            >
               About
             </Link>
-            <Link href="/site/reviews" className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors whitespace-nowrap">
+            <Link
+              href="/site/reviews"
+              className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors whitespace-nowrap"
+            >
               Reviews
             </Link>
-            <Link href="/site/contact" className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors whitespace-nowrap">
+            <Link
+              href="/site/contact"
+              className="text-sm font-medium text-slate-600 hover:text-[var(--brand)] transition-colors whitespace-nowrap"
+            >
               Contact
             </Link>
           </nav>
@@ -107,38 +215,80 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Business Info */}
             <div>
-              <h3 className="text-lg font-bold text-white mb-4">{businessName}</h3>
-              {tagline && (
+              <h3 className="text-lg font-bold text-white mb-4">
+                {businessName}
+              </h3>
+              {tagline ? (
                 <p className="text-sm leading-relaxed">{tagline}</p>
-              )}
-              {!tagline && (
+              ) : (
                 <p className="text-sm leading-relaxed">
-                  Professional, reliable, and trusted. We take pride in delivering exceptional service every time.
+                  Professional, reliable, and trusted. We take pride in
+                  delivering exceptional service every time.
                 </p>
               )}
             </div>
 
             {/* Quick Links */}
             <div>
-              <h3 className="text-lg font-bold text-white mb-4">Quick Links</h3>
+              <h3 className="text-lg font-bold text-white mb-4">
+                Quick Links
+              </h3>
               <ul className="space-y-2 text-sm">
                 <li>
-                  <Link href="/site" className="hover:text-white transition-colors">Home</Link>
+                  <Link
+                    href="/site"
+                    className="hover:text-white transition-colors"
+                  >
+                    Home
+                  </Link>
                 </li>
                 <li>
-                  <Link href="/site/services" className="hover:text-white transition-colors">Services</Link>
+                  <Link
+                    href="/site/services"
+                    className="hover:text-white transition-colors"
+                  >
+                    Services
+                  </Link>
                 </li>
                 <li>
-                  <Link href="/site/about" className="hover:text-white transition-colors">About Us</Link>
+                  <Link
+                    href="/site/about"
+                    className="hover:text-white transition-colors"
+                  >
+                    About Us
+                  </Link>
                 </li>
                 <li>
-                  <Link href="/site/reviews" className="hover:text-white transition-colors">Reviews</Link>
+                  <Link
+                    href="/site/reviews"
+                    className="hover:text-white transition-colors"
+                  >
+                    Reviews
+                  </Link>
                 </li>
                 <li>
-                  <Link href="/site/book" className="hover:text-white transition-colors">Book Online</Link>
+                  <Link
+                    href="/site/book"
+                    className="hover:text-white transition-colors"
+                  >
+                    Book Online
+                  </Link>
                 </li>
                 <li>
-                  <Link href="/site/contact" className="hover:text-white transition-colors">Contact</Link>
+                  <Link
+                    href="/site/contact"
+                    className="hover:text-white transition-colors"
+                  >
+                    Contact
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/site/careers"
+                    className="hover:text-white transition-colors"
+                  >
+                    Careers
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -150,12 +300,22 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
                 {address && <li>{address}</li>}
                 {phone && (
                   <li>
-                    <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} className="hover:text-white transition-colors">{phone}</a>
+                    <a
+                      href={`tel:${phone.replace(/[^+\d]/g, "")}`}
+                      className="hover:text-white transition-colors"
+                    >
+                      {phone}
+                    </a>
                   </li>
                 )}
                 {email && (
                   <li>
-                    <a href={`mailto:${email}`} className="hover:text-white transition-colors">{email}</a>
+                    <a
+                      href={`mailto:${email}`}
+                      className="hover:text-white transition-colors"
+                    >
+                      {email}
+                    </a>
                   </li>
                 )}
               </ul>
@@ -163,7 +323,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           </div>
 
           <div className="mt-10 pt-8 border-t border-slate-700 text-center text-sm text-slate-500">
-            &copy; {new Date().getFullYear()} {businessName}. All rights reserved.
+            &copy; {new Date().getFullYear()} {businessName}. All rights
+            reserved.
           </div>
         </div>
       </footer>

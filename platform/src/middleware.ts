@@ -71,6 +71,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
   '/api/requests',            // Partnership form submissions
   '/api/feedback',            // Feedback form submissions
+  '/api/tenant-sitemap',       // Tenant sitemap endpoint
   '/sitemap.xml',             // Sitemap
   '/robots.txt',              // Robots
   '/(.*)-crm-(.*)',           // Combo pages (industry x location)
@@ -128,6 +129,15 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
  */
 function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): NextResponse {
   const pathname = req.nextUrl.pathname // e.g. "/" or "/services" or "/about"
+
+  // Rewrite /sitemap.xml to the tenant sitemap API
+  if (pathname === '/sitemap.xml') {
+    const url = req.nextUrl.clone()
+    url.pathname = '/api/tenant-sitemap'
+    url.searchParams.set('slug', tenantSlug)
+    return NextResponse.rewrite(url)
+  }
+
   const sitePathname = pathname === '/' ? '/site' : `/site${pathname}`
 
   const url = req.nextUrl.clone()
