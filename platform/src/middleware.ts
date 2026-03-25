@@ -72,6 +72,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
   '/api/requests',            // Partnership form submissions
   '/api/feedback',            // Feedback form submissions
+  '/api/chat',                // Public web chat for tenant sites
+  '/api/selena(.*)',          // Selena API routes
   '/api/tenant-sitemap',       // Tenant sitemap endpoint
   '/sitemap.xml',             // Sitemap
   '/robots.txt',              // Robots
