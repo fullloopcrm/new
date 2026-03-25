@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { breadcrumbSchema, localBusinessSchema, reviewSchemas } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
-import CTABlock from '@/components/marketing/CTABlock'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
+import CTABlock from '@/components/site/CTABlock'
 
 const reviews = [
   { name: 'Lindsey Hill', time: '3 days ago', text: 'Awesome cleaners and very responsive. I\'ve used them for several months now for my 3 bed 3 bath walk up in Hell\'s Kitchen. Karina is my cleaner. She is so sweet and warm and lovely, I always look forward to when she comes to take care of my apartment.', initial: 'L', color: 'bg-emerald-400' },

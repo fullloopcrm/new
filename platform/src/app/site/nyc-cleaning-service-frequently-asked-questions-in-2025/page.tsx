@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
-import CTABlock from '@/components/marketing/CTABlock'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
+import CTABlock from '@/components/site/CTABlock'
 
 const pricingFAQs = [
   { question: 'How much does house cleaning cost in NYC?', answer: 'Our standard rate is $49/hr when you provide supplies, $65/hr when we bring everything, and $100/hr for same-day emergency service. A typical studio takes 2–3 hours. We provide free custom quotes based on your home size and cleaning needs.' },

@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import { breadcrumbSchema, localBusinessSchema, faqSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
-import FAQSection from '@/components/marketing/FAQSection'
-import CTABlock from '@/components/marketing/CTABlock'
-import ReferralSignupForm from '@/components/marketing/ReferralSignupForm'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
+import FAQSection from '@/components/site/FAQSection'
+import CTABlock from '@/components/site/CTABlock'
+import ReferralSignupForm from '@/components/site/ReferralSignupForm'
 
 export const metadata: Metadata = {
   title: 'Get Paid for Cleaning Referrals | Earn 10% Commission | The NYC Maid',

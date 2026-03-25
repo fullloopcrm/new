@@ -2,10 +2,10 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SERVICES } from '@/lib/seo/services'
 import { breadcrumbSchema, localBusinessSchema, serviceItemListSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
-import ServiceGrid from '@/components/marketing/ServiceGrid'
-import CTABlock from '@/components/marketing/CTABlock'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
+import ServiceGrid from '@/components/site/ServiceGrid'
+import CTABlock from '@/components/site/CTABlock'
 
 export const metadata: Metadata = {
   title: { absolute: 'NYC Cleaning Services — Deep Clean, Maid Service, Move-In/Out & More | The NYC Maid' },

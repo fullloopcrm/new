@@ -4,9 +4,9 @@ import { AREAS } from '@/lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/lib/seo/locations'
 import { SERVICES } from '@/lib/seo/services'
 import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema, areaItemListSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
-import CTABlock from '@/components/marketing/CTABlock'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
+import CTABlock from '@/components/site/CTABlock'
 
 const allNeighborhoods = AREAS.flatMap(a => getNeighborhoodsByArea(a.slug))
 const totalNeighborhoods = allNeighborhoods.length

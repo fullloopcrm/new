@@ -3,10 +3,10 @@ import Link from 'next/link'
 import { AREAS } from '@/lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/lib/seo/locations'
 import { breadcrumbSchema, localBusinessSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
-import CTABlock from '@/components/marketing/CTABlock'
-import TrustBadges from '@/components/marketing/TrustBadges'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
+import CTABlock from '@/components/site/CTABlock'
+import TrustBadges from '@/components/site/TrustBadges'
 
 const emergencyTypes = [
   {

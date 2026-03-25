@@ -9,11 +9,11 @@ import {
 import { SERVICES, getService } from '@/lib/seo/services'
 import { neighborhoodServiceContent, neighborhoodFAQs, serviceFAQs, commonServiceFAQs } from '@/lib/seo/content'
 import { neighborhoodServicePageSchemas, faqSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
-import FAQSection from '@/components/marketing/FAQSection'
-import CTABlock from '@/components/marketing/CTABlock'
-import NearbyNeighborhoods from '@/components/marketing/NearbyNeighborhoods'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
+import FAQSection from '@/components/site/FAQSection'
+import CTABlock from '@/components/site/CTABlock'
+import NearbyNeighborhoods from '@/components/site/NearbyNeighborhoods'
 
 interface Props {
   params: Promise<{ slug: string; service: string }>

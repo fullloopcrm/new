@@ -4,8 +4,8 @@ import { Bebas_Neue, Inter } from 'next/font/google'
 const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' })
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
-import MarketingNav from '@/components/marketing/MarketingNav'
-import MarketingFooter from '@/components/marketing/MarketingFooter'
+import MarketingNav from '@/components/site/MarketingNav'
+import MarketingFooter from '@/components/site/MarketingFooter'
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (

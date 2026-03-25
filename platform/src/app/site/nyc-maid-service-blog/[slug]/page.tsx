@@ -3,9 +3,9 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { BLOG_POSTS, getBlogPost, getAllBlogSlugs } from '@/lib/seo/blog-data'
 import { breadcrumbSchema, localBusinessSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
-import CTABlock from '@/components/marketing/CTABlock'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
+import CTABlock from '@/components/site/CTABlock'
 
 export function generateStaticParams() {
   return getAllBlogSlugs().map(slug => ({ slug }))

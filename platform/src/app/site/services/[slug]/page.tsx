@@ -6,10 +6,10 @@ import { AREAS } from '@/lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/lib/seo/locations'
 import { serviceContent, serviceFAQs, getServiceRichContent, commonServiceFAQs } from '@/lib/seo/content'
 import { servicePageSchemas, faqSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
-import FAQSection from '@/components/marketing/FAQSection'
-import CTABlock from '@/components/marketing/CTABlock'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
+import FAQSection from '@/components/site/FAQSection'
+import CTABlock from '@/components/site/CTABlock'
 
 interface Props {
   params: Promise<{ slug: string }>

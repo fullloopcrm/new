@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import HeroChat from '@/components/marketing/HeroChat'
-import JsonLd from '@/components/marketing/JsonLd'
+import HeroChat from '@/components/site/HeroChat'
+import JsonLd from '@/components/site/JsonLd'
 
 export const metadata: Metadata = {
   title: 'Chat With Selena — Book NYC Maid Service in 30 Seconds | The NYC Maid',

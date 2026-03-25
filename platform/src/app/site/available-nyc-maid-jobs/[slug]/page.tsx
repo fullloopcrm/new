@@ -4,8 +4,8 @@ import { notFound } from 'next/navigation'
 import { ALL_NEIGHBORHOODS, getNeighborhoodsByArea, type Neighborhood } from '@/lib/seo/locations'
 import { AREAS } from '@/lib/seo/data/areas'
 import { breadcrumbSchema, localBusinessSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/marketing/JsonLd'
-import Breadcrumbs from '@/components/marketing/Breadcrumbs'
+import JsonLd from '@/components/site/JsonLd'
+import Breadcrumbs from '@/components/site/Breadcrumbs'
 
 // Revalidate every 3 days so datePosted stays fresh in Google Jobs
 export const revalidate = 259200
