@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
 import Navbar from '@/components/Navbar'
+import AnnouncementBar from '@/components/AnnouncementBar'
 import Footer from '@/components/Footer'
 import { JsonLd, organizationSchema, websiteSchema } from '@/lib/schema'
 import '../globals.css'
@@ -37,6 +38,7 @@ export default function MarketingLayout({
       >
         Skip to main content
       </a>
+      <AnnouncementBar />
       <Navbar />
       <main id="main-content">{children}</main>
       <Footer />
