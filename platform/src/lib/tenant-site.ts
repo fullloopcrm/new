@@ -33,6 +33,23 @@ export async function getTenantTeamCount(tenantId: string) {
   return count || 0
 }
 
+export async function getTenantAreas(tenantId: string): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from('tenants')
+    .select('selena_config')
+    .eq('id', tenantId)
+    .single()
+  return (data?.selena_config as any)?.service_areas || []
+}
+
+export function toSlug(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+export function fromSlug(slug: string): string {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 export async function getTenantReviews(tenantId: string) {
   const { data } = await supabaseAdmin
     .from('google_reviews')
