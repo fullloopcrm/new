@@ -9,6 +9,7 @@ const MAIN_HOSTS = new Set([
   'www.fullloopcrm.com',
   'localhost',
   '127.0.0.1',
+  'platform-ten-psi.vercel.app',
 ])
 
 function isMainHost(hostname: string): boolean {
@@ -79,26 +80,33 @@ const isPublicRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
-  const hostname = req.headers.get('host') || 'localhost'
+  const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
-  // --- Tenant subdomain routing ---
+  // --- Tenant subdomain routing (runs before Clerk auth) ---
   const subdomain = extractSubdomain(hostname)
   if (subdomain) {
-    const tenant = await getTenantBySlug(subdomain)
-    if (tenant && tenant.status === 'active') {
-      return rewriteToSite(req, tenant.id, tenant.slug)
+    try {
+      const tenant = await getTenantBySlug(subdomain)
+      if (tenant && tenant.status === 'active') {
+        return rewriteToSite(req, tenant.id, tenant.slug)
+      }
+    } catch (e) {
+      console.error('Tenant subdomain lookup error:', e)
     }
-    // Unknown subdomain — let it 404 naturally
     return NextResponse.next()
   }
 
-  // --- Custom domain routing ---
+  // --- Custom domain routing (runs before Clerk auth) ---
   if (!isMainHost(hostname)) {
-    const tenant = await getTenantByDomain(hostname)
-    if (tenant && tenant.status === 'active') {
-      return rewriteToSite(req, tenant.id, tenant.slug)
+    try {
+      const tenant = await getTenantByDomain(hostname)
+      if (tenant && tenant.status === 'active') {
+        return rewriteToSite(req, tenant.id, tenant.slug)
+      }
+    } catch (e) {
+      console.error('Tenant domain lookup error:', e)
     }
-    // Unknown domain — let it 404 naturally
+    // If domain lookup fails, fall through to main site
     return NextResponse.next()
   }
 
