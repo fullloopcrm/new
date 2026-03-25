@@ -9,13 +9,13 @@ interface Message {
 
 const PLACEHOLDERS = [
   'Need help? Tell us here...',
-  'I need a deep cleaning this Saturday',
-  'How much for a 2 bedroom?',
-  'Do you serve Brooklyn?',
-  'I need a move-out clean next week',
+  'What service do you need?',
+  'How much does it cost?',
+  'Do you serve my area?',
+  'I need service next week',
 ]
 
-export default function HeroChat() {
+export default function HeroChat({ phone }: { phone?: string }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,6 +30,7 @@ export default function HeroChat() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const open = messages.length > 0
+  const fallbackMsg = phone ? `Text us at ${phone}.` : 'Please try again later.'
 
   // Auto-scroll chat container
   useEffect(() => {
@@ -52,10 +53,10 @@ export default function HeroChat() {
       setMessages(prev => [
         ...prev,
         { role: 'user', content: msg },
-        { role: 'assistant', content: 'Welcome! Let\'s get you set up 😊 What kind of cleaning do you need?' },
+        { role: 'assistant', content: 'Welcome! Let\'s get you set up. What kind of service do you need?' },
       ])
       setInput('')
-      setQuickReplies(['Regular cleaning', 'Deep cleaning', 'Move-in/move-out', 'Airbnb turnover'])
+      setQuickReplies([])
       return
     }
 
@@ -63,7 +64,7 @@ export default function HeroChat() {
       setMessages(prev => [
         ...prev,
         { role: 'user', content: msg },
-        { role: 'assistant', content: 'Welcome back! 😊 What\'s the phone number on your account? (10 digits)' },
+        { role: 'assistant', content: 'Welcome back! What\'s the phone number on your account? (10 digits)' },
       ])
       setInput('')
       setQuickReplies([])
@@ -101,7 +102,7 @@ export default function HeroChat() {
         if (data.reply) setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
         setQuickReplies(data.quickReplies || [])
       } catch {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Text us at (212) 202-8400.' }])
+        setMessages(prev => [...prev, { role: 'assistant', content: `Sorry, something went wrong. ${fallbackMsg}` }])
         setQuickReplies([])
       } finally {
         setLoading(false)
@@ -126,7 +127,7 @@ export default function HeroChat() {
       if (data.reply) setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
       setQuickReplies(data.quickReplies || [])
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Text us at (212) 202-8400.' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: `Sorry, something went wrong. ${fallbackMsg}` }])
       setQuickReplies([])
     } finally {
       setLoading(false)
@@ -144,7 +145,7 @@ export default function HeroChat() {
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-[#A8F0DC] text-[#1E2A4A] rounded-br-md'
+                    ? 'bg-[var(--brand-accent)] text-[var(--brand)] rounded-br-md'
                     : 'bg-white/10 text-white rounded-bl-md'
                 }`}>
                   {msg.content}
@@ -167,7 +168,7 @@ export default function HeroChat() {
               <div className="flex flex-wrap gap-2 pt-2">
                 {quickReplies.map(qr => (
                   <button key={qr} onClick={() => send(qr)}
-                    className="bg-[#A8F0DC]/20 border border-[#A8F0DC]/40 text-[#A8F0DC] text-sm px-4 py-2 rounded-full hover:bg-[#A8F0DC]/30 hover:text-white transition-all">
+                    className="bg-[var(--brand-accent)]/20 border border-[var(--brand-accent)]/40 text-[var(--brand-accent)] text-sm px-4 py-2 rounded-full hover:bg-[var(--brand-accent)]/30 hover:text-white transition-all">
                     {qr}
                   </button>
                 ))}
@@ -194,11 +195,11 @@ export default function HeroChat() {
         <div className="flex-1">
           <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)}
             placeholder={open ? 'Type a message...' : PLACEHOLDERS[placeholderIdx]}
-            className="w-full bg-white border-2 border-yellow-400 rounded-xl px-5 py-4 text-[#1E2A4A] placeholder-gray-400 text-base font-medium focus:outline-none focus:border-yellow-300 focus:ring-2 focus:ring-yellow-400/50 transition-all shadow-lg shadow-yellow-400/20"
+            className="w-full bg-white border-2 border-yellow-400 rounded-xl px-5 py-4 text-[var(--brand)] placeholder-gray-400 text-base font-medium focus:outline-none focus:border-yellow-300 focus:ring-2 focus:ring-yellow-400/50 transition-all shadow-lg shadow-yellow-400/20"
             disabled={loading} />
         </div>
         <button type="submit" disabled={loading || !input.trim()}
-          className="bg-transparent px-10 py-4 rounded-xl font-black text-base tracking-widest uppercase hover:bg-yellow-400 hover:text-[#1E2A4A] transition-all disabled:text-white/50 disabled:border-yellow-400/50 disabled:cursor-not-allowed shrink-0 shadow-xl shadow-yellow-400/20 border-2 border-yellow-400 text-white">
+          className="bg-transparent px-10 py-4 rounded-xl font-black text-base tracking-widest uppercase hover:bg-yellow-400 hover:text-[var(--brand)] transition-all disabled:text-white/50 disabled:border-yellow-400/50 disabled:cursor-not-allowed shrink-0 shadow-xl shadow-yellow-400/20 border-2 border-yellow-400 text-white">
           Chat
         </button>
       </form>

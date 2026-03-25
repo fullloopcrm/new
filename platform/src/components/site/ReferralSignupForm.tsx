@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-export default function ReferralSignupForm() {
+export default function ReferralSignupForm({ businessName }: { businessName?: string }) {
+  const bName = businessName || 'our company'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -51,32 +52,32 @@ export default function ReferralSignupForm() {
   }
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`https://www.thenycmaid.com/book?ref=${refCode}`)
+    navigator.clipboard.writeText(`${window.location.origin}/book?ref=${refCode}`)
     alert('Link copied!')
   }
 
   if (success) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-        <div className="w-16 h-16 bg-[#A8F0DC]/30 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-[#1E2A4A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-16 h-16 bg-[var(--brand-accent)]/30 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-[var(--brand)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">You&apos;re In!</h3>
-        <p className="text-gray-600 mb-6">Welcome to The NYC Maid referral program.</p>
+        <h3 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-2">You&apos;re In!</h3>
+        <p className="text-gray-600 mb-6">Welcome to the {bName} referral program.</p>
 
-        <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-xl p-6 mb-6">
+        <div className="bg-[#F5FBF8] border border-[var(--brand-accent)]/30 rounded-xl p-6 mb-6">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Your Referral Code</p>
-          <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">{refCode}</p>
+          <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">{refCode}</p>
         </div>
 
         <div className="bg-gray-50 rounded-xl p-6 mb-6">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Your Referral Link</p>
-          <p className="text-sm font-mono text-gray-700 break-all mb-3">https://www.thenycmaid.com/book?ref={refCode}</p>
+          <p className="text-sm font-mono text-gray-700 break-all mb-3">{typeof window !== 'undefined' ? window.location.origin : ''}/book?ref={refCode}</p>
           <button
             onClick={copyLink}
-            className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors"
+            className="bg-[var(--brand-accent)] text-[var(--brand)] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand-accent)] transition-colors"
           >
             Copy Link
           </button>
@@ -86,7 +87,7 @@ export default function ReferralSignupForm() {
 
         <Link
           href={`/referral?code=${refCode}`}
-          className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors"
+          className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand)]/90 transition-colors"
         >
           Go to My Dashboard
         </Link>
@@ -99,7 +100,7 @@ export default function ReferralSignupForm() {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-8">
-      <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-6">Sign Up to Start Earning</h3>
+      <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-6">Sign Up to Start Earning</h3>
 
       {error && (
         <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
@@ -128,7 +129,7 @@ export default function ReferralSignupForm() {
             required
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[#A8F0DC] focus:ring-1 focus:ring-[#A8F0DC] outline-none"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[var(--brand-accent)] focus:ring-1 focus:ring-[var(--brand-accent)] outline-none"
             placeholder="John Smith"
           />
         </div>
@@ -140,7 +141,7 @@ export default function ReferralSignupForm() {
             required
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[#A8F0DC] focus:ring-1 focus:ring-[#A8F0DC] outline-none"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[var(--brand-accent)] focus:ring-1 focus:ring-[var(--brand-accent)] outline-none"
             placeholder="john@email.com"
           />
         </div>
@@ -151,7 +152,7 @@ export default function ReferralSignupForm() {
             type="tel"
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[#A8F0DC] focus:ring-1 focus:ring-[#A8F0DC] outline-none"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[var(--brand-accent)] focus:ring-1 focus:ring-[var(--brand-accent)] outline-none"
             placeholder="212-555-1234"
           />
         </div>
@@ -161,7 +162,7 @@ export default function ReferralSignupForm() {
           <select
             value={form.preferred_payout}
             onChange={(e) => setForm({ ...form, preferred_payout: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[#A8F0DC] focus:ring-1 focus:ring-[#A8F0DC] outline-none"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[var(--brand-accent)] focus:ring-1 focus:ring-[var(--brand-accent)] outline-none"
           >
             <option value="zelle">Zelle</option>
             <option value="apple_cash">Apple Cash</option>
@@ -176,7 +177,7 @@ export default function ReferralSignupForm() {
             type="text"
             value={form.zelle_email}
             onChange={(e) => setForm({ ...form, zelle_email: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[#A8F0DC] focus:ring-1 focus:ring-[#A8F0DC] outline-none"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[var(--brand-accent)] focus:ring-1 focus:ring-[var(--brand-accent)] outline-none"
             placeholder={form.preferred_payout === 'zelle' ? 'Same as email if blank' : 'Your Apple Cash phone number'}
           />
           <p className="text-xs text-gray-500 mt-1">We&apos;ll send your commissions here</p>
@@ -185,14 +186,14 @@ export default function ReferralSignupForm() {
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
           <label className="flex items-start gap-3 cursor-pointer text-sm text-gray-600 leading-relaxed">
             <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
-            <span>By checking this box, I consent to receive transactional text messages from <strong>The NYC Maid</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="/privacy-policy" className="text-[#1E2A4A] underline underline-offset-2">Privacy Policy</a> | <a href="/terms-conditions" className="text-[#1E2A4A] underline underline-offset-2">Terms &amp; Conditions</a></span>
+            <span>By checking this box, I consent to receive transactional text messages from <strong>{bName}</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="/privacy-policy" className="text-[var(--brand)] underline underline-offset-2">Privacy Policy</a> | <a href="/terms-conditions" className="text-[var(--brand)] underline underline-offset-2">Terms &amp; Conditions</a></span>
           </label>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-[#A8F0DC] text-[#1E2A4A] py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors disabled:opacity-50"
+          className="w-full bg-[var(--brand-accent)] text-[var(--brand)] py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand-accent)] transition-colors disabled:opacity-50"
         >
           {loading ? 'Signing Up...' : 'Join Referral Program'}
         </button>
@@ -201,7 +202,7 @@ export default function ReferralSignupForm() {
       <div className="mt-6 pt-6 border-t text-center">
         <p className="text-sm text-gray-500">
           Already a referrer?{' '}
-          <Link href="/referral" className="text-[#1E2A4A] font-medium underline underline-offset-2">
+          <Link href="/referral" className="text-[var(--brand)] font-medium underline underline-offset-2">
             Log in to your dashboard
           </Link>
         </p>

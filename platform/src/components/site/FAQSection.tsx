@@ -10,7 +10,7 @@ export default function FAQSection({ faqs, title, columns }: { faqs: FAQ[]; titl
 
   const renderFaq = (faq: FAQ, i: number) => (
     <details key={i} className="group bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <summary className="flex items-center justify-between cursor-pointer px-6 py-5 font-medium text-[#1E2A4A] hover:bg-gray-50 transition-colors">
+      <summary className="flex items-center justify-between cursor-pointer px-6 py-5 font-medium text-[var(--brand)] hover:bg-gray-50 transition-colors">
         {faq.question}
         <span className="text-gray-400 group-open:rotate-45 transition-transform text-xl flex-shrink-0 ml-4">+</span>
       </summary>
@@ -23,7 +23,7 @@ export default function FAQSection({ faqs, title, columns }: { faqs: FAQ[]; titl
   return (
     <section className="py-20 bg-gray-50">
       <div className={columns === 2 ? 'max-w-7xl mx-auto px-4' : 'max-w-3xl mx-auto px-4'}>
-        <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-10 text-center">
+        <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-10 text-center">
           {title || 'Frequently Asked Questions'}
         </h2>
         {columns === 2 ? (

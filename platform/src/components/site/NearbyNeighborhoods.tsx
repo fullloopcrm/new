@@ -13,9 +13,9 @@ export default function NearbyNeighborhoods({ slugs }: { slugs: string[] }) {
           <Link
             key={n.slug}
             href={`/${n.urlSlug}`}
-            className="p-5 bg-white border border-gray-200 rounded-xl hover:border-[#A8F0DC] hover:shadow-md transition-all group"
+            className="p-5 bg-white border border-gray-200 rounded-xl hover:border-[var(--brand-accent)] hover:shadow-md transition-all group"
           >
-            <p className="font-semibold text-[#1E2A4A] group-hover:text-[#1E2A4A]">{n.name}</p>
+            <p className="font-semibold text-[var(--brand)] group-hover:text-[var(--brand)]">{n.name}</p>
             <p className="text-sm text-gray-400 mt-1">Cleaning services &rarr;</p>
           </Link>
         ))}
