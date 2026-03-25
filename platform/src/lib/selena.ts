@@ -4,6 +4,87 @@ import { checkAvailability } from '@/lib/availability'
 import { getSettings } from '@/lib/settings'
 import { notify } from '@/lib/notify'
 
+// ─── Selena Config Type ─────────────────────────────────────────────────────
+
+export interface SelenaConfig {
+  enabled?: boolean
+  ai_name?: string
+  tone?: string            // "warm" | "professional" | "casual"
+  emoji?: string           // "one_per_message" | "minimal" | "none"
+  language?: string        // "en" | "bilingual" | "es"
+
+  pricing_tiers?: Array<{ label: string; price: number }>
+  time_estimates?: Array<{ size: string; estimate: string }>
+  emergency_rate?: number
+  emergency_available?: boolean
+
+  service_areas?: string[]
+  areas_not_served?: string[]
+  out_of_area_response?: string
+
+  arrival_buffer_weekday?: number    // minutes
+  arrival_buffer_weekend?: number    // minutes
+  min_booking_notice?: number        // hours
+  cancellation_policy?: string
+  reschedule_policy?: string
+
+  payment_methods?: string[]
+  payment_timing?: string
+  payment_instructions?: string
+
+  common_qa?: Array<{ question: string; answer: string }>
+
+  escalation_phone?: string
+  escalation_email?: string
+  escalation_triggers?: string[]
+  escalation_message?: string
+
+  confirmation_message?: string
+  followup_enabled?: boolean
+  followup_hours?: number
+  review_link?: string
+  rating_enabled?: boolean
+  retention_enabled?: boolean
+  retention_message?: string
+
+  checklist_fields?: Array<{
+    key: string
+    enabled: boolean
+    required: boolean
+    question: string
+    sms_options: string
+  }>
+}
+
+// ─── Selena Config Cache ────────────────────────────────────────────────────
+
+const configCache = new Map<string, { data: SelenaConfig; time: number }>()
+const CONFIG_CACHE_TTL = 60_000
+
+export function clearSelenaConfigCache(tenantId?: string) {
+  if (tenantId) configCache.delete(tenantId)
+  else configCache.clear()
+}
+
+async function getSelenaConfig(tenantId: string): Promise<SelenaConfig> {
+  const now = Date.now()
+  const cached = configCache.get(tenantId)
+  if (cached && now - cached.time < CONFIG_CACHE_TTL) return cached.data
+
+  try {
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('selena_config')
+      .eq('id', tenantId)
+      .single()
+    const config: SelenaConfig = tenant?.selena_config || {}
+    configCache.set(tenantId, { data: config, time: now })
+    return config
+  } catch {
+    return {}
+  }
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface BookingChecklist {
@@ -62,23 +143,48 @@ function getClient(): Anthropic {
   return _anthropic
 }
 
+// ─── Default checklist field order ──────────────────────────────────────────
+
+const DEFAULT_CHECKLIST_FIELDS: Array<{ key: string; enabled: boolean; required: boolean; question: string; sms_options: string }> = [
+  { key: 'service_type', enabled: true, required: true, question: 'Ask what type of service they need.', sms_options: '' },
+  { key: 'bedrooms', enabled: true, required: true, question: 'Ask how many bedrooms and bathrooms (or relevant size details).', sms_options: '1 bed 1 bath,2 bed 1 bath,3 bed 2 bath' },
+  { key: 'rate', enabled: true, required: true, question: 'Give pricing and ask which rate.', sms_options: '' },
+  { key: 'day', enabled: true, required: true, question: 'Ask what day works best.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+  { key: 'time', enabled: true, required: true, question: 'Ask what time works best.', sms_options: '8am,10am,12pm,2pm,4pm' },
+  { key: 'name', enabled: true, required: true, question: 'Ask for their full name (first and last).', sms_options: '' },
+  { key: 'phone', enabled: true, required: true, question: 'Ask for their best phone number.', sms_options: '' },
+  { key: 'address', enabled: true, required: true, question: 'Ask for their full address — street, apt/unit, city, and zip. Confirm it back.', sms_options: '' },
+  { key: 'email', enabled: true, required: true, question: 'Ask for their email address.', sms_options: '' },
+  { key: 'notes', enabled: true, required: false, question: 'Ask if they have any special notes or requests. Then do the recap.', sms_options: '' },
+]
+
 // ─── State Machine ──────────────────────────────────────────────────────────
 
-export function getNextStep(cl: BookingChecklist): NextStep {
+export function getNextStep(cl: BookingChecklist, config?: SelenaConfig): NextStep {
   if (cl.status === 'recap') return { field: null, instruction: 'The client has seen the recap OR you need to do the recap now. If the client just said "yes" or confirmed, call create_booking immediately to lock in the booking — do NOT recap again or ask for more info. If the recap hasn\'t been shown yet, do it now using ALL collected info.' }
   if (cl.status === 'confirmed') return { field: null, instruction: 'Booking confirmed. Thank them warmly, tell them booking is pending and will be confirmed by the team. Then ask: "How would you rate this chat? 1-5"' }
   if (cl.status === 'rating') return { field: 'rating', instruction: 'They gave a rating. Thank them. If 5: "That means a lot!" If below: "We appreciate the feedback." Then close.' }
   if (cl.status === 'closed') return { field: null, instruction: 'Conversation complete.' }
 
-  if (!cl.service_type) return { field: 'service_type', instruction: 'Ask what type of service they need.' }
-  if (cl.bedrooms === null || cl.bathrooms === null) return { field: 'bedrooms', instruction: 'Ask how many bedrooms and bathrooms (or relevant size details).' }
-  if (!cl.rate) return { field: 'rate', instruction: 'Give pricing and ask which rate.' }
-  if (!cl.day) return { field: 'day', instruction: 'Ask what day works best.' }
-  if (!cl.time) return { field: 'time', instruction: 'Ask what time works best.' }
-  if (!cl.name) return { field: 'name', instruction: 'Ask for their full name (first and last).' }
-  if (!cl.phone) return { field: 'phone', instruction: 'Ask for their best phone number.' }
-  if (!cl.address) return { field: 'address', instruction: 'Ask for their full address — street, apt/unit, city, and zip. Confirm it back.' }
-  if (!cl.email) return { field: 'email', instruction: 'Ask for their email address.' }
+  const fields = config?.checklist_fields?.length ? config.checklist_fields : DEFAULT_CHECKLIST_FIELDS
+
+  for (const f of fields) {
+    if (!f.enabled) continue
+    const key = f.key as keyof BookingChecklist
+
+    // Check if field is filled
+    if (key === 'bedrooms') {
+      if (cl.bedrooms === null || cl.bathrooms === null) return { field: f.key, instruction: f.question }
+    } else if (key === 'notes') {
+      // notes is always last — if we reach it, everything else is filled
+      return { field: 'notes', instruction: f.question }
+    } else {
+      const val = cl[key]
+      if (val === null || val === undefined || val === '') {
+        if (f.required) return { field: f.key, instruction: f.question }
+      }
+    }
+  }
 
   return { field: 'notes', instruction: 'Ask if they have any special notes or requests. Then do the recap.' }
 }
@@ -109,16 +215,25 @@ export function buildChecklistPrompt(cl: BookingChecklist, next: NextStep): stri
 
 // ─── Quick Replies ──────────────────────────────────────────────────────────
 
-export function getQuickReplies(cl: BookingChecklist, next: NextStep, serviceTypes?: string[]): string[] {
+export function getQuickReplies(cl: BookingChecklist, next: NextStep, serviceTypes?: string[], config?: SelenaConfig): string[] {
   if (cl.status === 'greeting') return serviceTypes?.slice(0, 3) || ['I need a service', 'Get a quote', 'Check availability']
   if (cl.status === 'recap') return ['Yes, all correct!', 'I need to change something']
   if (cl.status === 'confirmed') return ['1', '2', '3', '4', '5']
   if (cl.status === 'rating' || cl.status === 'closed') return []
 
+  // Check config checklist_fields for sms_options on the current field
+  const fields = config?.checklist_fields?.length ? config.checklist_fields : DEFAULT_CHECKLIST_FIELDS
+  const fieldConfig = fields.find(f => f.key === next.field && f.enabled)
+  if (fieldConfig?.sms_options) {
+    const opts = fieldConfig.sms_options.split(',').map(s => s.trim()).filter(Boolean)
+    if (opts.length > 0) return opts
+  }
+
+  // Fallback defaults
   switch (next.field) {
     case 'service_type': return serviceTypes?.slice(0, 4) || ['Cleaning', 'Deep clean', 'Move-in/out']
     case 'bedrooms': return ['1 bed 1 bath', '2 bed 1 bath', '3 bed 2 bath']
-    case 'rate': return [] // rates vary per tenant, let Selena present them
+    case 'rate': return []
     case 'day': return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     case 'time': return ['8am', '10am', '12pm', '2pm', '4pm']
     case 'name': case 'phone': case 'address': case 'email': case 'notes': return []
@@ -160,48 +275,140 @@ export async function updateChecklist(conversationId: string, updates: Partial<B
 
 // ─── Dynamic System Prompt ──────────────────────────────────────────────────
 
-async function buildSystemPrompt(tenantId: string): Promise<string> {
+async function buildSystemPrompt(tenantId: string, config: SelenaConfig): Promise<string> {
   const s = await getSettings(tenantId)
   const bizName = s.business_name || 'the business'
   const services = s.service_types.filter(st => st.active).map(st => st.name).join(', ')
   const rate = s.standard_rate || 0
   const startH = s.business_hours_start || 9
   const endH = s.business_hours_end || 17
-  const payment = s.payment_methods?.join(', ') || 'payment at time of service'
 
-  return `You are Selena, the booking concierge for ${bizName}.
+  // AI name — config overrides default
+  const aiName = config.ai_name || 'Selena'
 
-PERSONALITY: Warm, welcoming, grateful, real. Say please and thank you naturally. Make the client feel appreciated — like they're talking to a real person who genuinely cares. A little funny when it fits. Not a bot. Never sound like one.
+  // Personality tone
+  const toneMap: Record<string, string> = {
+    warm: 'Warm, welcoming, grateful, real. Say please and thank you naturally. Make the client feel appreciated — like they\'re talking to a real person who genuinely cares. A little funny when it fits. Not a bot. Never sound like one.',
+    professional: 'Professional, courteous, and efficient. Clear and respectful. Polished but not stiff. Keep it business-friendly.',
+    casual: 'Friendly, laid-back, conversational. Like texting a helpful friend. Keep it real and easy-going.',
+  }
+  const personality = toneMap[config.tone || ''] || toneMap.warm
+
+  // Emoji style
+  const emojiMap: Record<string, string> = {
+    one_per_message: '😊 only emoji. Once per message max.',
+    minimal: 'Use emoji sparingly — only when it really fits.',
+    none: 'No emoji at all. Text only.',
+  }
+  const emojiStyle = emojiMap[config.emoji || ''] || emojiMap.one_per_message
+
+  // Language
+  const langMap: Record<string, string> = {
+    en: 'Respond in English.',
+    es: 'Respond in Spanish.',
+    bilingual: 'If they text in Spanish, respond in Spanish. Otherwise respond in English.',
+  }
+  const langInstruction = langMap[config.language || ''] || langMap.bilingual
+
+  // Payment
+  const paymentMethods = config.payment_methods?.length
+    ? config.payment_methods.join(', ')
+    : s.payment_methods?.join(', ') || 'payment at time of service'
+  const paymentInstructions = config.payment_instructions || ''
+  const paymentTiming = config.payment_timing || ''
+
+  // Pricing tiers
+  let pricingSection = `- Rate: ${rate > 0 ? `$${rate}/hr` : 'varies by service'}`
+  if (config.pricing_tiers?.length) {
+    pricingSection = '- Pricing:\n' + config.pricing_tiers.map(t => `  • ${t.label}: $${t.price}/hr`).join('\n')
+  }
+  if (config.time_estimates?.length) {
+    pricingSection += '\n- Time estimates:\n' + config.time_estimates.map(t => `  • ${t.size}: ${t.estimate}`).join('\n')
+  }
+  if (config.emergency_available && config.emergency_rate) {
+    pricingSection += `\n- Emergency/same-day rate: $${config.emergency_rate}/hr`
+  }
+
+  // Service areas
+  let areaSection = ''
+  if (config.service_areas?.length) {
+    areaSection += `\n- Service areas: ${config.service_areas.join(', ')}`
+  }
+  if (config.areas_not_served?.length) {
+    areaSection += `\n- NOT served: ${config.areas_not_served.join(', ')}`
+  }
+  if (config.out_of_area_response) {
+    areaSection += `\n- Out of area response: "${config.out_of_area_response}"`
+  }
+
+  // Policies
+  let policiesSection = ''
+  if (config.cancellation_policy) policiesSection += `\n- Cancellation: ${config.cancellation_policy}`
+  if (config.reschedule_policy) policiesSection += `\n- Reschedule: ${config.reschedule_policy}`
+  if (config.min_booking_notice) policiesSection += `\n- Minimum booking notice: ${config.min_booking_notice} hours`
+
+  // Common Q&A
+  let qaSection = ''
+  if (config.common_qa?.length) {
+    qaSection = '\n\nCOMMON Q&A (use these when relevant):\n' + config.common_qa.map(qa => `Q: ${qa.question}\nA: ${qa.answer}`).join('\n\n')
+  }
+
+  // Escalation
+  const escalationMsg = config.escalation_message
+    || 'Say "Let me have someone look at this — one sec 😊" then [ESCALATE: reason]'
+  let escalationSection = `ESCALATION: ${escalationMsg}`
+  if (config.escalation_phone) escalationSection += `\n- Escalation phone: ${config.escalation_phone}`
+  if (config.escalation_email) escalationSection += `\n- Escalation email: ${config.escalation_email}`
+  if (config.escalation_triggers?.length) {
+    escalationSection += `\n- Auto-escalate when: ${config.escalation_triggers.join('; ')}`
+  }
+
+  // Post-confirmation
+  const confirmationMsg = config.confirmation_message
+    || 'Thank you [Name]! We appreciate you. Your booking is pending and will be confirmed by our team shortly — you\'ll be notified once it\'s all set!'
+
+  // Arrival buffer for recap
+  let arrivalNote = ''
+  if (config.arrival_buffer_weekday || config.arrival_buffer_weekend) {
+    const wd = config.arrival_buffer_weekday || 30
+    const we = config.arrival_buffer_weekend || 30
+    arrivalNote = `\n- Arrival window: weekdays ±${wd} min, weekends ±${we} min. Mention in recap.`
+  }
+
+  return `You are ${aiName}, the booking concierge for ${bizName}.
+
+PERSONALITY: ${personality}
 
 STYLE:
 - SHORT but warm. "Perfect, thank you!" is a full response.
 - ONE question per message. Never combine two asks.
 - Match their energy. One line = one line.
 - Say "please" when asking for info. Say "thank you" when they give it.
-- 😊 only emoji. Once per message max.
+- ${emojiStyle}
 - NEVER say: "certainly" "absolutely" "of course" "great question" "happy to help"
 - Under 300 chars. Max 480. Recap exception.
 - Plain text only. No markdown.
-- If they text in Spanish, respond in Spanish.
+- ${langInstruction}
 - On SMS: give numbered options (1. Option A  2. Option B) so they can reply with a number.
 
 BUSINESS INFO (share when asked):
 - Business: ${bizName}
 - Services: ${services || 'various services'}
-- Rate: ${rate > 0 ? `$${rate}/hr` : 'varies by service'}
+${pricingSection}
 - Hours: ${startH > 12 ? startH - 12 : startH}${startH >= 12 ? 'PM' : 'AM'} to ${endH > 12 ? endH - 12 : endH}${endH >= 12 ? 'PM' : 'AM'}
-- Payment: ${payment}
+- Payment: ${paymentMethods}${paymentTiming ? `\n- Payment timing: ${paymentTiming}` : ''}${paymentInstructions ? `\n- Payment instructions: ${paymentInstructions}` : ''}
 ${s.business_phone ? `- Phone: ${s.business_phone}` : ''}
-${s.business_website ? `- Website: ${s.business_website}` : ''}
+${s.business_website ? `- Website: ${s.business_website}` : ''}${areaSection}${policiesSection}${arrivalNote}
+${qaSection}
 
 RECAP: After all info collected, read it all back and ask to confirm.
 
 AFTER RECAP — CRITICAL:
 When the client confirms the recap (says "yes", "correct", "looks good", "confirmed", etc.), IMMEDIATELY call create_booking. Do NOT ask for more info, do NOT recap again, do NOT ask for email or anything else. Everything is already collected. Just book it.
 
-POST-CONFIRMATION: "Thank you [Name]! We appreciate you. Your booking is pending and will be confirmed by our team shortly — you'll be notified once it's all set!"
+POST-CONFIRMATION: "${confirmationMsg}"
 
-ESCALATION: Say "Let me have someone look at this — one sec 😊" then [ESCALATE: reason]
+${escalationSection}
 
 RETURNING CLIENTS: If CLIENT PROFILE is below, use it. Don't re-ask for info you have.
 
@@ -551,6 +758,9 @@ export async function askSelena(
   const result: SelenaResult = { text: '', checklist: EMPTY_CHECKLIST }
 
   try {
+    // 0. Load selena config
+    const config = await getSelenaConfig(tenantId)
+
     // 1. Load checklist
     let checklist = await loadChecklist(conversationId)
     if (checklist.status === 'greeting') {
@@ -558,10 +768,10 @@ export async function askSelena(
     }
 
     // 2. State machine
-    const nextStep = getNextStep(checklist)
+    const nextStep = getNextStep(checklist, config)
 
     // 3. Build system prompt
-    const systemPromptBase = await buildSystemPrompt(tenantId)
+    const systemPromptBase = await buildSystemPrompt(tenantId, config)
     const calendar = buildCalendarContext()
     const checklistPrompt = buildChecklistPrompt(checklist, nextStep)
 
