@@ -200,6 +200,70 @@ export default function FinancePage() {
                 maxLength={3}
               />
             </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-3 block">Payment Methods Accepted</label>
+              <div className="flex flex-wrap gap-3">
+                {['Zelle', 'Apple Pay', 'Venmo', 'Cash', 'Check', 'Card'].map((method) => {
+                  const key = method.toLowerCase().replace(' ', '_')
+                  const methods = (config.payment_methods as string[]) || []
+                  const checked = methods.includes(key)
+                  return (
+                    <label key={key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const updated = checked ? methods.filter(m => m !== key) : [...methods, key]
+                          updateConfig('payment_methods', updated)
+                        }}
+                        className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                      />
+                      {method}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Zelle Email</label>
+              <input
+                type="email"
+                value={(config.zelle_email as string) || ''}
+                onChange={(e) => updateConfig('zelle_email', e.target.value)}
+                placeholder="your@email.com"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs placeholder-gray-600"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Apple Cash Phone</label>
+              <input
+                type="tel"
+                value={(config.apple_cash_phone as string) || ''}
+                onChange={(e) => updateConfig('apple_cash_phone', e.target.value)}
+                placeholder="(555) 555-5555"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs placeholder-gray-600"
+              />
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Commission Rate for Referrals</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={(config.referral_commission_rate as number) ?? ''}
+                  onChange={(e) => updateConfig('referral_commission_rate', parseFloat(e.target.value) || 0)}
+                  placeholder="e.g. 10"
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-32"
+                />
+                <span className="text-xs text-slate-400">%</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Percentage paid out on referral bookings</p>
+            </div>
           </div>
         )}
       </PageSettingsPanel>

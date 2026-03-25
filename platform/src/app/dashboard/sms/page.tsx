@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
 
 type Conversation = {
   id: string
@@ -25,6 +26,21 @@ export default function SmsInboxPage() {
   const [sending, setSending] = useState(false)
   const [search, setSearch] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [tenantPhone, setTenantPhone] = useState<string | null>(null)
+  const [telnyxConnected, setTelnyxConnected] = useState(false)
+
+  const smsSettings = usePageSettings('sms')
+
+  // Fetch tenant info for settings panel
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.tenant?.telnyx_phone) setTenantPhone(d.tenant.telnyx_phone)
+        if (d.tenant?.telnyx_api_key) setTelnyxConnected(true)
+      })
+      .catch(() => {})
+  }, [])
 
   // Fetch conversations list
   async function fetchConversations() {
@@ -135,13 +151,54 @@ export default function SmsInboxPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">SMS Inbox</h1>
-          <p className="text-sm text-slate-400">
-            {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">SMS Inbox</h1>
+            <p className="text-sm text-slate-400">
+              {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <PageSettingsGear open={smsSettings.open} setOpen={smsSettings.setOpen} title="SMS" />
         </div>
       </div>
+
+      <PageSettingsPanel
+        {...smsSettings}
+        title="SMS"
+        tips={[
+          'All SMS is powered by Telnyx — configure your API key in Settings > Integrations',
+          'Clients can opt out anytime by replying STOP',
+          'Two-way conversations appear here automatically when clients text your number',
+        ]}
+      >
+        {() => (
+          <div className="space-y-5">
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Telnyx Phone Number</label>
+              <p className="text-sm text-slate-300 font-mono">{tenantPhone || 'Not configured'}</p>
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Telnyx API Key Status</label>
+              <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${telnyxConnected ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
+                {telnyxConnected ? 'Connected' : 'Not configured'}
+              </span>
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">SMS Opt-Out Text</label>
+              <p className="text-sm text-slate-300">Reply STOP to opt out</p>
+              <p className="text-xs text-slate-500 mt-1">This is automatically appended to first-contact messages</p>
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <a href="/dashboard/settings" className="text-sm text-teal-400 hover:text-teal-300 transition-colors">
+                Go to Settings &rarr; Integrations for full Telnyx setup
+              </a>
+            </div>
+          </div>
+        )}
+      </PageSettingsPanel>
 
       <div className="flex gap-4 h-[calc(100vh-220px)]">
         {/* Left Panel - Conversation List */}

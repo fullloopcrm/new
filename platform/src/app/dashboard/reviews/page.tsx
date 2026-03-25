@@ -102,53 +102,69 @@ export default function ReviewsPage() {
       >
         {({ config, updateConfig }) => (
           <div className="space-y-5">
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Google Place ID</label>
+              <input
+                type="text"
+                value={(config.google_place_id as string) ?? ''}
+                onChange={(e) => updateConfig('google_place_id', e.target.value)}
+                placeholder="e.g. ChIJ..."
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-md"
+              />
+              <p className="text-xs text-slate-500 mt-1">Find yours at Google&apos;s Place ID Finder</p>
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Google Review Link</label>
+              <input
+                type="text"
+                value={(config.google_review_link as string) ?? ''}
+                onChange={(e) => updateConfig('google_review_link', e.target.value)}
+                placeholder="https://g.page/r/..."
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-md"
+              />
+              <p className="text-xs text-slate-500 mt-1">The direct URL clients are sent to leave a Google review</p>
+            </div>
+            <div className="border-t border-slate-200" />
             <div className="flex items-center justify-between max-w-sm">
-              <label className="text-sm text-slate-700">Auto-request review after booking</label>
+              <label className="text-sm text-slate-700">Auto follow-up after job completion</label>
               <button
-                onClick={() => updateConfig('auto_request_review', !config.auto_request_review)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_request_review ? 'bg-teal-600' : 'bg-slate-600'}`}
+                onClick={() => updateConfig('auto_followup_enabled', !config.auto_followup_enabled)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_followup_enabled ? 'bg-teal-600' : 'bg-slate-600'}`}
               >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_request_review ? 'translate-x-5' : ''}`} />
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_followup_enabled ? 'translate-x-5' : ''}`} />
               </button>
             </div>
-            {!!config.auto_request_review && (
+            {!!config.auto_followup_enabled && (
               <div>
-                <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Delay after booking (hours)</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={(config.review_delay_hours as number) || 24}
-                  onChange={(e) => updateConfig('review_delay_hours', parseInt(e.target.value) || 24)}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-32"
-                />
-                <span className="text-xs text-slate-400 ml-2">hours</span>
+                <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Follow-Up Delay</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min="1"
+                    value={(config.followup_delay_hours as number) || 24}
+                    onChange={(e) => updateConfig('followup_delay_hours', parseInt(e.target.value) || 24)}
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-32"
+                  />
+                  <span className="text-xs text-slate-400">hours after job completion</span>
+                </div>
               </div>
             )}
             <div className="border-t border-slate-200" />
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Review Request Message Template</label>
-              <textarea
-                value={(config.review_template as string) || 'Hi {name}, thank you for choosing {business}! We would love to hear your feedback. Please leave us a review!'}
-                onChange={(e) => updateConfig('review_template', e.target.value)}
-                rows={3}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full"
-                placeholder="Use {name} and {business} as placeholders"
-              />
-              <p className="text-xs text-slate-500 mt-1">Use {'{name}'} for client name, {'{business}'} for your business name</p>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Minimum Rating for Google Redirect</label>
-              <select
-                value={(config.min_rating_redirect as string) || '4'}
-                onChange={(e) => updateConfig('min_rating_redirect', e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
-              >
-                <option value="3">3+ stars</option>
-                <option value="4">4+ stars</option>
-                <option value="5">5 stars only</option>
-              </select>
-              <p className="text-xs text-slate-500 mt-1">Only redirect clients with this rating or higher to your Google listing</p>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Low Rating Alert Threshold</label>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  value={(config.low_rating_threshold as number) ?? 3}
+                  onChange={(e) => updateConfig('low_rating_threshold', parseInt(e.target.value) || 3)}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-32"
+                />
+                <span className="text-xs text-slate-400">stars or below triggers admin alert</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Ratings at or below this value will notify you for follow-up</p>
             </div>
           </div>
         )}

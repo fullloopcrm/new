@@ -11,6 +11,7 @@ const VALID_PAGES = [
   'reviews',
   'referrals',
   'leads',
+  'team',
 ]
 
 function configKey(page: string) {

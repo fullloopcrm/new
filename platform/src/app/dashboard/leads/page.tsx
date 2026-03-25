@@ -134,41 +134,40 @@ export default function LeadsPage() {
         {({ config, updateConfig }) => (
           <div className="space-y-5">
             <div>
-              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Lead Scoring Threshold</label>
-              <div className="grid grid-cols-3 gap-3 max-w-md">
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Hot (min score)</label>
-                  <input type="number" min="0" value={(config.hot_threshold as number) ?? 80}
-                    onChange={(e) => updateConfig('hot_threshold', parseInt(e.target.value) || 80)}
-                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-full" />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Warm (min score)</label>
-                  <input type="number" min="0" value={(config.warm_threshold as number) ?? 40}
-                    onChange={(e) => updateConfig('warm_threshold', parseInt(e.target.value) || 40)}
-                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-full" />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Cold (below)</label>
-                  <input type="number" min="0" value={(config.warm_threshold as number) ?? 40} disabled
-                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-full opacity-50" />
-                </div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Attribution Window</label>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="1"
+                  value={(config.attribution_window_hours as number) ?? 24}
+                  onChange={(e) => updateConfig('attribution_window_hours', parseInt(e.target.value) || 24)}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-32"
+                />
+                <span className="text-xs text-slate-400">hours</span>
               </div>
+              <p className="text-xs text-slate-500 mt-1">How long after a visit counts as that traffic source</p>
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Lead Notification Email</label>
+              <input
+                type="email"
+                value={(config.lead_notification_email as string) ?? ''}
+                onChange={(e) => updateConfig('lead_notification_email', e.target.value)}
+                placeholder="alerts@yourbusiness.com"
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-md"
+              />
+              <p className="text-xs text-slate-500 mt-1">Receive an email when a new lead comes in</p>
             </div>
             <div className="border-t border-slate-200" />
             <div className="flex items-center justify-between max-w-sm">
-              <label className="text-sm text-slate-700">Auto-convert lead to client</label>
-              <button onClick={() => updateConfig('auto_convert_lead', !config.auto_convert_lead)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_convert_lead ? 'bg-teal-600' : 'bg-slate-300'}`}>
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_convert_lead ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div className="flex items-center justify-between max-w-sm">
-              <label className="text-sm text-slate-700">Lead notification email</label>
-              <button onClick={() => updateConfig('lead_notification_email', !config.lead_notification_email)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.lead_notification_email ? 'bg-teal-600' : 'bg-slate-300'}`}>
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.lead_notification_email ? 'translate-x-5' : ''}`} />
+              <div>
+                <label className="text-sm text-slate-700">Auto-respond to new leads</label>
+                <p className="text-xs text-slate-500 mt-0.5">Selena will automatically reply when enabled</p>
+              </div>
+              <button onClick={() => updateConfig('auto_respond_leads', !config.auto_respond_leads)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_respond_leads ? 'bg-teal-600' : 'bg-slate-300'}`}>
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_respond_leads ? 'translate-x-5' : ''}`} />
               </button>
             </div>
           </div>

@@ -503,6 +503,63 @@ export default function BookingsPage() {
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_confirm ? 'translate-x-5' : ''}`} />
               </button>
             </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Booking Buffer (minutes between jobs)</label>
+              <input
+                type="number"
+                min="0"
+                step="15"
+                value={(config.booking_buffer as number) ?? 30}
+                onChange={(e) => updateConfig('booking_buffer', parseInt(e.target.value) || 0)}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+              />
+            </div>
+            <div className="border-t border-slate-200" />
+            <div className="flex items-center justify-between max-w-xs">
+              <label className="text-sm text-slate-700">Allow same-day booking</label>
+              <button
+                onClick={() => updateConfig('allow_same_day', !config.allow_same_day)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.allow_same_day ? 'bg-teal-600' : 'bg-slate-600'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.allow_same_day ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Minimum Days Ahead</label>
+              <input
+                type="number"
+                min="0"
+                value={(config.min_days_ahead as number) ?? 1}
+                onChange={(e) => updateConfig('min_days_ahead', parseInt(e.target.value) || 0)}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
+              />
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Accepted Payment Methods</label>
+              <div className="grid grid-cols-2 gap-2 max-w-xs">
+                {['Zelle', 'Apple Pay', 'Venmo', 'Cash', 'Check', 'Card'].map((method) => {
+                  const methods = (config.payment_methods as string[]) || ['Cash', 'Card']
+                  const checked = methods.includes(method)
+                  return (
+                    <label key={method} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const updated = checked ? methods.filter((m: string) => m !== method) : [...methods, method]
+                          updateConfig('payment_methods', updated)
+                        }}
+                        className="w-3.5 h-3.5 accent-teal-600"
+                      />
+                      <span className="text-sm text-slate-300">{method}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         )}
       </PageSettingsPanel>

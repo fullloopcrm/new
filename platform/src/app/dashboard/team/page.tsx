@@ -6,6 +6,7 @@ import { downloadCSV } from '@/lib/csv'
 import { formatPhone } from '@/lib/phone'
 import { TEAM_STATUS_COLORS, ROLE_COLORS } from '@/lib/constants'
 import { formatDateLong } from '@/lib/format'
+import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
 
 type TeamMember = {
   id: string
@@ -152,6 +153,8 @@ export default function TeamPage() {
   const [loadingApps, setLoadingApps] = useState(false)
   const [appActionLoading, setAppActionLoading] = useState<string | null>(null)
   const [appNewPin, setAppNewPin] = useState('')
+
+  const teamPageSettings = usePageSettings('team')
 
   // Load team members
   useEffect(() => {
@@ -433,16 +436,7 @@ export default function TeamPage() {
             <h2 className="text-2xl font-bold text-slate-900">Team</h2>
             <p className="text-sm text-slate-400">{team.length} members &middot; {activeCount} active</p>
           </div>
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
-            title="Team Settings"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
+          <PageSettingsGear open={showSettings || teamPageSettings.open} setOpen={(v) => { setShowSettings(v); teamPageSettings.setOpen(v) }} title="Team" />
         </div>
         <div className="flex gap-2">
           <button
@@ -628,6 +622,76 @@ export default function TeamPage() {
                 ))}
               </div>
             </div>
+
+            <div className="border-t border-slate-200" />
+
+            {/* TEAM PORTAL URL */}
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Team Portal URL</label>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-500 font-mono select-all">
+                {typeof window !== 'undefined' ? `${window.location.origin}/team` : '/team'}
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Share this link with team members so they can log in with their PIN.</p>
+            </div>
+
+            <div className="border-t border-slate-200" />
+
+            {/* DEFAULT PAY RATE */}
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Pay Rate</label>
+              <div className="relative w-40">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={(teamPageSettings.config.default_pay_rate as number) ?? ''}
+                  onChange={(e) => teamPageSettings.updateConfig('default_pay_rate', parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                  className="bg-slate-50 border border-slate-200 rounded-lg pl-7 pr-12 py-2 text-sm w-full placeholder-gray-600"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">/hr</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Default hourly rate applied when adding new team members.</p>
+            </div>
+
+            <div className="border-t border-slate-200" />
+
+            {/* GUIDELINES */}
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Guidelines (English)</label>
+              <textarea
+                rows={4}
+                value={(teamPageSettings.config.guidelines_en as string) || ''}
+                onChange={(e) => {
+                  teamPageSettings.updateConfig('guidelines_en', e.target.value)
+                  teamPageSettings.updateConfig('guidelines_updated_at', new Date().toISOString())
+                }}
+                placeholder="Enter team guidelines in English..."
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full placeholder-gray-600 resize-y"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Guidelines (Spanish)</label>
+              <textarea
+                rows={4}
+                value={(teamPageSettings.config.guidelines_es as string) || ''}
+                onChange={(e) => {
+                  teamPageSettings.updateConfig('guidelines_es', e.target.value)
+                  teamPageSettings.updateConfig('guidelines_updated_at', new Date().toISOString())
+                }}
+                placeholder="Ingrese las pautas del equipo en espa&ntilde;ol..."
+                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full placeholder-gray-600 resize-y"
+              />
+            </div>
+            {!!teamPageSettings.config.guidelines_updated_at && (
+              <div>
+                <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 block">Guidelines Last Updated</label>
+                <p className="text-sm text-slate-500">
+                  {new Date(teamPageSettings.config.guidelines_updated_at as string).toLocaleString()}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

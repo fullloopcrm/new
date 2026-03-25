@@ -147,22 +147,41 @@ export default function ReferralsPage() {
         {({ config, updateConfig }) => (
           <div className="space-y-5">
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Commission Rate % Override</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.5"
-                value={(config.commission_rate as number) ?? ''}
-                onChange={(e) => updateConfig('commission_rate', parseFloat(e.target.value) || 0)}
-                placeholder="e.g. 10"
-                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-32"
-              />
-              <span className="text-xs text-slate-400 ml-2">%</span>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Commission Rate</label>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={(config.commission_rate as number) ?? ''}
+                  onChange={(e) => updateConfig('commission_rate', parseFloat(e.target.value) || 0)}
+                  placeholder="e.g. 10"
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-32"
+                />
+                <span className="text-xs text-slate-400">%</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Percentage of booking value paid to referrer</p>
             </div>
             <div className="border-t border-slate-200" />
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Minimum Payout Amount</label>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Referral Link Base URL</label>
+              <p className="text-sm text-slate-300 font-mono">{typeof window !== 'undefined' ? `${window.location.origin}/referral/` : '/referral/'}</p>
+              <p className="text-xs text-slate-500 mt-1">Referral codes are appended to this URL</p>
+            </div>
+            <div className="border-t border-slate-200" />
+            <div className="flex items-center justify-between max-w-sm">
+              <label className="text-sm text-slate-700">Auto-pay referrals</label>
+              <button
+                onClick={() => updateConfig('auto_pay_referrals', !config.auto_pay_referrals)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_pay_referrals ? 'bg-teal-600' : 'bg-slate-600'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_pay_referrals ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
+            <div className="border-t border-slate-200" />
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Minimum Payout Threshold</label>
               <div className="flex items-center gap-1">
                 <span className="text-sm text-slate-400">$</span>
                 <input
@@ -175,16 +194,6 @@ export default function ReferralsPage() {
                 />
               </div>
               <p className="text-xs text-slate-500 mt-1">Referrers must earn at least this amount before payout</p>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div className="flex items-center justify-between max-w-sm">
-              <label className="text-sm text-slate-700">Auto-generate referral codes for new clients</label>
-              <button
-                onClick={() => updateConfig('auto_generate_codes', !config.auto_generate_codes)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_generate_codes ? 'bg-teal-600' : 'bg-slate-600'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_generate_codes ? 'translate-x-5' : ''}`} />
-              </button>
             </div>
           </div>
         )}

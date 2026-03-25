@@ -44,6 +44,27 @@ const TEAM_COLORS = [
   '#8b5cf6', '#ec4899', '#f97316'
 ]
 
+const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const TIME_OPTIONS = Array.from({ length: 30 }, (_, i) => {
+  const h = Math.floor(i / 2) + 6
+  const m = i % 2 === 0 ? '00' : '30'
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const hr = h > 12 ? h - 12 : h === 0 ? 12 : h
+  return { value: `${String(h).padStart(2, '0')}:${m}`, label: `${hr}:${m} ${ampm}` }
+})
+
+type BusinessHours = Record<string, { enabled: boolean; start: string; end: string }>
+
+const DEFAULT_HOURS: BusinessHours = {
+  Monday: { enabled: true, start: '08:00', end: '18:00' },
+  Tuesday: { enabled: true, start: '08:00', end: '18:00' },
+  Wednesday: { enabled: true, start: '08:00', end: '18:00' },
+  Thursday: { enabled: true, start: '08:00', end: '18:00' },
+  Friday: { enabled: true, start: '08:00', end: '18:00' },
+  Saturday: { enabled: false, start: '09:00', end: '14:00' },
+  Sunday: { enabled: false, start: '09:00', end: '14:00' },
+}
+
 export default function CalendarPage() {
   const [bookings, setBookings] = useState<BookingEvent[]>([])
   const [allBookings, setAllBookings] = useState<Booking[]>([])
@@ -52,6 +73,59 @@ export default function CalendarPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['pending', 'scheduled', 'in_progress', 'completed'])
   const [memberColors, setMemberColors] = useState<Record<string, string>>({})
   const [dateRange, setDateRange] = useState<{ from: string; to: string } | null>(null)
+
+  // Inline settings
+  const [showSettings, setShowSettings] = useState(false)
+  const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_HOURS)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsMsg, setSettingsMsg] = useState('')
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(data => {
+        if (data.tenant?.business_hours) {
+          try {
+            const parsed = typeof data.tenant.business_hours === 'string'
+              ? JSON.parse(data.tenant.business_hours)
+              : data.tenant.business_hours
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              setBusinessHours({ ...DEFAULT_HOURS, ...parsed })
+            }
+          } catch { /* keep defaults */ }
+        }
+        setSettingsLoaded(true)
+      })
+      .catch(() => setSettingsLoaded(true))
+  }, [])
+
+  async function saveBusinessHours(updated: BusinessHours) {
+    setSettingsSaving(true)
+    setSettingsMsg('')
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_hours: JSON.stringify(updated) }),
+      })
+      if (res.ok) {
+        setSettingsMsg('Saved!')
+        setTimeout(() => setSettingsMsg(''), 2000)
+      } else {
+        setSettingsMsg('Failed to save')
+      }
+    } catch {
+      setSettingsMsg('Network error')
+    }
+    setSettingsSaving(false)
+  }
+
+  function updateDay(day: string, field: 'enabled' | 'start' | 'end', value: unknown) {
+    const updated = { ...businessHours, [day]: { ...businessHours[day], [field]: value } }
+    setBusinessHours(updated)
+    saveBusinessHours(updated)
+  }
 
   const [panelBooking, setPanelBooking] = useState<Booking | null>(null)
   const [panelMembers, setPanelMembers] = useState<TeamMemberAvail[]>([])
@@ -309,7 +383,74 @@ export default function CalendarPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-heading font-bold text-slate-900 mb-4">Calendar</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-heading font-bold text-slate-900">Calendar</h1>
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
+          title="Calendar Settings"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Inline Business Hours Settings */}
+      {showSettings && settingsLoaded && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl mb-6 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+            <h3 className="font-semibold text-white">Business Hours</h3>
+            <div className="flex items-center gap-3">
+              {settingsMsg && <span className={`text-xs ${settingsMsg === 'Saved!' ? 'text-green-400' : 'text-red-400'}`}>{settingsMsg}</span>}
+              {settingsSaving && <span className="text-xs text-gray-500">Saving...</span>}
+              <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white text-lg leading-none">&times;</button>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="space-y-3">
+              {DAYS_OF_WEEK.map(day => {
+                const dh = businessHours[day] || DEFAULT_HOURS[day]
+                return (
+                  <div key={day} className="flex items-center gap-4">
+                    <div className="w-24 flex items-center gap-2">
+                      <button
+                        onClick={() => updateDay(day, 'enabled', !dh.enabled)}
+                        className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${dh.enabled ? 'bg-teal-600' : 'bg-slate-600'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${dh.enabled ? 'translate-x-4' : ''}`} />
+                      </button>
+                      <span className={`text-sm ${dh.enabled ? 'text-white' : 'text-slate-500'}`}>{day.slice(0, 3)}</span>
+                    </div>
+                    {dh.enabled ? (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={dh.start}
+                          onChange={(e) => updateDay(day, 'start', e.target.value)}
+                          className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
+                        >
+                          {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        </select>
+                        <span className="text-slate-500 text-sm">to</span>
+                        <select
+                          value={dh.end}
+                          onChange={(e) => updateDay(day, 'end', e.target.value)}
+                          className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
+                        >
+                          {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        </select>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wide">Closed</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="mb-3 flex flex-col md:flex-row flex-wrap gap-4 items-start md:items-center px-3 py-2">

@@ -177,18 +177,31 @@ export default function ClientsPage() {
             </div>
             <div className="border-t border-slate-200" />
             <div>
-              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Days inactive before At-Risk</label>
-              <input type="number" min="1" value={(config.at_risk_days as number) || 30}
-                onChange={(e) => updateConfig('at_risk_days', parseInt(e.target.value) || 30)}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32" />
-              <span className="text-xs text-slate-400 ml-2">days</span>
+              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Active Client Threshold</label>
+              <div className="flex items-center gap-2">
+                <input type="number" min="1" value={(config.active_client_threshold_days as number) || 30}
+                  onChange={(e) => updateConfig('active_client_threshold_days', parseInt(e.target.value) || 30)}
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32" />
+                <span className="text-xs text-slate-400">days</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Clients with a booking within this many days are considered &ldquo;active&rdquo;</p>
             </div>
             <div>
-              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Days inactive before Churned</label>
-              <input type="number" min="1" value={(config.churned_days as number) || 60}
-                onChange={(e) => updateConfig('churned_days', parseInt(e.target.value) || 60)}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32" />
-              <span className="text-xs text-slate-400 ml-2">days</span>
+              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">At-Risk Threshold</label>
+              <div className="flex items-center gap-2">
+                <input type="number" min="1" value={(config.at_risk_threshold_days as number) || 60}
+                  onChange={(e) => updateConfig('at_risk_threshold_days', parseInt(e.target.value) || 60)}
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32" />
+                <span className="text-xs text-slate-400">days</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">No booking in this many days marks a client as &ldquo;at risk&rdquo;</p>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Churned Threshold</label>
+              <p className="text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-fit">
+                Auto: beyond {(config.at_risk_threshold_days as number) || 60} days (at-risk threshold)
+              </p>
+              <p className="text-xs text-slate-500 mt-1">Clients beyond the at-risk threshold are automatically considered churned</p>
             </div>
             <div className="border-t border-slate-200" />
             <div className="flex items-center justify-between max-w-xs">
