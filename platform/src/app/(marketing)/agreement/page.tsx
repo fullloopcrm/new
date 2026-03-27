@@ -7,10 +7,10 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.fullloopcrm.com" },
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
   {
     name: "Partnership Agreement",
-    url: "https://www.fullloopcrm.com/agreement",
+    url: "https://homeservicesbusinesscrm.com/agreement",
   },
 ];
 
@@ -20,12 +20,12 @@ export const metadata: Metadata = {
     "Full Loop CRM partnership agreement. Plain-language terms covering pricing, ownership, cancellation, and everything you need to know before partnering with us.",
   keywords:
     "partnership agreement, Full Loop CRM, CRM pricing, website ownership, home service business, cancellation policy",
-  alternates: { canonical: "https://www.fullloopcrm.com/agreement" },
+  alternates: { canonical: "https://homeservicesbusinesscrm.com/agreement" },
   openGraph: {
     title: "Partnership Agreement | Full Loop CRM",
     description:
       "Plain-language partnership agreement covering pricing, ownership, cancellation, and what you get with Full Loop CRM.",
-    url: "https://www.fullloopcrm.com/agreement",
+    url: "https://homeservicesbusinesscrm.com/agreement",
     type: "website",
   },
   twitter: {
@@ -43,7 +43,7 @@ export default function AgreementPage() {
         data={webPageSchema(
           "Partnership Agreement | Full Loop CRM",
           "Plain-language partnership agreement for Full Loop CRM partners.",
-          "https://www.fullloopcrm.com/agreement",
+          "https://homeservicesbusinesscrm.com/agreement",
           breadcrumbs
         )}
       />
@@ -269,10 +269,10 @@ export default function AgreementPage() {
             We communicate with you via email and in-app notifications. If you
             need support, reach us at{" "}
             <a
-              href="mailto:support@fullloopcrm.com"
+              href="mailto:support@homeservicesbusinesscrm.com"
               className="text-teal-600 hover:text-teal-700 font-medium"
             >
-              support@fullloopcrm.com
+              support@homeservicesbusinesscrm.com
             </a>
             .
           </p>

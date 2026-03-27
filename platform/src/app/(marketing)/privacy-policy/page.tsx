@@ -7,8 +7,8 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.fullloopcrm.com" },
-  { name: "Privacy Policy", url: "https://www.fullloopcrm.com/privacy-policy" },
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Privacy Policy", url: "https://homeservicesbusinesscrm.com/privacy-policy" },
 ];
 
 export const metadata: Metadata = {
@@ -16,11 +16,11 @@ export const metadata: Metadata = {
   description:
     "Full Loop CRM privacy policy. Learn how we collect, use, and protect your data.",
   keywords: "privacy policy, data protection, Full Loop CRM, GDPR, CCPA, user data",
-  alternates: { canonical: "https://www.fullloopcrm.com/privacy-policy" },
+  alternates: { canonical: "https://homeservicesbusinesscrm.com/privacy-policy" },
   openGraph: {
     title: "Privacy Policy | Full Loop CRM",
     description: "Learn how Full Loop CRM collects, uses, and protects your data.",
-    url: "https://www.fullloopcrm.com/privacy-policy",
+    url: "https://homeservicesbusinesscrm.com/privacy-policy",
     type: "website",
   },
   twitter: {
@@ -37,7 +37,7 @@ export default function PrivacyPolicyPage() {
         data={webPageSchema(
           "Privacy Policy | Full Loop CRM",
           "Full Loop CRM privacy policy.",
-          "https://www.fullloopcrm.com/privacy-policy",
+          "https://homeservicesbusinesscrm.com/privacy-policy",
           breadcrumbs
         )}
       />
@@ -157,7 +157,7 @@ export default function PrivacyPolicyPage() {
             contact us at:
           </p>
           <ul>
-            <li>Email: <a href="mailto:hello@fullloopcrm.com">hello@fullloopcrm.com</a></li>
+            <li>Email: <a href="mailto:hello@homeservicesbusinesscrm.com">hello@homeservicesbusinesscrm.com</a></li>
             <li>Phone: <a href="tel:+12122029220">(212) 202-9220</a></li>
             <li>Address: 150 W 47th St, New York, NY 10036</li>
           </ul>

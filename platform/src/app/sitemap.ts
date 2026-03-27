@@ -8,7 +8,7 @@ import {
 } from '@/lib/marketing/combos'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://www.fullloopcrm.com'
+  const baseUrl = 'https://homeservicesbusinesscrm.com'
   const now = new Date()
 
   // Static marketing pages

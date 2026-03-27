@@ -102,7 +102,7 @@ export default function OGImage() {
             color: "#64748b",
           }}
         >
-          fullloopcrm.com — One partner per trade per metro
+          homeservicesbusinesscrm.com — One partner per trade per metro
         </div>
       </div>
     ),

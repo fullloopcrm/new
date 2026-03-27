@@ -5,8 +5,8 @@ import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
 
 // Hosts that are the marketing site / main app (not tenant sites)
 const MAIN_HOSTS = new Set([
-  'fullloopcrm.com',
-  'www.fullloopcrm.com',
+  'homeservicesbusinesscrm.com',
+  'www.homeservicesbusinesscrm.com',
   'localhost',
   '127.0.0.1',
   'platform-ten-psi.vercel.app',
@@ -20,8 +20,8 @@ function isMainHost(hostname: string): boolean {
 
 function extractSubdomain(hostname: string): string | null {
   const host = hostname.split(':')[0]
-  // Match *.fullloopcrm.com
-  const match = host.match(/^([a-z0-9-]+)\.fullloopcrm\.com$/)
+  // Match *.homeservicesbusinesscrm.com
+  const match = host.match(/^([a-z0-9-]+)\.homeservicesbusinesscrm\.com$/)
   if (match && match[1] !== 'www') {
     return match[1]
   }
@@ -134,7 +134,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 
 /**
  * Rewrite the request to the /site route group, passing tenant context via headers.
- * External URL stays clean (e.g. the-nyc-maid.fullloopcrm.com/services)
+ * External URL stays clean (e.g. the-nyc-maid.homeservicesbusinesscrm.com/services)
  * but internally Next.js renders /site/services.
  */
 function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): NextResponse {

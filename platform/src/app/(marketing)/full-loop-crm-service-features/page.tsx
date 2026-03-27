@@ -24,11 +24,11 @@ export const metadata: Metadata = {
       "Home Service CRM Features | AI-Powered Field Service Platform — Full Loop CRM",
     description:
       "Explore every feature of Full Loop CRM — the all-in-one home service CRM with AI lead generation, automated sales, smart scheduling, GPS field operations, invoicing, review management, and client retargeting.",
-    url: "https://www.fullloopcrm.com/full-loop-crm-service-features",
+    url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-features",
     type: "website",
   },
   alternates: {
-    canonical: "https://www.fullloopcrm.com/full-loop-crm-service-features",
+    canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-service-features",
   },
   twitter: {
     card: "summary_large_image",
@@ -40,8 +40,8 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.fullloopcrm.com" },
-  { name: "Features", url: "https://www.fullloopcrm.com/full-loop-crm-service-features" },
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Features", url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-features" },
 ];
 
 const dashboardPages = [
@@ -103,7 +103,7 @@ export default function FeaturesPage() {
         data={webPageSchema(
           "Home Service CRM Features | Full Loop CRM",
           "Explore every feature of Full Loop CRM — the all-in-one home service CRM with AI lead generation, automated sales, smart scheduling, GPS field operations, invoicing, review management, and client retargeting.",
-          "https://www.fullloopcrm.com/full-loop-crm-service-features",
+          "https://homeservicesbusinesscrm.com/full-loop-crm-service-features",
           breadcrumbs
         )}
       />

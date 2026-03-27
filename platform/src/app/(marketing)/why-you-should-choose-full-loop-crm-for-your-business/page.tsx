@@ -28,13 +28,13 @@ export const metadata: Metadata = {
     "full cycle CRM",
   ],
   alternates: {
-    canonical: "https://www.fullloopcrm.com/why-you-should-choose-full-loop-crm-for-your-business",
+    canonical: "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business",
   },
   openGraph: {
     title: "Why Full Loop CRM | The Only CRM That Closes the Loop",
     description:
       "From first click to five-star review — one platform handles every stage of your home service business. No integrations. No patchwork. Just results.",
-    url: "https://www.fullloopcrm.com/why-you-should-choose-full-loop-crm-for-your-business",
+    url: "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business",
     type: "website",
   },
   twitter: {
@@ -49,8 +49,8 @@ export const metadata: Metadata = {
 /*  Breadcrumbs                                                       */
 /* ------------------------------------------------------------------ */
 const breadcrumbs = [
-  { name: "Home", url: "https://www.fullloopcrm.com" },
-  { name: "Why Full Loop", url: "https://www.fullloopcrm.com/why-you-should-choose-full-loop-crm-for-your-business" },
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Why Full Loop", url: "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -165,7 +165,7 @@ export default function WhyFullLoopPage() {
         data={webPageSchema(
           "Why Full Loop CRM | The Only CRM That Closes the Loop",
           "Full Loop CRM replaces 9+ disconnected tools with one AI-powered platform for home service businesses. Organic leads, AI sales, scheduling, GPS ops, payments, reviews, retargeting.",
-          "https://www.fullloopcrm.com/why-you-should-choose-full-loop-crm-for-your-business",
+          "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business",
           breadcrumbs
         )}
       />

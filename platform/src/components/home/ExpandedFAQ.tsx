@@ -119,7 +119,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "How do I apply to become a partner?",
-    answer: <span>Text us at (212) 202-9220, call us, or email hello@fullloopcrm.com. Tell us your trade and city. We&apos;ll check territory availability. Or <L href="/crm-partnership-request-form">submit a partnership request</L> online.</span>,
+    answer: <span>Text us at (212) 202-9220, call us, or email hello@homeservicesbusinesscrm.com. Tell us your trade and city. We&apos;ll check territory availability. Or <L href="/crm-partnership-request-form">submit a partnership request</L> online.</span>,
   },
 ];
 

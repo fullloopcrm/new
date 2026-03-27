@@ -19,6 +19,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: 'https://www.fullloopcrm.com/sitemap.xml',
+    sitemap: 'https://homeservicesbusinesscrm.com/sitemap.xml',
   }
 }

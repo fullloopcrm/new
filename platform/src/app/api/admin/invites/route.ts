@@ -62,7 +62,7 @@ export async function POST(request: Request) {
   }
 
   // Send invite email
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.fullloopcrm.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'
   const joinUrl = `${baseUrl}/join/${token}`
 
   try {

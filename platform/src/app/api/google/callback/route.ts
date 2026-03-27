@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const error = url.searchParams.get('error')
   const tenantId = url.searchParams.get('state') || ''
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.fullloopcrm.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
 
   if (error) {
     return NextResponse.redirect(`${baseUrl}/dashboard/google?error=${error}`)

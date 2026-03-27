@@ -7,8 +7,8 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.fullloopcrm.com" },
-  { name: "Terms of Service", url: "https://www.fullloopcrm.com/terms" },
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Terms of Service", url: "https://homeservicesbusinesscrm.com/terms" },
 ];
 
 export const metadata: Metadata = {
@@ -16,11 +16,11 @@ export const metadata: Metadata = {
   description:
     "Full Loop CRM terms of service. Read the terms governing use of the Full Loop CRM platform and partnership agreements.",
   keywords: "terms of service, service agreement, Full Loop CRM, user agreement, legal terms",
-  alternates: { canonical: "https://www.fullloopcrm.com/terms" },
+  alternates: { canonical: "https://homeservicesbusinesscrm.com/terms" },
   openGraph: {
     title: "Terms of Service | Full Loop CRM",
     description: "Terms governing use of the Full Loop CRM platform and partnership agreements.",
-    url: "https://www.fullloopcrm.com/terms",
+    url: "https://homeservicesbusinesscrm.com/terms",
     type: "website",
   },
   twitter: {
@@ -37,7 +37,7 @@ export default function TermsPage() {
         data={webPageSchema(
           "Terms of Service | Full Loop CRM",
           "Terms governing use of the Full Loop CRM platform.",
-          "https://www.fullloopcrm.com/terms",
+          "https://homeservicesbusinesscrm.com/terms",
           breadcrumbs
         )}
       />
@@ -171,7 +171,7 @@ export default function TermsPage() {
             Questions about these Terms? Contact us at:
           </p>
           <ul>
-            <li>Email: <a href="mailto:hello@fullloopcrm.com">hello@fullloopcrm.com</a></li>
+            <li>Email: <a href="mailto:hello@homeservicesbusinesscrm.com">hello@homeservicesbusinesscrm.com</a></li>
             <li>Phone: <a href="tel:+12122029220">(212) 202-9220</a></li>
             <li>Address: 150 W 47th St, New York, NY 10036</li>
           </ul>

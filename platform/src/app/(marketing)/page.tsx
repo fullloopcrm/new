@@ -40,7 +40,7 @@ const BlogPreview = dynamic(() => import("@/components/home/BlogPreview"));
 const FinalCTA = dynamic(() => import("@/components/home/FinalCTA"));
 const ExitIntent = dynamic(() => import("@/components/home/ExitIntent"));
 
-const breadcrumbs = [{ name: "Home", url: "https://www.fullloopcrm.com" }];
+const breadcrumbs = [{ name: "Home", url: "https://homeservicesbusinesscrm.com" }];
 
 export default function Home() {
   return (
@@ -50,7 +50,7 @@ export default function Home() {
         data={webPageSchema(
           "Full Loop CRM | The All-in-One Home Service CRM Platform",
           "The first full-cycle CRM for home service businesses. AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting — one platform, zero integrations.",
-          "https://www.fullloopcrm.com",
+          "https://homeservicesbusinesscrm.com",
           breadcrumbs
         )}
       />

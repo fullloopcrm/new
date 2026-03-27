@@ -8,8 +8,8 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.fullloopcrm.com" },
-  { name: "Contact", url: "https://www.fullloopcrm.com/contact" },
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Contact", url: "https://homeservicesbusinesscrm.com/contact" },
 ];
 
 export const metadata: Metadata = {
@@ -22,12 +22,12 @@ export const metadata: Metadata = {
     "CRM partnership inquiry",
     "full loop CRM phone number",
   ],
-  alternates: { canonical: "https://www.fullloopcrm.com/contact" },
+  alternates: { canonical: "https://homeservicesbusinesscrm.com/contact" },
   openGraph: {
     title: "Contact Full Loop CRM | Get in Touch",
     description:
       "Contact Full Loop CRM to learn about exclusive territory partnerships for your home service business.",
-    url: "https://www.fullloopcrm.com/contact",
+    url: "https://homeservicesbusinesscrm.com/contact",
     type: "website",
   },
   twitter: {
@@ -45,7 +45,7 @@ export default function ContactPage() {
         data={webPageSchema(
           "Contact Full Loop CRM | Get in Touch",
           "Contact Full Loop CRM to learn about exclusive territory partnerships for your home service business.",
-          "https://www.fullloopcrm.com/contact",
+          "https://homeservicesbusinesscrm.com/contact",
           breadcrumbs
         )}
       />
@@ -129,10 +129,10 @@ export default function ContactPage() {
                 For partnership inquiries and support.
               </p>
               <a
-                href="mailto:hello@fullloopcrm.com"
+                href="mailto:hello@homeservicesbusinesscrm.com"
                 className="text-teal-600 font-bold text-lg hover:text-teal-700 transition-colors"
               >
-                hello@fullloopcrm.com
+                hello@homeservicesbusinesscrm.com
               </a>
             </div>
           </div>

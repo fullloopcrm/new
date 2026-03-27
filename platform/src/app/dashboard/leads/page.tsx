@@ -77,7 +77,7 @@ export default function LeadsPage() {
       .catch(() => {})
   }, [])
 
-  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://app.fullloopcrm.com'
+  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://app.homeservicesbusinesscrm.com'
   const trackingCode = `<script src="${appUrl}/t.js" data-tenant="${tenantId || 'YOUR_TENANT_ID'}"></script>`
 
   function copyCode() {

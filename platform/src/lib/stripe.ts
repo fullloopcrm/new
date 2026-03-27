@@ -85,7 +85,7 @@ export async function createPaymentLink({
   const link = await stripe.paymentLinks.create({
     line_items: [{ price: price.id, quantity: 1 }],
     metadata: { booking_id: bookingId, tenant_id: tenantId },
-    after_completion: { type: 'redirect', redirect: { url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.fullloopcrm.com'}/portal` } },
+    after_completion: { type: 'redirect', redirect: { url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/portal` } },
   })
 
   return link

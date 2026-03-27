@@ -159,10 +159,10 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="mailto:hello@fullloopcrm.com"
+                  href="mailto:hello@homeservicesbusinesscrm.com"
                   className="transition-colors hover:text-teal-400"
                 >
-                  hello@fullloopcrm.com
+                  hello@homeservicesbusinesscrm.com
                 </a>
               </li>
               <li className="leading-relaxed">

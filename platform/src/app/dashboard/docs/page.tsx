@@ -233,7 +233,7 @@ export default function DocsPage() {
           <h3 className="text-lg font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-200">Need Help?</h3>
           <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
             <p>If you need assistance or have questions about your account, reach out to us:</p>
-            <p><strong>Email:</strong> support@fullloopcrm.com</p>
+            <p><strong>Email:</strong> support@homeservicesbusinesscrm.com</p>
             <p>We typically respond within a few hours during business hours.</p>
           </div>
         </section>

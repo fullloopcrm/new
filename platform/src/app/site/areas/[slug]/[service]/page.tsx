@@ -74,7 +74,7 @@ export default async function AreaServicePage({
   const industry = tenant.industry || "Professional Services";
   const siteUrl = tenant.domain
     ? `https://${tenant.domain}`
-    : "https://fullloopcrm.com";
+    : "https://homeservicesbusinesscrm.com";
 
   const content = generateContent(industry, businessName, {
     service: service.name,

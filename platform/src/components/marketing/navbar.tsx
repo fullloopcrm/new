@@ -392,7 +392,7 @@ export default function Navbar() {
                 <div className="mt-6 flex flex-col gap-2 text-sm text-slate-500">
                   <a href="sms:+12122029220" className="hover:text-green-600 transition-colors">Text Us: (212) 202-9220</a>
                   <a href="tel:+12122029220" className="hover:text-green-600 transition-colors">Call Us: (212) 202-9220</a>
-                  <a href="mailto:hello@fullloopcrm.com" className="hover:text-green-600 transition-colors">hello@fullloopcrm.com</a>
+                  <a href="mailto:hello@homeservicesbusinesscrm.com" className="hover:text-green-600 transition-colors">hello@homeservicesbusinesscrm.com</a>
                 </div>
               </div>
             </motion.div>

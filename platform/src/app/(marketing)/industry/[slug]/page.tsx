@@ -38,7 +38,7 @@ export async function generateMetadata({
   const trade = industry.name.toLowerCase();
   const title = `Best CRM for ${industry.name} Businesses | Full Loop CRM`;
   const description = `The best CRM built for ${trade} businesses. AI-powered lead generation, automated sales, smart scheduling, GPS dispatch, invoicing, review management & retargeting in one platform. Plans from $199/mo.`;
-  const url = `https://www.fullloopcrm.com/industry/${slug}`;
+  const url = `https://homeservicesbusinesscrm.com/industry/${slug}`;
 
   return {
     title,
@@ -148,12 +148,12 @@ export default async function IndustryPage({
   const industry = findIndustry(slug);
   if (!industry) notFound();
 
-  const pageUrl = `https://www.fullloopcrm.com/industry/${slug}`;
+  const pageUrl = `https://homeservicesbusinesscrm.com/industry/${slug}`;
   const trade = industry.name.toLowerCase();
 
   const breadcrumbs = [
-    { name: "Home", url: "https://www.fullloopcrm.com" },
-    { name: "Industries", url: "https://www.fullloopcrm.com/full-loop-crm-service-business-industries" },
+    { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+    { name: "Industries", url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries" },
     {
       name: `Best CRM for ${industry.name} Businesses`,
       url: pageUrl,

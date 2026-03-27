@@ -69,7 +69,7 @@ export async function POST(request: Request) {
           <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 16px 0;">
             <p style="color: #333; white-space: pre-wrap; margin: 0;">${message.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
           </div>
-          <a href="https://www.fullloopcrm.com/admin/feedback" style="display: inline-block; background: #333; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">View in Admin</a>
+          <a href="https://homeservicesbusinesscrm.com/admin/feedback" style="display: inline-block; background: #333; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">View in Admin</a>
         </div>
       `,
     }).catch(() => {})

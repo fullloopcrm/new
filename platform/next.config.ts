@@ -5,13 +5,18 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/:path*',
-        has: [{ type: 'host', value: 'fullloopcrm.com' }],
-        destination: 'https://www.fullloopcrm.com/:path*',
+        has: [{ type: 'host', value: 'www.homeservicesbusinesscrm.com' }],
+        destination: 'https://homeservicesbusinesscrm.com/:path*',
         permanent: true,
       },
       {
         source: '/sm.xml',
         destination: '/sitemap.xml',
+        permanent: true,
+      },
+      {
+        source: '/features',
+        destination: '/full-loop-crm-service-features',
         permanent: true,
       },
     ]

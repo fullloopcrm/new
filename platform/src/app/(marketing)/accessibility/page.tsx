@@ -7,8 +7,8 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.fullloopcrm.com" },
-  { name: "Accessibility", url: "https://www.fullloopcrm.com/accessibility" },
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Accessibility", url: "https://homeservicesbusinesscrm.com/accessibility" },
 ];
 
 export const metadata: Metadata = {
@@ -16,11 +16,11 @@ export const metadata: Metadata = {
   description:
     "Full Loop CRM is committed to digital accessibility for all users. Learn about our accessibility standards and how to report issues.",
   keywords: "accessibility, WCAG, ADA compliance, Full Loop CRM, web accessibility, screen reader",
-  alternates: { canonical: "https://www.fullloopcrm.com/accessibility" },
+  alternates: { canonical: "https://homeservicesbusinesscrm.com/accessibility" },
   openGraph: {
     title: "Accessibility | Full Loop CRM",
     description: "Our commitment to digital accessibility for all users.",
-    url: "https://www.fullloopcrm.com/accessibility",
+    url: "https://homeservicesbusinesscrm.com/accessibility",
     type: "website",
   },
   twitter: {
@@ -37,7 +37,7 @@ export default function AccessibilityPage() {
         data={webPageSchema(
           "Accessibility | Full Loop CRM",
           "Full Loop CRM accessibility statement.",
-          "https://www.fullloopcrm.com/accessibility",
+          "https://homeservicesbusinesscrm.com/accessibility",
           breadcrumbs
         )}
       />
@@ -109,7 +109,7 @@ export default function AccessibilityPage() {
             improvement, please contact us:
           </p>
           <ul>
-            <li>Email: <a href="mailto:hello@fullloopcrm.com">hello@fullloopcrm.com</a></li>
+            <li>Email: <a href="mailto:hello@homeservicesbusinesscrm.com">hello@homeservicesbusinesscrm.com</a></li>
             <li>Phone: <a href="tel:+12122029220">(212) 202-9220</a></li>
             <li>Text: <a href="sms:+12122029220">(212) 202-9220</a></li>
           </ul>

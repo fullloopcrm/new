@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const name = tenant?.name || 'Our Company'
   const phone = tenant?.phone || ''
   const tagline = tenant?.tagline || `Professional services by ${name}`
-  const url = tenant?.website_url || (tenant?.slug ? `https://${tenant.slug}.fullloopcrm.com` : '')
+  const url = tenant?.website_url || (tenant?.slug ? `https://${tenant.slug}.homeservicesbusinesscrm.com` : '')
 
   return {
     title: { absolute: `${name} — ${tagline}` },

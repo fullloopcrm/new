@@ -46,7 +46,7 @@ export async function POST(request: Request) {
         <p><strong>Industry:</strong> ${industry || 'Not specified'}</p>
         ${message ? `<p><strong>Message:</strong> ${message}</p>` : ''}
         <br>
-        <p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.fullloopcrm.com'}/admin">View in Admin</a></p>
+        <p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/admin">View in Admin</a></p>
       `,
     })
   } catch {

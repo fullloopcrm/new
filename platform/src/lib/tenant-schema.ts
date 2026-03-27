@@ -27,7 +27,7 @@ export function tenantLocalBusinessSchema(
   services: ServiceType[],
   areas: string[]
 ) {
-  const url = tenant.website_url || `https://${tenant.slug}.fullloopcrm.com`
+  const url = tenant.website_url || `https://${tenant.slug}.homeservicesbusinesscrm.com`
 
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -87,7 +87,7 @@ export function tenantLocalBusinessSchema(
  * Single Service schema — for /services/[slug] pages
  */
 export function tenantServiceSchema(tenant: TenantBase, service: ServiceType) {
-  const url = tenant.website_url || `https://${tenant.slug}.fullloopcrm.com`
+  const url = tenant.website_url || `https://${tenant.slug}.homeservicesbusinesscrm.com`
 
   return {
     '@context': 'https://schema.org',
@@ -125,7 +125,7 @@ export function tenantJobPostingSchema(
   area: string,
   payRange?: { min?: number; max?: number }
 ) {
-  const url = tenant.website_url || `https://${tenant.slug}.fullloopcrm.com`
+  const url = tenant.website_url || `https://${tenant.slug}.homeservicesbusinesscrm.com`
   const industry = tenant.industry || 'Professional Services'
 
   const schema: Record<string, unknown> = {

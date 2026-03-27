@@ -70,7 +70,7 @@ export async function generateMetadata({
 
   const title = `Best Home Service CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
   const description = `The best CRM for home service businesses in ${metro.city}, ${metro.stateAbbr}. AI-powered lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one partner per trade. Plans from $199/mo.`;
-  const url = `https://www.fullloopcrm.com/location/${slug}`;
+  const url = `https://homeservicesbusinesscrm.com/location/${slug}`;
 
   return {
     title,
@@ -158,11 +158,11 @@ export default async function LocationPage({
   const metro = findMetroBySlug(slug);
   if (!metro) notFound();
 
-  const pageUrl = `https://www.fullloopcrm.com/location/${slug}`;
+  const pageUrl = `https://homeservicesbusinesscrm.com/location/${slug}`;
 
   const breadcrumbs = [
-    { name: "Home", url: "https://www.fullloopcrm.com" },
-    { name: "Locations", url: "https://www.fullloopcrm.com/location" },
+    { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+    { name: "Locations", url: "https://homeservicesbusinesscrm.com/location" },
     {
       name: `Best Home Service CRM in ${metro.city}, ${metro.stateAbbr}`,
       url: pageUrl,

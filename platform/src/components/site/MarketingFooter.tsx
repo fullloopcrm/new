@@ -88,7 +88,7 @@ export default function MarketingFooter({ businessName, phone, email, services, 
             <Link href="/refund-policy" className="hover:text-gray-300 transition-colors">Refunds</Link>
             <Link href="/legal" className="hover:text-gray-300 transition-colors">Legal</Link>
           </div>
-          <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} {businessName}{phone ? <> &middot; <a href={`tel:${phoneDigits}`} className="text-[var(--brand-accent)]/70 hover:text-[var(--brand-accent)]">{phone}</a></> : null} &middot; Powered by{' '}<a href="https://www.fullloopcrm.com/" target="_blank" rel="noopener noreferrer" className="text-[var(--brand-accent)] font-semibold hover:text-white underline underline-offset-2 decoration-[var(--brand-accent)]/50">FullLoop CRM</a></p>
+          <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} {businessName}{phone ? <> &middot; <a href={`tel:${phoneDigits}`} className="text-[var(--brand-accent)]/70 hover:text-[var(--brand-accent)]">{phone}</a></> : null} &middot; Powered by{' '}<a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-[var(--brand-accent)] font-semibold hover:text-white underline underline-offset-2 decoration-[var(--brand-accent)]/50">FullLoop CRM</a></p>
         </div>
       </div>
     </footer>

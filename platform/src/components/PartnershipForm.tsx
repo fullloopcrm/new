@@ -453,7 +453,7 @@ export default function PartnershipForm() {
                 Call Us: (212) 202-9220
               </a>
               <a
-                href="mailto:hello@fullloopcrm.com"
+                href="mailto:hello@homeservicesbusinesscrm.com"
                 className="flex items-center gap-3 text-teal-600 hover:text-teal-700 transition-colors font-cta text-sm"
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-100 text-teal-600">
@@ -461,7 +461,7 @@ export default function PartnershipForm() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </span>
-                hello@fullloopcrm.com
+                hello@homeservicesbusinesscrm.com
               </a>
             </div>
           </div>

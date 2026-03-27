@@ -42,7 +42,7 @@ export default function FinalCTA() {
               Call Us
             </a>
             <a
-              href="mailto:hello@fullloopcrm.com"
+              href="mailto:hello@homeservicesbusinesscrm.com"
               className="inline-block px-10 py-5 text-lg font-bold text-white rounded-xl bg-teal-700 hover:bg-teal-800 border border-white/20 transition-colors shadow-lg font-cta w-full sm:w-auto"
             >
               Email Us

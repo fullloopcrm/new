@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const baseUrl = tenant.website_url || `https://${tenant.slug}.fullloopcrm.com`
+  const baseUrl = tenant.website_url || `https://${tenant.slug}.homeservicesbusinesscrm.com`
 
   // Fetch services
   const { data: services } = await supabaseAdmin

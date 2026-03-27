@@ -7,7 +7,7 @@ import {
   articleSchema,
 } from "@/lib/schema";
 
-const BASE = "https://www.fullloopcrm.com";
+const BASE = "https://homeservicesbusinesscrm.com";
 const PAGE_URL = `${BASE}/case-study/the-nyc-maid`;
 
 const breadcrumbs = [

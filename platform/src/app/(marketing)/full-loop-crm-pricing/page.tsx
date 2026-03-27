@@ -26,12 +26,12 @@ export const metadata: Metadata = {
     "Full Loop CRM pricing",
     "affordable home service CRM",
   ],
-  alternates: { canonical: "https://www.fullloopcrm.com/full-loop-crm-pricing" },
+  alternates: { canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
   openGraph: {
     title: "Pricing | Full Loop CRM — All Features, Every Tier",
     description:
       "4 tiers starting at $199/mo. Every plan gets the same platform, same Selena AI, same website, same CRM. The only difference is team size. No contracts.",
-    url: "https://www.fullloopcrm.com/full-loop-crm-pricing",
+    url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
     siteName: "Full Loop CRM",
     type: "website",
   },
@@ -47,8 +47,8 @@ export const metadata: Metadata = {
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 const breadcrumbs = [
-  { name: "Home", url: "https://www.fullloopcrm.com" },
-  { name: "Pricing", url: "https://www.fullloopcrm.com/full-loop-crm-pricing" },
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Pricing", url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
 ];
 
 const tiers = [
@@ -159,7 +159,7 @@ export default function PricingPage() {
         data={webPageSchema(
           "Pricing | Full Loop CRM",
           "4 simple tiers, all features included. Full Loop CRM replaces 9+ tools for home service businesses. Plans from $199/mo. No contracts.",
-          "https://www.fullloopcrm.com/full-loop-crm-pricing",
+          "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
           breadcrumbs
         )}
       />

@@ -29,7 +29,7 @@ export async function sendEmail({
   }
 
   return withRetry(async () => {
-    const sender = from || 'Full Loop CRM <noreply@fullloopcrm.com>'
+    const sender = from || 'Full Loop CRM <noreply@homeservicesbusinesscrm.com>'
 
     const { data, error } = await client.emails.send({
       from: sender,

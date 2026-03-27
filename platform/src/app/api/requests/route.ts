@@ -277,7 +277,7 @@ function generateRequestEmailHtml({
 
       <!-- CTA -->
       <div style="text-align: center; margin-top: 30px;">
-        <a href="https://www.fullloopcrm.com/admin/requests" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">View in Admin Dashboard</a>
+        <a href="https://homeservicesbusinesscrm.com/admin/requests" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">View in Admin Dashboard</a>
       </div>
 
     </div>

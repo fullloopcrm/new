@@ -4,12 +4,12 @@ export const metadata: Metadata = {
   title: "Anonymous Feedback | Full Loop CRM",
   description:
     "Share your thoughts, suggestions, or concerns about Full Loop CRM. 100% anonymous — no account or identity required.",
-  alternates: { canonical: "https://www.fullloopcrm.com/feedback" },
+  alternates: { canonical: "https://homeservicesbusinesscrm.com/feedback" },
   openGraph: {
     title: "Anonymous Feedback | Full Loop CRM",
     description:
       "Share anonymous feedback about Full Loop CRM. No tracking, no cookies, no identity collected.",
-    url: "https://www.fullloopcrm.com/feedback",
+    url: "https://homeservicesbusinesscrm.com/feedback",
     type: "website",
   },
   twitter: {

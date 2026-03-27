@@ -3,19 +3,19 @@
 export const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "@id": "https://www.fullloopcrm.com/#organization",
+  "@id": "https://homeservicesbusinesscrm.com/#organization",
   name: "Full Loop CRM",
-  url: "https://www.fullloopcrm.com",
+  url: "https://homeservicesbusinesscrm.com",
   logo: {
     "@type": "ImageObject",
-    url: "https://www.fullloopcrm.com/logo.png",
+    url: "https://homeservicesbusinesscrm.com/logo.png",
     width: 600,
     height: 60,
   },
-  image: "https://www.fullloopcrm.com/opengraph-image",
+  image: "https://homeservicesbusinesscrm.com/opengraph-image",
   description:
     "Full Loop CRM is the first full-cycle CRM for home service businesses — AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
-  email: "hello@fullloopcrm.com",
+  email: "hello@homeservicesbusinesscrm.com",
   address: {
     "@type": "PostalAddress",
     streetAddress: "150 W 47th St",
@@ -71,13 +71,13 @@ export const organizationSchema = {
 export const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "@id": "https://www.fullloopcrm.com/#website",
-  url: "https://www.fullloopcrm.com",
+  "@id": "https://homeservicesbusinesscrm.com/#website",
+  url: "https://homeservicesbusinesscrm.com",
   name: "Full Loop CRM",
   description:
     "The first full-cycle CRM for home service businesses. AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
   publisher: {
-    "@id": "https://www.fullloopcrm.com/#organization",
+    "@id": "https://homeservicesbusinesscrm.com/#organization",
   },
   inLanguage: "en-US",
 };
@@ -86,10 +86,10 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "@id": `https://www.fullloopcrm.com/${area.toLowerCase().replace(/\s+/g, "-")}/#software`,
+    "@id": `https://homeservicesbusinesscrm.com/${area.toLowerCase().replace(/\s+/g, "-")}/#software`,
     name: `Full Loop CRM - ${area}`,
-    image: "https://www.fullloopcrm.com/opengraph-image",
-    url: `https://www.fullloopcrm.com/${area.toLowerCase().replace(/\s+/g, "-")}`,
+    image: "https://homeservicesbusinesscrm.com/opengraph-image",
+    url: `https://homeservicesbusinesscrm.com/${area.toLowerCase().replace(/\s+/g, "-")}`,
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     offers: {
@@ -108,7 +108,7 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
       name: area,
     },
     provider: {
-      "@id": "https://www.fullloopcrm.com/#organization",
+      "@id": "https://homeservicesbusinesscrm.com/#organization",
     },
   };
 }
@@ -122,14 +122,14 @@ export function serviceSchema(
   const base: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Service",
-    "@id": `https://www.fullloopcrm.com/${serviceSlug}/#service`,
+    "@id": `https://homeservicesbusinesscrm.com/${serviceSlug}/#service`,
     name: serviceName,
     description,
     url: area
-      ? `https://www.fullloopcrm.com/${serviceSlug}/${area.toLowerCase().replace(/\s+/g, "-")}`
-      : `https://www.fullloopcrm.com/${serviceSlug}`,
+      ? `https://homeservicesbusinesscrm.com/${serviceSlug}/${area.toLowerCase().replace(/\s+/g, "-")}`
+      : `https://homeservicesbusinesscrm.com/${serviceSlug}`,
     provider: {
-      "@id": "https://www.fullloopcrm.com/#organization",
+      "@id": "https://homeservicesbusinesscrm.com/#organization",
     },
     serviceType: serviceName,
     areaServed: area
@@ -181,8 +181,8 @@ export function webPageSchema(
     url,
     name: title,
     description,
-    isPartOf: { "@id": "https://www.fullloopcrm.com/#website" },
-    about: { "@id": "https://www.fullloopcrm.com/#organization" },
+    isPartOf: { "@id": "https://homeservicesbusinesscrm.com/#website" },
+    about: { "@id": "https://homeservicesbusinesscrm.com/#organization" },
     datePublished: "2025-01-01",
     dateModified: new Date().toISOString().split("T")[0],
     inLanguage: "en-US",
@@ -209,14 +209,14 @@ export function articleSchema(
     headline: title,
     description,
     url,
-    image: image || "https://www.fullloopcrm.com/opengraph-image",
+    image: image || "https://homeservicesbusinesscrm.com/opengraph-image",
     datePublished,
     dateModified,
     author: {
-      "@id": "https://www.fullloopcrm.com/#organization",
+      "@id": "https://homeservicesbusinesscrm.com/#organization",
     },
     publisher: {
-      "@id": "https://www.fullloopcrm.com/#organization",
+      "@id": "https://homeservicesbusinesscrm.com/#organization",
     },
     mainEntityOfPage: {
       "@type": "WebPage",
@@ -249,14 +249,14 @@ export function softwareApplicationSchema(
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "@id": "https://www.fullloopcrm.com/#software",
+    "@id": "https://homeservicesbusinesscrm.com/#software",
     name: "Full Loop CRM",
     description:
       "The first full-cycle CRM for home service businesses — AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
-    url: "https://www.fullloopcrm.com",
+    url: "https://homeservicesbusinesscrm.com",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
-    image: "https://www.fullloopcrm.com/opengraph-image",
+    image: "https://homeservicesbusinesscrm.com/opengraph-image",
     offers: {
       "@type": "Offer",
       price,
@@ -267,7 +267,7 @@ export function softwareApplicationSchema(
         .toISOString()
         .split("T")[0],
       availability: "https://schema.org/InStock",
-      url: "https://www.fullloopcrm.com/full-loop-crm-pricing",
+      url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
       priceSpecification: {
         "@type": "UnitPriceSpecification",
         price,
@@ -288,7 +288,7 @@ export function softwareApplicationSchema(
       worstRating: "1",
     },
     provider: {
-      "@id": "https://www.fullloopcrm.com/#organization",
+      "@id": "https://homeservicesbusinesscrm.com/#organization",
     },
     featureList: [
       "AI-Powered Lead Generation",
@@ -335,7 +335,7 @@ export function howToSchema(
     name,
     description,
     totalTime: "PT30M",
-    image: "https://www.fullloopcrm.com/opengraph-image",
+    image: "https://homeservicesbusinesscrm.com/opengraph-image",
     step: steps.map((step, index) => ({
       "@type": "HowToStep",
       position: index + 1,

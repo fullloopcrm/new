@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: 'Full Loop CRM — The First Full-Cycle CRM for Home Service Businesses',
     description: 'From lead generation to 5-star reviews. The only CRM that closes the entire business loop for home service companies.',
     type: 'website',
-    url: 'https://www.fullloopcrm.com',
+    url: 'https://homeservicesbusinesscrm.com',
     siteName: 'Full Loop CRM',
   },
   twitter: {
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     icon: '/icon.svg',
   },
   alternates: {
-    canonical: 'https://www.fullloopcrm.com',
+    canonical: 'https://homeservicesbusinesscrm.com',
   },
 }
 

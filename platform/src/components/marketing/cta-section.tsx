@@ -19,7 +19,7 @@ export default function CtaSection({
       <div className="cta-buttons" style={{marginTop: '1rem', gap: '1rem'}}>
         <a href="sms:+12122029220" className="btn-outline">Text Us</a>
         <a href="tel:+12122029220" className="btn-outline">Call Us</a>
-        <a href="mailto:hello@fullloopcrm.com" className="btn-outline">Email Us</a>
+        <a href="mailto:hello@homeservicesbusinesscrm.com" className="btn-outline">Email Us</a>
       </div>
     </section>
   )
