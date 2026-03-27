@@ -9,6 +9,7 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], weight: ['500', '600', 
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], weight: ['400'], variable: '--font-jetbrains', display: 'swap' })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://homeservicesbusinesscrm.com'),
   title: 'Full Loop CRM | The First Full-Cycle CRM for Home Service Businesses',
   description: 'Full Loop CRM is the first full-cycle CRM for home service businesses — organic lead generation, AI sales chatbot, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.',
   keywords: 'home service CRM, cleaning business CRM, full cycle CRM, lead generation CRM, AI sales chatbot, field service management, booking software for cleaners, maid service software',
