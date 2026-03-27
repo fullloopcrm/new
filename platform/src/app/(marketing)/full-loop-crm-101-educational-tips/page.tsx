@@ -32,9 +32,9 @@ const crm101Faqs = [
       "It depends on your size and needs. If you just need scheduling, Jobber or Housecall Pro work fine. If you want marketing automation, look at GoHighLevel or ServiceTitan. If you want lead generation, AI sales, and the full cycle handled for you, Full Loop CRM is built specifically for that. There's no universal 'best' — only what fits your stage of growth.",
   },
   {
-    question: "Is a $2,500/month CRM worth it?",
+    question: "Is a full-service CRM worth the investment?",
     answer:
-      "Only if it replaces $2,500+ in other tools and generates enough revenue to justify itself. If a CRM generates 20 new leads per month and you close half at $300 each, that's $3,000 in new revenue — before counting the time you save. If it's just a glorified calendar, it's not worth $50/month.",
+      "Only if it replaces multiple tools and generates enough revenue to justify itself. If a CRM generates 20 new leads per month and you close half at $300 each, that's $3,000 in new revenue — before counting the time you save. Full Loop starts at $199/month and replaces 9+ separate tools. If your CRM is just a glorified calendar, it's not worth $50/month.",
   },
   {
     question: "Can I just use HubSpot or Salesforce for my service business?",

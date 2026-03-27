@@ -37,7 +37,7 @@ export async function generateMetadata({
 
   const trade = industry.name.toLowerCase();
   const title = `Best CRM for ${industry.name} Businesses | Full Loop CRM`;
-  const description = `The best CRM built for ${trade} businesses. AI-powered lead generation, automated sales, smart scheduling, GPS dispatch, invoicing, review management & retargeting in one platform. $2,500/mo.`;
+  const description = `The best CRM built for ${trade} businesses. AI-powered lead generation, automated sales, smart scheduling, GPS dispatch, invoicing, review management & retargeting in one platform. Plans from $199/mo.`;
   const url = `https://www.fullloopcrm.com/industry/${slug}`;
 
   return {
@@ -288,17 +288,17 @@ export default async function IndustryPage({
       <section className="py-20 px-6 bg-white">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            One Plan. Everything Included.
+            Every Plan Gets Everything.
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
-            $2,500<span className="text-xl text-slate-500 font-normal">/mo</span>
+            $199<span className="text-xl text-slate-500 font-normal">/mo</span>
           </p>
           <p className="text-slate-600 mb-6 text-lg">
             Exclusive {trade} territory. No other {trade} partner
             competes with you in your market.
           </p>
           <p className="text-sm text-slate-500 mb-8">
-            No setup fees. No long-term contracts. Cancel anytime.
+            $999 one-time setup. No contracts. Cancel anytime.
           </p>
           <Link
             href="/full-loop-crm-pricing"

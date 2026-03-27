@@ -54,10 +54,9 @@ export default function Hero() {
           className="flex items-center justify-center gap-4 mb-6 animate-hero-slide-up"
           style={{ animationDelay: "0.3s" }}
         >
-          <span className="text-2xl sm:text-3xl text-white/40 line-through font-mono">$178,800</span>
-          <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">$2,500<span className="text-lg sm:text-xl text-white/60 font-normal">/mo</span></span>
+          <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">$199<span className="text-lg sm:text-xl text-white/60 font-normal">/mo</span></span>
           <span className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-wider uppercase px-3 py-1.5 rounded font-cta">
-            SAVE 83%
+            ALL FEATURES INCLUDED
           </span>
         </div>
 

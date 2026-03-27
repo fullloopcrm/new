@@ -22,10 +22,8 @@ const included = [
 ];
 
 const buyoutSchedule = [
-  { year: "Year 1", price: "$25,000" },
-  { year: "Year 2", price: "$35,000" },
-  { year: "Year 3", price: "$45,000" },
-  { year: "Year 5", price: "$65,000" },
+  { year: "Buy Now", price: "$5,000" },
+  { year: "Later Buyout", price: "$20,000+" },
 ];
 
 export default function PricingSlider() {
@@ -43,53 +41,78 @@ export default function PricingSlider() {
             Home Service CRM Pricing
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 font-heading">
-            One Price. One Partner.{" "}
+            Every Plan Gets Everything.{" "}
             <span className="text-teal-600">Full Loop.</span>
           </h2>
           <p className="mt-4 text-slate-600 text-lg max-w-2xl mx-auto">
-            No tiers. No upsells. No hidden fees. Every{" "}
+            No upsells. No hidden fees. No feature gates. Every{" "}
             <Link href="/full-loop-crm-101-educational-tips" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">home service CRM</Link>{" "}
-            partner gets the complete platform. View our full{" "}
+            tier gets the complete platform. The only difference is team size. View our full{" "}
             <Link href="/full-loop-crm-pricing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">pricing guide</Link>.
           </p>
         </motion.div>
 
-        {/* Main Partnership Card */}
+        {/* Pricing Tiers */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.15 }}
+          className="mb-8"
+        >
+          <p className="text-center text-sm text-slate-500 mb-6 font-cta">$999 one-time setup fee &mdash; same for every tier</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { name: "Starter", price: "$199", period: "/mo", desc: "Solo operator", team: "1 team member" },
+              { name: "Growth", price: "$499", period: "/mo", desc: "$100K–$250K revenue", team: "Up to 5 members" },
+              { name: "Pro", price: "$999", period: "/mo", desc: "$250K–$1M revenue", team: "Unlimited members", highlighted: true },
+              { name: "Enterprise", price: "Get Pricing", period: "", desc: "$1M+ revenue", team: "Unlimited + multi-location" },
+            ].map((tier) => (
+              <div
+                key={tier.name}
+                className={`rounded-2xl border-2 p-6 text-center ${
+                  tier.highlighted
+                    ? "border-teal-600 bg-white shadow-lg scale-[1.02]"
+                    : "border-slate-200 bg-white shadow-sm"
+                }`}
+              >
+                {tier.highlighted && (
+                  <span className="inline-block mb-2 rounded-full bg-teal-600 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                    Most Popular
+                  </span>
+                )}
+                <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider font-cta">{tier.name}</p>
+                <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-mono mt-2">
+                  {tier.price}
+                  <span className="text-lg text-slate-400 font-medium">{tier.period}</span>
+                </div>
+                <p className="text-slate-500 text-xs mt-1">{tier.desc}</p>
+                <p className="text-teal-600 text-sm font-medium mt-3">{tier.team}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-sm text-slate-500 mt-4">No contracts. Month to month. Cancel anytime.</p>
+        </motion.div>
+
+        {/* Included features */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.25 }}
           className="rounded-2xl border-2 border-teal-600 bg-white shadow-lg p-6 sm:p-10 mb-8"
         >
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-10 mb-8">
-            <div className="text-center sm:text-left shrink-0">
-              <p className="text-teal-600 text-xs font-semibold tracking-[0.15em] uppercase mb-2 font-cta">
-                CRM Partnership
-              </p>
-              <div className="text-5xl sm:text-6xl font-extrabold text-slate-900 font-mono leading-none">
-                $2,500
-                <span className="text-xl sm:text-2xl text-slate-400 font-medium">
-                  /mo
-                </span>
-              </div>
-              <p className="text-slate-500 text-sm mt-2">
-                $30,000/year &mdash; billed monthly
-              </p>
-            </div>
-            <div className="flex-1">
-              <p className="text-slate-700 text-base leading-relaxed">
-                The complete{" "}
-                <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">autonomous field service CRM</Link>{" "}
-                &mdash; AI-powered lead conversion, automated scheduling, GPS field ops, payments, review management, retargeting, and full business analytics. One partner per trade per metro. Exclusively yours.
-              </p>
-            </div>
+          <div className="text-center mb-6">
+            <p className="text-slate-700 text-base leading-relaxed max-w-2xl mx-auto">
+              The complete{" "}
+              <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">autonomous field service CRM</Link>{" "}
+              &mdash; AI-powered lead conversion, automated scheduling, GPS field ops, payments, review management, retargeting, and full business analytics.
+            </p>
           </div>
 
-          {/* Included features */}
           <div className="border-t border-slate-100 pt-6">
             <p className="text-teal-600 text-xs font-semibold tracking-[0.15em] uppercase mb-5 font-cta">
-              Everything Included
+              Every Tier Gets Everything
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               {included.map((item) =>
@@ -119,7 +142,7 @@ export default function PricingSlider() {
               href="/crm-partnership-request-form"
               className="inline-block px-10 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
-              Request Your Partnership
+              Get Started
             </Link>
           </div>
         </motion.div>
@@ -142,7 +165,7 @@ export default function PricingSlider() {
               <span className="text-lg text-slate-400 font-medium">/site</span>
             </div>
             <p className="text-slate-500 text-sm mb-4">
-              One-time. You own the domain.
+              $500 build + $99/yr. You own the domain.
             </p>
             <p className="text-slate-600 text-sm leading-relaxed mb-4">
               Neighborhood-specific EMD websites built for local SEO. We choose the domain, we build it our way, you own it outright. Each site targets hyper-local keywords in your service area.
@@ -162,7 +185,7 @@ export default function PricingSlider() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-teal-600 mt-0.5">&#10003;</span>
-                <span>$60/yr hosting after first year</span>
+                <span>$99/yr hosting &amp; maintenance</span>
               </li>
             </ul>
           </motion.div>
@@ -204,7 +227,7 @@ export default function PricingSlider() {
               ))}
             </div>
             <p className="text-xs text-slate-400 mt-3">
-              +$10,000/year of accrued SEO value. You own the site &amp; domain upon buyout.
+              Buy now for $5,000 or buyout later at $20,000 + 10%/mo compound. You own the site &amp; domain upon buyout.
             </p>
           </motion.div>
         </div>

@@ -1122,7 +1122,7 @@ export const faqs = {
     },
     {
       question: "How much does Full Loop CRM cost?",
-      answer: "$2,500/month ($30,000/year), billed monthly. Every partner gets the complete platform — CRM, Selenas AI, GMB optimization, SEO strategy, exclusive territory lock, and full automation. Microsites are $500 each (you own the domain). A full Next.js SEO site is included in the partnership and owned by Full Loop, with an optional buyout starting at $25,000.",
+      answer: "Plans start at $199/month for solo operators, $499/month for teams up to 5, and $999/month for unlimited team members. Every tier gets the complete platform — website, CRM, Selena AI, SEO, team portal, hiring pages, and full automation. $999 one-time setup fee. No contracts, cancel anytime.",
     },
     {
       question: "Who owns what in a Full Loop CRM partnership?",
@@ -1130,7 +1130,7 @@ export const faqs = {
     },
     {
       question: "What happens if I cancel my partnership?",
-      answer: "You keep everything that's yours — your phone number (Telnyx), your email account (Resend), your business name, and any microsites you purchased for $500 each. Full Loop retains the CRM platform access, the full SEO site, the Google Business Profiles, and the lead generation network. If you want to take the full SEO site with you, the buyout price starts at $25,000 and increases $10,000 per year of accrued SEO value.",
+      answer: "You keep everything that's yours — your phone number (Telnyx), your email account (Resend), your business name, and any microsites you purchased. Full Loop retains the CRM platform access, the full SEO site, the Google Business Profiles, and the lead generation network. If you want to take the full SEO site with you, you can buy it for $5,000 upfront or pay the buyout price of $20,000 + 10%/mo compound.",
     },
     {
       question: "Can I buy the full SEO site that Full Loop builds for my business?",

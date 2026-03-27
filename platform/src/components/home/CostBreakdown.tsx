@@ -91,7 +91,7 @@ export default function CostBreakdown() {
           They&rsquo;re Spending{" "}
           <span className="text-white/40 line-through">$178,800</span>.
           You&rsquo;ll Spend{" "}
-          <span className="text-teal-400">$2,500/mo</span>.
+          <span className="text-teal-400">$199/mo</span>.
         </motion.h2>
 
         <motion.p
@@ -158,7 +158,7 @@ export default function CostBreakdown() {
               $178,800
             </span>
             <span className="text-lg sm:text-xl font-mono font-bold text-teal-400 text-right sm:text-center">
-              $30,000
+              $2,388
             </span>
           </div>
         </motion.div>
@@ -189,11 +189,11 @@ export default function CostBreakdown() {
               Annual Savings
             </p>
             <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white font-mono">
-              $148,800
+              $176,412
               <span className="text-lg sm:text-xl text-white/50 font-normal">/yr</span>
             </p>
             <p className="mt-3 text-base sm:text-lg text-slate-300 max-w-md mx-auto">
-              That&rsquo;s <strong className="text-teal-400">83% less</strong>{" "}
+              That&rsquo;s <strong className="text-teal-400">98% less</strong>{" "}
               &mdash; reinvested directly into growth and profit. See how our <Link href="/full-loop-crm-pricing" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">CRM pricing</Link> compares.
             </p>
           </div>

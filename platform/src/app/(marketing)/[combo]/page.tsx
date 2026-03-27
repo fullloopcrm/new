@@ -42,7 +42,7 @@ export async function generateMetadata({
   const { industry, metro } = match;
   const trade = industry.name.toLowerCase();
   const title = `Best ${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
-  const description = `The best CRM for ${trade} businesses in ${metro.city}, ${metro.stateAbbr}. AI lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one platform, exclusive territory. $2,500/mo.`;
+  const description = `The best CRM for ${trade} businesses in ${metro.city}, ${metro.stateAbbr}. AI lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one platform, exclusive territory. Plans from $199/mo.`;
   const url = `https://www.fullloopcrm.com/${slug}`;
 
   return {
@@ -316,10 +316,10 @@ export default async function ComboPage({
       <section className="py-20 px-6 bg-white">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            One Plan. Everything Included.
+            Every Plan Gets Everything.
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
-            $2,500<span className="text-xl text-slate-500 font-normal">/mo</span>
+            $199<span className="text-xl text-slate-500 font-normal">/mo</span>
           </p>
           <p className="text-slate-600 mb-6 text-lg">
             Exclusive {industry.name.toLowerCase()} territory in {metro.city},{" "}
@@ -327,7 +327,7 @@ export default async function ComboPage({
             competes with you in this market.
           </p>
           <p className="text-sm text-slate-500 mb-8">
-            No setup fees. No long-term contracts. Cancel anytime.
+            $999 one-time setup. No contracts. Cancel anytime.
           </p>
           <Link
             href="/full-loop-crm-pricing"

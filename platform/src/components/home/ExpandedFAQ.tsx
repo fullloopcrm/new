@@ -67,7 +67,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "How much does Full Loop CRM cost?",
-    answer: <span>$2,500/month ($30,000/year), billed monthly. Every partner gets the complete platform — CRM, Selenas AI, GMB optimization, SEO strategy, exclusive territory lock, and full automation. Microsites are $500 each (you own the domain). A full Next.js SEO site is included in the partnership and owned by Full Loop, with an optional buyout starting at $25,000. Full details on our <L href="/full-loop-crm-pricing">pricing page</L>.</span>,
+    answer: <span>Plans start at $199/month for solo operators, $499/month for teams up to 5, and $999/month for unlimited team members. Every tier gets the complete platform — CRM, Selena AI, custom website, SEO, team portal, hiring pages, and full automation. $999 one-time setup fee. No contracts, cancel anytime. Full details on our <L href="/full-loop-crm-pricing">pricing page</L>.</span>,
   },
   {
     question: "Who owns what in a Full Loop CRM partnership?",

@@ -536,14 +536,14 @@ export default function PartnershipForm() {
           {/* Pricing */}
           <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-8 text-center">
             <p className="text-sm font-semibold uppercase tracking-widest text-teal-400 mb-2 font-cta">
-              All-Inclusive Partnership
+              Plans Starting At
             </p>
             <p className="text-4xl font-extrabold text-white font-heading mb-1">
-              $2,500
+              $199
               <span className="text-lg font-normal text-slate-400">/mo</span>
             </p>
             <p className="text-sm text-slate-400 mb-6">
-              Everything included. No setup fees. No contracts.
+              All features included. $999 setup. No contracts.
             </p>
             <ul className="space-y-2 text-sm text-slate-300 text-left">
               {[

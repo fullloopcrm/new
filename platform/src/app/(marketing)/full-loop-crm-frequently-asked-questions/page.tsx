@@ -11,7 +11,7 @@ import {
 export const metadata: Metadata = {
   title: "FAQ | Full Loop CRM - Home Service CRM Questions Answered",
   description:
-    "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, Selenas AI, and getting started. $2,500/mo all-in.",
+    "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, Selenas AI, and getting started. Plans from $199/mo.",
   keywords: [
     "full loop CRM FAQ",
     "home service CRM questions",
@@ -108,12 +108,12 @@ const faqCategories: FaqCategory[] = [
       {
         question: "How much does Full Loop CRM cost?",
         answer:
-          "$2,500 per month, billed monthly. This includes your full SEO website, CRM platform, Selenas AI, lead generation, all automations, and ongoing support. No setup fees, no annual contracts.",
+          "Plans start at $199/month for solo operators, $499/month for teams up to 5, and $999/month for unlimited team members. Every tier gets the complete platform — website, CRM, Selena AI, SEO, team portal, hiring pages, and full automation. $999 one-time setup fee. No contracts, cancel anytime.",
       },
       {
         question: "Are there any setup fees?",
         answer:
-          "No. There are no setup fees, onboarding fees, or hidden costs. Your first month covers everything needed to get live: website build, CRM configuration, channel setup, and training.",
+          "$999 one-time setup fee, same for every tier. This covers white-glove onboarding: we build your custom website, configure Selena AI for your trade, import your existing clients, set up your service areas and pricing, and test everything end-to-end before you go live.",
       },
       {
         question: "What are microsites and how much do they cost?",
@@ -149,7 +149,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "Can I buy out my full SEO site?",
         answer:
-          "Yes. The site buyout starts at $25,000 plus $10,000 per year of ongoing maintenance and updates. Once purchased, you own the site outright and can host it anywhere.",
+          "Yes. You can buy your custom Next.js site from day one for $5,000 and own it outright. If you don't buy upfront, the site is included in your subscription. You can buy it later at a buyout price of $20,000 + 10%/mo compound — this reflects the accrued SEO value we build over time.",
       },
       {
         question: "What happens to my site if I cancel?",
@@ -190,7 +190,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "Can I expand to multiple metros?",
         answer:
-          "Yes. Each additional metro is a separate partnership at $2,500/month. Multi-metro partners get priority support and shared reporting across territories.",
+          "Yes. Each additional metro is a separate subscription. Multi-metro partners get priority support and shared reporting across territories.",
       },
     ],
   },

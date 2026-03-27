@@ -36,7 +36,7 @@ export default function Guarantees() {
             The Bottom Line
           </p>
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 font-heading">
-            <span className="text-teal-600">$148,800</span> Saved on
+            <span className="text-teal-600">$176,412</span> Saved on
             Operations.{" "}
             <span className="text-teal-600">Zero Staff</span> to Manage.
           </h2>
@@ -61,7 +61,7 @@ export default function Guarantees() {
               <p className="text-slate-600 text-lg md:text-xl leading-relaxed mb-8">
                 Full Loop replaces your entire operational stack — sales,
                 scheduling, customer service, payments, reviews, retargeting —
-                for $2,500/month. Add your website network once, and organic leads
+                starting at just $199/month. Add your website network once, and organic leads
                 flow in forever. No ad spend. No staffing headaches. No gaps.
               </p>
               <p className="text-slate-500 text-base leading-relaxed mb-10">

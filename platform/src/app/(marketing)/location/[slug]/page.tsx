@@ -69,7 +69,7 @@ export async function generateMetadata({
   if (!metro) return {};
 
   const title = `Best Home Service CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
-  const description = `The best CRM for home service businesses in ${metro.city}, ${metro.stateAbbr}. AI-powered lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one partner per trade. $2,500/mo.`;
+  const description = `The best CRM for home service businesses in ${metro.city}, ${metro.stateAbbr}. AI-powered lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one partner per trade. Plans from $199/mo.`;
   const url = `https://www.fullloopcrm.com/location/${slug}`;
 
   return {
@@ -300,10 +300,10 @@ export default async function LocationPage({
       <section className="py-20 px-6 bg-white">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            One Plan. Everything Included.
+            Every Plan Gets Everything.
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
-            $2,500
+            $199
             <span className="text-xl text-slate-500 font-normal">/mo</span>
           </p>
           <p className="text-slate-600 mb-6 text-lg">
@@ -311,7 +311,7 @@ export default async function LocationPage({
             partner in your trade competes with you in this market.
           </p>
           <p className="text-sm text-slate-500 mb-8">
-            No setup fees. No long-term contracts. Cancel anytime.
+            $999 one-time setup. No contracts. Cancel anytime.
           </p>
           <Link
             href="/full-loop-crm-pricing"
