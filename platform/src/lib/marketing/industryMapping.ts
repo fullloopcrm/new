@@ -1,0 +1,61 @@
+// Maps combos.ts industry slugs to industries.ts slugs (which are also the content keys)
+// combos.ts uses short slugs like "locksmith", industries.ts uses "locksmith-business-crm"
+
+const comboToIndustrySlug: Record<string, string> = {
+  'cleaning-services': 'house-cleaning-business-crm',
+  'carpet-cleaning': 'carpet-cleaning-business-crm',
+  'window-cleaning': 'window-cleaning-business-crm',
+  'pressure-washing': 'pressure-washing-business-crm',
+  'landscaping': 'landscaping-business-crm',
+  'lawn-care': 'lawn-care-business-crm',
+  'tree-service': 'tree-service-business-crm',
+  'handyman-services': 'handyman-services-business-crm',
+  'pest-control': 'pest-control-business-crm',
+  'hvac': 'hvac-repair-business-crm',
+  'plumbing': 'plumbing-business-crm',
+  'electrical': 'electrical-business-crm',
+  'painting': 'painting-business-crm',
+  'junk-removal': 'junk-removal-business-crm',
+  'pool-cleaning': 'pool-cleaning-business-crm',
+  'roofing': 'roofing-business-crm',
+  'garage-door-repair': 'garage-door-repair-business-crm',
+  'appliance-repair': 'appliance-repair-business-crm',
+  'locksmith': 'locksmith-business-crm',
+  'flooring-installation': 'flooring-installation-business-crm',
+  'fencing': 'fence-installation-business-crm',
+  'gutter-cleaning': 'gutter-cleaning-business-crm',
+  'chimney-sweep': 'chimney-sweep-business-crm',
+  'drywall-repair': 'drywall-repair-business-crm',
+  'deck-building': 'deck-building-business-crm',
+  'home-inspection': 'home-inspection-business-crm',
+  'septic-services': 'septic-service-business-crm',
+  'snow-removal': 'snow-removal-business-crm',
+  'power-washing': 'pressure-washing-business-crm', // maps to same content as pressure washing
+  'house-cleaning': 'house-cleaning-business-crm',
+  'move-in-move-out-cleaning': 'move-in-out-cleaning-business-crm',
+  'post-construction-cleaning': 'post-construction-cleaning-business-crm',
+  'air-duct-cleaning': 'air-duct-cleaning-business-crm',
+  'upholstery-cleaning': 'upholstery-cleaning-business-crm',
+  'insulation': 'insulation-business-crm',
+  'mobile-car-detailing': 'mobile-car-detailing-business-crm',
+  'pet-waste-removal': 'pet-waste-removal-business-crm',
+  // Industries with content in industries.ts but no direct combo match — map anyway for completeness
+  'solar-panel-cleaning': 'solar-installation-business-crm',
+  'mold-remediation': 'waterproofing-business-crm',
+  'water-damage-restoration': 'waterproofing-business-crm',
+  'fire-damage-restoration': 'foundation-repair-business-crm',
+  'concrete-masonry': 'general-contracting-business-crm',
+  'hauling-services': 'junk-removal-business-crm',
+  'demolition': 'general-contracting-business-crm',
+  'paving': 'general-contracting-business-crm',
+  'stucco-repair': 'drywall-repair-business-crm',
+  'siding-installation': 'exterior-painting-business-crm',
+  'irrigation': 'landscaping-business-crm',
+  'dryer-vent-cleaning': 'air-duct-cleaning-business-crm',
+  'mobile-pet-grooming': 'mobile-car-detailing-business-crm',
+  'mobile-salon-services': 'mobile-car-detailing-business-crm',
+};
+
+export function getIndustryContentSlug(comboSlug: string): string | null {
+  return comboToIndustrySlug[comboSlug] ?? null;
+}

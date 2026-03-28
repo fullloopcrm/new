@@ -8,22 +8,23 @@ import {
   localBusinessSchema,
 } from "@/lib/schema";
 import {
-  getAllCombos,
   findCombo,
   industries,
   metros,
+  generateIndustrySlug,
 } from "@/lib/marketing/combos";
+import { industries as richIndustries } from "@/lib/marketing/industries";
+import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
+import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
+import { faqs as globalFaqs } from "@/lib/marketing/faqs";
 
 // ---------------------------------------------------------------------------
-// Render combo pages on-demand and cache them (ISR). Pre-rendering 20K+
-// pages at build time exceeds Vercel's output size limit.
+// ISR — combo pages generated on-demand and cached
 // ---------------------------------------------------------------------------
 export const dynamicParams = true;
-export const revalidate = 86400; // re-generate cached pages once per day
+export const revalidate = 86400;
 
 export function generateStaticParams() {
-  // Pre-render only a small seed set at build time; the rest are generated
-  // on first request and cached via ISR.
   return [];
 }
 
@@ -72,7 +73,7 @@ export async function generateMetadata({
 }
 
 // ---------------------------------------------------------------------------
-// Helpers for related internal links
+// Related combo links
 // ---------------------------------------------------------------------------
 function getRelatedCombos(
   industrySlug: string,
@@ -80,84 +81,33 @@ function getRelatedCombos(
 ): { label: string; href: string }[] {
   const links: { label: string; href: string }[] = [];
 
-  // Same industry, different cities (pick up to 2)
   const sameTrade = metros
     .filter((m) => m.slug !== metroSlug)
-    .slice(0, 2);
+    .slice(0, 3);
   const ind = industries.find((i) => i.slug === industrySlug);
   if (ind) {
     for (const m of sameTrade) {
       links.push({
-        label: `CRM for ${ind.name} Business in ${m.city}, ${m.stateAbbr}`,
+        label: `Best ${ind.name} CRM in ${m.city}, ${m.stateAbbr}`,
         href: `/${ind.slug}-crm-${m.slug}`,
       });
     }
   }
 
-  // Same city, different industries (pick up to 2)
   const met = metros.find((m) => m.slug === metroSlug);
   const otherTrades = industries
     .filter((i) => i.slug !== industrySlug)
-    .slice(0, 2);
+    .slice(0, 3);
   if (met) {
     for (const i of otherTrades) {
       links.push({
-        label: `CRM for ${i.name} Business in ${met.city}, ${met.stateAbbr}`,
+        label: `Best ${i.name} CRM in ${met.city}, ${met.stateAbbr}`,
         href: `/${i.slug}-crm-${met.slug}`,
       });
     }
   }
 
   return links;
-}
-
-// ---------------------------------------------------------------------------
-// Pain points (deterministic per industry — same industry always gets same set)
-// ---------------------------------------------------------------------------
-function getPainPoints(industryName: string, cityName: string): string[] {
-  return [
-    `Most ${industryName.toLowerCase()} businesses in ${cityName} rely on word-of-mouth alone, leaving hundreds of online leads to competitors who show up first on Google.`,
-    `Without a centralized system, ${industryName.toLowerCase()} operators juggle texts, voicemails, and spreadsheets — and leads slip through the cracks every single day.`,
-    `Scheduling, dispatching, and following up manually costs ${cityName} ${industryName.toLowerCase()} owners 10+ hours a week that could be spent on revenue-generating work.`,
-    `No visibility into which marketing channels actually drive paying customers means ${industryName.toLowerCase()} businesses waste money on ads that don't convert.`,
-  ];
-}
-
-// ---------------------------------------------------------------------------
-// Seven CRM stages with industry-flavored descriptions
-// ---------------------------------------------------------------------------
-function getStages(industryName: string): { title: string; desc: string }[] {
-  const trade = industryName.toLowerCase();
-  return [
-    {
-      title: "1. Lead Generation",
-      desc: `Multi-domain SEO network targets every neighborhood your ${trade} business serves — organic leads without ad spend.`,
-    },
-    {
-      title: "2. AI Sales Automation",
-      desc: `Selenas AI responds to ${trade} inquiries via SMS within seconds, 24/7 — qualifying leads and booking estimates while you sleep.`,
-    },
-    {
-      title: "3. Smart Scheduling",
-      desc: `Drag-and-drop calendar built for ${trade} workflows — recurring appointments, crew assignments, and real-time availability.`,
-    },
-    {
-      title: "4. GPS Field Operations",
-      desc: `Track your ${trade} crews in real time with GPS check-in/out, automatic drive-time logging, and route optimization.`,
-    },
-    {
-      title: "5. Invoicing & Payments",
-      desc: `Generate invoices on-site, accept cards and ACH, and automate payment reminders so your ${trade} cash flow stays healthy.`,
-    },
-    {
-      title: "6. Reviews & Reputation",
-      desc: `Automatically request Google reviews after every ${trade} job — build a 5-star reputation that attracts more clients.`,
-    },
-    {
-      title: "7. Retargeting & Rebooking",
-      desc: `Win-back campaigns and seasonal reminders keep your ${trade} clients coming back — recurring revenue on autopilot.`,
-    },
-  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -174,20 +124,37 @@ export default async function ComboPage({
 
   const { industry, metro } = match;
   const pageUrl = `https://homeservicesbusinesscrm.com/${slug}`;
+  const trade = industry.name.toLowerCase();
+
+  // Find deep page content via slug mapping
+  const contentSlug = getIndustryContentSlug(industry.slug);
+  const content = contentSlug ? getIndustryContent(contentSlug) : null;
+
+  // Find rich data from industries.ts
+  const richData = contentSlug
+    ? richIndustries.find((ri) => ri.slug === contentSlug)
+    : richIndustries.find(
+        (ri) => ri.name.toLowerCase() === industry.name.toLowerCase()
+      );
 
   const breadcrumbs = [
     { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-    { name: "Industries", url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries" },
+    {
+      name: `${industry.name} CRM`,
+      url: `https://homeservicesbusinesscrm.com/industry/${generateIndustrySlug(industry)}`,
+    },
     {
       name: `Best ${industry.name} CRM in ${metro.city}, ${metro.stateAbbr}`,
       url: pageUrl,
     },
   ];
 
-  const trade = industry.name.toLowerCase();
-  const painPoints = getPainPoints(industry.name, metro.city);
-  const stages = getStages(industry.name);
   const relatedLinks = getRelatedCombos(industry.slug, metro.slug);
+
+  // Nearby markets in same state
+  const sameStateMetros = metros.filter(
+    (m) => m.stateAbbr === metro.stateAbbr && m.slug !== metro.slug
+  ).slice(0, 6);
 
   return (
     <>
@@ -208,21 +175,63 @@ export default async function ComboPage({
         )}
       />
 
-      {/* ----------------------------------------------------------------- */}
-      {/* 1. Hero */}
-      {/* ----------------------------------------------------------------- */}
+      {content?.faqs && (
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: content.faqs.slice(0, 5).map((faq) => ({
+              "@type": "Question",
+              name: faq.q,
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: faq.a,
+              },
+            })),
+          }}
+        />
+      )}
+
+      {/* ================================================================= */}
+      {/* 1. HERO                                                           */}
+      {/* ================================================================= */}
       <section className="bg-slate-900 py-24 px-6">
         <div className="mx-auto max-w-4xl text-center">
+          <p className="text-teal-400 font-cta text-sm uppercase tracking-wider mb-4">
+            Exclusive Territory — {metro.city}, {metro.stateAbbr}
+          </p>
           <h1 className="text-4xl md:text-5xl font-extrabold text-white font-heading mb-6">
             Best CRM for{" "}
             <span className="text-teal-400">{industry.name}</span>{" "}
             Businesses in {metro.city}, {metro.stateAbbr}
           </h1>
-          <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-8">
-            The only full-cycle CRM built for {trade}{" "}
-            businesses in {metro.city}. AI-powered lead generation, automated
-            sales, scheduling, GPS field ops, and more — one exclusive territory.
+          <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-4">
+            The only full-cycle CRM built for {trade} businesses in{" "}
+            {metro.city}. AI-powered lead generation, automated sales,
+            scheduling, GPS field ops, and more — one exclusive territory.
           </p>
+          {richData && (
+            <p className="text-base text-slate-400 max-w-2xl mx-auto mb-8">
+              {richData.longDescription}
+            </p>
+          )}
+
+          {content?.stats && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto mb-8">
+              {content.stats.slice(0, 4).map((stat) => (
+                <div
+                  key={stat.label}
+                  className="bg-slate-800/60 border border-slate-700 rounded-lg px-4 py-3"
+                >
+                  <p className="text-2xl font-bold text-teal-400 font-heading">
+                    {stat.value}
+                  </p>
+                  <p className="text-xs text-slate-400">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/crm-partnership-request-form"
@@ -240,91 +249,196 @@ export default async function ComboPage({
         </div>
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* 2. Pain Points */}
-      {/* ----------------------------------------------------------------- */}
-      <section className="py-20 px-6 bg-white">
-        <div className="mx-auto max-w-5xl">
-          <h2 className="text-3xl font-bold text-slate-900 font-heading text-center mb-4">
-            Why {metro.city} {industry.name} Businesses Need Full Loop
-          </h2>
-          <p className="text-slate-600 text-center mb-12 max-w-2xl mx-auto">
-            Running a {industry.name.toLowerCase()} operation in {metro.city},{" "}
-            {metro.stateAbbr} means competing for every customer. Here&apos;s
-            what holds most {industry.name.toLowerCase()} businesses back:
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {painPoints.map((point, idx) => (
-              <div
-                key={idx}
-                className="border border-slate-200 rounded-lg p-6"
-              >
-                <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold mb-4 font-mono">
-                  {idx + 1}
-                </div>
-                <p className="text-slate-700 leading-relaxed">{point}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ----------------------------------------------------------------- */}
-      {/* 3. What You Get — 7 Stages */}
-      {/* ----------------------------------------------------------------- */}
-      <section className="py-20 px-6 bg-slate-50">
-        <div className="mx-auto max-w-5xl">
-          <h2 className="text-3xl font-bold text-slate-900 font-heading text-center mb-4">
-            What Your {industry.name} Business Gets with Full Loop
-          </h2>
-          <p className="text-slate-600 text-center mb-12 max-w-2xl mx-auto">
-            Seven stages of the customer lifecycle — handled automatically so
-            your {industry.name.toLowerCase()} team in {metro.city} can focus on
-            the work, not the admin.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stages.map((stage) => (
-              <div
-                key={stage.title}
-                className="bg-white border border-slate-200 rounded-lg p-6 hover:border-teal-400 hover:shadow-md transition-all"
-              >
-                <h3 className="text-base font-bold text-slate-900 font-heading mb-2">
-                  {stage.title}
-                </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  {stage.desc}
+      {/* ================================================================= */}
+      {/* 2. INDUSTRY OVERVIEW (localized)                                  */}
+      {/* ================================================================= */}
+      {content && (
+        <section className="py-20 px-6 bg-white">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="text-3xl font-bold text-slate-900 font-heading mb-6">
+              Why {industry.name} Businesses in {metro.city} Need Full Loop CRM
+            </h2>
+            <div className="prose prose-slate prose-lg max-w-none">
+              {content.overview.split("\n\n").map((para, idx) => (
+                <p key={idx} className="text-slate-700 leading-relaxed mb-6">
+                  {para}
                 </p>
-              </div>
-            ))}
+              ))}
+              <p className="text-slate-700 leading-relaxed mb-6">
+                In {metro.city}, {metro.stateAbbr}, {trade} businesses face
+                the same core challenges — but with local competitive
+                dynamics that make speed, visibility, and operational
+                efficiency even more critical. The {metro.city} market
+                rewards businesses that respond first, show up on time, and
+                build a reputation that new customers trust. Full Loop CRM
+                gives {trade} operators in {metro.city} the infrastructure
+                to win on all three fronts.
+              </p>
+            </div>
 
-            {/* Link card */}
-            <Link
-              href="/full-loop-crm-service-features"
-              className="flex items-center justify-center bg-teal-600 text-white rounded-lg p-6 hover:bg-teal-700 transition-colors font-cta text-lg"
-            >
-              See All Features &rarr;
-            </Link>
+            <h3 className="text-2xl font-bold text-slate-900 font-heading mt-12 mb-4">
+              The {industry.name} Market Landscape
+            </h3>
+            <p className="text-slate-700 leading-relaxed">
+              {content.marketLandscape}
+            </p>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* ----------------------------------------------------------------- */}
-      {/* 4. Pricing Callout */}
-      {/* ----------------------------------------------------------------- */}
-      <section className="py-20 px-6 bg-white">
+      {/* ================================================================= */}
+      {/* 3. DETAILED CHALLENGES                                            */}
+      {/* ================================================================= */}
+      {content?.detailedChallenges && (
+        <section className="py-20 px-6 bg-slate-50">
+          <div className="mx-auto max-w-5xl">
+            <h2 className="text-3xl font-bold text-slate-900 font-heading text-center mb-4">
+              Challenges {metro.city} {industry.name} Businesses Face Every Day
+            </h2>
+            <p className="text-slate-600 text-center mb-12 max-w-2xl mx-auto">
+              Every {trade} business owner in {metro.city} knows these pain
+              points. Here&apos;s how they hold your company back — and why
+              a purpose-built CRM is the only real fix.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {content.detailedChallenges.map((challenge, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white border border-slate-200 rounded-lg p-6"
+                >
+                  <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold mb-4 font-mono">
+                    {idx + 1}
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 font-heading mb-2">
+                    {challenge.title}
+                  </h3>
+                  <p className="text-slate-700 leading-relaxed">
+                    {challenge.body}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ================================================================= */}
+      {/* 4. FEATURE DEEP DIVE — 7 LIFECYCLE STAGES                        */}
+      {/* ================================================================= */}
+      {content?.featureBreakdown && (
+        <section className="py-20 px-6 bg-white">
+          <div className="mx-auto max-w-5xl">
+            <h2 className="text-3xl font-bold text-slate-900 font-heading text-center mb-4">
+              How Full Loop CRM Works for {industry.name} Businesses in {metro.city}
+            </h2>
+            <p className="text-slate-600 text-center mb-12 max-w-3xl mx-auto">
+              Full Loop CRM manages every stage of the {trade} customer
+              lifecycle — from the first Google search in {metro.city} to
+              the fifth rebooking. Here&apos;s how each stage works for your business.
+            </p>
+
+            <div className="space-y-12">
+              {content.featureBreakdown.map((feature, idx) => (
+                <div
+                  key={idx}
+                  className={`flex flex-col md:flex-row gap-8 ${
+                    idx % 2 === 1 ? "md:flex-row-reverse" : ""
+                  }`}
+                >
+                  <div className="md:w-1/4 flex-shrink-0">
+                    <div className="bg-teal-600 text-white rounded-lg p-4 text-center md:text-left">
+                      <p className="text-sm font-cta uppercase tracking-wider opacity-80">
+                        Stage {idx + 1}
+                      </p>
+                      <p className="text-xl font-bold font-heading">
+                        {feature.title}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="md:w-3/4">
+                    <h3 className="text-xl font-bold text-slate-900 font-heading mb-3">
+                      {feature.subtitle}
+                    </h3>
+                    <p className="text-slate-700 leading-relaxed">
+                      {feature.body}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-12 text-center">
+              <Link
+                href="/full-loop-crm-service-features"
+                className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
+              >
+                See All Features in Detail
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ================================================================= */}
+      {/* 5. WHY GENERIC CRMs FAIL                                         */}
+      {/* ================================================================= */}
+      {content?.whyGenericCrmsFail && (
+        <section className="py-20 px-6 bg-slate-900">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="text-3xl font-bold text-white font-heading mb-6">
+              Why Jobber, Housecall Pro, and ServiceTitan Don&apos;t Work for {metro.city} {industry.name} Businesses
+            </h2>
+            <div className="text-slate-300 leading-relaxed text-lg">
+              {content.whyGenericCrmsFail.split("\n\n").map((para, idx) => (
+                <p key={idx} className="mb-4">{para}</p>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ================================================================= */}
+      {/* 6. ROI ANALYSIS                                                   */}
+      {/* ================================================================= */}
+      {content?.roiAnalysis && (
+        <section className="py-20 px-6 bg-white">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="text-3xl font-bold text-slate-900 font-heading mb-6">
+              What Full Loop CRM Is Worth to a {industry.name} Business in {metro.city}
+            </h2>
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-8">
+              <p className="text-slate-700 leading-relaxed text-lg">
+                {content.roiAnalysis}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ================================================================= */}
+      {/* 7. PRICING                                                        */}
+      {/* ================================================================= */}
+      <section className="py-20 px-6 bg-slate-50">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            Every Plan Gets Everything.
+            {industry.name} CRM Pricing in {metro.city} — Every Plan Gets Everything
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
             $199<span className="text-xl text-slate-500 font-normal">/mo</span>
           </p>
-          <p className="text-slate-600 mb-6 text-lg">
-            Exclusive {industry.name.toLowerCase()} territory in {metro.city},{" "}
-            {metro.stateAbbr}. No other {industry.name.toLowerCase()} partner
-            competes with you in this market.
+          <p className="text-slate-600 mb-4 text-lg">
+            Exclusive {trade} territory in {metro.city},{" "}
+            {metro.stateAbbr}. No other {trade} partner competes with you
+            in this market.
+          </p>
+          <p className="text-slate-700 mb-6 max-w-xl mx-auto">
+            Full Loop CRM replaces 9+ separate tools — lead generation,
+            AI sales, scheduling, GPS operations, payments, reviews,
+            referrals, retargeting, and analytics — with one integrated
+            platform. The $199/mo license includes your exclusive territory,
+            all 7 lifecycle stages, the Selena AI assistant, client and team
+            portals, and all core updates.
           </p>
           <p className="text-sm text-slate-500 mb-8">
             $999 one-time setup. No contracts. Cancel anytime.
@@ -338,9 +452,40 @@ export default async function ComboPage({
         </div>
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* 5. Ownership Transparency */}
-      {/* ----------------------------------------------------------------- */}
+      {/* ================================================================= */}
+      {/* 8. GETTING STARTED                                                */}
+      {/* ================================================================= */}
+      {content?.gettingStarted && (
+        <section className="py-20 px-6 bg-white">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="text-3xl font-bold text-slate-900 font-heading text-center mb-12">
+              How to Get Started in {metro.city}
+            </h2>
+
+            <div className="space-y-8">
+              {content.gettingStarted.map((step, idx) => (
+                <div key={idx} className="flex gap-6">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-lg font-mono">
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 font-heading mb-2">
+                      {step.step}
+                    </h3>
+                    <p className="text-slate-700 leading-relaxed">
+                      {step.detail}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ================================================================= */}
+      {/* 9. OWNERSHIP TRANSPARENCY                                         */}
+      {/* ================================================================= */}
       <section className="py-16 px-6 bg-slate-50">
         <div className="mx-auto max-w-4xl">
           <h2 className="text-2xl font-bold text-slate-900 font-heading text-center mb-10">
@@ -354,7 +499,7 @@ export default async function ComboPage({
               <ul className="space-y-2 text-slate-700 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="text-teal-600 font-bold mt-0.5">&#10003;</span>
-                  Your client list, contact info & history
+                  Your client list, contact info & full history
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-teal-600 font-bold mt-0.5">&#10003;</span>
@@ -401,9 +546,63 @@ export default async function ComboPage({
         </div>
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* 6. Final CTA */}
-      {/* ----------------------------------------------------------------- */}
+      {/* ================================================================= */}
+      {/* 10. FAQs                                                          */}
+      {/* ================================================================= */}
+      {content?.faqs && (
+        <section className="py-20 px-6 bg-white">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="text-3xl font-bold text-slate-900 font-heading text-center mb-12">
+              {industry.name} CRM FAQ for {metro.city} Businesses
+            </h2>
+
+            <div className="space-y-6">
+              {content.faqs.map((faq, idx) => (
+                <details
+                  key={idx}
+                  className="bg-slate-50 border border-slate-200 rounded-lg group"
+                >
+                  <summary className="px-6 py-4 cursor-pointer font-bold text-slate-900 font-heading hover:text-teal-700 transition-colors list-none flex items-center justify-between">
+                    <span>{faq.q}</span>
+                    <span className="text-teal-600 text-xl group-open:rotate-45 transition-transform">
+                      +
+                    </span>
+                  </summary>
+                  <div className="px-6 pb-4">
+                    <p className="text-slate-700 leading-relaxed">{faq.a}</p>
+                  </div>
+                </details>
+              ))}
+            </div>
+
+            <h3 className="text-2xl font-bold text-slate-900 font-heading mt-16 mb-8 text-center">
+              General Full Loop CRM Questions
+            </h3>
+            <div className="space-y-6">
+              {globalFaqs.slice(0, 4).map((faq, idx) => (
+                <details
+                  key={`global-${idx}`}
+                  className="bg-slate-50 border border-slate-200 rounded-lg group"
+                >
+                  <summary className="px-6 py-4 cursor-pointer font-bold text-slate-900 font-heading hover:text-teal-700 transition-colors list-none flex items-center justify-between">
+                    <span>{faq.q}</span>
+                    <span className="text-teal-600 text-xl group-open:rotate-45 transition-transform">
+                      +
+                    </span>
+                  </summary>
+                  <div className="px-6 pb-4">
+                    <p className="text-slate-700 leading-relaxed">{faq.a}</p>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ================================================================= */}
+      {/* 11. FINAL CTA                                                     */}
+      {/* ================================================================= */}
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-white font-heading mb-4">
@@ -411,7 +610,7 @@ export default async function ComboPage({
           </h2>
           <p className="text-slate-300 mb-8 text-lg">
             One partner per trade per metro. Once the{" "}
-            {industry.name.toLowerCase()} territory in {metro.city},{" "}
+            {trade} territory in {metro.city},{" "}
             {metro.stateAbbr} is claimed, it&apos;s off the table.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -437,15 +636,59 @@ export default async function ComboPage({
         </div>
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* 7. Internal Links */}
-      {/* ----------------------------------------------------------------- */}
+      {/* ================================================================= */}
+      {/* 12. NEARBY MARKETS & RELATED PAGES                                */}
+      {/* ================================================================= */}
       <section className="py-16 px-6 bg-white border-t border-slate-200">
         <div className="mx-auto max-w-5xl">
-          <h2 className="text-xl font-bold text-slate-900 font-heading mb-6">
+          {sameStateMetros.length > 0 && (
+            <>
+              <h2 className="text-xl font-bold text-slate-900 font-heading mb-4">
+                {industry.name} CRM in Nearby {metro.stateAbbr} Markets
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                {sameStateMetros.map((m) => (
+                  <Link
+                    key={m.slug}
+                    href={`/${industry.slug}-crm-${m.slug}`}
+                    className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
+                  >
+                    Best {industry.name} CRM in {m.city}, {m.stateAbbr}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+
+          {relatedLinks.length > 0 && (
+            <>
+              <h3 className="text-lg font-bold text-slate-800 font-heading mb-4">
+                Related Pages
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                {relatedLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+
+          <h3 className="text-lg font-bold text-slate-800 font-heading mb-4">
             Learn More About Full Loop CRM
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Link
+              href={`/industry/${generateIndustrySlug(industry)}`}
+              className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
+            >
+              {industry.name} CRM Overview
+            </Link>
             <Link
               href="/full-loop-crm-service-features"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
@@ -471,38 +714,12 @@ export default async function ComboPage({
               Industries We Serve
             </Link>
             <Link
-              href="/full-loop-crm-101-educational-tips"
-              className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
-            >
-              CRM 101
-            </Link>
-            <Link
               href="/full-loop-crm-frequently-asked-questions"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               FAQ
             </Link>
           </div>
-
-          {relatedLinks.length > 0 && (
-            <>
-              <h3 className="text-lg font-bold text-slate-800 font-heading mb-4">
-                Related Pages
-              </h3>
-              <ul className="space-y-2">
-                {relatedLinks.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
         </div>
       </section>
     </>
