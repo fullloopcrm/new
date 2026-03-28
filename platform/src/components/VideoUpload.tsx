@@ -30,7 +30,6 @@ export default function VideoUpload({ bookingId, type, existingUrl, token, t, on
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate size (150MB)
     if (file.size > 150 * 1024 * 1024) {
       setError(t('Video too large (max 150MB)', 'Video muy grande (max 150MB)'))
       return
@@ -38,50 +37,74 @@ export default function VideoUpload({ bookingId, type, existingUrl, token, t, on
 
     setError('')
     setUploading(true)
-    setProgress(10)
+    setProgress(5)
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('booking_id', bookingId)
-      formData.append('type', type)
+      // Step 1: Get signed upload URL from server
+      setProgress(10)
+      const params = new URLSearchParams({
+        booking_id: bookingId,
+        type,
+        filename: file.name,
+        content_type: file.type || 'video/mp4',
+      })
+      const signedRes = await fetch(`/api/team-portal/video-upload?${params}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      })
+      if (!signedRes.ok) {
+        const err = await signedRes.json()
+        throw new Error(err.error || 'Failed to get upload URL')
+      }
+      const { signedUrl, publicUrl } = await signedRes.json()
 
-      // Use XMLHttpRequest for progress tracking
+      // Step 2: Upload directly to Supabase via signed URL (bypasses Vercel 4.5MB limit)
+      setProgress(15)
       const xhr = new XMLHttpRequest()
 
-      const result = await new Promise<{ success: boolean; url?: string; error?: string }>((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
-            setProgress(Math.round((e.loaded / e.total) * 90) + 5)
+            setProgress(Math.round((e.loaded / e.total) * 75) + 15)
           }
         })
 
         xhr.addEventListener('load', () => {
-          try {
-            const data = JSON.parse(xhr.responseText)
-            resolve(data)
-          } catch {
-            reject(new Error('Upload failed'))
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            reject(new Error(`Upload failed (${xhr.status})`))
           }
         })
 
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+        xhr.addEventListener('error', () => reject(new Error('Network error during upload')))
         xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')))
 
-        xhr.open('POST', '/api/team-portal/video-upload')
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
-        xhr.send(formData)
+        xhr.open('PUT', signedUrl)
+        xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
+        xhr.setRequestHeader('x-upsert', 'true')
+        xhr.send(file)
       })
 
-      if (result.success && result.url) {
-        setProgress(100)
-        setVideoUrl(result.url)
-        onUploaded?.(result.url)
-      } else {
-        setError(result.error || t('Upload failed', 'Error al subir'))
+      // Step 3: Save reference in database
+      setProgress(92)
+      const saveRes = await fetch('/api/team-portal/video-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ booking_id: bookingId, type, url: publicUrl }),
+      })
+
+      if (!saveRes.ok) {
+        throw new Error('Failed to save video reference')
       }
-    } catch {
-      setError(t('Upload failed', 'Error al subir'))
+
+      setProgress(100)
+      setVideoUrl(publicUrl)
+      onUploaded?.(publicUrl)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Upload failed', 'Error al subir'))
     } finally {
       setUploading(false)
       setProgress(0)

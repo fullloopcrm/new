@@ -161,7 +161,7 @@ const DEFAULT_CHECKLIST_FIELDS: Array<{ key: string; enabled: boolean; required:
 // ─── State Machine ──────────────────────────────────────────────────────────
 
 export function getNextStep(cl: BookingChecklist, config?: SelenaConfig): NextStep {
-  if (cl.status === 'recap') return { field: null, instruction: 'The client has seen the recap OR you need to do the recap now. If the client just said "yes" or confirmed, call create_booking immediately to lock in the booking — do NOT recap again or ask for more info. If the recap hasn\'t been shown yet, do it now using ALL collected info.' }
+  if (cl.status === 'recap') return { field: null, instruction: 'The client has seen the recap OR you need to do the recap now. If the client just said "yes" or confirmed, call create_booking immediately to lock in the booking — do NOT recap again or ask for more info. If notes haven\'t been asked yet, ask "Any notes or special requests?" and wait for their answer before doing the recap. If they say no/none, proceed. If the recap hasn\'t been shown yet, do it now using ALL collected info.' }
   if (cl.status === 'confirmed') return { field: null, instruction: 'Booking confirmed. Thank them warmly, tell them booking is pending and will be confirmed by the team. Then ask: "How would you rate this chat? 1-5"' }
   if (cl.status === 'rating') return { field: 'rating', instruction: 'They gave a rating. Thank them. If 5: "That means a lot!" If below: "We appreciate the feedback." Then close.' }
   if (cl.status === 'closed') return { field: null, instruction: 'Conversation complete.' }
@@ -186,7 +186,7 @@ export function getNextStep(cl: BookingChecklist, config?: SelenaConfig): NextSt
     }
   }
 
-  return { field: 'notes', instruction: 'Ask if they have any special notes or requests. Then do the recap.' }
+  return { field: 'notes', instruction: 'All required info is collected. Ask if they have any special notes or requests — wait for their answer. If they provide notes, call save_info with those notes. If they say no/none/nothing, call save_info with notes set to "none". Either way you MUST call save_info before proceeding.' }
 }
 
 // ─── Checklist Prompt Builder ───────────────────────────────────────────────
@@ -259,9 +259,7 @@ export async function updateChecklist(conversationId: string, updates: Partial<B
   if (updated.status === 'collecting') {
     const step = getNextStep(updated)
     if (step.field === null || step.field === 'notes') {
-      if (updated.notes !== null || step.field === null) {
-        updated.status = 'recap'
-      }
+      updated.status = 'recap'
     }
   }
 
@@ -412,7 +410,9 @@ ${escalationSection}
 
 RETURNING CLIENTS: If CLIENT PROFILE is below, use it. Don't re-ask for info you have.
 
-The BOOKING CHECKLIST below shows what you have and what's missing. Ask for the NEXT MISSING item. When complete, do the recap. NEVER re-ask for something already collected.`
+The BOOKING CHECKLIST below shows what you have and what's missing. Ask for the NEXT MISSING item. When complete, do the recap. NEVER re-ask for something already collected — if the checklist shows a value, it IS saved. Do NOT ask for email, name, phone, or address again if the checklist already has them.
+
+CRITICAL: When a client answers a question about your service, answer their question AND continue the booking flow. Do not lose track of where you are. Check the checklist — if a field has a value, move on to the next missing field or to the recap.`
 }
 
 // ─── Tool Definitions ───────────────────────────────────────────────────────
@@ -818,10 +818,13 @@ export async function askSelena(
         const toolBlocks = response.content.filter((b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use')
         const textBlocks = response.content.filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
 
-        if (toolBlocks.length === 0) {
-          if (textBlocks.length > 0) result.text = textBlocks.map(b => b.text).join(' ').trim()
-          break
+        // Always capture text — Claude often returns text + tool_use together
+        if (textBlocks.length > 0) {
+          const text = textBlocks.map(b => b.text).join(' ').trim()
+          if (text) result.text = text
         }
+
+        if (toolBlocks.length === 0) break
 
         currentMessages.push({ role: 'assistant', content: response.content as Anthropic.Messages.ContentBlockParam[] })
         const toolResults: Anthropic.Messages.ToolResultBlockParam[] = []
