@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/route'
+import { parseTimestamp } from '@/lib/dates'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -32,7 +33,10 @@ export async function POST(request: Request) {
   let earnings = 0
 
   if (booking.check_in_time) {
-    hoursWorked = (checkOutTime.getTime() - new Date(booking.check_in_time).getTime()) / 3600000
+    const checkInParsed = parseTimestamp(booking.check_in_time)
+    if (checkInParsed) {
+      hoursWorked = Math.max(0, (checkOutTime.getTime() - checkInParsed.getTime()) / 3600000)
+    }
     if (booking.pay_rate) {
       earnings = hoursWorked * booking.pay_rate
     }

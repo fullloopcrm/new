@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
+import { parseTimestamp } from '@/lib/dates'
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,9 +36,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate from booked duration (start_time -> end_time)
-    const start = new Date(booking.start_time)
-    const end = new Date(booking.end_time)
-    const estimatedHours = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60) * 2) / 2
+    const start = parseTimestamp(booking.start_time) || new Date(booking.start_time)
+    const end = parseTimestamp(booking.end_time) || new Date(booking.end_time)
+    const rawHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    const estimatedHours = Math.max(0.5, Math.round(rawHours * 2) / 2)
 
     const clientRate = booking.hourly_rate || 65
     const clientOwes = Math.round(estimatedHours * clientRate)

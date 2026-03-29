@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import { useTeamAuth } from './layout'
 import TranslatedNotes from '@/components/TranslatedNotes'
 import PushPrompt from '@/components/PushPrompt'
+import { parseTimestamp } from '@/lib/dates'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,6 +20,7 @@ type Job = {
   status: string
   check_in_time: string | null
   check_out_time: string | null
+  fifteen_min_alert_time: string | null
   hourly_rate: number | null
   clients: {
     name: string
@@ -271,9 +273,9 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, checkingI
           )}
           {/* 15-Min Heads Up — after check-in, before check-out */}
           {job.check_in_time && !job.check_out_time && (
-            <button onClick={() => onHeadsUp(job)} disabled={sendingHeadsUp === job.id}
+            <button onClick={() => onHeadsUp(job)} disabled={sendingHeadsUp === job.id || !!job.fifteen_min_alert_time}
               className="w-full bg-yellow-500 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
-              {sendingHeadsUp === job.id ? t('Sending...', 'Enviando...') : t('15-Min Heads Up', 'Aviso de 15 Min')}
+              {sendingHeadsUp === job.id ? t('Sending...', 'Enviando...') : job.fifteen_min_alert_time ? t('Alert Sent', 'Aviso Enviado') : t('15-Min Heads Up', 'Aviso de 15 Min')}
             </button>
           )}
           {canCheckOut && (
@@ -551,9 +553,9 @@ export default function TeamHomePage() {
 
   async function handleHeadsUp(job: Job) {
     if (!auth) return
-    const checkIn = new Date(job.check_in_time!)
+    const checkIn = parseTimestamp(job.check_in_time!) || new Date(job.check_in_time!)
     const now = new Date()
-    const hoursWorked = ((now.getTime() - checkIn.getTime()) / 3600000)
+    const hoursWorked = Math.max(0, (now.getTime() - checkIn.getTime()) / 3600000)
     const rate = job.hourly_rate || payRate || 0
     const estimated = Math.round(hoursWorked * rate)
 
