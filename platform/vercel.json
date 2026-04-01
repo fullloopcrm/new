@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/late-check-in",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/schedule-monitor",
+      "schedule": "0 7,12,18 * * *"
     }
   ]
 }

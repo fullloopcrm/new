@@ -123,6 +123,17 @@ export function smsLateCheckOutAdmin(bizName: string, booking: { clients?: { nam
   return `${bizName}: Late check-out — ${memberName} hasn't checked out for ${clientName}. 30+ min since 15-min alert.`
 }
 
+export function smsRunningLateClient(bizName: string, memberName: string, eta?: number): string {
+  const first = memberName.split(' ')[0]
+  return eta
+    ? `${bizName}: Hi! ${first} is running a few minutes behind and will arrive in approximately ${eta} minutes. We apologize for the delay.${STOP_TEXT}`
+    : `${bizName}: Hi! ${first} is running a few minutes behind schedule. They'll be there shortly. We apologize for the delay.${STOP_TEXT}`
+}
+
+export function smsRunningLateAdmin(bizName: string, memberName: string, clientName: string, time: string, eta?: number): string {
+  return `${bizName}: ${memberName} running late for ${time} job (${clientName})${eta ? ` — ETA ${eta} min` : ''}`
+}
+
 export function smsNewClient(bizName: string, name: string): string {
   return `${bizName}: New client — ${name}`
 }

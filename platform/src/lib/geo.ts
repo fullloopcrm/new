@@ -19,6 +19,15 @@ export function haversineDistance(
   return EARTH_RADIUS_MILES * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+// Alias for compatibility
+export const calculateDistance = haversineDistance
+
+// Estimate transit time from straight-line distance
+export function estimateTransitMinutes(distanceMiles: number): number {
+  if (distanceMiles < 0.3) return 5
+  return Math.round(10 + distanceMiles * 5)
+}
+
 // Simple geocoding via Nominatim (free, no API key)
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
