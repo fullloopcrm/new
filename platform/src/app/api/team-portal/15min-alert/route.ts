@@ -57,6 +57,12 @@ export async function POST(req: NextRequest) {
 
     const smsMessage = `15-MIN HEADS UP / AVISO DE 15 MIN\n${clientName} — ${serviceLabel}\nCleaner / Limpiador(a): ${cleanerName}\nClient owes / Cliente debe: $${clientOwes} (${estimatedHours}hrs @ $${clientRate}/hr)\nCleaner owed / Pago limpiador(a): $${cleanerOwed} (${estimatedHours}hrs @ $${cleanerRate}/hr)\nCollect payment now. / Cobrar pago ahora.`
 
+    // Record the 15-min alert timestamp on the booking
+    await supabaseAdmin
+      .from('bookings')
+      .update({ fifteen_min_alert_time: new Date().toISOString() })
+      .eq('id', bookingId)
+
     // Send SMS to admin
     let smsSent = false
     try {

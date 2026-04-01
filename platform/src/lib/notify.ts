@@ -53,6 +53,8 @@ export type NotificationType =
   | 'escalation'
   | 'video_uploaded'
   | '15min_warning'
+  | 'late_check_in'
+  | 'late_check_out'
 
 export async function notify({
   tenantId,

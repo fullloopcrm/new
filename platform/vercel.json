@@ -43,6 +43,10 @@
     {
       "path": "/api/cron/system-check",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/late-check-in",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
