@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 const trustBadges = [
-  { label: "All-in-One Home Service CRM", href: "/full-loop-crm-service-features" },
+  { label: "One Trade Per Metro — Exclusive", href: "/full-loop-crm-pricing" },
   { label: "50+ Service Industries", href: "/full-loop-crm-service-business-industries" },
-  { label: "Exclusive Territory Lock", href: "/full-loop-crm-pricing" },
+  { label: "All-in-One Full-Cycle CRM", href: "/full-loop-crm-service-features" },
   { label: "AI-Powered Automation", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
   { label: "300+ US Metros", href: "/full-loop-crm-service-business-industries" },
 ];
@@ -29,7 +29,7 @@ export default function Hero() {
         {/* Pre-headline badge */}
         <div className="mb-4 animate-hero-fade-in">
           <span className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-[0.15em] uppercase px-5 py-2.5 font-cta">
-            The Only Full-Service CRM Built for Home Service Businesses
+            One Trade Per Metro. One Operator Gets Everything.
           </span>
         </div>
 
@@ -39,13 +39,13 @@ export default function Hero() {
           style={{ animationDelay: "0.15s" }}
         >
           <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl">
-            First click to
+            Your city.
           </span>
           <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-teal-400 mt-2">
-            <em className="not-italic">five-star review.</em>
+            <em className="not-italic">Your trade. Nobody else.</em>
           </span>
           <span className="block text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-slate-300 mt-4">
-            One platform. Full Loop.
+            The only full-cycle CRM — licensed to one operator per metro.
           </span>
         </h1>
 
@@ -65,14 +65,14 @@ export default function Hero() {
           className="text-base sm:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed mb-2 animate-hero-slide-up"
           style={{ animationDelay: "0.4s" }}
         >
-          Every plan gets everything. Website. AI. CRM. Team portal. Hiring pages. SEO.{" "}
-          <Link href="/full-loop-crm-pricing" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">$199/mo to start.</Link>
+          When you claim a territory, every AI-generated lead in your city routes to you. Every local SEO asset points to you. Every competitor in your trade is locked out of this platform &mdash; forever.{" "}
+          <Link href="/full-loop-crm-pricing" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">$199/mo to hold the license.</Link>
         </p>
         <p
           className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed mb-4 animate-hero-slide-up"
           style={{ animationDelay: "0.45s" }}
         >
-          No contracts. Month to month. We set it all up.
+          No contracts. Month to month. We set it all up. But once a territory is claimed, it&apos;s off the board.
         </p>
 
         {/* Autonomy line */}
@@ -91,17 +91,17 @@ export default function Hero() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6 animate-hero-slide-up"
           style={{ animationDelay: "0.6s" }}
         >
-          <a
-            href="sms:+12122029220"
+          <Link
+            href="/crm-partnership-request-form"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
           >
-            Text Us
-          </a>
+            Check My Territory
+          </Link>
           <a
             href="tel:+12122029220"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg border border-white/30 hover:bg-white/10 transition-colors font-cta"
           >
-            Call Us
+            Call (212) 202-9220
           </a>
         </div>
 
@@ -110,8 +110,7 @@ export default function Hero() {
           className="text-slate-400 text-sm mb-10 animate-hero-fade-in"
           style={{ animationDelay: "0.7s" }}
         >
-
-          Currently accepting <Link href="/crm-partnership-request-form" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">CRM partnership requests</Link> for qualified home service business owners across <Link href="/full-loop-crm-service-business-industries" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">50+ industries</Link>.
+          Accepting one exclusive <Link href="/crm-partnership-request-form" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">partnership per trade per metro</Link> across <Link href="/full-loop-crm-service-business-industries" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">50+ industries</Link> and 300+ US cities.
         </p>
 
         {/* Trust badges */}

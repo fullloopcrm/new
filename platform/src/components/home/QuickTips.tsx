@@ -5,6 +5,10 @@ import { motion } from "framer-motion";
 
 const highlights = [
   {
+    name: "Exclusive Territory",
+    desc: "One operator per trade per metro. Every lead we generate in your city routes to you \u2014 and only you.",
+  },
+  {
     name: "Selena AI",
     desc: "Your 24/7 AI receptionist that books appointments via SMS and web chat. Bilingual.",
   },
@@ -21,12 +25,8 @@ const highlights = [
     desc: "GPS check-in, video walkthroughs, 15-min payment alert, earnings tracking. Bilingual.",
   },
   {
-    name: "Hiring Pages",
-    desc: "Job listings on Google for every neighborhood you serve. Applications flow to your dashboard.",
-  },
-  {
     name: "SEO That Compounds",
-    desc: "Your site gets stronger every month. 2,590 indexed pages. 148K impressions. No ad spend.",
+    desc: "Your site gets stronger every month. 20,000+ indexed pages route qualified local search to you alone.",
   },
 ];
 
@@ -42,7 +42,7 @@ export default function QuickTips() {
           className="text-center mb-10"
         >
           <span className="text-teal-100 text-sm font-bold uppercase tracking-widest block mb-3 font-cta">
-            What You Get on Every Plan:
+            What Every Territory License Includes:
           </span>
         </motion.div>
 

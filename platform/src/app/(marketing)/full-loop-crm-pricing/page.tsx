@@ -14,32 +14,32 @@ import {
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
   title:
-    "Pricing | Full Loop CRM — Plans Starting at $199/mo for Home Service Businesses",
+    "Territory Licenses from $199/mo | Full Loop CRM — One Operator Per Trade Per Metro",
   description:
-    "4 simple tiers, all features included. Full Loop CRM replaces 9+ tools — CRM, website, SEO, AI booking agent, team portal, review automation and more. Plans from $199/mo. No contracts.",
+    "The only full-cycle home service CRM — licensed to one operator per trade per metro. Every tier gets the full platform, every AI-generated local lead, and exclusivity in your city. From $199/mo.",
   keywords: [
+    "exclusive territory home service CRM",
+    "one trade per city CRM",
     "home service CRM pricing",
     "field service CRM cost",
-    "CRM for service businesses pricing",
-    "home service business CRM",
-    "all-in-one CRM pricing",
     "Full Loop CRM pricing",
-    "affordable home service CRM",
+    "CRM with exclusive territory",
+    "home service franchise CRM",
   ],
   alternates: { canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
   openGraph: {
-    title: "Pricing | Full Loop CRM — All Features, Every Tier",
+    title: "Territory Licenses from $199/mo — One Trade Per Metro",
     description:
-      "4 tiers starting at $199/mo. Every plan gets the same platform, same Selena AI, same website, same CRM. The only difference is team size. No contracts.",
+      "One operator per trade per metro holds the Full Loop CRM license. 4 tiers, all features, exclusive territory. No contracts — but once a territory is claimed it's off the board.",
     url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
     siteName: "Full Loop CRM",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pricing | Full Loop CRM — All Features, Every Tier",
+    title: "Territory Licenses from $199/mo — One Trade Per Metro",
     description:
-      "4 tiers starting at $199/mo. Every plan gets the same platform. No contracts, cancel anytime.",
+      "One operator per trade per metro. All features, every tier. Claim the license before a competitor does.",
   },
 };
 
@@ -172,19 +172,20 @@ export default function PricingPage() {
       <section className="bg-slate-900 py-24 px-6 sm:py-32">
         <div className="mx-auto max-w-4xl text-center">
           <p className="mb-4 text-sm font-mono uppercase tracking-widest text-teal-400">
-            Home Service CRM Pricing
+            One Trade. One Metro. One License.
           </p>
           <h1 className="text-4xl font-extrabold font-heading text-white sm:text-5xl lg:text-6xl">
-            All Features. Every Tier.{" "}
-            <span className="text-yellow-300">No Upsells.</span>
+            You&apos;re Not Buying Software.{" "}
+            <span className="text-yellow-300">You&apos;re Locking Out Your Competition.</span>
           </h1>
           <p className="mt-6 text-lg text-slate-300 sm:text-xl max-w-2xl mx-auto">
-            Every tier gets the same platform. Same Selena AI. Same website.
-            Same CRM. Same everything. The only difference is how many team
-            members you need.
+            Every tier gets the same full-cycle platform. The only difference is
+            team size. What you&apos;re really paying for is the exclusive right
+            to be the one operator in your trade, in your metro, running on Full
+            Loop CRM.
           </p>
           <p className="mt-4 text-sm font-mono text-teal-400 tracking-wide">
-            No contracts. Month to month. Cancel anytime.
+            No contracts. Month to month. But your territory stays yours as long as you hold the license.
           </p>
         </div>
       </section>

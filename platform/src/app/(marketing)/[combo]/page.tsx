@@ -17,19 +17,26 @@ import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
 import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
 import { faqs as globalFaqs } from "@/lib/marketing/faqs";
+import { getStateMeta } from "@/lib/marketing/stateMetadata";
+import {
+  getTerritoryStatus,
+  territoryStatusLabel,
+  territoryStatusColor,
+} from "@/lib/marketing/territoryStatus";
 
 // ---------------------------------------------------------------------------
-// ISR — combo pages generated on-demand and cached
+// ISR — status drives freshness, content is dynamic per-URL, revalidate hourly
+// so claimed/available flips propagate without a deploy.
 // ---------------------------------------------------------------------------
 export const dynamicParams = true;
-export const revalidate = 86400;
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return [];
 }
 
 // ---------------------------------------------------------------------------
-// Dynamic metadata
+// Dynamic metadata — status-aware so search results mirror live availability
 // ---------------------------------------------------------------------------
 export async function generateMetadata({
   params,
@@ -42,30 +49,46 @@ export async function generateMetadata({
 
   const { industry, metro } = match;
   const trade = industry.name.toLowerCase();
-  const title = `Best ${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
-  const description = `The best CRM for ${trade} businesses in ${metro.city}, ${metro.stateAbbr}. AI lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one platform, exclusive territory. Plans from $199/mo.`;
+  const { status } = await getTerritoryStatus(industry.slug, metro.slug);
+
+  const statusTag =
+    status === "claimed"
+      ? "Territory Claimed"
+      : status === "pending"
+        ? "Application Pending"
+        : "Territory Available";
+
+  const title = `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — One Exclusive License | Full Loop CRM`;
+  const description =
+    status === "claimed"
+      ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} has been claimed. Full Loop CRM licenses only one ${trade} partner per metro — see nearby markets still available.`
+      : status === "pending"
+        ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for the exclusive Full Loop CRM license. Only one per metro — get on the waitlist if the application falls through.`
+        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it's licensed to one operator per metro. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one platform. Claim the ${metro.city} territory from $199/mo.`;
   const url = `https://homeservicesbusinesscrm.com/${slug}`;
 
   return {
     title,
     description,
     keywords: [
-      `best ${trade} CRM ${metro.city}`,
-      `CRM for ${trade} businesses in ${metro.city}`,
+      `${trade} CRM ${metro.city}`,
+      `exclusive ${trade} CRM ${metro.city}`,
+      `${metro.city} ${trade} software`,
+      `${trade} CRM ${metro.stateAbbr}`,
       `${trade} business software ${metro.city} ${metro.stateAbbr}`,
-      `${metro.city} ${trade} CRM`,
-      `best CRM for ${trade} in ${metro.stateAbbr}`,
       `${trade} scheduling software ${metro.city}`,
+      `one trade per city CRM`,
+      `${metro.city} home services CRM`,
     ],
     openGraph: {
-      title: `Best ${industry.name} CRM in ${metro.city}, ${metro.stateAbbr}`,
+      title: `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — ${statusTag}`,
       description,
       url,
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
-      title: `Best ${industry.name} CRM in ${metro.city}, ${metro.stateAbbr}`,
+      title: `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — ${statusTag}`,
       description,
     },
     alternates: { canonical: url },
@@ -125,6 +148,21 @@ export default async function ComboPage({
   const { industry, metro } = match;
   const pageUrl = `https://homeservicesbusinesscrm.com/${slug}`;
   const trade = industry.name.toLowerCase();
+
+  // State-specific intel and live territory status — real per-URL variability
+  const stateMeta = getStateMeta(metro.stateAbbr);
+  const territory = await getTerritoryStatus(industry.slug, metro.slug);
+  const statusColors = territoryStatusColor(territory.status);
+  const isClaimed = territory.status === "claimed";
+  const isPending = territory.status === "pending";
+  const primaryCtaLabel = isClaimed
+    ? "See Nearby Markets"
+    : isPending
+      ? "Join the Waitlist"
+      : "Claim This Territory";
+  const primaryCtaHref = isClaimed
+    ? `/location/home-service-crm-in-${metro.shortSlug}`
+    : "/crm-partnership-request-form";
 
   // Find deep page content via slug mapping
   const contentSlug = getIndustryContentSlug(industry.slug);
@@ -193,22 +231,28 @@ export default async function ComboPage({
       )}
 
       {/* ================================================================= */}
-      {/* 1. HERO                                                           */}
+      {/* 1. HERO — status-aware territory claim                            */}
       {/* ================================================================= */}
       <section className="bg-slate-900 py-24 px-6">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="text-teal-400 font-cta text-sm uppercase tracking-wider mb-4">
-            Exclusive Territory — {metro.city}, {metro.stateAbbr}
-          </p>
+          <div
+            className={`inline-flex items-center gap-2 ${statusColors.bg} border border-slate-700/60 rounded-full px-4 py-1.5 mb-6`}
+          >
+            <span className={`w-2 h-2 rounded-full ${statusColors.dot} animate-pulse`} />
+            <span className={`${statusColors.text} font-cta text-xs uppercase tracking-wider`}>
+              {territoryStatusLabel(territory.status)} — {metro.city}, {metro.stateAbbr}
+            </span>
+          </div>
           <h1 className="text-4xl md:text-5xl font-extrabold text-white font-heading mb-6">
-            Best CRM for{" "}
+            The{" "}
             <span className="text-teal-400">{industry.name}</span>{" "}
-            Businesses in {metro.city}, {metro.stateAbbr}
+            CRM for {metro.city}, {metro.stateAbbr} — Licensed to One Operator
           </h1>
           <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-4">
-            The only full-cycle CRM built for {trade} businesses in{" "}
-            {metro.city}. AI-powered lead generation, automated sales,
-            scheduling, GPS field ops, and more — one exclusive territory.
+            Full Loop CRM is the only full-cycle CRM built for {trade} businesses,
+            and we license a single exclusive partner per metro. In {metro.city},
+            that means one {trade} company gets every AI-generated lead, every
+            local SEO asset, and the entire platform — and nobody else.
           </p>
           {richData && (
             <p className="text-base text-slate-400 max-w-2xl mx-auto mb-8">
@@ -234,10 +278,10 @@ export default async function ComboPage({
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/crm-partnership-request-form"
+              href={primaryCtaHref}
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Lock Your Territory
+              {primaryCtaLabel}
             </Link>
             <a
               href="tel:+12122029220"
@@ -248,6 +292,106 @@ export default async function ComboPage({
           </div>
         </div>
       </section>
+
+      {/* ================================================================= */}
+      {/* 1b. TERRITORY STATUS BAND — live availability                     */}
+      {/* ================================================================= */}
+      <section className="bg-slate-800 border-y border-slate-700 py-6 px-6">
+        <div className="mx-auto max-w-5xl flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className={`w-3 h-3 rounded-full ${statusColors.dot}`} />
+            <div className="text-slate-200">
+              <p className="font-cta text-sm uppercase tracking-wider text-slate-400">
+                {industry.name} license — {metro.city}, {metro.stateAbbr}
+              </p>
+              <p className="text-lg font-bold text-white font-heading">
+                {isClaimed
+                  ? `Taken${territory.claimedAt ? ` on ${new Date(territory.claimedAt).toLocaleDateString()}` : ""}`
+                  : isPending
+                    ? "Application under review — not yet confirmed"
+                    : "Available right now — one operator gets it"}
+              </p>
+            </div>
+          </div>
+          <Link
+            href={primaryCtaHref}
+            className="inline-block bg-teal-500 text-slate-900 font-cta px-6 py-2.5 rounded-lg hover:bg-teal-400 transition-colors text-sm"
+          >
+            {primaryCtaLabel}
+          </Link>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* 1c. LOCAL INTEL — state-specific facts, unique per page           */}
+      {/* ================================================================= */}
+      {stateMeta && (
+        <section className="bg-white py-16 px-6 border-b border-slate-200">
+          <div className="mx-auto max-w-5xl">
+            <h2 className="text-xl md:text-2xl font-bold text-slate-900 font-heading mb-2">
+              What running a {trade} business in {metro.city},{" "}
+              {metro.stateAbbr} actually looks like
+            </h2>
+            <p className="text-slate-600 mb-8 max-w-3xl">
+              Full Loop CRM is configured for the real rules, seasons, and
+              economics of your market — not a generic national template.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                <p className="text-xs font-cta uppercase tracking-wider text-teal-700 mb-1">
+                  Licensing authority
+                </p>
+                <a
+                  href={stateMeta.licensingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-900 font-bold font-heading hover:text-teal-700"
+                >
+                  {stateMeta.licensingAuthority}
+                </a>
+                <p className="text-sm text-slate-700 mt-2">
+                  {stateMeta.permitNote}
+                </p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                <p className="text-xs font-cta uppercase tracking-wider text-teal-700 mb-1">
+                  Seasonal pattern
+                </p>
+                <p className="text-slate-900 font-bold font-heading capitalize">
+                  {stateMeta.climateZone.replace(/-/g, " ")} climate
+                </p>
+                <p className="text-sm text-slate-700 mt-2">
+                  {stateMeta.seasonalNote}
+                </p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                <p className="text-xs font-cta uppercase tracking-wider text-teal-700 mb-1">
+                  Regional trade association
+                </p>
+                <p className="text-slate-900 font-bold font-heading">
+                  {stateMeta.tradeAssociation}
+                </p>
+                <p className="text-sm text-slate-700 mt-2">
+                  Full Loop CRM tracks association membership, CEU credits, and
+                  referral partnerships inside every tenant workspace.
+                </p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                <p className="text-xs font-cta uppercase tracking-wider text-teal-700 mb-1">
+                  Tax + invoicing
+                </p>
+                <p className="text-slate-900 font-bold font-heading">
+                  State #{stateMeta.populationRank} by population
+                </p>
+                <p className="text-sm text-slate-700 mt-2">
+                  {stateMeta.taxNote} Full Loop CRM auto-applies the right tax
+                  rules on every invoice you send from {metro.city}.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ================================================================= */}
       {/* 2. INDUSTRY OVERVIEW (localized)                                  */}
@@ -417,37 +561,38 @@ export default async function ComboPage({
       )}
 
       {/* ================================================================= */}
-      {/* 7. PRICING                                                        */}
+      {/* 7. PRICING — one license, one metro                               */}
       {/* ================================================================= */}
       <section className="py-20 px-6 bg-slate-50">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            {industry.name} CRM Pricing in {metro.city} — Every Plan Gets Everything
+            One {industry.name} License for {metro.city}. $199/mo.
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
             $199<span className="text-xl text-slate-500 font-normal">/mo</span>
           </p>
           <p className="text-slate-600 mb-4 text-lg">
-            Exclusive {trade} territory in {metro.city},{" "}
-            {metro.stateAbbr}. No other {trade} partner competes with you
-            in this market.
+            The exclusive {trade} CRM license for {metro.city},{" "}
+            {metro.stateAbbr}. When it&apos;s yours, no other {trade}{" "}
+            business in the metro can sign up — ever.
           </p>
           <p className="text-slate-700 mb-6 max-w-xl mx-auto">
             Full Loop CRM replaces 9+ separate tools — lead generation,
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
-            platform. The $199/mo license includes your exclusive territory,
-            all 7 lifecycle stages, the Selena AI assistant, client and team
-            portals, and all core updates.
+            platform. The $199/mo license includes your exclusive{" "}
+            {metro.city} territory, all 7 lifecycle stages, the Selena AI
+            assistant, client and team portals, and all core updates.
           </p>
           <p className="text-sm text-slate-500 mb-8">
-            $999 one-time setup. No contracts. Cancel anytime.
+            $999 one-time setup. No contracts. Cancel anytime — but the next
+            applicant inherits the {metro.city} license.
           </p>
           <Link
-            href="/full-loop-crm-pricing"
+            href={primaryCtaHref}
             className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
           >
-            View Full Pricing Details
+            {primaryCtaLabel}
           </Link>
         </div>
       </section>
@@ -601,24 +746,38 @@ export default async function ComboPage({
       )}
 
       {/* ================================================================= */}
-      {/* 11. FINAL CTA                                                     */}
+      {/* 11. FINAL CTA — status-aware                                      */}
       {/* ================================================================= */}
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">
+          <div
+            className={`inline-flex items-center gap-2 ${statusColors.bg} border border-slate-700/60 rounded-full px-4 py-1.5 mb-6`}
+          >
+            <span className={`w-2 h-2 rounded-full ${statusColors.dot}`} />
+            <span className={`${statusColors.text} font-cta text-xs uppercase tracking-wider`}>
+              {territoryStatusLabel(territory.status)}
+            </span>
+          </div>
           <h2 className="text-3xl font-bold text-white font-heading mb-4">
-            Lock Your {industry.name} Territory in {metro.city}
+            {isClaimed
+              ? `The ${industry.name} License for ${metro.city} Is Taken`
+              : isPending
+                ? `Application Pending for ${metro.city} ${industry.name} License`
+                : `Claim the ${industry.name} License for ${metro.city}`}
           </h2>
           <p className="text-slate-300 mb-8 text-lg">
-            One partner per trade per metro. Once the{" "}
-            {trade} territory in {metro.city},{" "}
-            {metro.stateAbbr} is claimed, it&apos;s off the table.
+            {isClaimed
+              ? `Full Loop CRM licenses one ${trade} operator per metro. The ${metro.city}, ${metro.stateAbbr} license is active. Check nearby markets or waitlist in case it opens back up.`
+              : isPending
+                ? `Another ${trade} operator has applied for the ${metro.city}, ${metro.stateAbbr} license. Get on the waitlist — if the application doesn't close, the next in line gets it.`
+                : `One partner per trade per metro. Once the ${trade} license in ${metro.city}, ${metro.stateAbbr} is claimed, it's off the table — forever.`}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/crm-partnership-request-form"
+              href={primaryCtaHref}
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Request Partnership
+              {primaryCtaLabel}
             </Link>
             <a
               href="tel:+12122029220"
