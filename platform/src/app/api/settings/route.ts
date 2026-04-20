@@ -35,7 +35,7 @@ export async function PUT(request: Request) {
     }
 
     // Track sensitive field changes for security audit log
-    const sensitiveFields = ['resend_api_key', 'telnyx_api_key', 'telnyx_phone', 'stripe_api_key', 'stripe_account_id']
+    const sensitiveFields = ['resend_api_key', 'telnyx_api_key', 'telnyx_phone', 'stripe_api_key', 'stripe_account_id', 'imap_pass', 'anthropic_api_key', 'indexnow_key']
     const changedSensitive = sensitiveFields.filter((f) => body[f] !== undefined)
 
     const { data, error } = await supabaseAdmin

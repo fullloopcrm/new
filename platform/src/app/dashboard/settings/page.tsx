@@ -29,6 +29,12 @@ type Tenant = {
   stripe_api_key: string | null
   stripe_account_id: string | null
   google_place_id: string | null
+  imap_host: string | null
+  imap_port: number | null
+  imap_user: string | null
+  imap_pass: string | null
+  anthropic_api_key: string | null
+  indexnow_key: string | null
 
   // Scheduling fields
   booking_buffer_minutes: number | null
@@ -917,7 +923,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Google Business */}
-          <div className="space-y-3">
+          <div className="space-y-3 pb-5 border-b border-slate-100">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-700">Google Business</h3>
               <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.google_place_id ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
@@ -928,6 +934,65 @@ export default function SettingsPage() {
             <div>
               <label className="text-sm text-slate-400 block mb-1">Place ID</label>
               <input value={form.google_place_id || ''} onChange={(e) => setForm({ ...form, google_place_id: e.target.value || null })} placeholder="ChIJxxxx" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+            </div>
+          </div>
+
+          {/* IMAP — Zelle/Venmo payment email monitor */}
+          <div className="space-y-3 pb-5 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">Payment Email Monitor (IMAP)</h3>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.imap_host && form.imap_user && form.imap_pass ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                {form.imap_host && form.imap_user && form.imap_pass ? 'Connected' : 'Not configured'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Cron scans your inbox every minute for Zelle / Venmo / Cash App payment emails and auto-matches them to bookings.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm text-slate-400 block mb-1">IMAP Host</label>
+                <input value={form.imap_host || ''} onChange={(e) => setForm({ ...form, imap_host: e.target.value || null })} placeholder="imap.gmail.com" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+              </div>
+              <div>
+                <label className="text-sm text-slate-400 block mb-1">Port</label>
+                <input type="number" value={form.imap_port ?? ''} onChange={(e) => setForm({ ...form, imap_port: e.target.value === '' ? null : Number(e.target.value) })} placeholder="993" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+              </div>
+              <div>
+                <label className="text-sm text-slate-400 block mb-1">Email / Username</label>
+                <input value={form.imap_user || ''} onChange={(e) => setForm({ ...form, imap_user: e.target.value || null })} placeholder="hi@yourbusiness.com" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+              </div>
+              <div>
+                <label className="text-sm text-slate-400 block mb-1">App Password</label>
+                <input type="password" value={form.imap_pass || ''} onChange={(e) => setForm({ ...form, imap_pass: e.target.value || null })} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+              </div>
+            </div>
+          </div>
+
+          {/* Anthropic — Selena AI brain */}
+          <div className="space-y-3 pb-5 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">Selena AI (Anthropic)</h3>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.anthropic_api_key ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                {form.anthropic_api_key ? 'Using your key' : 'Using platform key'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Sign up at console.anthropic.com, generate a key. Leave blank to use the platform-billed key (charges roll into your monthly rate).</p>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">Anthropic API Key</label>
+              <input type="password" value={form.anthropic_api_key || ''} onChange={(e) => setForm({ ...form, anthropic_api_key: e.target.value || null })} placeholder="sk-ant-xxxx" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+            </div>
+          </div>
+
+          {/* IndexNow — SEO instant indexing */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">SEO (IndexNow)</h3>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.indexnow_key ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                {form.indexnow_key ? 'Configured' : 'Not configured'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Generate a 32-char hex key at indexnow.org. Lets Bing/Yahoo/DuckDuckGo instantly index new content.</p>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">IndexNow Key</label>
+              <input value={form.indexnow_key || ''} onChange={(e) => setForm({ ...form, indexnow_key: e.target.value || null })} placeholder="32-char hex key" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
             </div>
           </div>
 
