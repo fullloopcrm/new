@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     name, industry, zip_code, team_size,
     owner_name, owner_email, owner_phone,
     payment_method, monthly_rate, setup_fee,
+    domain_name, website_url, phone, email, tagline, primary_color,
   } = body
 
   if (!name || !industry) {
@@ -49,6 +50,14 @@ export async function POST(request: Request) {
   // Derive timezone from zip
   const tz = zipToTimezone(zip_code || '')
 
+  // Clean domain — strip protocol + trailing slash + www.
+  const cleanDomain = (domain_name || '')
+    .replace(/^https?:\/\//, '')
+    .replace(/\/+$/, '')
+    .replace(/^www\./, '')
+    .toLowerCase()
+    .trim() || null
+
   // Create tenant with status=setup
   const { data: tenant, error } = await supabaseAdmin
     .from('tenants')
@@ -67,6 +76,13 @@ export async function POST(request: Request) {
       monthly_rate: monthly_rate || 0,
       setup_fee: setup_fee || 0,
       billing_status: 'setup',
+      domain: cleanDomain,
+      domain_name: domain_name || null,
+      website_url: website_url || null,
+      phone: phone || null,
+      email: email || null,
+      tagline: tagline || null,
+      primary_color: primary_color || '#0d9488',
     })
     .select()
     .single()
@@ -75,12 +91,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Create default services
-  const defaultServices = getDefaultServices(industry, tenant.id)
-  if (defaultServices.length > 0) {
-    await supabaseAdmin.from('service_types').insert(defaultServices)
-  }
-
+  // Services, selena_config, guidelines, etc. are seeded by
+  // POST /api/admin/businesses/[id]/provision (called by the onboarding form
+  // when Auto-seed is checked). Keeps seeding logic in one place.
   return NextResponse.json({ business: tenant })
 }
 

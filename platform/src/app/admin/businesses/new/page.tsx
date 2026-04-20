@@ -59,10 +59,22 @@ export default function NewBusinessPage() {
   const [ownerEmail, setOwnerEmail] = useState('')
   const [ownerPhone, setOwnerPhone] = useState('')
 
+  // Website & domain
+  const [domainName, setDomainName] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [businessPhone, setBusinessPhone] = useState('')
+  const [businessEmail, setBusinessEmail] = useState('')
+  const [tagline, setTagline] = useState('')
+  const [primaryColor, setPrimaryColor] = useState('#0d9488')
+
   // Billing
   const [paymentMethod, setPaymentMethod] = useState('')
   const [monthlyRate, setMonthlyRate] = useState(299)
   const [setupFee, setSetupFee] = useState(499)
+
+  // Provision
+  const [autoProvision, setAutoProvision] = useState(true)
+  const [provisionStatus, setProvisionStatus] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -73,6 +85,7 @@ export default function NewBusinessPage() {
 
     setSaving(true)
     setError('')
+    setProvisionStatus('Creating tenant...')
 
     const res = await fetch('/api/admin/businesses', {
       method: 'POST',
@@ -88,6 +101,12 @@ export default function NewBusinessPage() {
         payment_method: paymentMethod || null,
         monthly_rate: monthlyRate,
         setup_fee: setupFee,
+        domain_name: domainName || null,
+        website_url: websiteUrl || null,
+        phone: businessPhone || null,
+        email: businessEmail || null,
+        tagline: tagline || null,
+        primary_color: primaryColor,
       }),
     })
 
@@ -96,10 +115,32 @@ export default function NewBusinessPage() {
     if (!res.ok) {
       setError(data.error || 'Failed to create business')
       setSaving(false)
+      setProvisionStatus('')
       return
     }
 
-    router.push(`/admin/businesses/${data.business.id}`)
+    const tenantId = data.business.id
+
+    if (autoProvision) {
+      setProvisionStatus('Seeding services, Selena config, guidelines...')
+      try {
+        const provRes = await fetch(`/api/admin/businesses/${tenantId}/provision`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ industry }),
+        })
+        const provData = await provRes.json()
+        if (provRes.ok) {
+          setProvisionStatus(`Seeded ${provData.seeded?.services ?? 0} services + defaults`)
+        } else {
+          setProvisionStatus(`Provisioning warning: ${provData.error || 'partial failure'}`)
+        }
+      } catch (err) {
+        setProvisionStatus(`Provisioning failed: ${err instanceof Error ? err.message : 'unknown'}`)
+      }
+    }
+
+    router.push(`/admin/businesses/${tenantId}`)
   }
 
   return (
@@ -164,6 +205,79 @@ export default function NewBusinessPage() {
                   <option value="small">2-5 People</option>
                   <option value="medium">6+ People</option>
                 </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Website & Contact */}
+        <div className="border-b border-slate-200 pb-6">
+          <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider mb-4">Website & Contact</h2>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Domain</label>
+                <input
+                  value={domainName}
+                  onChange={(e) => setDomainName(e.target.value.toLowerCase().trim())}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="sparkleclean.com"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Existing Website (optional)</label>
+                <input
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Business Phone</label>
+                <input
+                  value={businessPhone}
+                  onChange={(e) => setBusinessPhone(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="(212) 555-1212"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Business Email</label>
+                <input
+                  type="email"
+                  value={businessEmail}
+                  onChange={(e) => setBusinessEmail(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="hi@sparkleclean.com"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Tagline</label>
+              <input
+                value={tagline}
+                onChange={(e) => setTagline(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                placeholder="New York City's Most Trusted Cleaning Service"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Primary Brand Color</label>
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="h-10 w-14 rounded border border-slate-200 cursor-pointer"
+                />
+                <input
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
+                />
               </div>
             </div>
           </div>
@@ -247,21 +361,37 @@ export default function NewBusinessPage() {
           </div>
         </div>
 
-        {/* Workflow hint */}
-        <div className="border-l-4 border-l-slate-300 pl-4 py-2">
-          <p className="text-xs text-slate-500 leading-relaxed">
-            <strong className="text-slate-600">After creating:</strong> The business will be in &quot;Setup&quot; status with default services pre-loaded.
-            Use &quot;Log In as Business&quot; from the detail page to configure their account (settings, services, team, integrations),
-            then send an invite to the owner when ready.
-          </p>
+        {/* Auto-provision toggle */}
+        <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoProvision}
+              onChange={(e) => setAutoProvision(e.target.checked)}
+              className="mt-1"
+            />
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Auto-seed defaults</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Seed {industry} service types, Selena config (AI name, pricing, tone), business hours,
+                payment methods, and default team guidelines. Idempotent — can be re-run anytime from the detail page.
+              </p>
+            </div>
+          </label>
         </div>
+
+        {provisionStatus && (
+          <div className="bg-teal-50 border border-teal-200 rounded-lg px-4 py-3 text-sm text-teal-700">
+            {provisionStatus}
+          </div>
+        )}
 
         <button
           type="submit"
           disabled={saving || !name.trim()}
           className="w-full bg-teal-600 hover:bg-teal-500 text-white py-3 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Creating...' : 'Create Business'}
+          {saving ? (provisionStatus || 'Creating...') : 'Create Business + Provision'}
         </button>
       </form>
     </div>
