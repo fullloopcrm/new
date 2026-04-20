@@ -49,13 +49,18 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Log security events for sensitive changes
+    // Log security events for sensitive changes. Non-fatal — DB write already
+    // succeeded, a missing Resend domain (dev env) shouldn't 500 the save.
     for (const field of changedSensitive) {
-      await logSecurityEvent({
-        tenantId,
-        type: 'api_key_change',
-        description: `Integration key updated: ${field.replace(/_/g, ' ')}`,
-      })
+      try {
+        await logSecurityEvent({
+          tenantId,
+          type: 'api_key_change',
+          description: `Integration key updated: ${field.replace(/_/g, ' ')}`,
+        })
+      } catch (err) {
+        console.error('[settings PUT] logSecurityEvent failed:', err)
+      }
     }
 
     return NextResponse.json({ tenant: data })
