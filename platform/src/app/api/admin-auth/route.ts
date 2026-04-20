@@ -1,33 +1,9 @@
 import { NextResponse } from 'next/server'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 import crypto from 'crypto'
 
 const ADMIN_PIN = process.env.ADMIN_PIN || ''
 const SECRET = process.env.ADMIN_TOKEN_SECRET
-
-// NOTE: In-memory rate limiting — resets on server restart (serverless cold start).
-// Acceptable for admin PIN auth since it's a secondary defense layer.
-const attempts = new Map<string, { count: number; resetAt: number }>()
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-
-  // Cleanup expired entries to prevent memory leaks
-  if (attempts.size > 1000) {
-    for (const [key, val] of attempts) {
-      if (val.resetAt <= now) attempts.delete(key)
-    }
-  }
-
-  const entry = attempts.get(ip)
-  if (entry && entry.resetAt > now) {
-    if (entry.count >= 5) return false
-    entry.count++
-    return true
-  }
-  attempts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
-  return true
-}
 
 export function createAdminToken(): string {
   if (!SECRET) throw new Error('ADMIN_TOKEN_SECRET is not configured')
@@ -53,7 +29,8 @@ export function verifyAdminToken(token: string): boolean {
 export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
 
-  if (!checkRateLimit(ip)) {
+  const rl = await rateLimitDb(`admin_auth:${ip}`, 5, 15 * 60 * 1000)
+  if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
 

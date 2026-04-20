@@ -1,22 +1,9 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 import crypto from 'crypto'
 
 const SECRET = process.env.TEAM_PORTAL_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const attempts = new Map<string, { count: number; resetAt: number }>()
-
-function checkRateLimit(key: string): boolean {
-  const now = Date.now()
-  const entry = attempts.get(key)
-  if (entry && entry.resetAt > now) {
-    if (entry.count >= 5) return false
-    entry.count++
-    return true
-  }
-  attempts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 })
-  return true
-}
 
 function createToken(memberId: string, tenantId: string, payRate?: number | null): string {
   const payload = JSON.stringify({ id: memberId, tid: tenantId, pr: payRate || 0, exp: Date.now() + 24 * 3600 * 1000 })
@@ -45,7 +32,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'PIN and tenant required' }, { status: 400 })
   }
 
-  if (!checkRateLimit(`${tenant_slug}:${pin}`)) {
+  const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${pin}`, 5, 15 * 60 * 1000)
+  if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
 
