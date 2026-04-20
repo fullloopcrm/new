@@ -1,6 +1,30 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    // Use afterFiles so these rewrites run AFTER middleware prefixes tenant
+    // requests with /site. Tenant content already reads getTenantFromHeaders.
+    return {
+      beforeFiles: [],
+      afterFiles: [
+        { source: '/site/about', destination: '/site/about-the-nyc-maid-service-company' },
+        { source: '/site/reviews', destination: '/site/nyc-customer-reviews-for-the-nyc-maid' },
+        { source: '/site/services', destination: '/site/nyc-maid-service-services-offered-by-the-nyc-maid' },
+        { source: '/site/faq', destination: '/site/nyc-cleaning-service-frequently-asked-questions-in-2025' },
+        { source: '/site/tips', destination: '/site/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid' },
+        { source: '/site/blog', destination: '/site/nyc-maid-service-blog' },
+        { source: '/site/blog/:slug', destination: '/site/nyc-maid-service-blog/:slug' },
+        { source: '/site/areas', destination: '/site/service-areas-served-by-the-nyc-maid' },
+        { source: '/site/contact', destination: '/site/contact-the-nyc-maid-service-today' },
+        { source: '/site/pricing', destination: '/site/updated-nyc-maid-service-industry-pricing' },
+        { source: '/site/careers', destination: '/site/available-nyc-maid-jobs' },
+        { source: '/site/careers/:slug', destination: '/site/available-nyc-maid-jobs/:slug' },
+        { source: '/site/referral', destination: '/site/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
+        { source: '/site/emergency', destination: '/site/service/nyc-emergency-cleaning-service' },
+      ],
+      fallback: [],
+    }
+  },
   async redirects() {
     return [
       {
@@ -27,17 +51,8 @@ const nextConfig: NextConfig = {
       { source: '/book/dashboard', destination: '/portal', permanent: true },
       { source: '/team/:token', destination: '/team/checkin/:token', permanent: true },
       { source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator', permanent: true },
-      // Legacy marketing paths moved under /site/*
-      { source: '/about', destination: '/site/about', permanent: true },
-      { source: '/services', destination: '/site/services', permanent: true },
-      { source: '/careers', destination: '/site/careers', permanent: true },
-      { source: '/reviews', destination: '/site/reviews', permanent: true },
-      { source: '/faq', destination: '/site/faq', permanent: true },
-      { source: '/blog', destination: '/site/blog', permanent: true },
-      { source: '/blog/:slug', destination: '/site/blog/:slug', permanent: true },
-      { source: '/privacy-policy', destination: '/site/privacy-policy', permanent: true },
-      { source: '/terms-conditions', destination: '/site/terms-conditions', permanent: true },
-      { source: '/refund-policy', destination: '/site/refund-policy', permanent: true },
+      // Clean marketing URLs are handled via afterFiles rewrites above
+      // (they run after middleware injects /site prefix for tenant domains).
     ]
   },
   async headers() {
