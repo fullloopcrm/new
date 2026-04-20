@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { isHoliday } from '@/lib/holidays'
 
 export interface AvailabilitySlot {
   time: string
@@ -137,6 +138,11 @@ export async function checkAvailability(
   const today = new Date().toLocaleDateString('en-CA')
   if (date === today) {
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
+  }
+
+  const holidayName = isHoliday(date)
+  if (holidayName) {
+    return { slots: [], message: `Closed for ${holidayName}` }
   }
 
   const team = await getTeamForDay(tenantId, date)

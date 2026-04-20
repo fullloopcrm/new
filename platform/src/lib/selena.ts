@@ -110,7 +110,7 @@ export interface BookingChecklist {
   email: string | null
   notes: string | null
   rating: number | null
-  channel: 'sms' | 'web' | null
+  channel: 'sms' | 'web' | 'email' | null
   status: 'greeting' | 'collecting' | 'recap' | 'confirmed' | 'rating' | 'closed'
 }
 
@@ -759,7 +759,7 @@ export async function getClientProfile(tenantId: string, phone: string): Promise
 
 export async function askSelena(
   tenantId: string,
-  channel: 'sms' | 'web',
+  channel: 'sms' | 'web' | 'email',
   message: string,
   conversationId: string,
   phone?: string,
