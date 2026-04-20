@@ -59,6 +59,18 @@
     {
       "path": "/api/cron/email-monitor",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-videos",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/sales-follow-ups",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/outreach",
+      "schedule": "0 14 * * 6"
     }
   ]
 }
