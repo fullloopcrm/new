@@ -16,8 +16,8 @@ export async function POST(request: Request) {
   if (type === 'client') {
     updates.payment_status = 'paid'
   } else if (type === 'cleaner') {
-    updates.cleaner_paid = true
-    updates.cleaner_paid_at = new Date().toISOString()
+    updates.team_member_paid = true
+    updates.team_member_paid_at = new Date().toISOString()
   } else {
     return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
   }

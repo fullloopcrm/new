@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     return {
       tenant_id: tenantId,
       client_id: b.client_id,
-      team_member_id: b.team_member_id || b.cleaner_id || null,
+      team_member_id: b.team_member_id || b.team_member_id || null,
       start_time: b.start_time,
       end_time: b.end_time,
       service_type: b.service_type,
@@ -43,10 +43,10 @@ export async function POST(request: Request) {
       hourly_rate: b.hourly_rate || null,
       notes: b.notes || null,
       recurring_type: b.recurring_type || null,
-      cleaner_token: token,
+      team_member_token: token,
       token_expires_at: tokenExpires.toISOString(),
       status: (b.status as string) || 'scheduled',
-      cleaner_pay_rate: b.cleaner_pay_rate || null,
+      pay_rate: b.pay_rate || null,
       schedule_id: (b.schedule_id as string) || schedule_id || null,
     }
   })
@@ -74,14 +74,14 @@ export async function POST(request: Request) {
       // Resolve tenant SMS creds
       const { data: tRow } = await supabaseAdmin
         .from('tenants')
-        .select('telnyx_api_key, telnyx_phone_number, resend_api_key, from_email')
+        .select('telnyx_api_key, telnyx_phone, resend_api_key, email_from')
         .eq('id', tenantId)
         .single()
 
       const telnyxApiKey = (tRow?.telnyx_api_key as string) || process.env.TELNYX_API_KEY || ''
-      const telnyxPhone = (tRow?.telnyx_phone_number as string) || process.env.TELNYX_PHONE_NUMBER || ''
+      const telnyxPhone = (tRow?.telnyx_phone as string) || process.env.TELNYX_PHONE || ''
       const resendKey = (tRow?.resend_api_key as string) || process.env.RESEND_API_KEY || ''
-      const fromEmail = (tRow?.from_email as string) || process.env.FROM_EMAIL || ''
+      const fromEmail = (tRow?.email_from as string) || process.env.EMAIL_FROM || ''
 
       // Resolve tenant business name for SMS templates
       const { data: tenantRow } = await supabaseAdmin

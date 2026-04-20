@@ -8,10 +8,10 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, price, cleaner_pay, actual_hours, payment_status, cleaner_paid, clients(name), team_members(name)')
+      .select('id, start_time, price, team_member_pay, actual_hours, payment_status, team_member_paid, clients(name), team_members(name)')
       .eq('tenant_id', tenantId)
       .eq('status', 'completed')
-      .or('payment_status.neq.paid,cleaner_paid.is.null,cleaner_paid.eq.false')
+      .or('payment_status.neq.paid,team_member_paid.is.null,team_member_paid.eq.false')
       .order('start_time', { ascending: false })
       .limit(100)
 
@@ -26,10 +26,10 @@ export async function GET() {
         client_name: client?.name || 'Unknown',
         cleaner_name: cleaner?.name || 'Unassigned',
         amount: b.price || 0,
-        cleaner_pay: b.cleaner_pay || 0,
+        team_member_pay: b.team_member_pay || 0,
         actual_hours: b.actual_hours || 0,
         payment_status: b.payment_status,
-        cleaner_paid: b.cleaner_paid,
+        team_member_paid: b.team_member_paid,
       }
     })
 
