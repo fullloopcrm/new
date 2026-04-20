@@ -67,6 +67,14 @@ export default function NewBusinessPage() {
   const [tagline, setTagline] = useState('')
   const [primaryColor, setPrimaryColor] = useState('#0d9488')
 
+  // Service areas + hours + services override (for provisionTenant)
+  const [serviceAreas, setServiceAreas] = useState('')
+  const [businessHoursStart, setBusinessHoursStart] = useState('08:00')
+  const [businessHoursEnd, setBusinessHoursEnd] = useState('18:00')
+  const [businessDays, setBusinessDays] = useState<string[]>(['Mon', 'Tue', 'Wed', 'Thu', 'Fri'])
+  const [servicesOverrideText, setServicesOverrideText] = useState('')
+  const [paymentMethodsList, setPaymentMethodsList] = useState<string[]>(['zelle', 'credit_card', 'cash'])
+
   // Billing
   const [paymentMethod, setPaymentMethod] = useState('')
   const [monthlyRate, setMonthlyRate] = useState(299)
@@ -75,6 +83,29 @@ export default function NewBusinessPage() {
   // Provision
   const [autoProvision, setAutoProvision] = useState(true)
   const [provisionStatus, setProvisionStatus] = useState('')
+
+  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const PAYMENT_METHODS = ['zelle', 'apple_pay', 'venmo', 'credit_card', 'cash', 'check']
+
+  function toggleDay(d: string) {
+    setBusinessDays(prev => (prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]))
+  }
+  function togglePayment(p: string) {
+    setPaymentMethodsList(prev => (prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]))
+  }
+
+  function parseServicesOverride(): Array<{ name: string; description: string; default_duration_hours: number; default_hourly_rate: number; sort_order: number }> {
+    const lines = servicesOverrideText.split('\n').map(l => l.trim()).filter(Boolean)
+    return lines.map((line, i) => {
+      // Format: "Name | $rate | duration hr | description"
+      const parts = line.split('|').map(p => p.trim())
+      const name = parts[0] || `Service ${i + 1}`
+      const rate = parseInt((parts[1] || '').replace(/[^\d]/g, ''), 10) || 75
+      const duration = parseFloat((parts[2] || '').replace(/[^\d.]/g, '')) || 2
+      const description = parts[3] || ''
+      return { name, description, default_duration_hours: duration, default_hourly_rate: rate, sort_order: i + 1 }
+    })
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -86,6 +117,12 @@ export default function NewBusinessPage() {
     setSaving(true)
     setError('')
     setProvisionStatus('Creating tenant...')
+
+    const serviceAreasList = serviceAreas
+      .split(/[\n,]/)
+      .map(a => a.trim())
+      .filter(Boolean)
+    const businessHoursStr = `${businessDays.join('/')} ${businessHoursStart}–${businessHoursEnd}`
 
     const res = await fetch('/api/admin/businesses', {
       method: 'POST',
@@ -107,6 +144,10 @@ export default function NewBusinessPage() {
         email: businessEmail || null,
         tagline: tagline || null,
         primary_color: primaryColor,
+        business_hours: businessHoursStr,
+        business_hours_start: businessHoursStart,
+        business_hours_end: businessHoursEnd,
+        payment_methods: paymentMethodsList,
       }),
     })
 
@@ -123,11 +164,20 @@ export default function NewBusinessPage() {
 
     if (autoProvision) {
       setProvisionStatus('Seeding services, Selena config, guidelines...')
+      const customServices = parseServicesOverride()
+      const overrides: Record<string, unknown> = {}
+      if (customServices.length > 0) overrides.services = customServices
+      if (serviceAreasList.length > 0) {
+        overrides.selena_config = { service_areas: serviceAreasList }
+      }
       try {
         const provRes = await fetch(`/api/admin/businesses/${tenantId}/provision`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ industry }),
+          body: JSON.stringify({
+            industry,
+            ...(Object.keys(overrides).length > 0 && { overrides }),
+          }),
         })
         const provData = await provRes.json()
         if (provRes.ok) {
@@ -278,6 +328,77 @@ export default function NewBusinessPage() {
                   onChange={(e) => setPrimaryColor(e.target.value)}
                   className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Service Areas + Hours + Payment Methods */}
+        <div className="border-b border-slate-200 pb-6">
+          <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider mb-4">Service Details</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Service Areas (one per line or comma-separated)</label>
+              <textarea
+                value={serviceAreas}
+                onChange={(e) => setServiceAreas(e.target.value)}
+                rows={4}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
+                placeholder={'Manhattan\nBrooklyn\nQueens\nHoboken'}
+              />
+              <p className="text-xs text-slate-400 mt-1">Drives SEO page generation: one page per service × area combo.</p>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Custom Services (optional — overrides industry defaults)</label>
+              <textarea
+                value={servicesOverrideText}
+                onChange={(e) => setServicesOverrideText(e.target.value)}
+                rows={4}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
+                placeholder={'Standard Clean | $59 | 2 hr | Weekly recurring clean\nDeep Clean | $75 | 4 hr | Once-a-year deep\nMove-Out | $75 | 5 hr | Empty home turnover'}
+              />
+              <p className="text-xs text-slate-400 mt-1">Format per line: <code>Name | $rate | duration hr | description</code>. Leave blank to use industry preset.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Business Hours Start</label>
+                <input type="time" value={businessHoursStart} onChange={(e) => setBusinessHoursStart(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Business Hours End</label>
+                <input type="time" value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-2 block">Business Days</label>
+              <div className="flex gap-2 flex-wrap">
+                {DAYS.map(d => (
+                  <button key={d} type="button" onClick={() => toggleDay(d)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
+                      businessDays.includes(d)
+                        ? 'bg-teal-600 text-white border-teal-600'
+                        : 'bg-white text-slate-600 border-slate-300 hover:border-teal-400'
+                    }`}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-2 block">Payment Methods Accepted</label>
+              <div className="flex gap-2 flex-wrap">
+                {PAYMENT_METHODS.map(p => (
+                  <button key={p} type="button" onClick={() => togglePayment(p)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
+                      paymentMethodsList.includes(p)
+                        ? 'bg-teal-600 text-white border-teal-600'
+                        : 'bg-white text-slate-600 border-slate-300 hover:border-teal-400'
+                    }`}>
+                    {p.replace('_', ' ')}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     owner_name, owner_email, owner_phone,
     payment_method, monthly_rate, setup_fee,
     domain_name, website_url, phone, email, tagline, primary_color,
+    business_hours, business_hours_start, business_hours_end, payment_methods,
   } = body
 
   if (!name || !industry) {
@@ -83,6 +84,10 @@ export async function POST(request: Request) {
       email: email || null,
       tagline: tagline || null,
       primary_color: primary_color || '#0d9488',
+      ...(business_hours && { business_hours }),
+      ...(business_hours_start && { business_hours_start }),
+      ...(business_hours_end && { business_hours_end }),
+      ...(Array.isArray(payment_methods) && payment_methods.length > 0 && { payment_methods }),
     })
     .select()
     .single()
