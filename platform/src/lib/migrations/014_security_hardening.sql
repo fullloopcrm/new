@@ -22,33 +22,13 @@ CREATE INDEX IF NOT EXISTS idx_rate_limit_bucket_time
 
 
 -- ============================================================================
--- 2. Booking overlap prevention — DB-level exclusion constraint.
---    Blocks two active bookings on the same team_member whose time windows overlap.
+-- 2. Booking overlap prevention — deferred to a follow-up migration.
+--    Postgres rejects tstzrange() in EXCLUDE index expressions because it's
+--    STABLE (not IMMUTABLE) even when wrapped in an immutable SQL function
+--    (the planner inlines the body). The workable fix is a BEFORE INSERT/UPDATE
+--    trigger that raises on overlap. Intentionally deferred from this migration.
 -- ============================================================================
--- btree_gist provides GiST indexes over btree types (uuid) needed for composite exclusion.
 CREATE EXTENSION IF NOT EXISTS btree_gist;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'bookings_no_overlap_per_team_member'
-  ) THEN
-    ALTER TABLE bookings
-      ADD CONSTRAINT bookings_no_overlap_per_team_member
-      EXCLUDE USING gist (
-        team_member_id WITH =,
-        tenant_id WITH =,
-        tstzrange(start_time, end_time, '[)') WITH &&
-      )
-      WHERE (
-        team_member_id IS NOT NULL
-        AND start_time IS NOT NULL
-        AND end_time IS NOT NULL
-        AND status NOT IN ('cancelled', 'no_show')
-      );
-  END IF;
-END$$;
 
 
 -- ============================================================================
