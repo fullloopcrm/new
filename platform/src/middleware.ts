@@ -148,6 +148,20 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
     return NextResponse.rewrite(url)
   }
 
+  // API routes + tenant-scoped app routes that live at the root are NOT
+  // rewritten under /site — they run at their own path with tenant headers
+  // injected so getTenantFromHeaders() can resolve them.
+  const APP_ROOT_PREFIXES = [
+    '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
+    '/stripe-onboard', '/dashboard', '/admin',
+  ]
+  if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.set('x-tenant-id', tenantId)
+    requestHeaders.set('x-tenant-slug', tenantSlug)
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
   const sitePathname = pathname === '/' ? '/site' : `/site${pathname}`
 
   const url = req.nextUrl.clone()
