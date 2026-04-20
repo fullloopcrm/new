@@ -51,6 +51,14 @@
     {
       "path": "/api/cron/schedule-monitor",
       "schedule": "0 7,12,18 * * *"
+    },
+    {
+      "path": "/api/cron/payment-reminder",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/email-monitor",
+      "schedule": "* * * * *"
     }
   ]
 }

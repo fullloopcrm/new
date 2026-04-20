@@ -19,15 +19,22 @@ interface Props {
   params: Promise<{ slug: string; service: string }>
 }
 
+// Render on demand — Clerk in the root layout breaks build-time static gen
+// without NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY available at build. ISR keeps the
+// pages fast and indexable without baking thousands at build time.
+export const dynamic = 'force-static'
+export const dynamicParams = true
+export const revalidate = 86400
+
 export async function generateStaticParams() {
-  const params: { slug: string; service: string }[] = []
-  for (const n of ALL_NEIGHBORHOODS) {
-    for (const s of SERVICES) {
-      params.push({ slug: n.urlSlug, service: s.slug })
-    }
-  }
-  return params
+  // Build no params at build time — pages render on first request and cache for 24h.
+  // The full list (ALL_NEIGHBORHOODS × SERVICES) generates lazily.
+  return []
 }
+
+// Reference imports kept so refactoring keeps types alive
+void ALL_NEIGHBORHOODS
+void SERVICES
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, service: serviceSlug } = await params

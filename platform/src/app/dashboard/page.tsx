@@ -53,7 +53,7 @@ export default async function DashboardPage() {
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'completed').gte('start_time', monthStart),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'cancelled').gte('start_time', monthStart),
     supabaseAdmin.from('bookings').select('price, payment_status').eq('tenant_id', tenant.id).eq('status', 'completed').or('payment_status.eq.pending,payment_status.is.null'),
-    supabaseAdmin.from('bookings').select('start_time, price').eq('tenant_id', tenant.id).in('status', ['scheduled', 'confirmed']).gte('start_time', yearStart),
+    supabaseAdmin.from('bookings').select('start_time, price, status').eq('tenant_id', tenant.id).in('status', ['pending', 'scheduled', 'confirmed', 'completed']).gte('start_time', yearStart),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('start_time', yearStart),
   ])
 
@@ -73,12 +73,16 @@ export default async function DashboardPage() {
   const scheduledByMonth: Record<number, { amount: number; count: number }> = {}
   for (let m = 0; m < 12; m++) scheduledByMonth[m] = { amount: 0, count: 0 }
 
-  for (const b of (scheduledRevBookings || []) as { start_time: string; price: number }[]) {
+  for (const b of (scheduledRevBookings || []) as { start_time: string; price: number; status: string }[]) {
     const d = new Date(b.start_time)
     const month = d.getMonth()
     const price = b.price || 0
-    scheduledByMonth[month].amount += price
-    scheduledByMonth[month].count += 1
+    // Forecast months (Jan, Feb, Mar...) — only scheduled/confirmed (still un-paid future work)
+    if (b.status === 'scheduled' || b.status === 'confirmed') {
+      scheduledByMonth[month].amount += price
+      scheduledByMonth[month].count += 1
+    }
+    // Current windows (Today/Week/Month) — match nycmaid: include pending + completed too
     if (b.start_time >= todayStart && b.start_time < todayEnd) { scheduledToday.amount += price; scheduledToday.count += 1 }
     if (b.start_time >= todayStart && b.start_time < weekEnd) { scheduledWeek.amount += price; scheduledWeek.count += 1 }
     if (b.start_time >= monthStart && b.start_time < monthEnd) { scheduledMonth.amount += price; scheduledMonth.count += 1 }

@@ -3,6 +3,15 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { checkAvailability } from '@/lib/availability'
 import { getSettings } from '@/lib/settings'
 import { notify } from '@/lib/notify'
+import {
+  detectIntent,
+  isTeamMemberPhone,
+  isDoNotServiceByPhone,
+  filterToolsByIntent,
+  EXTENDED_TOOLS,
+  type Intent,
+} from '@/lib/selena-core'
+import { routeExtendedTool } from '@/lib/selena-handlers'
 
 // ─── Selena Config Type ─────────────────────────────────────────────────────
 
@@ -758,7 +767,25 @@ export async function askSelena(
   const result: SelenaResult = { text: '', checklist: EMPTY_CHECKLIST }
 
   try {
-    // 0. Load selena config
+    // 0a. Team-member gate — staff phones must NOT enter the booking flow.
+    // Ported from nycmaid: cleaners were being booked as clients.
+    if (channel === 'sms' && phone) {
+      const tm = await isTeamMemberPhone(tenantId, phone)
+      if (tm.isTeamMember) {
+        result.text = `Hey ${tm.name?.split(' ')[0] || 'team'}! This number is for clients. Use the team portal or text your manager directly. 😊`
+        result.checklist = await loadChecklist(conversationId)
+        return result
+      }
+
+      // 0b. DNS gate — never contact do_not_service clients.
+      if (await isDoNotServiceByPhone(tenantId, phone)) {
+        result.text = ''
+        result.checklist = await loadChecklist(conversationId)
+        return result
+      }
+    }
+
+    // 0c. Load selena config
     const config = await getSelenaConfig(tenantId)
 
     // 1. Load checklist
@@ -766,6 +793,10 @@ export async function askSelena(
     if (checklist.status === 'greeting') {
       checklist = await updateChecklist(conversationId, { status: 'collecting' })
     }
+
+    // 1b. Intent detection — classifies BEFORE the flow runs.
+    // Surfaces routing signal even if not yet wired into tool selection.
+    const intent: Intent = detectIntent(message, checklist.status)
 
     // 2. State machine
     const nextStep = getNextStep(checklist, config)
@@ -785,7 +816,11 @@ export async function askSelena(
       if (!profile.includes('"error"')) clientContext = `\n\nCLIENT PROFILE:\n${profile}`
     }
 
-    const systemPrompt = systemPromptBase + calendar + '\n' + checklistPrompt + clientContext
+    const intentHint = intent !== 'booking' && intent !== 'greeting'
+      ? `\n\nDETECTED INTENT: ${intent} — handle this BEFORE continuing booking flow if it's not a booking signal.`
+      : ''
+
+    const systemPrompt = systemPromptBase + calendar + '\n' + checklistPrompt + clientContext + intentHint
 
     // 4. Load transcript from DB
     const { data: msgs } = await supabaseAdmin
@@ -809,9 +844,14 @@ export async function askSelena(
     try {
       let currentMessages: Array<{ role: 'user' | 'assistant'; content: string | Anthropic.Messages.ContentBlockParam[] }> = [...messages]
 
+      // Combine baseline tools + extended (account, payment, dispute, etc.), then filter by intent
+      const allTools: Anthropic.Messages.Tool[] = [...TOOLS, ...EXTENDED_TOOLS]
+      const intentTools = filterToolsByIntent(allTools, intent)
+      const activeTools = intentTools.length > 0 ? intentTools : TOOLS
+
       for (let i = 0; i < 5; i++) {
         const response = await getClient().messages.create(
-          { model: 'claude-haiku-4-5-20251001', max_tokens: 700, system: systemPrompt, messages: currentMessages, tools: TOOLS },
+          { model: 'claude-haiku-4-5-20251001', max_tokens: 700, system: systemPrompt, messages: currentMessages, tools: activeTools },
           { signal: controller.signal }
         )
 
@@ -839,7 +879,10 @@ export async function askSelena(
               case 'check_availability': toolResult = await handleCheckAvailability(tenantId, inp); break
               case 'create_booking': toolResult = await handleCreateBooking(tenantId, inp, conversationId, result); break
               case 'add_to_waitlist': toolResult = await handleAddToWaitlist(tenantId, inp, conversationId); break
-              default: toolResult = JSON.stringify({ error: `Unknown tool: ${tool.name}` })
+              default: {
+                const extended = await routeExtendedTool(tool.name, tenantId, inp, conversationId)
+                toolResult = extended ?? JSON.stringify({ error: `Unknown tool: ${tool.name}` })
+              }
             }
           } catch (toolErr) {
             await selenaError(tenantId, `tool_loop:${tool.name}`, toolErr, conversationId)

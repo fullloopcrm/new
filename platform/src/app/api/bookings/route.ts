@@ -16,15 +16,16 @@ export async function GET(request: NextRequest) {
     const status = url.searchParams.get('status')
     const clientId = url.searchParams.get('client_id')
     const teamMemberId = url.searchParams.get('team_member_id')
-    const dateFrom = url.searchParams.get('date_from')
-    const dateTo = url.searchParams.get('date_to')
+    const dateFrom = url.searchParams.get('date_from') || url.searchParams.get('from')
+    const dateTo = url.searchParams.get('date_to') || url.searchParams.get('to')
+    const isRange = !!(dateFrom || dateTo)
     const page = parseInt(url.searchParams.get('page') || '1')
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || (isRange ? '500' : '50')), isRange ? 1000 : 200)
     const offset = (page - 1) * limit
 
     let query = supabaseAdmin
       .from('bookings')
-      .select('*, clients(name, phone, address), team_members(name, phone)', { count: 'exact' })
+      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone)', { count: 'exact' })
       .eq('tenant_id', tenantId)
       .order('start_time', { ascending: false })
       .range(offset, offset + limit - 1)
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .insert({ ...validated, tenant_id: tenantId, status: 'scheduled' })
-      .select('*, clients(name, phone, address), team_members(name, phone)')
+      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone)')
       .single()
 
     if (error) {
