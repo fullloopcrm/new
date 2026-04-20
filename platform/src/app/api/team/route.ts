@@ -48,8 +48,11 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 
-    // Auto-generate 4-digit PIN
-    const pin = String(Math.floor(1000 + Math.random() * 9000))
+    // Auto-generate 4-digit PIN (cryptographically random).
+    // The DB enforces uniqueness via idx_team_members_tenant_pin_unique (migration 014);
+    // a collision returns a 500 and the caller retries.
+    const crypto = await import('node:crypto')
+    const pin = String(1000 + crypto.randomInt(0, 9000))
 
     const { data, error } = await supabaseAdmin
       .from('team_members')

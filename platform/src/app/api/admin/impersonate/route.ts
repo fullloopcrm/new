@@ -3,8 +3,9 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
+import { IMPERSONATE_COOKIE, signImpersonation } from '@/lib/impersonation'
 
-const COOKIE_NAME = 'fl_impersonate'
+const COOKIE_NAME = IMPERSONATE_COOKIE
 const MAX_AGE = 3600 // 1 hour
 
 // Start impersonation
@@ -28,9 +29,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  // Set impersonation cookie
+  // Set impersonation cookie (signed with ADMIN_TOKEN_SECRET).
   const cookieStore = await cookies()
-  cookieStore.set(COOKIE_NAME, tenantId, {
+  cookieStore.set(COOKIE_NAME, signImpersonation(tenantId), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',

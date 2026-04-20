@@ -50,6 +50,13 @@ export function fromSlug(slug: string): string {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+export function tenantSiteUrl(tenant: { domain?: string | null; slug?: string | null } | null): string {
+  if (!tenant) return ''
+  if (tenant.domain) return `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
+  if (tenant.slug) return `https://${tenant.slug}.homeservicesbusinesscrm.com`
+  return ''
+}
+
 /* ---------------------------------------------------------------------------
  * SEO content generation helpers
  * Template strings with variable substitution — no AI needed.

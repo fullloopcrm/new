@@ -4,7 +4,29 @@ import type { Area } from './data/areas'
 import { SERVICES } from './services'
 import { AREAS } from './data/areas'
 
-const BUSINESS = {
+export interface BusinessCtx {
+  name?: string
+  legalName?: string
+  url?: string
+  phone?: string
+  phoneDisplay?: string
+  email?: string
+  logo?: string
+  image?: string
+  priceRange?: string
+  ratingValue?: string
+  ratingCount?: string
+  reviewCount?: string
+  foundingDate?: string
+  currenciesAccepted?: string
+  paymentAccepted?: string
+  description?: string
+  slogan?: string
+  address?: { street?: string; city?: string; state?: string; zip?: string; country?: string }
+  socialProfiles?: string[]
+}
+
+const DEFAULT_BUSINESS = {
   name: 'The NYC Maid',
   legalName: 'The NYC Maid Cleaning Service LLC',
   url: 'https://www.thenycmaid.com',
@@ -40,6 +62,19 @@ const BUSINESS = {
     'https://www.thenewyorkcitymaid.com',
   ],
 }
+
+function resolveBusiness(ctx?: BusinessCtx) {
+  if (!ctx) return DEFAULT_BUSINESS
+  return {
+    ...DEFAULT_BUSINESS,
+    ...ctx,
+    address: { ...DEFAULT_BUSINESS.address, ...(ctx.address || {}) },
+    socialProfiles: ctx.socialProfiles ?? DEFAULT_BUSINESS.socialProfiles,
+  }
+}
+
+// Back-compat alias for code that reads the defaults
+const BUSINESS = DEFAULT_BUSINESS
 
 // Real Google reviews (all 27, 5-star)
 const GOOGLE_REVIEWS = [
@@ -159,41 +194,93 @@ const orgRef = { '@id': `${BUSINESS.url}/#organization` }
 const siteRef = { '@id': `${BUSINESS.url}/#website` }
 const businessRef = { '@id': `${BUSINESS.url}/#business` }
 
+// Tenant-aware builders — fall back to defaults when ctx is not provided
+function buildAddressObj(biz: typeof DEFAULT_BUSINESS) {
+  return {
+    '@type': 'PostalAddress' as const,
+    streetAddress: biz.address.street,
+    addressLocality: biz.address.city,
+    addressRegion: biz.address.state,
+    postalCode: biz.address.zip,
+    addressCountry: biz.address.country,
+  }
+}
+
+function buildLogoObj(biz: typeof DEFAULT_BUSINESS) {
+  return {
+    '@type': 'ImageObject' as const,
+    '@id': `${biz.url}/#logo`,
+    url: biz.logo,
+    contentUrl: biz.logo,
+    width: 512,
+    height: 512,
+    caption: `${biz.name} Logo`,
+  }
+}
+
+function buildContactPoints(biz: typeof DEFAULT_BUSINESS) {
+  return [
+    {
+      '@type': 'ContactPoint' as const,
+      telephone: biz.phone,
+      contactType: 'customer service',
+      areaServed: 'US',
+      availableLanguage: ['English', 'Spanish'],
+      contactOption: ['HearingImpairedSupported'],
+    },
+    {
+      '@type': 'ContactPoint' as const,
+      telephone: biz.phone,
+      contactType: 'reservations',
+      areaServed: 'US',
+      availableLanguage: ['English', 'Spanish'],
+    },
+    {
+      '@type': 'ContactPoint' as const,
+      email: biz.email,
+      contactType: 'customer support',
+      areaServed: 'US',
+      availableLanguage: ['English', 'Spanish'],
+    },
+  ]
+}
+
 // ================================================================
 // ORGANIZATION
 // ================================================================
 
-export function organizationSchema() {
+export function organizationSchema(ctx?: BusinessCtx) {
+  const biz = resolveBusiness(ctx)
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    '@id': `${BUSINESS.url}/#organization`,
-    name: BUSINESS.name,
-    legalName: BUSINESS.legalName,
-    url: BUSINESS.url,
-    logo: logoObj,
-    image: [BUSINESS.image],
-    email: BUSINESS.email,
-    telephone: BUSINESS.phone,
-    description: BUSINESS.description,
-    slogan: BUSINESS.slogan,
-    foundingDate: BUSINESS.foundingDate,
+    '@id': `${biz.url}/#organization`,
+    name: biz.name,
+    legalName: biz.legalName,
+    url: biz.url,
+    logo: buildLogoObj(biz),
+    image: [biz.image],
+    email: biz.email,
+    telephone: biz.phone,
+    description: biz.description,
+    slogan: biz.slogan,
+    foundingDate: biz.foundingDate,
     foundingLocation: {
       '@type': 'Place',
       name: 'New York City, NY',
     },
-    knowsLanguage: BUSINESS.knowsLanguage,
-    numberOfEmployees: BUSINESS.numberOfEmployees,
-    address: addressObj,
-    contactPoint: contactPoints,
+    knowsLanguage: biz.knowsLanguage,
+    numberOfEmployees: biz.numberOfEmployees,
+    address: buildAddressObj(biz),
+    contactPoint: buildContactPoints(biz),
     areaServed: fullAreaServed,
-    sameAs: BUSINESS.socialProfiles,
+    sameAs: biz.socialProfiles,
     brand: {
       '@type': 'Brand',
-      name: BUSINESS.name,
-      slogan: BUSINESS.slogan,
-      logo: BUSINESS.logo,
-      url: BUSINESS.url,
+      name: biz.name,
+      slogan: biz.slogan,
+      logo: biz.logo,
+      url: biz.url,
     },
     knowsAbout: [
       'House Cleaning',
@@ -222,22 +309,23 @@ export function organizationSchema() {
 // WEBSITE
 // ================================================================
 
-export function webSiteSchema() {
+export function webSiteSchema(ctx?: BusinessCtx) {
+  const biz = resolveBusiness(ctx)
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    '@id': `${BUSINESS.url}/#website`,
-    name: BUSINESS.name,
-    url: BUSINESS.url,
-    description: BUSINESS.description,
-    publisher: orgRef,
+    '@id': `${biz.url}/#website`,
+    name: biz.name,
+    url: biz.url,
+    description: biz.description,
+    publisher: { '@id': `${biz.url}/#organization` },
     inLanguage: 'en-US',
     copyrightYear: new Date().getFullYear(),
     potentialAction: {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${BUSINESS.url}/service-areas-served-by-the-nyc-maid?q={search_term_string}`,
+        urlTemplate: `${biz.url}/?q={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },
@@ -258,7 +346,9 @@ export function webPageSchema(opts: {
   breadcrumb?: { name: string; url: string }[]
   speakable?: string[]
   primaryImageOfPage?: string
+  ctx?: BusinessCtx
 }) {
+  const biz = resolveBusiness(opts.ctx)
   return {
     '@context': 'https://schema.org',
     '@type': opts.type || 'WebPage',
@@ -266,9 +356,9 @@ export function webPageSchema(opts: {
     url: opts.url,
     name: opts.name,
     description: opts.description,
-    isPartOf: siteRef,
-    about: businessRef,
-    publisher: orgRef,
+    isPartOf: { '@id': `${biz.url}/#website` },
+    about: { '@id': `${biz.url}/#business` },
+    publisher: { '@id': `${biz.url}/#organization` },
     datePublished: opts.datePublished || '2025-01-01',
     dateModified: opts.dateModified || '2026-02-20',
     inLanguage: 'en-US',
@@ -303,7 +393,8 @@ export function webPageSchema(opts: {
 // LOCAL BUSINESS (full)
 // ================================================================
 
-export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
+export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area, ctx?: BusinessCtx) {
+  const biz = resolveBusiness(ctx)
   const areaServed = neighborhood
     ? [
         { '@type': 'Place' as const, name: `${neighborhood.name}${area ? `, ${area.name}` : ''}` },
@@ -315,34 +406,34 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
   return {
     '@context': 'https://schema.org',
     '@type': ['LocalBusiness', 'HomeAndConstructionBusiness', 'HousekeepingService'],
-    '@id': `${BUSINESS.url}/#business`,
-    name: BUSINESS.name,
-    legalName: BUSINESS.legalName,
-    url: BUSINESS.url,
-    telephone: BUSINESS.phone,
-    email: BUSINESS.email,
-    description: BUSINESS.description,
-    slogan: BUSINESS.slogan,
-    logo: logoObj,
-    image: BUSINESS.image,
-    priceRange: BUSINESS.priceRange,
-    currenciesAccepted: BUSINESS.currenciesAccepted,
-    paymentAccepted: BUSINESS.paymentAccepted,
-    foundingDate: BUSINESS.foundingDate,
-    knowsLanguage: BUSINESS.knowsLanguage,
-    numberOfEmployees: BUSINESS.numberOfEmployees,
-    address: addressObj,
+    '@id': `${biz.url}/#business`,
+    name: biz.name,
+    legalName: biz.legalName,
+    url: biz.url,
+    telephone: biz.phone,
+    email: biz.email,
+    description: biz.description,
+    slogan: biz.slogan,
+    logo: buildLogoObj(biz),
+    image: biz.image,
+    priceRange: biz.priceRange,
+    currenciesAccepted: biz.currenciesAccepted,
+    paymentAccepted: biz.paymentAccepted,
+    foundingDate: biz.foundingDate,
+    knowsLanguage: biz.knowsLanguage,
+    numberOfEmployees: biz.numberOfEmployees,
+    address: buildAddressObj(biz),
     geo: neighborhood ? {
       '@type': 'GeoCoordinates',
       latitude: neighborhood.lat,
       longitude: neighborhood.lng,
     } : geoObj,
-    hasMap: 'https://maps.google.com/?q=The+NYC+Maid+150+W+47th+St+New+York+NY+10036',
+    hasMap: `https://maps.google.com/?q=${encodeURIComponent(biz.name + ' ' + biz.address.street + ' ' + biz.address.city + ' ' + biz.address.state + ' ' + biz.address.zip)}`,
     areaServed,
     serviceArea: serviceAreaObj,
     aggregateRating: aggregateRatingObj,
     openingHoursSpecification: openingHoursObj,
-    contactPoint: contactPoints,
+    contactPoint: buildContactPoints(biz),
     hasOfferCatalog: {
       '@type': 'OfferCatalog',
       name: 'Cleaning Services',
@@ -395,22 +486,22 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
       reviewBody: r.text,
       datePublished: r.datePublished,
     })),
-    sameAs: BUSINESS.socialProfiles,
+    sameAs: biz.socialProfiles,
     potentialAction: [
       {
         '@type': 'ReserveAction',
         target: {
           '@type': 'EntryPoint',
-          urlTemplate: `${BUSINESS.url}/book/new`,
+          urlTemplate: `${biz.url}/book/new`,
           actionPlatform: ['http://schema.org/DesktopWebPlatform', 'http://schema.org/IOSPlatform', 'http://schema.org/AndroidPlatform'],
         },
-        result: { '@type': 'Reservation', name: 'Book Cleaning Service' },
+        result: { '@type': 'Reservation', name: 'Book Service' },
       },
       {
         '@type': 'OrderAction',
         target: {
           '@type': 'EntryPoint',
-          urlTemplate: `tel:${BUSINESS.phone}`,
+          urlTemplate: `tel:${biz.phone}`,
           actionPlatform: 'http://schema.org/MobileWebPlatform',
         },
       },
@@ -632,32 +723,34 @@ export function siteNavigationSchema() {
 // HOWTO: How to Book (for homepage)
 // ================================================================
 
-export function howToBookSchema() {
+export function howToBookSchema(ctx?: BusinessCtx) {
+  const biz = resolveBusiness(ctx)
+  const phoneDisplay = biz.phoneDisplay || biz.phone
   return {
     '@context': 'https://schema.org',
     '@type': 'HowTo',
-    name: 'How to Book a Cleaning Service with The NYC Maid',
-    description: 'Book a professional cleaning in just 3 simple steps.',
+    name: `How to Book a Service with ${biz.name}`,
+    description: 'Book a professional service in just 3 simple steps.',
     totalTime: 'PT5M',
     estimatedCost: { '@type': 'MonetaryAmount', currency: 'USD', value: '49' },
     step: [
       {
         '@type': 'HowToStep',
         name: 'Contact Us',
-        text: 'Call (212) 202-8400, text us, or book online at thenycmaid.com/book/new',
-        url: `${BUSINESS.url}/book/new`,
+        text: `Call ${phoneDisplay}, text us, or book online at ${biz.url.replace(/^https?:\/\//, '')}/book/new`,
+        url: `${biz.url}/book/new`,
         position: 1,
       },
       {
         '@type': 'HowToStep',
         name: 'Tell Us About Your Space',
-        text: 'Share your home size, cleaning needs, and preferred schedule. We provide a custom quote within minutes.',
+        text: 'Share your property size, service needs, and preferred schedule. We provide a custom quote within minutes.',
         position: 2,
       },
       {
         '@type': 'HowToStep',
-        name: 'Relax While We Clean',
-        text: 'A licensed, insured, background-checked cleaner arrives at your door on schedule. Satisfaction guaranteed.',
+        name: 'Relax While We Work',
+        text: 'A licensed, insured, background-checked team member arrives at your door on schedule. Satisfaction guaranteed.',
         position: 3,
       },
     ],

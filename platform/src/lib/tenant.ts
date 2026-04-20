@@ -2,9 +2,9 @@ import { auth } from '@clerk/nextjs/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
+import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
-const IMPERSONATE_COOKIE = 'fl_impersonate'
 
 export type Tenant = {
   id: string
@@ -58,7 +58,7 @@ export type Tenant = {
 // Check for admin PIN impersonation (no Clerk needed)
 async function getAdminImpersonatedTenant(): Promise<Tenant | null> {
   const cookieStore = await cookies()
-  const impersonateId = cookieStore.get(IMPERSONATE_COOKIE)?.value
+  const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
   const adminToken = cookieStore.get('admin_token')?.value
 
   if (!impersonateId || !adminToken) return null
@@ -78,7 +78,7 @@ async function getClerkImpersonatedTenant(userId: string): Promise<Tenant | null
   if (!SUPER_ADMIN_IDS.includes(userId)) return null
 
   const cookieStore = await cookies()
-  const impersonateId = cookieStore.get(IMPERSONATE_COOKIE)?.value
+  const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
   if (!impersonateId) return null
 
   const { data: tenant } = await supabaseAdmin
@@ -124,7 +124,7 @@ export async function getCurrentTenant(): Promise<Tenant | null> {
 // Check if current session is an impersonation
 export async function isImpersonating(): Promise<boolean> {
   const cookieStore = await cookies()
-  const impersonateId = cookieStore.get(IMPERSONATE_COOKIE)?.value
+  const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
   if (!impersonateId) return false
 
   // Admin PIN impersonation

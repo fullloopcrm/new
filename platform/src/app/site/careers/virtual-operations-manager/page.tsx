@@ -3,56 +3,75 @@ import Link from 'next/link'
 import { organizationSchema, webSiteSchema, webPageSchema, breadcrumbSchema, faqSchema } from '@/lib/seo/schema'
 import JsonLd from '@/components/site/JsonLd'
 import Breadcrumbs from '@/components/site/Breadcrumbs'
+import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 
 export const revalidate = 259200
 
-const pageUrl = 'https://www.thenycmaid.com/careers/virtual-operations-manager'
-const pageTitle = 'Help Wanted: Remote Ops Mgr — $500/wk+10% Rev | Growing 100% Monthly'
-const pageDescription = 'The NYC Maid is hiring a remote admin/ops manager — $500/wk + 10% of total revenue. Growing 50–100% every month. Work from home. Perfect for admins, receptionists, secretaries ready to upgrade. Ground-floor opportunity. Apply now.'
+const PAGE_PATH = '/careers/virtual-operations-manager'
 
-export const metadata: Metadata = {
-  title: pageTitle,
-  description: pageDescription,
-  alternates: { canonical: pageUrl },
-  robots: {
-    index: true,
-    follow: true,
-    'max-snippet': -1,
-    'max-image-preview': 'large' as const,
-    'max-video-preview': -1,
-  },
-  openGraph: {
-    title: 'Help Wanted: Remote Ops Mgr — $500/wk+10% Rev | Growing 100% Monthly',
-    description: 'The NYC Maid is hiring a remote admin/ops manager starting at $500/wk + 10% of total revenue. Work from home. Perfect for admins, receptionists, and secretaries looking to upgrade their careers. Apply now.',
-    url: pageUrl,
-    type: 'article',
-    siteName: 'The NYC Maid',
-    locale: 'en_US',
-    images: [{ url: 'https://www.thenycmaid.com/icon-512.png', width: 512, height: 512, alt: 'Help Wanted Remote Ops Manager — The NYC Maid — Now Hiring' }],
-    publishedTime: '2026-03-15T00:00:00Z',
-    modifiedTime: new Date().toISOString(),
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Help Wanted: Remote Ops Mgr — $500/wk+10% Rev | Growing 100% Monthly',
-    description: 'The NYC Maid is hiring a remote admin/ops manager starting at $500/wk + 10% of total revenue. Perfect for admins, receptionists, secretaries looking to upgrade. Apply now.',
-    images: ['https://www.thenycmaid.com/icon-512.png'],
-  },
-  keywords: 'operations manager, operations manager remote, operations manager work from home, operations manager virtual, operations manager NYC, operations manager New York, operations manager New Jersey, operations manager Long Island, virtual operations manager, remote operations manager, customer service manager, customer service manager remote, customer service manager NYC, scheduling manager, scheduling coordinator, scheduling coordinator remote, office manager remote, office manager NYC, office manager work from home, operations coordinator, service coordinator, remote dispatcher, team manager remote, virtual assistant manager, bilingual operations manager, bilingual customer service manager, cleaning company operations manager, cleaning service manager, administrative assistant to operations manager, secretary to manager, receptionist to operations, work from home manager NYC, remote manager job New York, operations manager part time, work from home jobs NYC, remote jobs New York, work from home jobs New Jersey, service business operations manager',
-  other: {
-    'geo.region': 'US-NY',
-    'geo.placename': 'New York City',
-    'geo.position': '40.7589;-73.9851',
-    'ICBM': '40.7589, -73.9851',
-    'revisit-after': '3 days',
-    'format-detection': 'telephone=yes',
-  },
+function tenantCtx(tenant: Awaited<ReturnType<typeof getTenantFromHeaders>>) {
+  if (!tenant) return undefined
+  return {
+    name: tenant.name || undefined,
+    url: tenantSiteUrl(tenant) || undefined,
+    phone: tenant.phone || undefined,
+    phoneDisplay: tenant.phone || undefined,
+    email: tenant.email || undefined,
+  }
 }
 
-function opsManagerJobPostingSchema() {
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getTenantFromHeaders()
+  const name = tenant?.name || 'Our Company'
+  const base = tenantSiteUrl(tenant)
+  const pageUrl = `${base}${PAGE_PATH}`
+  const pageTitle = 'Help Wanted: Remote Ops Mgr — $500/wk+10% Rev | Growing 100% Monthly'
+  const pageDescription = `${name} is hiring a remote admin/ops manager — $500/wk + 10% of total revenue. Growing 50–100% every month. Work from home. Perfect for admins, receptionists, secretaries ready to upgrade. Ground-floor opportunity. Apply now.`
+  return {
+    title: pageTitle,
+    description: pageDescription,
+    ...(base && { alternates: { canonical: pageUrl } }),
+    robots: {
+      index: true,
+      follow: true,
+      'max-snippet': -1,
+      'max-image-preview': 'large' as const,
+      'max-video-preview': -1,
+    },
+    openGraph: {
+      title: pageTitle,
+      description: `${name} is hiring a remote admin/ops manager starting at $500/wk + 10% of total revenue. Work from home. Perfect for admins, receptionists, and secretaries looking to upgrade their careers. Apply now.`,
+      ...(base && { url: pageUrl }),
+      type: 'article',
+      siteName: name,
+      locale: 'en_US',
+      publishedTime: '2026-03-15T00:00:00Z',
+      modifiedTime: new Date().toISOString(),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: pageTitle,
+      description: `${name} is hiring a remote admin/ops manager starting at $500/wk + 10% of total revenue. Perfect for admins, receptionists, secretaries looking to upgrade. Apply now.`,
+    },
+    keywords: 'operations manager, operations manager remote, operations manager work from home, operations manager virtual, operations manager NYC, operations manager New York, operations manager New Jersey, operations manager Long Island, virtual operations manager, remote operations manager, customer service manager, customer service manager remote, customer service manager NYC, scheduling manager, scheduling coordinator, scheduling coordinator remote, office manager remote, office manager NYC, office manager work from home, operations coordinator, service coordinator, remote dispatcher, team manager remote, virtual assistant manager, bilingual operations manager, bilingual customer service manager, service company operations manager, service company manager, administrative assistant to operations manager, secretary to manager, receptionist to operations, work from home manager NYC, remote manager job New York, operations manager part time, work from home jobs NYC, remote jobs New York, work from home jobs New Jersey, service business operations manager',
+    other: {
+      'geo.region': 'US-NY',
+      'geo.placename': 'New York City',
+      'geo.position': '40.7589;-73.9851',
+      'ICBM': '40.7589, -73.9851',
+      'revisit-after': '3 days',
+      'format-detection': 'telephone=yes',
+    },
+  }
+}
+
+function opsManagerJobPostingSchema(args: { name: string; base: string; phone: string; email: string }) {
+  const { name, base, phone, email } = args
   const now = new Date()
   const datePosted = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()
   const validThrough = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString()
+  const applyUrl = `${base}/apply/virtual-operations-manager`
+  const slugId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
   return {
     '@context': 'https://schema.org/',
@@ -62,94 +81,34 @@ function opsManagerJobPostingSchema() {
     title: 'Operations Manager (Virtual)',
     datePosted,
     validThrough,
-    description: `<h2>Operations Manager (Virtual) — The NYC Maid — Remote Work From Home</h2>
-<p>The NYC Maid is hiring an <strong>Operations Manager (Virtual)</strong> to own scheduling, customer service, team management, and payment coordination across New York City, Long Island, and New Jersey. This role combines the responsibilities of a <strong>customer service manager</strong>, <strong>scheduling coordinator</strong>, <strong>office manager</strong>, and <strong>operations coordinator</strong> — all from home. Part-time to start, growing into full-time as volume scales. We currently manage 15–20 cleanings per week and are growing 50–100% monthly.</p>
+    description: `<h2>Operations Manager (Virtual) — ${name} — Remote Work From Home</h2>
+<p>${name} is hiring an <strong>Operations Manager (Virtual)</strong> to own scheduling, customer service, team management, and payment coordination. This role combines the responsibilities of a <strong>customer service manager</strong>, <strong>scheduling coordinator</strong>, <strong>office manager</strong>, and <strong>operations coordinator</strong> — all from home. Part-time to start, growing into full-time as volume scales. We currently manage 15–20 jobs per week and are growing 50–100% monthly.</p>
 
 <h3>Compensation</h3>
-<p><strong>$500/week base salary + 10% of gross weekly revenue to start.</strong> Paid every Friday. We currently do 15–20 cleanings per week and are growing 50–100% month over month. Your revenue share grows with the business — no renegotiating required. At $10,000 gross revenue/week you earn $1,500. At $20,000/week you earn $2,500.</p>
+<p><strong>$500/week base salary + 10% of gross weekly revenue to start.</strong> Paid every Friday. Your revenue share grows with the business — no renegotiating required. At $10,000 gross revenue/week you earn $1,500. At $20,000/week you earn $2,500.</p>
 
 <h3>Schedule</h3>
 <p>Part-time to start, growing into full-time. Work from home. 8:00 AM – 6:00 PM Eastern Time, 7 days per week.</p>
 
-<h3>About The NYC Maid</h3>
-<p>The NYC Maid has been serving New York City since 2018. Rebranded and rebuilt from the ground up in 2025, the company is now doubling in size month over month. We operate over 100 websites across NYC, Long Island, and New Jersey — driving organic growth across every market we touch. The owner drives all sales, marketing, and growth. You own everything else.</p>
+<h3>About ${name}</h3>
+<p>${name} is growing fast and doubling in size month over month. The owner drives all sales, marketing, and growth. You own everything else.</p>
 
 <h3>About the Role</h3>
-<p>You are the primary point of contact for all clients and the entire cleaning team. From the moment a job is scheduled to the moment it is completed and paid, you run the operation. You monitor the dashboard daily, coordinate cleaners, manage scheduling, confirm payments, resolve complaints, recruit and onboard new team members, and send a daily operations summary to the owner.</p>
-
-<h3>Key Responsibilities</h3>
-<ul>
-<li>Own the full job lifecycle: scheduled, assigned, rescheduled, executed, completed, paid</li>
-<li>Be the primary contact for all client calls, texts, and messages 8 AM–6 PM ET, 7 days/week</li>
-<li>Monitor the operations dashboard daily: jobs, cleaners, scheduling, completions, system alerts</li>
-<li>Coordinate cleaners: confirmations, check-ins, late arrivals, reschedules, coverage gaps</li>
-<li>Alert cleaners 15 minutes before job completion so payment is collected before they leave</li>
-<li>Confirm all incoming payments via Zelle and Apple Pay and log against completed jobs</li>
-<li>Follow up on every unpaid balance without exception</li>
-<li>Recruit, interview, hire, and onboard new cleaners as the business grows</li>
-<li>Build genuine relationships with the cleaning team</li>
-<li>Resolve client complaints before they become cancellations</li>
-<li>Follow up after every job to ensure client satisfaction</li>
-<li>Send owner a concise daily summary: completed jobs, payments received, issues handled</li>
-<li>Manage additional operations staff as volume grows</li>
-</ul>
-
-<h3>Requirements</h3>
-<ul>
-<li>Bilingual English and Spanish strongly preferred — our cleaning team is primarily Spanish-speaking</li>
-<li>2+ years of experience in customer service, operations, scheduling, or service coordination</li>
-<li>Process-driven and detail-obsessed — you have a system for everything</li>
-<li>Available and responsive 8 AM–6 PM Eastern Time, 7 days per week</li>
-<li>Calm under pressure — chaos is just another problem to solve</li>
-<li>Trustworthy with financial information — integrity is non-negotiable</li>
-<li>Self-directed — you solve problems before being asked</li>
-<li>Comfortable with technology — dashboards, scheduling tools, communication platforms</li>
-<li>Old-school customer service values — every client feels taken care of, every time</li>
-</ul>
-
-<h3>Benefits</h3>
-<ul>
-<li>Work from home — fully remote from anywhere in the United States</li>
-<li>Part-time to start with a clear path to full-time as volume grows</li>
-<li>$500/week guaranteed base salary — even while part-time</li>
-<li>10% revenue share to start — grows as you prove yourself</li>
-<li>Paid every Friday, on time, every time</li>
-<li>No commute, no office, no dress code</li>
-<li>Direct partnership with the owner — no middle management, no corporate bureaucracy</li>
-<li>Ground-floor leadership opportunity in a company growing 50–100% month over month</li>
-<li>Build and manage your own operations team as volume increases</li>
-<li>Currently managing 15–20 cleanings per week and growing weekly — get in now</li>
-</ul>
+<p>You are the primary point of contact for all clients and the entire team. From the moment a job is scheduled to the moment it is completed and paid, you run the operation. You monitor the dashboard daily, coordinate team members, manage scheduling, confirm payments, resolve complaints, recruit and onboard new team members, and send a daily operations summary to the owner.</p>
 
 <h3>How to Apply</h3>
-<p>Submit your application at <a href="https://www.thenycmaid.com/apply/virtual-operations-manager">thenycmaid.com/apply/virtual-operations-manager</a>. You must include a clear photo of yourself, a 60–90 second selfie video introduction, and your resume. If you are bilingual, speak in both English and Spanish in the video. Applications without a selfie video will not be reviewed.</p>`,
+<p>Submit your application at <a href="${applyUrl}">${applyUrl.replace(/^https?:\/\//, '')}</a>. You must include a clear photo of yourself, a 60–90 second selfie video introduction, and your resume. Applications without a selfie video will not be reviewed.</p>`,
 
     hiringOrganization: {
       '@type': 'Organization',
-      name: 'The NYC Maid',
-      sameAs: 'https://www.thenycmaid.com',
-      url: 'https://www.thenycmaid.com',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://www.thenycmaid.com/icon-512.png',
-        width: 512,
-        height: 512,
-      },
-      telephone: '+1-212-202-8400',
-      email: 'hi@thenycmaid.com',
-      foundingDate: '2018',
+      name,
+      ...(base && { sameAs: base, url: base }),
+      ...(phone && { telephone: phone }),
+      ...(email && { email }),
       numberOfEmployees: {
         '@type': 'QuantitativeValue',
         minValue: 10,
         maxValue: 25,
-      },
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
-        addressLocality: 'New York',
-        addressRegion: 'NY',
-        postalCode: '10036',
-        addressCountry: 'US',
       },
     },
 
@@ -157,10 +116,6 @@ function opsManagerJobPostingSchema() {
       '@type': 'Place',
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
-        addressLocality: 'New York',
-        addressRegion: 'NY',
-        postalCode: '10036',
         addressCountry: 'US',
       },
     },
@@ -189,17 +144,17 @@ function opsManagerJobPostingSchema() {
     jobImmediateStart: true,
     totalJobOpenings: 1,
     directApply: true,
-    url: 'https://www.thenycmaid.com/careers/virtual-operations-manager',
+    url: `${base}${PAGE_PATH}`,
 
     // ── IDENTIFIER ──
     identifier: {
       '@type': 'PropertyValue',
-      name: 'The NYC Maid',
-      value: 'nycmaid-virtual-ops-manager-2026',
+      name,
+      value: `${slugId || 'company'}-virtual-ops-manager-2026`,
     },
 
     // ── CLASSIFICATION ──
-    industry: 'Cleaning Services',
+    industry: 'Services',
     occupationalCategory: '11-1021.00',
     relevantOccupation: {
       '@type': 'Occupation',
@@ -218,7 +173,7 @@ function opsManagerJobPostingSchema() {
 
     // ── QUALIFICATIONS & REQUIREMENTS ──
     qualifications: '2+ years in customer service, operations, scheduling, or service coordination. Bilingual English and Spanish strongly preferred. Process-driven, detail-obsessed, self-directed. Available and responsive 8 AM–6 PM Eastern Time, 7 days per week. Trustworthy with financial information. Comfortable with technology and willing to learn new systems quickly. Old-school customer service values.',
-    responsibilities: 'Own the full job lifecycle from scheduling through completion and payment. Monitor operations dashboard daily for jobs, cleaners, scheduling, completions, and system alerts. Coordinate the entire cleaning team including confirmations, check-ins, late arrivals, reschedules, and coverage gaps. Be the primary contact for all client communications 8 AM–6 PM ET, 7 days per week. Resolve client complaints before they become cancellations. Follow up after every job to ensure client satisfaction. Recruit, interview, hire, and onboard new cleaners. Build genuine relationships with the cleaning team. Confirm all incoming payments via Zelle and Apple Pay and log against completed jobs. Follow up on every unpaid balance without exception. Send owner a concise daily summary of completed jobs, payments received, and issues handled. Manage additional operations staff as volume grows.',
+    responsibilities: 'Own the full job lifecycle from scheduling through completion and payment. Monitor operations dashboard daily for jobs, team members, scheduling, completions, and system alerts. Coordinate the entire team including confirmations, check-ins, late arrivals, reschedules, and coverage gaps. Be the primary contact for all client communications 8 AM–6 PM ET, 7 days per week. Resolve client complaints before they become cancellations. Follow up after every job to ensure client satisfaction. Recruit, interview, hire, and onboard new team members. Build genuine relationships with the team. Confirm all incoming payments via Zelle and Apple Pay and log against completed jobs. Follow up on every unpaid balance without exception. Send owner a concise daily summary of completed jobs, payments received, and issues handled. Manage additional operations staff as volume grows.',
     skills: 'Operations management, customer service, scheduling, team leadership, team management, payment coordination, bilingual English and Spanish communication, process design, conflict resolution, recruiting, onboarding, client relationship management, problem solving, attention to detail, time management, multitasking',
 
     educationRequirements: {
@@ -232,21 +187,21 @@ function opsManagerJobPostingSchema() {
     experienceInPlaceOfEducation: true,
 
     // ── COMPENSATION DETAILS ──
-    incentiveCompensation: '$500/week guaranteed base salary plus 10% of gross weekly revenue. Paid every Friday. Currently managing 15–20 cleanings per week and growing 50–100% month over month. Total compensation starts at $500–$750/week with part-time workload. At $10,000 gross revenue per week total compensation is $1,500. At $20,000 per week total compensation is $2,500. Revenue share percentage grows as you prove yourself.',
+    incentiveCompensation: '$500/week guaranteed base salary plus 10% of gross weekly revenue. Paid every Friday. Currently managing 15–20 jobs per week and growing 50–100% month over month. Total compensation starts at $500–$750/week with part-time workload. At $10,000 gross revenue per week total compensation is $1,500. At $20,000 per week total compensation is $2,500. Revenue share percentage grows as you prove yourself.',
     jobBenefits: 'Work from home — fully remote from anywhere in the United States. Part-time to start with a clear path to full-time. $500/week guaranteed base salary even while part-time. 10% revenue share to start with growth potential. Paid every Friday on time every time. No commute, no office, no dress code. Direct partnership with the owner with no middle management. Ground-floor leadership opportunity in a company growing 50–100% month over month. Build and manage your own operations team as volume increases. Bilingual work environment. Flexible remote work that grows with your ambition.',
     workHours: '8:00 AM to 6:00 PM Eastern Time, 7 days per week',
 
     // ── APPLICATION CONTACT ──
     applicationContact: {
       '@type': 'ContactPoint',
-      telephone: '+1-212-202-8400',
-      email: 'hi@thenycmaid.com',
+      ...(phone && { telephone: phone }),
+      ...(email && { email }),
       contactType: 'Human Resources',
       availableLanguage: ['English', 'Spanish'],
     },
 
     // ── EMPLOYER OVERVIEW ──
-    employerOverview: 'The NYC Maid is a professional house cleaning service that has been serving New York City since 2018. Rebranded and rebuilt from the ground up in 2025, the company operates over 100 websites across NYC, Long Island, and New Jersey. The NYC Maid is rated 5.0 stars on Google with 28 verified reviews. The company is doubling in size month over month and is looking for an operations leader to own the day-to-day while the owner focuses on sales, marketing, and growth.',
+    employerOverview: `${name} is a growing service company looking for an operations leader to own the day-to-day while the owner focuses on sales, marketing, and growth.`,
   }
 }
 
@@ -284,17 +239,17 @@ const faqs = [
   {
     question: 'How do I apply?',
     questionEs: '¿Cómo aplico?',
-    answer: 'Submit your application at thenycmaid.com/apply/virtual-operations-manager. You must include a photo of yourself, a 60–90 second selfie video introduction, and your resume. If you are bilingual, speak in both English and Spanish in the video. Applications without a selfie video will not be reviewed.',
+    answer: 'Submit your application at /apply/virtual-operations-manager on our website. You must include a photo of yourself, a 60–90 second selfie video introduction, and your resume. If you are bilingual, speak in both English and Spanish in the video. Applications without a selfie video will not be reviewed.',
   },
   {
     question: 'What does growth look like in this role?',
     questionEs: '¿Cómo se ve el crecimiento en este puesto?',
-    answer: 'As The NYC Maid scales, so does your role. You will manage additional operations staff as volume grows. Your compensation scales automatically through the revenue-sharing model. This is a ground-floor leadership opportunity with a company that is doubling in size month over month.',
+    answer: 'As the company scales, so does your role. You will manage additional operations staff as volume grows. Your compensation scales automatically through the revenue-sharing model. This is a ground-floor leadership opportunity with a company that is doubling in size month over month.',
   },
   {
     question: 'How much does a virtual operations manager make?',
     questionEs: '¿Cuánto gana un gerente de operaciones virtual?',
-    answer: 'At The NYC Maid, the Operations Manager (Virtual) earns $500/week guaranteed base salary plus 10% of gross weekly revenue to start. We currently do 15–20 cleanings per week, so total compensation starts around $500–$815/week. This is a part-time workload right now — work from home, no commute, manageable hours. The business is growing 50–100% every single month. As volume scales, total weekly compensation grows to $1,500+ at $10,000/week revenue and $2,250+ at $17,500/week revenue.',
+    answer: 'At the company, the Operations Manager (Virtual) earns $500/week guaranteed base salary plus 10% of gross weekly revenue to start. We currently do 15–20 cleanings per week, so total compensation starts around $500–$815/week. This is a part-time workload right now — work from home, no commute, manageable hours. The business is growing 50–100% every single month. As volume scales, total weekly compensation grows to $1,500+ at $10,000/week revenue and $2,250+ at $17,500/week revenue.',
   },
   {
     question: 'Can I work from home as an operations manager?',
@@ -304,7 +259,7 @@ const faqs = [
   {
     question: 'What is a virtual operations manager?',
     questionEs: '¿Qué es un gerente de operaciones virtual?',
-    answer: 'A virtual operations manager oversees the day-to-day operations of a business remotely. At The NYC Maid, this means owning the full job lifecycle — from scheduling cleaning appointments to coordinating the team, handling client communications, confirming payments, and reporting daily to the owner. You are the operational backbone of the company.',
+    answer: 'A virtual operations manager oversees the day-to-day operations of a business remotely. At the company, this means owning the full job lifecycle — from scheduling cleaning appointments to coordinating the team, handling client communications, confirming payments, and reporting daily to the owner. You are the operational backbone of the company.',
   },
   {
     question: 'Do I need management experience to apply?',
@@ -313,12 +268,23 @@ const faqs = [
   },
 ]
 
-export default function VirtualOpsManagerPage() {
+export default async function VirtualOpsManagerPage() {
+  const tenant = await getTenantFromHeaders()
+  const name = tenant?.name || 'Our Company'
+  const phone = tenant?.phone || ''
+  const phoneDigits = phone.replace(/\D/g, '')
+  const email = tenant?.email || ''
+  const base = tenantSiteUrl(tenant)
+  const pageUrl = `${base}${PAGE_PATH}`
+  const pageTitle = 'Help Wanted: Remote Ops Mgr — $500/wk+10% Rev | Growing 100% Monthly'
+  const pageDescription = `${name} is hiring a remote admin/ops manager — $500/wk + 10% of total revenue. Growing 50–100% every month. Work from home. Perfect for admins, receptionists, secretaries ready to upgrade. Ground-floor opportunity. Apply now.`
+  const ctx = tenantCtx(tenant)
+
   return (
     <>
       <JsonLd data={[
-        organizationSchema(),
-        webSiteSchema(),
+        organizationSchema(ctx),
+        webSiteSchema(ctx),
         webPageSchema({
           url: pageUrl,
           name: pageTitle,
@@ -326,25 +292,26 @@ export default function VirtualOpsManagerPage() {
           type: 'WebPage',
           speakable: ['h1', 'h2', '.hero-description'],
           breadcrumb: [
-            { name: 'Home', url: 'https://www.thenycmaid.com' },
-            { name: 'Careers', url: 'https://www.thenycmaid.com/available-nyc-maid-jobs' },
+            ...(base ? [{ name: 'Home', url: base }] : []),
+            { name: 'Careers', url: `${base}/available-nyc-maid-jobs` },
             { name: 'Operations Manager (Virtual)', url: pageUrl },
           ],
+          ctx,
         }),
         breadcrumbSchema([
-          { name: 'Home', url: 'https://www.thenycmaid.com' },
-          { name: 'Careers', url: 'https://www.thenycmaid.com/available-nyc-maid-jobs' },
+          ...(base ? [{ name: 'Home', url: base }] : []),
+          { name: 'Careers', url: `${base}/available-nyc-maid-jobs` },
           { name: 'Operations Manager (Virtual)', url: pageUrl },
         ]),
-        opsManagerJobPostingSchema(),
+        opsManagerJobPostingSchema({ name, base, phone, email }),
         faqSchema(faqs),
       ]} />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-20 md:py-28">
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand)] py-20 md:py-28">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center gap-3 mb-4 flex-wrap">
-            <p className="text-[#A8F0DC] text-sm font-semibold tracking-[0.2em] uppercase">Ground Floor Opportunity</p>
+            <p className="text-[var(--brand-accent)] text-sm font-semibold tracking-[0.2em] uppercase">Ground Floor Opportunity</p>
             <span className="text-white/30">&middot;</span>
             <p className="text-white/60 text-sm">Work From Home</p>
             <span className="text-white/30">&middot;</span>
@@ -356,7 +323,7 @@ export default function VirtualOpsManagerPage() {
             Operations Manager (Virtual) — $500/wk + 10% Revenue to Start
           </h1>
           <p className="text-blue-200/80 text-lg max-w-3xl leading-relaxed mb-3">
-            The NYC Maid &mdash; New York City | Long Island | New Jersey
+            {name}
           </p>
           <p className="text-blue-200/60 max-w-3xl leading-relaxed mb-4">
             This is a ground-floor opportunity to get in early with a company that is scaling fast. Work from home. Start part-time &mdash; the workload is manageable right now &mdash; and grow into full-time as volume increases weekly. No commute. No office. No ceiling on where this goes.
@@ -365,50 +332,52 @@ export default function VirtualOpsManagerPage() {
             You own scheduling, customer service, team management, and payment coordination. The owner drives all sales, marketing, and growth. You run the operation.
           </p>
           <div className="flex flex-wrap items-center gap-3 mb-10">
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">$500/wk + 10% Revenue to Start</span>
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">Paid via Zelle Every Friday</span>
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">Work From Home</span>
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">Bilingual Preferred</span>
+            <span className="bg-[var(--brand-accent)]/20 text-[var(--brand-accent)] text-xs font-semibold px-4 py-2 rounded-full">$500/wk + 10% Revenue to Start</span>
+            <span className="bg-[var(--brand-accent)]/20 text-[var(--brand-accent)] text-xs font-semibold px-4 py-2 rounded-full">Paid via Zelle Every Friday</span>
+            <span className="bg-[var(--brand-accent)]/20 text-[var(--brand-accent)] text-xs font-semibold px-4 py-2 rounded-full">Work From Home</span>
+            <span className="bg-[var(--brand-accent)]/20 text-[var(--brand-accent)] text-xs font-semibold px-4 py-2 rounded-full">Bilingual Preferred</span>
           </div>
           <div className="flex flex-col sm:flex-row items-start gap-5">
-            <Link href="/apply/virtual-operations-manager" data-track="ops-hero-apply" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+            <Link href="/apply/virtual-operations-manager" data-track="ops-hero-apply" className="bg-[var(--brand-accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:opacity-90 transition-colors">
               Apply Now
             </Link>
-            <a href="sms:2122028400" data-track="ops-hero-text" className="text-blue-200/70 font-medium text-lg py-4 hover:text-white transition-colors underline underline-offset-4">
-              or Text (212) 202-8400
-            </a>
+            {phone && (
+              <a href={`sms:${phoneDigits}`} data-track="ops-hero-text" className="text-blue-200/70 font-medium text-lg py-4 hover:text-white transition-colors underline underline-offset-4">
+                or Text {phone}
+              </a>
+            )}
           </div>
         </div>
       </section>
 
       {/* Highlights Bar */}
-      <section className="bg-[#A8F0DC] py-12">
+      <section className="bg-[var(--brand-accent)] py-12">
         <div className="max-w-5xl mx-auto px-4">
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 text-center">
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">$500</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">Weekly Base</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Base semanal</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">$500</p>
+              <p className="text-[var(--brand)]/60 text-sm font-medium">Weekly Base</p>
+              <p className="text-[var(--brand)]/40 text-xs italic">Base semanal</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">+10%</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">Revenue Share</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Porcentaje de ingresos</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">+10%</p>
+              <p className="text-[var(--brand)]/60 text-sm font-medium">Revenue Share</p>
+              <p className="text-[var(--brand)]/40 text-xs italic">Porcentaje de ingresos</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">Home</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">Work From Home</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Trabaja desde casa</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">Home</p>
+              <p className="text-[var(--brand)]/60 text-sm font-medium">Work From Home</p>
+              <p className="text-[var(--brand)]/40 text-xs italic">Trabaja desde casa</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">Friday</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">Paid Weekly</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Pago semanal</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">Friday</p>
+              <p className="text-[var(--brand)]/60 text-sm font-medium">Paid Weekly</p>
+              <p className="text-[var(--brand)]/40 text-xs italic">Pago semanal</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">50–100%</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">Monthly Growth</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Crecimiento mensual</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">50–100%</p>
+              <p className="text-[var(--brand)]/60 text-sm font-medium">Monthly Growth</p>
+              <p className="text-[var(--brand)]/40 text-xs italic">Crecimiento mensual</p>
             </div>
           </div>
         </div>
@@ -424,11 +393,11 @@ export default function VirtualOpsManagerPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">About the Role</p>
           <p className="text-gray-400 text-xs italic mb-2">Sobre el puesto</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-6">This Is Not a Job for Everyone</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-6">This Is Not a Job for Everyone</h2>
           <p className="text-gray-400 text-sm italic mb-6">Este no es un trabajo para cualquiera</p>
           <div className="space-y-4 text-gray-600 leading-relaxed max-w-3xl">
             <p>
-              The NYC Maid has been serving New York City since 2018. Rebranded and rebuilt from the ground up in 2025, we are now doubling in size month over month. We operate over 100 websites across NYC, Long Island, and just over the Hudson in New Jersey &mdash; driving organic growth across every market we touch &mdash; and the volume of business coming through our platform is accelerating fast.
+              the company has been serving New York City since 2018. Rebranded and rebuilt from the ground up in 2025, we are now doubling in size month over month. We operate over 100 websites across NYC, Long Island, and just over the Hudson in New Jersey &mdash; driving organic growth across every market we touch &mdash; and the volume of business coming through our platform is accelerating fast.
             </p>
             <p>
               The owner, Jeff, brings 20+ years of experience in service-based businesses and marketing. He is caring, supportive, and genuinely invested in the people around him. He is also laser-focused, consistent, and operates with clear plans and expectations that must be met. He has an old-school customer service mentality combined with a modern marketing strategy that blends organic grassroots hustle with cutting-edge AI. When things go wrong he expects solutions &mdash; and he expects them to never happen again. When things run right, everyone wins.
@@ -439,7 +408,7 @@ export default function VirtualOpsManagerPage() {
             <p className="text-gray-400 text-xs italic">
               El dueño impulsa todas las ventas, marketing y crecimiento. <strong>Tú manejas todo lo demás</strong> — desde el momento en que se programa un trabajo hasta que se completa, dejando a cada cliente feliz, satisfecho y enamorado de nuestro servicio.
             </p>
-            <p className="text-[#1E2A4A] font-semibold">
+            <p className="text-[var(--brand)] font-semibold">
               This is not a job for someone who needs to be told what to do. This is a role for someone who sees disorder and cannot rest until it&apos;s fixed. If you have a process for everything, hold yourself to a standard most people can&apos;t keep up with, and take genuine pride in a perfectly executed day &mdash; keep reading.
             </p>
             <p className="text-gray-400 text-xs italic">
@@ -450,9 +419,9 @@ export default function VirtualOpsManagerPage() {
 
         {/* A Day in the Life */}
         <section className="mb-20">
-          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-2">What to Expect</p>
+          <p className="text-xs font-semibold text-[var(--brand-accent)] tracking-[0.2em] uppercase mb-2">What to Expect</p>
           <p className="text-gray-400 text-xs italic mb-2">Qué esperar</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-8">A Day in the Life</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-8">A Day in the Life</h2>
           <p className="text-gray-400 text-sm italic mb-8">Un día en la vida</p>
           <div className="space-y-4">
             {[
@@ -499,12 +468,12 @@ export default function VirtualOpsManagerPage() {
                 descEs: 'Envías un resumen diario conciso al dueño: cada trabajo completado, cada pago recibido, cada problema que surgió y cómo se resolvió. El día se cierra limpio.',
               },
             ].map(item => (
-              <div key={item.time} className="flex gap-5 p-5 border border-gray-200 rounded-xl hover:border-[#A8F0DC] transition-colors">
+              <div key={item.time} className="flex gap-5 p-5 border border-gray-200 rounded-xl hover:border-[var(--brand-accent)] transition-colors">
                 <div className="flex-shrink-0 w-28">
-                  <span className="text-[#1E2A4A]/40 font-bold text-sm">{item.time}</span>
+                  <span className="text-[var(--brand)]/40 font-bold text-sm">{item.time}</span>
                 </div>
                 <div>
-                  <p className="font-semibold text-[#1E2A4A] mb-1">{item.title}</p>
+                  <p className="font-semibold text-[var(--brand)] mb-1">{item.title}</p>
                   <p className="text-gray-400 text-xs italic mb-1">{item.titleEs}</p>
                   <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
                   <p className="text-gray-400 text-xs italic mt-1">{item.descEs}</p>
@@ -518,12 +487,12 @@ export default function VirtualOpsManagerPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Your Responsibilities</p>
           <p className="text-gray-400 text-xs italic mb-2">Tus responsabilidades</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-8">What You Own</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-8">What You Own</h2>
           <p className="text-gray-400 text-sm italic mb-8">Lo que tú manejas</p>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Operations & Scheduling */}
             <div className="border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] p-6">
+              <div className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand)] p-6">
                 <h3 className="font-[family-name:var(--font-bebas)] text-xl text-white tracking-wide">Operations &amp; Scheduling</h3>
                 <p className="text-blue-200/30 text-xs italic">Operaciones y programación</p>
               </div>
@@ -536,7 +505,7 @@ export default function VirtualOpsManagerPage() {
                   'Identify system issues and bring them to the owner with a proposed solution',
                 ].map(item => (
                   <div key={item} className="flex gap-3">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <p className="text-gray-600 text-sm leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -545,7 +514,7 @@ export default function VirtualOpsManagerPage() {
 
             {/* Client Services */}
             <div className="border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] p-6">
+              <div className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand)] p-6">
                 <h3 className="font-[family-name:var(--font-bebas)] text-xl text-white tracking-wide">Client Services</h3>
                 <p className="text-blue-200/30 text-xs italic">Servicios al cliente</p>
               </div>
@@ -556,7 +525,7 @@ export default function VirtualOpsManagerPage() {
                   'Follow up on job completions to ensure every client is happy and coming back',
                 ].map(item => (
                   <div key={item} className="flex gap-3">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <p className="text-gray-600 text-sm leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -565,7 +534,7 @@ export default function VirtualOpsManagerPage() {
 
             {/* Team & Payments */}
             <div className="border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] p-6">
+              <div className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand)] p-6">
                 <h3 className="font-[family-name:var(--font-bebas)] text-xl text-white tracking-wide">Team &amp; Payments</h3>
                 <p className="text-blue-200/30 text-xs italic">Equipo y pagos</p>
               </div>
@@ -580,7 +549,7 @@ export default function VirtualOpsManagerPage() {
                   'Send owner a concise daily summary: completed jobs, payments received, issues handled',
                 ].map(item => (
                   <div key={item} className="flex gap-3">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <p className="text-gray-600 text-sm leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -591,9 +560,9 @@ export default function VirtualOpsManagerPage() {
 
         {/* The Platform You'll Run */}
         <section className="mb-20">
-          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-2">What You&apos;re Walking Into</p>
+          <p className="text-xs font-semibold text-[var(--brand-accent)] tracking-[0.2em] uppercase mb-2">What You&apos;re Walking Into</p>
           <p className="text-gray-400 text-xs italic mb-2">A lo que estás entrando</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">This Is Not a Startup With Spreadsheets</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-3">This Is Not a Startup With Spreadsheets</h2>
           <p className="text-gray-400 text-sm italic mb-3">Esto no es un startup con hojas de cálculo</p>
           <p className="text-gray-500 max-w-3xl mb-3">You&apos;re not building from scratch. The entire platform &mdash; the dashboard, the portals, the automations, the finance system, the analytics &mdash; is already built. Custom-built for this business. You&apos;re stepping into a fully operational command center from day one.</p>
           <p className="text-gray-400 text-xs italic max-w-3xl mb-10">No estás construyendo desde cero. Toda la plataforma — el panel, los portales, las automatizaciones, el sistema financiero, los análisis — ya está construida. Hecha a medida para este negocio. Entras a un centro de comando totalmente operativo desde el primer día.</p>
@@ -601,7 +570,7 @@ export default function VirtualOpsManagerPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Admin Dashboard */}
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">Operations Dashboard &mdash; Your Command Center</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">Operations Dashboard &mdash; Your Command Center</h3>
               <p className="text-gray-400 text-xs italic mb-3">Panel de operaciones — Tu centro de comando</p>
               <p className="text-gray-600 text-sm leading-relaxed mb-3">A full real-time command center built custom for this business. Revenue tracking, job status, team monitoring, and client management &mdash; everything you need to run the day is in one place.</p>
               <div className="space-y-2">
@@ -615,7 +584,7 @@ export default function VirtualOpsManagerPage() {
                   'Notification center — new bookings, check-ins, payments, applications, and system alerts',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -624,7 +593,7 @@ export default function VirtualOpsManagerPage() {
 
             {/* Calendar & Scheduling */}
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">Calendar &amp; Scheduling System</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">Calendar &amp; Scheduling System</h3>
               <p className="text-gray-400 text-xs italic mb-3">Calendario y sistema de programación</p>
               <p className="text-gray-600 text-sm leading-relaxed mb-3">Full visual calendar with drag-and-drop scheduling. Color-coded by cleaner. Month, week, and day views. Click any job to see full details, reassign, or edit.</p>
               <div className="space-y-2">
@@ -638,7 +607,7 @@ export default function VirtualOpsManagerPage() {
                   'Mobile-friendly list view for on-the-go management',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -647,7 +616,7 @@ export default function VirtualOpsManagerPage() {
 
             {/* Team Portal */}
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">Bilingual Team Portal (English &amp; Spanish)</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">Bilingual Team Portal (English &amp; Spanish)</h3>
               <p className="text-gray-400 text-xs italic mb-3">Portal bilingüe del equipo (inglés y español)</p>
               <p className="text-gray-600 text-sm leading-relaxed mb-3">Every cleaner has their own portal &mdash; fully bilingual. They see their jobs, check in, check out, claim available work, track their pay, and manage their availability. You monitor everything from your side.</p>
               <div className="space-y-2">
@@ -662,7 +631,7 @@ export default function VirtualOpsManagerPage() {
                   'Cleaning guidelines — bilingual SOPs you can update and broadcast to the whole team',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -671,7 +640,7 @@ export default function VirtualOpsManagerPage() {
 
             {/* Finance Dashboard */}
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">Finance &amp; Payroll Dashboard</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">Finance &amp; Payroll Dashboard</h3>
               <p className="text-gray-400 text-xs italic mb-3">Panel de finanzas y nómina</p>
               <p className="text-gray-600 text-sm leading-relaxed mb-3">Full financial visibility. Track revenue, labor costs, expenses, cleaner payroll, referral commissions, and bank statements &mdash; all in one place.</p>
               <div className="space-y-2">
@@ -686,7 +655,7 @@ export default function VirtualOpsManagerPage() {
                   '1099 contractor reporting — export cleaner income data for tax filing',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -695,7 +664,7 @@ export default function VirtualOpsManagerPage() {
 
             {/* Client System */}
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">Client Management &amp; Booking System</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">Client Management &amp; Booking System</h3>
               <p className="text-gray-400 text-xs italic mb-3">Gestión de clientes y sistema de reservas</p>
               <p className="text-gray-600 text-sm leading-relaxed mb-3">Full client database with booking history, communication logs, payment records, and referral tracking. Clients can also self-serve &mdash; book online, view their appointments, and pay through their own portal.</p>
               <div className="space-y-2">
@@ -710,7 +679,7 @@ export default function VirtualOpsManagerPage() {
                   'Referrer attribution — see which referrer brought each client',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -719,7 +688,7 @@ export default function VirtualOpsManagerPage() {
 
             {/* Automations */}
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">Automations &amp; Notifications</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">Automations &amp; Notifications</h3>
               <p className="text-gray-400 text-xs italic mb-3">Automatizaciones y notificaciones</p>
               <p className="text-gray-600 text-sm leading-relaxed mb-3">The system does the heavy lifting. Automated reminders, confirmations, daily summaries, recurring job generation, and multi-channel notifications &mdash; push, email, and SMS &mdash; all running in the background so you can focus on the human side.</p>
               <div className="space-y-2">
@@ -734,7 +703,7 @@ export default function VirtualOpsManagerPage() {
                   'Admin alerts — new bookings, new applications, payment confirmations, expiring schedules',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -745,7 +714,7 @@ export default function VirtualOpsManagerPage() {
           {/* Additional Systems Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">Analytics &amp; Leads</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">Analytics &amp; Leads</h3>
               <p className="text-gray-400 text-xs italic mb-3">Análisis y prospectos</p>
               <p className="text-gray-600 text-sm leading-relaxed mb-3">Full analytics dashboard tracking visitors, conversions, traffic sources, form funnels, and device breakdowns. Plus a live lead feed showing every visitor in real time.</p>
               <div className="space-y-2">
@@ -757,7 +726,7 @@ export default function VirtualOpsManagerPage() {
                   'Device breakdown — mobile vs. desktop engagement',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -765,7 +734,7 @@ export default function VirtualOpsManagerPage() {
             </div>
 
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">Marketing &amp; Reviews</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">Marketing &amp; Reviews</h3>
               <p className="text-gray-400 text-xs italic mb-3">Marketing y reseñas</p>
               <p className="text-gray-600 text-sm leading-relaxed mb-3">Built-in campaign manager for email and SMS marketing. Google review management with AI-generated replies. Referral program with full tracking and payouts.</p>
               <div className="space-y-2">
@@ -777,7 +746,7 @@ export default function VirtualOpsManagerPage() {
                   'Referral program — full tracking, payout processing, and referrer portal',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -785,7 +754,7 @@ export default function VirtualOpsManagerPage() {
             </div>
 
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">Settings &amp; Configuration</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">Settings &amp; Configuration</h3>
               <p className="text-gray-400 text-xs italic mb-3">Configuración y ajustes</p>
               <p className="text-gray-600 text-sm leading-relaxed mb-3">Everything is configurable. Service types, pricing, booking rules, reminder schedules, cancellation policies, team guidelines &mdash; all adjustable from the settings panel.</p>
               <div className="space-y-2">
@@ -797,7 +766,7 @@ export default function VirtualOpsManagerPage() {
                   'Team guidelines — write SOPs in English, auto-translate to Spanish, broadcast to team',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -811,70 +780,70 @@ export default function VirtualOpsManagerPage() {
 
         {/* Who Is This Role Perfect For */}
         <section className="mb-20">
-          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-2">Is This You?</p>
+          <p className="text-xs font-semibold text-[var(--brand-accent)] tracking-[0.2em] uppercase mb-2">Is This You?</p>
           <p className="text-gray-400 text-xs italic mb-2">¿Eres tú?</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">Who This Role Is Perfect For</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-3">Who This Role Is Perfect For</h2>
           <p className="text-gray-400 text-sm italic mb-3">Para quién es perfecto este puesto</p>
           <p className="text-gray-500 max-w-3xl mb-3">This isn&apos;t for everyone. But if you see yourself in any of these descriptions, you might be exactly who we&apos;re looking for.</p>
           <p className="text-gray-400 text-xs italic max-w-3xl mb-10">Esto no es para todos. Pero si te ves reflejado en alguna de estas descripciones, podrías ser exactamente quien estamos buscando.</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">The Secretary or Administrative Assistant Who Wants More</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--brand-accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-3">The Secretary or Administrative Assistant Who Wants More</h3>
               <p className="text-gray-400 text-xs italic mb-2">La secretaria o asistente administrativa que quiere más</p>
               <p className="text-gray-500 text-sm leading-relaxed">You&apos;ve been answering phones, managing calendars, and keeping an office running for years. You&apos;re great at it &mdash; but you know you&apos;re capable of more. You want to own something, not just support someone else&apos;s operation. This role lets you take everything you&apos;re already good at and apply it to running a real business &mdash; from home.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">The Customer Service Rep Ready to Lead</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--brand-accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-3">The Customer Service Rep Ready to Lead</h3>
               <p className="text-gray-400 text-xs italic mb-2">El representante de servicio al cliente listo para liderar</p>
               <p className="text-gray-500 text-sm leading-relaxed">You&apos;ve handled hundreds of client calls. You know how to de-escalate, how to make people feel heard, and how to solve problems on the spot. But you&apos;re tired of being one of fifty reps in a call center. You want to be the person who runs the entire customer experience &mdash; not just answer tickets.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">The Office Manager in NYC Who&apos;s Over the Commute</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--brand-accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-3">The Office Manager in NYC Who&apos;s Over the Commute</h3>
               <p className="text-gray-400 text-xs italic mb-2">El gerente de oficina en NYC que ya no quiere el viaje diario</p>
               <p className="text-gray-500 text-sm leading-relaxed">You&apos;ve been commuting into Manhattan or Brooklyn every day to manage an office, coordinate schedules, and keep things running. You&apos;re good at operations &mdash; but you&apos;re done with the subway, the commute, and the fluorescent lights. This is the same work, from your couch, with real upside.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">The Scheduling Coordinator Who Wants Ownership</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--brand-accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-3">The Scheduling Coordinator Who Wants Ownership</h3>
               <p className="text-gray-400 text-xs italic mb-2">El coordinador de horarios que quiere ser dueño de la operación</p>
               <p className="text-gray-500 text-sm leading-relaxed">You&apos;ve coordinated schedules for medical offices, home services, field teams, or logistics companies. You understand the puzzle &mdash; moving pieces, covering gaps, keeping everyone on time. But you want to own the whole operation, not just the calendar. Here, scheduling is one piece of a much bigger role.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">The Dispatcher or Service Coordinator</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--brand-accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-3">The Dispatcher or Service Coordinator</h3>
               <p className="text-gray-400 text-xs italic mb-2">El despachador o coordinador de servicios</p>
               <p className="text-gray-500 text-sm leading-relaxed">You&apos;ve dispatched technicians, cleaners, drivers, or field workers. You know what it takes to keep a service operation running &mdash; the check-ins, the no-shows, the last-minute changes. You&apos;re calm under pressure and you never let a ball drop. This is that same energy, but with revenue share and a path to running the whole show.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">The Virtual Assistant Who&apos;s Outgrown the Title</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--brand-accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-3">The Virtual Assistant Who&apos;s Outgrown the Title</h3>
               <p className="text-gray-400 text-xs italic mb-2">La asistente virtual que superó el título</p>
               <p className="text-gray-500 text-sm leading-relaxed">You&apos;ve been a VA for one or more clients. You handle email, scheduling, customer communication, maybe even billing. But you&apos;re not being challenged anymore. You want a single company to invest in &mdash; one where your work directly impacts growth and your income grows with it. This is that company.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">The Stay-at-Home Parent in NYC or NJ Ready to Work Again</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--brand-accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-3">The Stay-at-Home Parent in NYC or NJ Ready to Work Again</h3>
               <p className="text-gray-400 text-xs italic mb-2">El padre o madre en casa en NYC o NJ listo para volver a trabajar</p>
               <p className="text-gray-500 text-sm leading-relaxed">You stepped away from your career to raise a family. Now you&apos;re ready to get back to work &mdash; but you need flexibility. You need to work from home. You need something that fits around school drop-offs and pickups. This role starts part-time, works from home, and grows at your pace.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">The Bilingual Professional Looking for Real Opportunity</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--brand-accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-3">The Bilingual Professional Looking for Real Opportunity</h3>
               <p className="text-gray-400 text-xs italic mb-2">El profesional bilingüe buscando una oportunidad real</p>
               <p className="text-gray-500 text-sm leading-relaxed">You speak English and Spanish fluently. In most jobs, that gets you a thank you and maybe a small premium. Here, it makes you 10x more effective &mdash; our cleaning team is primarily Spanish-speaking. Your bilingual skills aren&apos;t a nice-to-have, they&apos;re a competitive advantage that directly impacts how well this operation runs.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">The Person Who Wants to Put Their Thumbprint on a Real Business</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--brand-accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-3">The Person Who Wants to Put Their Thumbprint on a Real Business</h3>
               <p className="text-gray-400 text-xs italic mb-2">La persona que quiere dejar su huella en un negocio real</p>
-              <p className="text-gray-500 text-sm leading-relaxed">You&apos;re not looking for a job. You&apos;re looking for something to build. You want to walk into a growing company, take ownership of the operation, build a team under you, and know that what you built is the reason the business runs. You want your work to matter. At The NYC Maid, it will.</p>
+              <p className="text-gray-500 text-sm leading-relaxed">You&apos;re not looking for a job. You&apos;re looking for something to build. You want to walk into a growing company, take ownership of the operation, build a team under you, and know that what you built is the reason the business runs. You want your work to matter. At the company, it will.</p>
             </div>
           </div>
 
-          <div className="mt-10 bg-gradient-to-r from-[#1E2A4A] to-[#243352] rounded-2xl p-8">
+          <div className="mt-10 bg-gradient-to-r from-[var(--brand)] to-[var(--brand)] rounded-2xl p-8">
             <p className="text-white font-semibold text-lg mb-1">Didn&apos;t See Yourself Above?</p>
             <p className="text-blue-200/30 text-xs italic mb-3">¿No te viste reflejado arriba?</p>
             <p className="text-blue-200/60 text-sm leading-relaxed max-w-2xl mb-1">If you have the work ethic, the organizational instincts, and the drive to run an operation &mdash; regardless of your background or title &mdash; we want to hear from you. We don&apos;t care about your resume as much as we care about who you are and how you work. The right person for this role might come from anywhere. What matters is that you see this opportunity for what it is and you&apos;re ready to take it.</p>
@@ -883,30 +852,30 @@ export default function VirtualOpsManagerPage() {
         </section>
 
         {/* The Marketing Engine */}
-        <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-8 md:p-14 mb-20">
-          <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-2">Why This Is Growing So Fast</p>
+        <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand)] rounded-2xl p-8 md:p-14 mb-20">
+          <p className="text-[var(--brand-accent)] text-xs font-semibold tracking-[0.2em] uppercase mb-2">Why This Is Growing So Fast</p>
           <p className="text-blue-200/30 text-xs italic mb-2">Por qué esto está creciendo tan rápido</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-3">100+ Websites. Organic Growth. No Paid Ads.</h2>
           <p className="text-blue-200/50 italic mb-3">100+ sitios web. Crecimiento orgánico. Sin anuncios pagados.</p>
-          <p className="text-blue-200/60 max-w-3xl mb-3">The owner has built a network of over 100 websites across NYC, Long Island, and New Jersey &mdash; all driving organic traffic to The NYC Maid. This is not a company that relies on paid ads or lead generation services. Every client comes through our own channels. That&apos;s why the growth is real, sustainable, and accelerating.</p>
-          <p className="text-blue-200/30 text-xs italic max-w-3xl mb-10">El dueño ha construido una red de más de 100 sitios web en NYC, Long Island y New Jersey — todos generando tráfico orgánico para The NYC Maid. Esta no es una empresa que depende de anuncios pagados o servicios de generación de prospectos. Cada cliente llega por nuestros propios canales. Por eso el crecimiento es real, sostenible y se está acelerando.</p>
+          <p className="text-blue-200/60 max-w-3xl mb-3">The owner has built a network of over 100 websites across NYC, Long Island, and New Jersey &mdash; all driving organic traffic to the company. This is not a company that relies on paid ads or lead generation services. Every client comes through our own channels. That&apos;s why the growth is real, sustainable, and accelerating.</p>
+          <p className="text-blue-200/30 text-xs italic max-w-3xl mb-10">El dueño ha construido una red de más de 100 sitios web en NYC, Long Island y New Jersey — todos generando tráfico orgánico para the company. Esta no es una empresa que depende de anuncios pagados o servicios de generación de prospectos. Cada cliente llega por nuestros propios canales. Por eso el crecimiento es real, sostenible y se está acelerando.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl text-[#A8F0DC] tracking-wide mb-2">100+</p>
+              <p className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--brand-accent)] tracking-wide mb-2">100+</p>
               <p className="text-white font-semibold mb-1">Websites</p>
               <p className="text-blue-200/30 text-xs italic mb-1">Sitios web</p>
               <p className="text-blue-200/50 text-sm">Across every neighborhood in NYC, Long Island, and NJ. Each one ranks on Google and drives organic leads directly to our booking system.</p>
               <p className="text-blue-200/30 text-xs italic mt-1">En cada barrio de NYC, Long Island y NJ. Cada uno posicionado en Google generando prospectos orgánicos directo a nuestro sistema de reservas.</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl text-[#A8F0DC] tracking-wide mb-2">225+</p>
+              <p className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--brand-accent)] tracking-wide mb-2">225+</p>
               <p className="text-white font-semibold mb-1">Neighborhoods</p>
               <p className="text-blue-200/30 text-xs italic mb-1">Vecindarios</p>
               <p className="text-blue-200/50 text-sm">Dedicated landing pages for every neighborhood we serve &mdash; Manhattan, Brooklyn, Queens, Long Island, New Jersey. Each one optimized for local search.</p>
               <p className="text-blue-200/30 text-xs italic mt-1">Páginas dedicadas para cada vecindario que servimos — Manhattan, Brooklyn, Queens, Long Island, New Jersey. Cada una optimizada para búsqueda local.</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl text-[#A8F0DC] tracking-wide mb-2">$0</p>
+              <p className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--brand-accent)] tracking-wide mb-2">$0</p>
               <p className="text-white font-semibold mb-1">Ad Spend</p>
               <p className="text-blue-200/30 text-xs italic mb-1">Gasto en anuncios</p>
               <p className="text-blue-200/50 text-sm">Every single client comes through organic search, direct bookings, and referrals. No paid ads. No middlemen. No lead fees. That&apos;s why margins are healthy and growth is sustainable.</p>
@@ -922,7 +891,7 @@ export default function VirtualOpsManagerPage() {
                 <div className="flex justify-between"><span className="text-blue-200/60">March (on pace)</span><span className="text-white font-semibold">75 jobs</span></div>
                 <div className="flex justify-between"><span className="text-blue-200/60">April (projected)</span><span className="text-white font-semibold">125–150 jobs</span></div>
                 <div className="flex justify-between"><span className="text-blue-200/60">May (projected)</span><span className="text-white font-semibold">200–250 jobs</span></div>
-                <div className="flex justify-between border-t border-white/10 pt-2"><span className="text-[#A8F0DC]">Winter target</span><span className="text-[#A8F0DC] font-bold">100 jobs/week</span></div>
+                <div className="flex justify-between border-t border-white/10 pt-2"><span className="text-[var(--brand-accent)]">Winter target</span><span className="text-[var(--brand-accent)] font-bold">100 jobs/week</span></div>
               </div>
             </div>
             <div className="bg-white/10 rounded-xl p-6">
@@ -940,7 +909,7 @@ export default function VirtualOpsManagerPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-1">As We Scale</p>
           <p className="text-gray-400 text-xs italic mb-2">A medida que crecemos</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-1">This Role Grows With You</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-1">This Role Grows With You</h2>
           <p className="text-gray-400 text-sm italic mb-3">Este puesto crece contigo</p>
           <p className="text-gray-500 max-w-3xl mb-1">Right now you&apos;re managing 15–20 cleanings a week. That&apos;s the starting point. Here&apos;s what the role looks like as the business scales &mdash; and it&apos;s scaling fast.</p>
           <p className="text-gray-400 text-xs italic max-w-3xl mb-8">Ahora mismo manejas 15–20 limpiezas por semana. Ese es el punto de partida. Así se ve el puesto a medida que el negocio escala — y está escalando rápido.</p>
@@ -976,14 +945,14 @@ export default function VirtualOpsManagerPage() {
               },
             ].map(item => (
               <div key={item.phase} className="border border-gray-200 rounded-2xl p-6">
-                <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.15em] uppercase mb-1">{item.phase}</p>
+                <p className="text-[var(--brand-accent)] text-xs font-semibold tracking-[0.15em] uppercase mb-1">{item.phase}</p>
                 <p className="text-gray-400 text-[10px] italic mb-1">{item.phaseEs}</p>
-                <h3 className="font-semibold text-[#1E2A4A] mb-3">{item.title}</h3>
+                <h3 className="font-semibold text-[var(--brand)] mb-3">{item.title}</h3>
                 <p className="text-gray-400 text-xs italic mb-3">{item.titleEs}</p>
                 <div className="space-y-2">
                   {item.items.map(li => (
                     <div key={li} className="flex gap-2">
-                      <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                      <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                       <p className="text-gray-500 text-xs leading-relaxed">{li}</p>
                     </div>
                   ))}
@@ -999,7 +968,7 @@ export default function VirtualOpsManagerPage() {
             <div className="lg:col-span-3">
               <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-1">Requirements</p>
               <p className="text-gray-400 text-xs italic mb-2">Requisitos</p>
-              <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-1">Who You Are</h2>
+              <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-1">Who You Are</h2>
               <p className="text-gray-400 text-sm italic mb-6">Quién eres tú</p>
               <div className="space-y-3">
                 {[
@@ -1017,9 +986,9 @@ export default function VirtualOpsManagerPage() {
                   { title: '2+ Years Experience', titleEs: '2+ años de experiencia', desc: 'In customer service, operations, or service coordination preferred.', descEs: 'En servicio al cliente, operaciones, o coordinación de servicios preferido.' },
                 ].map(item => (
                   <div key={item.title} className="flex gap-4 p-4 border border-gray-200 rounded-xl">
-                    <span className="text-[#A8F0DC] mt-0.5 text-lg flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--brand-accent)] mt-0.5 text-lg flex-shrink-0">&#10003;</span>
                     <div>
-                      <p className="font-semibold text-[#1E2A4A] text-sm mb-0.5">{item.title}</p>
+                      <p className="font-semibold text-[var(--brand)] text-sm mb-0.5">{item.title}</p>
                       <p className="text-gray-400 text-xs italic mb-0.5">{item.titleEs}</p>
                       <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
                       <p className="text-gray-400 text-xs italic mt-1">{item.descEs}</p>
@@ -1031,8 +1000,8 @@ export default function VirtualOpsManagerPage() {
 
             <div className="lg:col-span-2 space-y-4">
               {/* Ground Floor Opportunity */}
-              <div className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-8">
-                <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-1">Ground Floor Opportunity</p>
+              <div className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand)] rounded-2xl p-8">
+                <p className="text-[var(--brand-accent)] text-xs font-semibold tracking-[0.2em] uppercase mb-1">Ground Floor Opportunity</p>
                 <p className="text-blue-200/30 text-xs italic mb-4">Oportunidad desde el inicio</p>
                 <div className="space-y-5">
                   <div>
@@ -1054,59 +1023,59 @@ export default function VirtualOpsManagerPage() {
               </div>
 
               {/* Compensation & Real Growth Path */}
-              <div className="bg-[#A8F0DC] rounded-2xl p-8">
-                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-1">Compensation &amp; Growth Path</p>
-                <p className="text-[#1E2A4A]/40 text-xs italic mb-2">Compensación y camino de crecimiento</p>
-                <p className="text-[#1E2A4A]/50 text-xs mb-1">$500/wk guaranteed base + 10% of gross revenue &mdash; paid via Zelle every Friday</p>
-                <p className="text-[#1E2A4A]/40 text-xs italic mb-5">$500/sem base garantizado + 10% de ingresos brutos — pagado vía Zelle cada viernes</p>
+              <div className="bg-[var(--brand-accent)] rounded-2xl p-8">
+                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-1">Compensation &amp; Growth Path</p>
+                <p className="text-[var(--brand)]/40 text-xs italic mb-2">Compensación y camino de crecimiento</p>
+                <p className="text-[var(--brand)]/50 text-xs mb-1">$500/wk guaranteed base + 10% of gross revenue &mdash; paid via Zelle every Friday</p>
+                <p className="text-[var(--brand)]/40 text-xs italic mb-5">$500/sem base garantizado + 10% de ingresos brutos — pagado vía Zelle cada viernes</p>
                 <div className="space-y-4">
                   <div>
-                    <p className="text-[#1E2A4A]/40 text-[10px] font-semibold tracking-[0.15em] uppercase">Right Now &mdash; Part-Time <span className="font-normal italic normal-case tracking-normal">/ Ahora mismo — Medio tiempo</span></p>
+                    <p className="text-[var(--brand)]/40 text-[10px] font-semibold tracking-[0.15em] uppercase">Right Now &mdash; Part-Time <span className="font-normal italic normal-case tracking-normal">/ Ahora mismo — Medio tiempo</span></p>
                     <div className="flex justify-between items-center mt-1">
                       <div>
-                        <p className="text-[#1E2A4A]/70 text-sm">~18 jobs/wk &times; $175 avg</p>
-                        <p className="text-[#1E2A4A]/40 text-xs">~$3,150/wk revenue</p>
+                        <p className="text-[var(--brand)]/70 text-sm">~18 jobs/wk &times; $175 avg</p>
+                        <p className="text-[var(--brand)]/40 text-xs">~$3,150/wk revenue</p>
                       </div>
-                      <span className="font-bold text-[#1E2A4A]">~$815/wk</span>
+                      <span className="font-bold text-[var(--brand)]">~$815/wk</span>
                     </div>
                   </div>
-                  <div className="border-t border-[#1E2A4A]/10 pt-3">
-                    <p className="text-[#1E2A4A]/40 text-[10px] font-semibold tracking-[0.15em] uppercase">April &mdash; Projected 125–150 Jobs/Mo <span className="font-normal italic normal-case tracking-normal">/ Abril — Proyectado</span></p>
+                  <div className="border-t border-[var(--brand)]/10 pt-3">
+                    <p className="text-[var(--brand)]/40 text-[10px] font-semibold tracking-[0.15em] uppercase">April &mdash; Projected 125–150 Jobs/Mo <span className="font-normal italic normal-case tracking-normal">/ Abril — Proyectado</span></p>
                     <div className="flex justify-between items-center mt-1">
                       <div>
-                        <p className="text-[#1E2A4A]/70 text-sm">~35 jobs/wk &times; $175 avg</p>
-                        <p className="text-[#1E2A4A]/40 text-xs">~$6,125/wk revenue</p>
+                        <p className="text-[var(--brand)]/70 text-sm">~35 jobs/wk &times; $175 avg</p>
+                        <p className="text-[var(--brand)]/40 text-xs">~$6,125/wk revenue</p>
                       </div>
-                      <span className="font-bold text-[#1E2A4A] text-lg">~$1,112/wk</span>
+                      <span className="font-bold text-[var(--brand)] text-lg">~$1,112/wk</span>
                     </div>
                   </div>
-                  <div className="border-t border-[#1E2A4A]/10 pt-3">
-                    <p className="text-[#1E2A4A]/40 text-[10px] font-semibold tracking-[0.15em] uppercase">May &mdash; Projected 200–250 Jobs/Mo <span className="font-normal italic normal-case tracking-normal">/ Mayo — Proyectado</span></p>
+                  <div className="border-t border-[var(--brand)]/10 pt-3">
+                    <p className="text-[var(--brand)]/40 text-[10px] font-semibold tracking-[0.15em] uppercase">May &mdash; Projected 200–250 Jobs/Mo <span className="font-normal italic normal-case tracking-normal">/ Mayo — Proyectado</span></p>
                     <div className="flex justify-between items-center mt-1">
                       <div>
-                        <p className="text-[#1E2A4A]/70 text-sm">~55 jobs/wk &times; $175 avg</p>
-                        <p className="text-[#1E2A4A]/40 text-xs">~$9,625/wk revenue</p>
+                        <p className="text-[var(--brand)]/70 text-sm">~55 jobs/wk &times; $175 avg</p>
+                        <p className="text-[var(--brand)]/40 text-xs">~$9,625/wk revenue</p>
                       </div>
-                      <span className="font-bold text-[#1E2A4A] text-lg">~$1,462/wk</span>
+                      <span className="font-bold text-[var(--brand)] text-lg">~$1,462/wk</span>
                     </div>
                   </div>
-                  <div className="border-t border-[#1E2A4A]/10 pt-3">
-                    <p className="text-[#1E2A4A]/40 text-[10px] font-semibold tracking-[0.15em] uppercase">Winter &mdash; Target 100 Jobs/Wk <span className="font-normal italic normal-case tracking-normal">/ Invierno — Meta</span></p>
+                  <div className="border-t border-[var(--brand)]/10 pt-3">
+                    <p className="text-[var(--brand)]/40 text-[10px] font-semibold tracking-[0.15em] uppercase">Winter &mdash; Target 100 Jobs/Wk <span className="font-normal italic normal-case tracking-normal">/ Invierno — Meta</span></p>
                     <div className="flex justify-between items-center mt-1">
                       <div>
-                        <p className="text-[#1E2A4A]/70 text-sm">100 jobs/wk &times; $175 avg</p>
-                        <p className="text-[#1E2A4A]/40 text-xs">$17,500/wk revenue</p>
+                        <p className="text-[var(--brand)]/70 text-sm">100 jobs/wk &times; $175 avg</p>
+                        <p className="text-[var(--brand)]/40 text-xs">$17,500/wk revenue</p>
                       </div>
-                      <span className="font-bold text-[#1E2A4A] text-xl">$2,250/wk</span>
+                      <span className="font-bold text-[var(--brand)] text-xl">$2,250/wk</span>
                     </div>
                   </div>
                 </div>
-                <p className="text-[#1E2A4A]/40 text-xs mt-5">These are real projections based on actual growth. We did 36 jobs last month. We&apos;re on pace for 75 this month. Revenue share % grows as you prove yourself.</p>
+                <p className="text-[var(--brand)]/40 text-xs mt-5">These are real projections based on actual growth. We did 36 jobs last month. We&apos;re on pace for 75 this month. Revenue share % grows as you prove yourself.</p>
               </div>
 
               {/* Why Now */}
-              <div className="border-2 border-[#1E2A4A] rounded-2xl p-8">
-                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-1">Why Now</p>
+              <div className="border-2 border-[var(--brand)] rounded-2xl p-8">
+                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-1">Why Now</p>
                 <p className="text-gray-400 text-xs italic mb-4">¿Por qué ahora?</p>
                 <p className="text-gray-600 text-sm leading-relaxed mb-1">
                   Right now the workload is light. You can learn the systems, build relationships with the team, and master the operation while it&apos;s still manageable. That window is closing fast.
@@ -1129,16 +1098,16 @@ export default function VirtualOpsManagerPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-1">Common Questions</p>
           <p className="text-gray-400 text-xs italic mb-2">Preguntas comunes</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-1">Frequently Asked Questions</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-1">Frequently Asked Questions</h2>
           <p className="text-gray-400 text-sm italic mb-2">Preguntas frecuentes</p>
-          <div className="w-10 h-[2px] bg-[#A8F0DC] mb-8" />
+          <div className="w-10 h-[2px] bg-[var(--brand-accent)] mb-8" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
             {faqs.map((faq, i) => (
               <details key={i} className="group border border-gray-200 rounded-xl overflow-hidden">
                 <summary className="flex items-center justify-between p-5 cursor-pointer hover:bg-gray-50 transition-colors">
                   <div className="pr-4">
-                    <h3 className="font-semibold text-[#1E2A4A] text-sm text-left">{faq.question}</h3>
+                    <h3 className="font-semibold text-[var(--brand)] text-sm text-left">{faq.question}</h3>
                     <p className="text-gray-400 text-xs italic text-left">{faq.questionEs}</p>
                   </div>
                   <span className="text-gray-400 group-open:rotate-45 transition-transform text-xl flex-shrink-0">+</span>
@@ -1152,14 +1121,14 @@ export default function VirtualOpsManagerPage() {
         </section>
 
         {/* How to Apply */}
-        <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-8 md:p-14 mb-20">
-          <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-1">How to Apply</p>
+        <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand)] rounded-2xl p-8 md:p-14 mb-20">
+          <p className="text-[var(--brand-accent)] text-xs font-semibold tracking-[0.2em] uppercase mb-1">How to Apply</p>
           <p className="text-blue-200/30 text-xs italic mb-2">Cómo aplicar</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-1">Application Requirements</h2>
           <p className="text-blue-200/50 italic mb-8">Requisitos de la solicitud</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <div className="w-10 h-10 bg-[#A8F0DC] text-[#1E2A4A] rounded-full flex items-center justify-center font-bold mb-4">1</div>
+              <div className="w-10 h-10 bg-[var(--brand-accent)] text-[var(--brand)] rounded-full flex items-center justify-center font-bold mb-4">1</div>
               <h3 className="text-white font-semibold mb-1">Photo &amp; Selfie Video</h3>
               <p className="text-blue-200/30 text-xs italic mb-2">Foto y video selfie</p>
               <p className="text-blue-200/60 text-sm leading-relaxed">
@@ -1170,7 +1139,7 @@ export default function VirtualOpsManagerPage() {
               </p>
             </div>
             <div>
-              <div className="w-10 h-10 bg-[#A8F0DC] text-[#1E2A4A] rounded-full flex items-center justify-center font-bold mb-4">2</div>
+              <div className="w-10 h-10 bg-[var(--brand-accent)] text-[var(--brand)] rounded-full flex items-center justify-center font-bold mb-4">2</div>
               <h3 className="text-white font-semibold mb-1">Resume</h3>
               <p className="text-blue-200/30 text-xs italic mb-2">Currículum</p>
               <p className="text-blue-200/60 text-sm leading-relaxed">
@@ -1181,7 +1150,7 @@ export default function VirtualOpsManagerPage() {
               </p>
             </div>
             <div>
-              <div className="w-10 h-10 bg-[#A8F0DC] text-[#1E2A4A] rounded-full flex items-center justify-center font-bold mb-4">3</div>
+              <div className="w-10 h-10 bg-[var(--brand-accent)] text-[var(--brand)] rounded-full flex items-center justify-center font-bold mb-4">3</div>
               <h3 className="text-white font-semibold mb-1">Complete the Form</h3>
               <p className="text-blue-200/30 text-xs italic mb-2">Completa el formulario</p>
               <p className="text-blue-200/60 text-sm leading-relaxed">
@@ -1193,7 +1162,7 @@ export default function VirtualOpsManagerPage() {
             </div>
           </div>
           <div className="mt-10 text-center">
-            <Link href="/apply/virtual-operations-manager" data-track="ops-howto-apply" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+            <Link href="/apply/virtual-operations-manager" data-track="ops-howto-apply" className="inline-block bg-[var(--brand-accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:opacity-90 transition-colors">
               Apply Now
             </Link>
           </div>
@@ -1201,8 +1170,8 @@ export default function VirtualOpsManagerPage() {
 
         {/* The Bigger Picture */}
         <section className="mb-20">
-          <div className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-8 md:p-14">
-            <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-1">The Bigger Picture</p>
+          <div className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand)] rounded-2xl p-8 md:p-14">
+            <p className="text-[var(--brand-accent)] text-xs font-semibold tracking-[0.2em] uppercase mb-1">The Bigger Picture</p>
             <p className="text-blue-200/30 text-xs italic mb-2">El panorama completo</p>
             <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide mb-1">This Is Not Just an Operations Manager Job</h2>
             <p className="text-blue-200/50 italic mb-6">Este no es solo un trabajo de gerente de operaciones</p>
@@ -1226,7 +1195,7 @@ export default function VirtualOpsManagerPage() {
               </div>
               <div className="space-y-4">
                 <div className="bg-white/10 rounded-xl p-6">
-                  <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.15em] uppercase mb-1">What This Role Becomes</p>
+                  <p className="text-[var(--brand-accent)] text-xs font-semibold tracking-[0.15em] uppercase mb-1">What This Role Becomes</p>
                   <p className="text-blue-200/30 text-xs italic mb-3">En lo que se convierte este puesto</p>
                   <div className="space-y-3">
                     {[
@@ -1238,13 +1207,13 @@ export default function VirtualOpsManagerPage() {
                       'Build something real — this isn\'t a job, it\'s a career you\'re building',
                     ].map(item => (
                       <div key={item} className="flex gap-2">
-                        <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-sm">&#10003;</span>
+                        <span className="text-[var(--brand-accent)] mt-0.5 flex-shrink-0 text-sm">&#10003;</span>
                         <p className="text-blue-200/60 text-sm">{item}</p>
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="bg-[#A8F0DC]/10 rounded-xl p-6">
+                <div className="bg-[var(--brand-accent)]/10 rounded-xl p-6">
                   <p className="text-white font-semibold mb-1">Think About It</p>
                   <p className="text-blue-200/30 text-xs italic mb-2">Piénsalo</p>
                   <p className="text-blue-200/60 text-sm leading-relaxed mb-1">
@@ -1260,22 +1229,24 @@ export default function VirtualOpsManagerPage() {
         </section>
 
         {/* Final CTA */}
-        <section className="bg-[#A8F0DC] rounded-2xl p-8 md:p-12 text-center mb-16">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-1">This Is the Ground Floor. The Door Is Open.</h2>
-          <p className="text-[#1E2A4A]/40 text-sm italic mb-2">Este es el inicio. La puerta está abierta.</p>
-          <p className="text-[#1E2A4A]/60 max-w-xl mx-auto mb-1">
+        <section className="bg-[var(--brand-accent)] rounded-2xl p-8 md:p-12 text-center mb-16">
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-1">This Is the Ground Floor. The Door Is Open.</h2>
+          <p className="text-[var(--brand)]/40 text-sm italic mb-2">Este es el inicio. La puerta está abierta.</p>
+          <p className="text-[var(--brand)]/60 max-w-xl mx-auto mb-1">
             Work from home. Part-time to start. $500–$750/week to start via Zelle every Friday. A company growing 50–100% monthly. The workload is manageable now &mdash; get in, prove yourself, and grow into an executive operations role from your living room.
           </p>
-          <p className="text-[#1E2A4A]/40 text-xs italic max-w-xl mx-auto mb-8">
+          <p className="text-[var(--brand)]/40 text-xs italic max-w-xl mx-auto mb-8">
             Trabaja desde casa. Medio tiempo para empezar. $500–$750/semana para empezar vía Zelle cada viernes. Una empresa creciendo 50–100% mensual. La carga de trabajo es manejable ahora — entra, demuestra lo que vales, y crece a un puesto ejecutivo de operaciones desde tu sala.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
-            <Link href="/apply/virtual-operations-manager" data-track="ops-bottom-apply" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+            <Link href="/apply/virtual-operations-manager" data-track="ops-bottom-apply" className="bg-[var(--brand)] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand)]/90 transition-colors">
               Apply Now
             </Link>
-            <a href="sms:2122028400" data-track="ops-bottom-text" className="text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
-              or Text (212) 202-8400
-            </a>
+            {phone && (
+              <a href={`sms:${phoneDigits}`} data-track="ops-bottom-text" className="text-[var(--brand)] font-semibold underline underline-offset-4 hover:no-underline">
+                or Text {phone}
+              </a>
+            )}
           </div>
         </section>
       </div>

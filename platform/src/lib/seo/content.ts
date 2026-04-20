@@ -19,12 +19,15 @@ function pick<T>(arr: T[], seed: string, offset = 0): T {
 
 // ============ HOMEPAGE ============
 
-export function homepageContent() {
+export function homepageContent(opts?: { businessName?: string; phone?: string }) {
+  const name = opts?.businessName || 'Our Company'
+  const phone = opts?.phone || ''
+  const phoneTag = phone ? ` ${phone}` : ''
   return {
-    title: 'NYC Maid Service & House Cleaning From $49/hr | 5-Star Rated | The NYC Maid',
-    metaDescription: 'NYC\'s top-rated maid service from $49/hr. House cleaning across Manhattan, Brooklyn, Queens, Long Island & NJ. Licensed, insured. 5.0★ Google. (212) 202-8400',
-    h1: 'NYC\'s #1 Rated Maid Service & House Cleaning — From $49/hr',
-    subtitle: 'Professional house cleaning across Manhattan, Brooklyn, Queens, Long Island & New Jersey. Licensed, insured, and loved by thousands of clients.',
+    title: `NYC Service From $49/hr | 5-Star Rated | ${name}`,
+    metaDescription: `Top-rated service from $49/hr across Manhattan, Brooklyn, Queens, Long Island & NJ. Licensed, insured. 5.0★ Google.${phoneTag}`,
+    h1: `#1 Rated Service — From $49/hr`,
+    subtitle: 'Professional service across Manhattan, Brooklyn, Queens, Long Island & New Jersey. Licensed, insured, and loved by thousands of clients.',
   }
 }
 
@@ -57,7 +60,7 @@ export function areaContent(area: Area) {
   const intros = areaIntros[area.slug] || areaIntros['manhattan']
   return {
     title: `House Cleaning Services in ${area.name}`,
-    metaDescription: `Professional cleaning in ${area.name} from $49/hr. Deep cleaning, weekly service, move-in/out & more. 5.0★ Google. (212) 202-8400`,
+    metaDescription: `Professional cleaning in ${area.name} from $49/hr. Deep cleaning, weekly service, move-in/out & more. 5.0★ Google.`,
     h1: `Professional Cleaning Services in ${area.name}`,
     intro: pick(intros, area.slug),
   }
@@ -66,7 +69,7 @@ export function areaContent(area: Area) {
 // ============ NEIGHBORHOOD PAGES ============
 
 const introTemplates = [
-  (n: Neighborhood) => `Looking for a reliable cleaning service in ${n.name}? The NYC Maid has been trusted by ${n.name} residents for years, delivering spotless results in ${n.housing_types[0]}, ${n.housing_types[1]}, and more.`,
+  (n: Neighborhood) => `Looking for a reliable cleaning service in ${n.name}? our team has been trusted by ${n.name} residents for years, delivering spotless results in ${n.housing_types[0]}, ${n.housing_types[1]}, and more.`,
   (n: Neighborhood) => `${n.name} deserves a cleaning team that understands its unique homes. From ${n.housing_types[0]} to ${n.housing_types[1]}, our experienced cleaners handle every detail with care.`,
   (n: Neighborhood) => `Your ${n.name} home should always feel fresh and welcoming. Our professional cleaning team specializes in the ${n.housing_types[0]} and ${n.housing_types[1]} that make this neighborhood special.`,
   (n: Neighborhood) => `Residents of ${n.name} know their neighborhood is one of a kind — and their cleaning service should be too. Near ${n.landmarks[0]}, we provide thorough, reliable cleaning tailored to local homes.`,
@@ -86,7 +89,7 @@ export function neighborhoodContent(neighborhood: Neighborhood, area: Area) {
 
   return {
     title: `${h1} | ${area.name}`,
-    metaDescription: `Professional cleaning in ${neighborhood.name}, ${area.name} from $49/hr. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. 5.0★ Google. (212) 202-8400`,
+    metaDescription: `Professional cleaning in ${neighborhood.name}, ${area.name} from $49/hr. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. 5.0★ Google.`,
     h1,
     intro,
   }
@@ -133,7 +136,7 @@ export function neighborhoodFunFacts(neighborhood: Neighborhood): { label: strin
 
 const serviceIntroTemplates = [
   (n: Neighborhood, s: Service) => `Need ${s.name.toLowerCase()} in ${n.name}? Our professional cleaning team specializes in ${s.name.toLowerCase()} for ${n.housing_types[0]} and ${n.housing_types[1]} throughout the neighborhood.`,
-  (n: Neighborhood, s: Service) => `${n.name} residents trust The NYC Maid for expert ${s.name.toLowerCase()}. We understand the unique ${n.cleaning_challenges[0]} and ${n.cleaning_challenges[1]} that come with cleaning homes in this area.`,
+  (n: Neighborhood, s: Service) => `${n.name} residents trust our team for expert ${s.name.toLowerCase()}. We understand the unique ${n.cleaning_challenges[0]} and ${n.cleaning_challenges[1]} that come with cleaning homes in this area.`,
   (n: Neighborhood, s: Service) => `Our ${s.name.toLowerCase()} service in ${n.name} is tailored to the neighborhood's ${n.housing_types[0]} and ${n.housing_types[1]}. Near ${n.landmarks[0]}, we deliver exceptional results every time.`,
   (n: Neighborhood, s: Service) => `From ${n.cleaning_challenges[0]} to ${n.cleaning_challenges[1]}, our ${s.name.toLowerCase()} team in ${n.name} handles it all. Trusted by local residents for thorough, reliable service.`,
 ]
@@ -152,7 +155,7 @@ export function neighborhoodServiceContent(neighborhood: Neighborhood, service: 
 
   return {
     title: `${h1} | ${area.name}`,
-    metaDescription: `${service.name} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Google. (212) 202-8400`,
+    metaDescription: `${service.name} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Google.`,
     h1,
     intro,
     whyUs: [
@@ -170,7 +173,7 @@ export function neighborhoodServiceContent(neighborhood: Neighborhood, service: 
 export function serviceContent(service: Service) {
   return {
     title: `${service.name} Services | NYC, Brooklyn, Queens`,
-    metaDescription: `Professional ${service.name.toLowerCase()} across NYC, Brooklyn, Queens, Long Island & NJ. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Google. (212) 202-8400`,
+    metaDescription: `Professional ${service.name.toLowerCase()} across NYC, Brooklyn, Queens, Long Island & NJ. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Google.`,
     h1: `${service.name} Services`,
     intro: service.description,
   }
@@ -693,7 +696,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       ],
     },
     nycTips: [
-      { title: 'Text us early for best availability', detail: 'Same-day requests sent before 10am have the best chance of afternoon availability. After noon, same-day availability drops significantly. Text (212) 202-8400 as early as possible for the best shot at a same-day slot.' },
+      { title: 'Text us early for best availability', detail: 'Same-day requests sent before 10am have the best chance of afternoon availability. After noon, same-day availability drops significantly. Text us as early as possible for the best shot at a same-day slot.' },
       { title: 'Prioritize the rooms your guests will see', detail: 'If guests are arriving tonight, tell your cleaner to start with the bathroom and living areas — the spaces guests actually use. Kitchen next. Bedrooms last. This way, even if time runs short, the important rooms are spotless.' },
       { title: 'Same-day is a premium service — plan ahead when possible', detail: 'At $100/hr, same-day service costs roughly double our regular rate. If you know you\'ll need cleaning this week, booking 2–3 days ahead at $49–$65/hr saves significant money. Same-day is for genuine emergencies.' },
       { title: 'Keep a set of supplies ready', detail: 'Same-day cleaners may not have time to bring a full supply kit. Having a basic set at home — spray cleaner, paper towels, trash bags, a vacuum — ensures the cleaner can start immediately without supply delays.' },
@@ -725,7 +728,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       { question: 'Is same-day cleaning the same quality as regular service?', answer: 'Identical. You\'re getting the same background-checked, insured, experienced cleaners doing the same thorough work. The only difference is the scheduling urgency and the premium rate that compensates for last-minute logistics.' },
       { question: 'What if no cleaner is available today?', answer: 'If we can\'t accommodate same-day, we\'ll offer the earliest available slot — often the next morning. We\'d rather be honest about availability than send someone who can\'t do the job properly.' },
       { question: 'Can I request a same-day deep clean?', answer: 'Same-day availability is best suited for regular-scope cleaning (2–4 hours). A full deep clean requires 4–8 hours, which is difficult to fit into a same-day schedule. If you need a deep clean urgently, we\'ll do our best to arrange it but recommend booking at least 24 hours ahead.' },
-      { question: 'How do I book same-day service?', answer: 'Text or call (212) 202-8400 as early in the day as possible. Text is fastest — we\'ll confirm availability and estimated arrival time within minutes. Morning requests before 10am have the best availability for afternoon service.' },
+      { question: 'How do I book same-day service?', answer: 'Text or call us as early in the day as possible. Text is fastest — we\'ll confirm availability and estimated arrival time within minutes. Morning requests before 10am have the best availability for afternoon service.' },
     ],
   },
 
@@ -888,7 +891,7 @@ export function neighborhoodFAQs(neighborhood: Neighborhood, area: Area): { ques
     },
     {
       question: `How do I book a cleaning in ${neighborhood.name}?`,
-      answer: `You can book online through our website, call us at (212) 202-8400, or text us. We typically can schedule within 24-48 hours, with same-day availability for urgent requests.`,
+      answer: `You can book online through our website, call us at us, or text us. We typically can schedule within 24-48 hours, with same-day availability for urgent requests.`,
     },
     {
       question: `What cleaning services do you offer in ${neighborhood.name}?`,
@@ -923,23 +926,23 @@ export function commonServiceFAQs(service: Service): { question: string; answer:
   return [
     { question: 'Are your cleaners background-checked?', answer: 'Yes. Every cleaner on our team undergoes a comprehensive background check before their first assignment. We also carry general liability insurance and bonding for your protection. You can trust that the person entering your home has been fully vetted.' },
     { question: 'Do I need to be home during the cleaning?', answer: 'No. Many clients leave a key, provide a door code, or arrange access through their doorman or building management. You\'re welcome to be home or away — whatever is most comfortable. We\'ll text you when we arrive and when we\'re done.' },
-    { question: 'How do I book a cleaning?', answer: 'Text or call (212) 202-8400. Tell us your address, preferred date, and any special requests. We\'ll confirm your appointment and match you with a cleaner, usually within the hour. You can also book online at thenycmaid.com/book/new.' },
+    { question: 'How do I book a cleaning?', answer: 'Text or call us. Tell us your address, preferred date, and any special requests. We\'ll confirm your appointment and match you with a cleaner, usually within the hour. You can also book online at our website.' },
     { question: 'What areas do you serve?', answer: 'We serve all of Manhattan, Brooklyn, Queens, Long Island (North Shore), and northern New Jersey (Hudson County). Same rates everywhere — no travel surcharges regardless of location.' },
-    { question: 'Do I pay before or after the cleaning?', answer: 'After. We never charge upfront or take deposits. You pay only after the cleaning is complete, before the cleaner leaves. We accept cash, Venmo, Zelle (hi@thenycmaid.com), and credit card.' },
+    { question: 'Do I pay before or after the cleaning?', answer: 'After. We never charge upfront or take deposits. You pay only after the cleaning is complete, before the cleaner leaves. We accept cash, Venmo, Zelle, and credit card.' },
     { question: 'What if I\'m not satisfied with the cleaning?', answer: 'Let us know within 24 hours and we\'ll send a cleaner back to address any issues at no additional cost. We stand behind our work — your satisfaction is non-negotiable.' },
     { question: 'Do you bring your own cleaning supplies?', answer: 'At $65/hr, yes — we bring professional-grade products, microfiber systems, and a commercial vacuum. At $49/hr, you provide your own supplies. Either way, we\'re happy to use specific products you prefer (eco-friendly, hypoallergenic, etc.).' },
     { question: 'Can I request a specific cleaner?', answer: 'For recurring services, we automatically assign the same cleaner to your home every visit. For one-time bookings, we match you with the best available cleaner for your area and service type.' },
     { question: 'How far in advance do I need to book?', answer: 'We recommend booking 3–5 days ahead for the best availability. For same-day service, text us as early as possible — morning requests before 10am have the best chance of afternoon availability.' },
     { question: `Is ${service.name.toLowerCase()} available on weekends?`, answer: 'We offer service Monday through Friday 8am–6pm and Saturday 9am–4pm. Saturday slots fill up fast, so book early if you prefer weekend service. We do not offer Sunday service.' },
-    { question: 'What payment methods do you accept?', answer: 'We accept cash, Venmo, Zelle (hi@thenycmaid.com), and credit card (via Stripe). Payment is collected after the cleaning is complete, before the cleaner leaves. No deposits, no pre-authorization holds.' },
-    { question: 'Are you licensed and insured?', answer: 'Yes. The NYC Maid is a fully licensed cleaning company with general liability insurance and bonding. Every cleaner is covered while working in your home. We can provide proof of insurance upon request.' },
+    { question: 'What payment methods do you accept?', answer: 'We accept cash, Venmo, Zelle, and credit card (via Stripe). Payment is collected after the cleaning is complete, before the cleaner leaves. No deposits, no pre-authorization holds.' },
+    { question: 'Are you licensed and insured?', answer: 'Yes. our team is a fully licensed cleaning company with general liability insurance and bonding. Every cleaner is covered while working in your home. We can provide proof of insurance upon request.' },
     { question: 'Do you offer eco-friendly or green cleaning?', answer: 'Yes. If you prefer eco-friendly, plant-based, or hypoallergenic products, just let us know when booking. At $65/hr we can bring green products; at $49/hr you provide your preferred products and we\'ll use them.' },
     { question: `Can I combine ${service.name.toLowerCase()} with other services?`, answer: `Absolutely. Many clients combine services — for example, a deep clean followed by weekly maintenance, or a move-out clean with post-construction cleanup. Let us know what you need and we'll create a custom plan.` },
     { question: 'What if I need to cancel or reschedule?', answer: 'For one-time services, we have a no-cancellation policy once confirmed. For recurring services, we require 7 days notice to cancel and 3 days notice to reschedule within the same week. This protects our cleaners\' schedules.' },
     { question: 'Do you clean apartments, houses, or both?', answer: 'Both. We clean apartments (studios through 4+ bedrooms), townhouses, brownstones, single-family homes, lofts, and penthouses. The hourly rate is the same regardless of home type.' },
     { question: 'How do you handle pets during cleaning?', answer: 'We\'re pet-friendly. If you have pets, let us know when booking so we can match you with a pet-comfortable cleaner. We ask that aggressive animals be secured in a separate room during the cleaning for everyone\'s safety.' },
-    { question: 'Do you offer gift certificates?', answer: 'Yes — cleaning makes a great gift. Text us at (212) 202-8400 to purchase a gift certificate in any amount. We\'ll send a digital certificate that the recipient can redeem for any service.' },
+    { question: 'Do you offer gift certificates?', answer: 'Yes — cleaning makes a great gift. Text us at us to purchase a gift certificate in any amount. We\'ll send a digital certificate that the recipient can redeem for any service.' },
     { question: 'What happens if something is damaged during cleaning?', answer: 'We carry general liability insurance specifically for this reason. If a cleaner accidentally damages something in your home, report it within 24 hours and we\'ll work with you to resolve it through our insurance coverage.' },
-    { question: 'Do you have a referral program?', answer: 'Yes. Refer a friend and earn money every time they book a cleaning — not just the first time. Visit thenycmaid.com/referral or text us for details. It\'s one of the most generous referral programs in NYC cleaning.' },
+    { question: 'Do you have a referral program?', answer: 'Yes. Refer a friend and earn money every time they book a cleaning — not just the first time. Visit our referral page or text us for details. It\'s one of the most generous referral programs in NYC cleaning.' },
   ]
 }

@@ -1,20 +1,25 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { verifySvix } from '@/lib/webhook-verify'
 
 export async function POST(request: Request) {
   try {
-    const webhookSecret = process.env.RESEND_WEBHOOK_SECRET
-    if (webhookSecret) {
-      const svixId = request.headers.get('svix-id')
-      const svixTimestamp = request.headers.get('svix-timestamp')
-      const svixSignature = request.headers.get('svix-signature')
-      if (!svixId || !svixTimestamp || !svixSignature) {
-        console.warn('Resend webhook missing signature headers')
-        return NextResponse.json({ error: 'Missing signature' }, { status: 401 })
+    const rawBody = await request.text()
+
+    if (process.env.RESEND_WEBHOOK_VERIFY !== 'off') {
+      const result = verifySvix(request.headers, rawBody, process.env.RESEND_WEBHOOK_SECRET)
+      if (!result.valid) {
+        console.warn('[resend webhook] rejected:', result.reason)
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
       }
     }
 
-    const body = await request.json()
+    let body: { type?: string; data?: { email_id?: string } }
+    try {
+      body = JSON.parse(rawBody)
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
     const { type, data } = body
 
     if (!type || !data) {

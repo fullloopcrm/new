@@ -2,10 +2,10 @@ import { auth } from '@clerk/nextjs/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
+import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import type { Tenant } from './tenant'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
-const IMPERSONATE_COOKIE = 'fl_impersonate'
 
 export type TenantContext = {
   userId: string
@@ -18,7 +18,7 @@ export type TenantContext = {
 // Supports admin impersonation via cookie (PIN auth or Clerk super admin)
 export async function getTenantForRequest(): Promise<TenantContext> {
   const cookieStore = await cookies()
-  const impersonateId = cookieStore.get(IMPERSONATE_COOKIE)?.value
+  const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
 
   // Admin PIN impersonation — no Clerk needed
   if (impersonateId) {

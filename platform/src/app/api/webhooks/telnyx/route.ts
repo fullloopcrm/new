@@ -3,12 +3,29 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { askSelena } from '@/lib/selena'
 import { getSettings } from '@/lib/settings'
+import { verifyTelnyx } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
 // Handle inbound SMS + delivery status from Telnyx
 export async function POST(request: Request) {
-  const body = await request.json()
+  const rawBody = await request.text()
+
+  // Signature verification (skip only when explicitly disabled for local dev).
+  if (process.env.TELNYX_WEBHOOK_VERIFY !== 'off') {
+    const result = verifyTelnyx(request.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
+    if (!result.valid) {
+      console.warn('[telnyx webhook] rejected:', result.reason)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+  }
+
+  let body: { data?: { event_type?: string; payload?: any } } // eslint-disable-line @typescript-eslint/no-explicit-any
+  try {
+    body = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
   const event = body?.data
 
   if (!event) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })

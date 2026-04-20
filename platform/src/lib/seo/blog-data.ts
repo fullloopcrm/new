@@ -23,12 +23,12 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2026-02-18',
     category: 'Pricing',
     readTime: '5 min',
-    metaDescription: 'NYC apartment cleaning costs $49–$100/hr in 2026. Honest pricing breakdown by apartment size, service type & frequency. Call The NYC Maid (212) 202-8400.',
+    metaDescription: 'NYC apartment cleaning costs $49–$100/hr in 2026. Honest pricing breakdown by apartment size, service type & frequency. Call us for a quote.',
     sections: [
       { paragraphs: ['Let\'s be real — figuring out cleaning prices in NYC is confusing. Every service quotes differently. Some charge by the hour, some by the square foot, some give you a flat rate that somehow doubles once they see your apartment. We\'re going to break down what cleaning actually costs in this city so you know what\'s fair.'] },
       { heading: 'The Short Answer', paragraphs: ['Most professional cleaning in NYC runs between $49 and $100 per hour, depending on the service and who\'s doing it. A standard <a href="/services/apartment-cleaning-service-in-nyc">apartment cleaning</a> for a 1-bedroom typically takes 2–3 hours. So you\'re looking at roughly $100–$250 for a basic clean.', '<a href="/services/deep-cleaning-service-in-nyc">Deep cleaning</a> costs more — usually 1.5x to 2x the standard rate — because it includes things like inside the oven, behind the fridge, scrubbing grout, and all those spots you pretend don\'t exist.'] },
       { heading: 'What Affects the Price', paragraphs: ['A few things move the needle on cost:'], list: ['Apartment size — a studio takes 1.5–2 hours, a 3-bedroom takes 4–5', 'Condition — if it hasn\'t been cleaned in months, expect to pay more', 'Frequency — weekly clients always get better rates than one-timers', 'Supplies — some services bring their own, some use yours (and charge accordingly)', 'Location — Manhattan generally costs more than outer boroughs, but not always'] },
-      { heading: 'Red Flags to Watch For', paragraphs: ['If someone quotes you $50 flat for a deep clean of a 2-bedroom, run. They\'re either cutting corners, not insured, or planning to upsell you once they\'re in your apartment. Same goes for prices that seem way too high — luxury doesn\'t mean good.', 'Look for transparent hourly pricing, clear communication about what\'s included, and actual insurance. At The NYC Maid, we start at $49/hr with no hidden fees, and we tell you upfront what to expect.'] },
+      { heading: 'Red Flags to Watch For', paragraphs: ['If someone quotes you $50 flat for a deep clean of a 2-bedroom, run. They\'re either cutting corners, not insured, or planning to upsell you once they\'re in your apartment. Same goes for prices that seem way too high — luxury doesn\'t mean good.', 'Look for transparent hourly pricing, clear communication about what\'s included, and actual insurance. At our company, we start at $49/hr with no hidden fees, and we tell you upfront what to expect.'] },
       { heading: 'How to Save Money', paragraphs: ['The best way to save on cleaning is to book recurring service. <a href="/services/weekly-maid-service-in-nyc">Weekly</a> clients save the most because their apartments stay cleaner between visits, so the cleaner can work more efficiently. <a href="/services/bi-weekly-cleaning-service-in-nyc">Biweekly</a> is the sweet spot for most people — your place stays consistently clean without breaking the bank.', 'Also worth noting: having your place somewhat picked up before the cleaner arrives (dishes put away, clothes off the floor) means they spend time actually cleaning instead of organizing your stuff.'] },
     ],
   },
@@ -39,7 +39,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2026-02-12',
     category: 'Guides',
     readTime: '6 min',
-    metaDescription: 'NYC move-out cleaning checklist — every room, every detail. Get your security deposit back. Professional service from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'NYC move-out cleaning checklist — every room, every detail. Get your security deposit back. Professional service from $49/hr.',
     sections: [
       { paragraphs: ['Moving out of a NYC apartment is stressful enough without worrying about whether your landlord is going to dock your deposit because of a grease stain behind the stove. Here\'s the complete checklist we use for move-out cleanings — the same one that\'s helped hundreds of clients get their full deposits back.'] },
       { heading: 'Kitchen', paragraphs: ['The kitchen is where landlords look hardest. Don\'t skip anything.'], list: ['Clean inside and outside of oven (including racks)', 'Degrease stovetop and burner grates', 'Wipe down all cabinet fronts and inside empty cabinets', 'Clean inside the refrigerator and freezer', 'Scrub the sink and polish the faucet', 'Wipe down countertops, backsplash, and behind small appliances', 'Clean the microwave inside and out', 'Run the dishwasher empty with vinegar (if applicable)', 'Sweep and mop the floor, including under the stove and fridge'] },
@@ -55,7 +55,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2026-02-05',
     category: 'Tips',
     readTime: '4 min',
-    metaDescription: 'Deep clean your small NYC kitchen — galley kitchen tips, grease removal, small space hacks. Professional cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Deep clean your small NYC kitchen — galley kitchen tips, grease removal, small space hacks. Professional cleaning from $49/hr.',
     sections: [
       { paragraphs: ['NYC kitchens are a special breed. You\'re cooking full meals in a space the size of a walk-in closet, grease builds up on every surface because the stove is 18 inches from the wall, and that exhaust fan above your stove is doing absolutely nothing. Here\'s how to deep clean it without wanting to move.'] },
       { heading: 'Start Top to Bottom', paragraphs: ['Always clean from the highest point down. Dust and grease drip, so if you mop the floor first, you\'ll be mopping it again. Start with the tops of cabinets (that layer of greasy dust up there is real), then work down to the counters, appliances, and finally the floor.'] },
@@ -71,7 +71,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2026-01-29',
     category: 'Lifestyle',
     readTime: '4 min',
-    metaDescription: 'Cleaning schedule for busy NYC professionals — daily, weekly & monthly tasks that actually work. Service from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Cleaning schedule for busy NYC professionals — daily, weekly & monthly tasks that actually work. Service from $49/hr.',
     sections: [
       { paragraphs: ['You\'re working 10-hour days, commuting, trying to have some semblance of a social life, and your apartment looks like a disaster zone. Sound familiar? You don\'t need to become a clean freak — you just need a system that works with your actual schedule.'] },
       { heading: 'Daily (5 Minutes)', paragraphs: ['These take literally 5 minutes and prevent your apartment from spiraling:'], list: ['Make your bed (takes 60 seconds, changes how the whole room feels)', 'Wipe kitchen counters after cooking', 'Put dishes in the dishwasher or wash them immediately', 'Hang up clothes instead of throwing them on the chair', 'Quick wipe of bathroom sink after getting ready'] },
@@ -87,7 +87,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2026-01-22',
     category: 'Tips',
     readTime: '5 min',
-    metaDescription: 'NYC pet owner cleaning tips — remove pet hair, odors & stains safely. Pet-friendly products we trust. Service from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'NYC pet owner cleaning tips — remove pet hair, odors & stains safely. Pet-friendly products we trust. Service from $49/hr.',
     sections: [
       { paragraphs: ['Having a pet in a NYC apartment means double the love and triple the cleaning. Between the fur tumbleweeds rolling across your hardwood floors, the muddy paw prints from the dog park, and whatever your cat knocked off the counter, keeping up is a full-time job. Here\'s what actually works.'] },
       { heading: 'Pet Hair Is the Main Event', paragraphs: ['Forget regular vacuuming once a week — with a shedding pet, you need to vacuum at least twice a week. A rubber squeegee dragged across upholstered furniture picks up hair better than any lint roller. For hardwood floors, a microfiber dust mop works better than a vacuum because it traps hair instead of blowing it around.', 'Pro tip: Put a dryer sheet in your Swiffer pad holder. It creates static that attracts pet hair like a magnet.'] },
@@ -103,7 +103,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2026-01-15',
     category: 'Tips',
     readTime: '5 min',
-    metaDescription: 'Remove bathroom mold in NYC apartments — causes, DIY fixes & when to call pros. Cleaning service from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Remove bathroom mold in NYC apartments — causes, DIY fixes & when to call pros. Cleaning service from $49/hr.',
     sections: [
       { paragraphs: ['If you live in NYC and you\'ve never had mold in your bathroom, you\'re either lying or you\'ve never looked closely at your shower caulking. The combination of old buildings, poor ventilation, and steam from hot showers creates the perfect environment for mold. Here\'s what to do about it.'] },
       { heading: 'Why NYC Bathrooms Are Mold Magnets', paragraphs: ['Most NYC apartments have bathrooms with no windows and a ventilation fan that was installed during the Ford administration. These fans barely move air, which means moisture stays trapped after every shower. Add in old grout that\'s lost its seal, and you\'ve got mold growing in places you can\'t even see.'] },
@@ -119,7 +119,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2026-01-08',
     category: 'Guides',
     readTime: '5 min',
-    metaDescription: 'Pre-war NYC apartment cleaning guide — hardwood floors, plaster walls, vintage fixtures. Expert care from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Pre-war NYC apartment cleaning guide — hardwood floors, plaster walls, vintage fixtures. Expert care from $49/hr.',
     sections: [
       { paragraphs: ['Pre-war apartments are gorgeous — the crown molding, the hardwood floors, the plaster walls, the original tile work. They\'re also a nightmare to clean if you don\'t know what you\'re doing. Using the wrong products or techniques can damage finishes that have survived for a century.'] },
       { heading: 'Hardwood Floors', paragraphs: ['Pre-war hardwood floors are usually oak or maple with a polyurethane or shellac finish. The biggest rule: never use a steam mop. The heat and moisture can warp the wood and cloud the finish. Instead:'], list: ['Dust mop or vacuum with a hardwood-safe attachment (no beater bar)', 'Damp mop with a well-wrung microfiber mop — barely damp, not wet', 'Use a pH-neutral hardwood cleaner (Bona is the standard)', 'Never use vinegar on hardwood — it eats through the finish over time', 'Wipe up spills immediately — water is the enemy', 'Use felt pads on all furniture legs to prevent scratches'] },
@@ -135,7 +135,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2026-01-01',
     category: 'Guides',
     readTime: '4 min',
-    metaDescription: 'First time hiring a cleaning service? What to expect, how to prepare & what\'s included. NYC service from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'First time hiring a cleaning service? What to expect, how to prepare & what\'s included. NYC service from $49/hr.',
     sections: [
       { paragraphs: ['Hiring a professional cleaner for the first time feels weird. Is it awkward? Should you leave? Do you need to clean before they clean? We get these questions all the time, so here\'s the honest rundown.'] },
       { heading: 'Before the Cleaning', paragraphs: ['You don\'t need to deep clean before your cleaner arrives — that defeats the purpose. But doing a quick 10-minute pickup helps them be more efficient:'], list: ['Put away personal items, dishes, and clothes', 'Clear countertops so they can actually clean the surfaces', 'Make sure they can access the bathroom and kitchen', 'Secure pets or let them know about any animals', 'Leave a note if there are specific areas you want them to focus on'] },
@@ -151,7 +151,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-12-26',
     category: 'Guides',
     readTime: '5 min',
-    metaDescription: 'NYC Airbnb turnover cleaning checklist for 5-star reviews — complete room-by-room guide. Host cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'NYC Airbnb turnover cleaning checklist for 5-star reviews — complete room-by-room guide. Host cleaning from $49/hr.',
     sections: [
       { paragraphs: ['Your Airbnb rating lives and dies by cleanliness. One "the bathroom wasn\'t clean" review can tank your listing. Here\'s the exact checklist our team uses for NYC Airbnb turnovers — it\'s the difference between 4 stars and 5 stars.'] },
       { heading: 'The Non-Negotiables', paragraphs: ['These get checked every single turnover, no exceptions:'], list: ['Fresh sheets and pillowcases on all beds', 'Fresh towels (bath, hand, and face) folded or rolled', 'Toilet scrubbed inside and out', 'Shower/tub cleaned with no hair anywhere', 'Kitchen sink empty and clean', 'All dishes washed, dried, and put away', 'Counters wiped and cleared of previous guest items', 'Trash emptied in every room (including bathroom)', 'Floors vacuumed/mopped throughout', 'Mirrors streak-free'] },
@@ -166,7 +166,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-12-19',
     category: 'Sustainability',
     readTime: '4 min',
-    metaDescription: 'Safe eco-friendly cleaning products for homes with kids & pets — what works and what to avoid. Green cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Safe eco-friendly cleaning products for homes with kids & pets — what works and what to avoid. Green cleaning from $49/hr.',
     sections: [
       { paragraphs: ['Here\'s something the cleaning industry doesn\'t talk about enough: a lot of "green" products aren\'t actually safe for kids or pets. The word "natural" is unregulated — anyone can slap it on a label. We\'ve done the research so you don\'t have to.'] },
       { heading: 'What We Actually Use', paragraphs: ['After years of testing, these are the products our team trusts:'], list: ['White vinegar + water for glass, mirrors, and general surfaces', 'Castile soap (Dr. Bronner\'s) diluted for mopping and all-purpose cleaning', 'Baking soda for scrubbing, deodorizing, and gentle abrasion', 'Hydrogen peroxide (3%) for disinfecting and whitening', 'Microfiber cloths — they clean effectively with just water', 'Enzyme cleaners for biological stains and pet messes'] },
@@ -181,7 +181,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-12-12',
     category: 'Tips',
     readTime: '3 min',
-    metaDescription: 'Clean NYC apartment radiators — remove dust, grime & improve heating efficiency. Professional cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Clean NYC apartment radiators — remove dust, grime & improve heating efficiency. Professional cleaning from $49/hr.',
     sections: [
       { paragraphs: ['NYC radiators are the most neglected part of every apartment. They sit there all winter pumping out heat, and all summer collecting dust, dead bugs, and whatever else drifts behind your furniture. When heating season starts and you smell that burnt dust smell? That\'s your radiator cooking months of buildup.'] },
       { heading: 'What You Need', paragraphs: ['Cleaning a radiator is easier than you\'d think:'], list: ['A radiator brush (long, thin brush — about $8 online)', 'Vacuum with a crevice attachment', 'Damp microfiber cloths', 'An old towel or sheet to catch falling dust', 'Warm soapy water for the exterior'] },
@@ -196,7 +196,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-12-05',
     category: 'Guides',
     readTime: '5 min',
-    metaDescription: 'NYC spring cleaning guide — realistic apartment checklist, room by room. Professional deep cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'NYC spring cleaning guide — realistic apartment checklist, room by room. Professional deep cleaning from $49/hr.',
     sections: [
       { paragraphs: ['Every spring cleaning article on the internet is written for someone with a house in the suburbs. Four closets? A garage? A mudroom? Cool, I have a coat closet that doubles as my pantry. Here\'s a spring cleaning guide designed for actual NYC apartments.'] },
       { heading: 'Week 1: Purge and Declutter', paragraphs: ['You can\'t deep clean around a mountain of stuff. Spend the first week being ruthless:'], list: ['Go through your closet — if you didn\'t wear it all winter, donate it', 'Check under the bed, behind the couch, and in that drawer everyone has', 'Expired pantry items (NYC apartments attract pests — don\'t give them a buffet)', 'Old mail, receipts, and paperwork that can be shredded', 'Bathroom products you haven\'t used in 6+ months'] },
@@ -212,7 +212,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-11-28',
     category: 'Tips',
     readTime: '4 min',
-    metaDescription: 'Remove cigarette smoke smell from NYC apartment — walls, carpets, HVAC & more. Professional cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Remove cigarette smoke smell from NYC apartment — walls, carpets, HVAC & more. Professional cleaning from $49/hr.',
     sections: [
       { paragraphs: ['You moved into what seemed like a great apartment, and then the heat kicked on and suddenly the whole place smells like an ashtray. Cigarette smoke gets into everything — walls, floors, fabrics, and especially the HVAC system. Here\'s how to actually get rid of it.'] },
       { heading: 'Why It\'s So Stubborn', paragraphs: ['Smoke residue (nicotine and tar) is oily and bonds to surfaces. It seeps into paint, carpet padding, drywall, and ductwork. Air fresheners and candles just mask it temporarily — you have to physically remove the residue from every surface.'] },
@@ -228,7 +228,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-11-21',
     category: 'Tips',
     readTime: '3 min',
-    metaDescription: 'Studio apartment cleaning hacks — small space tips that actually work in NYC. Professional cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Studio apartment cleaning hacks — small space tips that actually work in NYC. Professional cleaning from $49/hr.',
     sections: [
       { paragraphs: ['Studio apartment living means every mess is visible from every angle. The good news? There\'s not a lot of square footage to cover. The bad news? There\'s nowhere to hide anything. Here\'s how to keep a studio clean without making it your whole personality.'] },
       { heading: 'The 10-Minute Daily Reset', paragraphs: ['In a studio, small messes compound fast. A 10-minute daily routine prevents the spiral:'], list: ['Make the bed immediately (this is 40% of your visible space)', 'Wipe the kitchen counter and stove', 'Put everything back where it belongs — in a studio, every item needs a home', 'Quick sweep of the floor (studios are small enough to sweep in 2 minutes)', 'Deal with dishes immediately — a full sink in a studio is a disaster'] },
@@ -244,7 +244,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-11-14',
     category: 'Pricing',
     readTime: '4 min',
-    metaDescription: 'Weekly vs biweekly cleaning comparison — cost, time & results for NYC apartments. Service from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Weekly vs biweekly cleaning comparison — cost, time & results for NYC apartments. Service from $49/hr.',
     sections: [
       { paragraphs: ['Most people assume biweekly cleaning is obviously cheaper because it\'s half the visits. And yeah, you pay less per month — but you might not be getting the better deal. Let us explain.'] },
       { heading: 'The Simple Math', paragraphs: ['Weekly cleaning: 4 visits/month at ~2 hours each = 8 hours. Biweekly cleaning: 2 visits/month at ~2.5–3 hours each = 5–6 hours. You save 2–3 hours of labor per month with biweekly — but each visit takes longer because more dirt and grime accumulates between cleanings.', 'Monthly cost difference for a 1-bedroom: roughly $150–$200 less for biweekly. But here\'s what the math doesn\'t show.'] },
@@ -260,7 +260,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-11-07',
     category: 'Guides',
     readTime: '4 min',
-    metaDescription: 'Post-renovation cleaning in NYC — why you need pros for construction dust & debris. Service from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Post-renovation cleaning in NYC — why you need pros for construction dust & debris. Service from $49/hr.',
     sections: [
       { paragraphs: ['Your renovation is done. The new kitchen looks amazing. And there\'s a fine layer of white dust on literally everything you own, including inside your drawers, on top of your books, and somehow inside your refrigerator. Welcome to post-renovation cleaning.'] },
       { heading: 'Why It\'s Not a Normal Cleaning Job', paragraphs: ['Construction dust isn\'t regular dust. It\'s a mix of drywall powder, plaster, concrete dust, and potentially silica particles — all of which are much finer than household dust. A regular vacuum cleaner doesn\'t have a fine enough filter to capture it. You\'ll vacuum, the apartment will look clean, and 24 hours later there\'s another layer of dust because you just redistributed it.', 'This dust also gets into your HVAC system, behind outlet covers, inside light fixtures, and in every crack and crevice. It takes professional equipment and technique to actually remove it.'] },
@@ -276,7 +276,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-10-31',
     category: 'Guides',
     readTime: '3 min',
-    metaDescription: 'Prepare your NYC apartment for a cleaning service — quick tips for better results. Professional cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Prepare your NYC apartment for a cleaning service — quick tips for better results. Professional cleaning from $49/hr.',
     sections: [
       { paragraphs: ['We get this question a lot: "Should I clean before the cleaner comes?" No. But a 10-minute pickup makes a massive difference in what your cleaner can accomplish. They\'re there to clean, not organize. Here\'s how to prep.'] },
       { heading: 'The 10-Minute Pickup', paragraphs: ['These small actions let your cleaner focus on actual cleaning:'], list: ['Put dishes in the dishwasher or stack them neatly in the sink', 'Pick clothes up off the floor and furniture', 'Clear off countertops (bathroom and kitchen)', 'Put away personal items you don\'t want moved', 'Make sure all rooms are accessible (unlocked doors, clear paths)'] },
@@ -292,7 +292,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-10-24',
     category: 'Tips',
     readTime: '3 min',
-    metaDescription: 'High-rise apartment window cleaning tips NYC — safe methods for interior glass & tracks. Cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'High-rise apartment window cleaning tips NYC — safe methods for interior glass & tracks. Cleaning from $49/hr.',
     sections: [
       { paragraphs: ['NYC grime coats high-rise windows faster than you\'d expect — city dust, pollution, and rain residue build up within weeks. You can\'t exactly hang out the window with a squeegee on the 30th floor, but you can make the inside spotless and deal with what you can reach.'] },
       { heading: 'Interior Window Cleaning', paragraphs: ['For the inside of your windows, this is the professional method:'], list: ['Spray glass cleaner (or 50/50 vinegar and water) on the glass', 'Wipe with a microfiber cloth in an S-pattern from top to bottom', 'Buff dry with a second clean microfiber cloth', 'For stubborn spots, a razor blade held at a 45-degree angle works on glass (careful on tinted windows)', 'Don\'t forget the window frame and sill — wipe those down too'] },
@@ -307,7 +307,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-10-17',
     category: 'Lifestyle',
     readTime: '4 min',
-    metaDescription: 'Benefits of recurring cleaning service — save money, time & stress with weekly or biweekly cleaning in NYC. From $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Benefits of recurring cleaning service — save money, time & stress with weekly or biweekly cleaning in NYC. From $49/hr.',
     sections: [
       { paragraphs: ['Most people think of recurring cleaning as a luxury. It\'s not. When you run the real numbers — including the time you get back, the maintenance costs you avoid, and the mental health benefits — it\'s one of the most practical investments you can make.'] },
       { heading: 'The Time Math', paragraphs: ['The average person spends 6 hours per week on household cleaning tasks. That\'s 312 hours a year — almost 8 full work weeks. If your time is worth more than what you\'d pay a cleaner, you\'re losing money by doing it yourself. And this isn\'t theoretical — this is actual time you spend vacuuming, scrubbing, and mopping instead of working, resting, or enjoying your life.'] },
@@ -323,7 +323,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-10-31',
     category: 'Guides',
     readTime: '4 min',
-    metaDescription: 'NYC move-in cleaning guide — what to clean before unpacking in your new apartment. Service from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'NYC move-in cleaning guide — what to clean before unpacking in your new apartment. Service from $49/hr.',
     sections: [
       { paragraphs: ['You got the keys to your new apartment. It looks clean. It\'s not. The previous tenant did a move-out cleaning that ranged from "minimal effort" to "they tried, kinda." Before you put a single box down, here\'s what needs to happen.'] },
       { heading: 'Why Move-In Cleaning Matters', paragraphs: ['Even if the apartment looks clean on the surface, you\'re moving into a space that someone else lived in. Their skin cells, cooking residue, pet dander (even if the listing said no pets), and general grime are on every surface. You\'re also dealing with whatever the landlord\'s "cleaning crew" did, which is usually a quick mop and call it done.', 'Cleaning before you unpack is 10x easier than doing it after your furniture is in. Take advantage of the empty apartment.'] },
@@ -339,7 +339,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-10-24',
     category: 'Tips',
     readTime: '3 min',
-    metaDescription: 'Streak-free stainless steel cleaning — the pro method for NYC kitchens. Professional cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Streak-free stainless steel cleaning — the pro method for NYC kitchens. Professional cleaning from $49/hr.',
     sections: [
       { paragraphs: ['Stainless steel appliances look incredible for about 30 seconds after you clean them, and then someone touches the fridge and it\'s covered in fingerprints again. Here\'s how to clean them properly and keep them cleaner longer.'] },
       { heading: 'The Professional Method', paragraphs: ['Forget all the specialty stainless steel cleaners — most of them leave residue that actually attracts more fingerprints. Here\'s what our cleaners use:'], list: ['Spray a small amount of dish soap mixed with warm water onto the surface', 'Wipe WITH the grain of the steel (look closely — stainless steel has a direction)', 'Dry immediately with a clean microfiber cloth, again going with the grain', 'For the final buff, put a tiny drop of mineral oil or baby oil on a cloth and go over the surface lightly', 'The oil creates a barrier that repels fingerprints and water spots'] },
@@ -354,7 +354,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-10-17',
     category: 'Guides',
     readTime: '5 min',
-    metaDescription: 'NYC bathroom deep cleaning guide — grout, mold, hard water & more. Professional cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'NYC bathroom deep cleaning guide — grout, mold, hard water & more. Professional cleaning from $49/hr.',
     sections: [
       { paragraphs: ['The bathroom is the room that gets dirty fastest and takes the most effort to deep clean. In NYC apartments, you\'re dealing with limited ventilation, hard water, old fixtures, and often decades-old grout. Here\'s the complete deep cleaning approach.'] },
       { heading: 'Start With the Shower/Tub', paragraphs: ['This is the hardest part, so tackle it first while you have energy:'], list: ['Spray the entire shower with your cleaning solution and let it sit for 10 minutes', 'Scrub tile grout with a stiff brush — baking soda paste works best on stained grout', 'Clean the showerhead by soaking it in a bag of white vinegar for an hour (tie it on with a rubber band)', 'Scrub the tub basin — for porcelain, use baking soda; for acrylic, use a non-abrasive cleaner', 'Clean the glass door or shower curtain (wash curtains in the washing machine with vinegar)', 'Check and clean the drain — pull out the hair catcher and clear any buildup'] },
@@ -370,7 +370,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-10-10',
     category: 'Tips',
     readTime: '3 min',
-    metaDescription: 'Small NYC closet organization tips — maximize space in tiny apartment closets. Professional cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Small NYC closet organization tips — maximize space in tiny apartment closets. Professional cleaning from $49/hr.',
     sections: [
       { paragraphs: ['NYC closets are a joke. You\'ve got a rod, a shelf, and maybe 6 square feet to store your entire wardrobe, plus whatever else doesn\'t have a home. You don\'t need a custom closet system — you need a strategy.'] },
       { heading: 'Purge First, Organize Second', paragraphs: ['You cannot organize your way out of having too much stuff. Before you buy a single organizer, remove everything from the closet and sort into three piles: keep, donate, trash. If you haven\'t worn something in 12 months, it goes. If it doesn\'t fit, it goes. Be ruthless — closet space in NYC is more valuable per square foot than the clothes in it.'] },
@@ -386,7 +386,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-10-03',
     category: 'Tips',
     readTime: '3 min',
-    metaDescription: 'Remove hard water stains from NYC faucets — white vinegar method & pro tips. Professional cleaning from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'Remove hard water stains from NYC faucets — white vinegar method & pro tips. Professional cleaning from $49/hr.',
     sections: [
       { paragraphs: ['NYC water is actually pretty good quality, but it\'s not without minerals. Over time, calcium and lime deposits build up on faucets, showerheads, and glass shower doors. That white, crusty buildup makes even a clean bathroom look dirty. Here\'s how to get rid of it.'] },
       { heading: 'The Vinegar Method (Works 90% of the Time)', paragraphs: ['White vinegar dissolves mineral deposits naturally:'], list: ['Soak a cloth or paper towel in undiluted white vinegar', 'Wrap it around the faucet or affected area', 'Secure with a rubber band and let it sit for 1–2 hours (or overnight for heavy buildup)', 'Remove, scrub gently with a soft brush, and rinse', 'Dry and buff with a clean cloth'] },
@@ -401,7 +401,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '2025-10-31',
     category: 'Lifestyle',
     readTime: '4 min',
-    metaDescription: 'How a clean home improves mental health — stress, sleep & focus. NYC cleaning service from $49/hr. The NYC Maid (212) 202-8400.',
+    metaDescription: 'How a clean home improves mental health — stress, sleep & focus. NYC cleaning service from $49/hr.',
     sections: [
       { paragraphs: ['There\'s a reason you feel better when your apartment is clean. It\'s not just aesthetics — there\'s real science behind the connection between your environment and your mental state. And in a city like New York, where your apartment is your refuge from the chaos outside, it matters more than most people realize.'] },
       { heading: 'The Cortisol Connection', paragraphs: ['A study from UCLA\'s Center on Everyday Lives and Families found that people who described their homes as "cluttered" or "messy" had higher cortisol levels throughout the day. Cortisol is the stress hormone — elevated levels are linked to anxiety, poor sleep, weight gain, and weakened immune function.', 'The research showed that women in particular were affected, likely because of societal expectations around home maintenance. But the effect was measurable across all participants: messy home = higher stress, clean home = lower stress.'] },

@@ -155,7 +155,8 @@ export async function handleSendPin(tenantId: string, conversationId: string): P
 
     let pin = client.pin
     if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
-      pin = Math.floor(100000 + Math.random() * 900000).toString()
+      const nodeCrypto = await import('node:crypto')
+      pin = (100000 + nodeCrypto.randomInt(0, 900000)).toString()
       await supabaseAdmin.from('clients').update({ pin }).eq('id', client.id).eq('tenant_id', tenantId)
     }
 

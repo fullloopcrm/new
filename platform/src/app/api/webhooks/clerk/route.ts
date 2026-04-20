@@ -1,10 +1,27 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { verifySvix } from '@/lib/webhook-verify'
 
 // Sync Clerk user events to platform
 export async function POST(request: Request) {
-  const body = await request.json()
-  const { type, data } = body
+  const rawBody = await request.text()
+
+  if (process.env.CLERK_WEBHOOK_VERIFY !== 'off') {
+    const result = verifySvix(request.headers, rawBody, process.env.CLERK_WEBHOOK_SECRET)
+    if (!result.valid) {
+      console.warn('[clerk webhook] rejected:', result.reason)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+  }
+
+  let body: { type?: string; data?: Record<string, unknown> }
+  try {
+    body = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const { type, data } = body as { type?: string; data?: { id?: string; email_addresses?: Array<{ email_address?: string }>; first_name?: string; last_name?: string } }
+  if (!type || !data) return NextResponse.json({ ok: true })
 
   switch (type) {
     case 'user.created': {
