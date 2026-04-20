@@ -148,12 +148,25 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): NextResponse {
   const pathname = req.nextUrl.pathname // e.g. "/" or "/services" or "/about"
 
-  // Rewrite /sitemap.xml to the tenant sitemap API
+  // Rewrite /sitemap.xml to the tenant sitemap API — pass slug via both
+  // searchParam and header for robustness across Next.js rewrite behaviors.
   if (pathname === '/sitemap.xml') {
     const url = req.nextUrl.clone()
     url.pathname = '/api/tenant-sitemap'
     url.searchParams.set('slug', tenantSlug)
-    return NextResponse.rewrite(url)
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.set('x-tenant-id', tenantId)
+    requestHeaders.set('x-tenant-slug', tenantSlug)
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
+  }
+
+  // /robots.txt runs at its own path with tenant headers injected so the
+  // generator in src/app/robots.ts emits the tenant's own sitemap URL.
+  if (pathname === '/robots.txt') {
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.set('x-tenant-id', tenantId)
+    requestHeaders.set('x-tenant-slug', tenantSlug)
+    return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
   // API routes + tenant-scoped app routes that live at the root are NOT

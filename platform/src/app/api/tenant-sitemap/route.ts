@@ -9,7 +9,10 @@ import { toSlug } from '@/lib/tenant-site'
  * The middleware can also rewrite /sitemap.xml to this route.
  */
 export async function GET(req: NextRequest) {
-  const slug = req.nextUrl.searchParams.get('slug')
+  // Slug comes from ?slug= query (direct API call) OR x-tenant-slug header
+  // (custom-domain middleware rewrite).
+  const slug =
+    req.nextUrl.searchParams.get('slug') || req.headers.get('x-tenant-slug')
   if (!slug) {
     return NextResponse.json({ error: 'Missing slug parameter' }, { status: 400 })
   }
@@ -17,7 +20,7 @@ export async function GET(req: NextRequest) {
   // Look up tenant
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, slug, website_url, selena_config')
+    .select('id, slug, domain, website_url, selena_config')
     .eq('slug', slug)
     .eq('status', 'active')
     .single()
@@ -26,7 +29,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const baseUrl = tenant.website_url || `https://${tenant.slug}.homeservicesbusinesscrm.com`
+  // Prefer custom domain, then website_url, then platform subdomain.
+  const baseUrl = tenant.domain
+    ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`
+    : tenant.website_url || `https://${tenant.slug}.homeservicesbusinesscrm.com`
 
   // Fetch services
   const { data: services } = await supabaseAdmin
@@ -45,16 +51,15 @@ export async function GET(req: NextRequest) {
   // Build URL entries
   const urls: Array<{ loc: string; priority: string; changefreq: string }> = []
 
-  // Static pages
+  // Static pages — match actual fullloop site routes
   const staticPages = [
     { path: '/', priority: '1.0', changefreq: 'weekly' },
     { path: '/services', priority: '0.9', changefreq: 'weekly' },
-    { path: '/about', priority: '0.7', changefreq: 'monthly' },
-    { path: '/contact', priority: '0.7', changefreq: 'monthly' },
     { path: '/reviews', priority: '0.8', changefreq: 'weekly' },
-    { path: '/book', priority: '0.9', changefreq: 'monthly' },
-    { path: '/chat', priority: '0.6', changefreq: 'monthly' },
-    { path: '/careers', priority: '0.7', changefreq: 'weekly' },
+    { path: '/reviews/submit', priority: '0.5', changefreq: 'monthly' },
+    { path: '/portal/collect', priority: '0.7', changefreq: 'monthly' },
+    { path: '/chat-with-selena', priority: '0.6', changefreq: 'monthly' },
+    { path: '/available-nyc-maid-jobs', priority: '0.7', changefreq: 'weekly' },
   ]
 
   for (const page of staticPages) {
@@ -65,7 +70,7 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // Service pages
+  // Service pages — /services/[slug]
   if (services) {
     for (const service of services) {
       urls.push({
@@ -76,32 +81,24 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Area pages
+  // Area pages (/[area-slug]) + Area × Service combo pages (/[area-slug]/[service-slug])
   for (const area of areas) {
     const areaSlug = toSlug(area)
     urls.push({
-      loc: `${baseUrl}/areas/${areaSlug}`,
+      loc: `${baseUrl}/${areaSlug}`,
       priority: '0.8',
       changefreq: 'weekly',
     })
 
-    // Area x Service combo pages
     if (services) {
       for (const service of services) {
         urls.push({
-          loc: `${baseUrl}/areas/${areaSlug}/${toSlug(service.name)}`,
+          loc: `${baseUrl}/${areaSlug}/${toSlug(service.name)}`,
           priority: '0.7',
           changefreq: 'weekly',
         })
       }
     }
-
-    // Career area pages
-    urls.push({
-      loc: `${baseUrl}/careers/${areaSlug}`,
-      priority: '0.6',
-      changefreq: 'weekly',
-    })
   }
 
   // Build XML
