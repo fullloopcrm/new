@@ -155,7 +155,9 @@ export default function CalendarPage() {
       const members = Array.isArray(data) ? data : data.team_members || []
       setTeamMembers(members)
       const colors: Record<string, string> = {}
-      members.forEach((m: TeamMember, i: number) => { colors[m.id] = TEAM_COLORS[i % TEAM_COLORS.length] })
+      members.forEach((m: TeamMember & { calendar_color?: string }, i: number) => {
+        colors[m.id] = m.calendar_color || TEAM_COLORS[i % TEAM_COLORS.length]
+      })
       setMemberColors(colors)
     }
   }
