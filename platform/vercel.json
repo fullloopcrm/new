@@ -71,6 +71,14 @@
     {
       "path": "/api/cron/outreach",
       "schedule": "0 14 * * 6"
+    },
+    {
+      "path": "/api/cron/post-job-followup",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/no-show-check",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

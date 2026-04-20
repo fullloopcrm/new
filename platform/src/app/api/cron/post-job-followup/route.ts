@@ -17,10 +17,10 @@ export async function GET(request: Request) {
   let skipped = 0
   const errors: string[] = []
 
-  // Get all active tenants
+  // Get all active tenants — include domain + slug for review link.
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, domain, slug')
     .eq('status', 'active')
     .limit(1000)
 
@@ -58,10 +58,15 @@ export async function GET(request: Request) {
 
         const firstName = client.name?.split(' ')[0] || 'there'
 
+        // Build review link — prefer custom domain, fall back to subdomain.
+        const reviewUrl = tenant.domain
+          ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/reviews/submit`
+          : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`
+
         try {
           await sendSMS({
             to: client.phone,
-            body: `Hi ${firstName}! How did everything go? We'd love to hear your feedback. Rate your experience 1-5 \u{1F60A}\nReply STOP to opt out.`,
+            body: `Hi ${firstName}! How did everything go? We'd love to hear your feedback — takes 30 sec:\n${reviewUrl}\nReply STOP to opt out.`,
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
           })
