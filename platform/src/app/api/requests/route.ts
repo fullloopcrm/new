@@ -146,29 +146,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to submit application. Please try again.' }, { status: 500 })
     }
 
-    // Send email notification to admin (non-blocking)
-    sendEmail({
-      to: 'jeff@consortiumnyc.com',
-      subject: `[New Request] ${validated.business_name} — ${validated.service_category} in ${validated.city}, ${validated.state}`,
-      html: generateRequestEmailHtml({
-        business_name: validated.business_name as string,
-        contact_name: validated.contact_name as string,
-        email: validated.email as string,
-        phone: validated.phone as string | undefined,
-        service_category: validated.service_category as string,
-        city: validated.city as string,
-        state: validated.state as string,
-        years_in_business: validated.years_in_business as string,
-        team_size: validated.team_size as string,
-        monthly_revenue: validated.monthly_revenue as string,
-        current_system: validated.current_system as string | undefined,
-        referral_source: validated.referral_source as string | undefined,
-        pitch: validated.pitch as string,
-        created_at: new Date().toISOString(),
-      }),
-    }).catch((err) => {
-      console.error('Failed to send partner request email notification:', err)
-    })
+    // Send email notification to platform admin (non-blocking). Recipient
+    // pulled from ADMIN_NOTIFICATION_EMAIL env with ADMIN_EMAIL as fallback.
+    // Also writes an in-app platform_notifications row so the dashboard
+    // surfaces a badge without waiting on Resend.
+    const adminTo = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL
+    if (adminTo) {
+      sendEmail({
+        to: adminTo,
+        subject: `[New Request] ${validated.business_name} — ${validated.service_category} in ${validated.city}, ${validated.state}`,
+        html: generateRequestEmailHtml({
+          business_name: validated.business_name as string,
+          contact_name: validated.contact_name as string,
+          email: validated.email as string,
+          phone: validated.phone as string | undefined,
+          service_category: validated.service_category as string,
+          city: validated.city as string,
+          state: validated.state as string,
+          years_in_business: validated.years_in_business as string,
+          team_size: validated.team_size as string,
+          monthly_revenue: validated.monthly_revenue as string,
+          current_system: validated.current_system as string | undefined,
+          referral_source: validated.referral_source as string | undefined,
+          pitch: validated.pitch as string,
+          created_at: new Date().toISOString(),
+        }),
+      }).catch((err) => {
+        console.error('Failed to send partner request email notification:', err)
+      })
+    } else {
+      console.warn('[requests] No ADMIN_NOTIFICATION_EMAIL or ADMIN_EMAIL set — skipping email notify')
+    }
+
+    // Platform-level in-app notification surface: notifications table is
+    // NOT NULL on tenant_id, so we can't write there. The partner_requests
+    // row itself is the surface (admin UI reads partner_requests where
+    // status='pending'). Email is the wake-up signal above.
 
     return NextResponse.json({ success: true, id: data.id }, { status: 201 })
   } catch {
