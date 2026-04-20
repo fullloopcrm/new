@@ -2,8 +2,15 @@
  * Selena shadow replay — compares fullloop's ported Selena against what nycmaid's
  * Selena actually responded with for real conversation history.
  *
- * READ-ONLY on source data. Never writes back to the conversations being sampled.
- * Uses throwaway conversation IDs for replay state so live history is untouched.
+ * READ-ONLY on the source conversations being sampled. However — IMPORTANT:
+ * askSelena() may call tool handlers that mutate other tables (clients, bookings,
+ * admin_tasks, selena_memory, etc) and may send real SMS via the tenant's Telnyx
+ * credentials. Only run this with --dry-run, or AFTER temporarily removing the
+ * tenant's telnyx_api_key (so SMS sends silently fail) and against a DB you are
+ * ok writing to.
+ *
+ * Safer path before a real replay: set tenants.telnyx_api_key = NULL for the
+ * shadow window, run this, then restore.
  *
  * USAGE:
  *   pnpm tsx scripts/selena-shadow-replay.ts --days 7 --sample 50
@@ -88,13 +95,19 @@ async function main() {
     return
   }
 
-  // 2. Pull all messages for those conversations, in order.
-  const { data: msgs, error: msgErr } = await supabase
-    .from('sms_conversation_messages')
-    .select('id, conversation_id, direction, message, created_at')
-    .in('conversation_id', convoIds)
-    .order('created_at', { ascending: true })
-  if (msgErr) throw msgErr
+  // 2. Pull all messages for those conversations, in order. Batch to keep URL short.
+  const msgs: Array<{ id: string; conversation_id: string; direction: string; message: string; created_at: string }> = []
+  const BATCH = 100
+  for (let i = 0; i < convoIds.length; i += BATCH) {
+    const chunk = convoIds.slice(i, i + BATCH)
+    const { data, error } = await supabase
+      .from('sms_conversation_messages')
+      .select('id, conversation_id, direction, message, created_at')
+      .in('conversation_id', chunk)
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    for (const m of data || []) msgs.push(m as typeof msgs[number])
+  }
 
   // 3. Build (inbound → immediately-next outbound) pairs.
   const byConvo: Record<string, Array<{ id: string; direction: string; message: string; ts: string }>> = {}
