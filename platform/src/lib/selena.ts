@@ -63,6 +63,46 @@ export interface SelenaConfig {
     question: string
     sms_options: string
   }>
+
+  // ── Persona fields (onboarding-driven) — makes Selena sound like THIS business ──
+
+  // Identity & voice
+  business_description?: string
+  business_story?: string
+  opening_lines?: string[]
+  sign_off?: string[]
+  banned_phrases?: string[]
+
+  // Sales & persuasion
+  value_props?: string[]
+  usps?: string[]
+  social_proof?: string
+  guarantees?: string[]
+  sales_approach?: string
+  objection_handlers?: Array<{ trigger: string; response: string }>
+
+  // Policies
+  refund_policy?: string
+  first_time_restrictions?: string
+  liability_statement?: string
+
+  // Operational rules
+  never_do?: string[]
+  always_ask?: string[]
+  team_intro?: string
+
+  // Lead qualification
+  qualifying_questions?: string[]
+  disqualifiers?: string[]
+
+  // Upsell / cross-sell
+  addons?: Array<{ label: string; price: string }>
+  upsell_triggers?: string[]
+  recurring_incentive?: string
+  referral_program_pitch?: string
+
+  // User-added custom fields per category
+  custom_fields?: Array<{ category: string; label: string; value: string }>
 }
 
 // ─── Selena Config Cache ────────────────────────────────────────────────────
@@ -359,6 +399,45 @@ async function buildSystemPrompt(tenantId: string, config: SelenaConfig): Promis
   if (config.common_qa?.length) {
     qaSection = '\n\nCOMMON Q&A (use these when relevant):\n' + config.common_qa.map(qa => `Q: ${qa.question}\nA: ${qa.answer}`).join('\n\n')
   }
+
+  // Persona — makes Selena sound like THIS business
+  let personaSection = ''
+  if (config.business_description) personaSection += `\n\nABOUT THE BUSINESS: ${config.business_description}`
+  if (config.business_story) personaSection += `\nSTORY: ${config.business_story}`
+  if (config.value_props?.length) personaSection += `\nVALUE PROPS: ${config.value_props.join(' • ')}`
+  if (config.usps?.length) personaSection += `\nUSPs vs COMPETITORS: ${config.usps.join(' • ')}`
+  if (config.social_proof) personaSection += `\nSOCIAL PROOF: ${config.social_proof}`
+  if (config.guarantees?.length) personaSection += `\nGUARANTEES: ${config.guarantees.join(' • ')}`
+  if (config.sales_approach) personaSection += `\nSALES APPROACH: ${config.sales_approach}`
+  if (config.objection_handlers?.length) {
+    personaSection += `\n\nOBJECTION HANDLERS:\n` + config.objection_handlers.map(o => `- If client says "${o.trigger}": ${o.response}`).join('\n')
+  }
+  if (config.opening_lines?.length) personaSection += `\n\nOPENING LINES (rotate): ${config.opening_lines.map(l => `"${l}"`).join(' / ')}`
+  if (config.sign_off?.length) personaSection += `\nSIGN-OFFS (rotate): ${config.sign_off.map(l => `"${l}"`).join(' / ')}`
+  if (config.banned_phrases?.length) personaSection += `\nNEVER USE: ${config.banned_phrases.map(p => `"${p}"`).join(', ')}`
+  if (config.refund_policy) personaSection += `\nREFUND POLICY: ${config.refund_policy}`
+  if (config.first_time_restrictions) personaSection += `\nFIRST-TIME RESTRICTIONS: ${config.first_time_restrictions}`
+  if (config.liability_statement) personaSection += `\nLIABILITY: ${config.liability_statement}`
+  if (config.never_do?.length) personaSection += `\nNEVER DO: ${config.never_do.join(' • ')}`
+  if (config.always_ask?.length) personaSection += `\nALWAYS ASK: ${config.always_ask.join(' • ')}`
+  if (config.team_intro) personaSection += `\nTEAM INTRO: ${config.team_intro}`
+  if (config.qualifying_questions?.length) personaSection += `\nQUALIFY WITH: ${config.qualifying_questions.join(' • ')}`
+  if (config.disqualifiers?.length) personaSection += `\nDISQUALIFY IF: ${config.disqualifiers.join(' • ')}`
+  if (config.addons?.length) personaSection += `\nADDONS: ${config.addons.map(a => `${a.label} (${a.price})`).join(', ')}`
+  if (config.upsell_triggers?.length) personaSection += `\nUPSELL WHEN: ${config.upsell_triggers.join(' • ')}`
+  if (config.recurring_incentive) personaSection += `\nRECURRING OFFER: ${config.recurring_incentive}`
+  if (config.referral_program_pitch) personaSection += `\nREFERRAL PITCH: ${config.referral_program_pitch}`
+  if (config.custom_fields?.length) {
+    const byCat: Record<string, string[]> = {}
+    for (const f of config.custom_fields) {
+      if (!byCat[f.category]) byCat[f.category] = []
+      byCat[f.category].push(`${f.label}: ${f.value}`)
+    }
+    for (const [cat, items] of Object.entries(byCat)) {
+      personaSection += `\n${cat.toUpperCase()}: ${items.join(' • ')}`
+    }
+  }
+  qaSection += personaSection
 
   // Escalation
   const escalationMsg = config.escalation_message

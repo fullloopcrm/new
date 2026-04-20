@@ -215,6 +215,8 @@ export async function PUT(
     // Business info
     'phone', 'email', 'website_url', 'address', 'tagline',
     'business_hours', 'logo_url', 'primary_color', 'secondary_color',
+    // Selena persona (full config blob)
+    'selena_config',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {
