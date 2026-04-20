@@ -124,7 +124,15 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
           p.startsWith('/api/referrals') || p.startsWith('/api/settings') || p.startsWith('/api/google') ||
           p.startsWith('/api/social') || p.startsWith('/api/changelog') || p.startsWith('/api/feedback') ||
           p.startsWith('/api/security') || p.startsWith('/api/availability') || p.startsWith('/api/setup-checklist') ||
-          p.startsWith('/api/notifications')) {
+          p.startsWith('/api/notifications') || p.startsWith('/api/cleaners') || p.startsWith('/api/domain-notes') ||
+          p.startsWith('/api/docs') || p.startsWith('/api/test-emails') || p.startsWith('/api/test/') ||
+          p.startsWith('/api/migrate-') || p.startsWith('/api/reviews') || p.startsWith('/api/deals') ||
+          p.startsWith('/api/attribution') || p.startsWith('/api/leads') || p.startsWith('/api/service-types') ||
+          p.startsWith('/api/waitlist') || p.startsWith('/api/referrers') || p.startsWith('/api/dashboard') ||
+          p.startsWith('/api/indexnow') || p.startsWith('/api/management-applications') ||
+          p.startsWith('/api/import-clients') || p.startsWith('/api/sms') || p.startsWith('/api/schedules') ||
+          p.startsWith('/api/send-booking-emails') || p.startsWith('/api/selena') ||
+          p.startsWith('/api/referral-commissions')) {
         return
       }
     }
