@@ -49,6 +49,13 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Bust Selena config cache if selena_config was touched so persona/
+    // config changes take effect immediately (default cache TTL is 5 min).
+    if (body.selena_config !== undefined) {
+      const { clearSelenaConfigCache } = await import('@/lib/selena')
+      clearSelenaConfigCache(tenantId)
+    }
+
     // Log security events for sensitive changes. Non-fatal — DB write already
     // succeeded, a missing Resend domain (dev env) shouldn't 500 the save.
     for (const field of changedSensitive) {

@@ -242,6 +242,13 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Bust Selena config cache if selena_config was touched so persona
+  // changes take effect immediately (default TTL is 5 min).
+  if (updates.selena_config !== undefined) {
+    const { clearSelenaConfigCache } = await import('@/lib/selena')
+    clearSelenaConfigCache(id)
+  }
+
   // Log security events
   if (updates.status) {
     await logSecurityEvent({
