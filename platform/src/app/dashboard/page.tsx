@@ -44,15 +44,16 @@ export default async function DashboardPage() {
     supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'active'),
     supabaseAdmin.from('recurring_schedules').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'active'),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).in('status', ['scheduled', 'confirmed']),
-    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('payment_status', 'paid').gte('payment_date', todayStart).lt('payment_date', todayEnd),
-    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('payment_status', 'paid').gte('payment_date', weekStart),
-    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('payment_status', 'paid').gte('payment_date', monthStart),
-    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('payment_status', 'paid').gte('payment_date', yearStart),
+    // COLLECTED revenue — completed + paid, scoped by start_time (matches nycmaid)
+    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', todayStart).lt('start_time', todayEnd),
+    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', weekStart),
+    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', monthStart),
+    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', yearStart),
     supabaseAdmin.from('bookings').select('id, start_time, end_time, status, price, notes, clients(name, phone), team_members(name), service_types(name)').eq('tenant_id', tenant.id).gte('start_time', todayStart).lt('start_time', todayEnd).order('start_time', { ascending: true }).limit(20),
     supabaseAdmin.from('bookings').select('id, start_time, status, price, clients(name), team_members(name), service_types(name)').eq('tenant_id', tenant.id).gte('start_time', todayEnd).lt('start_time', next14).in('status', ['scheduled', 'confirmed']).order('start_time', { ascending: true }).limit(20),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'completed').gte('start_time', monthStart),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'cancelled').gte('start_time', monthStart),
-    supabaseAdmin.from('bookings').select('price, payment_status').eq('tenant_id', tenant.id).eq('status', 'completed').or('payment_status.eq.pending,payment_status.is.null'),
+    supabaseAdmin.from('bookings').select('price, payment_status').eq('tenant_id', tenant.id).eq('status', 'completed').neq('payment_status', 'paid'),
     supabaseAdmin.from('bookings').select('start_time, price, status').eq('tenant_id', tenant.id).in('status', ['pending', 'scheduled', 'confirmed', 'completed']).gte('start_time', yearStart),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('start_time', yearStart),
   ])
@@ -65,6 +66,11 @@ export default async function DashboardPage() {
   const monthRev = sumRevenue(monthRevBookings)
   const yearRev = sumRevenue(yearRevBookings)
   const owedRev = sumRevenue(owedBookings as { price: number }[] | null)
+
+  // Projected = collected YTD + sum of all scheduled+confirmed+completed in current year
+  const projectedRev = ((scheduledRevBookings || []) as { price: number; status: string }[])
+    .filter(b => ['scheduled', 'confirmed', 'completed'].includes(b.status))
+    .reduce((sum, b) => sum + (b.price || 0), 0)
 
   const scheduledToday = { amount: 0, count: 0 }
   const scheduledWeek = { amount: 0, count: 0 }
@@ -146,9 +152,9 @@ export default async function DashboardPage() {
         <div className="border-l-4 border-l-cyan-500 pl-3 py-2">
           <p className="text-[10px] text-slate-500 uppercase tracking-wide">Year to Date</p>
           <p className="text-xl font-bold font-mono text-slate-900">
-            <span className="text-base text-slate-500">{fmt(monthRev)}</span>
+            <span className="text-base text-slate-500">{fmt(yearRev)}</span>
             <span className="text-slate-300 mx-1">/</span>
-            {fmt(yearRev)}
+            {fmt(projectedRev)}
           </p>
           <p className="text-xs text-slate-400">{now.getFullYear()} ({yearTotalBookings || 0} jobs booked)</p>
         </div>
