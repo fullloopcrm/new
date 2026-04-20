@@ -26,41 +26,38 @@ export interface BusinessCtx {
   socialProfiles?: string[]
 }
 
+// Generic placeholders — used ONLY when no tenant context is passed.
+// Tenant-aware callers (every /site/** page via getTenantFromHeaders) override
+// these with real values. Keep the shape identical so schema renders cleanly
+// even without tenant data (e.g. before domain is attached).
 const DEFAULT_BUSINESS = {
-  name: 'The NYC Maid',
-  legalName: 'The NYC Maid Cleaning Service LLC',
-  url: 'https://www.thenycmaid.com',
-  phone: '+1-212-202-8400',
-  phoneDisplay: '(212) 202-8400',
-  email: 'hi@thenycmaid.com',
-  logo: 'https://www.thenycmaid.com/icon-512.png',
-  image: 'https://www.thenycmaid.com/icon-512.png',
+  name: 'Home Services Business',
+  legalName: 'Home Services Business LLC',
+  url: '',
+  phone: '',
+  phoneDisplay: '',
+  email: '',
+  logo: '',
+  image: '',
   priceRange: '$$',
-  ratingValue: '5.0',
-  ratingCount: '28',
-  reviewCount: '28',
-  foundingDate: '2018',
+  ratingValue: '',
+  ratingCount: '',
+  reviewCount: '',
+  foundingDate: '',
   currenciesAccepted: 'USD',
-  paymentAccepted: 'Cash, Credit Card, Debit Card, Zelle (hi@thenycmaid.com), Venmo, Apple Pay',
-  description: 'Professional house cleaning services across New York City, Long Island, and New Jersey. Deep cleaning, regular apartment cleaning, move-in/move-out, post-construction cleanup, weekly maid service, same-day cleaning, Airbnb turnover, and office cleaning. Licensed, insured, and background-checked cleaners. Serving NYC since 2018.',
-  slogan: "New York City's Most Trusted Cleaning Service",
-  knowsLanguage: ['en', 'es'],
-  numberOfEmployees: { '@type': 'QuantitativeValue' as const, minValue: 10, maxValue: 25 },
+  paymentAccepted: 'Cash, Credit Card, Debit Card',
+  description: '',
+  slogan: '',
+  knowsLanguage: ['en'],
+  numberOfEmployees: { '@type': 'QuantitativeValue' as const, minValue: 1, maxValue: 50 },
   address: {
-    street: '150 W 47th St',
-    city: 'New York',
-    state: 'NY',
-    zip: '10036',
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
     country: 'US',
   },
-  socialProfiles: [
-    'https://www.yelp.com/biz/the-nyc-maid-new-york',
-    'https://www.instagram.com/thenycmaid/',
-    'https://www.facebook.com/thenycmaid/',
-    'https://www.nycmaid.nyc',
-    'https://www.thenycmaidservice.com',
-    'https://www.thenewyorkcitymaid.com',
-  ],
+  socialProfiles: [] as string[],
 }
 
 function resolveBusiness(ctx?: BusinessCtx) {
@@ -101,10 +98,10 @@ const GOOGLE_REVIEWS = [
   { text: "Best cleaning service I've used in the 20 years I've lived in NYC! Consistently efficient, thorough...", name: 'Courtney Gamble', location: 'New York', rating: 5, datePublished: '2024-07-03' },
   { text: 'Perfect for post move deep cleaning. Appliances were spotless. Looked brand new.', name: 'Shilpa Ray', location: 'New York', rating: 5, datePublished: '2024-04-28' },
   { text: 'The very best service every time, amazing!!', name: 'Greg Farr', location: 'New York', rating: 5, datePublished: '2024-03-14' },
-  { text: 'The NYC Maid Cleaning Service is so efficient and professional! I know I can always count on them.', name: 'Maria Lina', location: 'New York', rating: 5, datePublished: '2024-02-20' },
+  { text: '{BRAND} Cleaning Service is so efficient and professional! I know I can always count on them.', name: 'Maria Lina', location: 'New York', rating: 5, datePublished: '2024-02-20' },
   { text: 'Excellent service and a great price! Prompt and thorough, would highly recommend!', name: 'Timothy Wojcik', location: 'New York', rating: 5, datePublished: '2024-01-15' },
-  { text: '5 Stars - Absolutely the Best Cleaning Service in NYC! I gotta say, The NYC Maid is truly the best.', name: 'Jenni Martinez', location: 'New York', rating: 5, datePublished: '2023-11-08' },
-  { text: 'After trying three different cleaning companies in NYC, The NYC Maid is hands down the most affordable and thorough.', name: 'Jenna M', location: 'New York', rating: 5, datePublished: '2023-10-22' },
+  { text: '5 Stars - Absolutely the Best Cleaning Service in NYC! I gotta say, {BRAND} is truly the best.', name: 'Jenni Martinez', location: 'New York', rating: 5, datePublished: '2023-11-08' },
+  { text: 'After trying three different cleaning companies in NYC, {BRAND} is hands down the most affordable and thorough.', name: 'Jenna M', location: 'New York', rating: 5, datePublished: '2023-10-22' },
 ]
 
 // ============ REUSABLE REFERENCES ============
@@ -131,7 +128,7 @@ const logoObj = {
   contentUrl: BUSINESS.logo,
   width: 512,
   height: 512,
-  caption: 'The NYC Maid Logo',
+  caption: '{BRAND} Logo',
 }
 
 const aggregateRatingObj = {
@@ -638,7 +635,10 @@ export function pricingOffersSchema() {
 // ================================================================
 
 export function reviewSchemas(reviews?: typeof GOOGLE_REVIEWS) {
-  const r = reviews || GOOGLE_REVIEWS
+  // Default to empty array — tenants should pass their own reviews from DB.
+  // Falling back to hardcoded fixtures would surface another tenant's reviews
+  // under a mismatched brand.
+  const r = reviews || []
   return r.map(review => ({
     '@context': 'https://schema.org',
     '@type': 'Review',
@@ -768,7 +768,7 @@ export function serviceItemListSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'Cleaning Services Offered by The NYC Maid',
+    name: 'Cleaning Services Offered by {BRAND}',
     description: 'Complete list of professional cleaning services available across NYC, Long Island, and New Jersey.',
     numberOfItems: SERVICES.length,
     itemListElement: SERVICES.map((s, i) => ({
@@ -799,7 +799,7 @@ export function areaItemListSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'Service Areas Covered by The NYC Maid',
+    name: 'Service Areas Covered by {BRAND}',
     description: 'We serve over 225 neighborhoods across NYC, Long Island, and New Jersey.',
     numberOfItems: AREAS.length,
     itemListElement: AREAS.map((a, i) => ({
@@ -825,7 +825,7 @@ export function professionalServiceSchema(service: Service, neighborhood?: Neigh
   return {
     '@context': 'https://schema.org',
     '@type': 'ProfessionalService',
-    name: `${service.name}${neighborhood ? ` in ${neighborhood.name}` : ''} - The NYC Maid`,
+    name: `${service.name}${neighborhood ? ` in ${neighborhood.name}` : ''} - {BRAND}`,
     description: service.description,
     url: neighborhood ? `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}` : `${BUSINESS.url}/services/${service.urlSlug}`,
     telephone: BUSINESS.phone,
@@ -846,149 +846,154 @@ export function professionalServiceSchema(service: Service, neighborhood?: Neigh
 // COMBINED SCHEMA FUNCTIONS PER PAGE TYPE
 // ================================================================
 
-export function homepageSchemas() {
-  const url = BUSINESS.url
+export function homepageSchemas(ctx?: BusinessCtx) {
+  const biz = resolveBusiness(ctx)
+  const url = biz.url
   return [
-    organizationSchema(),
-    webSiteSchema(),
+    organizationSchema(ctx),
+    webSiteSchema(ctx),
     webPageSchema({
       url,
-      name: 'NYC Maid Service & House Cleaning From $49/hr | 5-Star Rated | The NYC Maid',
-      description: BUSINESS.description,
+      name: `${biz.name}${biz.slogan ? ' — ' + biz.slogan : ''}`,
+      description: biz.description,
       type: 'WebPage',
       speakable: ['h1', '.hero-description'],
       breadcrumb: [{ name: 'Home', url }],
     }),
-    localBusinessSchema(),
+    localBusinessSchema(undefined, undefined, ctx),
     pricingOffersSchema(),
     serviceItemListSchema(),
     areaItemListSchema(),
     siteNavigationSchema(),
-    howToBookSchema(),
+    howToBookSchema(ctx),
   ]
 }
 
-export function areaPageSchemas(area: Area) {
-  const url = `${BUSINESS.url}/${area.urlSlug}`
-  const title = `${area.name} Maid Service & House Cleaning From $49/hr | The NYC Maid`
-  const description = `Professional house cleaning in ${area.name} from $49/hr. Deep cleaning, weekly maid service, move-in/out & more. Licensed, insured, 5.0★ Google. ${BUSINESS.phoneDisplay}`
+export function areaPageSchemas(area: Area, ctx?: BusinessCtx) {
+  const biz = resolveBusiness(ctx)
+  const url = `${biz.url}/${area.urlSlug}`
+  const title = `${area.name} House Cleaning | ${biz.name}`
+  const description = `Professional cleaning in ${area.name}. Deep clean, weekly service, move-in/out & more. ${biz.phoneDisplay}`.trim()
   return [
-    organizationSchema(),
-    webSiteSchema(),
+    organizationSchema(ctx),
+    webSiteSchema(ctx),
     webPageSchema({
       url,
       name: title,
       description,
       breadcrumb: [
-        { name: 'Home', url: BUSINESS.url },
+        { name: 'Home', url: biz.url },
         { name: area.name, url },
       ],
     }),
-    localBusinessSchema(),
+    localBusinessSchema(undefined, undefined, ctx),
     breadcrumbSchema([
-      { name: 'Home', url: BUSINESS.url },
+      { name: 'Home', url: biz.url },
       { name: area.name, url },
     ]),
     serviceItemListSchema(),
-    howToBookSchema(),
+    howToBookSchema(ctx),
   ]
 }
 
-export function neighborhoodPageSchemas(neighborhood: Neighborhood, area: Area) {
-  const url = `${BUSINESS.url}/${neighborhood.urlSlug}`
-  const title = `${neighborhood.name} Maid Service & House Cleaning From $49/hr | The NYC Maid`
-  const description = `Professional cleaning in ${neighborhood.name}, ${area.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $49/hr. 5.0★ Google. ${BUSINESS.phoneDisplay}`
+export function neighborhoodPageSchemas(neighborhood: Neighborhood, area: Area, ctx?: BusinessCtx) {
+  const biz = resolveBusiness(ctx)
+  const url = `${biz.url}/${neighborhood.urlSlug}`
+  const title = `${neighborhood.name} House Cleaning | ${biz.name}`
+  const description = `Professional cleaning in ${neighborhood.name}, ${area.name}. ${biz.phoneDisplay}`.trim()
   return [
-    organizationSchema(),
-    webSiteSchema(),
+    organizationSchema(ctx),
+    webSiteSchema(ctx),
     webPageSchema({
       url,
       name: title,
       description,
       breadcrumb: [
-        { name: 'Home', url: BUSINESS.url },
-        { name: area.name, url: `${BUSINESS.url}/${area.urlSlug}` },
+        { name: 'Home', url: biz.url },
+        { name: area.name, url: `${biz.url}/${area.urlSlug}` },
         { name: neighborhood.name, url },
       ],
     }),
-    localBusinessSchema(neighborhood, area),
+    localBusinessSchema(neighborhood, area, ctx),
     breadcrumbSchema([
-      { name: 'Home', url: BUSINESS.url },
-      { name: area.name, url: `${BUSINESS.url}/${area.urlSlug}` },
+      { name: 'Home', url: biz.url },
+      { name: area.name, url: `${biz.url}/${area.urlSlug}` },
       { name: neighborhood.name, url },
     ]),
     {
       '@context': 'https://schema.org',
       '@type': 'ItemList',
-      name: `Cleaning Services in ${neighborhood.name}`,
+      name: `Services in ${neighborhood.name}`,
       numberOfItems: SERVICES.length,
       itemListElement: SERVICES.map((s, i) => ({
         '@type': 'ListItem',
         position: i + 1,
         name: s.name,
-        url: `${BUSINESS.url}/${neighborhood.urlSlug}/${s.slug}`,
+        url: `${biz.url}/${neighborhood.urlSlug}/${s.slug}`,
       })),
     },
-    howToBookSchema(),
+    howToBookSchema(ctx),
   ]
 }
 
-export function neighborhoodServicePageSchemas(neighborhood: Neighborhood, service: Service, area: Area) {
-  const url = `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}`
-  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $49/hr | The NYC Maid`
-  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Google. ${BUSINESS.phoneDisplay}`
+export function neighborhoodServicePageSchemas(neighborhood: Neighborhood, service: Service, area: Area, ctx?: BusinessCtx) {
+  const biz = resolveBusiness(ctx)
+  const url = `${biz.url}/${neighborhood.urlSlug}/${service.slug}`
+  const title = `${service.name} in ${neighborhood.name}, ${area.name} | ${biz.name}`
+  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}. ${service.features.slice(0, 3).join(', ')}. ${biz.phoneDisplay}`.trim()
   return [
-    organizationSchema(),
-    webSiteSchema(),
+    organizationSchema(ctx),
+    webSiteSchema(ctx),
     webPageSchema({
       url,
       name: title,
       description,
       breadcrumb: [
-        { name: 'Home', url: BUSINESS.url },
-        { name: area.name, url: `${BUSINESS.url}/${area.urlSlug}` },
-        { name: neighborhood.name, url: `${BUSINESS.url}/${neighborhood.urlSlug}` },
+        { name: 'Home', url: biz.url },
+        { name: area.name, url: `${biz.url}/${area.urlSlug}` },
+        { name: neighborhood.name, url: `${biz.url}/${neighborhood.urlSlug}` },
         { name: service.name, url },
       ],
     }),
-    localBusinessSchema(neighborhood, area),
+    localBusinessSchema(neighborhood, area, ctx),
     serviceSchema(service, neighborhood, area),
     professionalServiceSchema(service, neighborhood, area),
     breadcrumbSchema([
-      { name: 'Home', url: BUSINESS.url },
-      { name: area.name, url: `${BUSINESS.url}/${area.urlSlug}` },
-      { name: neighborhood.name, url: `${BUSINESS.url}/${neighborhood.urlSlug}` },
+      { name: 'Home', url: biz.url },
+      { name: area.name, url: `${biz.url}/${area.urlSlug}` },
+      { name: neighborhood.name, url: `${biz.url}/${neighborhood.urlSlug}` },
       { name: service.name, url },
     ]),
-    howToBookSchema(),
+    howToBookSchema(ctx),
   ]
 }
 
-export function servicePageSchemas(service: Service) {
-  const url = `${BUSINESS.url}/services/${service.urlSlug}`
-  const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | 5-Star Rated | The NYC Maid`
-  const description = `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, Long Island & NJ. ${service.features.slice(0, 3).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Google. ${BUSINESS.phoneDisplay}`
+export function servicePageSchemas(service: Service, ctx?: BusinessCtx) {
+  const biz = resolveBusiness(ctx)
+  const url = `${biz.url}/services/${service.urlSlug}`
+  const title = `${service.name} | ${biz.name}`
+  const description = `Professional ${service.name.toLowerCase()}. ${service.features.slice(0, 3).join(', ')}. ${biz.phoneDisplay}`.trim()
   return [
-    organizationSchema(),
-    webSiteSchema(),
+    organizationSchema(ctx),
+    webSiteSchema(ctx),
     webPageSchema({
       url,
       name: title,
       description,
       breadcrumb: [
-        { name: 'Home', url: BUSINESS.url },
-        { name: 'Services', url: `${BUSINESS.url}/nyc-maid-service-services-offered-by-the-nyc-maid` },
+        { name: 'Home', url: biz.url },
+        { name: 'Services', url: `${biz.url}/services` },
         { name: service.name, url },
       ],
     }),
-    localBusinessSchema(),
+    localBusinessSchema(undefined, undefined, ctx),
     serviceSchema(service),
     professionalServiceSchema(service),
     breadcrumbSchema([
-      { name: 'Home', url: BUSINESS.url },
-      { name: 'Services', url: `${BUSINESS.url}/nyc-maid-service-services-offered-by-the-nyc-maid` },
+      { name: 'Home', url: biz.url },
+      { name: 'Services', url: `${biz.url}/services` },
       { name: service.name, url },
     ]),
-    howToBookSchema(),
+    howToBookSchema(ctx),
   ]
 }

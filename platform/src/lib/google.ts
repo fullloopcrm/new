@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { encryptSecret, decryptSecret, isEncrypted } from '@/lib/secret-crypto'
 
 interface GoogleTokens {
   access_token: string
@@ -20,13 +21,38 @@ export async function getGoogleTokens(tenantId: string): Promise<GoogleTokens | 
     .single()
 
   if (!data?.google_tokens) return null
-  return data.google_tokens as GoogleTokens
+  const raw = data.google_tokens as GoogleTokens
+
+  // Decrypt refresh_token if encrypted; access_token is short-lived so kept plain.
+  try {
+    if (raw.refresh_token && isEncrypted(raw.refresh_token)) {
+      raw.refresh_token = decryptSecret(raw.refresh_token)
+    }
+  } catch (err) {
+    console.error('[google] refresh_token decrypt failed:', err)
+    return null
+  }
+  return raw
 }
 
 export async function saveGoogleTokens(tenantId: string, tokens: GoogleTokens): Promise<void> {
+  // Encrypt refresh_token at rest. Ignore encryption errors in dev where
+  // SECRET_ENCRYPTION_KEY isn't configured — falls back to plaintext so local
+  // development still works.
+  let stored: GoogleTokens = tokens
+  if (tokens.refresh_token && !isEncrypted(tokens.refresh_token)) {
+    try {
+      stored = { ...tokens, refresh_token: encryptSecret(tokens.refresh_token) }
+    } catch (err) {
+      if (process.env.NODE_ENV === 'production') {
+        throw err
+      }
+      console.warn('[google] SECRET_ENCRYPTION_KEY not set — storing refresh_token in plaintext (dev only)')
+    }
+  }
   await supabaseAdmin
     .from('tenants')
-    .update({ google_tokens: tokens })
+    .update({ google_tokens: stored })
     .eq('id', tenantId)
 }
 
