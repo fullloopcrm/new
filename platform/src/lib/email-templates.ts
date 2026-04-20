@@ -355,3 +355,43 @@ export function paymentReceiptEmail(data: TemplateData & {
     </table>
   `, data)
 }
+
+export function adminNewClientEmail(
+  client: {
+    name: string
+    phone?: string
+    email?: string
+    address?: string
+    notes?: string
+    referralInfo?: string
+    referrerMatched?: boolean
+  },
+  data: TemplateData & { adminUrl?: string }
+): { subject: string; html: string } {
+  const rows: string[] = []
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:10px 12px;color:#6b7280;font-size:12px;text-transform:uppercase;border-top:1px solid #e5e7eb;">${label}</td><td style="padding:10px 12px;color:#111827;font-size:14px;font-weight:500;text-align:right;border-top:1px solid #e5e7eb;">${value}</td></tr>`
+  rows.push(row('Name', client.name))
+  if (client.phone) rows.push(row('Phone', client.phone))
+  if (client.email) rows.push(row('Email', client.email))
+  if (client.address) rows.push(row('Address', client.address))
+  if (client.referralInfo)
+    rows.push(row('Referred by', client.referralInfo + (client.referrerMatched ? ' (matched)' : ' (unmatched)')))
+  if (client.notes) rows.push(row('Notes', client.notes))
+
+  const cta = data.adminUrl
+    ? `<a href="${data.adminUrl}" style="display:inline-block;background:${data.primaryColor || '#111827'};color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">View Clients</a>`
+    : ''
+
+  const html = baseTemplate(
+    `
+    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">New client added</h2>
+    <table width="100%" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+      ${rows.join('\n')}
+    </table>
+    ${cta}
+  `,
+    data,
+  )
+  return { subject: `New Client: ${client.name}`, html }
+}

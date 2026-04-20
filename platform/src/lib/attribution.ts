@@ -132,6 +132,45 @@ export async function attributeByAddress(
   return null
 }
 
+// Attribute a lead from the public collect form (Selena's abandon-to-lead funnel)
+export async function attributeCollectForm(
+  tenantId: string,
+  clientName: string,
+  address: string,
+  clientId: string
+): Promise<{ domain: string; confidence: number } | null> {
+  const result = await attributeByAddress(tenantId, address)
+  if (!result) return null
+
+  const timeLabel = result.minutesAgo < 60
+    ? `${result.minutesAgo}min ago`
+    : result.minutesAgo < 1440
+      ? `${Math.round(result.minutesAgo / 60)}hr ago`
+      : `${Math.round(result.minutesAgo / 1440)}d ago`
+
+  const actionLabels: Record<string, string> = {
+    call: 'Called from',
+    text: 'Texted from',
+    book: 'Booked from',
+    search_visit: 'Found',
+    engaged_visit: 'Browsed',
+    visit: 'Visited',
+  }
+  const actionLabel = actionLabels[result.action] || 'Visited'
+
+  await supabaseAdmin.from('notifications').insert({
+    tenant_id: tenantId,
+    type: 'hot_lead',
+    title: 'Website → Lead',
+    message: `${clientName} (${result.neighborhood}) — ${actionLabel} ${result.domain} ${timeLabel} → submitted collect form (${result.confidence}%)`,
+    channel: 'system',
+    recipient_type: 'admin',
+    client_id: clientId,
+  })
+
+  return { domain: result.domain, confidence: result.confidence }
+}
+
 // Attribute a booking automatically
 export async function autoAttributeBooking(
   tenantId: string,
