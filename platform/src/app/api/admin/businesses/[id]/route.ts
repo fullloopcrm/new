@@ -207,7 +207,10 @@ export async function PUT(
     // Integration fields
     'resend_api_key', 'resend_domain', 'email_from',
     'telnyx_api_key', 'telnyx_phone',
-    'stripe_account_id',
+    'stripe_account_id', 'stripe_api_key',
+    'imap_host', 'imap_port', 'imap_user', 'imap_pass',
+    'zelle_email',
+    'anthropic_api_key', 'indexnow_key',
     'google_place_id',
     // Business info
     'phone', 'email', 'website_url', 'address', 'tagline',

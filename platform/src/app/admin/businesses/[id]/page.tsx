@@ -42,6 +42,14 @@ type Business = {
   google_tokens: { access_token?: string; refresh_token?: string; expires_at?: number } | null
   google_business: { account_name?: string; location_name?: string; location_title?: string } | null
   stripe_account_id: string | null
+  stripe_api_key: string | null
+  imap_host: string | null
+  imap_port: number | null
+  imap_user: string | null
+  imap_pass: string | null
+  zelle_email: string | null
+  indexnow_key: string | null
+  anthropic_api_key: string | null
   logo_url: string | null
   primary_color: string
   secondary_color: string | null
@@ -149,7 +157,15 @@ export default function BusinessDetailPage() {
   const [telnyxApiKey, setTelnyxApiKey] = useState('')
   const [telnyxPhone, setTelnyxPhone] = useState('')
   const [stripeAccountId, setStripeAccountId] = useState('')
+  const [stripeApiKey, setStripeApiKey] = useState('')
   const [googlePlaceId, setGooglePlaceId] = useState('')
+  const [imapHost, setImapHost] = useState('')
+  const [imapPort, setImapPort] = useState<number | ''>('')
+  const [imapUser, setImapUser] = useState('')
+  const [imapPass, setImapPass] = useState('')
+  const [zelleEmail, setZelleEmail] = useState('')
+  const [indexnowKey, setIndexnowKey] = useState('')
+  const [anthropicApiKey, setAnthropicApiKey] = useState('')
   const [businessPhone, setBusinessPhone] = useState('')
   const [businessEmail, setBusinessEmail] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -188,7 +204,15 @@ export default function BusinessDetailPage() {
           setTelnyxApiKey(b.telnyx_api_key || '')
           setTelnyxPhone(b.telnyx_phone || '')
           setStripeAccountId(b.stripe_account_id || '')
+          setStripeApiKey(b.stripe_api_key || '')
           setGooglePlaceId(b.google_place_id || '')
+          setImapHost(b.imap_host || '')
+          setImapPort(b.imap_port ?? '')
+          setImapUser(b.imap_user || '')
+          setImapPass(b.imap_pass || '')
+          setZelleEmail(b.zelle_email || '')
+          setIndexnowKey(b.indexnow_key || '')
+          setAnthropicApiKey(b.anthropic_api_key || '')
           setBusinessPhone(b.phone || '')
           setBusinessEmail(b.email || '')
           setWebsiteUrl(b.website_url || '')
@@ -602,11 +626,74 @@ export default function BusinessDetailPage() {
           {/* Stripe — Payments */}
           <div>
             <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Stripe — Payments</h3>
-            <p className="text-xs text-slate-400 mb-4">Stripe Connect account ID</p>
+            <p className="text-xs text-slate-400 mb-4">Stripe Connect account ID + per-tenant secret key</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Account ID (Connect)</label>
+                <input value={stripeAccountId} onChange={(e) => setStripeAccountId(e.target.value)}
+                  placeholder="acct_xxxxxxxxx" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Secret Key (sk_live_...)</label>
+                <input type="password" value={stripeApiKey} onChange={(e) => setStripeApiKey(e.target.value)}
+                  placeholder="sk_live_xxxxxxxxx" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+                <p className="text-xs text-slate-400 mt-1">Used by payment-processor + checkout. Encrypted at rest.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* IMAP — Zelle/Venmo email monitor */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">IMAP — Zelle/Venmo Email Monitor</h3>
+            <p className="text-xs text-slate-400 mb-4">Cron pulls inbox every minute and detects payment emails.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Host</label>
+                <input value={imapHost} onChange={(e) => setImapHost(e.target.value)}
+                  placeholder="imap.gmail.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Port</label>
+                <input type="number" value={imapPort} onChange={(e) => setImapPort(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="993" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">User</label>
+                <input value={imapUser} onChange={(e) => setImapUser(e.target.value)}
+                  placeholder="hi@business.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Password / App Password</label>
+                <input type="password" value={imapPass} onChange={(e) => setImapPass(e.target.value)}
+                  placeholder="••••••••" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="text-xs text-slate-400 uppercase">Zelle Email (for payment instructions to clients)</label>
+              <input value={zelleEmail} onChange={(e) => setZelleEmail(e.target.value)}
+                placeholder="pay@business.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+            </div>
+          </div>
+
+          {/* AI — Anthropic (Selena) */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Anthropic — Selena AI</h3>
+            <p className="text-xs text-slate-400 mb-4">Leave blank to use platform-level key.</p>
             <div>
-              <label className="text-xs text-slate-400 uppercase">Account ID</label>
-              <input value={stripeAccountId} onChange={(e) => setStripeAccountId(e.target.value)}
-                placeholder="acct_xxxxxxxxx" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              <label className="text-xs text-slate-400 uppercase">Anthropic API Key (sk-ant-...)</label>
+              <input type="password" value={anthropicApiKey} onChange={(e) => setAnthropicApiKey(e.target.value)}
+                placeholder="sk-ant-xxxxxxxxx" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+            </div>
+          </div>
+
+          {/* SEO — IndexNow */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">SEO — IndexNow</h3>
+            <p className="text-xs text-slate-400 mb-4">Bing/Yahoo instant indexing key for published pages.</p>
+            <div>
+              <label className="text-xs text-slate-400 uppercase">IndexNow Key</label>
+              <input value={indexnowKey} onChange={(e) => setIndexnowKey(e.target.value)}
+                placeholder="32-char hex" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
             </div>
           </div>
 
@@ -636,6 +723,14 @@ export default function BusinessDetailPage() {
               telnyx_api_key: telnyxApiKey || null,
               telnyx_phone: telnyxPhone || null,
               stripe_account_id: stripeAccountId || null,
+              stripe_api_key: stripeApiKey || null,
+              imap_host: imapHost || null,
+              imap_port: imapPort === '' ? null : imapPort,
+              imap_user: imapUser || null,
+              imap_pass: imapPass || null,
+              zelle_email: zelleEmail || null,
+              indexnow_key: indexnowKey || null,
+              anthropic_api_key: anthropicApiKey || null,
               google_place_id: googlePlaceId || null,
               phone: businessPhone || null,
               email: businessEmail || null,
