@@ -322,6 +322,11 @@ export async function updateChecklist(conversationId: string, updates: Partial<B
 
 // ─── Dynamic System Prompt ──────────────────────────────────────────────────
 
+export async function buildSystemPromptForPreview(tenantId: string): Promise<string> {
+  const config = await getSelenaConfig(tenantId)
+  return buildSystemPrompt(tenantId, config)
+}
+
 async function buildSystemPrompt(tenantId: string, config: SelenaConfig): Promise<string> {
   const s = await getSettings(tenantId)
   const bizName = s.business_name || 'the business'
