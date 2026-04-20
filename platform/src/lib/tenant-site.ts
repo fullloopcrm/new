@@ -219,3 +219,88 @@ export async function getTenantReviews(tenantId: string) {
     .limit(20)
   return data || []
 }
+
+/**
+ * Look up a tenant's service by URL slug and adapt it to the Service shape
+ * expected by /site/services/[slug] so the SEO template still renders.
+ * Returns null if no tenant service matches the slug.
+ */
+export async function getTenantServiceByUrlSlug(
+  tenantId: string,
+  urlSlug: string,
+): Promise<{
+  slug: string
+  urlSlug: string
+  name: string
+  shortName: string
+  description: string
+  features: string[]
+  idealFor: string[]
+  priceRange: string
+  duration: string
+} | null> {
+  const services = await getTenantServices(tenantId)
+  const match = services.find(s => toSlug(s.name) === urlSlug) as
+    | {
+        id: string
+        name: string
+        description?: string | null
+        default_hourly_rate?: number | null
+        default_duration_hours?: number | null
+      }
+    | undefined
+  if (!match) return null
+
+  const rate = match.default_hourly_rate || 0
+  const duration = match.default_duration_hours || 2
+  const minPrice = rate * duration
+  const maxPrice = rate * (duration + 2)
+
+  return {
+    slug: toSlug(match.name),
+    urlSlug,
+    name: match.name,
+    shortName: match.name.split(' ')[0],
+    description: match.description || `Professional ${match.name.toLowerCase()}.`,
+    features: [],
+    idealFor: [],
+    priceRange: rate ? `$${minPrice}–$${maxPrice}` : '',
+    duration: `${duration}–${duration + 1} hours`,
+  }
+}
+
+/**
+ * Convert all tenant services to the Service shape for the "other services"
+ * grid on service pages. Excludes the current service by slug.
+ */
+export async function getTenantServiceList(
+  tenantId: string,
+  excludeSlug?: string,
+): Promise<
+  Array<{ slug: string; urlSlug: string; name: string; shortName: string; description: string; priceRange: string; duration: string }>
+> {
+  const services = await getTenantServices(tenantId)
+  return services
+    .map(s => {
+      const svc = s as {
+        id: string
+        name: string
+        description?: string | null
+        default_hourly_rate?: number | null
+        default_duration_hours?: number | null
+      }
+      const slug = toSlug(svc.name)
+      const rate = svc.default_hourly_rate || 0
+      const duration = svc.default_duration_hours || 2
+      return {
+        slug,
+        urlSlug: slug,
+        name: svc.name,
+        shortName: svc.name.split(' ')[0],
+        description: svc.description || `Professional ${svc.name.toLowerCase()}.`,
+        priceRange: rate ? `$${rate * duration}–$${rate * (duration + 2)}` : '',
+        duration: `${duration}–${duration + 1} hours`,
+      }
+    })
+    .filter(s => s.slug !== excludeSlug)
+}

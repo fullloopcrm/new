@@ -8,22 +8,31 @@ import JsonLd from '@/components/site/JsonLd'
 import Breadcrumbs from '@/components/site/Breadcrumbs'
 import FAQSection from '@/components/site/FAQSection'
 import CTABlock from '@/components/site/CTABlock'
-import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
+import { getTenantFromHeaders, tenantSiteUrl, getTenantServiceByUrlSlug, getTenantServiceList } from '@/lib/tenant-site'
 
 interface Props {
   params: Promise<{ slug: string }>
 }
 
+// Per-tenant dynamic rendering — pages render on demand since tenant
+// context isn't available at build time.
+export const dynamic = 'force-static'
+export const dynamicParams = true
+export const revalidate = 86400
+
 export async function generateStaticParams() {
-  return SERVICES.map(s => ({ slug: s.urlSlug }))
+  return []
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const service = getServiceByUrlSlug(slug)
+  const tenant = await getTenantFromHeaders()
+  // Prefer tenant-scoped service, fall back to static SERVICES for legacy nycmaid urls
+  const service = tenant
+    ? (await getTenantServiceByUrlSlug(tenant.id, slug)) || getServiceByUrlSlug(slug)
+    : getServiceByUrlSlug(slug)
   if (!service) return {}
 
-  const tenant = await getTenantFromHeaders()
   const name = tenant?.name || 'Our Company'
   const phone = tenant?.phone || ''
   const base = tenantSiteUrl(tenant)
@@ -53,10 +62,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ServicePage({ params }: Props) {
   const { slug } = await params
-  const service = getServiceByUrlSlug(slug)
+  const tenant = await getTenantFromHeaders()
+  const service = tenant
+    ? (await getTenantServiceByUrlSlug(tenant.id, slug)) || getServiceByUrlSlug(slug)
+    : getServiceByUrlSlug(slug)
   if (!service) notFound()
 
-  const tenant = await getTenantFromHeaders()
   const name = tenant?.name || 'Our Company'
   const phone = tenant?.phone || ''
   const phoneDigits = phone.replace(/\D/g, '')
@@ -69,7 +80,10 @@ export default async function ServicePage({ params }: Props) {
   const seen = new Set(richFaqs.map(f => f.question))
   const combined = [...richFaqs, ...common.filter(f => !seen.has(f.question))]
   const faqs = combined.slice(0, 25)
-  const otherServices = SERVICES.filter(s => s.slug !== service.slug)
+  // Tenant-scoped "other services" grid — excludes current service.
+  const otherServices = tenant
+    ? await getTenantServiceList(tenant.id, service.slug)
+    : SERVICES.filter(s => s.slug !== service.slug)
 
   return (
     <>
