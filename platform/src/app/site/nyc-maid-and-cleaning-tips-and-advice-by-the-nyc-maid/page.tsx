@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { breadcrumbSchema } from '@/lib/seo/schema'
-import JsonLd from '@/components/site/JsonLd'
-import Breadcrumbs from '@/components/site/Breadcrumbs'
-import CTABlock from '@/components/site/CTABlock'
-import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
+import { breadcrumbSchema, localBusinessSchema } from '@/lib/seo/schema'
+import JsonLd from '@/components/marketing/JsonLd'
+import Breadcrumbs from '@/components/marketing/Breadcrumbs'
+import CTABlock from '@/components/marketing/CTABlock'
 
 const categories = [
   { id: 'kitchen', name: 'Kitchen', icon: '🍳' },
@@ -150,30 +149,18 @@ const faqData = [
   { q: 'What cleaning products should I avoid with pets?', a: 'Avoid bleach, ammonia, phenol-based products (Lysol, Pine-Sol), and anything with essential oils — especially tea tree, eucalyptus, and citrus, which are toxic to cats. Stick with vinegar, castile soap, and enzyme cleaners.' },
 ]
 
-export async function generateMetadata(): Promise<Metadata> {
-  const tenant = await getTenantFromHeaders()
-  const name = tenant?.name || 'Our Company'
-  const phone = tenant?.phone || ''
-  const base = tenantSiteUrl(tenant)
-  const title = `The 100 Best Cleaning Tips for NYC Apartments | ${name}`
-  const description = `The definitive list — 100 expert cleaning tips for NYC apartments from professional cleaners. Kitchen, bathroom, floors, pets & more.${phone ? ` Call ${phone}.` : ''}`
-  return {
-    title,
-    description,
-    ...(base && { alternates: { canonical: `${base}/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid` } }),
-    openGraph: {
-      title: `100 Best Cleaning Tips | ${name}`,
-      description: 'The definitive cleaning tips guide for NYC apartments — 100 expert tips organized by room.',
-      ...(base && { url: `${base}/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid` }),
-    },
-  }
+export const metadata: Metadata = {
+  title: 'The 100 Best Cleaning Tips for NYC Apartments | The NYC Maid',
+  description: 'The definitive list — 100 expert cleaning tips for NYC apartments from professional cleaners. Kitchen, bathroom, floors, pets & more. From $59/hr. (212) 202-9030',
+  alternates: { canonical: 'https://www.thenycmaid.com/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid' },
+  openGraph: {
+    title: '100 Best Cleaning Tips | The NYC Maid',
+    description: 'The definitive cleaning tips guide for NYC apartments — 100 expert tips organized by room.',
+    url: 'https://www.thenycmaid.com/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid',
+  },
 }
 
-export default async function TipsPage() {
-  const tenant = await getTenantFromHeaders()
-  const phone = tenant?.phone || ''
-  const phoneDigits = phone.replace(/\D/g, '')
-  const base = tenantSiteUrl(tenant)
+export default function TipsPage() {
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -207,17 +194,18 @@ export default async function TipsPage() {
   return (
     <>
       <JsonLd data={[
+        localBusinessSchema(),
         breadcrumbSchema([
-          ...(base ? [{ name: 'Home', url: base }] : []),
-          { name: '100 Cleaning Tips', url: `${base}/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid` },
+          { name: 'Home', url: 'https://www.thenycmaid.com' },
+          { name: '100 Cleaning Tips', url: 'https://www.thenycmaid.com/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid' },
         ]),
         faqSchema,
         howToSchema,
       ]} />
 
-      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand)] py-16 md:py-24">
+      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-16 md:py-24">
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <p className="text-xs font-semibold text-[var(--brand-accent)] tracking-[0.25em] uppercase mb-4">From the Pros Who Clean NYC Every Day</p>
+          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.25em] uppercase mb-4">From the Pros Who Clean NYC Every Day</p>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-4">The 100 Best Cleaning Tips for NYC Apartments</h1>
           <p className="text-white/60 text-lg max-w-3xl mx-auto">No fluff, no sponsored products — just the tips our professional cleaning team actually uses in real NYC apartments every single day.</p>
         </div>
@@ -228,10 +216,10 @@ export default async function TipsPage() {
 
         {/* Table of contents */}
         <nav className="border border-gray-200 rounded-xl p-6 md:p-8 mb-16">
-          <h2 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-4">Jump to a Category</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-4">Jump to a Category</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {categories.map(cat => (
-              <a key={cat.id} href={`#${cat.id}`} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-[var(--brand-accent)]/20 hover:text-[var(--brand)] transition-colors">
+              <a key={cat.id} href={`#${cat.id}`} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
                 <span>{cat.icon}</span>
                 <span>{cat.name}</span>
               </a>
@@ -244,16 +232,16 @@ export default async function TipsPage() {
           <section key={cat.id} id={cat.id} className="mb-16 scroll-mt-24">
             <div className="flex items-center gap-3 mb-6">
               <span className="text-2xl">{cat.icon}</span>
-              <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">{cat.name}</h2>
+              <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">{cat.name}</h2>
             </div>
             <div className="space-y-4">
               {tips[cat.id].map(tip => {
                 tipNumber++
                 return (
                   <div key={tip.title} className="flex gap-4 items-start p-4 rounded-lg hover:bg-gray-50 transition-colors">
-                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--brand)] text-white text-sm font-bold flex items-center justify-center">{tipNumber}</span>
+                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1E2A4A] text-white text-sm font-bold flex items-center justify-center">{tipNumber}</span>
                     <div>
-                      <h3 className="font-semibold text-[var(--brand)]">{tip.title}</h3>
+                      <h3 className="font-semibold text-[#1E2A4A]">{tip.title}</h3>
                       <p className="text-gray-600 text-sm mt-1">{tip.tip}</p>
                     </div>
                   </div>
@@ -262,11 +250,11 @@ export default async function TipsPage() {
             </div>
 
             {/* Mid-page CTA every 3 categories */}
-            {phone && (cat.id === 'bedroom' || cat.id === 'laundry' || cat.id === 'pets') && (
-              <div className="bg-[var(--brand-accent)]/15 border border-[var(--brand-accent)]/30 rounded-xl p-6 mt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-                <p className="text-[var(--brand)] font-medium">Rather have a pro handle it?</p>
-                <a href={`tel:${phoneDigits}`} className="border-2 border-[var(--brand)] text-[var(--brand)] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand)] hover:text-white transition-colors flex-shrink-0">
-                  {phone}
+            {(cat.id === 'bedroom' || cat.id === 'laundry' || cat.id === 'pets') && (
+              <div className="bg-[#A8F0DC]/15 border border-[#A8F0DC]/30 rounded-xl p-6 mt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+                <p className="text-[#1E2A4A] font-medium">Rather have a pro handle it? We start at $59/hr.</p>
+                <a href="sms:2122029030" className="border-2 border-[#1E2A4A] text-[#1E2A4A] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A] hover:text-white transition-colors flex-shrink-0">
+                  Text (212) 202-9030
                 </a>
               </div>
             )}
@@ -275,11 +263,11 @@ export default async function TipsPage() {
 
         {/* FAQ section */}
         <section className="mt-20 mb-16">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-8">Frequently Asked Questions</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-8">Frequently Asked Questions</h2>
           <div className="space-y-6">
             {faqData.map(f => (
               <div key={f.q} className="border-b border-gray-200 pb-6">
-                <h3 className="font-semibold text-[var(--brand)] text-lg mb-2">{f.q}</h3>
+                <h3 className="font-semibold text-[#1E2A4A] text-lg mb-2">{f.q}</h3>
                 <p className="text-gray-600">{f.a}</p>
               </div>
             ))}
@@ -288,12 +276,12 @@ export default async function TipsPage() {
 
         <div className="text-center">
           <p className="text-gray-600">
-            Want more in-depth articles? Check out our <Link href="/nyc-maid-service-blog" className="text-[var(--brand)] font-semibold hover:underline">blog</Link> for detailed cleaning guides.
+            Want more in-depth articles? Check out our <Link href="/nyc-maid-service-blog" className="text-[#1E2A4A] font-semibold hover:underline">blog</Link> for detailed cleaning guides.
           </p>
         </div>
       </div>
 
-      <CTABlock title="Done Reading? Let Us Handle It." phone={phone} />
+      <CTABlock title="Done Reading? Let Us Handle the Cleaning." />
     </>
   )
 }

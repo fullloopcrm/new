@@ -85,7 +85,7 @@ export const SERVICES: Service[] = [
     description: 'Construction dust gets everywhere. Our post-renovation cleaning removes fine dust, debris, and residue from every surface to make your newly renovated space livable.',
     features: ['Fine construction dust on all surfaces', 'Paint splatter and adhesive removal', 'Vent and duct exterior cleaning', 'Floor scrubbing — dust, debris, residue', 'Window and glass cleaning inside', 'New fixture and hardware detailing', 'Baseboard and trim wipe-down', 'Inside cabinets — sawdust and dust', 'Light switches and outlet plates', 'Debris and leftover material removal', 'Countertop and surface restoration', 'Final detail pass — every room'],
     idealFor: ['After kitchen remodel', 'Bathroom renovation', 'Full apartment renovation', 'New construction move-in'],
-    priceRange: '$325–$650',
+    priceRange: '$375–$750',
     duration: '3–5 hours',
   },
   {
