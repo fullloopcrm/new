@@ -121,18 +121,21 @@ export default function SalesHubPage() {
           </p>
         </Link>
 
-        <div className="relative bg-white border border-slate-200 rounded-xl p-5 opacity-70">
+        <Link
+          href="/dashboard/sales/routes"
+          className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-teal-400 hover:shadow-md transition-all"
+        >
           <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">Coming soon</p>
-              <h3 className="text-lg font-bold text-slate-500 mt-1">Route Optimizer</h3>
+              <p className="text-xs text-teal-600 uppercase tracking-wide font-medium">Live</p>
+              <h3 className="text-lg font-bold text-slate-900 mt-1">Route Optimizer</h3>
             </div>
             <span className="text-2xl">🗺️</span>
           </div>
-          <p className="text-sm text-slate-400 leading-relaxed">
-            Multi-stop route planning. Time windows, lunch breaks, driver home. Export to phones.
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Auto-build daily routes from bookings. Nearest-neighbor + 2-opt optimization. Publish to team via SMS with Google Maps navigation.
           </p>
-        </div>
+        </Link>
 
         <div className="relative bg-white border border-slate-200 rounded-xl p-5 opacity-70">
           <div className="flex items-start justify-between mb-3">
