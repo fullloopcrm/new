@@ -12,6 +12,8 @@ type Txn = {
   amount_cents: number
   status: string
   coa_id: string | null
+  suggested_coa_id: string | null
+  suggested_confidence: number | null
   memo: string | null
   bank_accounts: BankAccount | null
   chart_of_accounts: { id: string; code: string; name: string } | null
@@ -69,6 +71,25 @@ export default function BankTransactionsPage() {
     setBusy(null); load()
   }
 
+  async function suggestAll() {
+    setBusy('suggest-all')
+    const res = await fetch('/api/finance/bank-transactions/suggest', { method: 'POST' })
+    if (!res.ok) alert((await res.json()).error || 'Failed')
+    setBusy(null); load()
+  }
+
+  async function acceptAll(threshold: number) {
+    setBusy('accept-all')
+    const res = await fetch('/api/finance/bank-transactions/accept-suggestions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threshold }),
+    })
+    if (!res.ok) { alert((await res.json()).error || 'Failed'); setBusy(null); return }
+    const data = await res.json()
+    alert(`Auto-posted ${data.accepted} transactions (≥${Math.round(threshold * 100)}% confidence)`)
+    setBusy(null); load()
+  }
+
   const postable = coas.filter(c => !c.is_bank_account)
 
   return (
@@ -79,9 +100,19 @@ export default function BankTransactionsPage() {
           <h1 className="font-heading text-2xl font-bold text-slate-900">Bank Transactions</h1>
           <p className="text-sm text-slate-500">Review and categorize imported transactions.</p>
         </div>
-        <Link href="/dashboard/finance/import" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
-          + Import More
-        </Link>
+        <div className="flex gap-2">
+          <button onClick={suggestAll} disabled={busy === 'suggest-all'}
+            className="px-3 py-2 text-sm font-medium rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50">
+            {busy === 'suggest-all' ? 'AI suggesting…' : 'AI Suggest All'}
+          </button>
+          <button onClick={() => acceptAll(0.8)} disabled={busy === 'accept-all'}
+            className="px-3 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
+            {busy === 'accept-all' ? 'Posting…' : 'Auto-accept ≥80%'}
+          </button>
+          <Link href="/dashboard/finance/import" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            + Import More
+          </Link>
+        </div>
       </div>
 
       <div className="flex gap-1 mb-4 border-b border-slate-200">
@@ -133,15 +164,37 @@ export default function BankTransactionsPage() {
                     {t.status === 'posted' ? (
                       <span className="text-xs text-slate-500">{t.chart_of_accounts?.code} · {t.chart_of_accounts?.name}</span>
                     ) : (
-                      <select
-                        value=""
-                        disabled={busy === t.id}
-                        onChange={e => e.target.value && categorize(t.id, e.target.value)}
-                        className="bg-white border border-slate-300 rounded px-2 py-1 text-xs max-w-xs"
-                      >
-                        <option value="">— categorize —</option>
-                        {postable.map(c => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}
-                      </select>
+                      <div className="space-y-1">
+                        {t.suggested_coa_id && (
+                          (() => {
+                            const sug = coas.find(c => c.id === t.suggested_coa_id)
+                            const conf = Number(t.suggested_confidence || 0)
+                            const confBg = conf >= 0.8 ? 'bg-green-50 text-green-700 border-green-200' :
+                                            conf >= 0.6 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                            'bg-slate-100 text-slate-600 border-slate-200'
+                            return (
+                              <button
+                                onClick={() => categorize(t.id, t.suggested_coa_id!)}
+                                disabled={busy === t.id}
+                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-[11px] font-medium hover:opacity-80 disabled:opacity-50 ${confBg}`}
+                                title="Accept AI suggestion"
+                              >
+                                <span>✓ {sug?.code} · {sug?.name}</span>
+                                <span className="opacity-60">{Math.round(conf * 100)}%</span>
+                              </button>
+                            )
+                          })()
+                        )}
+                        <select
+                          value=""
+                          disabled={busy === t.id}
+                          onChange={e => e.target.value && categorize(t.id, e.target.value)}
+                          className="block bg-white border border-slate-300 rounded px-2 py-1 text-xs max-w-xs"
+                        >
+                          <option value="">{t.suggested_coa_id ? '— override —' : '— categorize —'}</option>
+                          {postable.map(c => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}
+                        </select>
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
