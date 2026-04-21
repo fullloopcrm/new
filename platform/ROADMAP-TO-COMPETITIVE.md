@@ -97,6 +97,28 @@ Visual directory of available integrations + install flow.
 - Load testing before first 10 tenants (k6 or Artillery)
 - Security audit pre-cutover
 
+## Security hygiene floor (do while styling, not as a gated phase)
+
+Sequence: design/styling is the priority focus. These items are the sub-day fixes that should absorb *into* design work, not wait for a dedicated security phase — because every new code path shipped during design will otherwise need security retrofit later.
+
+### Must-not-defer (fold in continuously)
+- **Vendor secret encryption sweep (~half day).** `secret-crypto.ts` + `encryptSecret`/`decryptSecret` already ship and are backwards-compatible. Currently only Google OAuth refresh token is encrypted. Extend to: `stripe_api_key`, `telnyx_api_key`, `resend_api_key`, `imap_pass`, `anthropic_api_key`. Wrap every write path in `encryptSecret()`, every read in `decryptSecret()`. DB leak = every tenant's entire payment/SMS/email stack compromised. Single highest-leverage fix.
+- **Never log full tenant vendor keys.** Log last-4 only. Add to any new admin action that touches a key field.
+- **Audit log table + admin-mutation middleware.** Every admin-side mutation (who, what tenant, which field, when) → row in `admin_audit_log` JSONB table. Cheap now, compliance-ready later. Bake into new admin pages as they're styled.
+- **Surface vendor errors, never swallow.** If Telnyx/Stripe/Resend returns 401/403/429 for tenant X, log it to `tenant_health_events` + flag in admin. Fail-loud not fail-silent.
+
+### Post-design-phase (genuine security phase — after styling is solid)
+- **Background health-check cron** — nightly `runAllChecks()` for every active tenant → `tenant_health_checks` table → admin dashboard shows regressions → pages admin on status change (Stripe suspended, Resend DKIM lapsed, Telnyx messaging profile detached, IMAP pw rotated, Anthropic quota hit). ~Half day.
+- **Key rotation UX** — "rotate all keys" flow per tenant + audit trail of plaintext access.
+- **Account-ownership paper trail + offboarding runbook.** When Full Loop creates Stripe/Telnyx/Resend accounts *for* a tenant: who signs Stripe ToS (must be tenant — merchant of record), who holds root creds, what rotates when a team member leaves, and on tenant churn does the account port out, transfer, or close. 1-pager + clause in the agreement. No code.
+- **SOC2-ish audit prep** (only when a deal requires it — don't prematurely buy the framework).
+- **Pen test + threat model** (before first enterprise-size tenant).
+
+### Why this sequence
+- Pre-revenue, 1 self-owned tenant, real blast radius today = ~0. Design is what closes the next deal.
+- But secret encryption + audit log + error surfacing are sub-day fixes. Deferring them as a "phase" means paying retrofit tax on every styled page that touches tenant config.
+- Pattern-establishing now is free. Retrofit later is not.
+
 ## Realistic path
 
 **Sequential:** 6-10 weeks of focused work for all must-haves.

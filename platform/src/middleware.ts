@@ -79,6 +79,8 @@ const isPublicRoute = createRouteMatcher([
   '/robots.txt',              // Robots
   '/(.*)-crm-(.*)',           // Combo pages (industry x location)
   '/site(.*)',                // Tenant sites are public
+  '/quote/(.*)',              // Public quote view + accept flow (token-auth)
+  '/api/quotes/public(.*)',   // Public quote API (token-auth)
 ])
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {

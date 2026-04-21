@@ -33,6 +33,7 @@ const navSections = [
       { label: 'Clients', href: '/dashboard/clients' },
       { label: 'Selena', href: '/dashboard/selena' },
       { label: 'Leads', href: '/dashboard/leads' },
+      { label: 'Sales', href: '/dashboard/sales' },
       { label: 'Finance', href: '/dashboard/finance' },
       { label: 'Team', href: '/dashboard/team' },
       { label: 'SMS Inbox', href: '/dashboard/sms' },

@@ -55,6 +55,11 @@ export type NotificationType =
   | '15min_warning'
   | 'late_check_in'
   | 'late_check_out'
+  | 'quote_sent'
+  | 'quote_viewed'
+  | 'quote_accepted'
+  | 'quote_declined'
+  | 'quote_expired'
 
 export async function notify({
   tenantId,
