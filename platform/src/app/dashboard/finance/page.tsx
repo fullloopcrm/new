@@ -146,6 +146,9 @@ export default function FinancePage() {
           <a href="/dashboard/finance/receipts" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
             Receipts
           </a>
+          <a href="/dashboard/finance/reconcile" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            Reconcile
+          </a>
           <a href="/dashboard/finance/accounts" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
             Bank Accounts
           </a>
