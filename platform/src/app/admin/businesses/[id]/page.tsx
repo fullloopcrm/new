@@ -332,10 +332,18 @@ export default function BusinessDetailPage() {
           {biz.owner_name && <p className="text-slate-500 mt-1">{biz.owner_name} {biz.owner_email && `· ${biz.owner_email}`}</p>}
         </div>
 
-        <button onClick={startImpersonation} disabled={impersonating}
-          className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-lg text-base font-cta font-bold disabled:opacity-50 transition-colors shadow-sm">
-          {impersonating ? 'Entering...' : 'Enter Business Profile'}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/businesses/${id}/wizard`}
+            className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
+          >
+            Onboarding Wizard →
+          </Link>
+          <button onClick={startImpersonation} disabled={impersonating}
+            className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-lg text-base font-cta font-bold disabled:opacity-50 transition-colors shadow-sm">
+            {impersonating ? 'Entering...' : 'Enter Business Profile'}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

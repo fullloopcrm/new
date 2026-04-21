@@ -2,6 +2,17 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
+import { encryptSecret, isEncrypted } from '@/lib/secret-crypto'
+
+// Vendor API-key fields that must be encrypted at rest.
+const ENCRYPTED_FIELDS = [
+  'stripe_api_key',
+  'telnyx_api_key',
+  'resend_api_key',
+  'imap_pass',
+  'anthropic_api_key',
+  'indexnow_key',
+] as const
 
 export async function GET(
   _request: Request,
@@ -231,6 +242,18 @@ export async function PUT(
       .eq('id', id)
       .single()
     updates.setup_progress = { ...(current?.setup_progress || {}), ...body.setup_progress }
+  }
+
+  // Encrypt vendor secrets at rest — skip if empty (treat as unchanged) or
+  // already encrypted (idempotent on re-save).
+  for (const field of ENCRYPTED_FIELDS) {
+    const v = updates[field]
+    if (typeof v === 'string' && v.length > 0 && !isEncrypted(v)) {
+      updates[field] = encryptSecret(v)
+    }
+    if (v === '' || v === null) {
+      delete updates[field]
+    }
   }
 
   const { error } = await supabaseAdmin
