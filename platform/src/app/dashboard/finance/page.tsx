@@ -128,13 +128,21 @@ export default function FinancePage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Finance</h2>
             <p className="text-sm text-slate-400">Revenue, payroll, expenses & P&L</p>
           </div>
           <PageSettingsGear open={financeSettings.open} setOpen={financeSettings.setOpen} title="Finance" />
+        </div>
+        <div className="flex items-center gap-2">
+          <a href="/dashboard/finance/reports" className="px-3 py-2 text-sm font-medium rounded-lg bg-teal-600 text-white hover:bg-teal-700">
+            Reports →
+          </a>
+          <a href="/dashboard/finance/recurring" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            Recurring
+          </a>
         </div>
       </div>
 
