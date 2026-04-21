@@ -891,11 +891,27 @@ export async function askSelena(
     const checklistPrompt = buildChecklistPrompt(checklist, nextStep)
 
     let clientContext = ''
-    // SMS: look up by conversation phone. Web: use provided phone if returning client.
-    const lookupPhone = channel === 'sms'
-      ? await supabaseAdmin.from('sms_conversations').select('phone').eq('id', conversationId).single().then(r => r.data?.phone)
-      : phone || null
-    if (lookupPhone && !lookupPhone.startsWith('web-')) {
+    // SMS: convo.phone is a real phone.
+    // Email: convo.phone is 'email-{uuid}', not a real phone — look up the
+    //   client's real phone via client_id and use THAT. If the email lead has
+    //   no real phone yet, skip profile prefill.
+    // Web: use the phone arg if present.
+    let lookupPhone: string | null = null
+    if (channel === 'sms') {
+      const { data } = await supabaseAdmin.from('sms_conversations').select('phone').eq('id', conversationId).single()
+      lookupPhone = data?.phone || null
+    } else if (channel === 'email') {
+      const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+      if (convo?.client_id) {
+        const { data: c } = await supabaseAdmin.from('clients').select('phone').eq('id', convo.client_id).single()
+        if (c?.phone && !c.phone.startsWith('email-') && !c.phone.startsWith('web-') && /\d{7,}/.test(c.phone)) {
+          lookupPhone = c.phone
+        }
+      }
+    } else {
+      lookupPhone = phone || null
+    }
+    if (lookupPhone && !lookupPhone.startsWith('web-') && !lookupPhone.startsWith('email-')) {
       const profile = await getClientProfile(tenantId, lookupPhone)
       if (!profile.includes('"error"')) clientContext = `\n\nCLIENT PROFILE:\n${profile}`
     }

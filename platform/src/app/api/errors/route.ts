@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { trackError } from '@/lib/error-tracking'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Known transient/harmless errors that don't need alerts
 const IGNORABLE_PATTERNS = [
@@ -27,6 +28,12 @@ const IGNORABLE_PATTERNS = [
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`errors:${ip}`, 30, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many reports' }, { status: 429 })
+    }
+
     const body = await request.json()
     const { message, stack, url, source, tenantId } = body
 
@@ -37,7 +44,7 @@ export async function POST(request: Request) {
     const isTransient = IGNORABLE_PATTERNS.some(p => message.includes(p))
 
     if (isTransient) {
-      console.log(`[TRANSIENT] ${source}: ${message.slice(0, 100)}`)
+      console.info(`[TRANSIENT] ${source}: ${message.slice(0, 100)}`)
       return NextResponse.json({ success: true })
     }
 

@@ -83,6 +83,14 @@
     {
       "path": "/api/cron/no-show-check",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/health-monitor",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/comms-monitor",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

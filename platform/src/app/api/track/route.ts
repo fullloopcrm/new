@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +20,14 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
   try {
+    // High-frequency endpoint (every visitor, every scroll tick) — cap so a
+    // runaway client or scraper can't pummel the DB. 240/min/IP is generous.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`track:${ip}`, 240, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limit' }, { status: 429, headers: corsHeaders })
+    }
+
     let body: Record<string, unknown>
 
     const contentType = request.headers.get('content-type') || ''

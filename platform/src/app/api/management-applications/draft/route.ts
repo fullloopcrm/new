@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 function getIp(request: NextRequest): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
@@ -38,6 +39,11 @@ export async function POST(request: NextRequest) {
 
   const ip = getIp(request)
   if (ip === 'unknown') return NextResponse.json({ error: 'Cannot identify client' }, { status: 400 })
+
+  const rl = await rateLimitDb(`mgmt-draft:${ip}`, 30, 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Saving too fast. Slow down.' }, { status: 429 })
+  }
 
   try {
     const { form_data, photo_url, video_url, resume_url, position } = await request.json()

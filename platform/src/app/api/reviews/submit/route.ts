@@ -5,9 +5,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`reviews:${ip}`, 5, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many submissions. Try again later.' }, { status: 429 })
+    }
+
     const tenant = await getTenantFromHeaders()
     if (!tenant) {
       return NextResponse.json({ error: 'Unknown tenant' }, { status: 400 })
