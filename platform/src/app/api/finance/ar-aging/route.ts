@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { entityIdFromUrl } from '@/lib/entity'
 
 const BUCKETS = [
   { label: 'Current', minDays: 0, maxDays: 30 },
@@ -13,18 +14,21 @@ const BUCKETS = [
   { label: '90+', minDays: 91, maxDays: Infinity },
 ]
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const entityId = entityIdFromUrl(new URL(request.url))
     const today = new Date()
 
     // Unpaid invoices
-    const { data: invoices } = await supabaseAdmin
+    let invQ = supabaseAdmin
       .from('invoices')
       .select('id, invoice_number, title, total_cents, amount_paid_cents, due_date, issued_at, contact_name, contact_email, client_id, clients(id, name, email, phone)')
       .eq('tenant_id', tenantId)
       .not('status', 'in', '(paid,void,refunded,draft)')
       .order('due_date', { ascending: true, nullsFirst: false })
+    if (entityId) invQ = invQ.eq('entity_id', entityId)
+    const { data: invoices } = await invQ
 
     // Completed bookings where payment_status != paid and no invoice yet
     const { data: bookings } = await supabaseAdmin

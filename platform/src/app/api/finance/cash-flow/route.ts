@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { entityIdFromUrl } from '@/lib/entity'
 
 function weekKey(d: Date): string {
   const monday = new Date(d)
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
     const url = new URL(request.url)
+    const entityId = entityIdFromUrl(url)
     const weeks = Math.min(12, Math.max(1, Number(url.searchParams.get('weeks')) || 4))
 
     const now = new Date()
@@ -25,26 +27,33 @@ export async function GET(request: Request) {
     const endIso = endDate.toISOString().slice(0, 10)
     const endTs = `${endIso}T23:59:59Z`
 
+    // bookings is tenant-level (no entity_id); invoices + recurring_expenses take the filter.
+    const bookingsQ = supabaseAdmin
+      .from('bookings')
+      .select('id, price, start_time, payment_status')
+      .eq('tenant_id', tenantId)
+      .gte('start_time', now.toISOString())
+      .lte('start_time', endTs)
+      .not('status', 'in', '(cancelled,no_show)')
+
+    let invoicesQ = supabaseAdmin
+      .from('invoices')
+      .select('id, total_cents, amount_paid_cents, due_date')
+      .eq('tenant_id', tenantId)
+      .not('status', 'in', '(paid,void,refunded,draft)')
+      .gte('due_date', nowIso)
+      .lte('due_date', endIso)
+    if (entityId) invoicesQ = invoicesQ.eq('entity_id', entityId)
+
+    let recurringQ = supabaseAdmin
+      .from('recurring_expenses')
+      .select('id, label, amount_cents, frequency, next_due_date, start_date, active')
+      .eq('tenant_id', tenantId)
+      .eq('active', true)
+    if (entityId) recurringQ = recurringQ.eq('entity_id', entityId)
+
     const [{ data: upcomingBookings }, { data: openInvoices }, { data: recurring }] = await Promise.all([
-      supabaseAdmin
-        .from('bookings')
-        .select('id, price, start_time, payment_status')
-        .eq('tenant_id', tenantId)
-        .gte('start_time', now.toISOString())
-        .lte('start_time', endTs)
-        .not('status', 'in', '(cancelled,no_show)'),
-      supabaseAdmin
-        .from('invoices')
-        .select('id, total_cents, amount_paid_cents, due_date')
-        .eq('tenant_id', tenantId)
-        .not('status', 'in', '(paid,void,refunded,draft)')
-        .gte('due_date', nowIso)
-        .lte('due_date', endIso),
-      supabaseAdmin
-        .from('recurring_expenses')
-        .select('id, label, amount_cents, frequency, next_due_date, start_date, active')
-        .eq('tenant_id', tenantId)
-        .eq('active', true),
+      bookingsQ, invoicesQ, recurringQ,
     ])
 
     // Build weekly buckets

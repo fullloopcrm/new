@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
 import {
   normalizeLineItems,
   computeTotals,
@@ -20,6 +21,7 @@ export async function GET(request: Request) {
     const clientId = url.searchParams.get('client_id')
     const bookingId = url.searchParams.get('booking_id')
     const overdueOnly = url.searchParams.get('overdue') === '1'
+    const entityId = entityIdFromUrl(url)
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 100)
 
     let q = supabaseAdmin
@@ -32,6 +34,7 @@ export async function GET(request: Request) {
     if (status) q = q.eq('status', status)
     if (clientId) q = q.eq('client_id', clientId)
     if (bookingId) q = q.eq('booking_id', bookingId)
+    if (entityId) q = q.eq('entity_id', entityId)
     if (overdueOnly) {
       const today = new Date().toISOString().slice(0, 10)
       q = q.lt('due_date', today).not('status', 'in', '(paid,void,refunded)')
@@ -130,11 +133,13 @@ export async function POST(request: Request) {
     const due_date =
       body.due_date ||
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
+    const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
     const { data, error } = await supabaseAdmin
       .from('invoices')
       .insert({
         tenant_id: tenantId,
+        entity_id: entityId,
         client_id: body.client_id || (prefillContact as { client_id?: string }).client_id || null,
         booking_id: body.booking_id || body.from_booking_id || null,
         quote_id: body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null,

@@ -3,16 +3,21 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
+import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const entityId = entityIdFromUrl(new URL(request.url))
 
-    const { data, error } = await supabaseAdmin
+    let q = supabaseAdmin
       .from('expenses')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('date', { ascending: false })
+    if (entityId) q = q.eq('entity_id', entityId)
+
+    const { data, error } = await q
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -45,10 +50,13 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
+    const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
+
     const { data, error } = await supabaseAdmin
       .from('expenses')
       .insert({
         tenant_id: tenantId,
+        entity_id: entityId,
         category: validated.category,
         amount: Math.round(Number(validated.amount) * 100),
         description: validated.description || null,

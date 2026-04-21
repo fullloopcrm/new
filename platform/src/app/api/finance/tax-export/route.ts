@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { entityIdFromUrl } from '@/lib/entity'
 
 function csvEscape(v: string | number | null | undefined): string {
   if (v == null) return ''
@@ -17,29 +18,34 @@ export async function GET(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
     const url = new URL(request.url)
+    const entityId = entityIdFromUrl(url)
     const year = url.searchParams.get('year') || String(new Date().getUTCFullYear())
     const from = `${year}-01-01`
     const to = `${year}-12-31T23:59:59Z`
+
+    const bookingsQ = supabaseAdmin
+      .from('bookings')
+      .select('id, start_time, price, team_member_pay, payment_status, payment_method, payment_date, clients(name)')
+      .eq('tenant_id', tenantId)
+      .gte('start_time', from)
+      .lte('start_time', to)
+      .in('payment_status', ['paid', 'partial'])
+    let expensesQ = supabaseAdmin
+      .from('expenses')
+      .select('date, category, subcategory, amount, vendor_name, description, payment_method, tax_deductible')
+      .eq('tenant_id', tenantId)
+      .gte('date', from.slice(0, 10))
+      .lte('date', to.slice(0, 10))
+      .order('date', { ascending: true })
+    if (entityId) expensesQ = expensesQ.eq('entity_id', entityId)
 
     const [
       { data: bookings },
       { data: expenses },
       { data: payouts },
     ] = await Promise.all([
-      supabaseAdmin
-        .from('bookings')
-        .select('id, start_time, price, team_member_pay, payment_status, payment_method, payment_date, clients(name)')
-        .eq('tenant_id', tenantId)
-        .gte('start_time', from)
-        .lte('start_time', to)
-        .in('payment_status', ['paid', 'partial']),
-      supabaseAdmin
-        .from('expenses')
-        .select('date, category, subcategory, amount, vendor_name, description, payment_method, tax_deductible')
-        .eq('tenant_id', tenantId)
-        .gte('date', from.slice(0, 10))
-        .lte('date', to.slice(0, 10))
-        .order('date', { ascending: true }),
+      bookingsQ,
+      expensesQ,
       supabaseAdmin
         .from('team_member_payouts')
         .select('created_at, amount_cents, status, team_members(name, tax_business_name, tax_ein, tax_ssn_last4)')
