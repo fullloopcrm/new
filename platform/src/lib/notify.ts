@@ -60,6 +60,10 @@ export type NotificationType =
   | 'quote_accepted'
   | 'quote_declined'
   | 'quote_expired'
+  | 'security'
+  | 'error'
+  | 'referral_lead'
+  | 'cleaner_application'
 
 export async function notify({
   tenantId,
@@ -70,9 +74,10 @@ export async function notify({
   recipientType = 'admin',
   recipientId,
   bookingId,
+  booking_id,
   metadata,
 }: {
-  tenantId: string
+  tenantId?: string
   type: NotificationType
   title: string
   message: string
@@ -80,8 +85,26 @@ export async function notify({
   recipientType?: 'client' | 'team_member' | 'admin'
   recipientId?: string
   bookingId?: string
+  booking_id?: string  // nycmaid-style alias
   metadata?: Record<string, unknown>
 }): Promise<{ success: boolean; error?: string }> {
+  // Accept nycmaid-style `booking_id` as an alias for bookingId
+  bookingId = bookingId || booking_id
+  // Resolve tenant from request headers if caller didn't pass one (nycmaid pattern).
+  if (!tenantId) {
+    try {
+      const { headers } = await import('next/headers')
+      const h = await headers()
+      tenantId = h.get('x-tenant-id') || undefined
+    } catch {
+      // headers() only available inside request scope — ignore if outside
+    }
+  }
+  if (!tenantId) {
+    // Last-resort: skip DB write but don't throw — log for ops visibility.
+    console.warn(`[notify] no tenantId resolvable for type=${type}, title=${title}`)
+    return { success: false, error: 'no tenant' }
+  }
   // Create notification record — capture ID for accurate status updates
   const { data: notifRecord } = await supabaseAdmin.from('notifications').insert({
     tenant_id: tenantId,

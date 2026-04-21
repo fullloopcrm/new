@@ -395,3 +395,70 @@ export function adminNewClientEmail(
   )
   return { subject: `New Client: ${client.name}`, html }
 }
+
+// ── Nycmaid-compat aliases (for copied /api/client/book routes) ──
+// Nycmaid's email-templates file had these distinct names; fullloop
+// consolidates them under the same underlying renderers.
+export function clientBookingReceivedEmail(data: TemplateData & {
+  clientName: string
+  serviceName?: string
+  dateTime?: string
+}): string {
+  return bookingReceivedEmail({
+    ...data,
+    serviceName: data.serviceName || 'Appointment',
+    dateTime: data.dateTime || 'To be confirmed',
+  })
+}
+
+export function adminNewBookingRequestEmail(
+  booking: {
+    clientName: string
+    clientPhone?: string
+    clientEmail?: string
+    address?: string
+    date?: string
+    time?: string
+    notes?: string
+  },
+  data: TemplateData & { adminUrl?: string },
+): { subject: string; html: string } {
+  const row = (l: string, v: string) =>
+    `<tr><td style="padding:8px 12px;background:#f9fafb;border-bottom:1px solid #e5e7eb;"><span style="color:#6b7280;font-size:12px;text-transform:uppercase;">${l}</span></td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${v}</td></tr>`
+  const rows = [
+    row('Client', booking.clientName),
+    booking.clientPhone ? row('Phone', booking.clientPhone) : '',
+    booking.clientEmail ? row('Email', booking.clientEmail) : '',
+    booking.address ? row('Address', booking.address) : '',
+    booking.date ? row('Date', booking.date) : '',
+    booking.time ? row('Time', booking.time) : '',
+    booking.notes ? row('Notes', booking.notes) : '',
+  ].filter(Boolean)
+  const html = baseTemplate(
+    `<h2 style="color:#111827;font-size:20px;margin:0 0 16px;">New booking request</h2>
+     <table width="100%" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+       ${rows.join('\n')}
+     </table>`,
+    data,
+  )
+  return { subject: `New Booking: ${booking.clientName}`, html }
+}
+
+export function referralSignupNotifyEmail(
+  referrer: { name: string; email?: string; phone?: string; refCode?: string },
+  data: TemplateData,
+): { subject: string; html: string } {
+  const html = baseTemplate(
+    `<h2 style="color:#111827;font-size:20px;margin:0 0 16px;">New referral signup</h2>
+     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 16px;">
+       ${referrer.name} signed up as a referrer${referrer.refCode ? ` (code: ${referrer.refCode})` : ''}.
+     </p>`,
+    data,
+  )
+  return { subject: `New Referrer: ${referrer.name}`, html }
+}
+
+export function smsNewApplication(name: string): string {
+  return `New cleaner application: ${name}. Review in admin.`
+}
+
