@@ -35,5 +35,14 @@ export async function GET(request: Request) {
   })
   const body = await res.json().catch(() => ({}))
 
+  // Health-monitor marker — proves the every-minute cron ran.
+  await supabaseAdmin.from('notifications').insert({
+    type: 'email_monitor_tick',
+    title: 'cron:email-monitor',
+    message: 'tick',
+    channel: 'system',
+    recipient_type: 'admin',
+  }).then(() => {}, () => {})
+
   return NextResponse.json({ ok: true, downstream: body })
 }

@@ -86,5 +86,14 @@ export async function GET(request: Request) {
     totalGenerated += bookings.length
   }
 
+  // Health-monitor marker.
+  await supabaseAdmin.from('notifications').insert({
+    type: 'recurring_generated',
+    title: 'cron:generate-recurring',
+    message: `generated=${totalGenerated}`,
+    channel: 'system',
+    recipient_type: 'admin',
+  }).then(() => {}, () => {})
+
   return NextResponse.json({ generated: totalGenerated })
 }

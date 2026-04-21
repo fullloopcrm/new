@@ -110,5 +110,14 @@ export async function GET(request: Request) {
     .lt('fifteen_min_alert_time', sixtyAgo)
     .is('payment_reminder_sent_at', null)
 
+  // Health-monitor marker.
+  await supabaseAdmin.from('notifications').insert({
+    type: 'payment_reminder_fired',
+    title: 'cron:payment-reminder',
+    message: `reminded=${reminded} escalated=${escalated}`,
+    channel: 'system',
+    recipient_type: 'admin',
+  }).then(() => {}, () => {})
+
   return NextResponse.json({ ok: true, reminded, escalated, errors: errors.length ? errors : undefined })
 }

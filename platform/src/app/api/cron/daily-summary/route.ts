@@ -243,5 +243,14 @@ export async function GET(request: Request) {
     }
   }
 
+  // Health-monitor marker.
+  await supabaseAdmin.from('notifications').insert({
+    type: 'daily_summary_sent',
+    title: 'cron:daily-summary',
+    message: `summaries_sent=${totalSent}`,
+    channel: 'system',
+    recipient_type: 'admin',
+  }).then(() => {}, () => {})
+
   return NextResponse.json({ summaries_sent: totalSent, stats, errors: errorMessages.slice(0, 20), details: allResults })
 }

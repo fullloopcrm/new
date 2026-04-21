@@ -492,6 +492,116 @@ export function extractFields(text: string, nextField: string | null, timezone =
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// FAST-PATH HELPERS — deterministic responses that skip Claude
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Broader confirmation detector for the booking-recap state. Ported from
+ * nycmaid (2026-04-19). Catches "yes correct", "perfect do it", "locked in",
+ * "go for it", "we're good", 👍, etc. Still rejects anything with change
+ * words or questions, and caps at 6 words.
+ */
+export function isBookingConfirmation(message: string): boolean {
+  const lowerMsg = message.trim().toLowerCase().replace(/[.!,?]+$/g, '').trim()
+  if (!lowerMsg) return false
+
+  const hasChangeWord = /\b(wait|actually|but|change|different|instead|no,|nope|hold|cancel|switch|move|earlier|later|not sure|except|hmm|hmmm|oh wait)\b/i.test(message)
+  if (hasChangeWord) return false
+  if (/\?/.test(message)) return false
+
+  const isShortAffirmative =
+    /^[y]+$/i.test(lowerMsg) ||
+    /^(?:k|kk|ok|okay|yes|yeah|yep|yup|correct|great|perfect|good|done|locked|confirm|confirmed|approved|ya|ye|si|sí)$/i.test(lowerMsg) ||
+    /^(?:👍|🙏|✅)+$/u.test(lowerMsg)
+
+  const hasAffirmative = /\b(?:yes|yeah|yep|yup|yessir|ya|yea|correct|confirmed?|confirm|book it|booking it|looks good|looks great|sounds good|sounds great|good|great|perfect|locked in|let'?s do it|lets do it|do it|ok|okay|all good|thats? right|that'?s right|go ahead|go for it|lgtm|approved|si|sí|book her|lock it in|we'?re good|all set)\b/i.test(lowerMsg)
+
+  const wordCount = lowerMsg.split(/\s+/).filter(Boolean).length
+  return isShortAffirmative || (hasAffirmative && wordCount <= 6)
+}
+
+/**
+ * Post-confirmation short follow-up detector. After a booking is created the
+ * client often fires a reflex "thanks", "ok", "great", "perfect" etc. Old
+ * behavior: let Claude respond, which sometimes errored. New behavior: catch
+ * these at the door and reply deterministically.
+ */
+export function isPostConfirmationFollowUp(message: string): boolean {
+  const lower = message.trim().toLowerCase().replace(/[.!,?]+$/g, '').trim()
+  if (!lower) return false
+  const words = lower.split(/\s+/).filter(Boolean).length
+  if (words > 6) return false
+  return /^(?:thanks?|thank you|thx|ty|ok|okay|k|kk|great|perfect|awesome|sounds good|sounds great|👍|🙏|✅|cool|got it|see you|bye|done|appreciate it|much appreciated)$/i.test(lower)
+}
+
+/**
+ * Deterministic dispute sub-classifier. Returns a safe platform-wide response
+ * string for the common dispute sub-types — or null if none match and the
+ * caller should fall through to Claude. Every response:
+ *   - leads with "I'm sorry"
+ *   - cites manager sign-off + GPS/records
+ *   - never invents a refund, discount, or price change
+ *
+ * Ported from nycmaid (commits c55746f + 0661790).
+ */
+export function generateDisputeResponse(message: string, tenantPhone: string | null | undefined): string | null {
+  const text = message.toLowerCase()
+  const phoneLine = tenantPhone ? `call ${tenantPhone}` : 'our manager will reach out'
+
+  // Refund / chargeback / cancel payment
+  if (/\b(?:refund(?:ed)?|money back|give me (?:my )?money|want my money)\b/.test(text)
+      || /\b(?:chargeback|charge ?back|dispute (?:this )?(?:with|to) (?:my )?(?:bank|card|cc))\b/.test(text)
+      || /\bcancel (?:my |the )?payment\b/.test(text)) {
+    return `I'm sorry you're not happy with how this went. Refunds and chargebacks have to go through our manager — she'll pull the GPS check-in/check-out, invoice, and your signed agreement and review with you. ${phoneLine.charAt(0).toUpperCase()}${phoneLine.slice(1)} and she'll take it from there. I'm not able to process a refund myself.`
+  }
+
+  // Discount / "take $X off" / "half off"
+  if (/\b(?:give me|want|need|deserve|any|ill take|can i get|i'?d like|gimme) (?:a |the |any )?(?!recurring |loyalty |first.?time )discount\b/.test(text)
+      || /\b(?:take \$?\d+ off|\$?\d+ off (?:the |my )?(?:bill|payment|total)|half off|take half off|mark (?:it )?down|knock (?:\$?\d+ )?off|deserve \$?\d+ off)\b/.test(text)) {
+    return `I'm sorry you're not happy. Price changes only happen when the manager approves them after reviewing the GPS records and invoice. I'm not able to take anything off the bill myself. ${phoneLine.charAt(0).toUpperCase()}${phoneLine.slice(1)} and she'll review with you.`
+  }
+
+  // Unauthorized / didn't authorize
+  if (/\b(?:never authorized|didn'?t authorize|unauthorized|did not authorize)\b/.test(text)) {
+    return `I'm sorry — I understand that feels wrong. Every booking we have on file is tied to your agreement at the time of service. Our manager will pull that agreement plus the GPS records and go through it with you — ${phoneLine}.`
+  }
+
+  // "Only did half" / partial job
+  if (/\b(?:only did half|did half the job|half the job|didn'?t finish|half (?:finished|done)|partial (?:job|work|clean))\b/.test(text)) {
+    return `I'm sorry to hear that. Our manager will pull the GPS check-in/check-out and the booking scope so she can compare what was done against what was booked. Let's not make any billing changes until she reviews — ${phoneLine}.`
+  }
+
+  // Gaslighting hours — "she was only here 2 hours but billed 4"
+  if (/\b(?:she|he|they|worker|cleaner|tech)\b.{0,20}\b(\d+|one|two|three|four|five)\s*(?:hours?|hrs?|minutes?|mins?)\s*(?:late|early)\b/.test(text)
+      || /\bleft (?:\d+ )?(?:hours?|hrs?|minutes?|mins?) early\b/.test(text)
+      || /\b(?:she|he|they|worker|cleaner|tech) (?:only )?(?:stayed|was here|here) (?:for )?\d+ (?:hours?|hrs?|minutes?|mins?)/.test(text)
+      || /\bclock (?:started|was) (?:\d+ )?(?:min(?:ute)?s? |hrs? |hours? )?early\b/.test(text)) {
+    return `I'm sorry to hear that. Our GPS tracks the check-in and check-out time of every visit — our manager will pull those records and the invoice and walk you through them. I won't make billing changes without her sign-off — ${phoneLine}.`
+  }
+
+  // Property damage
+  if (/\b(?:floor|table|wall|counter|sofa|couch|tv|mirror|furniture|lamp|door|cabinet) (?:damage|scratched?|broken|cracked|ruined|chipped|dented)\b/.test(text)
+      || /\bdamage to (?:my )?(?:floor|table|wall|counter|sofa|couch|tv|mirror|furniture|apartment|home|property|lamp|door)\b/.test(text)) {
+    return `I'm really sorry — damage needs the manager to handle. She'll want photos and will talk through next steps with you directly. ${phoneLine.charAt(0).toUpperCase()}${phoneLine.slice(1)} so she can get on it today.`
+  }
+
+  // "I thought it was $50/hr" — rate clarification, not hours dispute
+  if (/\bthought (?:it|the rate|the price) (?:was|is) \$?\d+/.test(text)
+      || /\bi(?:'ll| will)? (?:only )?pay \$?\d+/.test(text)
+      || /\bpay \$?\d+ total\b/.test(text)) {
+    return `I'm sorry about the confusion. Our rate was quoted up front at the time of booking and shows on the invoice — our manager can walk through it with you and confirm what was agreed. ${phoneLine.charAt(0).toUpperCase()}${phoneLine.slice(1)}.`
+  }
+
+  // "You canceled on me"
+  if (/\byou (?:guys |people )?canceled?\b/.test(text)) {
+    return `I'm sorry about the confusion. Our manager will check our records and get back to you. ${phoneLine.charAt(0).toUpperCase()}${phoneLine.slice(1)}.`
+  }
+
+  // Default — sorry first, then manager + records
+  return null
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // EXTENDED TOOL SHAPES — for the full nycmaid tool set (wire handlers later)
 // ════════════════════════════════════════════════════════════════════════════
 

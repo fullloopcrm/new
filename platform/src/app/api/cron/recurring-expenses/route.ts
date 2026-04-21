@@ -107,5 +107,14 @@ export async function POST(request: Request) {
     }
   }
 
+  // Health-monitor marker.
+  await supabaseAdmin.from('notifications').insert({
+    type: 'recurring_expense_posted',
+    title: 'cron:recurring-expenses',
+    message: `fired=${fired} failed=${failed}`,
+    channel: 'system',
+    recipient_type: 'admin',
+  }).then(() => {}, () => {})
+
   return NextResponse.json({ ok: true, checked: due?.length || 0, fired, failed })
 }

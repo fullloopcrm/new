@@ -8,6 +8,9 @@ import {
   isTeamMemberPhone,
   isDoNotServiceByPhone,
   filterToolsByIntent,
+  isBookingConfirmation,
+  isPostConfirmationFollowUp,
+  generateDisputeResponse,
   EXTENDED_TOOLS,
   type Intent,
 } from '@/lib/selena-core'
@@ -881,6 +884,64 @@ export async function askSelena(
     // 1b. Intent detection — classifies BEFORE the flow runs.
     // Surfaces routing signal even if not yet wired into tool selection.
     const intent: Intent = detectIntent(message, checklist.status)
+
+    // 1c. Fast-path: booking confirmation at recap. If client says "yes" /
+    // "perfect do it" / "locked in" while all booking fields are present,
+    // fire create_booking directly without a Claude round-trip. This was
+    // dropping ~10% of confirmations because Claude's tool call sometimes
+    // failed to fire on multi-word affirmatives. (nycmaid d0cf677)
+    if (
+      intent === 'booking' &&
+      checklist.status === 'recap' &&
+      isBookingConfirmation(message) &&
+      checklist.service_type && checklist.day && checklist.time && checklist.rate
+    ) {
+      try {
+        const bookingInput: Record<string, unknown> = {
+          service_type: checklist.service_type,
+          day: checklist.day,
+          time: checklist.time,
+          rate: checklist.rate,
+          bedrooms: checklist.bedrooms,
+          bathrooms: checklist.bathrooms,
+          address: checklist.address,
+          name: checklist.name,
+          phone: checklist.phone,
+          email: checklist.email,
+          notes: checklist.notes,
+        }
+        await handleCreateBooking(tenantId, bookingInput, conversationId, result)
+        if (result.text) {
+          result.checklist = await loadChecklist(conversationId)
+          return result
+        }
+      } catch (fastPathErr) {
+        // Fall through to the full Claude path if the direct call throws.
+        await selenaError(tenantId, 'fast_path_create_booking', fastPathErr, conversationId)
+      }
+    }
+
+    // 1d. Fast-path: dispute subtype deterministic responses. Claude has
+    // priors that lean toward offering discounts or refunds; these responses
+    // cite manager + GPS and never invent concessions. (nycmaid c55746f + 0661790)
+    if (intent === 'dispute') {
+      const { data: tenantRow } = await supabaseAdmin.from('tenants').select('phone').eq('id', tenantId).single()
+      const disputeText = generateDisputeResponse(message, tenantRow?.phone || null)
+      if (disputeText) {
+        result.text = disputeText
+        result.checklist = await loadChecklist(conversationId)
+        return result
+      }
+    }
+
+    // 1e. Fast-path: post-confirmation follow-up. After booking lands, short
+    // replies ("thanks", "ok great", 👍) get a deterministic ack so they don't
+    // hit Claude and risk the error fallback. (nycmaid dade3e6)
+    if (checklist.status === 'confirmed' && isPostConfirmationFollowUp(message)) {
+      result.text = `You're set. We'll confirm the day before.`
+      result.checklist = checklist
+      return result
+    }
 
     // 2. State machine
     const nextStep = getNextStep(checklist, config)

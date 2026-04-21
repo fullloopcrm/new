@@ -114,22 +114,43 @@ export async function emailAdmins(
   const resendKey = (t as { resend_api_key?: string | null }).resend_api_key || null
   const from = (t as { email_from?: string | null }).email_from || undefined
 
+  const tenantId = (tenant as TenantLike).id
+  const recipients: string[] = []
+
   if (withEmail.length === 0) {
     // Fallback to ADMIN_EMAIL env var (platform-level) — last resort only
     const fallback = process.env.ADMIN_EMAIL
     if (fallback) {
+      recipients.push(fallback)
       await sendEmail({ to: fallback, subject, html, from, resendApiKey: resendKey }).catch(err =>
         console.error('[admin-contacts] fallback ADMIN_EMAIL send failed:', err),
       )
     }
-    return
+  } else {
+    await Promise.allSettled(
+      withEmail.map(c => {
+        recipients.push(c.email!)
+        return sendEmail({ to: c.email!, subject, html, from, resendApiKey: resendKey })
+      }),
+    )
   }
 
-  await Promise.allSettled(
-    withEmail.map(c =>
-      sendEmail({ to: c.email!, subject, html, from, resendApiKey: resendKey }),
-    ),
-  )
+  // Log to email_logs so monitoring can count admin-alert deliveries.
+  // Best-effort — never throws back to the caller.
+  try {
+    if (recipients.length > 0) {
+      const rows = recipients.map(r => ({
+        tenant_id: tenantId,
+        to_email: r,
+        subject,
+        status: 'sent' as const,
+        email_type: 'admin_alert',
+      }))
+      await supabaseAdmin.from('email_logs').insert(rows)
+    }
+  } catch {
+    // email_type column may not exist pre-migration-040; don't block alerts.
+  }
 }
 
 /**
