@@ -136,9 +136,18 @@ export default function FinancePage() {
           </div>
           <PageSettingsGear open={financeSettings.open} setOpen={financeSettings.setOpen} title="Finance" />
         </div>
-        <div className="flex items-center gap-2">
-          <a href="/dashboard/finance/reports" className="px-3 py-2 text-sm font-medium rounded-lg bg-teal-600 text-white hover:bg-teal-700">
-            Reports →
+        <div className="flex items-center gap-2 flex-wrap">
+          <a href="/dashboard/finance/transactions" className="px-3 py-2 text-sm font-medium rounded-lg bg-teal-600 text-white hover:bg-teal-700">
+            Transactions →
+          </a>
+          <a href="/dashboard/finance/import" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            Import
+          </a>
+          <a href="/dashboard/finance/accounts" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            Bank Accounts
+          </a>
+          <a href="/dashboard/finance/reports" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            Reports
           </a>
           <a href="/dashboard/finance/recurring" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
             Recurring
