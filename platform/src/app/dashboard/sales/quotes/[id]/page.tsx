@@ -190,6 +190,14 @@ export default function QuoteDetailPage() {
             {busy === 'convert' ? 'Converting…' : 'Convert to Booking'}
           </button>
         )}
+        {['accepted', 'converted'].includes(quote.status) && (
+          <Link
+            href={`/dashboard/sales/invoices/new?from_quote_id=${quote.id}`}
+            className="px-3 py-1.5 text-xs font-medium rounded bg-teal-600 text-white hover:bg-teal-700"
+          >
+            Create Invoice
+          </Link>
+        )}
         {quote.converted_booking_id && (
           <Link href={`/dashboard/bookings?highlight=${quote.converted_booking_id}`}
             className="px-3 py-1.5 text-xs font-medium rounded bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100">

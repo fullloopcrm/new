@@ -105,18 +105,21 @@ export default function SalesHubPage() {
           )}
         </Link>
 
-        <div className="relative bg-white border border-slate-200 rounded-xl p-5 opacity-70">
+        <Link
+          href="/dashboard/sales/invoices"
+          className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-teal-400 hover:shadow-md transition-all"
+        >
           <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">Coming soon</p>
-              <h3 className="text-lg font-bold text-slate-500 mt-1">Invoices</h3>
+              <p className="text-xs text-teal-600 uppercase tracking-wide font-medium">Live</p>
+              <h3 className="text-lg font-bold text-slate-900 mt-1">Invoices</h3>
             </div>
             <span className="text-2xl">📄</span>
           </div>
-          <p className="text-sm text-slate-400 leading-relaxed">
-            Send invoice PDFs via email or SMS. Payment tracking with Stripe + Zelle + Venmo reconciliation.
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Send invoices via email or SMS. Stripe online payment + Zelle/Venmo/cash reconciliation. Auto-status from paid amount.
           </p>
-        </div>
+        </Link>
 
         <div className="relative bg-white border border-slate-200 rounded-xl p-5 opacity-70">
           <div className="flex items-start justify-between mb-3">

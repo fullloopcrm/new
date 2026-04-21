@@ -38,6 +38,31 @@ export async function POST(request: Request) {
       const session = event.data.object as Stripe.Checkout.Session
       const bookingId = session.metadata?.booking_id
       const tenantId = session.metadata?.tenant_id
+      const invoiceId = session.metadata?.invoice_id
+
+      // ── Invoice path — paid directly via invoice public link ──
+      if (invoiceId && tenantId && !bookingId) {
+        const { data: existing } = await supabaseAdmin
+          .from('payments')
+          .select('id')
+          .eq('stripe_session_id', session.id)
+          .limit(1)
+        if (existing && existing.length > 0) {
+          return NextResponse.json({ received: true, idempotent: true })
+        }
+        await supabaseAdmin.from('payments').insert({
+          tenant_id: tenantId,
+          invoice_id: invoiceId,
+          amount_cents: session.amount_total || 0,
+          method: 'stripe',
+          status: 'succeeded',
+          stripe_session_id: session.id,
+          stripe_payment_intent_id:
+            typeof session.payment_intent === 'string' ? session.payment_intent : null,
+        })
+        // DB trigger recomputes invoice.amount_paid_cents and status.
+        return NextResponse.json({ received: true, invoice_paid: true })
+      }
 
       if (!bookingId || !tenantId) break
 
