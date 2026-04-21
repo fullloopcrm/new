@@ -47,6 +47,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const entryId = await postJournalEntry({
       tenant_id: tenantId,
+      entity_id: txn.entity_id || null,
       entry_date: txn.txn_date,
       memo: body.memo || txn.description,
       source: 'bank_txn',

@@ -1,22 +1,13 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { listEntities } from '@/lib/entity'
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
-    const entityId = entityIdFromUrl(new URL(request.url))
-    let q = supabaseAdmin
-      .from('bank_accounts')
-      .select('*, chart_of_accounts(code, name, type), entities(id, name)')
-      .eq('tenant_id', tenantId)
-      .eq('active', true)
-      .order('created_at', { ascending: true })
-    if (entityId) q = q.eq('entity_id', entityId)
-    const { data, error } = await q
-    if (error) throw error
-    return NextResponse.json({ bank_accounts: data || [] })
+    const entities = await listEntities(tenantId)
+    return NextResponse.json({ entities })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
@@ -29,26 +20,33 @@ export async function POST(request: Request) {
     const body = await request.json()
     if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 })
 
-    const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
+    // If make_default, unset any existing default first (unique partial index enforces one)
+    if (body.make_default) {
+      await supabaseAdmin.from('entities').update({ is_default: false }).eq('tenant_id', tenantId).eq('is_default', true)
+    }
 
     const { data, error } = await supabaseAdmin
-      .from('bank_accounts')
+      .from('entities')
       .insert({
         tenant_id: tenantId,
-        entity_id: entityId,
         name: body.name,
-        institution: body.institution || null,
-        type: body.type || 'checking',
-        mask: body.mask || null,
-        currency: body.currency || 'USD',
-        coa_id: body.coa_id || null,
+        legal_name: body.legal_name || null,
+        ein: body.ein || null,
+        entity_type: body.entity_type || null,
+        address: body.address || null,
+        city: body.city || null,
+        state: body.state || null,
+        zip: body.zip || null,
+        fiscal_year_start: body.fiscal_year_start || 1,
+        is_default: !!body.make_default,
       })
       .select('*')
       .single()
     if (error) throw error
-    return NextResponse.json({ bank_account: data })
+    return NextResponse.json({ entity: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    console.error('POST /api/finance/entities', err)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
 }

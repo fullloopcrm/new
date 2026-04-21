@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import EntitySwitcher from '../entity-switcher'
 
 type PnL = {
   period: { from: string; to: string }
@@ -84,6 +86,10 @@ const TABS = [
 ] as const
 
 export default function FinanceReportsPage() {
+  const search = useSearchParams()
+  const entityParam = search.get('entity_id') || ''
+  const entityQuery = entityParam ? `&entity_id=${entityParam}` : ''
+
   const [tab, setTab] = useState<(typeof TABS)[number]['value']>('pnl')
   const [from, setFrom] = useState(firstOfMonth())
   const [to, setTo] = useState(lastOfMonth())
@@ -97,7 +103,7 @@ export default function FinanceReportsPage() {
   const loadAll = useCallback(() => {
     setLoading(true)
     Promise.all([
-      fetch(`/api/finance/pnl?from=${from}&to=${to}`).then(r => r.json()),
+      fetch(`/api/finance/pnl?from=${from}&to=${to}${entityQuery}`).then(r => r.json()),
       fetch(`/api/finance/ar-aging`).then(r => r.json()),
       fetch(`/api/finance/payroll-prep?from=${from}&to=${to}`).then(r => r.json()),
       fetch(`/api/finance/cash-flow?weeks=4`).then(r => r.json()),
@@ -105,7 +111,7 @@ export default function FinanceReportsPage() {
       setPnl(p); setAr(a); setPayroll(pr); setCashFlow(cf)
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [from, to])
+  }, [from, to, entityQuery])
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -132,6 +138,7 @@ export default function FinanceReportsPage() {
           <p className="text-sm text-slate-500">P&amp;L, AR aging, payroll, cash flow — your books at a glance.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <EntitySwitcher />
           <button onClick={() => setRange('this_month')} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">This Month</button>
           <button onClick={() => setRange('last_month')} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">Last Month</button>
           <button onClick={() => setRange('ytd')} className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">YTD</button>

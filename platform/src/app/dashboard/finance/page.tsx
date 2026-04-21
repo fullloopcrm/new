@@ -158,6 +158,9 @@ export default function FinancePage() {
           <a href="/dashboard/finance/recurring" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
             Recurring
           </a>
+          <a href="/dashboard/finance/entities" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            Entities
+          </a>
         </div>
       </div>
 

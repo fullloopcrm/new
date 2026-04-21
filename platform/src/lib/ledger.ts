@@ -83,6 +83,7 @@ export interface JournalLineInput {
  */
 export async function postJournalEntry(opts: {
   tenant_id: string
+  entity_id?: string | null
   entry_date: string  // ISO date
   memo?: string
   source?: string
@@ -97,10 +98,19 @@ export async function postJournalEntry(opts: {
   }
   if (totalDebits === 0) throw new Error('Empty journal entry')
 
+  // Default entity = tenant's default entity if not passed
+  let entityId = opts.entity_id || null
+  if (!entityId) {
+    const { data: def } = await supabaseAdmin
+      .from('entities').select('id').eq('tenant_id', opts.tenant_id).eq('is_default', true).limit(1).maybeSingle()
+    entityId = def?.id || null
+  }
+
   const { data: entry, error: eErr } = await supabaseAdmin
     .from('journal_entries')
     .insert({
       tenant_id: opts.tenant_id,
+      entity_id: entityId,
       entry_date: opts.entry_date,
       memo: opts.memo || null,
       source: opts.source || 'manual',
@@ -113,6 +123,7 @@ export async function postJournalEntry(opts: {
 
   const lineRows = opts.lines.map((l, i) => ({
     tenant_id: opts.tenant_id,
+    entity_id: entityId,
     entry_id: entry.id,
     coa_id: l.coa_id,
     debit_cents: l.debit_cents || 0,

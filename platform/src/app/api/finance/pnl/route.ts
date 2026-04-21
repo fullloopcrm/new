@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { entityIdFromUrl } from '@/lib/entity'
 
 function monthStart(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)) }
 function monthEnd(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0, 23, 59, 59)) }
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
     const from = url.searchParams.get('from') || monthStart(now).toISOString().slice(0, 10)
     const to = url.searchParams.get('to') || monthEnd(now).toISOString().slice(0, 10)
     const toTs = `${to}T23:59:59Z`
+    const entityId = entityIdFromUrl(url)
 
     // Revenue: paid bookings in window (by payment_date), or completed bookings with price
     const { data: bookings } = await supabaseAdmin
@@ -47,12 +49,14 @@ export async function GET(request: Request) {
     }
 
     // Expenses by category
-    const { data: expenses } = await supabaseAdmin
+    let expQ = supabaseAdmin
       .from('expenses')
       .select('category, amount, date, tax_deductible')
       .eq('tenant_id', tenantId)
       .gte('date', from)
       .lte('date', to)
+    if (entityId) expQ = expQ.eq('entity_id', entityId)
+    const { data: expenses } = await expQ
 
     const expenseByCategory = new Map<string, number>()
     let expensesTotalCents = 0
