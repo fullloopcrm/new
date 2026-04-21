@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { downloadCSV } from '@/lib/csv'
 import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import AskBar from './ask-bar'
 
 type PayrollItem = {
   id: string
@@ -167,8 +168,12 @@ export default function FinancePage() {
           <a href="/dashboard/finance/audit" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
             Audit
           </a>
+          <a href={`/api/finance/year-end-zip?year=${new Date().getUTCFullYear() - 1}`} className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            Year-End Zip
+          </a>
         </div>
       </div>
+      <AskBar />
 
       <PageSettingsPanel
         {...financeSettings}
