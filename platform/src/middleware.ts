@@ -85,6 +85,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/invoices/public(.*)', // Public invoice API (token-auth)
   '/sign/(.*)',               // Public document signer view (token-auth)
   '/api/documents/public(.*)', // Public document signer API (token-auth)
+  '/api/cpa/(.*)',             // CPA read-only access (token-auth)
 ])
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {

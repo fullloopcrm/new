@@ -171,6 +171,9 @@ export default function FinancePage() {
           <a href={`/api/finance/year-end-zip?year=${new Date().getUTCFullYear() - 1}`} className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
             Year-End Zip
           </a>
+          <a href="/dashboard/finance/cpa-access" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            CPA Access
+          </a>
         </div>
       </div>
       <AskBar />

@@ -65,6 +65,10 @@
       "schedule": "0 4 * * *"
     },
     {
+      "path": "/api/cron/recurring-expenses",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/sales-follow-ups",
       "schedule": "0 10 * * *"
     },
