@@ -30,26 +30,48 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
-    const { client_id, follow_up_at, follow_up_note, notes, source } = await request.json()
-    if (!client_id) return NextResponse.json({ error: 'client_id is required' }, { status: 400 })
+    const body = await request.json()
+    const {
+      client_id,
+      title,
+      stage,
+      value_cents,
+      probability,
+      expected_close_date,
+      follow_up_at,
+      follow_up_note,
+      notes,
+      source,
+    } = body
+    if (!client_id && !title) {
+      return NextResponse.json({ error: 'client_id or title is required' }, { status: 400 })
+    }
 
-    const { data: existing } = await supabaseAdmin
-      .from('deals')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('client_id', client_id)
-      .eq('stage', 'active')
-      .limit(1)
-    if (existing && existing.length > 0) {
-      return NextResponse.json({ error: 'Client is already on the sales board' }, { status: 409 })
+    // Only block duplicate open deal on same client if no title was given
+    // (same client can have multiple distinct deals when titled).
+    if (client_id && !title) {
+      const { data: existing } = await supabaseAdmin
+        .from('deals')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('client_id', client_id)
+        .in('stage', ['lead', 'qualified', 'proposal', 'negotiation'])
+        .limit(1)
+      if (existing && existing.length > 0) {
+        return NextResponse.json({ error: 'Client is already on the sales board' }, { status: 409 })
+      }
     }
 
     const { data: deal, error } = await supabaseAdmin
       .from('deals')
       .insert({
         tenant_id: tenantId,
-        client_id,
-        stage: 'active',
+        client_id: client_id || null,
+        title: title || null,
+        stage: stage || 'lead',
+        value_cents: Number(value_cents) || 0,
+        probability: probability != null ? Number(probability) : 10,
+        expected_close_date: expected_close_date || null,
         follow_up_at: follow_up_at || null,
         follow_up_note: follow_up_note || null,
         notes: notes || null,
