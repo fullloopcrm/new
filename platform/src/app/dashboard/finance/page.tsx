@@ -161,6 +161,12 @@ export default function FinancePage() {
           <a href="/dashboard/finance/entities" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
             Entities
           </a>
+          <a href="/dashboard/finance/close" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            Close
+          </a>
+          <a href="/dashboard/finance/audit" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">
+            Audit
+          </a>
         </div>
       </div>
 
