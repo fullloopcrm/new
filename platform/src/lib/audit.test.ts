@@ -34,11 +34,11 @@ describe('audit', () => {
       insert: vi.fn().mockRejectedValue(new Error('DB error')),
     } as unknown as ReturnType<typeof supabaseAdmin.from>)
 
-    // Should not throw
+    // Should not throw; returns { success: false } on error.
     await expect(audit({
       tenantId: 'tenant-123',
       action: 'client.created',
       entityType: 'client',
-    })).resolves.toBeUndefined()
+    })).resolves.toEqual({ success: false })
   })
 })

@@ -39,6 +39,58 @@ export async function POST(request: Request) {
       const bookingId = session.metadata?.booking_id
       const tenantId = session.metadata?.tenant_id
       const invoiceId = session.metadata?.invoice_id
+      const prospectId = session.metadata?.prospect_id
+      const isFullLoopSignup = session.metadata?.full_loop_signup === 'true'
+
+      // ── Full Loop signup: prospect paid → create tenant ──
+      if (prospectId && isFullLoopSignup) {
+        const { data: prospect } = await supabaseAdmin.from('prospects').select('*').eq('id', prospectId).single()
+        if (prospect && !prospect.tenant_id) {
+          const slug = prospect.business_name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')
+            .slice(0, 48) + '-' + prospectId.slice(0, 6)
+          const { data: tenant } = await supabaseAdmin
+            .from('tenants')
+            .insert({
+              name: prospect.business_name,
+              slug,
+              industry: prospect.trade,
+              phone: prospect.owner_phone,
+              email: prospect.owner_email,
+              owner_name: prospect.owner_name,
+              owner_email: prospect.owner_email,
+              owner_phone: prospect.owner_phone,
+              status: 'active',
+              plan: prospect.paid_tier,
+              monthly_rate: Math.round((prospect.monthly_cents || 0) / 100),
+              setup_fee: Math.round((prospect.setup_fee_cents || 0) / 100),
+              setup_fee_paid_at: new Date().toISOString(),
+              billing_status: 'active',
+              address: prospect.primary_city && prospect.primary_state
+                ? `${prospect.primary_city}, ${prospect.primary_state} ${prospect.primary_zip || ''}`.trim()
+                : null,
+            })
+            .select('id')
+            .single()
+          if (tenant) {
+            // Seed default entity + chart of accounts + Selena config
+            await supabaseAdmin.from('entities').insert({
+              tenant_id: tenant.id, name: prospect.business_name, is_default: true, active: true,
+            })
+            const { provisionTenant } = await import('@/lib/provision-tenant')
+            await provisionTenant({
+              tenantId: tenant.id,
+              industry: (prospect.trade || 'general') as 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general',
+            })
+            await supabaseAdmin.from('prospects').update({
+              tenant_id: tenant.id, status: 'paid', paid_at: new Date().toISOString(),
+            }).eq('id', prospectId)
+          }
+        }
+        return NextResponse.json({ received: true, signup_paid: true })
+      }
 
       // ── Invoice path — paid directly via invoice public link ──
       if (invoiceId && tenantId && !bookingId) {
