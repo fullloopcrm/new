@@ -22,6 +22,10 @@ export async function POST(_request: Request, { params }: Params) {
       .single()
     if (!src) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    // voided_from is only meaningful when duplicating from a voided doc
+    // (the "duplicate & void" flow). Plain duplicates should not inherit it.
+    const voidedFrom = src.status === 'voided' ? src.id : null
+
     // Create new draft row
     const { data: newDoc, error: dErr } = await supabaseAdmin
       .from('documents')
@@ -32,7 +36,7 @@ export async function POST(_request: Request, { params }: Params) {
         sign_order: src.sign_order,
         consent_text: src.consent_text,
         page_count: src.page_count,
-        voided_from: src.id,
+        voided_from: voidedFrom,
         original_path: 'pending',
       })
       .select('*')

@@ -42,6 +42,28 @@ export async function POST(request: Request) {
     amount_cents: number; frequency: string; next_due_date: string; failure_count: number
   }>) {
     try {
+      // Dedupe guard — if a journal entry for this recurring row + due date
+      // already exists, don't double-post on a cron re-run or retry.
+      const { data: alreadyPosted } = await supabaseAdmin
+        .from('journal_entries')
+        .select('id')
+        .eq('tenant_id', r.tenant_id)
+        .eq('source', 'recurring')
+        .eq('source_id', r.id)
+        .eq('entry_date', r.next_due_date)
+        .limit(1)
+        .maybeSingle()
+      if (alreadyPosted) {
+        await supabaseAdmin.from('recurring_expenses').update({
+          next_due_date: advance(new Date(r.next_due_date), r.frequency).toISOString().slice(0, 10),
+          last_fired_at: new Date().toISOString(),
+          last_error: null,
+          failure_count: 0,
+        }).eq('id', r.id)
+        fired++
+        continue
+      }
+
       // Find a matching CoA for the expense (by subtype/name)
       const { data: coaMatch } = await supabaseAdmin
         .from('chart_of_accounts').select('id')

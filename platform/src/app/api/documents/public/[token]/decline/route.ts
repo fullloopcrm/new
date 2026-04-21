@@ -23,6 +23,16 @@ export async function POST(request: Request, { params }: Params) {
     if (!signer) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (signer.status === 'signed') return NextResponse.json({ error: 'Already signed' }, { status: 400 })
 
+    // Prevent re-opening a terminal-state document via decline.
+    const { data: parent } = await supabaseAdmin
+      .from('documents')
+      .select('status')
+      .eq('id', signer.document_id)
+      .maybeSingle()
+    if (parent && ['voided', 'completed', 'expired', 'declined'].includes(parent.status)) {
+      return NextResponse.json({ error: `Document is ${parent.status}` }, { status: 400 })
+    }
+
     const ip = ipFromRequest(request)
     const ua = request.headers.get('user-agent')
     const now = new Date().toISOString()

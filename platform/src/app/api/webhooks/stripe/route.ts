@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { TIER_PRICES } from '@/lib/tier-prices'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
@@ -44,8 +45,36 @@ export async function POST(request: Request) {
 
       // ── Full Loop signup: prospect paid → create tenant ──
       if (prospectId && isFullLoopSignup) {
+        // Compare-and-swap claim. Stripe retries webhooks; two deliveries can
+        // race and both see prospect.tenant_id = null before either writes.
+        // Flip status approved|reviewing → paid in a single UPDATE so only one
+        // delivery wins; losers return idempotent without inserting a tenant.
+        const { data: claim } = await supabaseAdmin
+          .from('prospects')
+          .update({
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            stripe_checkout_session_id: session.id,
+          })
+          .eq('id', prospectId)
+          .in('status', ['approved', 'reviewing', 'new'])
+          .select('id')
+          .maybeSingle()
+
+        if (!claim) {
+          return NextResponse.json({ received: true, already_processed: true })
+        }
+
         const { data: prospect } = await supabaseAdmin.from('prospects').select('*').eq('id', prospectId).single()
         if (prospect && !prospect.tenant_id) {
+          // Derive pricing from server-side TIER_PRICES, not prospect row, so a
+          // corrupted prospect row can't mint a tenant with $0 monthly.
+          const pricing = TIER_PRICES[prospect.paid_tier as keyof typeof TIER_PRICES]
+          if (!pricing) {
+            console.error(`[stripe] unknown tier on prospect ${prospectId}: ${prospect.paid_tier}`)
+            return NextResponse.json({ received: true, error: 'unknown_tier' })
+          }
+
           const slug = prospect.business_name
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
@@ -64,8 +93,8 @@ export async function POST(request: Request) {
               owner_phone: prospect.owner_phone,
               status: 'active',
               plan: prospect.paid_tier,
-              monthly_rate: Math.round((prospect.monthly_cents || 0) / 100),
-              setup_fee: Math.round((prospect.setup_fee_cents || 0) / 100),
+              monthly_rate: Math.round(pricing.monthly_cents / 100),
+              setup_fee: Math.round(pricing.setup_cents / 100),
               setup_fee_paid_at: new Date().toISOString(),
               billing_status: 'active',
               address: prospect.primary_city && prospect.primary_state
@@ -85,7 +114,7 @@ export async function POST(request: Request) {
               industry: (prospect.trade || 'general') as 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general',
             })
             await supabaseAdmin.from('prospects').update({
-              tenant_id: tenant.id, status: 'paid', paid_at: new Date().toISOString(),
+              tenant_id: tenant.id,
             }).eq('id', prospectId)
           }
         }

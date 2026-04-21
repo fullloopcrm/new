@@ -28,6 +28,10 @@ export async function POST(request: Request, { params }: Params) {
     if (!signature_png.startsWith('data:image/') || signature_png.length < 100) {
       return NextResponse.json({ error: 'Signature required' }, { status: 400 })
     }
+    // Cap the signature payload — public endpoint, unauth, TEXT column on DB.
+    if (signature_png.length > 500_000) {
+      return NextResponse.json({ error: 'Signature image too large' }, { status: 400 })
+    }
     if (!signature_name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
 
     const { data: quote } = await supabaseAdmin

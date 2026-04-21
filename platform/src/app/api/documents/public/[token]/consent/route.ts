@@ -23,6 +23,17 @@ export async function POST(request: Request, { params }: Params) {
       .maybeSingle()
     if (!signer) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    // Block consent on terminal-state documents so we don't log consent on
+    // voided/completed/expired docs (audit-trail hygiene).
+    const { data: parent } = await supabaseAdmin
+      .from('documents')
+      .select('status')
+      .eq('id', signer.document_id)
+      .maybeSingle()
+    if (parent && ['voided', 'completed', 'expired', 'declined'].includes(parent.status)) {
+      return NextResponse.json({ error: `Document is ${parent.status}` }, { status: 400 })
+    }
+
     if (signer.consent_accepted_at) {
       return NextResponse.json({ ok: true, already_accepted: true })
     }

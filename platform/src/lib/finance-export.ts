@@ -6,7 +6,9 @@ import { supabaseAdmin } from './supabase'
 
 export function csvEscape(v: string | number | null | undefined): string {
   if (v == null) return ''
-  const s = String(v)
+  let s = String(v)
+  // Neutralize CSV formula injection (Excel treats leading =, +, -, @, tab, CR as formula).
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
   if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
   return s
 }
@@ -23,31 +25,52 @@ export function toCsv(rows: Record<string, unknown>[]): string {
 
 interface LineRow { coa_id: string; coa_code: string; coa_name: string; coa_type: string; debits: number; credits: number }
 
-export async function buildTrialBalance(tenantId: string, entityId: string | null, asOfDate: string) {
-  let q = supabaseAdmin
-    .from('journal_lines')
-    .select('coa_id, debit_cents, credit_cents, chart_of_accounts!inner(code, name, type), journal_entries!inner(entry_date, posted)')
-    .eq('tenant_id', tenantId)
-  if (entityId) q = q.eq('entity_id', entityId)
-  const { data } = await q.lte('journal_entries.entry_date', asOfDate).limit(10000)
+// Supabase line limit — if a trial balance actually hits this, we page.
+const TRIAL_BALANCE_PAGE = 5000
 
+export async function buildTrialBalance(tenantId: string, entityId: string | null, asOfDate: string): Promise<LineRow[] & { truncated?: boolean }> {
   const agg = new Map<string, LineRow>()
-  for (const row of (data || []) as unknown as Array<{
-    coa_id: string
-    debit_cents: number
-    credit_cents: number
-    chart_of_accounts: { code: string; name: string; type: string }
-  }>) {
-    const key = row.coa_id
-    const coa = row.chart_of_accounts
-    if (!agg.has(key)) {
-      agg.set(key, { coa_id: key, coa_code: coa.code, coa_name: coa.name, coa_type: coa.type, debits: 0, credits: 0 })
+  let offset = 0
+  let truncated = false
+
+  // Page through journal lines so tenants with >10k lines aren't silently cut off.
+  for (;;) {
+    let q = supabaseAdmin
+      .from('journal_lines')
+      .select('coa_id, debit_cents, credit_cents, chart_of_accounts!inner(code, name, type), journal_entries!inner(entry_date, posted)')
+      .eq('tenant_id', tenantId)
+    if (entityId) q = q.eq('entity_id', entityId)
+    const { data } = await q
+      .lte('journal_entries.entry_date', asOfDate)
+      .range(offset, offset + TRIAL_BALANCE_PAGE - 1)
+
+    const rows = (data || []) as unknown as Array<{
+      coa_id: string
+      debit_cents: number
+      credit_cents: number
+      chart_of_accounts: { code: string; name: string; type: string }
+    }>
+
+    for (const row of rows) {
+      const key = row.coa_id
+      const coa = row.chart_of_accounts
+      if (!agg.has(key)) {
+        agg.set(key, { coa_id: key, coa_code: coa.code, coa_name: coa.name, coa_type: coa.type, debits: 0, credits: 0 })
+      }
+      const r = agg.get(key)!
+      r.debits += row.debit_cents || 0
+      r.credits += row.credit_cents || 0
     }
-    const r = agg.get(key)!
-    r.debits += row.debit_cents || 0
-    r.credits += row.credit_cents || 0
+
+    if (rows.length < TRIAL_BALANCE_PAGE) break
+    offset += TRIAL_BALANCE_PAGE
+    // Safety: stop after 200k rows so a runaway doesn't hang the request.
+    if (offset >= 200_000) { truncated = true; break }
   }
-  return Array.from(agg.values()).sort((a, b) => a.coa_code.localeCompare(b.coa_code))
+
+  const out = Array.from(agg.values()).sort((a, b) => a.coa_code.localeCompare(b.coa_code)) as LineRow[] & { truncated?: boolean }
+  if (truncated) out.truncated = true
+  return out
 }
 
 export async function buildGeneralLedger(tenantId: string, entityId: string | null, from: string, to: string) {

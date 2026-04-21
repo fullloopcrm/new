@@ -23,6 +23,7 @@ export async function GET(_request: Request, { params }: Params) {
     const { data: activities } = await supabaseAdmin
       .from('deal_activities')
       .select('id, type, description, metadata, created_at')
+      .eq('tenant_id', tenantId)
       .eq('deal_id', id)
       .order('created_at', { ascending: false })
       .limit(100)

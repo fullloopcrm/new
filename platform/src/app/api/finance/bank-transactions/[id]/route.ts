@@ -33,6 +33,15 @@ export async function PATCH(request: Request, { params }: Params) {
 
     if (!body.coa_id) return NextResponse.json({ error: 'coa_id required' }, { status: 400 })
 
+    // Confirm coa_id belongs to this tenant — the FK alone doesn't scope tenancy.
+    const { data: coaRow } = await supabaseAdmin
+      .from('chart_of_accounts')
+      .select('id')
+      .eq('id', body.coa_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!coaRow) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 400 })
+
     const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
     if (!bankCoa) {
       return NextResponse.json({ error: 'Bank account has no Chart-of-Accounts link. Set one in bank settings.' }, { status: 400 })

@@ -32,6 +32,15 @@ export async function POST(request: Request) {
 
     // If a coa_id was also passed, post the journal and mark posted.
     if (coaId && txn.status === 'pending') {
+      // Confirm coa_id belongs to this tenant — FK alone doesn't scope tenancy.
+      const { data: coaRow } = await supabaseAdmin
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', coaId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!coaRow) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 400 })
+
       const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
       if (!bankCoa) {
         return NextResponse.json({ error: 'Bank account has no CoA link.' }, { status: 400 })

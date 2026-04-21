@@ -23,12 +23,14 @@ export async function GET(request: Request) {
     const entityId = entityIdFromUrl(url)
 
     // Revenue: paid bookings in window (by payment_date), or completed bookings with price
-    const { data: bookings } = await supabaseAdmin
+    let bookingsQ = supabaseAdmin
       .from('bookings')
       .select('id, price, team_member_pay, actual_hours, payment_status, payment_date, start_time, status')
       .eq('tenant_id', tenantId)
       .gte('start_time', from)
       .lte('start_time', toTs)
+    if (entityId) bookingsQ = bookingsQ.eq('entity_id', entityId)
+    const { data: bookings } = await bookingsQ
 
     let revenueCents = 0
     let costOfServiceCents = 0

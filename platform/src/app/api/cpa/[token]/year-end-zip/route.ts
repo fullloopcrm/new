@@ -25,10 +25,9 @@ export async function GET(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Expired' }, { status: 403 })
     }
 
-    await supabaseAdmin
-      .from('cpa_access_tokens')
-      .update({ last_used_at: new Date().toISOString(), use_count: 1 })
-      .eq('token', token)
+    // Increment use_count atomically. Reading-then-writing would race on
+     // concurrent downloads; the RPC handles the +1 server-side.
+    await supabaseAdmin.rpc('cpa_token_bump_usage', { p_token: token })
 
     const tenantId = tok.tenant_id
     const entityId = tok.entity_id

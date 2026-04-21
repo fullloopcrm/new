@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { entityIdFromUrl } from '@/lib/entity'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { extractReceipt, matchReceiptToTransaction, type BankTxnLite } from '@/lib/receipt-ai'
 import { randomBytes } from 'crypto'
@@ -52,11 +53,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Upload failed: ${upErr.message}` }, { status: 500 })
     }
 
-    // Match to pending bank txns (amount + date window)
+    // Match to pending bank txns (amount + date window), scoped to entity if given.
+    const entityId = entityIdFromUrl(new URL(request.url))
     let match: { txn: BankTxnLite; confidence: number } | null = null
     if (extracted.amount_cents) {
-      // Date window: ±7 days around receipt date (or recent 30 days if date null)
-      const { data: pending } = await supabaseAdmin
+      let pendingQ = supabaseAdmin
         .from('bank_transactions')
         .select('id, txn_date, amount_cents, description')
         .eq('tenant_id', tenantId)
@@ -64,6 +65,8 @@ export async function POST(request: Request) {
         .lt('amount_cents', 0)    // outflows only
         .order('txn_date', { ascending: false })
         .limit(200)
+      if (entityId) pendingQ = pendingQ.eq('entity_id', entityId)
+      const { data: pending } = await pendingQ
       match = matchReceiptToTransaction(extracted, (pending || []) as BankTxnLite[])
     }
 

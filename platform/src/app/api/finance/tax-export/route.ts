@@ -9,7 +9,10 @@ import { entityIdFromUrl } from '@/lib/entity'
 
 function csvEscape(v: string | number | null | undefined): string {
   if (v == null) return ''
-  const s = String(v)
+  let s = String(v)
+  // Neutralize CSV formula injection — Excel/Calc execute cells that start
+  // with =, +, -, @, tab, or CR as formulas. Prefix with single-quote.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
   if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
   return s
 }

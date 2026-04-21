@@ -46,6 +46,9 @@ export async function POST(request: Request, { params }: Params) {
     if (!signaturePng.startsWith('data:image/') || signaturePng.length < 100) {
       return NextResponse.json({ error: 'Signature required' }, { status: 400 })
     }
+    if (signaturePng.length > 500_000) {
+      return NextResponse.json({ error: 'Signature image too large' }, { status: 400 })
+    }
     if (!signatureName) return NextResponse.json({ error: 'Typed name required' }, { status: 400 })
 
     const { data: doc } = await supabaseAdmin
@@ -83,8 +86,31 @@ export async function POST(request: Request, { params }: Params) {
         .eq('signer_id', signer.id)
     }
 
-    // Mark signer complete
-    await supabaseAdmin
+    // Verify every required field for this signer was filled before we let
+    // them complete. Signing without filling required fields was silent before.
+    const { data: stillEmpty } = await supabaseAdmin
+      .from('document_fields')
+      .select('id, label, type')
+      .eq('document_id', doc.id)
+      .eq('signer_id', signer.id)
+      .eq('required', true)
+      .is('filled_at', null)
+    if (stillEmpty && stillEmpty.length > 0) {
+      // Signature/initial fields are stamped from signature_png at finalize,
+      // so they don't need filled_at. Exclude them from the block.
+      const unfilled = stillEmpty.filter(f => f.type !== 'signature' && f.type !== 'initial')
+      if (unfilled.length > 0) {
+        return NextResponse.json({
+          error: 'Required fields are incomplete',
+          unfilled: unfilled.map(f => ({ id: f.id, label: f.label, type: f.type })),
+        }, { status: 400 })
+      }
+    }
+
+    // Atomic claim — transition from pending/sent/viewed → signed in one UPDATE.
+    // If a concurrent request already flipped this signer, we'll match 0 rows
+    // and return the idempotent already-signed response rather than stamping twice.
+    const { data: claimed } = await supabaseAdmin
       .from('document_signers')
       .update({
         status: 'signed',
@@ -95,6 +121,40 @@ export async function POST(request: Request, { params }: Params) {
         signature_name: signatureName,
       })
       .eq('id', signer.id)
+      .in('status', ['pending', 'sent', 'viewed'])
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) {
+      return NextResponse.json({ ok: true, already_signed: true })
+    }
+
+    // Sequential post-claim guard — re-verify that no lower-order signer
+    // is still unsigned (state is monotonic, so a single post-check is safe).
+    if (doc.sign_order === 'sequential') {
+      const { data: priorUnfinished } = await supabaseAdmin
+        .from('document_signers')
+        .select('id')
+        .eq('document_id', doc.id)
+        .lt('order_index', signer.order_index)
+        .not('status', 'eq', 'signed')
+        .limit(1)
+      if (priorUnfinished && priorUnfinished.length > 0) {
+        // Roll back — we won the race but the invariant was violated.
+        await supabaseAdmin
+          .from('document_signers')
+          .update({
+            status: 'viewed',
+            signed_at: null,
+            signed_ip: null,
+            signed_user_agent: null,
+            signature_png: null,
+            signature_name: null,
+          })
+          .eq('id', signer.id)
+        return NextResponse.json({ error: 'Waiting for prior signer(s) to complete' }, { status: 400 })
+      }
+    }
 
     await logDocEvent({
       document_id: doc.id,
@@ -139,7 +199,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ ok: true, all_done: allDone })
   } catch (err) {
     console.error('POST /api/documents/public/[token]/sign', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Signing failed. Please try again.' }, { status: 500 })
   }
 }
 
@@ -160,6 +220,16 @@ async function finalizeDocument(doc: {
     .download(doc.original_path)
   if (!blob) throw new Error('Original PDF missing')
   const origBytes = new Uint8Array(await blob.arrayBuffer())
+
+  // Integrity check — compare computed hash against the hash captured at send time.
+  // If these diverge, the bytes in storage were altered between send and signing
+  // and this finalization must not proceed.
+  if (doc.original_sha256) {
+    const computed = sha256Hex(origBytes)
+    if (computed !== doc.original_sha256) {
+      throw new Error(`PDF integrity check failed for document ${doc.id}`)
+    }
+  }
 
   // Load and edit
   const pdf = await PDFDocument.load(origBytes, { ignoreEncryption: true })

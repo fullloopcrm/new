@@ -98,45 +98,26 @@ export async function postJournalEntry(opts: {
   }
   if (totalDebits === 0) throw new Error('Empty journal entry')
 
-  // Default entity = tenant's default entity if not passed
-  let entityId = opts.entity_id || null
-  if (!entityId) {
-    const { data: def } = await supabaseAdmin
-      .from('entities').select('id').eq('tenant_id', opts.tenant_id).eq('is_default', true).limit(1).maybeSingle()
-    entityId = def?.id || null
-  }
-
-  const { data: entry, error: eErr } = await supabaseAdmin
-    .from('journal_entries')
-    .insert({
-      tenant_id: opts.tenant_id,
-      entity_id: entityId,
-      entry_date: opts.entry_date,
-      memo: opts.memo || null,
-      source: opts.source || 'manual',
-      source_id: opts.source_id || null,
-      created_by: opts.created_by || null,
-    })
-    .select('id')
-    .single()
-  if (eErr) throw eErr
-
-  const lineRows = opts.lines.map((l, i) => ({
-    tenant_id: opts.tenant_id,
-    entity_id: entityId,
-    entry_id: entry.id,
-    coa_id: l.coa_id,
-    debit_cents: l.debit_cents || 0,
-    credit_cents: l.credit_cents || 0,
-    memo: l.memo || null,
-    position: i,
-  }))
-  const { error: lErr } = await supabaseAdmin.from('journal_lines').insert(lineRows)
-  if (lErr) {
-    await supabaseAdmin.from('journal_entries').delete().eq('id', entry.id)
-    throw lErr
-  }
-  return entry.id
+  // Single-transaction insert via RPC. The entry + all lines land together;
+  // there's never a transient window where an entry exists with zero lines.
+  const { data, error } = await supabaseAdmin.rpc('post_journal_entry', {
+    p_tenant_id: opts.tenant_id,
+    p_entity_id: opts.entity_id || null,
+    p_entry_date: opts.entry_date,
+    p_memo: opts.memo || null,
+    p_source: opts.source || 'manual',
+    p_source_id: opts.source_id || null,
+    p_created_by: opts.created_by || null,
+    p_lines: opts.lines.map(l => ({
+      coa_id: l.coa_id,
+      debit_cents: l.debit_cents || 0,
+      credit_cents: l.credit_cents || 0,
+      memo: l.memo || null,
+    })),
+  })
+  if (error) throw error
+  if (typeof data !== 'string') throw new Error('post_journal_entry: no entry id returned')
+  return data
 }
 
 /** Normalize a bank-txn description for fingerprinting + pattern matching. */

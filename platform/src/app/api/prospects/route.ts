@@ -4,9 +4,24 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
+
+// Cap free-text fields so a single submission can't balloon to megabytes.
+const MAX_TEXT = 2000
+function cap(v: unknown): string | null {
+  if (v === undefined || v === null) return null
+  const s = String(v)
+  return s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) : s
+}
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`qualify:${ip}`, 3, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many submissions. Try again in an hour.' }, { status: 429 })
+    }
+
     const body = await request.json()
     const required = ['business_name', 'owner_name', 'owner_email', 'trade']
     for (const r of required) {
@@ -29,38 +44,38 @@ export async function POST(request: Request) {
     const { data, error } = await supabaseAdmin
       .from('prospects')
       .insert({
-        business_name: body.business_name,
-        legal_name: body.legal_name || null,
-        ein: body.ein || null,
-        entity_type: body.entity_type || null,
-        owner_name: body.owner_name,
-        owner_email: body.owner_email,
-        owner_phone: body.owner_phone || null,
-        trade: body.trade,
-        primary_city: body.primary_city || null,
-        primary_state: body.primary_state || null,
-        primary_zip: body.primary_zip || null,
+        business_name: cap(body.business_name),
+        legal_name: cap(body.legal_name),
+        ein: cap(body.ein),
+        entity_type: cap(body.entity_type),
+        owner_name: cap(body.owner_name),
+        owner_email: cap(body.owner_email),
+        owner_phone: cap(body.owner_phone),
+        trade: cap(body.trade),
+        primary_city: cap(body.primary_city),
+        primary_state: cap(body.primary_state),
+        primary_zip: cap(body.primary_zip),
         service_zips: body.service_zips || null,
         years_in_business: body.years_in_business || null,
-        annual_revenue_bracket: body.annual_revenue_bracket || null,
-        revenue_trajectory: body.revenue_trajectory || null,
+        annual_revenue_bracket: cap(body.annual_revenue_bracket),
+        revenue_trajectory: cap(body.revenue_trajectory),
         team_size_wtwo: body.team_size_wtwo || null,
         team_size_contractor: body.team_size_contractor || null,
-        current_tech_stack: body.current_tech_stack || null,
-        growth_target_12mo: body.growth_target_12mo || null,
+        current_tech_stack: cap(body.current_tech_stack),
+        growth_target_12mo: cap(body.growth_target_12mo),
         uses_ai_tools: body.uses_ai_tools ?? null,
-        ai_tools_list: body.ai_tools_list || null,
+        ai_tools_list: cap(body.ai_tools_list),
         ai_comfort_level: body.ai_comfort_level || null,
         has_crm: body.has_crm ?? null,
-        crm_name: body.crm_name || null,
-        day_to_day_operator: body.day_to_day_operator || null,
-        launch_timeline: body.launch_timeline || null,
+        crm_name: cap(body.crm_name),
+        day_to_day_operator: cap(body.day_to_day_operator),
+        launch_timeline: cap(body.launch_timeline),
         territory_exclusive_ok: body.territory_exclusive_ok ?? null,
-        top_pain_point: body.top_pain_point || null,
-        heard_from: body.heard_from || null,
-        biggest_competitor: body.biggest_competitor || null,
+        top_pain_point: cap(body.top_pain_point),
+        heard_from: cap(body.heard_from),
+        biggest_competitor: cap(body.biggest_competitor),
         wants_call: body.wants_call ?? null,
-        tier_interest: body.tier_interest || null,
+        tier_interest: cap(body.tier_interest),
         slot_taken_at_submit: slotTaken,
         status: 'new',
       })
@@ -71,6 +86,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, prospect_id: data.id, slot_taken: data.slot_taken_at_submit })
   } catch (err) {
     console.error('POST /api/prospects', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
+    // Don't leak Supabase constraint messages to the public caller.
+    return NextResponse.json({ error: 'Submission failed. Please try again.' }, { status: 500 })
   }
 }

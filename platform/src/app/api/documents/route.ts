@@ -52,13 +52,20 @@ export async function POST(request: Request) {
 
     const bytes = new Uint8Array(await file.arrayBuffer())
 
-    // Quick page count via pdf-lib (helps UI render empty pages before editor mounts)
+    // Quick page count via pdf-lib — also serves as encryption check.
+    // We reject encrypted PDFs because the sign-time SHA-256 would hash the
+    // encrypted bytes but pdf-lib's finalize strips encryption, producing a
+    // flattened PDF that no longer matches the integrity hash.
     let pageCount = 0
     try {
-      const doc = await PDFDocument.load(bytes, { ignoreEncryption: true })
+      const doc = await PDFDocument.load(bytes, { ignoreEncryption: false })
       pageCount = doc.getPageCount()
     } catch (e) {
-      return NextResponse.json({ error: `Invalid PDF: ${e instanceof Error ? e.message : 'unknown'}` }, { status: 400 })
+      const msg = e instanceof Error ? e.message : 'unknown'
+      if (/encrypted/i.test(msg)) {
+        return NextResponse.json({ error: 'Encrypted PDFs are not supported. Remove password protection and re-upload.' }, { status: 400 })
+      }
+      return NextResponse.json({ error: `Invalid PDF: ${msg}` }, { status: 400 })
     }
 
     // Insert row first to get id for path

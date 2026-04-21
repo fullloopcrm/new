@@ -6,15 +6,9 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
+import { TIER_PRICES } from '@/lib/tier-prices'
 
 type Params = { params: Promise<{ id: string }> }
-
-const TIER_PRICES: Record<string, { setup_cents: number; monthly_cents: number; label: string }> = {
-  starter:    { setup_cents: 99900, monthly_cents: 19900, label: 'Starter' },
-  growth:     { setup_cents: 99900, monthly_cents: 49900, label: 'Growth' },
-  pro:        { setup_cents: 99900, monthly_cents: 99900, label: 'Pro' },
-  enterprise: { setup_cents: 199900, monthly_cents: 0,    label: 'Enterprise (custom)' },
-}
 
 export async function GET(_r: Request, { params }: Params) {
   const authError = await requireAdmin()

@@ -87,6 +87,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ url: session.url })
   } catch (err) {
     console.error('POST /api/invoices/public/[token]/checkout', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
+    // Don't surface Stripe / internal error messages to a public caller.
+    return NextResponse.json({ error: 'Checkout unavailable. Try again or contact the business.' }, { status: 500 })
   }
 }

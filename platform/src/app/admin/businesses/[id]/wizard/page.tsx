@@ -145,7 +145,7 @@ export default function OnboardingWizardPage() {
     const body: Record<string, unknown> = { ...updates }
     if (markStep) body.setup_progress = { ...current, [`wizard_${markStep}`]: true }
     const res = await fetch(`/api/admin/businesses/${tenantId}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))

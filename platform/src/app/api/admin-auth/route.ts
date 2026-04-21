@@ -16,9 +16,14 @@ export function verifyAdminToken(token: string): boolean {
   if (!SECRET) return false
   try {
     const [payloadB64, sig] = token.split('.')
+    if (!sig) return false
     const payload = Buffer.from(payloadB64, 'base64').toString()
     const expected = crypto.createHmac('sha256', SECRET).update(payload).digest('hex')
-    if (sig !== expected) return false
+    // Use constant-time compare to avoid HMAC brute-force via timing oracle.
+    const a = Buffer.from(sig)
+    const b = Buffer.from(expected)
+    if (a.length !== b.length) return false
+    if (!crypto.timingSafeEqual(a, b)) return false
     const data = JSON.parse(payload)
     return data.role === 'super_admin' && data.exp > Date.now()
   } catch {
@@ -54,7 +59,7 @@ export async function POST(request: Request) {
   res.cookies.set('admin_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'strict',
     path: '/',
     maxAge: 24 * 60 * 60,
   })
