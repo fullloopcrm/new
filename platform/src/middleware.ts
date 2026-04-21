@@ -83,6 +83,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/quotes/public(.*)',   // Public quote API (token-auth)
   '/invoice/(.*)',            // Public invoice view + pay flow (token-auth)
   '/api/invoices/public(.*)', // Public invoice API (token-auth)
+  '/sign/(.*)',               // Public document signer view (token-auth)
+  '/api/documents/public(.*)', // Public document signer API (token-auth)
 ])
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {

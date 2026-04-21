@@ -81,8 +81,8 @@ export default function SalesHubPage() {
         </Link>
       </div>
 
-      {/* Four product cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      {/* Product cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <Link
           href="/dashboard/sales/quotes"
           className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-teal-400 hover:shadow-md transition-all"
@@ -150,6 +150,22 @@ export default function SalesHubPage() {
           </div>
           <p className="text-sm text-slate-600 leading-relaxed">
             Kanban stages, probability weighting, monthly forecast, activity timeline. Drag-drop stage moves, overdue follow-up tracking.
+          </p>
+        </Link>
+
+        <Link
+          href="/dashboard/sales/documents"
+          className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-teal-400 hover:shadow-md transition-all"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <p className="text-xs text-teal-600 uppercase tracking-wide font-medium">Live</p>
+              <h3 className="text-lg font-bold text-slate-900 mt-1">Documents &amp; E-sign</h3>
+            </div>
+            <span className="text-2xl">📑</span>
+          </div>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Upload any PDF, add signers with roles, drag-drop signature &amp; date fields, send. Multi-party parallel or sequential. ESIGN consent + SHA-256 integrity + audit certificate.
           </p>
         </Link>
       </div>
