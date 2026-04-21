@@ -11,6 +11,7 @@ import FAQSection from '@/components/marketing/FAQSection'
 import Image from 'next/image'
 import VideoReviews from '@/components/marketing/VideoReviews'
 import HeroChat from '@/components/marketing/HeroChat'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
 
 
 const content = homepageContent()
@@ -18,12 +19,12 @@ const content = homepageContent()
 export const metadata: Metadata = {
   title: { absolute: content.title },
   description: content.metaDescription,
-  alternates: { canonical: 'https://www.thenycmaid.com' },
+  alternates: { canonical: 'https://www.[yourbusiness].com' },
   openGraph: {
     title: content.title,
     description: content.metaDescription,
-    url: 'https://www.thenycmaid.com',
-    siteName: 'The NYC Maid',
+    url: 'https://www.[yourbusiness].com',
+    siteName: '[Your Business]',
     type: 'website',
     locale: 'en_US',
   },
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
 const testimonials = [
   { text: 'We just had our apartment painted and needed a deep clean to get rid of loads of dust. NYC Maid sent a wonderful cleaner who was prompt, professional and did an amazing job. Highly recommend!!!', name: 'Julie Salamon', location: 'New York' },
   { text: 'Best cleaning service I\'ve used in the 20 years I\'ve lived in NYC! Consistently efficient, thorough...', name: 'Courtney Gamble', location: 'New York' },
-  { text: 'After trying three different cleaning companies in NYC, The NYC Maid is hands down the most affordable and thorough.', name: 'Jenna M', location: 'New York' },
+  { text: 'After trying three different cleaning companies in NYC, [Your Business] is hands down the most affordable and thorough.', name: 'Jenna M', location: 'New York' },
 ]
 
 const homepageFAQs = [
@@ -52,9 +53,9 @@ const homepageFAQs = [
   { question: 'How much does house cleaning cost in NYC?', answer: 'Our house cleaning services start at $59/hour when you provide supplies, or $75/hour when we bring everything. Same-day and emergency service is $100/hour. Final cost depends on home size and service type.' },
   { question: 'Do you charge by the hour or a flat rate?', answer: 'We charge by the hour. This keeps pricing fair — you only pay for the time your space actually needs. No inflated flat-rate quotes.' },
   { question: 'Is there a minimum number of hours?', answer: 'We have a 2-hour minimum for most bookings. This ensures our cleaners have enough time to deliver a thorough, quality clean.' },
-  { question: 'How do I book a cleaning?', answer: 'Text (212) 202-9030. We typically schedule within 24-48 hours, with same-day availability for urgent requests.' },
+  { question: 'How do I book a cleaning?', answer: 'Text [phone]. We typically schedule within 24-48 hours, with same-day availability for urgent requests.' },
   { question: 'Do you offer same-day cleaning?', answer: 'Yes. Same-day and emergency cleaning is available at $100/hour. We dispatch a professional cleaner to your door within hours.' },
-  { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Zelle (hi@thenycmaid.com), Venmo, Apple Pay, and cash. You can also pay securely online through our payment portal.' },
+  { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Zelle ([email]), Venmo, Apple Pay, and cash. You can also pay securely online through our payment portal.' },
   { question: 'Do I need to tip my cleaner?', answer: 'Tipping is never required but always appreciated. If you feel your cleaner did a great job, a tip is a wonderful way to show it.' },
 
   // Services
@@ -85,7 +86,7 @@ const homepageFAQs = [
   { question: 'How far in advance should I book?', answer: 'We recommend booking 2-3 days in advance for regular cleanings. For same-day service, contact us as early as possible and we will do our best to accommodate.' },
   { question: 'What is your cancellation policy?', answer: 'First-time and one-time services cannot be cancelled or rescheduled once confirmed. Recurring services (weekly, bi-weekly, monthly) require 7 days notice to reschedule, and cancellations are only permitted if discontinuing the service entirely with 7 days notice. We don\'t take payment upfront — we hold your spot on our busy schedule, turning away other clients. Late cancellations directly affect our team members who depend on this income.' },
   { question: 'Can I reschedule my cleaning?', answer: 'Recurring clients can reschedule with 7 days notice. First-time and one-time services cannot be rescheduled. We hold your spot without collecting payment upfront and turn away other clients to do so — rescheduling leaves our cleaners without the income they were counting on.' },
-  { question: 'What days and hours are you available?', answer: 'Our office is open Monday through Saturday 7am–7pm. Our sales and booking line is available 24/7 — text (212) 202-9030 anytime.' },
+  { question: 'What days and hours are you available?', answer: 'Our office is open Monday through Saturday 7am–7pm. Our sales and booking line is available 24/7 — text [phone] anytime.' },
   { question: 'Do you clean on weekends?', answer: 'Yes, we offer Saturday appointments from 7am–7pm. Sunday availability may be limited — contact us to check.' },
   { question: 'Do you offer recurring cleaning schedules?', answer: 'Yes. We offer weekly, bi-weekly, and monthly recurring cleaning. Recurring clients get priority scheduling and a consistent cleaner.' },
 
@@ -102,7 +103,7 @@ const homepageFAQs = [
   { question: 'What if I am not happy with the cleaning?', answer: 'Your satisfaction is guaranteed. If you are not happy with any aspect of the clean, contact us within 24 hours and we will send someone back to make it right at no extra charge.' },
   { question: 'How do you maintain quality?', answer: 'We use detailed checklists, conduct regular quality reviews, and only work with experienced, vetted cleaners. Every clean is held to the same high standard.' },
   { question: 'Do you have reviews I can read?', answer: 'Yes! We have a 5.0-star rating from 27 verified clients. You can read all reviews on our Reviews page.' },
-  { question: 'How long have you been in business?', answer: 'The NYC Maid has been serving the New York City metro area since 2018. We have cleaned thousands of homes and built a loyal client base through consistent quality.' },
+  { question: 'How long have you been in business?', answer: '[Your Business] has been serving the New York City metro area since 2018. We have cleaned thousands of homes and built a loyal client base through consistent quality.' },
 
   // Special Situations
   { question: 'Can you clean if I have pets?', answer: 'Absolutely. We love pets! Just let us know so we can plan accordingly. We are experienced with homes that have dogs, cats, and other animals.' },
@@ -113,10 +114,19 @@ const homepageFAQs = [
 
   // Referral & Extras
   { question: 'Do you have a referral program?', answer: 'Yes! Refer a friend and earn 10% commission on every cleaning they book — not just the first one. It is recurring income for as long as they stay a client. Sign up on our Referral Program page.' },
-  { question: 'How do I contact you?', answer: 'Text (212) 202-9030, or email hi@thenycmaid.com. Texting is the fastest way to reach us.' },
+  { question: 'How do I contact you?', answer: 'Text [phone], or email [email]. Texting is the fastest way to reach us.' },
 ]
 
-export default function HomePage() {
+export default async function HomePage() {
+  const tenant = await getTenantFromHeaders()
+  // Fallbacks default to nycmaid's live values so localhost rendering stays
+  // intact when no tenant header is present. In production, middleware
+  // injects x-tenant-id for tenant domains and these resolve per-tenant.
+  const name = tenant?.name || '[Your Business]'
+  const phone = tenant?.phone || '[phone]'
+  const phoneDigits = (tenant?.phone || '').replace(/\D/g, '')
+  const email = tenant?.email || '[email]'
+
   const schemas = [...homepageSchemas(), faqSchema(homepageFAQs), ...videoReviewsSchemas()]
   const homepagePhoto = pickLifestylePhoto('homepage')
 
@@ -157,13 +167,13 @@ export default function HomePage() {
           <div className="w-3/4 h-[1px] bg-white/20 mb-5" />
 
           {/* CTA */}
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide mb-1">Book Now — Text or Call (212) 202-9030</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide mb-1">Book Now — Text or Call {phone}</p>
           <p className="text-blue-200/70 text-sm mb-5 max-w-[75%]">Pricing, availability, and scheduling in seconds. We respond fast.</p>
           <div className="flex flex-wrap gap-3 mb-8">
-            <a href="sms:2122029030" className="inline-flex items-center gap-2 bg-[#A8F0DC] text-[#1E2A4A] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+            <a href={`sms:${phoneDigits}`} className="inline-flex items-center gap-2 bg-[#A8F0DC] text-[#1E2A4A] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
               💬 Text Us
             </a>
-            <a href="tel:2122029030" className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
+            <a href={`tel:${phoneDigits}`} className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
               📞 Call Us
             </a>
           </div>
@@ -201,7 +211,7 @@ export default function HomePage() {
         <figure className="relative aspect-[21/9] w-full overflow-hidden max-h-[560px]">
           <Image
             src={homepagePhoto.src}
-            alt={`${homepagePhoto.alt} — The NYC Maid`}
+            alt={`${homepagePhoto.alt} — ${name}`}
             fill
             priority
             sizes="100vw"
@@ -220,7 +230,7 @@ export default function HomePage() {
             {/* Left — story */}
             <div>
               <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">New York City&apos;s Trusted Home Cleaning Company Since 2018</p>
-              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide leading-tight mb-4">Welcome to The NYC Maid</h2>
+              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide leading-tight mb-4">Welcome to {name}</h2>
               <div className="w-12 h-[2px] bg-[#A8F0DC] mb-6" />
               <p className="text-gray-600 text-lg leading-relaxed mb-5">
                 We&apos;re a small, dedicated cleaning company that treats every home like our own. No apps, no algorithms, no random strangers — just experienced, professional cleaners who show up on time, do beautiful work, and earn your trust visit after visit.
@@ -241,11 +251,11 @@ export default function HomePage() {
                 <Link href="/about-the-nyc-maid-service-company" className="inline-block bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
                   Learn More About Us
                 </Link>
-                <a href="sms:2122029030" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                <a href={`sms:${phoneDigits}`} className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                   Text Us
                 </a>
-                <a href="sms:2122029030" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
-                  or Text (212) 202-9030
+                <a href={`sms:${phoneDigits}`} className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
+                  or Text {phone}
                 </a>
               </div>
             </div>
@@ -253,7 +263,7 @@ export default function HomePage() {
             {/* Right — at a glance + quick stats */}
             <div className="space-y-6">
               <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-2xl p-8">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-5">The NYC Maid at a Glance</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-5">{name} at a Glance</h3>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">2018</p>
@@ -458,7 +468,7 @@ export default function HomePage() {
                 <p className="font-[family-name:var(--font-bebas)] text-2xl text-gray-400 tracking-wide">$75–$120/hr</p>
               </div>
               <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-xl p-4">
-                <p className="text-xs text-[#A8F0DC] font-semibold tracking-wide uppercase mb-1">The NYC Maid</p>
+                <p className="text-xs text-[#A8F0DC] font-semibold tracking-wide uppercase mb-1">[Your Business]</p>
                 <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide">$59–$100/hr</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
@@ -470,7 +480,7 @@ export default function HomePage() {
               <Link href="/updated-nyc-maid-service-industry-pricing" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
                 View Full Pricing Details
               </Link>
-              <a href="sms:2122029030" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              <a href={`sms:${phoneDigits}`} className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                 Text for a Quote
               </a>
             </div>
@@ -496,7 +506,7 @@ export default function HomePage() {
                   <span className="text-white text-lg font-bold">M</span>
                 </div>
                 <div>
-                  <span className="text-gray-900 font-semibold text-base sm:text-lg">The NYC Maid Reviews</span>
+                  <span className="text-gray-900 font-semibold text-base sm:text-lg">[Your Business] Reviews</span>
                   <p className="text-gray-400 text-xs">Verified Client Reviews</p>
                 </div>
               </div>
@@ -532,7 +542,7 @@ export default function HomePage() {
                   { name: 'Shannon Atran', time: '6 weeks ago', text: 'Karina was incredible. She was extremely meticulous and left my apt spotless. 10/10; will definitely use again.', initial: 'S', color: 'bg-orange-500' },
                   { name: 'Lindsey Hill', time: '7 weeks ago', text: 'Awesome cleaners and very responsive. I\'ve used them for several months now for my 3 bed 3 bath walk up in Hell\'s Kitchen. Karina is my cleaner. She is so sweet and warm and lovely.', initial: 'L', color: 'bg-pink-500' },
                   { name: 'Brad Lieberman', time: '9 weeks ago', text: 'Jeff is a real gem. Super communicative easy going and responsive. In a city with a lot of fly by night operations, NYC Maids is the real deal.', initial: 'B', color: 'bg-teal-500' },
-                  { name: 'Kelly Gay', time: '13 weeks ago', text: 'What a gift to have found The NYC Maid and Jeff, the owner! The cleaner did a wonderful job — thorough, detail-oriented, and left everything spotless.', initial: 'K', color: 'bg-pink-400' },
+                  { name: 'Kelly Gay', time: '13 weeks ago', text: 'What a gift to have found [Your Business] and Jeff, the owner! The cleaner did a wonderful job — thorough, detail-oriented, and left everything spotless.', initial: 'K', color: 'bg-pink-400' },
                   { name: 'Mona Abdel-Misih', time: '17 weeks ago', text: 'Needed a deep clean before moving in. It was amazing to place a phone call and have someone show up the next day. Highly recommend!', initial: 'M', color: 'bg-orange-400' },
                   { name: 'Ricky Foschi', time: '9 weeks ago', text: 'The services was amazing from beginning to end. Not just in quality but also in attitude. Karina was incredibly thorough.', initial: 'R', color: 'bg-green-500' },
                   { name: 'Natalie Pita', time: '9 weeks ago', text: 'Fantastic experience. Price is affordable for great service. I\'ve been more than happy each time, and staff is very friendly.', initial: 'N', color: 'bg-teal-400' },
@@ -588,7 +598,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           <div>
             <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Insured Up To $1,000,000 NYC Cleaning Company</p>
-            <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide leading-tight mb-6">Why Thousands of New Yorkers Trust The NYC Maid</h2>
+            <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide leading-tight mb-6">Why Thousands of New Yorkers Trust [Your Business]</h2>
             <div className="w-12 h-[2px] bg-[#A8F0DC] mb-6" />
             <p className="text-gray-600 text-lg leading-relaxed mb-4">
               We provide personalized, hourly <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] underline underline-offset-2">cleaning service pricing</Link> for each unique space — ensuring high-quality cleaning tailored to your needs. No contracts, no hidden fees, no surprises.
@@ -597,11 +607,11 @@ export default function HomePage() {
               Every cleaner on our team is fully background-checked and insured. Whether you need a <Link href="/services/apartment-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">regular apartment cleaning</Link> in <Link href="/manhattan-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Manhattan</Link>, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">deep clean</Link> in <Link href="/brooklyn-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Brooklyn</Link>, or <Link href="/services/airbnb-cleaning-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">Airbnb turnover cleaning</Link> in <Link href="/queens-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Queens</Link> — we&apos;ve got you covered. <Link href="/about-the-nyc-maid-service-company" className="text-[#1E2A4A] underline underline-offset-2">Learn more about our company</Link>.
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-4">
-              <a href="sms:2122029030" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              <a href={`sms:${phoneDigits}`} className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                 Text Us
               </a>
-              <a href="sms:2122029030" className="inline-block text-[#1E2A4A] font-semibold py-3.5 hover:underline underline-offset-4">
-                or Text (212) 202-9030
+              <a href={`sms:${phoneDigits}`} className="inline-block text-[#1E2A4A] font-semibold py-3.5 hover:underline underline-offset-4">
+                or Text {phone}
               </a>
             </div>
           </div>
@@ -646,8 +656,8 @@ export default function HomePage() {
       {/* Why Clients Choose Us */}
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4">
-          <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">What Makes The NYC Maid Different From Other NYC Cleaning Services</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide text-center mb-4">Why Clients Choose The NYC Maid Over Every Other Cleaning Company</h2>
+          <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">What Makes [Your Business] Different From Other NYC Cleaning Services</p>
+          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide text-center mb-4">Why Clients Choose [Your Business] Over Every Other Cleaning Company</h2>
           <p className="text-gray-500 text-center max-w-3xl mx-auto mb-14">
             No money upfront — you pay only after your cleaning is complete. Flat <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] underline underline-offset-2">hourly pricing</Link> with no surprise fees. Experienced, professional cleaners — not random gig workers. <Link href="/services/weekly-maid-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">Weekly</Link> and <Link href="/services/bi-weekly-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">bi-weekly recurring service</Link> available. No contracts — stay because you&apos;re happy.
           </p>
@@ -677,7 +687,7 @@ export default function HomePage() {
                 {[
                   'Payment is requested when the cleaning is nearly complete',
                   'You see the results before you pay',
-                  'Accepted methods: Zelle (hi@thenycmaid.com) or Apple Pay',
+                  'Accepted methods: Zelle ([email]) or Apple Pay',
                   'No processing fees, no delays, no chargebacks',
                   'Cleaner remains on site until payment is completed',
                 ].map(item => (
@@ -923,7 +933,7 @@ export default function HomePage() {
           <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">Earn Passive Income With Our NYC Cleaning Referral Program</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-4">Get Paid 10% Every Time Your Referral Books a Cleaning</h2>
           <p className="text-gray-500 max-w-2xl mx-auto mb-8">
-            Refer friends, family, or neighbors to The NYC Maid and earn 10% recurring commission on every cleaning they book — not just the first. Paid via Zelle or Apple Cash after each completed visit. No limit on referrals, no cap on earnings.
+            Refer friends, family, or neighbors to [Your Business] and earn 10% recurring commission on every cleaning they book — not just the first. Paid via Zelle or Apple Cash after each completed visit. No limit on referrals, no cap on earnings.
           </p>
           <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
             Join the Referral Program &rarr;
