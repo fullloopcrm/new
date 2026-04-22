@@ -1,5 +1,5 @@
 import { auth } from '@clerk/nextjs/server'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
@@ -12,6 +12,28 @@ export type TenantContext = {
   tenantId: string
   tenant: Tenant
   role: string
+}
+
+async function logImpersonationEvent(
+  actorKind: 'pin_admin' | 'clerk_super_admin',
+  actorId: string,
+  tenantId: string,
+): Promise<void> {
+  try {
+    const h = await headers()
+    await supabaseAdmin.from('impersonation_events').insert({
+      actor_kind: actorKind,
+      actor_id: actorId,
+      tenant_id: tenantId,
+      path: h.get('x-invoke-path') || h.get('referer') || null,
+      method: h.get('x-invoke-method') || null,
+      ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || null,
+      user_agent: h.get('user-agent'),
+    })
+  } catch (e) {
+    // Best-effort. Never block a request on audit log failure.
+    console.error('[impersonation-audit] insert failed:', e)
+  }
 }
 
 // Auth + tenant lookup — used by every API route
@@ -31,6 +53,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
         .single()
 
       if (tenant) {
+        await logImpersonationEvent('pin_admin', 'admin', tenant.id)
         return {
           userId: 'admin',
           tenantId: tenant.id,
@@ -56,6 +79,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
       .single()
 
     if (tenant) {
+      await logImpersonationEvent('clerk_super_admin', userId, tenant.id)
       return {
         userId,
         tenantId: tenant.id,

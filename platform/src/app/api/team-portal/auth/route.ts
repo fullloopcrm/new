@@ -3,7 +3,10 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import crypto from 'crypto'
 
-const SECRET = process.env.TEAM_PORTAL_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY!
+if (!process.env.TEAM_PORTAL_SECRET) {
+  throw new Error('TEAM_PORTAL_SECRET env var is required. Do not fall back to SUPABASE_SERVICE_ROLE_KEY — a leaked team portal token would then act as a signature oracle against the service role key.')
+}
+const SECRET = process.env.TEAM_PORTAL_SECRET
 
 function createToken(memberId: string, tenantId: string, payRate?: number | null): string {
   const payload = JSON.stringify({ id: memberId, tid: tenantId, pr: payRate || 0, exp: Date.now() + 24 * 3600 * 1000 })

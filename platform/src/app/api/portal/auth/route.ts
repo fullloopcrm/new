@@ -3,7 +3,10 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import crypto from 'crypto'
 
-const SECRET = process.env.PORTAL_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY!
+if (!process.env.PORTAL_SECRET) {
+  throw new Error('PORTAL_SECRET env var is required. Do not fall back to SUPABASE_SERVICE_ROLE_KEY — a leaked portal token would then act as a signature oracle against the service role key.')
+}
+const SECRET = process.env.PORTAL_SECRET
 
 function generateCode(): string {
   // crypto.randomInt is uniformly distributed and cryptographically strong;

@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
+import { signTenantHeader } from '@/lib/tenant-header-sig'
 
 // Hosts that are the marketing site / main app (not tenant sites)
 const MAIN_HOSTS = new Set([
@@ -157,6 +158,8 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): NextResponse {
   const pathname = req.nextUrl.pathname // e.g. "/" or "/services" or "/about"
 
+  const tenantSig = signTenantHeader(tenantId)
+
   // Rewrite /sitemap.xml to the tenant sitemap API — pass slug via both
   // searchParam and header for robustness across Next.js rewrite behaviors.
   if (pathname === '/sitemap.xml') {
@@ -164,8 +167,10 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
     url.pathname = '/api/tenant-sitemap'
     url.searchParams.set('slug', tenantSlug)
     const requestHeaders = new Headers(req.headers)
+    requestHeaders.delete('x-tenant-sig') // strip any caller-supplied
     requestHeaders.set('x-tenant-id', tenantId)
     requestHeaders.set('x-tenant-slug', tenantSlug)
+    requestHeaders.set('x-tenant-sig', tenantSig)
     return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
   }
 
@@ -173,8 +178,10 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // generator in src/app/robots.ts emits the tenant's own sitemap URL.
   if (pathname === '/robots.txt') {
     const requestHeaders = new Headers(req.headers)
+    requestHeaders.delete('x-tenant-sig')
     requestHeaders.set('x-tenant-id', tenantId)
     requestHeaders.set('x-tenant-slug', tenantSlug)
+    requestHeaders.set('x-tenant-sig', tenantSig)
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
@@ -187,8 +194,10 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   ]
   if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
     const requestHeaders = new Headers(req.headers)
+    requestHeaders.delete('x-tenant-sig')
     requestHeaders.set('x-tenant-id', tenantId)
     requestHeaders.set('x-tenant-slug', tenantSlug)
+    requestHeaders.set('x-tenant-sig', tenantSig)
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
@@ -200,11 +209,14 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   const response = NextResponse.rewrite(url)
   response.headers.set('x-tenant-id', tenantId)
   response.headers.set('x-tenant-slug', tenantSlug)
+  response.headers.set('x-tenant-sig', tenantSig)
 
   // Also set request headers so server components / route handlers can read them
   const requestHeaders = new Headers(req.headers)
+  requestHeaders.delete('x-tenant-sig')
   requestHeaders.set('x-tenant-id', tenantId)
   requestHeaders.set('x-tenant-slug', tenantSlug)
+  requestHeaders.set('x-tenant-sig', tenantSig)
 
   // NextResponse.rewrite with modified headers
   const rewriteUrl = req.nextUrl.clone()

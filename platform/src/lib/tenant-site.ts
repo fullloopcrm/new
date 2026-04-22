@@ -1,10 +1,17 @@
 import { headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
+import { verifyTenantHeaderSig } from './tenant-header-sig'
 
 export async function getTenantFromHeaders() {
   const h = await headers()
   const tenantId = h.get('x-tenant-id')
+  const sig = h.get('x-tenant-sig')
   if (!tenantId) return null
+  // Reject caller-supplied x-tenant-id. Only middleware knows the signing
+  // secret, so a missing or wrong sig means this header did not originate
+  // from middleware. Without this, a curl-er could impersonate any tenant
+  // on any public /api route that uses this helper.
+  if (!verifyTenantHeaderSig(tenantId, sig)) return null
 
   const { data } = await supabaseAdmin
     .from('tenants')
