@@ -12,6 +12,7 @@ type Business = {
   phone: string | null
   email: string | null
   website_url: string | null
+  domain: string | null
   domain_name: string | null
   address: string | null
   tagline: string | null
@@ -115,7 +116,7 @@ export default function OnboardingWizardPage() {
         setName(b.name || '')
         setPhone(b.phone || '')
         setEmail(b.email || '')
-        setDomain(b.domain_name || '')
+        setDomain(b.domain || b.domain_name || '')
         setAddress(b.address || '')
         setTagline(b.tagline || '')
         setBusinessHours(b.business_hours || '')
@@ -160,7 +161,10 @@ export default function OnboardingWizardPage() {
     try {
       await patchBusiness({
         name, phone: phone || null, email: email || null,
-        domain_name: domain || null, address: address || null, tagline: tagline || null,
+        // Write both columns: `domain` is canonical (middleware reads it for
+        // tenant routing). `domain_name` stays for legacy compatibility.
+        domain: domain || null, domain_name: domain || null,
+        address: address || null, tagline: tagline || null,
       }, 'business')
       setMsg('Saved')
       if (next) setStep('services')

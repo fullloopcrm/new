@@ -212,7 +212,7 @@ export async function PUT(
     'monthly_rate', 'setup_fee', 'setup_fee_paid_at', 'payment_method',
     'owner_name', 'owner_email', 'owner_phone',
     // Onboarding fields
-    'gmail_account', 'domain_name', 'dns_configured',
+    'gmail_account', 'domain', 'domain_name', 'dns_configured',
     'email_domain_verified', 'sms_number',
     'website_published', 'website_content', 'setup_progress',
     // Integration fields
