@@ -32,7 +32,8 @@ export async function POST(request: Request) {
 
   const body = await request.json()
 
-  // Look up service type
+  // Look up service type — tenant-scoped so a client from tenant A cannot
+  // post a booking with tenant B's service_type_id.
   let serviceType = null
   let price = null
   if (body.service_type_id) {
@@ -40,11 +41,13 @@ export async function POST(request: Request) {
       .from('service_types')
       .select('name, default_duration_hours, default_hourly_rate')
       .eq('id', body.service_type_id)
+      .eq('tenant_id', auth.tid)
       .single()
-    if (svc) {
-      serviceType = svc.name
-      price = svc.default_hourly_rate * svc.default_duration_hours * 100
+    if (!svc) {
+      return NextResponse.json({ error: 'Invalid service' }, { status: 400 })
     }
+    serviceType = svc.name
+    price = svc.default_hourly_rate * svc.default_duration_hours * 100
   }
 
   const { data, error } = await supabaseAdmin

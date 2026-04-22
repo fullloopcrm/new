@@ -27,8 +27,9 @@ export async function GET(request: Request, { params }: Params) {
 
     const { data: doc } = await supabaseAdmin
       .from('documents')
-      .select('*, tenants(name, domain, phone, email, logo_url, primary_color)')
+      .select('*, tenants!inner(name, domain, phone, email, logo_url, primary_color, status)')
       .eq('id', signer.document_id)
+      .eq('tenants.status', 'active')
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
 

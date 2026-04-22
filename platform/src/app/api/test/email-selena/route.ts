@@ -10,10 +10,16 @@ import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena'
 
-const TEST_TOKEN = 'selena-email-parity-2026-04-19-xk7p'
 const TEST_TAG = 'selena-email-test'
 
 export async function POST(request: NextRequest) {
+  // Test harness: must be explicitly enabled via env var, with a strong
+  // per-deployment secret. A hardcoded token in source is effectively public.
+  const expectedToken = process.env.SELENA_TEST_TOKEN
+  if (!expectedToken) {
+    return NextResponse.json({ error: 'test_harness_disabled' }, { status: 404 })
+  }
+
   const body = (await request.json().catch(() => null)) as {
     email?: string
     message?: string
@@ -22,7 +28,7 @@ export async function POST(request: NextRequest) {
     tenant_id?: string
   } | null
   if (!body) return NextResponse.json({ error: 'bad_body' }, { status: 400 })
-  if (body.key !== TEST_TOKEN) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (body.key !== expectedToken) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const tenantId = body.tenant_id || request.nextUrl.searchParams.get('tenant_id')
   if (!tenantId) return NextResponse.json({ error: 'tenant_id required' }, { status: 400 })

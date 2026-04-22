@@ -5,12 +5,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-const TEST_TOKEN = 'selena-email-parity-2026-04-19-xk7p'
 const TEST_TAG = 'selena-email-test'
 
 export async function POST(request: NextRequest) {
+  const expectedToken = process.env.SELENA_TEST_TOKEN
+  if (!expectedToken) {
+    return NextResponse.json({ error: 'test_harness_disabled' }, { status: 404 })
+  }
+
   const body = (await request.json().catch(() => null)) as { key?: string; tenant_id?: string } | null
-  if (!body || body.key !== TEST_TOKEN) {
+  if (!body || body.key !== expectedToken) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
