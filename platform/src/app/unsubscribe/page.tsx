@@ -7,7 +7,7 @@ interface TenantLite { name: string; phone?: string | null; primary_color?: stri
 
 function UnsubscribeContent({ tenant }: { tenant: TenantLite }) {
   const searchParams = useSearchParams()
-  const clientId = searchParams.get('id')
+  const token = searchParams.get('t')
   const channelParam = searchParams.get('channel')
   const successParam = searchParams.get('success')
   const channel = channelParam === 'sms' ? 'sms' : 'email'
@@ -18,13 +18,13 @@ function UnsubscribeContent({ tenant }: { tenant: TenantLite }) {
   const primary = tenant.primary_color || '#1E2A4A'
 
   const handleConfirm = async () => {
-    if (!clientId) return
+    if (!token) return
     setConfirming(true)
     try {
       const res = await fetch('/api/unsubscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: clientId, channel }),
+        body: JSON.stringify({ t: token }),
       })
       if (res.ok) setDone(true)
       else alert('Something went wrong. Please try again or contact us.')
@@ -60,7 +60,7 @@ function UnsubscribeContent({ tenant }: { tenant: TenantLite }) {
         </p>
         <button
           onClick={handleConfirm}
-          disabled={!clientId || confirming}
+          disabled={!token || confirming}
           className="w-full py-3 text-white rounded-lg font-semibold disabled:opacity-50"
           style={{ backgroundColor: primary }}
         >

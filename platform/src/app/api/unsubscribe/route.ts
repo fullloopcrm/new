@@ -1,26 +1,32 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { verifyUnsubscribeToken } from '@/lib/unsubscribe-token'
 
-// Step 1: Show confirmation page (link from email)
+/**
+ * Unsubscribe requires a signed token. Without it, any caller could opt out
+ * any client by guessing UUIDs.
+ *
+ * GET  /api/unsubscribe?t=<token>       → redirects to /unsubscribe page
+ * POST /api/unsubscribe { t: <token> }  → performs opt-out
+ */
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const clientId = searchParams.get('id')
-  const tenantId = searchParams.get('tenant')
-
-  if (!clientId) {
-    return NextResponse.json({ error: 'Missing client ID' }, { status: 400 })
+  const token = searchParams.get('t')
+  const payload = verifyUnsubscribeToken(token)
+  if (!payload) {
+    return NextResponse.json({ error: 'Invalid or expired link' }, { status: 400 })
   }
-
-  return NextResponse.redirect(new URL(`/unsubscribe?id=${clientId}&tenant=${tenantId || ''}`, request.url))
+  return NextResponse.redirect(new URL(`/unsubscribe?t=${encodeURIComponent(token || '')}`, request.url))
 }
 
-// Step 2: Actually opt out (called when user confirms)
 export async function POST(request: Request) {
-  const { client_id, tenant_id, channel } = await request.json()
-
-  if (!client_id) {
-    return NextResponse.json({ error: 'Missing client ID' }, { status: 400 })
+  const body = (await request.json().catch(() => ({}))) as { t?: string }
+  const payload = verifyUnsubscribeToken(body.t)
+  if (!payload) {
+    return NextResponse.json({ error: 'Invalid or expired link' }, { status: 400 })
   }
+  const { clientId, tenantId, channel } = payload
 
   const updates: Record<string, unknown> = {}
   if (channel === 'sms') {
@@ -31,22 +37,22 @@ export async function POST(request: Request) {
     updates.email_marketing_opted_out_at = new Date().toISOString()
   }
 
-  let query = supabaseAdmin.from('clients').update(updates).eq('id', client_id)
-  if (tenant_id) query = query.eq('tenant_id', tenant_id)
-
-  const { error } = await query
+  const { error } = await supabaseAdmin
+    .from('clients')
+    .update(updates)
+    .eq('id', clientId)
+    .eq('tenant_id', tenantId)
 
   if (error) {
     return NextResponse.json({ error: 'Failed to unsubscribe' }, { status: 500 })
   }
 
-  // Log the opt-out
   await supabaseAdmin
     .from('marketing_opt_out_log')
     .insert({
-      client_id,
-      tenant_id: tenant_id || null,
-      channel: channel === 'sms' ? 'sms' : 'email',
+      client_id: clientId,
+      tenant_id: tenantId,
+      channel,
       method: channel === 'sms' ? 'sms_stop' : 'email_link',
     })
     .then(() => {}, () => {})

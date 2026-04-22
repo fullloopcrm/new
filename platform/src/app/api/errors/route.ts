@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { trackError } from '@/lib/error-tracking'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 
 // Known transient/harmless errors that don't need alerts
 const IGNORABLE_PATTERNS = [
@@ -35,11 +36,19 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { message, stack, url, source, tenantId } = body
+    const { message, stack, url, source } = body
 
     if (!message) {
       return NextResponse.json({ error: 'Message required' }, { status: 400 })
     }
+
+    // Only trust tenant context when the signed header is present. A caller-
+    // supplied body.tenantId would let anyone attribute junk errors to any
+    // tenant's error dashboard. Unsigned errors fall through as
+    // platform-scope (tenantId undefined) and are filed under 'anonymous'.
+    const hdrTenantId = request.headers.get('x-tenant-id')
+    const sig = request.headers.get('x-tenant-sig')
+    const verifiedTenantId = (hdrTenantId && verifyTenantHeaderSig(hdrTenantId, sig)) ? hdrTenantId : undefined
 
     const isTransient = IGNORABLE_PATTERNS.some(p => message.includes(p))
 
@@ -53,7 +62,7 @@ export async function POST(request: Request) {
 
     await trackError(error, {
       source: source || 'client',
-      tenantId: tenantId || undefined,
+      tenantId: verifiedTenantId,
       severity: 'high',
       url
     })
