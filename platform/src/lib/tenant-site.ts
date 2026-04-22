@@ -1,6 +1,25 @@
 import { headers } from 'next/headers'
+import { notFound } from 'next/navigation'
 import { supabaseAdmin } from './supabase'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
+
+/**
+ * Gate nycmaid-specific hardcoded SEO pages. Pages that contain
+ * NYC-Maid-authored content (specific neighborhoods, FAQ, blog posts,
+ * careers pages) should call this at the top of their server component.
+ * A tenant with `enable_legacy_seo_pages=true` renders normally. All
+ * other tenants get 404 — they build their own SEO surface over time
+ * via an admin CMS (future work).
+ *
+ * Returns the tenant for convenience so callers don't double-lookup.
+ */
+export async function requireLegacySeoPages() {
+  const tenant = await getTenantFromHeaders()
+  if (!tenant || !(tenant as Record<string, unknown>).enable_legacy_seo_pages) {
+    notFound()
+  }
+  return tenant
+}
 
 export async function getTenantFromHeaders() {
   const h = await headers()

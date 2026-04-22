@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 export const metadata: Metadata = {
   title: 'Apply — Operations Admin (Part-Time) | The NYC Maid',
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
   },
 }
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default async function Layout({ children }: { children: React.ReactNode }) {
+  await requireLegacySeoPages()
   return children
 }

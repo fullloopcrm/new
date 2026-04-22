@@ -4,6 +4,7 @@ import { breadcrumbSchema, localBusinessSchema } from '@/lib/seo/schema'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 const categories = [
   { id: 'kitchen', name: 'Kitchen', icon: '🍳' },
@@ -160,7 +161,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function TipsPage() {
+export default async function TipsPage() {
+  await requireLegacySeoPages()
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',

@@ -7,6 +7,7 @@ import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, 
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 const url = 'https://www.thenycmaid.com/about-the-nyc-maid-service-company'
 const title = 'About The NYC Maid | Affordable, Reliable NYC Cleaning Since 2018'
@@ -32,7 +33,8 @@ const aboutFaqs = [
   { question: 'What languages do your cleaners speak?', answer: 'Our team is bilingual — English and Spanish. We can accommodate communication preferences for both languages.' },
 ]
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  await requireLegacySeoPages()
   return (
     <>
       <JsonLd data={[

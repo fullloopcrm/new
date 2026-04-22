@@ -7,6 +7,7 @@ import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
 import TrustBadges from '@/components/marketing/TrustBadges'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 const emergencyTypes = [
   {
@@ -192,7 +193,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function EmergencyCleaningPage() {
+export default async function EmergencyCleaningPage() {
+  await requireLegacySeoPages()
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',

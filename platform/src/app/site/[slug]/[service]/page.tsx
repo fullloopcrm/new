@@ -16,6 +16,7 @@ import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import FAQSection from '@/components/marketing/FAQSection'
 import CTABlock from '@/components/marketing/CTABlock'
 import NearbyNeighborhoods from '@/components/marketing/NearbyNeighborhoods'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 const SERVICE_PHOTO_CATEGORY: Record<string, PhotoCategory> = {
   'deep-cleaning': 'kitchen',
@@ -68,6 +69,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function NeighborhoodServicePage({ params }: Props) {
+  await requireLegacySeoPages()
   const { slug, service: serviceSlug } = await params
   const neighborhood = getNeighborhoodByUrlSlug(slug)
   const service = getService(serviceSlug)

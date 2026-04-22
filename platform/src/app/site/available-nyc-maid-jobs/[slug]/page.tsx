@@ -8,6 +8,7 @@ import { breadcrumbSchema, localBusinessSchema } from '@/lib/seo/schema'
 import { pickTeamPhoto } from '@/lib/seo/photos'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 export const dynamicParams = false
 export const revalidate = 1296000
@@ -60,6 +61,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function NeighborhoodJobPage({ params }: { params: Promise<{ slug: string }> }) {
+  await requireLegacySeoPages()
   const { slug } = await params
   const n = getNeighborhood(slug)
   if (!n) notFound()

@@ -5,6 +5,7 @@ import { breadcrumbSchema, localBusinessSchema } from '@/lib/seo/schema'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 export const metadata: Metadata = {
   title: 'Blog | NYC Cleaning Tips & News | The NYC Maid',
@@ -22,7 +23,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function BlogIndexPage() {
+export default async function BlogIndexPage() {
+  await requireLegacySeoPages()
   const featured = BLOG_POSTS[0]
   const rest = BLOG_POSTS.slice(1)
 

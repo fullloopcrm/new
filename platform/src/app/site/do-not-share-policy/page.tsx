@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { breadcrumbSchema } from '@/lib/seo/schema'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 export const metadata: Metadata = {
   title: 'Do Not Share Policy | The NYC Maid',
@@ -10,7 +11,8 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://www.thenycmaid.com/do-not-share-policy' },
 }
 
-export default function DoNotSharePage() {
+export default async function DoNotSharePage() {
+  await requireLegacySeoPages()
   return (
     <>
       <JsonLd data={breadcrumbSchema([

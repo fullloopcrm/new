@@ -5,6 +5,7 @@ import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import FAQSection from '@/components/marketing/FAQSection'
 import CTABlock from '@/components/marketing/CTABlock'
 import ReferralSignupForm from '@/components/marketing/ReferralSignupForm'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 export const metadata: Metadata = {
   title: 'Get Paid for Cleaning Referrals | Earn 10% Commission | The NYC Maid',
@@ -26,7 +27,8 @@ const referralFAQs = [
   { question: 'How long do I earn commissions for each referral?', answer: 'You earn commissions for as long as the person you referred remains a customer. If they book weekly cleanings for a year, you earn 10% on every single one.' },
 ]
 
-export default function ReferralPage() {
+export default async function ReferralPage() {
+  await requireLegacySeoPages()
   return (
     <>
       <JsonLd data={[

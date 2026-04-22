@@ -8,6 +8,7 @@ import Image from 'next/image'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 export const dynamicParams = false
 
@@ -40,6 +41,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  await requireLegacySeoPages()
   const { slug } = await params
   const post = getBlogPost(slug)
   if (!post) notFound()

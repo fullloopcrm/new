@@ -6,6 +6,7 @@ import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import ServiceGrid from '@/components/marketing/ServiceGrid'
 import CTABlock from '@/components/marketing/CTABlock'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 export const metadata: Metadata = {
   title: { absolute: 'NYC Cleaning Services — Deep Clean, Maid Service, Move-In/Out & More | The NYC Maid' },
@@ -18,7 +19,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function ServicesIndexPage() {
+export default async function ServicesIndexPage() {
+  await requireLegacySeoPages()
   return (
     <>
       <JsonLd data={[

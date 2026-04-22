@@ -6,6 +6,7 @@ import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, 
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 const openings = [
   {
@@ -141,7 +142,8 @@ function jobPostingSchema(region: string, locations: string) {
   }
 }
 
-export default function CareersPage() {
+export default async function CareersPage() {
+  await requireLegacySeoPages()
   return (
     <>
       <JsonLd data={[

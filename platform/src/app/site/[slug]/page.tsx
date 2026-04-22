@@ -20,6 +20,7 @@ import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import FAQSection from '@/components/marketing/FAQSection'
 import CTABlock from '@/components/marketing/CTABlock'
 import NearbyNeighborhoods from '@/components/marketing/NearbyNeighborhoods'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -73,6 +74,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function SlugPage({ params }: Props) {
+  await requireLegacySeoPages()
   const { slug } = await params
 
   // ============ AREA PAGE ============

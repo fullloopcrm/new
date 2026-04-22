@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { organizationSchema, webSiteSchema, webPageSchema, breadcrumbSchema, faqSchema } from '@/lib/seo/schema'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 
 const pageUrl = 'https://www.thenycmaid.com/careers/operations-coordinator'
@@ -256,7 +257,8 @@ const faqs = [
   },
 ]
 
-export default function OperationsCoordinatorPage() {
+export default async function OperationsCoordinatorPage() {
+  await requireLegacySeoPages()
   return (
     <>
       <JsonLd data={[

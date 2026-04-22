@@ -4,6 +4,7 @@ import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, 
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
+import { requireLegacySeoPages } from '@/lib/tenant-site'
 
 const pricingFAQs = [
   { question: 'How much does house cleaning cost in NYC?', answer: 'Our standard rate is $59/hr when you provide supplies, $75/hr when we bring everything, and $100/hr for same-day emergency service. A typical studio takes 2–3 hours. We provide free custom quotes based on your home size and cleaning needs.' },
@@ -74,7 +75,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function FAQPage() {
+export default async function FAQPage() {
+  await requireLegacySeoPages()
   const sections = [
     { label: 'Pricing & Payment', faqs: pricingFAQs },
     { label: 'Services & What\'s Included', faqs: serviceFAQs },
