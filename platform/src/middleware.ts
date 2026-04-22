@@ -89,6 +89,9 @@ const isPublicRoute = createRouteMatcher([
   '/api/cpa/(.*)',             // CPA read-only access (token-auth)
   '/qualify',                  // Public prospect application form
   '/api/prospects',            // Public prospect intake
+  '/api/client(.*)',           // Ported nycmaid client-portal routes — tenant
+                               // resolved via signed x-tenant-id header, not Clerk
+  '/api/cleaner-applications', // Alias → /api/team-applications
 ])
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
