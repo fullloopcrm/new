@@ -116,6 +116,50 @@ export async function POST(request: Request) {
             await supabaseAdmin.from('prospects').update({
               tenant_id: tenant.id,
             }).eq('id', prospectId)
+
+            // Send tenant owner an invite so they can log in and run setup.
+            // Without this, a paid tenant has no way into their dashboard
+            // and would be stuck until a super-admin manually invited them.
+            try {
+              const { randomBytes } = await import('node:crypto')
+              const token = randomBytes(32).toString('hex')
+              const expires_at = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+              await supabaseAdmin.from('tenant_invites').insert({
+                tenant_id: tenant.id,
+                email: prospect.owner_email.toLowerCase(),
+                role: 'owner',
+                token,
+                expires_at,
+              })
+              const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+              const joinUrl = `${appUrl}/join/${token}`
+              const { sendEmail } = await import('@/lib/email')
+              await sendEmail({
+                to: prospect.owner_email,
+                subject: `Welcome to Full Loop CRM — set up ${prospect.business_name}`,
+                html: `
+                  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;">
+                    <div style="background:#1e40af;padding:28px;text-align:center;border-radius:12px 12px 0 0;">
+                      <h1 style="color:white;margin:0;font-size:22px;">Welcome to Full Loop CRM</h1>
+                    </div>
+                    <div style="background:#f9fafb;padding:28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+                      <p style="color:#111827;font-size:15px;line-height:1.6;margin:0 0 16px;">Hi ${prospect.owner_name || 'there'},</p>
+                      <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
+                        Your ${prospect.business_name} account is set up and ready. Click below to sign in, finish onboarding, and connect your phone number, email, and payment integrations.
+                      </p>
+                      <div style="text-align:center;margin:24px 0;">
+                        <a href="${joinUrl}" style="display:inline-block;background:#1e40af;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Get Started</a>
+                      </div>
+                      <p style="color:#6b7280;font-size:13px;line-height:1.6;">This link expires in 14 days. If you weren't expecting this, you can safely ignore it.</p>
+                    </div>
+                  </div>
+                `,
+              })
+            } catch (inviteErr) {
+              console.error(`[stripe] tenant ${tenant.id} created but invite failed:`, inviteErr)
+              // Don't fail the whole webhook — tenant is created. Super-admin
+              // can manually resend via /api/admin/invites.
+            }
           }
         }
         return NextResponse.json({ received: true, signup_paid: true })
