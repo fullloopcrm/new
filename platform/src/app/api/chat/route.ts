@@ -2,18 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies } from '@/lib/selena'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, sessionId, phone, tenantId } = await req.json()
+    const { message, sessionId, phone, tenantId: bodyTenantId } = await req.json()
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
-    if (!tenantId) {
-      return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
+
+    // Tenant must come from middleware-signed header. A caller-supplied
+    // tenantId in the body is accepted only if it matches the signed header.
+    // This closes the cross-tenant attack: POST /api/chat with body.tenantId
+    // targeting any tenant would otherwise let an attacker impersonate them.
+    const headerTenantId = req.headers.get('x-tenant-id')
+    const sig = req.headers.get('x-tenant-sig')
+    if (!headerTenantId || !verifyTenantHeaderSig(headerTenantId, sig)) {
+      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
     }
+    if (bodyTenantId && bodyTenantId !== headerTenantId) {
+      return NextResponse.json({ error: 'Tenant mismatch' }, { status: 400 })
+    }
+    const tenantId = headerTenantId
 
     let conversationId = sessionId
 
