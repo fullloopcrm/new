@@ -1,10 +1,43 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { SERVICE_ZONES } from '@/lib/service-zones'
 
+interface TenantLite {
+  name: string
+  phone: string | null
+  domain: string | null
+  privacy_url: string | null
+  terms_url: string | null
+}
+
 export default function ApplyPage() {
+  const [tenant, setTenant] = useState<TenantLite>({
+    name: 'Our Business',
+    phone: null,
+    domain: null,
+    privacy_url: null,
+    terms_url: null,
+  })
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/tenant/public')
+      .then(r => r.ok ? r.json() : null)
+      .then(t => {
+        if (cancelled || !t) return
+        setTenant({
+          name: t.name || 'Our Business',
+          phone: t.phone || null,
+          domain: t.domain || null,
+          privacy_url: t.privacy_url || null,
+          terms_url: t.terms_url || null,
+        })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -114,7 +147,7 @@ export default function ApplyPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col">
         <div className="bg-[#1E2A4A] px-6 py-4">
-          <h1 className="text-white text-xl font-bold">The NYC Maid</h1>
+          <h1 className="text-white text-xl font-bold">{tenant.name}</h1>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-sm">
@@ -122,7 +155,7 @@ export default function ApplyPage() {
             <h2 className="text-2xl font-bold text-[#1E2A4A] mb-2">Application Received! / ¡Solicitud Recibida!</h2>
             <p className="text-gray-600">Thanks, {form.name.split(' ')[0]}. We&apos;ll review your application and reach out soon.</p>
             <p className="text-gray-600 mt-2">Gracias, {form.name.split(' ')[0]}. Revisaremos su solicitud y nos comunicaremos pronto.</p>
-            <p className="text-gray-500 text-sm mt-4">Questions? / ¿Preguntas? (212) 202-9030</p>
+            {tenant.phone && <p className="text-gray-500 text-sm mt-4">Questions? / ¿Preguntas? {tenant.phone}</p>}
           </div>
         </div>
       </div>
@@ -132,7 +165,7 @@ export default function ApplyPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-[#1E2A4A] px-6 py-4">
-        <h1 className="text-white text-xl font-bold">The NYC Maid</h1>
+        <h1 className="text-white text-xl font-bold">{tenant.name}</h1>
         <p className="text-gray-400 text-sm">Join Our Team / Únete a Nuestro Equipo</p>
       </div>
 
@@ -418,11 +451,11 @@ export default function ApplyPage() {
             <label className="flex items-start gap-3 cursor-pointer text-[13px] leading-relaxed text-gray-600">
               <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
               <span>
-                By checking this box, I consent to receive transactional text messages from <strong>The NYC Maid</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply.
+                By checking this box, I consent to receive transactional text messages from <strong>{tenant.name}</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply.
                 <br /><br />
-                Al marcar esta casilla, doy mi consentimiento para recibir mensajes de texto de <strong>The NYC Maid</strong> para confirmaciones de citas, recordatorios y atención al cliente. Responda STOP para cancelar. Responda HELP para ayuda.
+                Al marcar esta casilla, doy mi consentimiento para recibir mensajes de texto de <strong>{tenant.name}</strong> para confirmaciones de citas, recordatorios y atención al cliente. Responda STOP para cancelar. Responda HELP para ayuda.
                 <br /><br />
-                <a href="https://www.thenycmaid.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href="https://www.thenycmaid.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a>
+                <a href={tenant.privacy_url || '/privacy-policy'} target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href={tenant.terms_url || '/terms-conditions'} target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a>
               </span>
             </label>
           </div>
@@ -435,9 +468,11 @@ export default function ApplyPage() {
             {loading ? 'Submitting... / Enviando...' : 'Submit Application / Enviar Solicitud'}
           </button>
 
-          <p className="text-xs text-gray-400 text-center">
-            Questions? / ¿Preguntas? (212) 202-9030
-          </p>
+          {tenant.phone && (
+            <p className="text-xs text-gray-400 text-center">
+              Questions? / ¿Preguntas? {tenant.phone}
+            </p>
+          )}
         </form>
       </div>
     </div>

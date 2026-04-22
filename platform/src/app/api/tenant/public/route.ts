@@ -18,5 +18,8 @@ export async function GET() {
     privacy_url: tenant.privacy_url || null,
     terms_url: tenant.terms_url || null,
     tagline: tenant.tagline || null,
+    phone: tenant.phone || null,
+    email: tenant.email || null,
+    industry: tenant.industry || null,
   })
 }

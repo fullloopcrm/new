@@ -1,29 +1,29 @@
 import type { Metadata } from 'next'
+import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 
-export const metadata: Metadata = {
-  title: 'Apply to Clean — Highest Paid Cleaning Jobs in NYC, Same-Day Pay | Trabajo de Limpieza NYC',
-  description:
-    'Join The NYC Maid — NYC\'s highest-paying cleaning jobs starting at $30/hr with same-day pay. No experience needed. Apply now for full-time or part-time house cleaning work in New York City. Solicite ahora — los trabajos de limpieza mejor pagados en NYC.',
-  alternates: { canonical: 'https://www.thenycmaid.com/apply' },
-  openGraph: {
-    title: 'Apply to Clean — Highest Paid Cleaning Jobs in NYC, Same-Day Pay',
-    description:
-      'NYC\'s best cleaning opportunities. $30/hr+, same-day pay, flexible hours. Apply in 2 minutes.',
-    url: 'https://www.thenycmaid.com/apply',
-    siteName: 'The NYC Maid',
-    locale: 'en_US',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Apply to Clean — Highest Paid Cleaning Jobs in NYC',
-    description:
-      'NYC\'s best cleaning opportunities. $30/hr+, same-day pay, flexible hours. Apply in 2 minutes.',
-  },
-  other: {
-    'geo.region': 'US-NY',
-    'geo.placename': 'New York',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getTenantFromHeaders()
+  const name = tenant?.name || 'Our Business'
+  const origin = tenantSiteUrl(tenant) || ''
+  const industry = (tenant?.industry as string | undefined) || 'service'
+  return {
+    title: `Apply — Join ${name}`,
+    description: `Join ${name}. Apply in minutes — real work, real pay, real team.`,
+    alternates: { canonical: `${origin}/apply` },
+    openGraph: {
+      title: `Apply — Join ${name}`,
+      description: `Join ${name}. Apply in minutes — real work, real pay, real team.`,
+      url: `${origin}/apply`,
+      siteName: name,
+      locale: 'en_US',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `Apply — Join ${name}`,
+      description: `Join ${name}. Apply in minutes — real ${industry} work, real pay, real team.`,
+    },
+  }
 }
 
 export default function ApplyLayout({ children }: { children: React.ReactNode }) {

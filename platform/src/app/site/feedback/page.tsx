@@ -4,7 +4,18 @@ import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
 function FeedbackForm() {
-  useEffect(() => { document.title = 'Leave Feedback | The NYC Maid' }, [])
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/tenant/public')
+      .then(r => r.ok ? r.json() : null)
+      .then(t => {
+        if (cancelled) return
+        const name = (t?.name as string) || 'Our Business'
+        document.title = `Leave Feedback | ${name}`
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
   const searchParams = useSearchParams()
   const source = searchParams.get('from') || 'Email Link'
   const [message, setMessage] = useState('')
