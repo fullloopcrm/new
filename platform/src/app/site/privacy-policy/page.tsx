@@ -3,19 +3,33 @@ import Link from 'next/link'
 import { breadcrumbSchema } from '@/lib/seo/schema'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
+import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 
-export const metadata: Metadata = {
-  title: 'Privacy Policy | The NYC Maid',
-  description: 'The NYC Maid privacy policy — how we protect your data. We never sell or share your information. NYC cleaning from $59/hr. (646) 490-0130',
-  alternates: { canonical: 'https://www.thenycmaid.com/privacy-policy' },
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getTenantFromHeaders()
+  const name = tenant?.name || 'Our Business'
+  const origin = tenantSiteUrl(tenant) || ''
+  return {
+    title: `Privacy Policy | ${name}`,
+    description: `${name} privacy policy — how we protect your data. We never sell or share your information.`,
+    alternates: { canonical: `${origin}/privacy-policy` },
+  }
 }
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage() {
+  const tenant = await getTenantFromHeaders()
+  const name = tenant?.name || 'Our Business'
+  const email = tenant?.email || ''
+  const phone = tenant?.phone || ''
+  const phoneDigits = phone.replace(/\D/g, '')
+  const origin = tenantSiteUrl(tenant) || ''
+  const hasLegacyLegal = !!(tenant as Record<string, unknown> | null)?.enable_legacy_seo_pages
+
   return (
     <>
       <JsonLd data={breadcrumbSchema([
-        { name: 'Home', url: 'https://www.thenycmaid.com' },
-        { name: 'Privacy Policy', url: 'https://www.thenycmaid.com/privacy-policy' },
+        { name: 'Home', url: origin || '/' },
+        { name: 'Privacy Policy', url: `${origin}/privacy-policy` },
       ])} />
 
       <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-16 md:py-20">
@@ -33,13 +47,13 @@ export default function PrivacyPolicyPage() {
 
           <div>
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">Information We Collect</h2>
-            <p className="text-gray-600 leading-relaxed mb-4">When you book a cleaning or use our website, we collect the following information:</p>
+            <p className="text-gray-600 leading-relaxed mb-4">When you book a service or use our website, we collect the following information:</p>
             <ul className="space-y-3">
               {[
-                { label: 'Contact Information', detail: 'Your name, phone number, email address, and home address — provided when you book a cleaning or request a quote.' },
-                { label: 'Service Details', detail: 'Information about your home (size, condition, access instructions) and any special cleaning requests or preferences.' },
-                { label: 'Payment Information', detail: 'Payment is collected in person upon completion of service via Zelle (hi@thenycmaid.com), Apple Pay, Venmo, credit card, or cash. We do not store payment card details on our servers.' },
-                { label: 'Usage Data', detail: 'We collect anonymized data about how you interact with our website — pages visited, buttons clicked, and features used. This helps us improve the user experience and make our site more useful for you.' },
+                { label: 'Contact Information', detail: 'Your name, phone number, email address, and service address — provided when you book or request a quote.' },
+                { label: 'Service Details', detail: 'Information about your service needs, any special requests, and access instructions.' },
+                { label: 'Payment Information', detail: 'Payment may be collected via supported methods listed at booking. We do not store payment card details on our servers.' },
+                { label: 'Usage Data', detail: 'We collect anonymized data about how you interact with our website — pages visited, buttons clicked, and features used. This helps us improve the user experience.' },
               ].map(item => (
                 <li key={item.label} className="bg-gray-50 rounded-xl p-5">
                   <p className="text-[#1E2A4A] font-semibold text-sm mb-1">{item.label}</p>
@@ -53,9 +67,9 @@ export default function PrivacyPolicyPage() {
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">How We Use Your Information</h2>
             <ul className="space-y-2.5">
               {[
-                'To schedule, confirm, and provide your cleaning service',
+                'To schedule, confirm, and deliver your service',
                 'To communicate with you about appointments, updates, and service-related matters',
-                'To assign the right cleaner to your home based on location and service type',
+                'To assign the right team member to your job based on location and service type',
                 'To analyze anonymized usage data and improve our website experience',
                 'To send you relevant updates about our services (you can opt out at any time)',
               ].map(item => (
@@ -71,10 +85,10 @@ export default function PrivacyPolicyPage() {
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">We Do Not Share Your Information</h2>
             <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-xl p-6">
               <p className="text-gray-600 leading-relaxed mb-3">
-                We do not sell, trade, rent, or share your personal information with any third parties. Period. Your data stays with us and is used solely to provide and improve your cleaning service.
+                We do not sell, trade, rent, or share your personal information with any third parties. Period. Your data stays with us and is used solely to provide and improve your service.
               </p>
               <p className="text-gray-600 leading-relaxed">
-                The only people who see your information are the members of our team who need it to do their job — your assigned cleaner receives your address and access instructions, and that&apos;s it. We do not use third-party marketing platforms, data brokers, or advertising networks that track you.
+                The only people who see your information are the members of our team who need it to do their job — your assigned provider receives your address and access instructions, and that&apos;s it. We do not use third-party marketing platforms, data brokers, or advertising networks that track you.
               </p>
             </div>
           </div>
@@ -82,7 +96,7 @@ export default function PrivacyPolicyPage() {
           <div>
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">User Activity &amp; Analytics</h2>
             <p className="text-gray-600 leading-relaxed mb-3">
-              We do collect anonymized data about how visitors use our website. This includes which pages you visit, what you click on, and how you navigate through the site. This data is used exclusively to improve the user experience — making it easier to book, find information, and get the most out of our services.
+              We do collect anonymized data about how visitors use our website. This includes which pages you visit, what you click on, and how you navigate through the site. This data is used exclusively to improve the user experience.
             </p>
             <p className="text-gray-600 leading-relaxed">
               This data is never tied to your identity, never shared with third parties, and never used for advertising or profiling purposes.
@@ -116,10 +130,16 @@ export default function PrivacyPolicyPage() {
           <div className="border-t border-gray-200 pt-8">
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">Contact Us</h2>
             <p className="text-gray-600 leading-relaxed">
-              Questions about this privacy policy? Contact us at <a href="mailto:hi@thenycmaid.com" className="text-[#1E2A4A] underline underline-offset-2">hi@thenycmaid.com</a> or text <a href="sms:6464900130" className="text-[#1E2A4A] underline underline-offset-2">(646) 490-0130</a>.
+              Questions about this privacy policy? Contact us{email ? <> at <a href={`mailto:${email}`} className="text-[#1E2A4A] underline underline-offset-2">{email}</a></> : ''}{phoneDigits ? <> or text <a href={`sms:${phoneDigits}`} className="text-[#1E2A4A] underline underline-offset-2">{phone}</a></> : ''}.
             </p>
             <p className="text-gray-500 text-sm mt-4">
-              See also: <Link href="/terms-conditions" className="text-[#1E2A4A] underline underline-offset-2">Terms &amp; Conditions</Link> &middot; <Link href="/refund-policy" className="text-[#1E2A4A] underline underline-offset-2">Refund Policy</Link> &middot; <Link href="/do-not-share-policy" className="text-[#1E2A4A] underline underline-offset-2">Do Not Share Policy</Link>
+              See also: <Link href="/terms-conditions" className="text-[#1E2A4A] underline underline-offset-2">Terms &amp; Conditions</Link>
+              {hasLegacyLegal && (
+                <>
+                  {' '}&middot; <Link href="/refund-policy" className="text-[#1E2A4A] underline underline-offset-2">Refund Policy</Link>
+                  {' '}&middot; <Link href="/do-not-share-policy" className="text-[#1E2A4A] underline underline-offset-2">Do Not Share Policy</Link>
+                </>
+              )}
             </p>
           </div>
         </div>
