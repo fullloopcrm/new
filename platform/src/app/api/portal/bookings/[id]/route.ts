@@ -41,7 +41,7 @@ export async function PUT(
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const { id } = await params
-  const body = await request.json()
+  const body = await request.json().catch(() => ({}))
   const { start_time, end_time, notes, status, special_instructions } = body
 
   // Get old booking for notification context

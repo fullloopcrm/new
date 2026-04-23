@@ -51,7 +51,7 @@ export async function PUT(request: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
 
-  const body = await request.json()
+  const body = await request.json().catch(() => ({}))
   const { tenant_id, key, value } = body
 
   if (tenant_id) {

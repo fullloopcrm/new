@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: Request) {
-  const { referral_code } = await request.json()
+  const { referral_code } = await request.json().catch(() => ({}))
 
   if (!referral_code) {
     return NextResponse.json({ error: 'referral_code required' }, { status: 400 })

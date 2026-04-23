@@ -26,7 +26,7 @@ export async function PUT(request: NextRequest) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { notes } = await request.json()
+  const { notes } = await request.json().catch(() => ({}))
   if (typeof notes !== 'string' || notes.length > 500) {
     return NextResponse.json({ error: 'Notes must be 500 chars or less' }, { status: 400 })
   }

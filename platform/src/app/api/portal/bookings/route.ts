@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const body = await request.json()
+  const body = await request.json().catch(() => ({}))
 
   // Look up service type — tenant-scoped so a client from tenant A cannot
   // post a booking with tenant B's service_type_id.

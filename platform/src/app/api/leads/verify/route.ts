@@ -6,7 +6,7 @@ export async function PATCH(request: Request) {
   const { tenant, error: authError } = await requirePermission('leads.view')
   if (authError) return authError
 
-  const { id, field, value } = await request.json()
+  const { id, field, value } = await request.json().catch(() => ({}))
   if (!id || !field) return NextResponse.json({ error: 'Missing id or field' }, { status: 400 })
   if (field !== 'true_conversion' && field !== 'true_close') {
     return NextResponse.json({ error: 'Invalid field' }, { status: 400 })

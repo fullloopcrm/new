@@ -22,7 +22,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Too many submissions. Try again in an hour.' }, { status: 429 })
     }
 
-    const body = await request.json()
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
     const required = ['business_name', 'owner_name', 'owner_email', 'trade']
     for (const r of required) {
       if (!body[r]) return NextResponse.json({ error: `${r} required` }, { status: 400 })

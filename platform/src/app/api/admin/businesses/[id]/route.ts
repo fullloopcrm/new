@@ -205,7 +205,7 @@ export async function PUT(
   if (authError) return authError
 
   const { id } = await params
-  const body = await request.json()
+  const body = await request.json().catch(() => ({}))
 
   const allowed = [
     'status', 'plan', 'admin_notes', 'billing_status',

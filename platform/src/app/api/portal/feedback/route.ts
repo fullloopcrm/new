@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { rating, comment, booking_id } = await request.json()
+  const { rating, comment, booking_id } = await request.json().catch(() => ({}))
 
   const { data, error } = await supabaseAdmin
     .from('reviews')

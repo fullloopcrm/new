@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   const { tenant, error: authError } = await requirePermission('leads.view')
   if (authError) return authError
 
-  const { domain } = await request.json()
+  const { domain } = await request.json().catch(() => ({}))
   if (!domain) return NextResponse.json({ error: 'Missing domain' }, { status: 400 })
 
   const { error } = await supabaseAdmin
@@ -24,7 +24,7 @@ export async function DELETE(request: Request) {
   const { tenant, error: authError } = await requirePermission('leads.view')
   if (authError) return authError
 
-  const { domain } = await request.json()
+  const { domain } = await request.json().catch(() => ({}))
   if (!domain) return NextResponse.json({ error: 'Missing domain' }, { status: 400 })
 
   await supabaseAdmin

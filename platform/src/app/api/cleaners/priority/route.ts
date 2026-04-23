@@ -10,7 +10,7 @@ export async function PUT(request: NextRequest) {
   const { tenant, error: authError } = await requirePermission('team.edit')
   if (authError) return authError
 
-  const body = await request.json()
+  const body = await request.json().catch(() => ({}))
   const { priorities } = body as { priorities: { id: string; priority: number }[] }
 
   if (!priorities || !Array.isArray(priorities)) {
