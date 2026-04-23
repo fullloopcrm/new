@@ -52,8 +52,8 @@ export async function PATCH(request: Request, { params }: Params) {
         : [
             { price_data: { currency: 'usd', product_data: { name: `Full Loop ${pricing.label} — Setup` }, unit_amount: pricing.setup_cents }, quantity: 1 },
           ],
-      success_url: `${appUrl}/onboarding?prospect=${prospect.id}&paid=1`,
-      cancel_url: `${appUrl}/qualified?prospect=${prospect.id}`,
+      success_url: `${appUrl}/welcome?email=${encodeURIComponent(prospect.owner_email)}`,
+      cancel_url: `${appUrl}/qualify?cancelled=1`,
       metadata: {
         prospect_id: prospect.id,
         tier,

@@ -88,6 +88,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/documents/public(.*)', // Public document signer API (token-auth)
   '/api/cpa/(.*)',             // CPA read-only access (token-auth)
   '/qualify',                  // Public prospect application form
+  '/qualify(.*)',              // e.g. /qualify?cancelled=1
+  '/welcome',                  // Post-Stripe-payment landing page
   '/api/prospects',            // Public prospect intake
   '/api/client(.*)',           // Ported nycmaid client-portal routes — tenant
                                // resolved via signed x-tenant-id header, not Clerk
