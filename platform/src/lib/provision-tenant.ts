@@ -74,8 +74,12 @@ const SERVICE_PRESETS: Record<IndustryKey, DefaultService[]> = {
     { name: 'Bed Bug Treatment', description: 'Heat or chemical bed bug remediation', default_duration_hours: 4, default_hourly_rate: 150, sort_order: 4 },
   ],
   general: [
-    { name: 'Service Call', description: 'Initial service visit', default_duration_hours: 1, default_hourly_rate: 100, sort_order: 1 },
+    { name: 'Service Call', description: 'Initial diagnostic visit + recommendation', default_duration_hours: 1, default_hourly_rate: 100, sort_order: 1 },
     { name: 'Standard Service', description: 'Typical service package', default_duration_hours: 2, default_hourly_rate: 100, sort_order: 2 },
+    { name: 'Half-Day Service', description: 'Multiple items, 4 hours on site', default_duration_hours: 4, default_hourly_rate: 95, sort_order: 3 },
+    { name: 'Full-Day Service', description: 'Full day on site, large or complex job', default_duration_hours: 8, default_hourly_rate: 95, sort_order: 4 },
+    { name: 'Emergency / After-Hours', description: 'Urgent same-day or after-hours response', default_duration_hours: 2, default_hourly_rate: 150, sort_order: 5 },
+    { name: 'Consultation', description: 'Assessment + written estimate, no hands-on work', default_duration_hours: 1, default_hourly_rate: 75, sort_order: 6 },
   ],
 }
 
