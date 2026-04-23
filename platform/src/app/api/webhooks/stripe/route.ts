@@ -423,6 +423,80 @@ export async function POST(request: Request) {
       }
       break
     }
+
+    case 'invoice.paid': {
+      // Monthly subscription renewal succeeded for a Full Loop tenant.
+      // Look up the tenant by the Stripe customer email (subscription was
+      // created from the prospect's checkout session).
+      const invoice = event.data.object as Stripe.Invoice
+      const customerEmail = invoice.customer_email
+      if (!customerEmail) break
+      const { data: tenant } = await supabaseAdmin
+        .from('tenants')
+        .select('id')
+        .eq('owner_email', customerEmail)
+        .maybeSingle()
+      if (!tenant) break
+      await supabaseAdmin
+        .from('tenants')
+        .update({ billing_status: 'active', last_payment_at: new Date().toISOString() })
+        .eq('id', tenant.id)
+      break
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as Stripe.Invoice
+      const customerEmail = invoice.customer_email
+      if (!customerEmail) break
+      const { data: tenant } = await supabaseAdmin
+        .from('tenants')
+        .select('id, name, owner_email')
+        .eq('owner_email', customerEmail)
+        .maybeSingle()
+      if (!tenant) break
+      await supabaseAdmin
+        .from('tenants')
+        .update({ billing_status: 'past_due' })
+        .eq('id', tenant.id)
+      // Alert platform admin + the tenant owner. Don't auto-suspend yet —
+      // let Stripe's dunning retry logic run first.
+      const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+      if (adminEmail) {
+        try {
+          const { sendEmail } = await import('@/lib/email')
+          await sendEmail({
+            to: adminEmail,
+            subject: `Full Loop: ${tenant.name} subscription payment failed`,
+            html: `<p>Invoice for <strong>${tenant.name}</strong> (${tenant.owner_email}) failed. Billing status flipped to past_due. Stripe will retry per dunning schedule.</p>`,
+          })
+        } catch { /* non-fatal */ }
+      }
+      break
+    }
+
+    case 'customer.subscription.deleted': {
+      // Tenant cancelled subscription (or Stripe cancelled after all retries
+      // failed). Flip billing_status so dashboard can gate features, but do
+      // not delete the tenant — data retention window is separate.
+      const sub = event.data.object as Stripe.Subscription
+      // Fetch customer to get email for tenant lookup
+      try {
+        const stripeClient = stripe ?? getStripe()
+        const customer = await stripeClient.customers.retrieve(sub.customer as string)
+        if (customer && !customer.deleted) {
+          const email = (customer as Stripe.Customer).email
+          if (email) {
+            await supabaseAdmin
+              .from('tenants')
+              .update({ billing_status: 'cancelled', subscription_cancelled_at: new Date().toISOString() })
+              .eq('owner_email', email)
+          }
+        }
+      } catch (e) {
+        console.error('[stripe] subscription.deleted lookup failed:', e)
+      }
+      break
+    }
   }
 
   return NextResponse.json({ received: true })

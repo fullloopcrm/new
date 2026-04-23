@@ -83,6 +83,43 @@ export async function POST(request: Request) {
       .single()
     if (error) throw error
 
+    // Alert platform admin so new leads don't sit unreviewed. Best-effort:
+    // any failure here must NOT surface to the public caller.
+    try {
+      const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+      if (adminEmail) {
+        const { sendEmail } = await import('@/lib/email')
+        const summary = [
+          `Business: ${body.business_name}`,
+          `Trade: ${body.trade}`,
+          `Owner: ${body.owner_name} <${body.owner_email}>`,
+          body.owner_phone ? `Phone: ${body.owner_phone}` : '',
+          body.primary_city && body.primary_state
+            ? `Location: ${body.primary_city}, ${body.primary_state} ${body.primary_zip || ''}`.trim()
+            : '',
+          body.tier_interest ? `Tier interest: ${body.tier_interest}` : '',
+          body.launch_timeline ? `Launch: ${body.launch_timeline}` : '',
+          slotTaken ? 'Note: slot already taken (trade × zip)' : '',
+        ].filter(Boolean).join('\n')
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+        await sendEmail({
+          to: adminEmail,
+          subject: `New Full Loop lead: ${body.business_name} (${body.trade})`,
+          html: `
+            <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
+              <h2 style="margin:0 0 12px;">New lead from /qualify</h2>
+              <pre style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;white-space:pre-wrap;font-family:inherit;font-size:14px;color:#111827;">${summary}</pre>
+              <p style="color:#6b7280;font-size:13px;margin-top:16px;">
+                Review and approve in <a href="${appUrl}/admin/prospects">${appUrl}/admin/prospects</a>.
+              </p>
+            </div>
+          `,
+        })
+      }
+    } catch (alertErr) {
+      console.error('[prospects] admin alert failed (non-fatal):', alertErr)
+    }
+
     return NextResponse.json({ ok: true, prospect_id: data.id, slot_taken: data.slot_taken_at_submit })
   } catch (err) {
     console.error('POST /api/prospects', err)
