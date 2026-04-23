@@ -94,6 +94,9 @@ const isPublicRoute = createRouteMatcher([
   '/api/client(.*)',           // Ported nycmaid client-portal routes — tenant
                                // resolved via signed x-tenant-id header, not Clerk
   '/api/cleaner-applications', // Alias → /api/team-applications
+  '/api/errors',               // Client-side error reporting — runs from any page
+  '/api/track',                // Visit tracking pixel
+  '/api/unsubscribe',          // Email unsubscribe (signed token verified in route)
 ])
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
