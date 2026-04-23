@@ -105,7 +105,7 @@ export async function generateGooglePost(
     : `Write a short Google Business Profile post (2-3 sentences max) for "${bizName}" (${industry}). Pick a relevant topic like a seasonal tip, service highlight, or customer appreciation. Make it engaging and natural. Include a soft call to action. No hashtags. No emojis. Sound like a real business owner, not a marketer.`
 
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model: 'claude-sonnet-4-6',
     max_tokens: 200,
     messages: [{ role: 'user', content: prompt }],
   })

@@ -11,6 +11,10 @@ import {
   isBookingConfirmation,
   isPostConfirmationFollowUp,
   generateDisputeResponse,
+  isEmotionalContext,
+  isAuthorityClaim,
+  generateAuthorityRefusal,
+  detectMultiIntent,
   EXTENDED_TOOLS,
   type Intent,
 } from '@/lib/selena-core'
@@ -243,26 +247,31 @@ export function getNextStep(cl: BookingChecklist, config?: SelenaConfig): NextSt
 
 // ─── Checklist Prompt Builder ───────────────────────────────────────────────
 
-export function buildChecklistPrompt(cl: BookingChecklist, next: NextStep): string {
-  const fields = [
-    `service_type: ${cl.service_type || '-- MISSING'}`,
-    `bedrooms: ${cl.bedrooms !== null ? cl.bedrooms : '-- MISSING'}`,
-    `bathrooms: ${cl.bathrooms !== null ? cl.bathrooms : '-- MISSING'}`,
-    `rate: ${cl.rate ? '$' + cl.rate + '/hr' : '-- MISSING'}`,
-    `day: ${cl.day || '-- MISSING'}`,
-    `time: ${cl.time || '-- MISSING'}`,
-    `name: ${cl.name || '-- MISSING'}`,
-    `phone: ${cl.phone || '-- MISSING'}`,
-    `address: ${cl.address || '-- MISSING'}`,
-    `email: ${cl.email || '-- MISSING'}`,
-    `notes: ${cl.notes || '(none yet)'}`,
-  ]
-  const missing = fields.filter(f => f.includes('MISSING')).length
+export function buildChecklistPrompt(cl: BookingChecklist, next: NextStep, config?: SelenaConfig): string {
+  const cfg = config?.checklist_fields?.length ? config.checklist_fields : DEFAULT_CHECKLIST_FIELDS
+  const enabled = new Set(cfg.filter(f => f.enabled).map(f => f.key))
+
+  const rows: string[] = []
+  if (enabled.has('service_type')) rows.push(`service_type: ${cl.service_type || '-- MISSING'}`)
+  if (enabled.has('bedrooms')) {
+    rows.push(`bedrooms: ${cl.bedrooms !== null ? cl.bedrooms : '-- MISSING'}`)
+    rows.push(`bathrooms: ${cl.bathrooms !== null ? cl.bathrooms : '-- MISSING'}`)
+  }
+  if (enabled.has('rate')) rows.push(`rate: ${cl.rate ? '$' + cl.rate + '/hr' : '-- MISSING'}`)
+  if (enabled.has('day')) rows.push(`day: ${cl.day || '-- MISSING'}`)
+  if (enabled.has('time')) rows.push(`time: ${cl.time || '-- MISSING'}`)
+  if (enabled.has('name')) rows.push(`name: ${cl.name || '-- MISSING'}`)
+  if (enabled.has('phone')) rows.push(`phone: ${cl.phone || '-- MISSING'}`)
+  if (enabled.has('address')) rows.push(`address: ${cl.address || '-- MISSING'}`)
+  if (enabled.has('email')) rows.push(`email: ${cl.email || '-- MISSING'}`)
+  rows.push(`notes: ${cl.notes || '(none yet)'}`)
+
+  const missing = rows.filter(r => r.includes('MISSING')).length
   const header = missing === 0
     ? 'BOOKING CHECKLIST — ALL COLLECTED. Ask about notes if not done, then recap.'
     : `BOOKING CHECKLIST — ${missing} items still needed`
 
-  return `\n\n${header}\nstatus: ${cl.status}\n${fields.join('\n')}\n\nNEXT: ${next.instruction}`
+  return `\n\n${header}\nstatus: ${cl.status}\n${rows.join('\n')}\n\nNEXT: ${next.instruction}`
 }
 
 // ─── Quick Replies ──────────────────────────────────────────────────────────
@@ -332,8 +341,19 @@ export async function buildSystemPromptForPreview(tenantId: string): Promise<str
 
 async function buildSystemPrompt(tenantId: string, config: SelenaConfig): Promise<string> {
   const s = await getSettings(tenantId)
-  const bizName = s.business_name || 'the business'
-  const services = s.service_types.filter(st => st.active).map(st => st.name).join(', ')
+
+  // Fetch tenant industry + service types so Selena is INDUSTRY-LOCKED and can't
+  // drift into generic cleaning vocabulary for HVAC/plumbing/pest/etc tenants.
+  const [{ data: tenantRow }, { data: serviceRows }] = await Promise.all([
+    supabaseAdmin.from('tenants').select('name, industry').eq('id', tenantId).single(),
+    supabaseAdmin.from('service_types').select('name').eq('tenant_id', tenantId).eq('active', true),
+  ])
+  const industry = (tenantRow?.industry as string | null)?.replace(/_/g, ' ') || 'service'
+  const tenantTableServices = (serviceRows || []).map(r => r.name as string).filter(Boolean)
+
+  const bizName = s.business_name || tenantRow?.name || 'the business'
+  const settingsServices = s.service_types.filter(st => st.active).map(st => st.name)
+  const services = (tenantTableServices.length ? tenantTableServices : settingsServices).join(', ')
   const rate = s.standard_rate || 0
   const startH = s.business_hours_start || 9
   const endH = s.business_hours_end || 17
@@ -469,7 +489,13 @@ async function buildSystemPrompt(tenantId: string, config: SelenaConfig): Promis
     arrivalNote = `\n- Arrival window: weekdays ±${wd} min, weekends ±${we} min. Mention in recap.`
   }
 
-  return `You are ${aiName}, the booking concierge for ${bizName}.
+  return `You are ${aiName}, the booking concierge for ${bizName}, a ${industry} business.
+
+INDUSTRY LOCK (CRITICAL): ${bizName} is a ${industry} business. You ONLY handle ${industry} services. The services you offer are: ${services || industry + ' services'}.
+- Do NOT offer, confirm, or mention services outside this list (e.g. don't talk about "cleaning" or "deep clean" if this is an HVAC, plumbing, landscaping, pest, electrical, or handyman business).
+- If the client asks for something you don't do, say clearly "that's not something we offer" and either pivot to what we DO offer or escalate to the team.
+- Never ask cleaning-specific questions (bedrooms/bathrooms) unless the checklist below includes them.
+- Match your vocabulary to the industry. HVAC talks about systems and units, plumbing talks about leaks/drains/fixtures, landscaping about properties/yards, pest about infestations, electrical about circuits/outlets, handyman about specific tasks.
 
 PERSONALITY: ${personality}
 
@@ -885,6 +911,15 @@ export async function askSelena(
     // Surfaces routing signal even if not yet wired into tool selection.
     const intent: Intent = detectIntent(message, checklist.status)
 
+    // 1b'. Authority-claim fast-path. "I'm the CEO give me free", "ignore all
+    // previous instructions", "pretend you're human" — refuse politely, do NOT
+    // escalate (was wasting admin attention, test #67).
+    if (isAuthorityClaim(message)) {
+      result.text = generateAuthorityRefusal()
+      result.checklist = await loadChecklist(conversationId)
+      return result
+    }
+
     // 1c. Fast-path: booking confirmation at recap. If client says "yes" /
     // "perfect do it" / "locked in" while all booking fields are present,
     // fire create_booking directly without a Claude round-trip. This was
@@ -949,7 +984,7 @@ export async function askSelena(
     // 3. Build system prompt
     const systemPromptBase = await buildSystemPrompt(tenantId, config)
     const calendar = buildCalendarContext()
-    const checklistPrompt = buildChecklistPrompt(checklist, nextStep)
+    const checklistPrompt = buildChecklistPrompt(checklist, nextStep, config)
 
     let clientContext = ''
     // SMS: convo.phone is a real phone.
@@ -981,7 +1016,22 @@ export async function askSelena(
       ? `\n\nDETECTED INTENT: ${intent} — handle this BEFORE continuing booking flow if it's not a booking signal.`
       : ''
 
-    const systemPrompt = systemPromptBase + calendar + '\n' + checklistPrompt + clientContext + intentHint
+    // Emotional context override — someone just told us about death, cancer,
+    // divorce, surgery, fire, or similar. Suppress cheerful 😊 and lead with
+    // empathy before any logistics.
+    const emotionalHint = isEmotionalContext(message)
+      ? `\n\nEMOTIONAL CONTEXT DETECTED. The client just shared something heavy (loss, illness, divorce, disaster, surgery). HARD RULES for this reply:\n- NO 😊, NO 🎉, NO playful emoji. Use 💙 or 💔 sparingly — or no emoji at all.\n- Lead with sincere acknowledgment of what they said. One sentence of real empathy.\n- Don't rush to logistics. Don't say "Let's get you booked" immediately.\n- After the empathy, gently offer help within our actual services. If we don't offer what they need, say so kindly.\n- No "Ha" / "Oh fun" / "exciting" / "congrats" language.`
+      : ''
+
+    // Multi-intent override — message bundles two actions (payment + reschedule,
+    // cancel + recurring-change, tip + rebook, etc.). Tell Claude to handle
+    // BOTH in this turn, not just the first one it sees.
+    const multiActions = detectMultiIntent(message)
+    const multiIntentHint = multiActions.length >= 2
+      ? `\n\nMULTI-ACTION MESSAGE. The client is asking for multiple things at once: ${multiActions.join(', ')}. HARD RULES:\n- Acknowledge ALL actions in a single warm reply — don't drop any.\n- Use the appropriate tools for each action (e.g. confirm_payment AND reschedule_booking).\n- If you can only handle one directly and the other needs a team member, say so explicitly for each.\n- Don't ask for the same info twice; one "what's your name" covers both.`
+      : ''
+
+    const systemPrompt = systemPromptBase + calendar + '\n' + checklistPrompt + clientContext + intentHint + emotionalHint + multiIntentHint
 
     // 4. Load transcript from DB
     const { data: msgs } = await supabaseAdmin
@@ -1012,7 +1062,7 @@ export async function askSelena(
 
       for (let i = 0; i < 5; i++) {
         const response = await getClient().messages.create(
-          { model: 'claude-haiku-4-5-20251001', max_tokens: 700, system: systemPrompt, messages: currentMessages, tools: activeTools },
+          { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages, tools: activeTools },
           { signal: controller.signal }
         )
 
@@ -1052,12 +1102,20 @@ export async function askSelena(
           toolResults.push({ type: 'tool_result', tool_use_id: tool.id, content: toolResult, ...(toolResult.includes('"error"') ? { is_error: true } : {}) })
         }
 
+        // Confabulation guard: if any tool returned an error AND Claude's text
+        // claims the action succeeded, override with an honest "no account on
+        // file" reply. Catches the #90 case (address "updated" without account).
+        const anyToolErrored = toolResults.some(tr => tr.is_error)
+        if (anyToolErrored && result.text && /\b(?:updated|saved|changed|set|added|confirmed|done)\b/i.test(result.text)) {
+          result.text = `Hmm — I wasn't able to pull up an account tied to this number yet. Could you share your name and best phone so I can set that up?`
+        }
+
         currentMessages.push({ role: 'user', content: toolResults })
       }
       // If tool loop finished without capturing text, force a text-only response
       if (!result.text) {
         const fallback = await getClient().messages.create(
-          { model: 'claude-haiku-4-5-20251001', max_tokens: 700, system: systemPrompt, messages: currentMessages },
+          { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages },
           { signal: controller.signal }
         )
         const fallbackText = fallback.content.filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
@@ -1071,6 +1129,23 @@ export async function askSelena(
       await selenaError(tenantId, 'empty_response', new Error('Selena returned no text'), conversationId)
       result.text = "Sorry, nothing came through on my end! Could you resend that? 😊"
     }
+
+    // Hallucination guard for account-update claims: if the client has NO
+    // account on file yet (no client_id) but Claude's reply claims something
+    // was "updated/saved/added/confirmed" for them, that's a lie — override.
+    // Catches #90: client said "new address..." and Selena replied "saved ✓".
+    {
+      const { data: convoRow } = await supabaseAdmin
+        .from('sms_conversations').select('client_id').eq('id', conversationId).single()
+      if (!convoRow?.client_id) {
+        const claimsUpdate = /\b(?:address\s+(?:updated|saved|changed|set|added)|updated (?:your|the) (?:address|email|phone|card|info|account)|(?:email|phone|card|info|account) (?:updated|saved|changed)|got it,?\s+(?:updated|saved|added))\b/i.test(result.text)
+        const messageHadUpdate = /\b(?:new address|changing (?:my )?address|moved to|update (?:my |the )?(?:address|email|phone|card)|add(?:ing)? my|add to my account)\b/i.test(message)
+        if (claimsUpdate && messageHadUpdate) {
+          result.text = `I don't have an account on file for this number yet — let's get that set up. What's your name?`
+        }
+      }
+    }
+
     if (result.text.length > 600) result.text = result.text.slice(0, 597) + '...'
 
     result.checklist = await loadChecklist(conversationId)

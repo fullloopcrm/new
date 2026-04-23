@@ -35,6 +35,10 @@ const INTENT_PATTERNS: IntentRule[] = [
     /\b(?:talk to|speak to|transfer|connect me|call me|human|real person|manager|supervisor)\b/i,
     /\bcan(?:'t| not) (?:do all this )?text/i,
   ]},
+  { intent: 'not_interested', patterns: [
+    /\bi\s*(?:am|m)\s+(?:the\s+)?(?:ceo|owner|founder|admin|boss|president)\b/i,
+    /\bgive\s+me\s+(?:a\s+)?(?:100%|full|free|complimentary)\s+(?:discount|clean|service)\b/i,
+  ]},
   { intent: 'payment_confirm', patterns: [
     /^(?:just )?paid[\s.!]*$/i,
     /\bjust paid\b/i,
@@ -212,6 +216,76 @@ export function detectIntent(
   if (status === 'collecting' || status === 'recap' || status === 'confirmed') return 'booking'
   if (status === 'greeting') return 'greeting'
   return 'booking'
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MULTI-INTENT DETECTION — catch messages that combine two actions (pay + reschedule)
+// ════════════════════════════════════════════════════════════════════════════
+
+interface ActionTrigger {
+  tag: string
+  patterns: RegExp[]
+}
+
+const MULTI_ACTION_TRIGGERS: ActionTrigger[] = [
+  { tag: 'payment_confirm', patterns: [/\bjust paid\b/i, /\bpayment sent\b/i, /\bsent (?:you |the )?(?:zelle|venmo|payment|money)\b/i, /\bpaid (?:via|through|with|you)\b/i] },
+  { tag: 'reschedule', patterns: [/\breschedul/i, /\bmove (?:my|the) (?:appointment|booking|service)/i, /\bchange (?:my|the) (?:appointment|booking)/i, /\bpush (?:back|to)/i] },
+  { tag: 'cancel', patterns: [/\bcancel (?:my|tomorrow|next|this|the)/i] },
+  { tag: 'recurring_change', patterns: [/\bchange (?:my )?recurring/i, /\bswitch to (?:weekly|biweekly|monthly)/i, /\bnew recurring day\b/i, /\brecurring day to\b/i] },
+  { tag: 'pause_recurring', patterns: [/\bpause (?:my |the )?recurring/i, /\bskip (?:this|next) week/i, /\bpause (?:service|cleaning|appointments)/i] },
+  { tag: 'tip', patterns: [/\btip (?:her|him|them)\b/i, /\badd (?:a )?tip\b/i, /\bgive (?:her|him|them) \$?\d+ tip\b/i] },
+  { tag: 'book_again', patterns: [/\bbook (?:her|him|them|again)/i, /\bschedule (?:another|again|next)/i, /\bsame (?:service|clean) again\b/i] },
+  { tag: 'address_change', patterns: [/\bnew address\b/i, /\bmoved to\b/i, /\bchange (?:my )?address\b/i, /\bmoving to\b/i] },
+  { tag: 'email_change', patterns: [/\bupdate (?:my )?email\b/i, /\bnew email\b/i] },
+  { tag: 'phone_change', patterns: [/\bupdate (?:my )?(?:phone|number)\b/i, /\bnew (?:phone|number)\b/i] },
+  { tag: 'add_contact', patterns: [/\bad(?:d|ding) (?:my )?(?:boyfriend|girlfriend|wife|husband|partner|spouse|kid|son|daughter)\b/i, /\badd (?:to|on) (?:my |the )?account\b/i] },
+  { tag: 'feedback_positive', patterns: [/\bwas amazing\b/i, /\bgreat job\b/i, /\bloved (?:my|her|him|them|the)\b/i] },
+  { tag: 'feedback_negative', patterns: [/\bnever again\b/i, /\bnot happy\b/i, /\brude\b/i, /\bdamaged\b/i] },
+]
+
+export function detectMultiIntent(message: string): string[] {
+  const hits: string[] = []
+  for (const trigger of MULTI_ACTION_TRIGGERS) {
+    if (trigger.patterns.some(p => p.test(message))) hits.push(trigger.tag)
+  }
+  // Only "multi" if 2+ distinct actions. Same-tag hits collapse.
+  return [...new Set(hits)]
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// EMOTIONAL CONTEXT DETECTION — suppress cheerful emoji, lead with empathy
+// ════════════════════════════════════════════════════════════════════════════
+
+const EMOTIONAL_PATTERNS: RegExp[] = [
+  /\b(?:died|passed away|passed on|funeral|loss of|lost my|grieving|bereavement)\b/i,
+  /\bmy (?:mom|dad|mother|father|husband|wife|son|daughter|parent|spouse|sibling|brother|sister|child|kid|grandma|grandpa|grandmother|grandfather|partner|pet|dog|cat) (?:just )?(?:died|passed|is dying|is in hospice|has cancer)\b/i,
+  /\b(?:cancer|chemo|chemotherapy|terminal|hospice|palliative|dying)\b/i,
+  /\b(?:divorce|divorcing|separated|separation|breakup|ex trashed)\b/i,
+  /\b(?:surgery|surgeries|post.?op|hospitalized|in (?:the )?hospital|heart attack|stroke|disabled)\b/i,
+  /\b(?:fire|house burned|apartment burned|flooded|burglary|burglarized|robbed|broken into|broke in|assaulted|attacked)\b/i,
+  /\b(?:postpartum|miscarriage|stillbirth|nicu)\b/i,
+  /\b(?:therapist|therapy|depression|anxiety attack|panic attack|suicidal|overdose|crisis)\b/i,
+  /\bbiohazard\s+cleanup\b/i,
+]
+
+export function isEmotionalContext(message: string): boolean {
+  return EMOTIONAL_PATTERNS.some(p => p.test(message))
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// AUTHORITY CLAIM / IMPERSONATION — refuse, don't escalate
+// ════════════════════════════════════════════════════════════════════════════
+
+export function isAuthorityClaim(message: string): boolean {
+  return /\bi\s*(?:am|m)\s+(?:the\s+)?(?:ceo|owner|founder|admin|boss|president|manager)\b/i.test(message)
+      || /\bignore\s+(?:all\s+)?(?:previous|above|prior)\s+instructions?\b/i.test(message)
+      || /\brepeat\s+after\s+me\b/i.test(message)
+      || /\bpretend\s+you(?:'re| are)\s+(?:a\s+)?human\b/i.test(message)
+      || /\bgive\s+me\s+(?:a\s+)?(?:100%|full|free|complimentary)\s+(?:discount|clean|service)\b/i.test(message)
+}
+
+export function generateAuthorityRefusal(): string {
+  return `Ha, nice try! 😊 I can't make special deals like that on my end — pricing and admin stuff goes through the actual team. If you're staff, the team portal is where you want to be. Otherwise, what service can I help you book today?`
 }
 
 // ════════════════════════════════════════════════════════════════════════════

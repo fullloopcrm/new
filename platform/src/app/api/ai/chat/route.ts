@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       supabaseAdmin.from('bookings').select('id, status, start_time, final_price').eq('tenant_id', tenantId).order('start_time', { ascending: false }).limit(5),
     ])
 
-    const systemPrompt = `You are Selenas, an AI assistant for ${tenant.name}, a ${tenant.industry?.replace(/_/g, ' ')} business using Full Loop CRM.
+    const systemPrompt = `You are Selena, an AI assistant for ${tenant.name}, a ${tenant.industry?.replace(/_/g, ' ')} business using Full Loop CRM.
 
 Business context:
 - ${clientCount || 0} clients, ${bookingCount || 0} bookings, ${teamCount || 0} team members
@@ -50,7 +50,7 @@ ${context === 'campaign' ? `The user is creating a campaign. Help them write com
 Keep responses concise and actionable. Format with markdown when helpful. Always stay professional and on-brand for a service business.`
 
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: systemPrompt,
       messages: messages.map((m: { role: string; content: string }) => ({

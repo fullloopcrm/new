@@ -83,6 +83,100 @@ const SERVICE_PRESETS: Record<IndustryKey, DefaultService[]> = {
   ],
 }
 
+// Per-industry checklist_fields. Cleaning is the ONLY industry that asks
+// bedrooms/bathrooms — everything else asks industry-appropriate notes instead.
+const CHECKLIST_BY_INDUSTRY: Record<IndustryKey, Array<{ key: string; enabled: boolean; required: boolean; question: string; sms_options: string }>> = {
+  cleaning: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask what type of clean they need.', sms_options: 'Standard,Deep,Move in/out' },
+    { key: 'bedrooms', enabled: true, required: true, question: 'Ask how many bedrooms and bathrooms.', sms_options: '1bd/1ba,2bd/1ba,3bd/2ba' },
+    { key: 'rate', enabled: true, required: true, question: 'Give pricing and ask which rate.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '8am,10am,12pm,2pm,4pm' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for address.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+    { key: 'notes', enabled: true, required: false, question: 'Ask about special requests, pets, access.', sms_options: '' },
+  ],
+  hvac: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask what kind of HVAC service — tune-up, repair, install, or duct cleaning.', sms_options: 'Tune-up,Repair,Install,Duct clean' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask what the issue is and what system they have (central AC, boiler, mini-split, heat pump, etc).', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote the service call fee.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for address.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
+  plumbing: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask what kind of plumbing service — repair, drain cleaning, install, or emergency.', sms_options: 'Service call,Drain,Install,Emergency' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask what the issue is — leak, no hot water, clogged drain, burst pipe — and where in the home.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote service call fee.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for address.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
+  landscaping: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask what landscaping service — mowing, cleanup, planting, trimming.', sms_options: 'Mowing,Cleanup,Planting,Trimming' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask about the property — size, specific areas, and any conditions (slope, gate access, pets).', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote pricing.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for address.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
+  handyman: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask what the job is — small repair, half-day, full-day, or furniture assembly.', sms_options: 'Small repair,Half-day,Full-day,Assembly' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask them to list exactly what needs to be fixed or built.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote hourly rate.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for address.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
+  electrical: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask what type of electrical work — service call, outlet/switch install, panel upgrade, or EV charger.', sms_options: 'Service call,Outlet,Panel,EV charger' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask what the issue or project is and if there are any safety concerns (sparking, burning smell, tripped breaker).', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote service call fee.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for address.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
+  pest: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask what type of pest issue — general, rodents, termites, or bed bugs.', sms_options: 'General,Rodents,Termites,Bed bugs' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask about pest type, severity, where they are seeing them, and property type (house/apt/commercial).', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote service rate.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for address.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
+  general: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask what service they need.', sms_options: '' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask for details about the job — what exactly needs doing.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote pricing.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for address.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
+}
+
 const DEFAULT_SELENA_CONFIG = (industry: IndustryKey, tenantName: string, services: DefaultService[]) => ({
   ai_enabled: true,
   ai_name: 'Selena',
@@ -95,6 +189,7 @@ const DEFAULT_SELENA_CONFIG = (industry: IndustryKey, tenantName: string, servic
   business_tagline: `${tenantName} — reliable ${industry} service`,
   cancellation_policy: 'First-time clients cannot cancel or reschedule. Recurring clients need 7 days notice.',
   no_cancellation_first_time: true,
+  checklist_fields: CHECKLIST_BY_INDUSTRY[industry] || CHECKLIST_BY_INDUSTRY.general,
 })
 
 const DEFAULT_GUIDELINES_EN = `Team Guidelines

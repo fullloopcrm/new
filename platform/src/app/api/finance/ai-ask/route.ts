@@ -49,7 +49,7 @@ ${tbSummary}
 Answer concisely with dollar amounts. If the data isn't sufficient, say so and suggest which report to check.`
 
     const resp = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-6',
       max_tokens: 600,
       system: systemPrompt,
       messages: [{

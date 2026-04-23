@@ -29,7 +29,7 @@ export async function generateReviewReply(
     : `Write a professional, empathetic reply to a ${rating}-star Google review for "${bizName}" (${industry}). The reviewer "${reviewerName}" said: "${comment}". Keep it 2-3 sentences. Acknowledge their experience, apologize if appropriate, and offer to make it right (invite them to contact you directly). Don't be defensive. Sound like a caring business owner.`
 
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model: 'claude-sonnet-4-6',
     max_tokens: 200,
     messages: [{ role: 'user', content: prompt }],
   })
