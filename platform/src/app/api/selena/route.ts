@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena'
@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ conversations, stats, errorLog: errorLog || [] })
   } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('Selena API error:', err)
     return NextResponse.json({ error: 'Failed to load' }, { status: 500 })
   }
@@ -178,6 +179,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, expired: conversationId, newConversation: newConvoId })
   } catch (err) {
     console.error('Selena reset error:', err)
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     return NextResponse.json({ error: 'Reset failed' }, { status: 500 })
   }
 }
