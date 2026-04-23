@@ -40,8 +40,17 @@ export async function POST(request: Request) {
       const bookingId = session.metadata?.booking_id
       const tenantId = session.metadata?.tenant_id
       const invoiceId = session.metadata?.invoice_id
-      const prospectId = session.metadata?.prospect_id
-      const isFullLoopSignup = session.metadata?.full_loop_signup === 'true'
+      // Prospect identifier comes from:
+      //   (a) metadata.prospect_id — when session was created via our admin
+      //       approve flow (checkout session includes metadata we set).
+      //   (b) client_reference_id — when session originated from a Stripe
+      //       Payment Link with ?client_reference_id=<prospect_id> appended.
+      //       Payment Links don't support metadata per-customer, so this is
+      //       the only per-prospect signal available.
+      const prospectId = session.metadata?.prospect_id || session.client_reference_id || undefined
+      const isFullLoopSignup =
+        session.metadata?.full_loop_signup === 'true' ||
+        (!!session.client_reference_id && !bookingId && !invoiceId)
 
       // ── Full Loop signup: prospect paid → create tenant ──
       if (prospectId && isFullLoopSignup) {
@@ -67,12 +76,23 @@ export async function POST(request: Request) {
 
         const { data: prospect } = await supabaseAdmin.from('prospects').select('*').eq('id', prospectId).single()
         if (prospect && !prospect.tenant_id) {
+          // Tier resolution order:
+          //   (1) prospect.paid_tier — set by admin approve flow
+          //   (2) session.metadata.tier — Payment Link path (Jeff sets metadata
+          //       on each tier's Payment Link, Stripe propagates it to session)
+          const tier = (prospect.paid_tier || session.metadata?.tier) as string | undefined
           // Derive pricing from server-side TIER_PRICES, not prospect row, so a
           // corrupted prospect row can't mint a tenant with $0 monthly.
-          const pricing = TIER_PRICES[prospect.paid_tier as keyof typeof TIER_PRICES]
+          const pricing = tier ? TIER_PRICES[tier as keyof typeof TIER_PRICES] : undefined
           if (!pricing) {
-            console.error(`[stripe] unknown tier on prospect ${prospectId}: ${prospect.paid_tier}`)
+            console.error(`[stripe] unknown tier for prospect ${prospectId} (paid_tier=${prospect.paid_tier}, session.metadata.tier=${session.metadata?.tier})`)
             return NextResponse.json({ received: true, error: 'unknown_tier' })
+          }
+          // If tier came from session metadata (Payment Link path), persist it
+          // on the prospect so the webhook is idempotent and the tenant row
+          // below gets the right plan.
+          if (!prospect.paid_tier && tier) {
+            prospect.paid_tier = tier
           }
 
           const slug = prospect.business_name
