@@ -118,16 +118,24 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 
   // --- Custom domain routing (runs before Clerk auth) ---
   if (!isMainHost(hostname)) {
+    let debugTenant: string = 'null'
+    let debugErr: string = ''
     try {
       const tenant = await getTenantByDomain(hostname)
+      debugTenant = tenant ? `${tenant.slug}/${tenant.status}` : 'null'
       if (tenant && tenant.status === 'active') {
         return rewriteToSite(req, tenant.id, tenant.slug)
       }
     } catch (e) {
+      debugErr = String((e as Error)?.message || e)
       console.error('Tenant domain lookup error:', e)
     }
     // If domain lookup fails, fall through to main site
-    return NextResponse.next()
+    const r = NextResponse.next()
+    r.headers.set('x-debug-host', hostname)
+    r.headers.set('x-debug-tenant', debugTenant)
+    if (debugErr) r.headers.set('x-debug-err', debugErr.slice(0, 200))
+    return r
   }
 
   // --- Main site / dashboard (existing behavior) ---
