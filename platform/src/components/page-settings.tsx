@@ -6,7 +6,7 @@ type PageSettingsProps = {
   page: string
   title: string
   tips: string[]
-  children: (props: {
+  children?: (props: {
     config: Record<string, unknown>
     updateConfig: (key: string, value: unknown) => void
     saving: boolean
@@ -125,7 +125,7 @@ export function PageSettingsPanel({
   saveMsg: string
   config: Record<string, unknown>
   updateConfig: (key: string, value: unknown) => void
-  children: (props: {
+  children?: (props: {
     config: Record<string, unknown>
     updateConfig: (key: string, value: unknown) => void
     saving: boolean
@@ -189,7 +189,12 @@ export function PageSettingsPanel({
       )}
 
       {/* Settings content */}
-      <div className="p-6">{children({ config, updateConfig, saving })}</div>
+      <div className="p-6">
+        {children
+          ? children({ config, updateConfig, saving })
+          : <p className="text-sm text-gray-400">No editable settings on this page yet.</p>
+        }
+      </div>
     </div>
   )
 }

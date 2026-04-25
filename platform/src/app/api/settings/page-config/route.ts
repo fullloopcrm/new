@@ -4,14 +4,34 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 const VALID_PAGES = [
+  'activity',
+  'ai',
+  'analytics',
   'bookings',
-  'clients',
+  'calendar',
   'campaigns',
+  'changelog',
+  'clients',
+  'connect',
+  'docs',
+  'feedback',
   'finance',
-  'reviews',
-  'referrals',
+  'google',
   'leads',
+  'map',
+  'notifications',
+  'overview',
+  'referrals',
+  'reviews',
+  'sales',
+  'schedules',
+  'selena',
+  'settings',
+  'sms',
+  'social',
   'team',
+  'users',
+  'websites',
 ]
 
 function configKey(page: string) {

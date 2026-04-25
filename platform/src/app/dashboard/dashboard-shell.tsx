@@ -6,6 +6,7 @@ import Script from 'next/script'
 import { UserButton } from '@clerk/nextjs'
 import ToastProvider from './toast-provider'
 import AiAssistant from '@/components/ai-assistant'
+import AutoPageSettings from './auto-page-settings'
 
 type SidebarCounts = {
   clients: number
@@ -191,6 +192,7 @@ export default function DashboardShell({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
+          <AutoPageSettings />
           {children}
         </div>
       </main>
