@@ -179,8 +179,8 @@ export default function DashboardShell({
 
   return (
     <div
-      className="min-h-screen flex"
-      style={{ background: 'var(--color-loop-bg)', color: 'var(--color-loop-ink)', fontFamily: 'var(--font-body)' }}
+      className="loop-scope min-h-screen flex"
+      style={{ background: 'var(--color-loop-bg)' }}
     >
       {/* Mobile backdrop */}
       {sidebarOpen && (
