@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const bookingId = searchParams.get('booking_id')
   if (!bookingId) return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
 
-  const ctx = await getTenantForRequest()
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  let ctx
+  try {
+    ctx = await getTenantForRequest()
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   const { data, error } = await supabaseAdmin
     .from('booking_notes')
@@ -28,8 +33,13 @@ export async function POST(request: Request) {
   if (!booking_id) return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
   if (!content?.trim()) return NextResponse.json({ error: 'Content required' }, { status: 400 })
 
-  const ctx = await getTenantForRequest()
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  let ctx
+  try {
+    ctx = await getTenantForRequest()
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   const { data, error } = await supabaseAdmin
     .from('booking_notes')

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET(request: NextRequest) {
   let tenant
   try {
     tenant = await getTenantForRequest()
-  } catch {
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

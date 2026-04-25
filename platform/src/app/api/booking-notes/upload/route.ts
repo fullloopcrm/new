@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
     if (!bookingId) return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
 
     const ctx = await getTenantForRequest()
-    if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
@@ -70,6 +69,7 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('Note upload error:', err)
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }

@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 
 export async function GET(request: Request) {
-  const ctx = await getTenantForRequest()
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  let ctx
+  try {
+    ctx = await getTenantForRequest()
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')

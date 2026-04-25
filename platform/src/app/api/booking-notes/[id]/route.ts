@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const ctx = await getTenantForRequest()
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  let ctx
+  try {
+    ctx = await getTenantForRequest()
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   const { id } = await params
   const { data: note } = await supabaseAdmin.from('booking_notes').select('images').eq('id', id).eq('tenant_id', ctx.tenantId).single()

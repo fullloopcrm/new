@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET(request: Request) {
-  const ctx = await getTenantForRequest()
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  let ctx
+  try {
+    ctx = await getTenantForRequest()
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status') || 'open,acknowledged'
@@ -23,8 +28,13 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const ctx = await getTenantForRequest()
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  let ctx
+  try {
+    ctx = await getTenantForRequest()
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   const { id, status, resolution_note } = await request.json()
   if (!id || !status) return NextResponse.json({ error: 'id and status required' }, { status: 400 })

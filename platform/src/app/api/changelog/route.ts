@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET() {
-  await getTenantForRequest() // auth check
+  try {
+    await getTenantForRequest() // auth check
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   const { data: entries } = await supabaseAdmin
     .from('platform_announcements')

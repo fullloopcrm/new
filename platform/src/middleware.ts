@@ -209,7 +209,12 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
-  const sitePathname = pathname === '/' ? '/site' : `/site${pathname}`
+  // Tenants opt into the per-tenant subtree pattern by having their site files
+  // at /site/<slug>/ — the onboarding script writes there. Older tenants without
+  // a subtree fall back to the legacy shared /site/* tree.
+  const sitePathname = pathname === '/'
+    ? `/site/${tenantSlug}`
+    : `/site/${tenantSlug}${pathname}`
 
   const url = req.nextUrl.clone()
   url.pathname = sitePathname

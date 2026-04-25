@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET() {
-  const { tenant } = await getTenantForRequest()
+  let tenant
+  try {
+    ({ tenant } = await getTenantForRequest())
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   // Get published announcements targeting this tenant (all, their industry, their plan, or direct)
   const { data: announcements } = await supabaseAdmin
@@ -28,7 +34,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { tenant } = await getTenantForRequest()
+  let tenant
+  try {
+    ({ tenant } = await getTenantForRequest())
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
   const { announcement_id } = await request.json()
 
   await supabaseAdmin
