@@ -68,6 +68,9 @@ export interface TenantSettings {
   expense_categories: string[]
   zelle_email: string
   apple_cash_phone: string
+  // Referral payout config (selena_config jsonb)
+  auto_pay_referrals: boolean
+  referral_min_payout: number
   // Team Guidelines
   team_guidelines: string | null
   guidelines_updated_at: string | null
@@ -208,6 +211,8 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
       : [],
     zelle_email: (tenant?.zelle_email as string) || '',
     apple_cash_phone: (tenant?.apple_cash_phone as string) || '',
+    auto_pay_referrals: Boolean(selenaConfig.auto_pay_referrals),
+    referral_min_payout: Number(selenaConfig.referral_min_payout ?? 50),
     team_guidelines: (tenant?.guidelines_en as string) || null,
     guidelines_updated_at: (tenant?.guidelines_updated_at as string) || null,
     updated_at: (tenant?.updated_at as string) || new Date().toISOString(),

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { downloadCSV } from '@/lib/csv'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type Referral = {
   id: string
@@ -27,7 +28,31 @@ export default function ReferralsPage() {
   const [copied, setCopied] = useState('')
   const [search, setSearch] = useState('')
 
-  const referralsSettings = usePageSettings('referrals')
+  const tenantSettings = useTenantSettings()
+  const [referralsPanelOpen, setReferralsPanelOpen] = useState(false)
+  const refTenant = tenantSettings.tenant
+  const refSelena = (refTenant?.selena_config as Record<string, unknown> | null) || {}
+  const referralsSettings = {
+    open: referralsPanelOpen,
+    setOpen: setReferralsPanelOpen,
+    loaded: tenantSettings.loaded,
+    saving: tenantSettings.saving,
+    saveMsg: tenantSettings.saveMsg,
+    config: {
+      commission_rate: Number(refTenant?.commission_rate ?? 10),
+      auto_pay_referrals: Boolean(refSelena.auto_pay_referrals),
+      min_payout: Number(refSelena.referral_min_payout ?? 50),
+    } as Record<string, unknown>,
+    updateConfig: (key: string, value: unknown) => {
+      if (key === 'commission_rate') {
+        tenantSettings.updateField('commission_rate', Number(value) || 0)
+      } else if (key === 'auto_pay_referrals') {
+        tenantSettings.updateSelenaConfig({ auto_pay_referrals: Boolean(value) })
+      } else if (key === 'min_payout') {
+        tenantSettings.updateSelenaConfig({ referral_min_payout: Number(value) || 0 })
+      }
+    },
+  }
 
   useEffect(() => {
     fetch('/api/referrals').then((r) => r.json()).then((data) => setReferrals(data.referrals || []))
