@@ -140,6 +140,59 @@
 .loop-scope .rounded-xl,
 .loop-scope .rounded-2xl { border-radius: 4px; }
 
+/* Pastel surfaces -> bg + tinted variants of the editorial palette */
+.loop-scope .bg-teal-50,
+.loop-scope .bg-emerald-50,
+.loop-scope .bg-green-50,
+.loop-scope .bg-blue-50,
+.loop-scope .bg-indigo-50,
+.loop-scope .bg-purple-50,
+.loop-scope .bg-violet-50,
+.loop-scope .bg-pink-50,
+.loop-scope .bg-rose-50 { background-color: var(--color-loop-bg); }
+.loop-scope .bg-amber-50,
+.loop-scope .bg-yellow-50,
+.loop-scope .bg-orange-50,
+.loop-scope .bg-red-50 { background-color: rgba(139, 69, 19, 0.06); }
+.loop-scope .bg-teal-100,
+.loop-scope .bg-emerald-100,
+.loop-scope .bg-green-100,
+.loop-scope .bg-blue-100 { background-color: var(--color-loop-line-soft); }
+.loop-scope .bg-amber-100,
+.loop-scope .bg-yellow-100,
+.loop-scope .bg-orange-100 { background-color: rgba(139, 69, 19, 0.12); }
+/* Pastel borders */
+.loop-scope .border-teal-200,
+.loop-scope .border-emerald-200,
+.loop-scope .border-green-200,
+.loop-scope .border-blue-200,
+.loop-scope .border-purple-200 { border-color: var(--color-loop-line); }
+.loop-scope .border-amber-200,
+.loop-scope .border-yellow-200,
+.loop-scope .border-orange-200 { border-color: var(--color-loop-warn); border-color: rgba(139, 69, 19, 0.4); }
+/* Mid-tone color text used as labels/icons */
+.loop-scope .text-teal-700,
+.loop-scope .text-emerald-700,
+.loop-scope .text-green-700,
+.loop-scope .text-green-600,
+.loop-scope .text-blue-600,
+.loop-scope .text-blue-700 { color: var(--color-loop-good); }
+.loop-scope .text-amber-700,
+.loop-scope .text-yellow-700,
+.loop-scope .text-orange-700,
+.loop-scope .text-red-700 { color: var(--color-loop-warn); }
+/* Buttons that use teal-700/emerald-700 outline */
+.loop-scope .bg-teal-700,
+.loop-scope .bg-emerald-700 { background-color: var(--color-loop-ink); color: var(--color-loop-canvas); }
+/* Progress bars */
+.loop-scope .bg-orange-500,
+.loop-scope progress { accent-color: var(--color-loop-warn); }
+/* Focus rings */
+.loop-scope .ring-teal-500,
+.loop-scope .ring-emerald-500,
+.loop-scope .focus\:ring-teal-500:focus,
+.loop-scope .focus\:ring-emerald-500:focus { --tw-ring-color: var(--color-loop-ink); }
+
 @keyframes loop-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 @keyframes loop-pulse-dot {
   0% { box-shadow: 0 0 0 0 rgba(31,77,44,0.5); }
