@@ -118,6 +118,17 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 
   // --- Custom domain routing (runs before Clerk auth) ---
   if (!isMainHost(hostname)) {
+    // Static fallback map — used when DB lookup at the edge is unreliable.
+    // The tenant id here is informational only; rewriteToSite signs the slug.
+    const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {
+      'thefloridamaid.com': { id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' },
+      'www.thefloridamaid.com': { id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' },
+    }
+    const cleanHost = hostname.split(':')[0].toLowerCase()
+    const staticTenant = STATIC_TENANT_MAP[cleanHost]
+    if (staticTenant) {
+      return rewriteToSite(req, staticTenant.id, staticTenant.slug)
+    }
     try {
       const tenant = await getTenantByDomain(hostname)
       if (tenant && tenant.status === 'active') {
