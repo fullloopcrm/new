@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
+import { getSettings } from '@/lib/settings'
 import crypto from 'crypto'
 
 // Create and send an invite
@@ -45,12 +46,24 @@ export async function POST(request: Request) {
   const token = crypto.randomBytes(32).toString('hex')
   const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
 
+  // Tenant default for invite role — falls back to 'owner' when neither
+  // the caller nor settings specify (matches prior behavior).
+  let resolvedRole = role
+  if (!resolvedRole) {
+    try {
+      const settings = await getSettings(tenant_id)
+      resolvedRole = settings.default_invite_role || 'owner'
+    } catch {
+      resolvedRole = 'owner'
+    }
+  }
+
   const { data: invite, error } = await supabaseAdmin
     .from('tenant_invites')
     .insert({
       tenant_id,
       email: email.toLowerCase(),
-      role: role || 'owner',
+      role: resolvedRole,
       token,
       expires_at,
     })
@@ -102,7 +115,7 @@ export async function POST(request: Request) {
   await logSecurityEvent({
     tenantId: tenant_id,
     type: 'member_added',
-    description: `Invite sent to ${email} as ${role || 'owner'}`,
+    description: `Invite sent to ${email} as ${resolvedRole}`,
   })
 
   return NextResponse.json({ invite })

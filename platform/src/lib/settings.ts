@@ -82,6 +82,9 @@ export interface TenantSettings {
   campaign_sender_name: string
   campaign_auto_unsubscribe: boolean
   campaign_approval_required: boolean
+  // User invites (selena_config jsonb)
+  default_invite_role: string
+  require_2fa_for_new_users: boolean
   // Team Guidelines
   team_guidelines: string | null
   guidelines_updated_at: string | null
@@ -233,6 +236,8 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     campaign_sender_name: (selenaConfig.campaign_sender_name as string) || (tenant?.name as string) || '',
     campaign_auto_unsubscribe: selenaConfig.campaign_auto_unsubscribe !== false,
     campaign_approval_required: Boolean(selenaConfig.campaign_approval_required),
+    default_invite_role: (selenaConfig.default_invite_role as string) || 'staff',
+    require_2fa_for_new_users: Boolean(selenaConfig.require_2fa_for_new_users),
     team_guidelines: (tenant?.guidelines_en as string) || null,
     guidelines_updated_at: (tenant?.guidelines_updated_at as string) || null,
     updated_at: (tenant?.updated_at as string) || new Date().toISOString(),

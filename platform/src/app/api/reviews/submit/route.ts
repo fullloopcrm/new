@@ -6,6 +6,8 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { getSettings } from '@/lib/settings'
+import { notify } from '@/lib/notify'
 
 export async function POST(request: Request) {
   try {
@@ -77,6 +79,25 @@ export async function POST(request: Request) {
     if (error) {
       console.error('[reviews/submit] insert error:', error)
       return NextResponse.json({ error: 'Failed to submit review' }, { status: 500 })
+    }
+
+    // Tenant rule: low_rating_threshold fires an admin alert on submission
+    // so the owner can intervene before a bad review fully surfaces. Non-
+    // fatal: a notification failure must not 500 the public submission.
+    try {
+      const settings = await getSettings(tenant.id)
+      if (r <= settings.review_low_rating_threshold) {
+        await notify({
+          tenantId: tenant.id,
+          type: 'review_received',
+          title: `Low rating alert: ${r}/5 from ${name}`,
+          message: `${name} just left a ${r}-star review${service_type ? ` for ${service_type}` : ''}. Reach out before it goes public.\n\n"${String(text).slice(0, 200)}${String(text).length > 200 ? '...' : ''}"`,
+          channel: 'email',
+          recipientType: 'admin',
+        })
+      }
+    } catch (notifyErr) {
+      console.error('[reviews/submit] low-rating notify failed:', notifyErr)
     }
 
     return NextResponse.json({ success: true, id: data.id })
