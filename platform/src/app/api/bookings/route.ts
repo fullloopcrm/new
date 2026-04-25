@@ -8,6 +8,7 @@ import { checkMemberDayOff } from '@/lib/availability'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
 import { smsBookingConfirmation, smsJobAssignment } from '@/lib/sms-templates'
+import { getSettings } from '@/lib/settings'
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
   try {
     const { tenantId } = tenant
     const body = await request.json()
+    const settings = await getSettings(tenantId)
 
     const { data: fields, error: vError } = validate(body, {
       client_id: { type: 'uuid', required: true },
@@ -71,6 +73,14 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
+    // Tenant rule: require_team_member forces a team_member_id at create time.
+    if (settings.require_team_member && !validated.team_member_id) {
+      return NextResponse.json(
+        { error: 'A team member must be assigned to every booking. Pick one and try again.' },
+        { status: 400 }
+      )
+    }
+
     // Check if team member has the day off or doesn't work that day
     if (validated.team_member_id && validated.start_time && !body.force) {
       const bookingDate = (validated.start_time as string).split('T')[0]
@@ -83,9 +93,13 @@ export async function POST(request: Request) {
       }
     }
 
-    // Check for team member scheduling conflicts
+    // Check for team member scheduling conflicts, honoring booking_buffer_minutes
+    // so back-to-back jobs always leave the configured gap.
     if (validated.team_member_id && validated.start_time) {
       const endTime = validated.end_time || new Date(new Date(validated.start_time as string).getTime() + 3 * 3600000).toISOString()
+      const bufferMs = Math.max(0, settings.booking_buffer_minutes) * 60_000
+      const startWithBuffer = new Date(new Date(validated.start_time as string).getTime() - bufferMs).toISOString()
+      const endWithBuffer = new Date(new Date(endTime as string).getTime() + bufferMs).toISOString()
 
       const { data: conflicts } = await supabaseAdmin
         .from('bookings')
@@ -93,12 +107,13 @@ export async function POST(request: Request) {
         .eq('tenant_id', tenantId)
         .eq('team_member_id', validated.team_member_id)
         .not('status', 'in', '("cancelled","no_show")')
-        .lt('start_time', endTime)
-        .gt('end_time', validated.start_time)
+        .lt('start_time', endWithBuffer)
+        .gt('end_time', startWithBuffer)
 
       if (conflicts && conflicts.length > 0) {
+        const bufferNote = bufferMs > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
         return NextResponse.json({
-          error: 'Scheduling conflict: team member already has a booking during this time',
+          error: `Scheduling conflict: team member already has a booking during this time${bufferNote}`,
           conflicts: conflicts.map(c => ({
             id: c.id,
             start: c.start_time,
@@ -118,9 +133,15 @@ export async function POST(request: Request) {
       if (svc) (validated as Record<string, unknown>).service_type = svc.name
     }
 
+    // Status: auto_confirm_bookings overrides everything else; otherwise honor
+    // tenant's chosen default_booking_status, falling back to 'scheduled'.
+    const newStatus = settings.auto_confirm_bookings
+      ? 'confirmed'
+      : (settings.default_booking_status || 'scheduled')
+
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .insert({ ...validated, tenant_id: tenantId, status: 'scheduled' })
+      .insert({ ...validated, tenant_id: tenantId, status: newStatus })
       .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone)')
       .single()
 
