@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type Review = {
   id: string
@@ -30,7 +31,37 @@ export default function ReviewsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
 
-  const reviewsSettings = usePageSettings('reviews')
+  const tenantSettings = useTenantSettings()
+  const [reviewsPanelOpen, setReviewsPanelOpen] = useState(false)
+  const revTenant = tenantSettings.tenant
+  const revSelena = (revTenant?.selena_config as Record<string, unknown> | null) || {}
+  const reviewsSettings = {
+    open: reviewsPanelOpen,
+    setOpen: setReviewsPanelOpen,
+    loaded: tenantSettings.loaded,
+    saving: tenantSettings.saving,
+    saveMsg: tenantSettings.saveMsg,
+    config: {
+      google_place_id: (revTenant?.google_place_id as string) || '',
+      google_review_link: (revSelena.google_review_link as string) || '',
+      auto_followup_enabled: Boolean(revSelena.review_followup_enabled ?? true),
+      followup_delay_hours: Number(revSelena.review_followup_delay_hours ?? 2),
+      low_rating_threshold: Number(revSelena.review_low_rating_threshold ?? 3),
+    } as Record<string, unknown>,
+    updateConfig: (key: string, value: unknown) => {
+      if (key === 'google_place_id') {
+        tenantSettings.updateField('google_place_id', value)
+      } else if (key === 'google_review_link') {
+        tenantSettings.updateSelenaConfig({ google_review_link: String(value) })
+      } else if (key === 'auto_followup_enabled') {
+        tenantSettings.updateSelenaConfig({ review_followup_enabled: Boolean(value) })
+      } else if (key === 'followup_delay_hours') {
+        tenantSettings.updateSelenaConfig({ review_followup_delay_hours: Number(value) || 2 })
+      } else if (key === 'low_rating_threshold') {
+        tenantSettings.updateSelenaConfig({ review_low_rating_threshold: Number(value) || 3 })
+      }
+    },
+  }
 
   useEffect(() => {
     fetch('/api/reviews').then((r) => r.json()).then((data) => setReviews(data.reviews || []))

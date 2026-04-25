@@ -71,6 +71,12 @@ export interface TenantSettings {
   // Referral payout config (selena_config jsonb)
   auto_pay_referrals: boolean
   referral_min_payout: number
+  // Reviews / followup (selena_config jsonb + tenants.google_place_id)
+  google_place_id: string
+  google_review_link: string
+  review_followup_enabled: boolean
+  review_followup_delay_hours: number
+  review_low_rating_threshold: number
   // Team Guidelines
   team_guidelines: string | null
   guidelines_updated_at: string | null
@@ -213,6 +219,11 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     apple_cash_phone: (tenant?.apple_cash_phone as string) || '',
     auto_pay_referrals: Boolean(selenaConfig.auto_pay_referrals),
     referral_min_payout: Number(selenaConfig.referral_min_payout ?? 50),
+    google_place_id: (tenant?.google_place_id as string) || '',
+    google_review_link: (selenaConfig.google_review_link as string) || '',
+    review_followup_enabled: Boolean(selenaConfig.review_followup_enabled ?? true),
+    review_followup_delay_hours: Number(selenaConfig.review_followup_delay_hours ?? 2),
+    review_low_rating_threshold: Number(selenaConfig.review_low_rating_threshold ?? 3),
     team_guidelines: (tenant?.guidelines_en as string) || null,
     guidelines_updated_at: (tenant?.guidelines_updated_at as string) || null,
     updated_at: (tenant?.updated_at as string) || new Date().toISOString(),

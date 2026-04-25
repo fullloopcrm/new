@@ -28,11 +28,17 @@ export async function GET(request: Request) {
     try {
       const settings = await getSettings(tenant.id)
       if (!settings.chatbot_enabled) continue
+      if (!settings.review_followup_enabled) continue
       if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
 
-      // Find bookings completed (checked out) within last 2 hours
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000)
-      const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000)
+      // Find bookings completed (checked out) within the per-tenant
+      // review_followup_delay_hours window. Cron runs every 30 min, so we
+      // process bookings that crossed the delay threshold within the last
+      // 30-minute slice.
+      const delayHours = Math.max(0.5, settings.review_followup_delay_hours)
+      const delayMs = delayHours * 60 * 60 * 1000
+      const twoHoursAgo = new Date(Date.now() - delayMs)
+      const threeHoursAgo = new Date(Date.now() - delayMs - 60 * 60 * 1000)
 
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
@@ -58,10 +64,14 @@ export async function GET(request: Request) {
 
         const firstName = client.name?.split(' ')[0] || 'there'
 
-        // Build review link — prefer custom domain, fall back to subdomain.
-        const reviewUrl = tenant.domain
-          ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/reviews/submit`
-          : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`
+        // Build review link — prefer the tenant's configured Google review
+        // URL, then custom domain, then subdomain. Tenants with a real
+        // Google review link send clients straight to a 5-star post on the
+        // platform's listing.
+        const reviewUrl = settings.google_review_link
+          || (tenant.domain
+            ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/reviews/submit`
+            : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`)
 
         try {
           await sendSMS({
