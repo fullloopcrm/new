@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 type Stats = {
   pageViews: number
@@ -39,12 +41,31 @@ export default function LeadsPage() {
   const [sources, setSources] = useState<Source[]>([])
   const [topPages, setTopPages] = useState<TopPage[]>([])
   const [feed, setFeed] = useState<FeedItem[]>([])
-  const [period, setPeriod] = useState('week')
+  const userPrefs = useUserPrefs<{ period: 'today' | 'week' | 'month' }>('leads', { period: 'week' })
+  const period = userPrefs.prefs.period
+  const setPeriod = (p: 'today' | 'week' | 'month') => userPrefs.updatePref('period', p)
   const [dailyVisits, setDailyVisits] = useState<{ date: string; visits: number; ctas: number }[]>([])
   const [copied, setCopied] = useState(false)
   const [tenantId, setTenantId] = useState('')
 
-  const leadsSettings = usePageSettings('leads')
+  const tenantSettings = useTenantSettings()
+  const [leadsPanelOpen, setLeadsPanelOpen] = useState(false)
+  const leadsTenant = tenantSettings.tenant
+  const leadsSelena = (leadsTenant?.selena_config as Record<string, unknown> | null) || {}
+  const leadsConfig: Record<string, unknown> = {
+    attribution_window_hours: Number(leadsTenant?.attribution_window_hours ?? 24),
+    lead_notification_email: (leadsTenant?.lead_notification_email as string) ?? '',
+    auto_respond_leads: Boolean(leadsSelena.auto_respond_leads),
+  }
+  function updateLeadsConfig(key: string, value: unknown) {
+    if (key === 'auto_respond_leads') {
+      tenantSettings.updateSelenaConfig({ auto_respond_leads: value })
+    } else if (key === 'attribution_window_hours') {
+      tenantSettings.updateField('attribution_window_hours', Number(value) || 24)
+    } else if (key === 'lead_notification_email') {
+      tenantSettings.updateField('lead_notification_email', value)
+    }
+  }
 
   const fetchData = useCallback(() => {
     fetch(`/api/leads/visits?period=${period}`)
@@ -107,7 +128,7 @@ export default function LeadsPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-heading font-bold text-slate-900">Leads & Analytics</h1>
-          <PageSettingsGear open={leadsSettings.open} setOpen={leadsSettings.setOpen} title="Leads" />
+          <PageSettingsGear open={leadsPanelOpen} setOpen={setLeadsPanelOpen} title="Leads" />
         </div>
         <div className="flex gap-1 border border-slate-200 rounded-lg p-0.5">
           {(['today', 'week', 'month'] as const).map((p) => (
@@ -122,7 +143,13 @@ export default function LeadsPage() {
       </div>
 
       <PageSettingsPanel
-        {...leadsSettings}
+        open={leadsPanelOpen}
+        setOpen={setLeadsPanelOpen}
+        loaded={tenantSettings.loaded}
+        saving={tenantSettings.saving}
+        saveMsg={tenantSettings.saveMsg}
+        config={leadsConfig}
+        updateConfig={updateLeadsConfig}
         title="Leads"
         tips={[
           'Track website visitors and see which domains drive the most business',

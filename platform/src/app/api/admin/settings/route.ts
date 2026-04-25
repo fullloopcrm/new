@@ -28,6 +28,7 @@ const EDITABLE_TENANT_COLUMNS = new Set<string>([
   'domain_name', 'sms_number', 'website_published',
   'enable_legacy_seo_pages', 'expense_categories', 'onboarding_checklist',
   'hq_latitude', 'hq_longitude',
+  'attribution_window_hours', 'lead_notification_email',
 ])
 
 export async function GET(request: NextRequest) {
