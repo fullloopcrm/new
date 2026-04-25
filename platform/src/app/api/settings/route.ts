@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
+import { clearSettingsCache } from '@/lib/settings'
 
 export async function GET() {
   try {
@@ -48,6 +49,9 @@ export async function PUT(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Bust per-tenant settings cache so getSettings() reflects the change immediately.
+    clearSettingsCache(tenantId)
 
     // Bust Selena config cache if selena_config was touched so persona/
     // config changes take effect immediately (default cache TTL is 5 min).
