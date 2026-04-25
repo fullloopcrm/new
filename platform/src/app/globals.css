@@ -81,6 +81,22 @@
   letter-spacing: -0.02em;
 }
 
+/* Common page-h1 pattern -> editorial 36px masthead. Most existing
+   admin/dashboard pages render <h1 class="font-heading text-2xl
+   font-bold">...</h1>; bump size + weight + tracking to match the
+   Loop look without per-page edits. */
+.loop-scope h1.font-heading {
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.loop-scope h2.font-heading {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
 /* Sweep: every existing admin/dashboard page uses Tailwind utility classes
    for color and surface treatment (slate/teal/white/orange). Inside
    .loop-scope we remap the most common ones to the editorial palette so

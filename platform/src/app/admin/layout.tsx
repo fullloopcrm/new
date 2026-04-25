@@ -155,6 +155,16 @@ export default async function AdminLayout({
       {/* MAIN */}
       <main className="flex-1 min-w-0 overflow-y-auto md:ml-60" style={{ background: 'var(--color-loop-bg)' }}>
         <div className="px-12 pt-4 pb-24 max-w-[1500px]">
+          {/* Topbar — admin label */}
+          <div className="flex items-center justify-between mb-3">
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Platform Admin · Super-User View
+            </span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            </span>
+          </div>
+          <div className="pb-3 mb-6" style={{ borderBottom: '1px solid var(--color-loop-ink)' }} />
           {children}
         </div>
       </main>

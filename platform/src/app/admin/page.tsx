@@ -50,9 +50,11 @@ export default async function AdminOverviewPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-slate-900 font-heading text-2xl font-bold">Platform Overview</h1>
-        <p className="text-sm text-slate-500">All businesses across Full Loop CRM</p>
+      <div className="mb-8">
+        <h1 style={{ fontFamily: 'var(--display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
+          Platform<em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
+        </h1>
+        <p className="mt-2" style={{ fontSize: '13px', color: 'var(--color-loop-muted)' }}>All businesses across Full Loop CRM</p>
       </div>
 
       {/* BUILD TO-DO */}
