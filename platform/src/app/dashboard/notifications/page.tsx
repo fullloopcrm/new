@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { usePoll } from '@/lib/use-poll'
+import NotificationsSettings from './notifications-settings'
 
 type Notification = {
   id: string
@@ -56,6 +57,7 @@ export default function NotificationsPage() {
           <h2 className="text-2xl font-bold text-slate-900">Notifications</h2>
           {unread > 0 && <p className="text-sm text-blue-400">{unread} unread</p>}
         </div>
+        <NotificationsSettings />
       </div>
 
       {/* SEARCH + TYPE FILTER */}

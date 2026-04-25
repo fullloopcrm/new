@@ -39,9 +39,19 @@ const PAGE_MAP: Record<string, { page: string; title: string; tips: string[] }> 
   'websites': { page: 'websites', title: 'Websites', tips: ['Tenant-facing site toggles: legacy SEO pages, maintenance mode.'] },
 }
 
+// Pages that render their own custom settings panel — we skip the auto-gear
+// for these so two gears don't show. As pages migrate to richer per-page
+// panels they should be added here.
+const PAGES_WITH_CUSTOM_PANEL = new Set([
+  'bookings', 'campaigns', 'clients', 'finance', 'leads', 'referrals',
+  'reviews', 'sms', 'team', 'notifications', 'selena',
+  // Add pages here as their custom panels ship.
+])
+
 export default function AutoPageSettings() {
   const pathname = usePathname() || '/dashboard'
   const segment = pathname.replace(/^\/dashboard\/?/, '').split('/')[0] || ''
+  if (PAGES_WITH_CUSTOM_PANEL.has(segment)) return null
   const config = PAGE_MAP[segment]
   if (!config) return null
   return <PageSettings page={config.page} title={config.title} tips={config.tips} />
