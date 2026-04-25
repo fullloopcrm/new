@@ -9,7 +9,6 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], weight: ['500', '600', 
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-jetbrains', display: 'swap' })
 const fraunces = Fraunces({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
   style: ['normal', 'italic'],
   axes: ['opsz'],
   variable: '--font-fraunces',
