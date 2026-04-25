@@ -1,11 +1,57 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { getSettings } from '@/lib/settings'
+import { sendEmail } from '@/lib/email'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+// In-memory de-dupe so the same visitor session doesn't fire multiple
+// emails on consecutive CTAs. Acceptable because Vercel functions are
+// short-lived and even imperfect de-dupe is better than none. Survives
+// for the lifetime of a hot lambda; serverless cold starts reset it,
+// which is fine — that's already a 5+ minute gap.
+const recentLeadEmails = new Map<string, number>()
+const LEAD_EMAIL_DEDUPE_MS = 60 * 60 * 1000 // 1 hour
+
+async function notifyLeadEmailIfNeeded(args: {
+  tenantId: string
+  sessionId: string | null
+  ctaType: string
+  page: string | null
+  referrer: string | null
+  utmSource: string | null
+}) {
+  const settings = await getSettings(args.tenantId)
+  const to = settings.lead_notification_email
+  if (!to) return
+
+  const dedupeKey = `${args.tenantId}:${args.sessionId || args.ctaType}`
+  const now = Date.now()
+  const last = recentLeadEmails.get(dedupeKey) || 0
+  if (now - last < LEAD_EMAIL_DEDUPE_MS) return
+  recentLeadEmails.set(dedupeKey, now)
+  // Cheap GC so the map can't grow without bound.
+  if (recentLeadEmails.size > 500) {
+    for (const [k, t] of recentLeadEmails) {
+      if (now - t > LEAD_EMAIL_DEDUPE_MS) recentLeadEmails.delete(k)
+    }
+  }
+
+  const business = settings.business_name || 'your business'
+  const subject = `New lead: ${args.ctaType} on ${args.page || business}`
+  const lines = [
+    `<p>A visitor just clicked a <strong>${args.ctaType}</strong> CTA${args.page ? ` on <code>${args.page}</code>` : ''}.</p>`,
+    args.referrer ? `<p><strong>Referrer:</strong> ${args.referrer}</p>` : '',
+    args.utmSource ? `<p><strong>UTM source:</strong> ${args.utmSource}</p>` : '',
+    `<p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/dashboard/leads">Open Leads dashboard</a></p>`,
+  ].filter(Boolean).join('')
+
+  await sendEmail({ to, subject, html: lines })
 }
 
 function getClientIP(request: Request): string | null {
@@ -109,6 +155,24 @@ export async function POST(request: Request) {
         delete payload.visitor_ip
         await supabaseAdmin.from('lead_clicks').insert(payload)
       }
+    }
+
+    // Tenant rule: notify lead_notification_email on CTA clicks (a real
+    // expression of interest from a stranger). Fire-and-forget; failures
+    // must not affect the tracking response. De-duped per session+tenant
+    // for 1 hour so a single visitor clicking five CTAs doesn't spam the
+    // owner — first click within a session triggers, the rest are silent.
+    if (cta_clicked && tenant_id && (action === 'cta' || body.cta_type)) {
+      notifyLeadEmailIfNeeded({
+        tenantId: tenant_id as string,
+        sessionId: (session_id as string) || null,
+        ctaType: (body.cta_type as string) || (action as string) || 'click',
+        page: (page as string) || null,
+        referrer: (referrer as string) || null,
+        utmSource: (utm_source as string) || null,
+      }).catch((e) => {
+        console.error('[track] lead notification failed:', e)
+      })
     }
 
     return NextResponse.json({ success: true }, { headers: corsHeaders })
