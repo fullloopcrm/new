@@ -57,7 +57,7 @@ export default function ReferralSignupPage() {
   }
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`https://www.thefloridamaid.com/clients?ref=${refCode}`)
+    navigator.clipboard.writeText(`https://www.thefloridamaid.com/portal/login?ref=${refCode}`)
     alert('Link copied!')
   }
 
@@ -82,7 +82,7 @@ export default function ReferralSignupPage() {
           <p className="text-xs text-gray-400 mt-4">📧 Please check your spam/junk folder if you don't see our email in your inbox.</p>
           <div className="bg-[#A8F0DC]/20 rounded-lg p-4 mb-6">
             <p className="text-sm text-[#1E2A4A] mb-2">Your referral link</p>
-            <p className="text-sm font-mono text-[#1E2A4A] break-all">https://www.thefloridamaid.com/clients?ref={refCode}</p>
+            <p className="text-sm font-mono text-[#1E2A4A] break-all">https://www.thefloridamaid.com/portal/login?ref={refCode}</p>
             <button
               onClick={copyLink}
               className="mt-3 px-4 py-2 bg-[#1E2A4A] text-white rounded-lg text-sm hover:bg-[#1E2A4A]/90"

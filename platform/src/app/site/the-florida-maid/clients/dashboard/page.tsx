@@ -61,7 +61,7 @@ export default function ClientDashboardPage() {
     const name = localStorage.getItem('client_name')
 
     if (!id) {
-      router.push('/clients')
+      router.push('/portal/login')
       return
     }
 
@@ -118,7 +118,7 @@ export default function ClientDashboardPage() {
     localStorage.removeItem('client_id')
     localStorage.removeItem('client_name')
     localStorage.removeItem('client_email')
-    router.push('/clients')
+    router.push('/portal/login')
   }
 
   const formatDate = (dateStr: string) => {

@@ -69,7 +69,7 @@ export default function ReschedulePage() {
     })
 
     if (res.ok) {
-      router.push('/clients/dashboard?rescheduled=1')
+      router.push('/portal?rescheduled=1')
     } else {
       alert('Failed to reschedule. Please try again.')
     }
@@ -127,7 +127,7 @@ export default function ReschedulePage() {
               <a href="tel:9547103636" className="flex-1 py-3 bg-[#1E2A4A] text-white rounded-lg text-center font-medium">Call (954) 710-3636</a>
               <a href="sms:9547103636" className="flex-1 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-center font-medium">Text Us</a>
             </div>
-            <button onClick={() => router.push('/clients/dashboard')} className="mt-4 text-gray-500 text-sm">Back to Dashboard</button>
+            <button onClick={() => router.push('/portal')} className="mt-4 text-gray-500 text-sm">Back to Dashboard</button>
           </div>
         </div>
       </div>

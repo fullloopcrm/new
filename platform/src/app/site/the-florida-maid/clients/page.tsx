@@ -14,7 +14,7 @@ function ClientPortalContent() {
     document.title = 'Client Portal | The Florida Maid'
     const ref = searchParams.get('ref')
     if (ref) {
-      router.replace('/clients/new?ref=' + ref)
+      router.replace('/portal/book?ref=' + ref)
     }
   }, [searchParams, router])
 
@@ -38,7 +38,7 @@ function ClientPortalContent() {
       } else {
         localStorage.removeItem('client_dns')
       }
-      router.push('/clients/dashboard')
+      router.push('/portal')
     } else {
       const data = await res.json().catch(() => ({}))
       if (data.error === 'Client not found') {
@@ -108,7 +108,7 @@ function ClientPortalContent() {
         <div className="mt-6 pt-6 border-t text-center">
           <p className="text-sm text-gray-500">
             New client?{' '}
-            <a href="/clients/new" className="text-[#1E2A4A] hover:underline">Book your first cleaning</a>
+            <a href="/portal/book" className="text-[#1E2A4A] hover:underline">Book your first cleaning</a>
           </p>
         </div>
 

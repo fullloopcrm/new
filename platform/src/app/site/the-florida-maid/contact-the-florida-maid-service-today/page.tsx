@@ -110,7 +110,7 @@ export default function ContactPage() {
               <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#CC6222] tracking-wide mb-2">Book Online</h2>
               <p className="text-[#CC6222] text-lg font-bold">thefloridamaid.com/book</p>
               <p className="text-gray-500 text-sm mt-3">Submit your details online and we&apos;ll confirm your appointment within the hour.</p>
-              <Link href="/clients/collect" target="_blank" className="inline-block mt-5 bg-[#CC6222] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#CC6222]/90 transition-colors">
+              <Link href="/portal/collect" target="_blank" className="inline-block mt-5 bg-[#CC6222] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#CC6222]/90 transition-colors">
                 Book Now
               </Link>
             </div>

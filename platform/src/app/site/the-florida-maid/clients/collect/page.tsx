@@ -10,7 +10,7 @@ function CollectFormContent() {
   const searchParams = useSearchParams()
   const srcDomain = searchParams.get('src') || ''
   const convoId = searchParams.get('convo_id') || ''
-  const { trackStart, trackSuccess } = useFormTracking('/clients/collect')
+  const { trackStart, trackSuccess } = useFormTracking('/portal/collect')
 
   const [form, setForm] = useState({
     name: '',
