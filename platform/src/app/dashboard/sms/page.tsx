@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
 
 type Conversation = {
   id: string
@@ -29,7 +29,7 @@ export default function SmsInboxPage() {
   const [tenantPhone, setTenantPhone] = useState<string | null>(null)
   const [telnyxConnected, setTelnyxConnected] = useState(false)
 
-  const smsSettings = usePageSettings('sms')
+  const [smsPanelOpen, setSmsPanelOpen] = useState(false)
 
   // Fetch tenant info for settings panel
   useEffect(() => {
@@ -158,12 +158,18 @@ export default function SmsInboxPage() {
               {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <PageSettingsGear open={smsSettings.open} setOpen={smsSettings.setOpen} title="SMS" />
+          <PageSettingsGear open={smsPanelOpen} setOpen={setSmsPanelOpen} title="SMS" />
         </div>
       </div>
 
       <PageSettingsPanel
-        {...smsSettings}
+        open={smsPanelOpen}
+        setOpen={setSmsPanelOpen}
+        loaded={true}
+        saving={false}
+        saveMsg=""
+        config={{}}
+        updateConfig={() => {}}
         title="SMS"
         tips={[
           'All SMS is powered by Telnyx — configure your API key in Settings > Integrations',
