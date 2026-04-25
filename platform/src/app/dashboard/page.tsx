@@ -1,318 +1,257 @@
-import { BOOKING_STATUS_COLORS } from '@/lib/constants'
-import { formatTime, formatDateTime } from '@/lib/format'
-import { getCurrentTenant } from '@/lib/tenant'
-import { supabaseAdmin } from '@/lib/supabase'
-import SetupChecklist from './setup-checklist'
-import AnnouncementBanner from './announcement-banner'
 import Link from 'next/link'
-import DashboardMap from './dashboard-map'
+import { getCurrentTenant } from '@/lib/tenant'
+
+// The Loop — pixel-faithful build of platform/docs/design/the-loop-frame.html.
+// Mock numbers for now so the visual lands exactly. Aggregator endpoints
+// (one per stat) replace the mocks in a follow-up; the layout/styling does
+// not need to change when real data arrives.
+
+type StatTag =
+  | { kind: 'plain'; text: string }
+  | { kind: 'up'; text: string }
+  | { kind: 'warn'; text: string }
+  | { kind: 'live'; text: string }
+
+type Stat = {
+  label: string
+  tag?: StatTag
+  value: React.ReactNode
+  sub?: React.ReactNode
+  href?: string
+}
+
+function StatCell({ s }: { s: Stat }) {
+  const inner = (
+    <div className="px-7 first:pl-0 last:pr-0 last:border-r-0 cursor-pointer" style={{ borderRight: '1px solid var(--color-loop-line)' }}>
+      <div className="flex items-center justify-between mb-3" style={{ fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--color-loop-muted)', fontWeight: 600, lineHeight: 1.3 }}>
+        <span>{s.label}</span>
+        {s.tag && <Tag t={s.tag} />}
+      </div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: '38px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: 'var(--color-loop-ink)', fontFeatureSettings: '"tnum","lnum"' }}>
+        {s.value}
+      </div>
+      {s.sub && (
+        <div className="mt-2" style={{ fontSize: '11.5px', color: 'var(--color-loop-muted)', lineHeight: 1.4 }}>
+          {s.sub}
+        </div>
+      )}
+    </div>
+  )
+  return s.href ? <Link href={s.href}>{inner}</Link> : inner
+}
+
+function Tag({ t }: { t: StatTag }) {
+  if (t.kind === 'up') {
+    return <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-loop-good)', fontWeight: 500 }}>↗ {t.text}</span>
+  }
+  if (t.kind === 'warn') {
+    return <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-loop-warn)', fontWeight: 500 }}>{t.text}</span>
+  }
+  if (t.kind === 'live') {
+    return (
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-loop-good)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--color-loop-good)', animation: 'loop-pulse 2s infinite' }} />
+        {t.text}
+      </span>
+    )
+  }
+  return <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-loop-muted-2)' }}>{t.text}</span>
+}
+
+function BarLabel({ children, split }: { children: React.ReactNode; split?: boolean }) {
+  return (
+    <div
+      className="inline-block mb-3"
+      style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: '10px',
+        textTransform: 'uppercase',
+        letterSpacing: '0.18em',
+        color: 'var(--color-loop-ink)',
+        fontWeight: 600,
+        paddingBottom: split ? 0 : '6px',
+        borderBottom: split ? 'none' : '1px solid var(--color-loop-ink)',
+        minWidth: '100px',
+      }}
+    >
+      {children}
+      {split && (
+        <span style={{ display: 'block', width: '80px', height: '1px', background: 'var(--color-loop-ink)', marginTop: '4px' }} />
+      )}
+    </div>
+  )
+}
+
+const dollar = (
+  <span style={{ fontSize: '19px', color: 'var(--color-loop-muted)', fontWeight: 400, verticalAlign: 'top', marginRight: '1px' }}>$</span>
+)
+const strong = (s: React.ReactNode) => (
+  <strong style={{ color: 'var(--color-loop-ink)', fontWeight: 500 }}>{s}</strong>
+)
+
+const SALES_STATS: Stat[] = [
+  {
+    label: 'Revenue · Apr',
+    tag: { kind: 'up', text: '+18%' },
+    value: <>{dollar}14,364</>,
+    sub: <>{strong('70')} jobs · YTD {strong('$37,949')}</>,
+  },
+  {
+    label: 'Outstanding',
+    tag: { kind: 'warn', text: '3 due' },
+    value: <>{dollar}675</>,
+    sub: <>Oldest {strong('17h')} · Mo Reisman</>,
+  },
+  {
+    label: 'Pipeline · 2026',
+    tag: { kind: 'plain', text: '362 booked' },
+    value: <>{dollar}77K</>,
+    sub: <>{strong('$39K')} forward booked</>,
+  },
+  {
+    label: 'New Clients · Apr',
+    tag: { kind: 'up', text: '+41%' },
+    value: '130',
+    sub: <>Roster {strong('444')} · best month</>,
+  },
+  {
+    label: 'Payouts Due',
+    tag: { kind: 'warn', text: '2 cleaners' },
+    value: <>{dollar}239</>,
+    sub: <>Karina {strong('$93')} · Gloria {strong('$146')}</>,
+  },
+]
+
+const small = (s: React.ReactNode) => (
+  <span style={{ fontSize: '22px', color: 'var(--color-loop-muted)', fontWeight: 400 }}>{s}</span>
+)
+
+const OPS_STATS: Stat[] = [
+  {
+    label: "Today's Jobs",
+    tag: { kind: 'live', text: '1 active' },
+    value: <>1{small(' / 1')}</>,
+    sub: <>Maria H. · {strong('2.5h')} in</>,
+  },
+  {
+    label: 'Team On-Duty',
+    tag: { kind: 'plain', text: '2/4' },
+    value: <>2{small(' working')}</>,
+    sub: 'Maria, Gloria · 2 off',
+  },
+  {
+    label: 'Selena · Live',
+    tag: { kind: 'live', text: '2 active' },
+    value: <>87{small('% conv')}</>,
+    sub: 'Cristina A. · Leo G.',
+  },
+  {
+    label: 'This Week',
+    tag: { kind: 'plain', text: '11 jobs' },
+    value: <>{dollar}2,275</>,
+    sub: <>Next: Mon 8a · Coby Berliner</>,
+  },
+  {
+    label: 'At-Risk Clients',
+    tag: { kind: 'warn', text: '8' },
+    value: '8',
+    sub: <>No booking {strong('45+ days')}</>,
+  },
+]
+
+const LEADS_STATS: Stat[] = [
+  { label: 'Today', tag: { kind: 'plain', text: 'organic' }, value: '7', sub: '4 chat · 3 form' },
+  { label: 'Week', tag: { kind: 'up', text: '+22%' }, value: '38', sub: 'vs 31 last wk' },
+  { label: 'Awaiting You', tag: { kind: 'warn', text: '3' }, value: '3', sub: 'Selena escalated' },
+]
+
+const APPS_STATS: Stat[] = [
+  { label: 'New', tag: { kind: 'warn', text: '5 unread' }, value: '12', sub: 'last 7 days' },
+  { label: 'In Review', tag: { kind: 'plain', text: 'trial' }, value: '3', sub: 'paid trial scheduled' },
+  { label: 'Pages Live', tag: { kind: 'plain', text: '281' }, value: '281', sub: 'neighborhood hiring' },
+]
+
+const ACTION_CARDS = [
+  { num: '01', title: 'New Client', desc: 'Add a client manually or import', href: '/dashboard/clients?new=1' },
+  { num: '02', title: 'New Booking', desc: 'Schedule a job for an existing client', href: '/dashboard/bookings?new=1' },
+  { num: '03', title: 'New Lead', desc: 'Log an inbound inquiry', href: '/dashboard/leads?new=1' },
+  { num: '04', title: 'New Quote', desc: 'Send a price estimate', href: '/dashboard/sales?new=quote' },
+  { num: '05', title: 'Add Team Member', desc: 'Onboard a new cleaner', href: '/dashboard/team?new=1' },
+  { num: '06', title: 'Send Campaign', desc: 'Email or SMS blast to clients', href: '/dashboard/campaigns?new=1' },
+  { num: '07', title: 'Request Review', desc: 'Send review link to a client', href: '/dashboard/reviews?new=1' },
+  { num: '08', title: 'Block Time', desc: 'Mark unavailable on the calendar', href: '/dashboard/calendar?block=1' },
+]
 
 export default async function DashboardPage() {
   const tenant = await getCurrentTenant()
   if (!tenant) return null
 
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
-  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString()
-  const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
-  const yearStart = new Date(now.getFullYear(), 0, 1).toISOString()
-  const next14 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14).toISOString()
-
-  const [
-    { count: clientCount },
-    { count: newClientsThisMonth },
-    { count: teamCount },
-    { count: scheduleCount },
-    { count: upcomingBookingCount },
-    { data: todayRevBookings },
-    { data: weekRevBookings },
-    { data: monthRevBookings },
-    { data: yearRevBookings },
-    { data: todaysJobs },
-    { data: upcomingJobs },
-    { count: completedThisMonth },
-    { count: cancelledThisMonth },
-    { data: owedBookings },
-    { data: scheduledRevBookings },
-    { count: yearTotalBookings },
-  ] = await Promise.all([
-    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
-    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('created_at', monthStart),
-    supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'active'),
-    supabaseAdmin.from('recurring_schedules').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'active'),
-    supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).in('status', ['scheduled', 'confirmed']),
-    // COLLECTED revenue — completed + paid, scoped by start_time (matches nycmaid)
-    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', todayStart).lt('start_time', todayEnd),
-    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', weekStart),
-    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', monthStart),
-    supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenant.id).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', yearStart),
-    supabaseAdmin.from('bookings').select('id, start_time, end_time, status, price, notes, clients(name, phone), team_members(name), service_types(name)').eq('tenant_id', tenant.id).gte('start_time', todayStart).lt('start_time', todayEnd).order('start_time', { ascending: true }).limit(20),
-    supabaseAdmin.from('bookings').select('id, start_time, status, price, clients(name), team_members(name), service_types(name)').eq('tenant_id', tenant.id).gte('start_time', todayEnd).lt('start_time', next14).in('status', ['scheduled', 'confirmed']).order('start_time', { ascending: true }).limit(20),
-    supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'completed').gte('start_time', monthStart),
-    supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'cancelled').gte('start_time', monthStart),
-    supabaseAdmin.from('bookings').select('price, payment_status').eq('tenant_id', tenant.id).eq('status', 'completed').neq('payment_status', 'paid'),
-    supabaseAdmin.from('bookings').select('start_time, price, status').eq('tenant_id', tenant.id).in('status', ['pending', 'scheduled', 'confirmed', 'completed']).gte('start_time', yearStart),
-    supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('start_time', yearStart),
-  ])
-
-  const sumRevenue = (bookings: { price: number }[] | null) =>
-    (bookings || []).reduce((sum, b) => sum + (b.price || 0), 0)
-
-  const todayRev = sumRevenue(todayRevBookings)
-  const weekRev = sumRevenue(weekRevBookings)
-  const monthRev = sumRevenue(monthRevBookings)
-  const yearRev = sumRevenue(yearRevBookings)
-  const owedRev = sumRevenue(owedBookings as { price: number }[] | null)
-
-  // Projected = collected YTD + sum of all scheduled+confirmed+completed in current year
-  const projectedRev = ((scheduledRevBookings || []) as { price: number; status: string }[])
-    .filter(b => ['scheduled', 'confirmed', 'completed'].includes(b.status))
-    .reduce((sum, b) => sum + (b.price || 0), 0)
-
-  const scheduledToday = { amount: 0, count: 0 }
-  const scheduledWeek = { amount: 0, count: 0 }
-  const scheduledMonth = { amount: 0, count: 0 }
-
-  const scheduledByMonth: Record<number, { amount: number; count: number }> = {}
-  for (let m = 0; m < 12; m++) scheduledByMonth[m] = { amount: 0, count: 0 }
-
-  for (const b of (scheduledRevBookings || []) as { start_time: string; price: number; status: string }[]) {
-    const d = new Date(b.start_time)
-    const month = d.getMonth()
-    const price = b.price || 0
-    // Forecast months (Jan, Feb, Mar...) — only scheduled/confirmed (still un-paid future work)
-    if (b.status === 'scheduled' || b.status === 'confirmed') {
-      scheduledByMonth[month].amount += price
-      scheduledByMonth[month].count += 1
-    }
-    // Current windows (Today/Week/Month) — match nycmaid: include pending + completed too
-    if (b.start_time >= todayStart && b.start_time < todayEnd) { scheduledToday.amount += price; scheduledToday.count += 1 }
-    if (b.start_time >= todayStart && b.start_time < weekEnd) { scheduledWeek.amount += price; scheduledWeek.count += 1 }
-    if (b.start_time >= monthStart && b.start_time < monthEnd) { scheduledMonth.amount += price; scheduledMonth.count += 1 }
-  }
-
-  function fmt(cents: number) {
-    return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-  }
-
-  const showChecklist = !tenant.setup_dismissed
-
-  type BookingRow = {
-    id: string; start_time: string; end_time?: string; status: string; price: number; notes?: string
-    clients: { name: string; phone?: string } | null
-    team_members: { name: string } | null
-    service_types: { name: string } | null
-  }
-
-  function normalizeBooking(row: Record<string, unknown>): BookingRow {
-    return {
-      ...row,
-      clients: Array.isArray(row.clients) ? row.clients[0] || null : row.clients,
-      team_members: Array.isArray(row.team_members) ? row.team_members[0] || null : row.team_members,
-      service_types: Array.isArray(row.service_types) ? row.service_types[0] || null : row.service_types,
-    } as BookingRow
-  }
-
-  const statusColors = BOOKING_STATUS_COLORS
-
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const currentMonth = now.getMonth()
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-heading font-bold text-slate-900">Dashboard</h1>
-          <p className="text-sm text-slate-400">Welcome back, {tenant.name}</p>
-        </div>
-        <Link href="/dashboard/bookings" className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition-colors">
-          + New Booking
-        </Link>
-      </div>
-
-      <AnnouncementBanner />
-      {showChecklist && <SetupChecklist />}
-
-      {/* REVENUE CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-        {[
-          { label: 'Today', value: todayRev, count: todayRevBookings?.length || 0, color: 'border-l-green-500', sub: 'paid' },
-          { label: 'This Week', value: weekRev, count: weekRevBookings?.length || 0, color: 'border-l-blue-500', sub: 'paid' },
-          { label: 'This Month', value: monthRev, count: monthRevBookings?.length || 0, color: 'border-l-purple-500', sub: 'paid' },
-        ].map((card) => (
-          <div key={card.label} className={`border-l-4 ${card.color} pl-3 py-2`}>
-            <p className="text-[10px] text-slate-500 uppercase tracking-wide">{card.label}</p>
-            <p className="text-xl font-bold font-mono text-slate-900">{fmt(card.value)}</p>
-            <p className="text-xs text-slate-400">{card.count} {card.sub} job{card.count !== 1 ? 's' : ''}</p>
-          </div>
+    <>
+      {/* SALES BAR */}
+      <BarLabel>Sales</BarLabel>
+      <div className="grid pb-6 mb-6" style={{ gridTemplateColumns: 'repeat(5, 1fr)', borderBottom: '1px solid var(--color-loop-line)' }}>
+        {SALES_STATS.map((s, i) => (
+          <StatCell key={i} s={s} />
         ))}
-        <div className="border-l-4 border-l-cyan-500 pl-3 py-2">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Year to Date</p>
-          <p className="text-xl font-bold font-mono text-slate-900">
-            <span className="text-base text-slate-500">{fmt(yearRev)}</span>
-            <span className="text-slate-300 mx-1">/</span>
-            {fmt(projectedRev)}
-          </p>
-          <p className="text-xs text-slate-400">{now.getFullYear()} ({yearTotalBookings || 0} jobs booked)</p>
-        </div>
-        <div className="border-l-4 border-l-orange-500 pl-3 py-2">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Owed</p>
-          <p className="text-xl font-bold font-mono text-orange-600">{fmt(owedRev)}</p>
-          <p className="text-xs text-slate-400">{(owedBookings || []).length} unpaid job{(owedBookings || []).length !== 1 ? 's' : ''}</p>
-        </div>
       </div>
 
-      {/* SCHEDULED REVENUE ROW */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-heading font-semibold text-slate-900 uppercase tracking-wide">Scheduled Revenue</h3>
-          <span className="text-[11px] text-slate-400">Upcoming confirmed/scheduled jobs</span>
-        </div>
-        <div className="overflow-x-auto pb-2">
-          <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
-            {[
-              { label: 'Today', amount: scheduledToday.amount, count: scheduledToday.count, highlight: true },
-              { label: 'Week', amount: scheduledWeek.amount, count: scheduledWeek.count, highlight: false },
-              { label: 'Month', amount: scheduledMonth.amount, count: scheduledMonth.count, highlight: false },
-            ].map((card) => (
-              <div key={card.label} className={`min-w-[100px] rounded-lg px-3 py-2.5 border ${card.highlight ? 'border-green-300 bg-green-50' : 'border-slate-200'}`}>
-                <p className="text-[10px] text-slate-500 uppercase tracking-wide">{card.label}</p>
-                <p className={`text-base font-bold mt-0.5 ${card.highlight ? 'text-green-700' : 'text-slate-900'}`}>{fmt(card.amount)}</p>
-                <p className="text-[10px] text-slate-400">{card.count} job{card.count !== 1 ? 's' : ''}</p>
-              </div>
+      {/* OPERATIONS BAR */}
+      <BarLabel>Operations</BarLabel>
+      <div className="grid pb-6 mb-6" style={{ gridTemplateColumns: 'repeat(5, 1fr)', borderBottom: '1px solid var(--color-loop-line)' }}>
+        {OPS_STATS.map((s, i) => (
+          <StatCell key={i} s={s} />
+        ))}
+      </div>
+
+      {/* PIPELINE BAR — split into Leads + Applications */}
+      <div className="grid pb-7 mb-8" style={{ gridTemplateColumns: '1fr 1px 1fr', gap: '28px', borderBottom: '1px solid var(--color-loop-line)' }}>
+        <div className="flex flex-col">
+          <BarLabel split>New Leads</BarLabel>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            {LEADS_STATS.map((s, i) => (
+              <StatCell key={i} s={s} />
             ))}
-            <div className="w-px bg-slate-200 self-stretch mx-1" />
-            {monthNames.map((name, idx) => {
-              const data = scheduledByMonth[idx]
-              const isCurrent = idx === currentMonth
-              return (
-                <div key={name} className={`min-w-[100px] rounded-lg px-3 py-2.5 border ${isCurrent ? 'border-green-300 bg-green-50' : 'border-slate-200'}`}>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wide">{name}</p>
-                  <p className={`text-base font-bold mt-0.5 ${isCurrent ? 'text-green-700' : 'text-slate-900'}`}>{fmt(data.amount)}</p>
-                  <p className="text-[10px] text-slate-400">{data.count} job{data.count !== 1 ? 's' : ''}</p>
-                </div>
-              )
-            })}
+          </div>
+        </div>
+        <div style={{ background: 'var(--color-loop-line)', width: '1px' }} />
+        <div className="flex flex-col">
+          <BarLabel split>Job Applications</BarLabel>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            {APPS_STATS.map((s, i) => (
+              <StatCell key={i} s={s} />
+            ))}
           </div>
         </div>
       </div>
 
-      {/* OVERVIEW STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        {[
-          { label: 'Upcoming', value: upcomingBookingCount || 0, href: '/dashboard/bookings' },
-          { label: 'Completed', value: completedThisMonth || 0, sub: 'this month' },
-          { label: 'Cancelled', value: cancelledThisMonth || 0, sub: 'this month' },
-          { label: 'Clients', value: clientCount || 0, href: '/dashboard/clients' },
-          { label: 'New Clients', value: newClientsThisMonth || 0, sub: 'this month' },
-          { label: 'Team', value: teamCount || 0, href: '/dashboard/team' },
-        ].map((s) => (
-          <div key={s.label} className="border border-slate-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-1">
-              {s.href && <Link href={s.href} className="text-[10px] text-teal-600 hover:underline">View</Link>}
+      {/* ACTION CARDS */}
+      <div className="grid overflow-hidden rounded" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', background: 'var(--color-loop-line)', border: '1px solid var(--color-loop-line)' }}>
+        {ACTION_CARDS.map((c) => (
+          <Link
+            key={c.num}
+            href={c.href}
+            className="relative cursor-pointer transition-colors hover:bg-[#FBFBF8] group"
+            style={{ background: 'var(--color-loop-canvas)', padding: '24px 26px', minHeight: '130px', display: 'flex', flexDirection: 'column' }}
+          >
+            <span
+              className="absolute opacity-0 group-hover:opacity-100 transition-all"
+              style={{ top: '22px', right: '22px', fontFamily: 'var(--font-mono)', color: 'var(--color-loop-muted)', fontSize: '14px' }}
+            >
+              →
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--color-loop-muted-2)', letterSpacing: '0.1em', marginBottom: '14px', fontWeight: 500 }}>
+              {c.num}
+            </span>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.1, color: 'var(--color-loop-ink)', marginBottom: '6px' }}>
+              {c.title}
             </div>
-            <p className="text-xl font-bold font-mono text-slate-900">{s.value}</p>
-            <p className="text-[11px] text-slate-400">{s.label}{s.sub ? ` · ${s.sub}` : ''}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* TODAY'S JOBS */}
-        <div className="border border-slate-200 rounded-lg">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-            <h3 className="font-heading font-semibold text-slate-900 text-sm">Today&apos;s Jobs</h3>
-            <span className="text-xs text-slate-400">{(todaysJobs || []).length} job{(todaysJobs || []).length !== 1 ? 's' : ''}</span>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {(!todaysJobs || todaysJobs.length === 0) ? (
-              <div className="px-5 py-8 text-center text-slate-400 text-sm">No jobs scheduled for today</div>
-            ) : ((todaysJobs || []) as Record<string, unknown>[]).map(normalizeBooking).map((job) => (
-              <Link key={job.id} href={`/dashboard/bookings/${job.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-slate-900 truncate">{job.clients?.name || 'Unknown'}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${statusColors[job.status] || 'bg-slate-100 text-slate-500'}`}>
-                      {job.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-xs text-slate-400">
-                      {formatTime(job.start_time)}
-                      {job.end_time && ` – ${formatTime(job.end_time)}`}
-                    </p>
-                    {job.team_members?.name && <span className="text-xs text-slate-400">· {job.team_members.name}</span>}
-                    {job.service_types?.name && <span className="text-xs text-slate-400">· {job.service_types.name}</span>}
-                  </div>
-                </div>
-                <div className="text-right ml-3">
-                  <p className="text-sm font-medium text-slate-900">{job.price ? fmt(job.price) : '—'}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* UPCOMING 14 DAYS */}
-        <div className="border border-slate-200 rounded-lg">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-            <h3 className="font-heading font-semibold text-slate-900 text-sm">Upcoming 14 Days</h3>
-            <Link href="/dashboard/bookings" className="text-xs text-teal-600 hover:underline">View All</Link>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {(!upcomingJobs || upcomingJobs.length === 0) ? (
-              <div className="px-5 py-8 text-center text-slate-400 text-sm">No upcoming bookings</div>
-            ) : ((upcomingJobs || []) as Record<string, unknown>[]).map(normalizeBooking).map((job) => {
-              const jobDate = new Date(job.start_time)
-              const isThisWeek = jobDate.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).getTime()
-              return (
-                <Link key={job.id} href={`/dashboard/bookings/${job.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-slate-900 truncate">{job.clients?.name || 'Unknown'}</p>
-                      {isThisWeek && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">This week</span>}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-xs text-slate-400">
-                        {formatDateTime(jobDate)}
-                      </p>
-                      {job.team_members?.name && <span className="text-xs text-slate-400">· {job.team_members.name}</span>}
-                    </div>
-                  </div>
-                  <div className="text-right ml-3">
-                    <p className="text-sm text-slate-500">{job.service_types?.name || ''}</p>
-                    <p className="text-xs text-slate-400">{job.price ? fmt(job.price) : ''}</p>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* JOB MAP */}
-      <div className="mb-6">
-        <DashboardMap />
-      </div>
-
-      {/* QUICK LINKS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'New Client', href: '/dashboard/clients', desc: 'Add a client' },
-          { label: 'Campaigns', href: '/dashboard/campaigns', desc: 'Send email or SMS' },
-          { label: 'Schedules', href: '/dashboard/schedules', desc: `${scheduleCount || 0} active` },
-          { label: 'Finance', href: '/dashboard/finance', desc: 'Revenue & payroll' },
-        ].map((link) => (
-          <Link key={link.href} href={link.href}
-            className="border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-all">
-            <p className="text-sm font-medium text-slate-900 mt-1">{link.label}</p>
-            <p className="text-[11px] text-slate-400">{link.desc}</p>
+            <div style={{ fontSize: '12px', color: 'var(--color-loop-muted)', lineHeight: 1.4 }}>
+              {c.desc}
+            </div>
           </Link>
         ))}
       </div>
-    </div>
+    </>
   )
 }
