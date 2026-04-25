@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import WebsitesSettings from './websites-settings'
 
 interface TenantSettings {
   domain: string | null
@@ -45,7 +46,10 @@ export default function WebsitesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-heading font-bold text-slate-900 mb-4">Website</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-heading font-bold text-slate-900">Website</h1>
+        <WebsitesSettings />
+      </div>
 
       {/* Status overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

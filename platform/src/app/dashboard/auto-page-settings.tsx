@@ -44,7 +44,7 @@ const PAGE_MAP: Record<string, { page: string; title: string; tips: string[] }> 
 // panels they should be added here.
 const PAGES_WITH_CUSTOM_PANEL = new Set([
   'bookings', 'campaigns', 'clients', 'finance', 'leads', 'referrals',
-  'reviews', 'sms', 'team', 'notifications', 'selena',
+  'reviews', 'sms', 'team', 'notifications', 'selena', 'websites',
   // Add pages here as their custom panels ship.
 ])
 
