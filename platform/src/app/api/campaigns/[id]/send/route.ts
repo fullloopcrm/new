@@ -3,6 +3,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
+import { getSettings } from '@/lib/settings'
 
 export async function POST(
   _request: Request,
@@ -25,6 +26,17 @@ export async function POST(
 
     if (!campaign) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    const settings = await getSettings(tenantId)
+
+    // Tenant rule: campaign_approval_required gates send on an explicit
+    // 'approved' status — drafts can't ship without sign-off.
+    if (settings.campaign_approval_required && campaign.status !== 'approved') {
+      return NextResponse.json(
+        { error: 'This tenant requires campaign approval before sending. Set status to approved first.' },
+        { status: 403 }
+      )
     }
 
     // Get recipients (all active clients with opt-in)
@@ -51,17 +63,33 @@ export async function POST(
       return NextResponse.json({ error: 'SMS not configured. Add Telnyx keys in Settings.' }, { status: 400 })
     }
 
+    // Sender display name comes from settings.campaign_sender_name; format as
+    // "Name <email>" so Resend uses the configured sender. Resend domain
+    // determines the email half — fall back to the platform default when not set.
+    const fromName = settings.campaign_sender_name || tenant.name || 'Full Loop'
+    const fromEmail = tenant.email_from
+      || (tenant.resend_domain ? `noreply@${tenant.resend_domain}` : 'noreply@homeservicesbusinesscrm.com')
+    const fromHeader = `${fromName} <${fromEmail}>`
+
     for (const client of clients) {
       const personalizedBody = campaign.body
         .replace(/\{name\}/g, client.name)
         .replace(/\{business\}/g, tenant.name)
+
+      // Tenant rule: auto_unsubscribe appends a reply-STOP / unsubscribe
+      // footer to every outbound email body so each send is one-click
+      // opt-out-able. Default true; off only if the tenant explicitly disabled.
+      const emailBody = settings.campaign_auto_unsubscribe
+        ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${tenant.name} client. <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/unsubscribe?email=${encodeURIComponent(client.email || '')}">Unsubscribe</a></p>`
+        : personalizedBody
 
       if (sendEmails && client.email) {
         try {
           await sendEmail({
             to: client.email,
             subject: campaign.subject || campaign.name,
-            html: personalizedBody,
+            html: emailBody,
+            from: fromHeader,
             resendApiKey: tenant.resend_api_key,
           })
           sentCount++

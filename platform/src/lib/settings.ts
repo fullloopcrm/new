@@ -77,6 +77,11 @@ export interface TenantSettings {
   review_followup_enabled: boolean
   review_followup_delay_hours: number
   review_low_rating_threshold: number
+  // Campaigns (selena_config jsonb)
+  campaign_default_type: string
+  campaign_sender_name: string
+  campaign_auto_unsubscribe: boolean
+  campaign_approval_required: boolean
   // Team Guidelines
   team_guidelines: string | null
   guidelines_updated_at: string | null
@@ -224,6 +229,10 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     review_followup_enabled: Boolean(selenaConfig.review_followup_enabled ?? true),
     review_followup_delay_hours: Number(selenaConfig.review_followup_delay_hours ?? 2),
     review_low_rating_threshold: Number(selenaConfig.review_low_rating_threshold ?? 3),
+    campaign_default_type: (selenaConfig.campaign_default_type as string) || 'email',
+    campaign_sender_name: (selenaConfig.campaign_sender_name as string) || (tenant?.name as string) || '',
+    campaign_auto_unsubscribe: selenaConfig.campaign_auto_unsubscribe !== false,
+    campaign_approval_required: Boolean(selenaConfig.campaign_approval_required),
     team_guidelines: (tenant?.guidelines_en as string) || null,
     guidelines_updated_at: (tenant?.guidelines_updated_at as string) || null,
     updated_at: (tenant?.updated_at as string) || new Date().toISOString(),

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type Campaign = {
   id: string
@@ -41,7 +42,28 @@ export default function CampaignsPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'draft' | 'sent' | 'scheduled'>('all')
   const [search, setSearch] = useState('')
 
-  const campaignsSettings = usePageSettings('campaigns')
+  const tenantSettings = useTenantSettings()
+  const [campaignsPanelOpen, setCampaignsPanelOpen] = useState(false)
+  const campaignsSelena = (tenantSettings.tenant?.selena_config as Record<string, unknown> | null) || {}
+  const campaignsSettings = {
+    open: campaignsPanelOpen,
+    setOpen: setCampaignsPanelOpen,
+    loaded: tenantSettings.loaded,
+    saving: tenantSettings.saving,
+    saveMsg: tenantSettings.saveMsg,
+    config: {
+      default_type: (campaignsSelena.campaign_default_type as string) || 'email',
+      default_sender_name: (campaignsSelena.campaign_sender_name as string) || '',
+      auto_unsubscribe: campaignsSelena.campaign_auto_unsubscribe !== false,
+      approval_required: Boolean(campaignsSelena.campaign_approval_required),
+    } as Record<string, unknown>,
+    updateConfig: (key: string, value: unknown) => {
+      if (key === 'default_type') tenantSettings.updateSelenaConfig({ campaign_default_type: value })
+      else if (key === 'default_sender_name') tenantSettings.updateSelenaConfig({ campaign_sender_name: value })
+      else if (key === 'auto_unsubscribe') tenantSettings.updateSelenaConfig({ campaign_auto_unsubscribe: Boolean(value) })
+      else if (key === 'approval_required') tenantSettings.updateSelenaConfig({ campaign_approval_required: Boolean(value) })
+    },
+  }
 
   useEffect(() => {
     fetch('/api/campaigns').then((r) => r.json()).then((data) => setCampaigns(data.campaigns || []))
