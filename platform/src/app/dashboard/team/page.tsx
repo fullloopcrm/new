@@ -6,7 +6,8 @@ import { downloadCSV } from '@/lib/csv'
 import { formatPhone } from '@/lib/phone'
 import { TEAM_STATUS_COLORS, ROLE_COLORS } from '@/lib/constants'
 import { formatDateLong } from '@/lib/format'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type TeamMember = {
   id: string
@@ -154,7 +155,32 @@ export default function TeamPage() {
   const [appActionLoading, setAppActionLoading] = useState<string | null>(null)
   const [appNewPin, setAppNewPin] = useState('')
 
-  const teamPageSettings = usePageSettings('team')
+  const tenantSettings = useTenantSettings()
+  const [teamPanelOpen, setTeamPanelOpen] = useState(false)
+  const teamTenant = tenantSettings.tenant
+  const teamSelena = (teamTenant?.selena_config as Record<string, unknown> | null) || {}
+  const teamPageSettings = {
+    open: teamPanelOpen,
+    setOpen: setTeamPanelOpen,
+    loaded: tenantSettings.loaded,
+    saving: tenantSettings.saving,
+    saveMsg: tenantSettings.saveMsg,
+    config: {
+      default_pay_rate: Number(teamSelena.default_pay_rate ?? 0),
+      guidelines_en: (teamTenant?.guidelines_en as string) || '',
+      guidelines_es: (teamTenant?.guidelines_es as string) || '',
+      guidelines_updated_at: (teamTenant?.guidelines_updated_at as string) || '',
+    } as Record<string, unknown>,
+    updateConfig: (key: string, value: unknown) => {
+      if (key === 'default_pay_rate') {
+        tenantSettings.updateSelenaConfig({ default_pay_rate: Number(value) || 0 })
+      } else if (key === 'guidelines_en' || key === 'guidelines_es') {
+        tenantSettings.updateField(key, value)
+      } else if (key === 'guidelines_updated_at') {
+        tenantSettings.updateField('guidelines_updated_at', value)
+      }
+    },
+  }
 
   // Load team members
   useEffect(() => {

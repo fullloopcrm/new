@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { getSettings } from '@/lib/settings'
 
 export async function GET() {
   try {
@@ -48,6 +49,19 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 
+    // Apply tenant defaults when caller didn't provide values explicitly.
+    const settings = await getSettings(tenantId)
+    const fieldsWithDefaults = { ...fields! } as Record<string, unknown>
+    if (fieldsWithDefaults.pay_rate == null && settings.default_pay_rate > 0) {
+      fieldsWithDefaults.pay_rate = settings.default_pay_rate
+    }
+    if (fieldsWithDefaults.hourly_rate == null && settings.default_pay_rate > 0) {
+      fieldsWithDefaults.hourly_rate = settings.default_pay_rate
+    }
+    if (!Array.isArray(fieldsWithDefaults.working_days) && settings.default_working_days?.length) {
+      fieldsWithDefaults.working_days = settings.default_working_days
+    }
+
     // Auto-generate 4-digit PIN (cryptographically random).
     // The DB enforces uniqueness via idx_team_members_tenant_pin_unique (migration 014);
     // a collision returns a 500 and the caller retries.
@@ -56,7 +70,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('team_members')
-      .insert({ ...fields, tenant_id: tenantId, pin })
+      .insert({ ...fieldsWithDefaults, tenant_id: tenantId, pin })
       .select()
       .single()
 

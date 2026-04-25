@@ -56,6 +56,11 @@ export interface TenantSettings {
   default_client_status: string
   require_client_phone: boolean
   require_client_email: boolean
+  // Team defaults (selena_config jsonb)
+  default_pay_rate: number
+  default_working_days: number[]
+  team_roles: string[]
+  team_pay_rates: { label: string; amount: number }[]
   // Team Guidelines
   team_guidelines: string | null
   guidelines_updated_at: string | null
@@ -178,6 +183,16 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     default_client_status: (selenaConfig.default_client_status as string) || 'active',
     require_client_phone: Boolean(selenaConfig.require_client_phone),
     require_client_email: Boolean(selenaConfig.require_client_email),
+    default_pay_rate: Number(selenaConfig.default_pay_rate ?? 0),
+    default_working_days: Array.isArray(selenaConfig.default_working_days)
+      ? (selenaConfig.default_working_days as number[])
+      : [1, 2, 3, 4, 5],
+    team_roles: Array.isArray(selenaConfig.team_roles)
+      ? (selenaConfig.team_roles as string[])
+      : ['worker', 'lead', 'manager'],
+    team_pay_rates: Array.isArray(selenaConfig.team_pay_rates)
+      ? (selenaConfig.team_pay_rates as { label: string; amount: number }[])
+      : [],
     team_guidelines: (tenant?.guidelines_en as string) || null,
     guidelines_updated_at: (tenant?.guidelines_updated_at as string) || null,
     updated_at: (tenant?.updated_at as string) || new Date().toISOString(),
