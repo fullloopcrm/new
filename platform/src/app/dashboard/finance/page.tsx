@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { downloadCSV } from '@/lib/csv'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 import AskBar from './ask-bar'
 
 type PayrollItem = {
@@ -41,7 +42,52 @@ export default function FinancePage() {
   const [saving, setSaving] = useState(false)
   const [monthlyRevenue, setMonthlyRevenue] = useState<{ month: string; amount: number }[]>([])
 
-  const financeSettings = usePageSettings('finance')
+  const tenantSettings = useTenantSettings()
+  const [financePanelOpen, setFinancePanelOpen] = useState(false)
+  const financeTenant = tenantSettings.tenant
+  const financeSelena = (financeTenant?.selena_config as Record<string, unknown> | null) || {}
+  const financeSettings = {
+    open: financePanelOpen,
+    setOpen: setFinancePanelOpen,
+    loaded: tenantSettings.loaded,
+    saving: tenantSettings.saving,
+    saveMsg: tenantSettings.saveMsg,
+    config: {
+      fiscal_year_start: String(financeSelena.fiscal_year_start ?? 1),
+      expense_categories: Array.isArray(financeTenant?.expense_categories)
+        ? (financeTenant?.expense_categories as string[]).join(', ')
+        : '',
+      tax_rate: Number(financeSelena.tax_rate ?? 0),
+      currency_symbol: (financeSelena.currency_symbol as string) || '$',
+      payment_methods: (financeTenant?.payment_methods as string[]) || [],
+      zelle_email: (financeTenant?.zelle_email as string) || '',
+      apple_cash_phone: (financeTenant?.apple_cash_phone as string) || '',
+      referral_commission_rate: Number(financeTenant?.commission_rate ?? 0),
+    } as Record<string, unknown>,
+    updateConfig: (key: string, value: unknown) => {
+      if (key === 'fiscal_year_start') {
+        tenantSettings.updateSelenaConfig({ fiscal_year_start: Number(value) || 1 })
+      } else if (key === 'tax_rate') {
+        tenantSettings.updateSelenaConfig({ tax_rate: Number(value) || 0 })
+      } else if (key === 'currency_symbol') {
+        tenantSettings.updateSelenaConfig({ currency_symbol: String(value) || '$' })
+      } else if (key === 'expense_categories') {
+        const arr = String(value)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+        tenantSettings.updateField('expense_categories', arr)
+      } else if (key === 'payment_methods') {
+        tenantSettings.updateField('payment_methods', value)
+      } else if (key === 'zelle_email') {
+        tenantSettings.updateField('zelle_email', value)
+      } else if (key === 'apple_cash_phone') {
+        tenantSettings.updateField('apple_cash_phone', value)
+      } else if (key === 'referral_commission_rate') {
+        tenantSettings.updateField('commission_rate', Number(value) || 0)
+      }
+    },
+  }
 
   useEffect(() => {
     Promise.all([

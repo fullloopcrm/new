@@ -61,6 +61,13 @@ export interface TenantSettings {
   default_working_days: number[]
   team_roles: string[]
   team_pay_rates: { label: string; amount: number }[]
+  // Finance display config (mostly selena_config jsonb; expense_categories is a real column)
+  fiscal_year_start: number
+  tax_rate: number
+  currency_symbol: string
+  expense_categories: string[]
+  zelle_email: string
+  apple_cash_phone: string
   // Team Guidelines
   team_guidelines: string | null
   guidelines_updated_at: string | null
@@ -193,6 +200,14 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     team_pay_rates: Array.isArray(selenaConfig.team_pay_rates)
       ? (selenaConfig.team_pay_rates as { label: string; amount: number }[])
       : [],
+    fiscal_year_start: Number(selenaConfig.fiscal_year_start ?? 1),
+    tax_rate: Number(selenaConfig.tax_rate ?? 0),
+    currency_symbol: (selenaConfig.currency_symbol as string) || '$',
+    expense_categories: Array.isArray(tenant?.expense_categories)
+      ? (tenant?.expense_categories as string[])
+      : [],
+    zelle_email: (tenant?.zelle_email as string) || '',
+    apple_cash_phone: (tenant?.apple_cash_phone as string) || '',
     team_guidelines: (tenant?.guidelines_en as string) || null,
     guidelines_updated_at: (tenant?.guidelines_updated_at as string) || null,
     updated_at: (tenant?.updated_at as string) || new Date().toISOString(),
