@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Loop CRM — The Loop</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4F4F1;
+    --canvas: #FFFFFF;
+    --ink: #1C1C1C;
+    --graphite: #3A3A3A;
+    --muted: #7A7A78;
+    --muted-2: #A8A8A4;
+    --line: #C8C5BC;
+    --line-soft: #E4E2DC;
+    --good: #1F4D2C;
+    --warn: #8B4513;
+    --display: 'Fraunces', Georgia, serif;
+    --body: -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    -webkit-font-smoothing: antialiased;
+    font-size: 14px;
+  }
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: #1C1C1C; color: #A8A8A4;
+    padding: 22px 0 0; height: 100vh; position: sticky; top: 0;
+    border-right: 1px solid #2E2E2E;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sb-brand {
+    padding: 0 22px 4px;
+    font-family: var(--display); font-size: 19px;
+    color: #F4F4F1; font-weight: 500; letter-spacing: -0.015em;
+  }
+  .sb-brand i { font-style: italic; color: #888; font-weight: 400; }
+  .sb-tag {
+    padding: 0 22px 16px;
+    font-family: var(--mono); font-size: 10px; color: #555;
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .sb-scroll { flex: 1; overflow-y: auto; padding-bottom: 80px; }
+  .sb-scroll::-webkit-scrollbar { width: 4px; }
+  .sb-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+  .sb-section {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em;
+    color: #5A5A5A; margin: 14px 22px 6px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .sb-section-count {
+    font-family: var(--mono); font-size: 9.5px; color: #888;
+    background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 2px;
+  }
+
+  .notif {
+    padding: 6px 22px; font-size: 12px;
+    color: #C8C5BC; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .notif:hover { background: rgba(255,255,255,0.025); color: #F4F4F1; }
+  .notif.seen { opacity: 0.5; }
+  .notif-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .notif-dot.warn { background: #E8A04A; }
+  .notif-dot.good { background: #4ADE80; }
+  .notif-dot.info { background: #6A6A66; }
+  .notif-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .notif-time { font-family: var(--mono); font-size: 9.5px; color: #666; }
+  .notif-readall {
+    margin: 4px 22px 0;
+    font-family: var(--mono); font-size: 10px; color: #888;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding-bottom: 8px; border-bottom: 1px solid #2A2A2A;
+    cursor: pointer;
+  }
+  .notif-readall:hover { color: #F4F4F1; }
+
+  .sb-item {
+    padding: 6px 22px; font-size: 13.5px;
+    color: #A8A8A4; cursor: pointer;
+    display: flex; align-items: center; gap: 12px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s ease;
+  }
+  .sb-item:hover { color: #F4F4F1; background: rgba(255,255,255,0.025); }
+  .sb-item.active {
+    color: #F4F4F1; border-left-color: #F4F4F1;
+    background: rgba(255,255,255,0.04); font-weight: 500;
+  }
+  .sb-num {
+    font-family: var(--mono); font-size: 11px; color: #5A5A5A;
+    width: 18px; flex-shrink: 0;
+  }
+  .sb-item.active .sb-num { color: #F4F4F1; }
+  .sb-badge {
+    margin-left: auto; font-family: var(--mono); font-size: 10px;
+    color: #888; background: rgba(255,255,255,0.05);
+    padding: 1px 5px; border-radius: 2px;
+  }
+  .sb-chev {
+    margin-left: auto;
+    font-family: var(--mono);
+    color: #555;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.15s ease;
+  }
+  .sb-item:hover .sb-chev { color: #C8C5BC; transform: translateX(2px); }
+  .sb-item.active .sb-chev { color: #F4F4F1; }
+  /* if both chev and badge, push badge after chev with small gap */
+  .sb-chev + .sb-badge { margin-left: 8px; }
+
+  .sb-sub {
+    padding: 4px 22px 4px 44px;
+    font-size: 12.5px;
+    color: #888;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    transition: all 0.15s ease;
+  }
+  .sb-sub:hover { color: #C8C5BC; background: rgba(255,255,255,0.02); }
+  .sb-letter {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: #555;
+    width: 12px;
+    flex-shrink: 0;
+    letter-spacing: 0.04em;
+  }
+  .sb-sub:hover .sb-letter { color: #888; }
+
+  .sb-foot {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 14px 22px 18px;
+    background: linear-gradient(to top, #1C1C1C 70%, transparent);
+  }
+  .sb-status {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 10.5px; color: #888;
+    padding-top: 12px; border-top: 1px solid #2E2E2E;
+    letter-spacing: 0.04em;
+  }
+  .sb-status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #4ADE80;
+    box-shadow: 0 0 8px rgba(74,222,128,0.4);
+  }
+  .sb-feedback {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 10px;
+    font-family: var(--mono); font-size: 10.5px;
+    color: #888; text-decoration: none;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    cursor: pointer; transition: color 0.15s ease;
+  }
+  .sb-feedback:hover { color: #F4F4F1; }
+  .sb-feedback-icon { color: #E8A04A; font-size: 11px; }
+
+  /* MAIN */
+  .main { padding: 16px 48px 100px; max-width: 1500px; }
+
+  /* TOPBAR — search + meta, sits above the page masthead */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+  .cmd {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--canvas);
+    border: 1px solid var(--line);
+    padding: 7px 14px; border-radius: 4px;
+    min-width: 360px; font-size: 13px; color: var(--muted);
+    cursor: text; transition: border-color 0.15s ease;
+  }
+  .cmd:hover { border-color: var(--graphite); }
+  .cmd-icon { font-family: var(--mono); color: var(--muted-2); }
+  .cmd-key {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 10.5px;
+    background: var(--bg); padding: 2px 6px; border-radius: 3px;
+    color: var(--graphite); border: 1px solid var(--line-soft);
+  }
+  .topbar-meta {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  /* MASTHEAD — page title in body */
+  .masthead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 32px;
+  }
+  .masthead-title {
+    font-family: var(--display);
+    font-size: 44px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .masthead-title em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .masthead-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  .quote {
+    margin-top: 12px;
+    font-family: var(--display);
+    font-size: 16px;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--graphite);
+    letter-spacing: -0.005em;
+    line-height: 1.4;
+    max-width: 640px;
+    position: relative;
+    padding-left: 16px;
+  }
+  .quote-mark {
+    position: absolute;
+    left: -2px;
+    top: -6px;
+    font-size: 32px;
+    color: var(--muted-2);
+    font-style: normal;
+    line-height: 1;
+  }
+  .quote-attr {
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 10.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-left: 8px;
+    white-space: nowrap;
+  }
+
+  /* OUTLOOK BAR */
+  .bar-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink);
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--ink);
+    display: inline-block;
+    min-width: 100px;
+  }
+  .bar-label.split {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 10px;
+  }
+  .outlook {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding-bottom: 24px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .outlook-half {
+    grid-template-columns: repeat(3, 1fr);
+    padding-bottom: 0;
+    margin-bottom: 0;
+    border-bottom: none;
+  }
+  .bar-split {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 28px;
+    padding-bottom: 28px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--line);
+  }
+  .bar-half {
+    display: flex;
+    flex-direction: column;
+  }
+  .bar-half .bar-label.split::after {
+    content: '';
+    display: block;
+    width: 80px;
+    height: 1px;
+    background: var(--ink);
+    margin-top: 4px;
+  }
+  .bar-divider {
+    background: var(--line);
+    width: 1px;
+  }
+  .stat {
+    padding-right: 28px;
+    border-right: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .stat:last-child { border-right: none; padding-right: 0; }
+  .stat:not(:first-child) { padding-left: 28px; }
+
+  .stat-label {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    line-height: 1.3;
+  }
+  .stat-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted-2);
+    text-transform: none;
+    letter-spacing: 0.04em;
+    font-weight: 400;
+  }
+  .stat-tag.up { color: var(--good); font-weight: 500; }
+  .stat-tag.up::before { content: '↗ '; }
+  .stat-tag.warn { color: var(--warn); font-weight: 500; }
+  .stat-tag.live {
+    color: var(--good);
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .stat-tag.live::before {
+    content: '';
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--good);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .stat-value {
+    font-family: var(--display);
+    font-size: 38px;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1;
+    color: var(--ink);
+    font-feature-settings: 'tnum', 'lnum';
+  }
+  .stat-value .unit {
+    font-size: 19px;
+    color: var(--muted);
+    font-weight: 400;
+    vertical-align: top;
+    margin-right: 1px;
+  }
+  .stat-value .small {
+    font-size: 22px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .stat-sub {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+  .stat-sub strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .below-preview {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* CARDS — 4x2 action grid */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .card {
+    background: var(--canvas);
+    padding: 24px 26px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .card:hover { background: #FBFBF8; }
+  .card:hover .card-arrow { opacity: 1; transform: translateX(0); }
+  .card-num {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted-2);
+    letter-spacing: 0.1em;
+    margin-bottom: 14px;
+    font-weight: 500;
+  }
+  .card-title {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .card-arrow {
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: 14px;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: all 0.18s ease;
+  }
+  .card-arrow::after { content: '→'; }
+
+  /* STICKY AI BAR — bottom of page, all pages */
+  .ai-bar {
+    position: fixed;
+    bottom: 16px;
+    left: 256px;
+    right: 32px;
+    max-width: 920px;
+    margin: 0 auto;
+    background: rgba(255,255,255,0.96);
+    border: 1px solid var(--ink);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 24px -4px rgba(28,28,28,0.18), 0 2px 6px rgba(28,28,28,0.06);
+    z-index: 40;
+    backdrop-filter: blur(8px);
+  }
+  .ai-collapse {
+    width: 22px; height: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--muted); cursor: pointer;
+    border-radius: 3px; transition: all 0.15s ease;
+    font-size: 11px;
+  }
+  .ai-collapse:hover { background: var(--bg); color: var(--ink); }
+  .ai-brand {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--display); font-size: 14px; font-weight: 500;
+    color: var(--ink); letter-spacing: -0.01em;
+  }
+  .ai-brand-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--good);
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0% { box-shadow: 0 0 0 0 rgba(31,77,44,0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(31,77,44,0); }
+    100% { box-shadow: 0 0 0 0 rgba(31,77,44,0); }
+  }
+  .ai-input {
+    flex: 1; border: none; outline: none;
+    font-family: var(--body); font-size: 14px;
+    color: var(--ink); background: transparent;
+    padding: 6px 0;
+  }
+  .ai-input::placeholder { color: var(--muted); }
+  .ai-suggestions { display: flex; gap: 6px; }
+  .ai-suggest {
+    font-family: var(--mono); font-size: 10.5px;
+    padding: 4px 8px; border: 1px solid var(--line);
+    border-radius: 3px; color: var(--muted);
+    cursor: pointer; transition: all 0.15s ease;
+    letter-spacing: 0.02em; background: var(--bg);
+  }
+  .ai-suggest:hover { color: var(--ink); border-color: var(--ink); background: var(--canvas); }
+  .ai-key {
+    font-family: var(--mono); font-size: 10px;
+    background: var(--bg); padding: 2px 6px; border-radius: 3px;
+    color: var(--graphite); border: 1px solid var(--line-soft);
+    letter-spacing: 0.04em;
+  }
+  .ai-send {
+    width: 32px; height: 32px; border-radius: 4px;
+    background: var(--ink); color: var(--canvas);
+    border: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; transition: background 0.15s ease;
+  }
+  .ai-send:hover { background: var(--graphite); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-brand">Full Loop<i>/</i></div>
+    <div class="sb-tag">v2.4 · NYC</div>
+
+    <div class="sb-scroll">
+      <div class="sb-section">Notifications <span class="sb-section-count">5 new</span></div>
+      <div class="notif">
+        <span class="notif-dot warn"></span>
+        <span class="notif-text">Mo Reisman · $300 overdue</span>
+        <span class="notif-time">17h</span>
+      </div>
+      <div class="notif">
+        <span class="notif-dot warn"></span>
+        <span class="notif-text">Jason Klig · $225 overdue</span>
+        <span class="notif-time">18h</span>
+      </div>
+      <div class="notif">
+        <span class="notif-dot good"></span>
+        <span class="notif-text">Selena · Mo Reisman booked</span>
+        <span class="notif-time">22h</span>
+      </div>
+      <div class="notif seen">
+        <span class="notif-dot info"></span>
+        <span class="notif-text">New lead · Leo Gierhake</span>
+        <span class="notif-time">19h</span>
+      </div>
+      <div class="notif seen">
+        <span class="notif-dot info"></span>
+        <span class="notif-text">Job done · Elise Mitchell</span>
+        <span class="notif-time">17h</span>
+      </div>
+      <div class="notif-readall">Read all activity →</div>
+
+      <div class="sb-section">The Loop</div>
+      <div class="sb-item active"><span class="sb-num">00</span><span>The Loop</span></div>
+      <div class="sb-item"><span class="sb-num">01</span><span>Sales</span><span class="sb-chev">›</span><span class="sb-badge">7</span></div>
+      <div class="sb-item"><span class="sb-num">02</span><span>Schedule</span><span class="sb-chev">›</span><span class="sb-badge">11</span></div>
+      <div class="sb-item"><span class="sb-num">03</span><span>Clients</span><span class="sb-chev">›</span><span class="sb-badge">444</span></div>
+      <div class="sb-item"><span class="sb-num">04</span><span>Team</span><span class="sb-chev">›</span></div>
+      <div class="sb-item"><span class="sb-num">05</span><span>Finance</span><span class="sb-chev">›</span></div>
+      <div class="sb-item"><span class="sb-num">06</span><span>Marketing</span><span class="sb-chev">›</span></div>
+
+      <div class="sb-section">Platform</div>
+      <div class="sb-item"><span class="sb-num"></span><span>Docs</span></div>
+      <div class="sb-item"><span class="sb-num"></span><span>Activity</span></div>
+    </div>
+
+    <div class="sb-foot">
+      <div class="sb-status">
+        <span class="sb-status-dot"></span>
+        All systems operational
+      </div>
+      <a class="sb-feedback">
+        <span class="sb-feedback-icon">✦</span>
+        Send feedback
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- TOPBAR (persistent across pages) -->
+    <div class="topbar">
+      <span class="topbar-meta">Saturday · April 25, 2026 · 11:42 EST · Week 17</span>
+    </div>
+
+    <!-- MASTHEAD (page-specific) -->
+    <div class="masthead">
+      <div>
+        <h1 class="masthead-title">The Loop<em>.</em></h1>
+        <div class="quote">
+          <span class="quote-mark">“</span>
+          The way to get started is to quit talking and begin doing.
+          <span class="quote-attr">— Walt Disney</span>
+        </div>
+      </div>
+      <span class="masthead-sub">Day 207<br>of building</span>
+    </div>
+
+    <!-- BAR 1: SALES -->
+    <div class="bar-label">Sales</div>
+    <div class="outlook">
+      <div class="stat">
+        <div class="stat-label">Revenue · Apr <span class="stat-tag up">+18%</span></div>
+        <div class="stat-value"><span class="unit">$</span>14,364</div>
+        <div class="stat-sub"><strong>70</strong> jobs · YTD <strong>$37,949</strong></div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Outstanding <span class="stat-tag warn">3 due</span></div>
+        <div class="stat-value"><span class="unit">$</span>675</div>
+        <div class="stat-sub">Oldest <strong>17h</strong> · Mo Reisman</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Pipeline · 2026 <span class="stat-tag">362 booked</span></div>
+        <div class="stat-value"><span class="unit">$</span>77K</div>
+        <div class="stat-sub"><strong>$39K</strong> forward booked</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">New Clients · Apr <span class="stat-tag up">+41%</span></div>
+        <div class="stat-value">130</div>
+        <div class="stat-sub">Roster <strong>444</strong> · best month</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Payouts Due <span class="stat-tag warn">2 cleaners</span></div>
+        <div class="stat-value"><span class="unit">$</span>239</div>
+        <div class="stat-sub">Karina <strong>$93</strong> · Gloria <strong>$146</strong></div>
+      </div>
+    </div>
+
+    <!-- BAR 2: OPERATIONS -->
+    <div class="bar-label">Operations</div>
+    <div class="outlook">
+      <div class="stat">
+        <div class="stat-label">Today's Jobs <span class="stat-tag live">1 active</span></div>
+        <div class="stat-value">1<span class="small"> / 1</span></div>
+        <div class="stat-sub">Maria H. · <strong>2.5h</strong> in</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Team On-Duty <span class="stat-tag">2/4</span></div>
+        <div class="stat-value">2<span class="small"> working</span></div>
+        <div class="stat-sub">Maria, Gloria · 2 off</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Selena · Live <span class="stat-tag live">2 active</span></div>
+        <div class="stat-value">87<span class="small">% conv</span></div>
+        <div class="stat-sub">Cristina A. · Leo G.</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">This Week <span class="stat-tag">11 jobs</span></div>
+        <div class="stat-value"><span class="unit">$</span>2,275</div>
+        <div class="stat-sub">Next: Mon 8a · Coby Berliner</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">At-Risk Clients <span class="stat-tag warn">8</span></div>
+        <div class="stat-value">8</div>
+        <div class="stat-sub">No booking <strong>45+ days</strong></div>
+      </div>
+    </div>
+
+    <!-- BAR 3: PIPELINE — Leads (left) + Applications (right) -->
+    <div class="bar-split">
+      <div class="bar-half">
+        <div class="bar-label split">New Leads</div>
+        <div class="outlook outlook-half">
+          <div class="stat">
+            <div class="stat-label">Today <span class="stat-tag">organic</span></div>
+            <div class="stat-value">7</div>
+            <div class="stat-sub">4 chat · 3 form</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Week <span class="stat-tag up">+22%</span></div>
+            <div class="stat-value">38</div>
+            <div class="stat-sub">vs 31 last wk</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Awaiting You <span class="stat-tag warn">3</span></div>
+            <div class="stat-value">3</div>
+            <div class="stat-sub">Selena escalated</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bar-divider"></div>
+
+      <div class="bar-half">
+        <div class="bar-label split">Job Applications</div>
+        <div class="outlook outlook-half">
+          <div class="stat">
+            <div class="stat-label">New <span class="stat-tag warn">5 unread</span></div>
+            <div class="stat-value">12</div>
+            <div class="stat-sub">last 7 days</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">In Review <span class="stat-tag">trial</span></div>
+            <div class="stat-value">3</div>
+            <div class="stat-sub">paid trial scheduled</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Pages Live <span class="stat-tag">281</span></div>
+            <div class="stat-value">281</div>
+            <div class="stat-sub">neighborhood hiring</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cards">
+
+      <div class="card">
+        <div class="card-arrow"></div><div class="card-num">01</div>
+        <div class="card-title">New Client</div>
+        <div class="card-desc">Add a client manually or import</div>
+      </div>
+
+      <div class="card">
+        <div class="card-arrow"></div><div class="card-num">02</div>
+        <div class="card-title">New Booking</div>
+        <div class="card-desc">Schedule a job for an existing client</div>
+      </div>
+
+      <div class="card">
+        <div class="card-arrow"></div><div class="card-num">03</div>
+        <div class="card-title">New Lead</div>
+        <div class="card-desc">Log an inbound inquiry</div>
+      </div>
+
+      <div class="card">
+        <div class="card-arrow"></div><div class="card-num">04</div>
+        <div class="card-title">New Quote</div>
+        <div class="card-desc">Send a price estimate</div>
+      </div>
+
+      <div class="card">
+        <div class="card-arrow"></div><div class="card-num">05</div>
+        <div class="card-title">Add Team Member</div>
+        <div class="card-desc">Onboard a new cleaner</div>
+      </div>
+
+      <div class="card">
+        <div class="card-arrow"></div><div class="card-num">06</div>
+        <div class="card-title">Send Campaign</div>
+        <div class="card-desc">Email or SMS blast to clients</div>
+      </div>
+
+      <div class="card">
+        <div class="card-arrow"></div><div class="card-num">07</div>
+        <div class="card-title">Request Review</div>
+        <div class="card-desc">Send review link to a client</div>
+      </div>
+
+      <div class="card">
+        <div class="card-arrow"></div><div class="card-num">08</div>
+        <div class="card-title">Block Time</div>
+        <div class="card-desc">Mark unavailable on the calendar</div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<!-- STICKY AI BAR (persistent across pages) -->
+<div class="ai-bar">
+  <span class="ai-collapse" title="Collapse">⌃</span>
+  <span class="ai-brand">
+    <span class="ai-brand-dot"></span>
+    Selena
+  </span>
+  <input class="ai-input" type="text" placeholder="Ask anything — bookings, clients, schedule, revenue…">
+  <div class="ai-suggestions">
+    <span class="ai-suggest">Today's revenue</span>
+    <span class="ai-suggest">Who's overdue?</span>
+    <span class="ai-suggest">Next week</span>
+  </div>
+  <span class="ai-key">⌘/</span>
+  <button class="ai-send" title="Send">↑</button>
+</div>
+
+</body>
+</html>
