@@ -48,6 +48,10 @@ export interface TenantSettings {
   // AI Chatbot (mirrored from tenants.selena_config jsonb)
   chatbot_enabled: boolean
   chatbot_greeting: string
+  // Lead handling (selena_config + tenants columns)
+  auto_respond_leads: boolean
+  attribution_window_hours: number
+  lead_notification_email: string
   // Team Guidelines
   team_guidelines: string | null
   guidelines_updated_at: string | null
@@ -164,6 +168,9 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     client_reminder_sms: DEFAULT_FALLBACKS.client_reminder_sms,
     chatbot_enabled: Boolean(selenaConfig.enabled ?? selenaConfig.chatbot_enabled ?? false),
     chatbot_greeting: (selenaConfig.greeting as string) || (selenaConfig.chatbot_greeting as string) || DEFAULT_FALLBACKS.chatbot_greeting,
+    auto_respond_leads: Boolean(selenaConfig.auto_respond_leads ?? true),
+    attribution_window_hours: Number(tenant?.attribution_window_hours ?? 24),
+    lead_notification_email: (tenant?.lead_notification_email as string) || (tenant?.owner_email as string) || '',
     team_guidelines: (tenant?.guidelines_en as string) || null,
     guidelines_updated_at: (tenant?.guidelines_updated_at as string) || null,
     updated_at: (tenant?.updated_at as string) || new Date().toISOString(),

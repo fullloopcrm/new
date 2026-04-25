@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getSettings } from '@/lib/settings'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+
+    // Honor the tenant's configured attribution window — only count visits
+    // within the last N hours toward source attribution.
+    const settings = await getSettings(tenantId)
+    const windowMs = Math.max(1, settings.attribution_window_hours) * 3_600_000
+    const since = new Date(Date.now() - windowMs).toISOString()
 
     // Get referrer breakdown from visits
     const { data: visits } = await supabaseAdmin
       .from('website_visits')
       .select('referrer')
       .eq('tenant_id', tenantId)
+      .gte('created_at', since)
       .not('referrer', 'is', null)
 
     const sources: Record<string, number> = {}
@@ -31,7 +39,11 @@ export async function GET() {
       .map(([source, count]) => ({ source, count }))
       .sort((a, b) => b.count - a.count)
 
-    return NextResponse.json({ attribution, total: visits?.length || 0 })
+    return NextResponse.json({
+      attribution,
+      total: visits?.length || 0,
+      window_hours: settings.attribution_window_hours,
+    })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

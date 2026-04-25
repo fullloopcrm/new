@@ -559,6 +559,12 @@ export async function POST(request: Request) {
           const clientName = client?.name || convo?.name || null
 
           if (!convo) {
+            // Tenant rule: if auto_respond_leads is off, do not auto-greet
+            // unrecognized senders. The inbound message is still logged to
+            // client_sms_messages above for admin review.
+            if (!clientExists && !settings.auto_respond_leads) {
+              return NextResponse.json({ received: true, action: 'auto_respond_leads_disabled' })
+            }
             // First message from this phone — create conversation and send greeting
             const { data: newConvo } = await supabaseAdmin.from('sms_conversations').insert({
               tenant_id: tenantId,
