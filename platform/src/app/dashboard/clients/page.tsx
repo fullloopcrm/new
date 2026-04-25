@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { downloadCSV } from '@/lib/csv'
 import { formatPhone } from '@/lib/phone'
 import AddressAutocomplete from '@/components/address-autocomplete'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 import { CLIENT_STATUS_COLORS } from '@/lib/constants'
 import CsvImport from '@/components/CsvImport'
 
@@ -78,7 +79,24 @@ export default function ClientsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkAction, setBulkAction] = useState('')
 
-  const clientsSettings = usePageSettings('clients')
+  const tenantSettings = useTenantSettings()
+  const [clientsPanelOpen, setClientsPanelOpen] = useState(false)
+  const clientsTenant = tenantSettings.tenant
+  const clientsSelena = (clientsTenant?.selena_config as Record<string, unknown> | null) || {}
+  const clientsConfig: Record<string, unknown> = {
+    default_status: (clientsSelena.default_client_status as string) || 'active',
+    active_client_threshold_days: Number(clientsTenant?.active_client_threshold_days ?? 45),
+    at_risk_threshold_days: Number(clientsTenant?.at_risk_threshold_days ?? 90),
+    require_phone: Boolean(clientsSelena.require_client_phone),
+    require_email: Boolean(clientsSelena.require_client_email),
+  }
+  function updateClientsConfig(key: string, value: unknown) {
+    if (key === 'default_status') tenantSettings.updateSelenaConfig({ default_client_status: value })
+    else if (key === 'require_phone') tenantSettings.updateSelenaConfig({ require_client_phone: Boolean(value) })
+    else if (key === 'require_email') tenantSettings.updateSelenaConfig({ require_client_email: Boolean(value) })
+    else if (key === 'active_client_threshold_days') tenantSettings.updateField('active_client_threshold_days', Number(value) || 45)
+    else if (key === 'at_risk_threshold_days') tenantSettings.updateField('at_risk_threshold_days', Number(value) || 90)
+  }
 
   useEffect(() => {
     fetch('/api/clients/stats').then(r => r.json()).then(setStats).catch(() => {})
@@ -132,7 +150,7 @@ export default function ClientsPage() {
             <h1 className="text-2xl font-heading font-bold text-slate-900">Clients</h1>
             <p className="text-sm text-slate-400">{total} total clients</p>
           </div>
-          <PageSettingsGear open={clientsSettings.open} setOpen={clientsSettings.setOpen} title="Clients" />
+          <PageSettingsGear open={clientsPanelOpen} setOpen={setClientsPanelOpen} title="Clients" />
         </div>
         <div className="flex gap-2">
           <button
@@ -153,7 +171,13 @@ export default function ClientsPage() {
       </div>
 
       <PageSettingsPanel
-        {...clientsSettings}
+        open={clientsPanelOpen}
+        setOpen={setClientsPanelOpen}
+        loaded={tenantSettings.loaded}
+        saving={tenantSettings.saving}
+        saveMsg={tenantSettings.saveMsg}
+        config={clientsConfig}
+        updateConfig={updateClientsConfig}
         title="Clients"
         tips={[
           'Add clients manually or import via CSV in Settings > Tools',

@@ -52,6 +52,10 @@ export interface TenantSettings {
   auto_respond_leads: boolean
   attribution_window_hours: number
   lead_notification_email: string
+  // Client creation rules (selena_config jsonb)
+  default_client_status: string
+  require_client_phone: boolean
+  require_client_email: boolean
   // Team Guidelines
   team_guidelines: string | null
   guidelines_updated_at: string | null
@@ -171,6 +175,9 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     auto_respond_leads: Boolean(selenaConfig.auto_respond_leads ?? true),
     attribution_window_hours: Number(tenant?.attribution_window_hours ?? 24),
     lead_notification_email: (tenant?.lead_notification_email as string) || (tenant?.owner_email as string) || '',
+    default_client_status: (selenaConfig.default_client_status as string) || 'active',
+    require_client_phone: Boolean(selenaConfig.require_client_phone),
+    require_client_email: Boolean(selenaConfig.require_client_email),
     team_guidelines: (tenant?.guidelines_en as string) || null,
     guidelines_updated_at: (tenant?.guidelines_updated_at as string) || null,
     updated_at: (tenant?.updated_at as string) || new Date().toISOString(),

@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { getSettings } from '@/lib/settings'
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
   try {
     const { tenantId } = tenant
     const body = await request.json()
+    const settings = await getSettings(tenantId)
 
     const validated = validate(body, {
       name: { type: 'string', required: true, max: 200 },
@@ -62,6 +64,17 @@ export async function POST(request: Request) {
     })
     if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 })
     const fields = validated.data
+
+    // Tenant rules: enforce required fields, default the lifecycle status.
+    if (settings.require_client_phone && !fields?.phone) {
+      return NextResponse.json({ error: 'Phone number is required for new clients.' }, { status: 400 })
+    }
+    if (settings.require_client_email && !fields?.email) {
+      return NextResponse.json({ error: 'Email address is required for new clients.' }, { status: 400 })
+    }
+    if (fields && !fields.status) {
+      fields.status = settings.default_client_status || 'active'
+    }
 
     // Check for potential duplicates
     const duplicateChecks = []
