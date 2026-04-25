@@ -26,12 +26,15 @@
 
   --color-midnight: #0f172a;
 
-  /* Fonts */
+  /* Fonts. The next/font output for Fraunces and JetBrains Mono is
+     emitted as --font-display and --font-mono via next/font's
+     `variable` config (see src/app/layout.tsx). Tailwind's --font-mono
+     theme token reuses the same name. Tailwind v4's @theme inline
+     substitutes these at build time, so the runtime fallback values
+     here mirror the next/font outputs. */
   --font-heading: var(--font-sora), system-ui, sans-serif;
   --font-body: var(--font-dm-sans), system-ui, sans-serif;
   --font-cta: var(--font-space-grotesk), system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), "JetBrains Mono", monospace;
-  --font-display: var(--font-fraunces), Georgia, serif;
 
   /* Loop design tokens (v2.4 — see platform/docs/design/tokens.md) */
   --color-loop-bg: #F4F4F1;
@@ -46,18 +49,27 @@
   --color-loop-warn: #8B4513;
 }
 
-.font-display { font-family: var(--font-display); font-feature-settings: 'tnum', 'lnum'; }
+/* Short aliases used inside the dashboard. Defined at :root so they
+   resolve at runtime against the next/font CSS variables (which Next
+   sets on <body> via fraunces.variable / jetbrains.variable). Keeping
+   them outside @theme inline avoids Tailwind v4's compile-time
+   substitution from collapsing var(--font-display) to its fallback. */
+:root {
+  --display: var(--font-display), Georgia, serif;
+  --mono: var(--font-mono), ui-monospace, 'SF Mono', Menlo, monospace;
+  --body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+}
 
-/* Loop scope: applied on the dashboard root. Maps the existing
-   --font-heading and --font-body alias to the editorial pair so any
+.font-display { font-family: var(--display); font-feature-settings: 'tnum', 'lnum'; }
+
+/* Loop scope: applied on the dashboard root. Remaps Tailwind's
+   --font-heading and --font-body tokens to the editorial pair so any
    dashboard component using Tailwind's .font-heading / .font-body
-   classes (or the Tailwind theme tokens) renders in Fraunces + system
-   sans without touching every page. The marketing site outside this
-   scope keeps its prior Sora / DM Sans treatment. */
+   classes inherits Fraunces + system sans without touching each page. */
 .loop-scope {
-  --font-heading: var(--font-display);
-  --font-body: -apple-system, BlinkMacSystemFont, sans-serif;
-  font-family: var(--font-body);
+  --font-heading: var(--display);
+  --font-body: var(--body);
+  font-family: var(--body);
   font-size: 14px;
   color: var(--color-loop-ink);
 }
@@ -65,7 +77,7 @@
 .loop-scope h1,
 .loop-scope h2,
 .loop-scope h3 {
-  font-family: var(--font-display);
+  font-family: var(--display);
   letter-spacing: -0.02em;
 }
 

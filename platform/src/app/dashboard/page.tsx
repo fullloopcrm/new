@@ -27,7 +27,7 @@ function StatCell({ s }: { s: Stat }) {
         <span>{s.label}</span>
         {s.tag && <Tag t={s.tag} />}
       </div>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: '38px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: 'var(--color-loop-ink)', fontFeatureSettings: '"tnum","lnum"' }}>
+      <div style={{ fontFamily: 'var(--display)', fontSize: '38px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: 'var(--color-loop-ink)', fontFeatureSettings: '"tnum","lnum"' }}>
         {s.value}
       </div>
       {s.sub && (
@@ -42,20 +42,20 @@ function StatCell({ s }: { s: Stat }) {
 
 function Tag({ t }: { t: StatTag }) {
   if (t.kind === 'up') {
-    return <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-loop-good)', fontWeight: 500 }}>↗ {t.text}</span>
+    return <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--color-loop-good)', fontWeight: 500 }}>↗ {t.text}</span>
   }
   if (t.kind === 'warn') {
-    return <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-loop-warn)', fontWeight: 500 }}>{t.text}</span>
+    return <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--color-loop-warn)', fontWeight: 500 }}>{t.text}</span>
   }
   if (t.kind === 'live') {
     return (
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-loop-good)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+      <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--color-loop-good)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
         <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--color-loop-good)', animation: 'loop-pulse 2s infinite' }} />
         {t.text}
       </span>
     )
   }
-  return <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-loop-muted-2)' }}>{t.text}</span>
+  return <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--color-loop-muted-2)' }}>{t.text}</span>
 }
 
 function BarLabel({ children, split }: { children: React.ReactNode; split?: boolean }) {
@@ -63,7 +63,7 @@ function BarLabel({ children, split }: { children: React.ReactNode; split?: bool
     <div
       className="inline-block mb-3"
       style={{
-        fontFamily: 'var(--font-mono)',
+        fontFamily: 'var(--mono)',
         fontSize: '10px',
         textTransform: 'uppercase',
         letterSpacing: '0.18em',
@@ -236,14 +236,14 @@ export default async function DashboardPage() {
           >
             <span
               className="absolute opacity-0 group-hover:opacity-100 transition-all"
-              style={{ top: '22px', right: '22px', fontFamily: 'var(--font-mono)', color: 'var(--color-loop-muted)', fontSize: '14px' }}
+              style={{ top: '22px', right: '22px', fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)', fontSize: '14px' }}
             >
               →
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--color-loop-muted-2)', letterSpacing: '0.1em', marginBottom: '14px', fontWeight: 500 }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', color: 'var(--color-loop-muted-2)', letterSpacing: '0.1em', marginBottom: '14px', fontWeight: 500 }}>
               {c.num}
             </span>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.1, color: 'var(--color-loop-ink)', marginBottom: '6px' }}>
+            <div style={{ fontFamily: 'var(--display)', fontSize: '22px', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.1, color: 'var(--color-loop-ink)', marginBottom: '6px' }}>
               {c.title}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--color-loop-muted)', lineHeight: 1.4 }}>

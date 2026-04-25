@@ -145,7 +145,7 @@ export default function SelenaBar() {
         >
           {open ? '⌄' : '⌃'}
         </button>
-        <span className="inline-flex items-center gap-1.5" style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 500, color: 'var(--color-loop-ink)', letterSpacing: '-0.01em' }}>
+        <span className="inline-flex items-center gap-1.5" style={{ fontFamily: 'var(--display)', fontSize: '14px', fontWeight: 500, color: 'var(--color-loop-ink)', letterSpacing: '-0.01em' }}>
           <span
             className="w-[7px] h-[7px] rounded-full"
             style={{ background: 'var(--color-loop-good)', animation: 'loop-pulse-dot 2s infinite' }}
@@ -169,7 +169,7 @@ export default function SelenaBar() {
                 onClick={() => send(s)}
                 className="rounded-[3px] cursor-pointer transition-colors hover:bg-[var(--color-loop-canvas)] hover:text-[var(--color-loop-ink)] hover:border-[var(--color-loop-ink)]"
                 style={{
-                  fontFamily: 'var(--font-mono)',
+                  fontFamily: 'var(--mono)',
                   fontSize: '10.5px',
                   padding: '4px 8px',
                   border: '1px solid var(--color-loop-line)',
@@ -186,7 +186,7 @@ export default function SelenaBar() {
         <span
           className="hidden sm:inline-block"
           style={{
-            fontFamily: 'var(--font-mono)',
+            fontFamily: 'var(--mono)',
             fontSize: '10px',
             background: 'var(--color-loop-bg)',
             padding: '2px 6px',

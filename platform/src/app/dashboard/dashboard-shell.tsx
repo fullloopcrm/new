@@ -232,11 +232,11 @@ export default function DashboardShell({
       >
         {/* Brand */}
         <div className="px-[22px] pt-[22px] pb-1">
-          <Link href="/dashboard" className="block" style={{ fontFamily: 'var(--font-display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', color: '#F4F4F1' }}>
+          <Link href="/dashboard" className="block" style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', color: '#F4F4F1' }}>
             {tenantName || 'Full Loop'}<i style={{ fontStyle: 'italic', color: '#888', fontWeight: 400 }}>/</i>
           </Link>
         </div>
-        <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+        <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           v2.4 · NYC
         </div>
 
@@ -247,7 +247,7 @@ export default function DashboardShell({
             <>
               <div className="mx-[22px] mt-[14px] mb-[6px] flex items-baseline justify-between" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#5A5A5A', fontWeight: 600 }}>
                 <span>Notifications</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', color: '#888', background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '2px' }}>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', color: '#888', background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '2px' }}>
                   {notifs.length} new
                 </span>
               </div>
@@ -255,10 +255,10 @@ export default function DashboardShell({
                 <div key={n.id} className={`px-[22px] py-1.5 flex items-center gap-2 ${n.seen ? 'opacity-50' : ''}`} style={{ fontSize: '12px', color: '#C8C5BC' }}>
                   <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: n.tone === 'warn' ? '#E8A04A' : n.tone === 'good' ? '#4ADE80' : '#6A6A66' }} />
                   <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{n.text}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', color: '#666' }}>{n.time}</span>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', color: '#666' }}>{n.time}</span>
                 </div>
               ))}
-              <Link href="/dashboard/notifications" className="block mx-[22px] mt-1 pb-2 hover:text-white" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid #2A2A2A' }}>
+              <Link href="/dashboard/notifications" className="block mx-[22px] mt-1 pb-2 hover:text-white" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid #2A2A2A' }}>
                 Read all activity →
               </Link>
             </>
@@ -285,12 +285,12 @@ export default function DashboardShell({
                     fontWeight: isActive ? 500 : 400,
                   }}
                 >
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: isActive ? '#F4F4F1' : '#5A5A5A', width: '18px', flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: isActive ? '#F4F4F1' : '#5A5A5A', width: '18px', flexShrink: 0 }}>
                     {item.num}
                   </span>
                   <span>{item.label}</span>
                   {badge > 0 && (
-                    <span className="ml-auto" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#888', background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '2px' }}>
+                    <span className="ml-auto" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#888', background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '2px' }}>
                       {formatBadge(badge)}
                     </span>
                   )}
@@ -310,7 +310,7 @@ export default function DashboardShell({
                       }}
                     >
                       <span style={{
-                        fontFamily: 'var(--font-mono)',
+                        fontFamily: 'var(--mono)',
                         fontSize: '9.5px',
                         color: subActive ? '#888' : '#555',
                         width: '12px',
@@ -355,13 +355,13 @@ export default function DashboardShell({
 
         {/* Footer */}
         <div className="absolute bottom-0 left-0 right-0 px-[22px] pt-[14px] pb-[18px]" style={{ background: 'linear-gradient(to top, #1C1C1C 70%, transparent)' }}>
-          <div className="flex items-center gap-2 pt-3" style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: '#888', borderTop: '1px solid #2E2E2E', letterSpacing: '0.04em' }}>
+          <div className="flex items-center gap-2 pt-3" style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', color: '#888', borderTop: '1px solid #2E2E2E', letterSpacing: '0.04em' }}>
             <span className="w-[6px] h-[6px] rounded-full" style={{ background: '#4ADE80', boxShadow: '0 0 8px rgba(74,222,128,0.4)' }} />
             All systems operational
           </div>
           <div className="mt-2.5 flex items-center gap-2">
             {isAdminImpersonation ? (
-              <Link href="/admin" style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <Link href="/admin" style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 ← Back to Admin
               </Link>
             ) : (
@@ -388,7 +388,7 @@ export default function DashboardShell({
 
           {/* TOPBAR */}
           <div className="flex items-center justify-end mb-3">
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               {meta}
             </span>
           </div>
@@ -396,22 +396,22 @@ export default function DashboardShell({
           {/* MASTHEAD */}
           <div className="flex items-start justify-between pb-[22px] mb-8" style={{ borderBottom: '1px solid var(--color-loop-ink)' }}>
             <div>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
+              <h1 style={{ fontFamily: 'var(--display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
                 {title}
                 <em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
               </h1>
               {isLoop && (
-                <div className="mt-3 relative pl-4 max-w-[640px]" style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-graphite)', letterSpacing: '-0.005em', lineHeight: 1.4 }}>
+                <div className="mt-3 relative pl-4 max-w-[640px]" style={{ fontFamily: 'var(--display)', fontSize: '16px', fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-graphite)', letterSpacing: '-0.005em', lineHeight: 1.4 }}>
                   <span className="absolute -left-0.5 -top-1.5" style={{ fontSize: '32px', color: 'var(--color-loop-muted-2)', fontStyle: 'normal', lineHeight: 1 }}>“</span>
                   {quote.text}
-                  <span className="ml-2 whitespace-nowrap" style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: '10.5px', color: 'var(--color-loop-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  <span className="ml-2 whitespace-nowrap" style={{ fontFamily: 'var(--mono)', fontStyle: 'normal', fontSize: '10.5px', color: 'var(--color-loop-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                     — {quote.author}
                   </span>
                 </div>
               )}
             </div>
             {isLoop && (
-              <span className="text-right" style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.6 }}>
+              <span className="text-right" style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.6 }}>
                 Day {day}<br />of building
               </span>
             )}

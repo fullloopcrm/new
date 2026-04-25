@@ -6,12 +6,17 @@ import './globals.css'
 const sora = Sora({ subsets: ['latin'], weight: ['600', '800'], variable: '--font-sora', display: 'swap' })
 const dmSans = DM_Sans({ subsets: ['latin'], weight: ['400', '500', '700'], variable: '--font-dm-sans', display: 'swap' })
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-space-grotesk', display: 'swap' })
-const jetbrains = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-jetbrains', display: 'swap' })
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-mono',
+  display: 'swap',
+})
 const fraunces = Fraunces({
   subsets: ['latin'],
+  weight: ['400', '500', '600'],
   style: ['normal', 'italic'],
-  axes: ['opsz'],
-  variable: '--font-fraunces',
+  variable: '--font-display',
   display: 'swap',
 })
 
