@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import Script from 'next/script'
 import { UserButton } from '@clerk/nextjs'
 import ToastProvider from './toast-provider'
-import AiAssistant from '@/components/ai-assistant'
 import AutoPageSettings from './auto-page-settings'
+import SelenaBar from './selena-bar'
 
 type SidebarCounts = {
   clients: number
@@ -16,55 +17,110 @@ type SidebarCounts = {
   connect: number
 }
 
-const badgeMap: Record<string, keyof SidebarCounts> = {
-  Bookings: 'bookings',
-  Clients: 'clients',
-  Leads: 'leads',
-  Notifications: 'notifications',
-  Connect: 'connect',
+type Notif = {
+  id: string
+  tone: 'warn' | 'good' | 'info'
+  text: string
+  time: string
+  seen?: boolean
 }
 
-const navSections = [
-  {
-    label: 'Main',
-    items: [
-      { label: 'Dashboard', href: '/dashboard' },
-      { label: 'Bookings', href: '/dashboard/bookings' },
-      { label: 'Calendar', href: '/dashboard/calendar' },
-      { label: 'Clients', href: '/dashboard/clients' },
-      { label: 'Selena', href: '/dashboard/selena' },
-      { label: 'Leads', href: '/dashboard/leads' },
-      { label: 'Sales', href: '/dashboard/sales' },
-      { label: 'Finance', href: '/dashboard/finance' },
-      { label: 'Team', href: '/dashboard/team' },
-      { label: 'SMS Inbox', href: '/dashboard/sms' },
-    ],
-  },
-  {
-    label: 'Tools',
-    items: [
-      { label: 'Connect', href: '/dashboard/connect' },
-      { label: 'Websites', href: '/dashboard/websites' },
-      { label: 'Analytics', href: '/dashboard/analytics' },
-      { label: 'Reviews', href: '/dashboard/reviews' },
-      { label: 'Referrals', href: '/dashboard/referrals' },
-      { label: 'Feedback', href: '/dashboard/feedback' },
-      { label: 'Marketing', href: '/dashboard/campaigns' },
-      { label: 'Google Profile', href: '/dashboard/google' },
-      { label: 'Social Media', href: '/dashboard/social' },
-      { label: 'Map', href: '/dashboard/map' },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      { label: 'Settings', href: '/dashboard/settings' },
-      { label: 'Docs', href: '/dashboard/docs' },
-      { label: 'Notifications', href: '/dashboard/notifications' },
-      { label: 'Activity Log', href: '/dashboard/activity' },
-    ],
-  },
+// 6-section nav locked in platform/docs/design/tokens.md.
+// Each top-level item maps to its primary destination; sub-pages are still
+// reachable by URL and will be re-surfaced as expandable sub-items in a
+// follow-up.
+const navMain = [
+  { num: '00', label: 'The Loop', href: '/dashboard', countKey: undefined as keyof SidebarCounts | undefined, fold: 'loop' },
+  { num: '01', label: 'Sales', href: '/dashboard/sales', countKey: 'leads' as const, fold: 'sales' },
+  { num: '02', label: 'Schedule', href: '/dashboard/bookings', countKey: 'bookings' as const, fold: 'schedule' },
+  { num: '03', label: 'Clients', href: '/dashboard/clients', countKey: 'clients' as const, fold: 'clients' },
+  { num: '04', label: 'Team', href: '/dashboard/team', countKey: undefined, fold: 'team' },
+  { num: '05', label: 'Finance', href: '/dashboard/finance', countKey: undefined, fold: 'finance' },
+  { num: '06', label: 'Marketing', href: '/dashboard/campaigns', countKey: undefined, fold: 'marketing' },
 ]
+
+// Routes that conceptually fold under each top-level section. Used to
+// determine the active highlight when a user is on a sub-page.
+const foldMap: Record<string, string[]> = {
+  loop: ['/dashboard'],
+  sales: ['/dashboard/sales', '/dashboard/leads'],
+  schedule: ['/dashboard/bookings', '/dashboard/calendar', '/dashboard/schedules'],
+  clients: ['/dashboard/clients', '/dashboard/sms'],
+  team: ['/dashboard/team'],
+  finance: ['/dashboard/finance'],
+  marketing: [
+    '/dashboard/campaigns', '/dashboard/reviews', '/dashboard/referrals',
+    '/dashboard/social', '/dashboard/google', '/dashboard/websites',
+    '/dashboard/analytics', '/dashboard/map',
+  ],
+}
+
+const navPlatform = [
+  { label: 'Settings', href: '/dashboard/settings' },
+  { label: 'Selena', href: '/dashboard/selena' },
+  { label: 'Notifications', href: '/dashboard/notifications' },
+  { label: 'Activity', href: '/dashboard/activity' },
+  { label: 'Docs', href: '/dashboard/docs' },
+  { label: 'Connect', href: '/dashboard/connect' },
+  { label: 'Feedback', href: '/dashboard/feedback' },
+]
+
+function activeFold(pathname: string): string | null {
+  // Exact match first (so /dashboard wins over /dashboard/* prefixes)
+  if (pathname === '/dashboard') return 'loop'
+  for (const [fold, hrefs] of Object.entries(foldMap)) {
+    if (hrefs.some((h) => h !== '/dashboard' && pathname.startsWith(h))) return fold
+  }
+  return null
+}
+
+function pageTitleFromPath(pathname: string): string {
+  if (pathname === '/dashboard') return 'The Loop'
+  const seg = pathname.replace(/^\/dashboard\/?/, '').split('/')[0] || 'The Loop'
+  // Capitalize each word, replace dashes with spaces
+  return seg
+    .split('-')
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(' ')
+}
+
+const QUOTES = [
+  { text: 'The way to get started is to quit talking and begin doing.', author: 'Walt Disney' },
+  { text: 'Quality is not an act, it is a habit.', author: 'Aristotle' },
+  { text: "If you're not embarrassed by the first version of your product, you've launched too late.", author: 'Reid Hoffman' },
+  { text: 'Make it work, make it right, make it fast.', author: 'Kent Beck' },
+  { text: 'Simplicity is the ultimate sophistication.', author: 'Leonardo da Vinci' },
+  { text: 'Done is better than perfect.', author: 'Sheryl Sandberg' },
+]
+
+// Day-of-building counter — counts forward from a fixed start so the same
+// number renders for everyone who looks at the dashboard on a given day.
+const BUILD_START = new Date('2025-10-01T00:00:00Z').getTime()
+
+function dayOfBuilding(): number {
+  const days = Math.floor((Date.now() - BUILD_START) / (24 * 60 * 60 * 1000))
+  return Math.max(1, days)
+}
+
+function todayQuote(): { text: string; author: string } {
+  // Stable per day so it doesn't flicker across requests.
+  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000))
+  return QUOTES[dayIndex % QUOTES.length]
+}
+
+function topbarMeta(): string {
+  const now = new Date()
+  const day = now.toLocaleDateString('en-US', { weekday: 'long' })
+  const month = now.toLocaleDateString('en-US', { month: 'long' })
+  const date = now.getDate()
+  const year = now.getFullYear()
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).replace(' ', '')
+  // ISO week
+  const target = new Date(now.valueOf())
+  target.setDate(target.getDate() + 4 - ((target.getDay() + 6) % 7))
+  const week = Math.ceil(((target.getTime() - new Date(target.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7)
+  return `${day} · ${month} ${date}, ${year} · ${time} EST · Week ${week}`
+}
 
 function formatBadge(count: number): string {
   if (count > 99) return '99+'
@@ -73,7 +129,7 @@ function formatBadge(count: number): string {
 
 export default function DashboardShell({
   tenantName,
-  primaryColor,
+  primaryColor: _primaryColor,
   impersonationBanner,
   isAdminImpersonation,
   children,
@@ -84,8 +140,11 @@ export default function DashboardShell({
   isAdminImpersonation?: boolean
   children: React.ReactNode
 }) {
+  const pathname = usePathname() || '/dashboard'
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [counts, setCounts] = useState<SidebarCounts | null>(null)
+  const [meta, setMeta] = useState(topbarMeta())
+  const fold = activeFold(pathname)
 
   useEffect(() => {
     fetch('/api/sidebar-counts')
@@ -96,8 +155,33 @@ export default function DashboardShell({
       .catch(() => {})
   }, [])
 
+  // Tick the topbar minute display.
+  useEffect(() => {
+    const id = setInterval(() => setMeta(topbarMeta()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Stub notifications: real wiring (security_events / overdue / Selena
+  // escalations) lands in a follow-up. For now, derive a small list from
+  // sidebar counts so the block isn't empty.
+  const notifs: Notif[] = []
+  if (counts && counts.notifications > 0) {
+    notifs.push({ id: 'n', tone: 'warn', text: `${counts.notifications} unread notification${counts.notifications === 1 ? '' : 's'}`, time: 'now' })
+  }
+  if (counts && counts.leads > 0) {
+    notifs.push({ id: 'l', tone: 'info', text: `${counts.leads} new lead${counts.leads === 1 ? '' : 's'}`, time: 'today' })
+  }
+
+  const quote = todayQuote()
+  const day = dayOfBuilding()
+  const title = pageTitleFromPath(pathname)
+  const isLoop = pathname === '/dashboard'
+
   return (
-    <div className="min-h-screen flex font-body">
+    <div
+      className="min-h-screen flex"
+      style={{ background: 'var(--color-loop-bg)', color: 'var(--color-loop-ink)', fontFamily: 'var(--font-body)' }}
+    >
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
@@ -106,97 +190,179 @@ export default function DashboardShell({
         />
       )}
 
-      {/* Sidebar — matches admin styling */}
+      {/* SIDEBAR */}
       <aside
-        className={`w-44 bg-slate-900 flex flex-col fixed inset-y-0 left-0 z-40 transform transition-transform md:translate-x-0 ${
+        className={`w-60 fixed inset-y-0 left-0 z-40 flex flex-col transform transition-transform md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
+        style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-muted-2)', borderRight: '1px solid #2E2E2E' }}
       >
-        {/* Business name */}
-        <div className="px-4 py-3 border-b border-white/10">
-          <div className="flex items-center justify-between">
-            <Link href="/dashboard" className="font-heading font-bold text-base text-white leading-none truncate">
-              {tenantName}
-            </Link>
-            <Link
-              href="/dashboard/notifications"
-              className="relative text-white/40 hover:text-white transition-colors shrink-0"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-              </svg>
-              {counts && counts.notifications > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-bold px-1 py-0.5 rounded-full min-w-[14px] text-center leading-none">
-                  {formatBadge(counts.notifications)}
-                </span>
-              )}
-            </Link>
-          </div>
-          <p className="text-[10px] text-white/30 mt-0.5 font-medium">Business Profile</p>
+        {/* Brand */}
+        <div className="px-[22px] pt-[22px] pb-1">
+          <Link href="/dashboard" className="block" style={{ fontFamily: 'var(--font-display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', color: '#F4F4F1' }}>
+            {tenantName || 'Full Loop'}<i style={{ fontStyle: 'italic', color: '#888', fontWeight: 400 }}>/</i>
+          </Link>
+        </div>
+        <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          v2.4 · NYC
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 py-1 overflow-y-auto">
-          {navSections.map((section) => (
-            <div key={section.label} className="mt-4 first:mt-2">
-              <p className="px-4 pb-0.5 text-[11px] uppercase tracking-wider font-semibold text-white">
-                {section.label}
-              </p>
-              {section.items.map((item) => {
-                const countKey = badgeMap[item.label]
-                const badgeCount = counts && countKey ? counts[countKey] : 0
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setSidebarOpen(false)}
-                    className="flex items-center justify-between px-4 py-1 text-[13px] font-heading font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors leading-snug"
-                  >
-                    {item.label}
-                    {badgeCount > 0 && (
-                      <span className="bg-teal-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                        {formatBadge(badgeCount)}
-                      </span>
-                    )}
-                  </Link>
-                )
-              })}
-            </div>
-          ))}
-        </nav>
-
-        {/* Bottom */}
-        <div className="border-t border-white/10 px-3 py-2">
-          {isAdminImpersonation ? (
-            <Link href="/admin" className="text-[11px] text-white/40 hover:text-white transition-colors font-medium">
-              &larr; Back to Admin
-            </Link>
-          ) : (
-            <UserButton afterSignOutUrl="/sign-in" />
+        {/* Scroll area */}
+        <div className="flex-1 overflow-y-auto pb-20">
+          {/* Notifications */}
+          {notifs.length > 0 && (
+            <>
+              <div className="mx-[22px] mt-[14px] mb-[6px] flex items-baseline justify-between" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#5A5A5A', fontWeight: 600 }}>
+                <span>Notifications</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', color: '#888', background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '2px' }}>
+                  {notifs.length} new
+                </span>
+              </div>
+              {notifs.map((n) => (
+                <div key={n.id} className={`px-[22px] py-1.5 flex items-center gap-2 ${n.seen ? 'opacity-50' : ''}`} style={{ fontSize: '12px', color: '#C8C5BC' }}>
+                  <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: n.tone === 'warn' ? '#E8A04A' : n.tone === 'good' ? '#4ADE80' : '#6A6A66' }} />
+                  <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{n.text}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', color: '#666' }}>{n.time}</span>
+                </div>
+              ))}
+              <Link href="/dashboard/notifications" className="block mx-[22px] mt-1 pb-2 hover:text-white" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid #2A2A2A' }}>
+                Read all activity →
+              </Link>
+            </>
           )}
+
+          {/* The Loop section */}
+          <div className="mx-[22px] mt-[14px] mb-[6px]" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#5A5A5A', fontWeight: 600 }}>
+            The Loop
+          </div>
+          {navMain.map((item) => {
+            const isActive = fold === item.fold
+            const badge = item.countKey && counts ? counts[item.countKey] : 0
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className="px-[22px] py-1.5 flex items-center gap-3 transition-colors group"
+                style={{
+                  fontSize: '13.5px',
+                  color: isActive ? '#F4F4F1' : '#A8A8A4',
+                  borderLeft: `2px solid ${isActive ? '#F4F4F1' : 'transparent'}`,
+                  background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
+                  fontWeight: isActive ? 500 : 400,
+                }}
+              >
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: isActive ? '#F4F4F1' : '#5A5A5A', width: '18px', flexShrink: 0 }}>
+                  {item.num}
+                </span>
+                <span>{item.label}</span>
+                {badge > 0 && (
+                  <span className="ml-auto" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#888', background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '2px' }}>
+                    {formatBadge(badge)}
+                  </span>
+                )}
+              </Link>
+            )
+          })}
+
+          {/* Platform section */}
+          <div className="mx-[22px] mt-[14px] mb-[6px]" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#5A5A5A', fontWeight: 600 }}>
+            Platform
+          </div>
+          {navPlatform.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className="px-[22px] py-1.5 flex items-center gap-3"
+                style={{
+                  fontSize: '13.5px',
+                  color: isActive ? '#F4F4F1' : '#A8A8A4',
+                  borderLeft: `2px solid ${isActive ? '#F4F4F1' : 'transparent'}`,
+                  background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
+                }}
+              >
+                <span style={{ width: '18px', flexShrink: 0 }} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="absolute bottom-0 left-0 right-0 px-[22px] pt-[14px] pb-[18px]" style={{ background: 'linear-gradient(to top, #1C1C1C 70%, transparent)' }}>
+          <div className="flex items-center gap-2 pt-3" style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: '#888', borderTop: '1px solid #2E2E2E', letterSpacing: '0.04em' }}>
+            <span className="w-[6px] h-[6px] rounded-full" style={{ background: '#4ADE80', boxShadow: '0 0 8px rgba(74,222,128,0.4)' }} />
+            All systems operational
+          </div>
+          <div className="mt-2.5 flex items-center gap-2">
+            {isAdminImpersonation ? (
+              <Link href="/admin" style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                ← Back to Admin
+              </Link>
+            ) : (
+              <UserButton afterSignOutUrl="/sign-in" />
+            )}
+          </div>
         </div>
       </aside>
 
-      {/* Main content — white bg like admin */}
-      <main className="flex-1 min-w-0 overflow-y-auto ml-44 bg-white text-slate-800 pb-20">
+      {/* MAIN */}
+      <main className="flex-1 min-w-0 overflow-y-auto md:ml-60 pb-32" style={{ background: 'var(--color-loop-bg)' }}>
         {impersonationBanner}
-        <div className="p-8 max-w-7xl">
+        <div className="px-12 pt-4 pb-24 max-w-[1500px]">
           {/* Mobile hamburger */}
           <button
-            className="md:hidden p-2 text-slate-400 hover:text-slate-900 mb-4 -ml-2"
+            className="md:hidden p-2 mb-4 -ml-2"
+            style={{ color: 'var(--color-loop-muted)' }}
             onClick={() => setSidebarOpen(true)}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
+
+          {/* TOPBAR */}
+          <div className="flex items-center justify-end mb-3">
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {meta}
+            </span>
+          </div>
+
+          {/* MASTHEAD */}
+          <div className="flex items-start justify-between pb-[22px] mb-8" style={{ borderBottom: '1px solid var(--color-loop-ink)' }}>
+            <div>
+              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
+                {title}
+                <em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
+              </h1>
+              {isLoop && (
+                <div className="mt-3 relative pl-4 max-w-[640px]" style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-graphite)', letterSpacing: '-0.005em', lineHeight: 1.4 }}>
+                  <span className="absolute -left-0.5 -top-1.5" style={{ fontSize: '32px', color: 'var(--color-loop-muted-2)', fontStyle: 'normal', lineHeight: 1 }}>“</span>
+                  {quote.text}
+                  <span className="ml-2 whitespace-nowrap" style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: '10.5px', color: 'var(--color-loop-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    — {quote.author}
+                  </span>
+                </div>
+              )}
+            </div>
+            {isLoop && (
+              <span className="text-right" style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.6 }}>
+                Day {day}<br />of building
+              </span>
+            )}
+          </div>
+
           <AutoPageSettings />
           {children}
         </div>
       </main>
-      <AiAssistant />
+
+      {/* Sticky Selena bar (every dashboard page) */}
+      <SelenaBar />
+
       <ToastProvider />
       <Script id="tawk-to" strategy="lazyOnload">
         {`var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();

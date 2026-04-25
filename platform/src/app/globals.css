@@ -31,6 +31,27 @@
   --font-body: var(--font-dm-sans), system-ui, sans-serif;
   --font-cta: var(--font-space-grotesk), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", monospace;
+  --font-display: var(--font-fraunces), Georgia, serif;
+
+  /* Loop design tokens (v2.4 — see platform/docs/design/tokens.md) */
+  --color-loop-bg: #F4F4F1;
+  --color-loop-canvas: #FFFFFF;
+  --color-loop-ink: #1C1C1C;
+  --color-loop-graphite: #3A3A3A;
+  --color-loop-muted: #7A7A78;
+  --color-loop-muted-2: #A8A8A4;
+  --color-loop-line: #C8C5BC;
+  --color-loop-line-soft: #E4E2DC;
+  --color-loop-good: #1F4D2C;
+  --color-loop-warn: #8B4513;
+}
+
+.font-display { font-family: var(--font-display); font-feature-settings: 'tnum', 'lnum'; }
+@keyframes loop-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes loop-pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(31,77,44,0.5); }
+  70% { box-shadow: 0 0 0 6px rgba(31,77,44,0); }
+  100% { box-shadow: 0 0 0 0 rgba(31,77,44,0); }
 }
 
 html {
