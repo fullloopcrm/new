@@ -26,17 +26,50 @@ type Notif = {
 }
 
 // 6-section nav locked in platform/docs/design/tokens.md.
-// Each top-level item maps to its primary destination; sub-pages are still
-// reachable by URL and will be re-surfaced as expandable sub-items in a
-// follow-up.
-const navMain = [
-  { num: '00', label: 'The Loop', href: '/dashboard', countKey: undefined as keyof SidebarCounts | undefined, fold: 'loop' },
-  { num: '01', label: 'Sales', href: '/dashboard/sales', countKey: 'leads' as const, fold: 'sales' },
-  { num: '02', label: 'Schedule', href: '/dashboard/bookings', countKey: 'bookings' as const, fold: 'schedule' },
-  { num: '03', label: 'Clients', href: '/dashboard/clients', countKey: 'clients' as const, fold: 'clients' },
-  { num: '04', label: 'Team', href: '/dashboard/team', countKey: undefined, fold: 'team' },
-  { num: '05', label: 'Finance', href: '/dashboard/finance', countKey: undefined, fold: 'finance' },
-  { num: '06', label: 'Marketing', href: '/dashboard/campaigns', countKey: undefined, fold: 'marketing' },
+// Each top-level item maps to its primary destination. Sub-items use the
+// `sb-sub` / `sb-letter` pattern from the mockup — A/B/C lettered children
+// rendered immediately below the parent.
+type Sub = { letter: string; label: string; href: string }
+const navMain: Array<{
+  num: string
+  label: string
+  href: string
+  countKey?: keyof SidebarCounts
+  fold: string
+  subs: Sub[]
+}> = [
+  { num: '00', label: 'The Loop', href: '/dashboard', fold: 'loop', subs: [] },
+  { num: '01', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [
+    { letter: 'A', label: 'Leads', href: '/dashboard/leads' },
+    { letter: 'B', label: 'Pipeline', href: '/dashboard/sales' },
+  ]},
+  { num: '02', label: 'Schedule', href: '/dashboard/bookings', countKey: 'bookings', fold: 'schedule', subs: [
+    { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
+    { letter: 'B', label: 'Calendar', href: '/dashboard/calendar' },
+    { letter: 'C', label: 'Recurring', href: '/dashboard/schedules' },
+  ]},
+  { num: '03', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', subs: [
+    { letter: 'A', label: 'All Clients', href: '/dashboard/clients' },
+    { letter: 'B', label: 'SMS Inbox', href: '/dashboard/sms' },
+  ]},
+  { num: '04', label: 'Team', href: '/dashboard/team', fold: 'team', subs: [
+    { letter: 'A', label: 'Members', href: '/dashboard/team' },
+  ]},
+  { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', subs: [
+    { letter: 'A', label: 'Overview', href: '/dashboard/finance' },
+    { letter: 'B', label: 'Transactions', href: '/dashboard/finance/transactions' },
+    { letter: 'C', label: 'Receipts', href: '/dashboard/finance/receipts' },
+  ]},
+  { num: '06', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', subs: [
+    { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
+    { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
+    { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
+    { letter: 'D', label: 'Social', href: '/dashboard/social' },
+    { letter: 'E', label: 'Google', href: '/dashboard/google' },
+    { letter: 'F', label: 'Websites', href: '/dashboard/websites' },
+    { letter: 'G', label: 'Analytics', href: '/dashboard/analytics' },
+    { letter: 'H', label: 'Map', href: '/dashboard/map' },
+  ]},
 ]
 
 // Routes that conceptually fold under each top-level section. Used to
@@ -239,29 +272,58 @@ export default function DashboardShell({
             const isActive = fold === item.fold
             const badge = item.countKey && counts ? counts[item.countKey] : 0
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className="px-[22px] py-1.5 flex items-center gap-3 transition-colors group"
-                style={{
-                  fontSize: '13.5px',
-                  color: isActive ? '#F4F4F1' : '#A8A8A4',
-                  borderLeft: `2px solid ${isActive ? '#F4F4F1' : 'transparent'}`,
-                  background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
-                  fontWeight: isActive ? 500 : 400,
-                }}
-              >
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: isActive ? '#F4F4F1' : '#5A5A5A', width: '18px', flexShrink: 0 }}>
-                  {item.num}
-                </span>
-                <span>{item.label}</span>
-                {badge > 0 && (
-                  <span className="ml-auto" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#888', background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '2px' }}>
-                    {formatBadge(badge)}
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className="px-[22px] py-1.5 flex items-center gap-3 transition-colors group"
+                  style={{
+                    fontSize: '13.5px',
+                    color: isActive ? '#F4F4F1' : '#A8A8A4',
+                    borderLeft: `2px solid ${isActive ? '#F4F4F1' : 'transparent'}`,
+                    background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
+                    fontWeight: isActive ? 500 : 400,
+                  }}
+                >
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: isActive ? '#F4F4F1' : '#5A5A5A', width: '18px', flexShrink: 0 }}>
+                    {item.num}
                   </span>
-                )}
-              </Link>
+                  <span>{item.label}</span>
+                  {badge > 0 && (
+                    <span className="ml-auto" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#888', background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '2px' }}>
+                      {formatBadge(badge)}
+                    </span>
+                  )}
+                </Link>
+                {item.subs.map((sub) => {
+                  const subActive = pathname === sub.href || pathname.startsWith(sub.href + '/')
+                  return (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className="flex items-center gap-2.5 transition-colors hover:bg-[rgba(255,255,255,0.02)]"
+                      style={{
+                        padding: '4px 22px 4px 44px',
+                        fontSize: '12.5px',
+                        color: subActive ? '#C8C5BC' : '#888',
+                      }}
+                    >
+                      <span style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '9.5px',
+                        color: subActive ? '#888' : '#555',
+                        width: '12px',
+                        flexShrink: 0,
+                        letterSpacing: '0.04em',
+                      }}>
+                        {sub.letter}
+                      </span>
+                      <span>{sub.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
             )
           })}
 
