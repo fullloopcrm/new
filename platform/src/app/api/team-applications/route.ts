@@ -58,7 +58,14 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { tenant_slug, name, email, phone, address, experience, availability, referral_source, references, notes, photo_url } = body
+    const { name, email, phone, address, experience, availability, referral_source, references, notes, photo_url } = body
+    let { tenant_slug } = body as { tenant_slug?: string }
+
+    // Fall back to the middleware-injected tenant slug header so the ported
+    // FL maid apply form (which doesn't post tenant_slug in body) still works.
+    if (!tenant_slug) {
+      tenant_slug = request.headers.get('x-tenant-slug') || undefined
+    }
 
     if (!tenant_slug || !name || !phone) {
       return NextResponse.json({ error: 'Tenant, name, and phone are required' }, { status: 400 })
