@@ -5,7 +5,8 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { downloadCSV } from '@/lib/csv'
 import { usePoll } from '@/lib/use-poll'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 import { BOOKING_STATUS_COLORS } from '@/lib/constants'
 import { formatTime } from '@/lib/format'
 
@@ -172,7 +173,39 @@ export default function BookingsPage() {
   const [recentlyClosed, setRecentlyClosed] = useState<RecentClosed[]>([])
   const [closeoutUpdating, setCloseoutUpdating] = useState<string | null>(null)
 
-  const bookingsSettings = usePageSettings('bookings')
+  const tenantSettings = useTenantSettings()
+  const [bookingsPanelOpen, setBookingsPanelOpen] = useState(false)
+  const bookingsTenant = tenantSettings.tenant
+  const bookingsSelena = (bookingsTenant?.selena_config as Record<string, unknown> | null) || {}
+  const bookingsConfig: Record<string, unknown> = {
+    default_status: (bookingsSelena.default_booking_status as string) || 'scheduled',
+    default_duration: String(bookingsTenant?.default_duration_hours ?? 3),
+    require_team_member: Boolean(bookingsSelena.require_team_member),
+    auto_confirm: Boolean(bookingsSelena.auto_confirm_bookings),
+    booking_buffer: Number(bookingsTenant?.booking_buffer_minutes ?? 30),
+    allow_same_day: Boolean(bookingsTenant?.allow_same_day),
+    min_days_ahead: Number(bookingsTenant?.min_days_ahead ?? 1),
+    payment_methods: (bookingsTenant?.payment_methods as string[]) || ['cash', 'credit_card'],
+  }
+  function updateBookingsConfig(key: string, value: unknown) {
+    if (key === 'default_status') {
+      tenantSettings.updateSelenaConfig({ default_booking_status: value })
+    } else if (key === 'require_team_member') {
+      tenantSettings.updateSelenaConfig({ require_team_member: value })
+    } else if (key === 'auto_confirm') {
+      tenantSettings.updateSelenaConfig({ auto_confirm_bookings: value })
+    } else if (key === 'default_duration') {
+      tenantSettings.updateField('default_duration_hours', Number(value))
+    } else if (key === 'booking_buffer') {
+      tenantSettings.updateField('booking_buffer_minutes', Number(value))
+    } else if (key === 'allow_same_day') {
+      tenantSettings.updateField('allow_same_day', Boolean(value))
+    } else if (key === 'min_days_ahead') {
+      tenantSettings.updateField('min_days_ahead', Number(value))
+    } else if (key === 'payment_methods') {
+      tenantSettings.updateField('payment_methods', value)
+    }
+  }
 
   const loadBookings = useCallback(() => {
     const params = new URLSearchParams()
@@ -388,7 +421,7 @@ export default function BookingsPage() {
             <h2 className="text-2xl font-bold text-slate-900">Bookings</h2>
             <p className="text-sm text-slate-400">{view === 'schedules' ? `${schedules.length} total schedules` : `${total} total bookings`}</p>
           </div>
-          <PageSettingsGear open={bookingsSettings.open} setOpen={bookingsSettings.setOpen} title="Bookings" />
+          <PageSettingsGear open={bookingsPanelOpen} setOpen={setBookingsPanelOpen} title="Bookings" />
         </div>
         <div className="flex gap-2">
           {view !== 'schedules' && view !== 'closeout' && (
@@ -441,7 +474,13 @@ export default function BookingsPage() {
       </div>
 
       <PageSettingsPanel
-        {...bookingsSettings}
+        open={bookingsPanelOpen}
+        setOpen={setBookingsPanelOpen}
+        loaded={tenantSettings.loaded}
+        saving={tenantSettings.saving}
+        saveMsg={tenantSettings.saveMsg}
+        config={bookingsConfig}
+        updateConfig={updateBookingsConfig}
         title="Bookings"
         tips={[
           'Use the calendar view to visualize your week',
@@ -539,22 +578,30 @@ export default function BookingsPage() {
             <div className="border-t border-slate-200" />
             <div>
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Accepted Payment Methods</label>
+              <p className="text-xs text-slate-500 mb-3">Saved here is shared with the global settings page and the client portal.</p>
               <div className="grid grid-cols-2 gap-2 max-w-xs">
-                {['Zelle', 'Apple Pay', 'Venmo', 'Cash', 'Check', 'Card'].map((method) => {
-                  const methods = (config.payment_methods as string[]) || ['Cash', 'Card']
-                  const checked = methods.includes(method)
+                {[
+                  { value: 'zelle', label: 'Zelle' },
+                  { value: 'apple_pay', label: 'Apple Pay' },
+                  { value: 'venmo', label: 'Venmo' },
+                  { value: 'cash', label: 'Cash' },
+                  { value: 'check', label: 'Check' },
+                  { value: 'credit_card', label: 'Credit Card' },
+                ].map((method) => {
+                  const methods = (config.payment_methods as string[]) || ['cash', 'credit_card']
+                  const checked = methods.includes(method.value)
                   return (
-                    <label key={method} className="flex items-center gap-2 cursor-pointer">
+                    <label key={method.value} className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => {
-                          const updated = checked ? methods.filter((m: string) => m !== method) : [...methods, method]
+                          const updated = checked ? methods.filter((m: string) => m !== method.value) : [...methods, method.value]
                           updateConfig('payment_methods', updated)
                         }}
                         className="w-3.5 h-3.5 accent-teal-600"
                       />
-                      <span className="text-sm text-slate-300">{method}</span>
+                      <span className="text-sm text-slate-300">{method.label}</span>
                     </label>
                   )
                 })}

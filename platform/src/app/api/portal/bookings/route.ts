@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../auth/route'
+import { getSettings } from '@/lib/settings'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -31,6 +32,30 @@ export async function POST(request: Request) {
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))
+
+  // Enforce tenant scheduling rules (allow_same_day, min_days_ahead).
+  // start_time is a client-provided ISO string; reject if missing or unparseable.
+  const settings = await getSettings(auth.tid)
+  const requestedStart = body.start_time ? new Date(body.start_time) : null
+  if (!requestedStart || isNaN(requestedStart.getTime())) {
+    return NextResponse.json({ error: 'Invalid start_time' }, { status: 400 })
+  }
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfRequested = new Date(requestedStart.getFullYear(), requestedStart.getMonth(), requestedStart.getDate())
+  const daysAhead = Math.round((startOfRequested.getTime() - startOfToday.getTime()) / 86_400_000)
+  if (daysAhead < 0) {
+    return NextResponse.json({ error: 'Cannot book in the past' }, { status: 400 })
+  }
+  if (daysAhead === 0 && !settings.allow_same_day) {
+    return NextResponse.json({ error: 'Same-day bookings are not accepted. Please choose a future date.' }, { status: 400 })
+  }
+  if (daysAhead < settings.min_days_ahead) {
+    return NextResponse.json(
+      { error: `Bookings require at least ${settings.min_days_ahead} day${settings.min_days_ahead === 1 ? '' : 's'} notice.` },
+      { status: 400 }
+    )
+  }
 
   // Look up service type — tenant-scoped so a client from tenant A cannot
   // post a booking with tenant B's service_type_id.
