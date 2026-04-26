@@ -328,14 +328,24 @@
 .loop-marketing .border-red-200 { border-color: rgba(139, 69, 19, 0.4); }
 
 /* Brand teal / emerald / cyan -> ink (primary) and good (accent) */
-.loop-marketing .bg-teal-600,
+.loop-marketing .bg-teal-300,
+.loop-marketing .bg-teal-400,
 .loop-marketing .bg-teal-500,
+.loop-marketing .bg-teal-600,
 .loop-marketing .bg-teal-700,
-.loop-marketing .bg-emerald-600,
+.loop-marketing .bg-teal-800,
+.loop-marketing .bg-emerald-300,
+.loop-marketing .bg-emerald-400,
 .loop-marketing .bg-emerald-500,
+.loop-marketing .bg-emerald-600,
 .loop-marketing .bg-emerald-700,
+.loop-marketing .bg-cyan-300,
+.loop-marketing .bg-cyan-400,
+.loop-marketing .bg-cyan-500,
 .loop-marketing .bg-cyan-600,
-.loop-marketing .bg-cyan-500 { background-color: var(--color-loop-ink); color: var(--color-loop-canvas); }
+.loop-marketing .bg-green-500,
+.loop-marketing .bg-green-600,
+.loop-marketing .bg-green-700 { background-color: var(--color-loop-ink); color: var(--color-loop-canvas); }
 .loop-marketing .hover\:bg-teal-700:hover,
 .loop-marketing .hover\:bg-teal-600:hover,
 .loop-marketing .hover\:bg-emerald-700:hover { background-color: var(--color-loop-graphite); }
@@ -356,6 +366,31 @@
 .loop-marketing .text-green-600,
 .loop-marketing .text-blue-600,
 .loop-marketing .text-blue-700 { color: var(--color-loop-good); }
+
+/* When a teal/emerald CTA sits inside an ink hero (bg-slate-900),
+   flip it to cream-pill primary so it stays visible on dark. */
+.loop-marketing .bg-slate-900 .bg-teal-300,
+.loop-marketing .bg-slate-900 .bg-teal-400,
+.loop-marketing .bg-slate-900 .bg-teal-500,
+.loop-marketing .bg-slate-900 .bg-teal-600,
+.loop-marketing .bg-slate-900 .bg-emerald-400,
+.loop-marketing .bg-slate-900 .bg-emerald-500,
+.loop-marketing .bg-slate-900 .bg-emerald-600,
+.loop-marketing .bg-slate-800 .bg-teal-400,
+.loop-marketing .bg-slate-800 .bg-teal-500,
+.loop-marketing .bg-slate-800 .bg-teal-600,
+.loop-marketing .bg-gray-900 .bg-teal-400,
+.loop-marketing .bg-gray-900 .bg-teal-500,
+.loop-marketing .bg-gray-900 .bg-teal-600 { background-color: var(--color-loop-canvas); color: var(--color-loop-ink); }
+/* Outline secondary CTAs inside dark heroes -> cream outline + cream text */
+.loop-marketing .bg-slate-900 .border-slate-600,
+.loop-marketing .bg-slate-900 .border-slate-700,
+.loop-marketing .bg-slate-900 .border-gray-600,
+.loop-marketing .bg-slate-900 .border-gray-700 { border-color: rgba(244, 244, 241, 0.3); }
+.loop-marketing .bg-slate-900 .text-slate-300,
+.loop-marketing .bg-slate-900 .text-slate-400,
+.loop-marketing .bg-slate-900 .text-gray-300,
+.loop-marketing .bg-slate-900 .text-gray-400 { color: rgba(244, 244, 241, 0.85); }
 
 /* Yellow CTA underlines -> warn (saddle brown) */
 .loop-marketing .text-yellow-300,
