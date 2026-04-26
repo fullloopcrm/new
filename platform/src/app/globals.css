@@ -367,8 +367,9 @@
 .loop-marketing .text-blue-600,
 .loop-marketing .text-blue-700 { color: var(--color-loop-good); }
 
-/* When a teal/emerald CTA sits inside an ink hero (bg-slate-900),
-   flip it to cream-pill primary so it stays visible on dark. */
+/* When a teal/emerald/yellow/amber CTA sits inside an ink hero
+   (bg-slate-900/800, bg-gray-900), flip it to cream-pill so the
+   primary action stays visible on dark. */
 .loop-marketing .bg-slate-900 .bg-teal-300,
 .loop-marketing .bg-slate-900 .bg-teal-400,
 .loop-marketing .bg-slate-900 .bg-teal-500,
@@ -376,12 +377,32 @@
 .loop-marketing .bg-slate-900 .bg-emerald-400,
 .loop-marketing .bg-slate-900 .bg-emerald-500,
 .loop-marketing .bg-slate-900 .bg-emerald-600,
+.loop-marketing .bg-slate-900 .bg-yellow-300,
+.loop-marketing .bg-slate-900 .bg-yellow-400,
+.loop-marketing .bg-slate-900 .bg-amber-300,
+.loop-marketing .bg-slate-900 .bg-amber-400,
+.loop-marketing .bg-slate-900 .bg-orange-400,
+.loop-marketing .bg-slate-900 .bg-orange-500,
 .loop-marketing .bg-slate-800 .bg-teal-400,
 .loop-marketing .bg-slate-800 .bg-teal-500,
 .loop-marketing .bg-slate-800 .bg-teal-600,
+.loop-marketing .bg-slate-800 .bg-yellow-300,
+.loop-marketing .bg-slate-800 .bg-yellow-400,
 .loop-marketing .bg-gray-900 .bg-teal-400,
 .loop-marketing .bg-gray-900 .bg-teal-500,
-.loop-marketing .bg-gray-900 .bg-teal-600 { background-color: var(--color-loop-canvas); color: var(--color-loop-ink); }
+.loop-marketing .bg-gray-900 .bg-teal-600,
+.loop-marketing .bg-gray-900 .bg-yellow-300,
+.loop-marketing .bg-gray-900 .bg-yellow-400 { background-color: var(--color-loop-canvas); color: var(--color-loop-ink); }
+/* On dark surfaces, brand-green text needs a brighter green for AA contrast.
+   Loop tokens are designed for light surfaces; emit a lifted green here. */
+.loop-marketing .bg-slate-900 .text-teal-300,
+.loop-marketing .bg-slate-900 .text-teal-400,
+.loop-marketing .bg-slate-900 .text-teal-500,
+.loop-marketing .bg-slate-900 .text-emerald-400,
+.loop-marketing .bg-slate-800 .text-teal-300,
+.loop-marketing .bg-slate-800 .text-teal-400,
+.loop-marketing .bg-slate-800 .text-teal-500,
+.loop-marketing .bg-slate-800 .text-emerald-400 { color: #6FB58A; }
 /* Outline secondary CTAs inside dark heroes -> cream outline + cream text */
 .loop-marketing .bg-slate-900 .border-slate-600,
 .loop-marketing .bg-slate-900 .border-slate-700,
@@ -406,6 +427,47 @@
 .loop-marketing .text-red-500,
 .loop-marketing .text-red-600,
 .loop-marketing .text-red-700 { color: var(--color-loop-warn); }
+/* Other bright colors used as accent bgs map to ink so they stop
+   reading like rainbow tags. */
+.loop-marketing .bg-blue-500,
+.loop-marketing .bg-blue-600,
+.loop-marketing .bg-blue-700,
+.loop-marketing .bg-indigo-500,
+.loop-marketing .bg-indigo-600,
+.loop-marketing .bg-violet-500,
+.loop-marketing .bg-violet-600,
+.loop-marketing .bg-purple-500,
+.loop-marketing .bg-purple-600,
+.loop-marketing .bg-purple-700,
+.loop-marketing .bg-pink-500,
+.loop-marketing .bg-pink-600,
+.loop-marketing .bg-rose-500,
+.loop-marketing .bg-rose-600,
+.loop-marketing .bg-fuchsia-500,
+.loop-marketing .bg-fuchsia-600 { background-color: var(--color-loop-ink); color: var(--color-loop-canvas); }
+.loop-marketing .bg-blue-100,
+.loop-marketing .bg-indigo-100,
+.loop-marketing .bg-violet-100,
+.loop-marketing .bg-purple-100,
+.loop-marketing .bg-pink-100,
+.loop-marketing .bg-rose-100,
+.loop-marketing .bg-red-100,
+.loop-marketing .bg-blue-200,
+.loop-marketing .bg-indigo-200,
+.loop-marketing .bg-purple-200,
+.loop-marketing .bg-pink-200,
+.loop-marketing .bg-rose-200 { background-color: var(--color-loop-line-soft); }
+.loop-marketing .text-blue-500,
+.loop-marketing .text-indigo-500,
+.loop-marketing .text-indigo-600,
+.loop-marketing .text-violet-500,
+.loop-marketing .text-violet-600,
+.loop-marketing .text-purple-500,
+.loop-marketing .text-purple-600,
+.loop-marketing .text-pink-500,
+.loop-marketing .text-pink-600,
+.loop-marketing .text-rose-500,
+.loop-marketing .text-rose-600 { color: var(--color-loop-ink); }
 .loop-marketing .bg-yellow-300,
 .loop-marketing .bg-yellow-400,
 .loop-marketing .bg-amber-400,
