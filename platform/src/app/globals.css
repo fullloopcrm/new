@@ -291,11 +291,11 @@
 .loop-marketing .text-slate-600,
 .loop-marketing .text-slate-500,
 .loop-marketing .text-gray-500,
-.loop-marketing .text-gray-600 { color: var(--color-loop-muted); }
+.loop-marketing .text-gray-600 { color: var(--color-loop-graphite); }
 .loop-marketing .text-slate-400,
+.loop-marketing .text-gray-400 { color: var(--color-loop-muted); }
 .loop-marketing .text-slate-300,
 .loop-marketing .text-slate-200,
-.loop-marketing .text-gray-400,
 .loop-marketing .text-gray-300,
 .loop-marketing .text-gray-200 { color: var(--color-loop-muted-2); }
 
@@ -315,6 +315,13 @@
 .loop-marketing .border-slate-800,
 .loop-marketing .border-gray-700,
 .loop-marketing .border-gray-800 { border-color: var(--color-loop-graphite); }
+.loop-marketing .border-teal-600,
+.loop-marketing .border-teal-500,
+.loop-marketing .border-teal-700,
+.loop-marketing .border-emerald-600,
+.loop-marketing .border-emerald-500,
+.loop-marketing .border-cyan-600,
+.loop-marketing .border-cyan-500 { border-color: var(--color-loop-ink); }
 .loop-marketing .border-amber-200,
 .loop-marketing .border-yellow-200,
 .loop-marketing .border-orange-200,
