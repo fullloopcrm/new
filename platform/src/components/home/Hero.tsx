@@ -16,13 +16,13 @@ export default function Hero() {
         className="absolute inset-0 opacity-[0.04]"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(13, 148, 136, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 148, 136, 0.5) 1px, transparent 1px)",
+            "linear-gradient(rgba(244, 244, 241, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(244, 244, 241, 0.5) 1px, transparent 1px)",
           backgroundSize: "60px 60px",
         }}
       />
 
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-slate-900/80 z-[1]" />
+      {/* Ink overlay */}
+      <div className="absolute inset-0 z-[1]" style={{ backgroundColor: "rgba(28, 28, 28, 0.86)" }} />
 
       {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-36 pb-20">

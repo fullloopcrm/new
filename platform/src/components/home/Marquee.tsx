@@ -21,10 +21,10 @@ export default function Marquee() {
           className="flex whitespace-nowrap animate-marquee"
           aria-hidden="true"
         >
-          <span className="text-6xl sm:text-7xl lg:text-8xl font-extrabold uppercase text-slate-900/[0.08] tracking-wider font-heading">
+          <span className="text-6xl sm:text-7xl lg:text-8xl font-extrabold uppercase text-[rgba(28,28,28,0.08)] tracking-wider font-heading">
             {text}
           </span>
-          <span className="text-6xl sm:text-7xl lg:text-8xl font-extrabold uppercase text-slate-900/[0.08] tracking-wider font-heading">
+          <span className="text-6xl sm:text-7xl lg:text-8xl font-extrabold uppercase text-[rgba(28,28,28,0.08)] tracking-wider font-heading">
             {text}
           </span>
         </motion.div>

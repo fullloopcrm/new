@@ -15,19 +15,19 @@ const credentials = [
 const paragraphs = [
   {
     title: "Born from Frustration, Not a Pitch Deck",
-    color: "#0f766e",
+    color: "#1F4D2C",
     content:
       "Full Loop CRM wasn't built in a Silicon Valley boardroom. It was built by a 20+ year veteran of home services, business development, web design, SEO, and organic lead generation — someone who's personally run crews, answered the phones, built the websites, ranked the domains, and scaled the operations.",
   },
   {
     title: "The Problem We Solved for Ourselves",
-    color: "#0d9488",
+    color: "#3A3A3A",
     content:
       "After years of duct-taping together scheduling apps, CRM tools, payment platforms, lead trackers, email services, SMS tools, and spreadsheets — the frustration boiled over. None of these tools talked to each other. None of them generated a single lead. So we built the platform we always needed — and made it exclusive.",
   },
   {
     title: "A Partner, Not Just a Platform",
-    color: "#0f766e",
+    color: "#1F4D2C",
     content:
       "When you partner with Full Loop CRM, you don't just get software. You get the consulting guidance and operational experience of someone who has been exactly where you are.",
   },
@@ -37,8 +37,8 @@ export default function WhyNYC() {
   return (
     <section className="py-20 sm:py-28 bg-teal-50 relative overflow-hidden">
       {/* Background blobs */}
-      <div className="absolute top-1/4 right-0 w-96 h-96 bg-teal-500/5 rounded-full blur-[128px] animate-blob" />
-      <div className="absolute bottom-1/4 left-0 w-80 h-80 bg-teal-500/5 rounded-full blur-[128px] animate-blob animation-delay-2000" />
+      <div className="absolute top-1/4 right-0 w-96 h-96 bg-[var(--color-loop-line-soft)] rounded-full blur-[128px] animate-blob opacity-40" />
+      <div className="absolute bottom-1/4 left-0 w-80 h-80 bg-[var(--color-loop-line-soft)] rounded-full blur-[128px] animate-blob opacity-40 animation-delay-2000" />
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}

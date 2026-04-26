@@ -140,8 +140,8 @@ export default function NeighborhoodSlider() {
                   sizes="(max-width: 768px) 100vw, 1280px"
                   priority={current === 0}
                 />
-                {/* Dark overlay */}
-                <div className="absolute inset-0 bg-slate-900/60" />
+                {/* Ink overlay */}
+                <div className="absolute inset-0" style={{ backgroundColor: "rgba(28, 28, 28, 0.6)" }} />
               </motion.div>
             </AnimatePresence>
 

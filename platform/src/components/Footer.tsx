@@ -176,7 +176,7 @@ export default function Footer() {
         <div className="mt-14 border-t border-slate-800 pt-10">
           {/* Top Locations */}
           <div className="mb-8">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-teal-400/70">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-teal-400">
               Top Locations
             </h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
@@ -190,7 +190,7 @@ export default function Footer() {
 
           {/* Top Industries */}
           <div className="mb-8">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-teal-400/70">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-teal-400">
               Top Industries
             </h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
@@ -204,7 +204,7 @@ export default function Footer() {
 
           {/* Popular CRM + Location Combos */}
           <div className="mb-4">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-teal-400/70">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-teal-400">
               Popular
             </h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1.5">

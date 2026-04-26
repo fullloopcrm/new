@@ -54,7 +54,8 @@ export default function QuickTips() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.35, delay: i * 0.06 }}
-              className="bg-teal-700/50 border border-teal-500/30 rounded-lg px-5 py-4"
+              className="border rounded-lg px-5 py-4"
+              style={{ backgroundColor: "rgba(244, 244, 241, 0.06)", borderColor: "rgba(244, 244, 241, 0.18)" }}
             >
               <p className="text-white text-base leading-relaxed">
                 <strong className="text-teal-100">{h.name}</strong>{" "}

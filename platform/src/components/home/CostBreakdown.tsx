@@ -184,7 +184,7 @@ export default function CostBreakdown() {
           transition={{ duration: 0.5, delay: 0.6 }}
           className="mt-10 text-center"
         >
-          <div className="inline-block rounded-2xl bg-teal-600/20 border border-teal-500/30 px-8 sm:px-12 py-6 sm:py-8">
+          <div className="inline-block rounded-2xl border px-8 sm:px-12 py-6 sm:py-8" style={{ backgroundColor: "rgba(244, 244, 241, 0.06)", borderColor: "rgba(244, 244, 241, 0.2)" }}>
             <p className="text-teal-400 text-sm font-semibold tracking-[0.15em] uppercase mb-2 font-cta">
               Annual Savings
             </p>

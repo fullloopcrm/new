@@ -137,7 +137,7 @@ export default function ROICalculator() {
             </div>
 
             {/* Full Loop */}
-            <div className="bg-white rounded-xl p-6 border border-teal-300 shadow-sm ring-2 ring-teal-500/20">
+            <div className="bg-white rounded-xl p-6 border-2" style={{ borderColor: "#1C1C1C" }}>
               <div className="text-center mb-4">
                 <p className="text-teal-600 text-sm font-semibold uppercase tracking-wider mb-1">
                   Full Loop Website Network
