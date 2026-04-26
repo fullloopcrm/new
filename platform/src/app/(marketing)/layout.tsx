@@ -29,7 +29,7 @@ export default function MarketingLayout({
   children: React.ReactNode
 }) {
   return (
-    <>
+    <div className="loop-marketing min-h-screen">
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
       <a
@@ -59,6 +59,6 @@ export default function MarketingLayout({
           `,
         }}
       />
-    </>
+    </div>
   )
 }

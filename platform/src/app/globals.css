@@ -216,6 +216,210 @@
   100% { box-shadow: 0 0 0 0 rgba(31,77,44,0); }
 }
 
+/* ============================================================
+   Loop marketing scope — applied on (marketing) layout root.
+   Pulls the editorial palette + Fraunces/JetBrains pair across
+   the public Full Loop CRM site, while preserving Tailwind's
+   marketing-scale typography (no 14px density, no h1 = 36px).
+   ============================================================ */
+.loop-marketing {
+  background-color: var(--color-loop-bg);
+  color: var(--color-loop-ink);
+  font-family: var(--body);
+  --font-heading: var(--display);
+  --font-body: var(--body);
+}
+.loop-marketing h1,
+.loop-marketing h2,
+.loop-marketing h3,
+.loop-marketing h4,
+.loop-marketing .font-heading {
+  font-family: var(--display);
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+.loop-marketing .font-cta { font-family: var(--mono); letter-spacing: 0.04em; }
+
+/* Surfaces — cream + canvas, no slate */
+.loop-marketing .bg-white,
+.loop-marketing .bg-slate-50,
+.loop-marketing .bg-slate-100,
+.loop-marketing .bg-section-white,
+.loop-marketing .bg-section-light { background-color: var(--color-loop-canvas); }
+.loop-marketing .bg-section-teal,
+.loop-marketing .bg-teal-50,
+.loop-marketing .bg-emerald-50,
+.loop-marketing .bg-green-50,
+.loop-marketing .bg-blue-50,
+.loop-marketing .bg-cyan-50,
+.loop-marketing .bg-indigo-50,
+.loop-marketing .bg-purple-50,
+.loop-marketing .bg-violet-50,
+.loop-marketing .bg-pink-50,
+.loop-marketing .bg-rose-50 { background-color: var(--color-loop-bg); }
+.loop-marketing .bg-amber-50,
+.loop-marketing .bg-yellow-50,
+.loop-marketing .bg-orange-50,
+.loop-marketing .bg-red-50 { background-color: rgba(139, 69, 19, 0.06); }
+.loop-marketing .bg-teal-100,
+.loop-marketing .bg-emerald-100,
+.loop-marketing .bg-green-100,
+.loop-marketing .bg-blue-100,
+.loop-marketing .bg-cyan-100 { background-color: var(--color-loop-line-soft); }
+
+/* Dark surfaces -> ink masthead treatment */
+.loop-marketing .bg-slate-900,
+.loop-marketing .bg-slate-800,
+.loop-marketing .bg-gray-900,
+.loop-marketing .bg-gray-800,
+.loop-marketing .bg-zinc-900,
+.loop-marketing .bg-neutral-900,
+.loop-marketing .bg-black { background-color: var(--color-loop-ink); color: var(--color-loop-canvas); }
+.loop-marketing .bg-slate-700,
+.loop-marketing .bg-gray-700 { background-color: var(--color-loop-graphite); color: var(--color-loop-canvas); }
+
+/* Text colors */
+.loop-marketing .text-white { color: var(--color-loop-canvas); }
+.loop-marketing .text-slate-900,
+.loop-marketing .text-gray-900,
+.loop-marketing .text-zinc-900,
+.loop-marketing .text-neutral-900 { color: var(--color-loop-ink); }
+.loop-marketing .text-slate-800,
+.loop-marketing .text-slate-700,
+.loop-marketing .text-gray-700,
+.loop-marketing .text-gray-800 { color: var(--color-loop-graphite); }
+.loop-marketing .text-slate-600,
+.loop-marketing .text-slate-500,
+.loop-marketing .text-gray-500,
+.loop-marketing .text-gray-600 { color: var(--color-loop-muted); }
+.loop-marketing .text-slate-400,
+.loop-marketing .text-slate-300,
+.loop-marketing .text-slate-200,
+.loop-marketing .text-gray-400,
+.loop-marketing .text-gray-300,
+.loop-marketing .text-gray-200 { color: var(--color-loop-muted-2); }
+
+/* Borders */
+.loop-marketing .border-slate-200,
+.loop-marketing .border-slate-100,
+.loop-marketing .border-gray-200,
+.loop-marketing .border-gray-100,
+.loop-marketing .border-slate-300,
+.loop-marketing .border-gray-300,
+.loop-marketing .border-teal-200,
+.loop-marketing .border-emerald-200,
+.loop-marketing .border-green-200,
+.loop-marketing .border-blue-200,
+.loop-marketing .border-purple-200 { border-color: var(--color-loop-line); }
+.loop-marketing .border-slate-700,
+.loop-marketing .border-slate-800,
+.loop-marketing .border-gray-700,
+.loop-marketing .border-gray-800 { border-color: var(--color-loop-graphite); }
+.loop-marketing .border-amber-200,
+.loop-marketing .border-yellow-200,
+.loop-marketing .border-orange-200,
+.loop-marketing .border-red-200 { border-color: rgba(139, 69, 19, 0.4); }
+
+/* Brand teal / emerald / cyan -> ink (primary) and good (accent) */
+.loop-marketing .bg-teal-600,
+.loop-marketing .bg-teal-500,
+.loop-marketing .bg-teal-700,
+.loop-marketing .bg-emerald-600,
+.loop-marketing .bg-emerald-500,
+.loop-marketing .bg-emerald-700,
+.loop-marketing .bg-cyan-600,
+.loop-marketing .bg-cyan-500 { background-color: var(--color-loop-ink); color: var(--color-loop-canvas); }
+.loop-marketing .hover\:bg-teal-700:hover,
+.loop-marketing .hover\:bg-teal-600:hover,
+.loop-marketing .hover\:bg-emerald-700:hover { background-color: var(--color-loop-graphite); }
+.loop-marketing .text-teal-600,
+.loop-marketing .text-teal-500,
+.loop-marketing .text-teal-400,
+.loop-marketing .text-teal-300,
+.loop-marketing .text-teal-200,
+.loop-marketing .text-emerald-600,
+.loop-marketing .text-emerald-500,
+.loop-marketing .text-emerald-400,
+.loop-marketing .text-cyan-600,
+.loop-marketing .text-cyan-500,
+.loop-marketing .text-cyan-400 { color: var(--color-loop-good); }
+.loop-marketing .text-teal-700,
+.loop-marketing .text-emerald-700,
+.loop-marketing .text-green-700,
+.loop-marketing .text-green-600,
+.loop-marketing .text-blue-600,
+.loop-marketing .text-blue-700 { color: var(--color-loop-good); }
+
+/* Yellow CTA underlines -> warn (saddle brown) */
+.loop-marketing .text-yellow-300,
+.loop-marketing .text-yellow-400,
+.loop-marketing .text-yellow-500,
+.loop-marketing .text-amber-400,
+.loop-marketing .text-amber-500,
+.loop-marketing .text-amber-600,
+.loop-marketing .text-amber-700,
+.loop-marketing .text-orange-500,
+.loop-marketing .text-orange-600,
+.loop-marketing .text-orange-700,
+.loop-marketing .text-red-500,
+.loop-marketing .text-red-600,
+.loop-marketing .text-red-700 { color: var(--color-loop-warn); }
+.loop-marketing .bg-yellow-300,
+.loop-marketing .bg-yellow-400,
+.loop-marketing .bg-amber-400,
+.loop-marketing .bg-amber-500,
+.loop-marketing .bg-orange-400,
+.loop-marketing .bg-orange-500,
+.loop-marketing .bg-orange-600,
+.loop-marketing .bg-red-500,
+.loop-marketing .bg-red-600 { background-color: var(--color-loop-warn); color: var(--color-loop-canvas); }
+
+/* Drop shadows + soften radii to hairline editorial */
+.loop-marketing .shadow-sm,
+.loop-marketing .shadow,
+.loop-marketing .shadow-md,
+.loop-marketing .shadow-lg,
+.loop-marketing .shadow-xl,
+.loop-marketing .shadow-2xl { box-shadow: none; }
+.loop-marketing .rounded-lg,
+.loop-marketing .rounded-xl,
+.loop-marketing .rounded-2xl,
+.loop-marketing .rounded-3xl { border-radius: 4px; }
+.loop-marketing .rounded-full { /* leave pill shapes alone for badges */ }
+
+/* Focus rings -> ink */
+.loop-marketing .ring-teal-500,
+.loop-marketing .ring-emerald-500,
+.loop-marketing .focus\:ring-teal-500:focus,
+.loop-marketing .focus\:ring-emerald-500:focus { --tw-ring-color: var(--color-loop-ink); }
+
+/* Marketing-only utility overrides */
+.loop-marketing .gradient-text {
+  background: none;
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: initial;
+  background-clip: initial;
+  color: var(--color-loop-good);
+}
+.loop-marketing .glow-brand { box-shadow: none; }
+.loop-marketing .grid-bg {
+  background-image:
+    linear-gradient(rgba(28, 28, 28, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(28, 28, 28, 0.06) 1px, transparent 1px);
+}
+.loop-marketing .gradient-border::before {
+  background: var(--color-loop-line);
+}
+.loop-marketing .from-teal-500,
+.loop-marketing .from-teal-600,
+.loop-marketing .from-emerald-500,
+.loop-marketing .from-cyan-500,
+.loop-marketing .to-teal-500,
+.loop-marketing .to-teal-600,
+.loop-marketing .to-cyan-500,
+.loop-marketing .to-cyan-600,
+.loop-marketing .to-emerald-500 { --tw-gradient-from: var(--color-loop-ink); --tw-gradient-to: var(--color-loop-graphite); }
+
 html {
   scroll-behavior: smooth;
 }
