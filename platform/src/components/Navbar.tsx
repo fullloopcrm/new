@@ -97,18 +97,18 @@ export default function Navbar() {
       <motion.nav
         className="transition-all duration-300"
         style={{
-          backgroundColor: scrolled ? "rgba(15, 118, 110, 0.97)" : "#0f766e",
+          backgroundColor: scrolled ? "rgba(28, 28, 28, 0.97)" : "#1C1C1C",
           backdropFilter: scrolled ? "blur(12px)" : "none",
-          boxShadow: scrolled ? "0 1px 3px 0 rgba(0, 0, 0, 0.15)" : "none",
+          boxShadow: scrolled ? "0 1px 0 0 rgba(28, 28, 28, 0.15)" : "none",
         }}
       >
         <div className="grid grid-cols-[auto_1fr_auto] items-center px-3 sm:px-4 py-4 max-w-7xl mx-auto">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-1 shrink-0">
-            <span className="text-xl font-bold tracking-widest text-white font-heading">
-              FULL LOOP
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <span className="text-[22px] tracking-tight text-white font-heading" style={{ letterSpacing: "-0.025em", fontWeight: 500 }}>
+              Full Loop
             </span>
-            <span className="text-xl font-bold tracking-widest text-teal-200 font-heading">
+            <span className="text-[10.5px] uppercase tracking-[0.18em] font-mono" style={{ color: "#A8A8A4" }}>
               CRM
             </span>
           </Link>
@@ -119,7 +119,7 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-[15px] font-medium tracking-wide text-white/90 transition-colors hover:text-white font-cta whitespace-nowrap"
+                className="text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono whitespace-nowrap"
               >
                 {link.label}
               </Link>
@@ -129,7 +129,7 @@ export default function Navbar() {
             <div ref={moreRef} className="relative">
               <button
                 onClick={() => setMoreOpen(!moreOpen)}
-                className="flex items-center text-[15px] font-medium tracking-wide text-white/90 transition-colors hover:text-white font-cta"
+                className="flex items-center text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono"
               >
                 More
                 {chevron(moreOpen)}
@@ -141,14 +141,16 @@ export default function Navbar() {
                     initial="hidden"
                     animate="visible"
                     exit="exit"
-                    className="absolute left-1/2 top-full mt-3 w-48 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+                    className="absolute left-1/2 top-full mt-3 w-52 -translate-x-1/2 border bg-white p-1"
+                    style={{ borderColor: "#1C1C1C", borderRadius: 4 }}
                   >
                     {moreLinks.map((link) => (
                       <Link
                         key={link.href}
                         href={link.href}
                         onClick={() => setMoreOpen(false)}
-                        className="block rounded-lg px-4 py-2.5 text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-teal-600"
+                        className="block px-4 py-2.5 text-[13px] transition-colors hover:bg-[#FBFBF8]"
+                        style={{ color: "#1C1C1C" }}
                       >
                         {link.label}
                       </Link>
@@ -163,9 +165,10 @@ export default function Navbar() {
           <div className="hidden lg:flex items-center justify-end">
             <Link href="/crm-partnership-request-form">
               <motion.span
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
-                className="inline-block rounded-lg bg-white px-4 py-2 text-[15px] font-semibold text-teal-700 transition-colors hover:bg-teal-50 font-cta"
+                className="inline-block bg-white px-5 py-2 text-[10.5px] uppercase tracking-[0.18em] font-mono transition-colors hover:bg-[#F4F4F1]"
+                style={{ color: "#1C1C1C", borderRadius: 4 }}
               >
                 Request Partnership
               </motion.span>
@@ -181,7 +184,7 @@ export default function Navbar() {
             <motion.span
               animate={
                 mobileOpen
-                  ? { rotate: 45, y: 6, backgroundColor: "#0f766e" }
+                  ? { rotate: 45, y: 6, backgroundColor: "#1C1C1C" }
                   : { rotate: 0, y: 0, backgroundColor: "#ffffff" }
               }
               className="block h-0.5 w-6 rounded-full bg-white"
@@ -195,7 +198,7 @@ export default function Navbar() {
             <motion.span
               animate={
                 mobileOpen
-                  ? { rotate: -45, y: -6, backgroundColor: "#0f766e" }
+                  ? { rotate: -45, y: -6, backgroundColor: "#1C1C1C" }
                   : { rotate: 0, y: 0, backgroundColor: "#ffffff" }
               }
               className="block h-0.5 w-6 rounded-full bg-white"
