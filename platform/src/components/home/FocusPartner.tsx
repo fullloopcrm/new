@@ -211,6 +211,117 @@ const sundayBooking = [
   { t: "11:10 PM", where: "The Owner", actor: "Human", body: "Asleep. Will see the booking in the morning. The first time the owner touches this lead is when the cleaner shows up at 12pm.", highlight: true },
 ];
 
+/* The full lifecycle — every automation that actually runs at The NYC Maid */
+const fullLoopProcess = [
+  {
+    num: "01",
+    name: "Website Traffic",
+    summary: "23,078 events tracked across 98 SEO domains · $0 ad spend",
+    steps: [
+      { actor: "Visitor", body: "Lands on one of 98 EMD domains — neighborhood-specific (regoparkmaid.com, uwsmaid.com), service-specific (samedaycleannyc.com), or main brand (thenycmaid.com). Organic Google / Bing / DuckDuckGo / ChatGPT / Claude. Zero ads." },
+      { actor: "Tracker", body: "/api/track logs visit row in lead_clicks: domain, page, referrer, device, session_id, visitor_id, scroll_depth, load_time_ms, utm_source. Now 1 of 23,078 events." },
+      { actor: "Tracker", body: "Engagement timer crosses 30s → action='engaged_30s' fires (1 of 3,918). Scroll past 50%/75%/100% each fire their own row." },
+      { actor: "Visitor", body: "Reads the page, scrolls. 35% of visits hit 30s+ engagement. 13% scroll past halfway." },
+      { actor: "Visitor", body: "Taps a CTA — call (234), text (631), or book (415). action logged with placement, scroll_at_cta, time_before_cta. 1,280 conversion events fired so far." },
+    ],
+  },
+  {
+    num: "02",
+    name: "Selena Receives the Lead",
+    summary: "881 conversations · 4,934 SMS messages handled · 17-intent state machine",
+    steps: [
+      { actor: "Telnyx", body: "Inbound SMS arrives at the tenant Telnyx number. Webhook POSTs to /api/webhook/telnyx." },
+      { actor: "Platform", body: "isCleanerPhone() checks the sender against cleaners.phone — if cleaner, route to acknowledgment flow. If client, continue. (Bug-fix from production: Gloria + Emma were being booked as clients before this check shipped.)" },
+      { actor: "Platform", body: "Find or create sms_conversations row. Lookup client by phone — if returning, getClientProfile() loads name, address, last booking, preferred cleaner, last rate, payment history." },
+      { actor: "Selena (AI)", body: "Intent router classifies the message into 1 of 17 intents (booking, reschedule, cancel, payment_check, dispute, callback, account_update, etc.). Each intent gets its own focused tool set." },
+      { actor: "Selena (AI)", body: "If new booking: state machine starts. Deterministic 10-field checklist (service_type → bedrooms → rate → day → time → name → phone → address → email → recap). Identity collected LAST — fixed 42 of 45 abandoned conversations that used to drop off at name." },
+      { actor: "Selena (AI)", body: "Each reply: bilingual EN/ES auto-detected, banned-phrase guard (no 'absolutely', no 'happy to help'), max one 😊 emoji. Returning clients greeted by name; known fields skipped." },
+      { actor: "Selena (AI)", body: "On recap: payment methods listed (Zelle/CC/CashApp/Venmo), cancellation policy stated, arrival buffer (30 min weekday/60 min weekend), portal link sent. create_booking tool fires." },
+    ],
+  },
+  {
+    num: "03",
+    name: "Booking Created · Cleaner Auto-Assigned",
+    summary: "1,240 bookings · 458 attributed · 221 cleaner_notified events",
+    steps: [
+      { actor: "Platform", body: "/api/client/book POST creates client (if new) and booking row. Status='scheduled', payment_status='unpaid'." },
+      { actor: "Platform", body: "attribution.ts auto-attributes the booking. CTA-click within 24h = 100% confidence. Search-referrer visit within 3d = 90% max. Engaged visit within 3d = 80%. Visit-only within 24h = 50%." },
+      { actor: "Platform", body: "Hot-lead notification fires: \"Website → Sale: [client] ([neighborhood]) — [icon] [domain] [time-ago] → booked [service] (X%)\". 1 of 235 in production." },
+      { actor: "Platform", body: "smart-schedule.ts scoreCleanersForBooking() scores all 9 cleaners on zone_match (+50), proximity (+30), clustering (+20), travel_time (+20), car_required, labor_only, home_by_time. Top score wins." },
+      { actor: "Platform", body: "suggested_cleaner_id and suggested_reason saved on booking. 80% of jobs route to top 2 cleaners (Karina · Gloria) by smart-schedule." },
+      { actor: "Telnyx + Resend", body: "Confirmation SMS to client (EN). Assignment SMS to cleaner (bilingual EN/ES same message). Confirmation email fires via Resend with portal link." },
+      { actor: "Platform", body: "Push notification to admin. emailAdmins() also fires. Daily summary picks up the booking the next morning." },
+    ],
+  },
+  {
+    num: "04",
+    name: "Pre-Job Reminders + Lifecycle",
+    summary: "Hourly + daily crons · 129 reschedules handled hands-off",
+    steps: [
+      { actor: "cron/confirmations", body: "Hourly. Sends 7-day, 3-day, 24h, 2h confirmation reminders. SMS + email." },
+      { actor: "cron/reminders", body: "8am daily. Sends day-of reminders to clients + crew. Bilingual." },
+      { actor: "Client", body: "Can reschedule from /portal — /api/client/reschedule. Selena handles SMS reschedules too. (129 booking_rescheduled events fired in production.)" },
+      { actor: "cron/lifecycle", body: "Daily. Scores every client active / at-risk / churned based on booking frequency. Updates clients.lifecycle_status." },
+      { actor: "cron/no-show-check", body: "Catches missed bookings, alerts admin." },
+      { actor: "cron/late-check-in", body: "Every 5 min. If start_time was >15 min ago and no check_in_time → SMS to admin. Already saved a Karina double-book on May 1." },
+    ],
+  },
+  {
+    num: "05",
+    name: "Day of Job — GPS Field Ops",
+    summary: "116 GPS check-ins · 73 check-outs · 65 fifteen-min heads-ups · 528ft validation",
+    steps: [
+      { actor: "Cleaner", body: "Opens /team/[token] on phone (mobile PWA, no app needed). PIN login." },
+      { actor: "Platform", body: "GPS coords captured. Distance from client.address calculated via Haversine. Within 528ft? check_in_time + check_in_location written to booking. Notification 'check_in' fires (1 of 116)." },
+      { actor: "Cleaner", body: "Records before-walkthrough video → /api/team-portal/video-upload. Stored on booking.walkthrough_video_url. (cron/cleanup-videos auto-deletes after 30 days to save storage.)" },
+      { actor: "Cleaner", body: "Taps 'running late' if needed → SMS to client + admin (running_late_at + running_late_eta saved)." },
+      { actor: "Cleaner", body: "15 min before finish: taps '15-min Heads Up' button. SMS fires to admin: client name, cleaner name, exact amount due, cleaner take. Button disappears so it can't be double-pressed. (65 used in production.)" },
+      { actor: "Cleaner", body: "Records after-walkthrough video. GPS check-out: end_time saved, location validated, actual_hours computed with half-hour rounding + 10-min grace (3:09 = 3.0hr, 3:10 = 3.5hr)." },
+      { actor: "Platform", body: "Booking status → 'completed'. cleaner_pay calculated automatically (actual_hours × cleaner_pay_rate). Notification 'check_out' + 'job_complete' fire (98 in production)." },
+    ],
+  },
+  {
+    num: "06",
+    name: "Payment — Stripe + IMAP Auto-Match",
+    summary: "Stripe Connect crew payouts (168/169 = 99.4%) · 81 IMAP-parsed Zelle/Venmo/Apple/Cash matches",
+    steps: [
+      { actor: "Admin", body: "Receives 15-min heads-up SMS with payment amount. Sends Stripe payment link to client OR client pays Zelle/Venmo/Apple/Cash to hi@thenycmaid.com." },
+      { actor: "Stripe webhook", body: "If card/Apple Pay: /api/stripe/webhook fires checkout.session.completed → marks booking paid, calculates tip (paid - expected). Confirmation SMS to client." },
+      { actor: "cron/email-monitor", body: "Every 60 seconds. IMAP polls hi@thenycmaid.com inbox via lib/email-monitor.ts. Scans for new Zelle/Venmo/Apple Pay/Cash App receipt emails." },
+      { actor: "payment-email-parser.ts", body: "Parses sender_name, amount, payment_method from the email body. Matches against bookings with payment_status='unpaid' by sender phone OR amount + recent booking." },
+      { actor: "payment-processor.ts", body: "processPayment() runs the canonical chain: marks booking paid → calculates tip → sends client confirmation SMS → auto-pays cleaner via Stripe Connect (cleaner.stripe_account_id) → sends cleaner bilingual SMS with tip amount if any." },
+      { actor: "Platform", body: "Notification 'payment_received' fires (81 in production). cleaner_paid + cleaner_paid_at written. 168 of 169 cleaner payouts ran auto via Stripe Connect — 99.4% success." },
+    ],
+  },
+  {
+    num: "07",
+    name: "Reviews + Reputation",
+    summary: "50 reviews · 100% are 5-star · auto-collected, auto-replied",
+    steps: [
+      { actor: "cron/post-job-followup", body: "24h after job complete: SMS + email review request. 10% rebooking discount baked into the message." },
+      { actor: "Client", body: "Taps the review link → /reviews/submit. Review row created with rating, comment, photo." },
+      { actor: "Platform", body: "Negative-sentiment detection: if rating < 4 OR negative keywords detected, flag for admin private resolution before review goes public." },
+      { actor: "cron/auto-reply-reviews", body: "Every Google review gets an AI-generated reply via Claude — posted to GMB through the Google Business Profile API." },
+      { actor: "cron/sync-google-reviews", body: "Daily pull of Google reviews into reviews table. Stars + comment indexed." },
+      { actor: "Selena", body: "If client expresses frustration mid-conversation, escalates via 'request_callback' intent — phone-call recommendation routed to admin before a 1-star review can post." },
+    ],
+  },
+  {
+    num: "08",
+    name: "Retention + Recurring + Referrals",
+    summary: "85% recurring share · 25 active recurring schedules · automated win-back",
+    steps: [
+      { actor: "cron/generate-recurring", body: "Generates next instance of every active recurring_schedule. 7 patterns supported (daily, weekly, bi-weekly, tri-weekly, monthly-by-date, monthly-by-weekday, custom)." },
+      { actor: "cron/lifecycle", body: "Re-scores every client daily. Active → at-risk if no booking in 60+ days for their cadence. Churned if 90+." },
+      { actor: "cron/outreach", body: "Win-back SMS + email to at-risk clients. Personalized offer pulled from their service history." },
+      { actor: "cron/follow-up + cron/sales-follow-ups", body: "Follow up on quotes that didn't convert, abandoned bookings, expired payment links." },
+      { actor: "Referrer", body: "Each client can refer via /referral. Referrer code tracks every conversion. 10% commission auto-calculated on first booking. One-click admin payout via Zelle/Apple Cash." },
+      { actor: "cron/daily-summary", body: "End of day: owner gets one email — bookings completed, revenue collected, payments still pending, tomorrow's schedule, errors caught. (35 daily summaries fired in production so far.)" },
+      { actor: "cron/health-check + system-check + comms-monitor", body: "Background watchdogs catch errors (189 caught), API quota issues, IMAP failures, Stripe webhook misfires — flag the owner before customers see anything." },
+    ],
+  },
+];
+
 const removedFromDay = [
   { before: "30+ phone calls / day", after: "0 — Selena handles all 4,934 messages across 881 conversations" },
   { before: "Manual scheduling on a whiteboard", after: "Smart-schedule scoring across 9 cleaners · 221 auto-assignments fired" },
@@ -505,6 +616,57 @@ export default function FocusPartner() {
               </div>
             ))}
           </div>
+        </motion.div>
+
+        {/* ─────── 7b. THE FULL LOOP — every automation, end to end ─────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.23 }}
+          className="mb-20"
+        >
+          <div className="text-center mb-10">
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">
+              The Full Loop · every automation that runs on The NYC Maid
+            </p>
+            <h3 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight">
+              From the first website visit
+              <br className="hidden sm:block" />
+              to the rebooking 90 days later.
+            </h3>
+            <p className="mt-4 text-slate-400 text-sm sm:text-base max-w-3xl mx-auto">
+              Eight stages. ~50 individual automations. Every one of them runs
+              hands-off, every day, on the live cleaning company. Each
+              automation below is a real production code path — same code that
+              ships to every Focus Partner.
+            </p>
+          </div>
+          <div className="space-y-6">
+            {fullLoopProcess.map((stage) => (
+              <div key={stage.num} className="rounded-2xl border border-teal-700/40 bg-slate-950/60 overflow-hidden">
+                <div className="flex items-center justify-between gap-3 px-6 py-4 sm:px-8 sm:py-5 bg-gradient-to-r from-teal-900/40 to-slate-900/40 border-b border-teal-700/30">
+                  <div className="flex items-baseline gap-4">
+                    <span className="font-mono text-2xl sm:text-3xl font-extrabold text-teal-400 tabular-nums">{stage.num}</span>
+                    <h4 className="font-heading text-xl sm:text-2xl font-extrabold text-white">{stage.name}</h4>
+                  </div>
+                  <p className="hidden md:block font-mono text-xs text-teal-300 text-right max-w-md">{stage.summary}</p>
+                </div>
+                <p className="md:hidden px-6 py-2 font-mono text-[11px] text-teal-300 border-b border-teal-700/20">{stage.summary}</p>
+                <ol className="divide-y divide-slate-800">
+                  {stage.steps.map((s, i) => (
+                    <li key={i} className="grid grid-cols-[28px_100px_1fr] sm:grid-cols-[32px_140px_1fr] gap-3 sm:gap-4 px-6 py-3 sm:px-8 sm:py-4">
+                      <span className="font-mono text-[11px] sm:text-xs text-slate-500 tabular-nums pt-0.5">{stage.num}.{i + 1}</span>
+                      <span className="font-cta text-[10px] sm:text-xs uppercase tracking-widest text-teal-300/80 pt-0.5 break-words">{s.actor}</span>
+                      <span className="text-sm text-slate-200 leading-snug">{s.body}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+          </div>
+          <p className="mt-8 text-center text-sm text-slate-400 max-w-2xl mx-auto">
+            <strong className="text-white">~50 automations.</strong> Zero phone
+            calls answered by humans today. Owner spent the day building the
+            platform. Platform spent the day running the business.
+          </p>
         </motion.div>
 
         {/* ─────── 8. SERVICE MIX + CLEANER LOAD ─────── */}
