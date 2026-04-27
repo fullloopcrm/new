@@ -95,19 +95,21 @@ export default function TheNYCMaidCaseStudy() {
       <section className="bg-slate-900 py-24 px-6">
         <div className="mx-auto max-w-4xl text-center">
           <p className="text-teal-400 font-mono text-sm tracking-widest uppercase mb-4">
-            Partner Case Study
+            Our Focus Partner
           </p>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white font-heading leading-tight mb-6">
-            Our First Partner.
+            The NYC Maid wasn&apos;t a customer.
             <br />
-            Real Numbers. No BS.
+            It was the test bed.
           </h1>
           <p className="text-slate-300 text-lg md:text-xl max-w-2xl mx-auto mb-8">
-            The NYC Maid launched on Full Loop CRM in February 2026.
-            Here&apos;s what happened in 7 weeks.
+            Full Loop CRM was built by running a live home-cleaning company in
+            New York City. Average ticket grew from $165 to $245 in under 6
+            months. Today every feature you license runs The NYC Maid hands-off.
+            Real numbers below.
           </p>
           <p className="text-slate-500 text-sm font-mono">
-            Last updated March 25, 2026
+            Live as of April 27, 2026
           </p>
         </div>
       </section>

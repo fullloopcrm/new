@@ -11,6 +11,7 @@ import { faqs } from "@/lib/siteData";
 
 // Above the fold — static imports (no lazy loading)
 import Hero from "@/components/home/Hero";
+import FocusPartner from "@/components/home/FocusPartner";
 import QuickTips from "@/components/home/QuickTips";
 import Welcome from "@/components/home/Welcome";
 import ResultsTicker from "@/components/home/ResultsTicker";
@@ -63,6 +64,9 @@ export default function Home() {
 
       {/* 1. Hero */}
       <Hero />
+
+      {/* 1a. Focus Partner — The NYC Maid case study (live evidence) */}
+      <FocusPartner />
 
       {/* 1b. Why we built this */}
       <QuickTips />
