@@ -64,7 +64,7 @@ export async function generateMetadata({
       ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} has been claimed. Full Loop CRM licenses only one ${trade} partner per metro — see nearby markets still available.`
       : status === "pending"
         ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for the exclusive Full Loop CRM license. Only one per metro — get on the waitlist if the application falls through.`
-        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it's licensed to one operator per metro. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one platform. Claim the ${metro.city} territory from $199/mo.`;
+        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it's licensed to one operator per metro. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one platform. Claim the ${metro.city} territory at $1,000 per user / month.`;
   const url = `https://homeservicesbusinesscrm.com/${slug}`;
 
   return {
@@ -566,10 +566,10 @@ export default async function ComboPage({
       <section className="py-20 px-6 bg-slate-50">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            One {industry.name} License for {metro.city}. $199/mo.
+            One {industry.name} License for {metro.city}. $1,000 / user.
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
-            $199<span className="text-xl text-slate-500 font-normal">/mo</span>
+            $1,000<span className="text-xl text-slate-500 font-normal">/user/mo</span>
           </p>
           <p className="text-slate-600 mb-4 text-lg">
             The exclusive {trade} CRM license for {metro.city},{" "}
@@ -580,9 +580,10 @@ export default async function ComboPage({
             Full Loop CRM replaces 9+ separate tools — lead generation,
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
-            platform. The $199/mo license includes your exclusive{" "}
-            {metro.city} territory, all 7 lifecycle stages, the Selena AI
-            assistant, client and team portals, and all core updates.
+            platform. Flat $1,000 per user / month. No tiers. No feature
+            gates. The license includes your exclusive {metro.city}{" "}
+            territory, all 7 lifecycle stages, the Selena AI assistant,
+            client and team portals, and all core updates.
           </p>
           <p className="text-sm text-slate-500 mb-8">
             $999 one-time setup. No contracts. Cancel anytime — but the next

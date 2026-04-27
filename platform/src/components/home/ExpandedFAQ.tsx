@@ -67,7 +67,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "How much does Full Loop CRM cost?",
-    answer: <span>Plans start at $199/month for solo operators, $499/month for teams up to 5, and $999/month for unlimited team members. Every tier gets the complete platform — CRM, Selena AI, custom website, SEO, team portal, hiring pages, and full automation. $999 one-time setup fee. No contracts, cancel anytime. Full details on our <L href="/full-loop-crm-pricing">pricing page</L>.</span>,
+    answer: <span>Flat $1,000 per user per month. Every feature, every seat — no tiers, no upgrades, no caps. Solo at $1,000/mo, 5-person team at $5,000/mo, 25-person team at $25,000/mo. Every operator gets the complete platform — CRM, Selena AI, custom website, SEO, GPS team portal, e-signature, route optimization, full bookkeeping with 1099-ready exports, hiring pages, reviews, referrals. $999 one-time setup. No contracts, cancel anytime. Full details on our <L href="/full-loop-crm-pricing">pricing page</L>.</span>,
   },
   {
     question: "Who owns what in a Full Loop CRM partnership?",

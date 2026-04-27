@@ -169,8 +169,8 @@ export default function WhatIsDigitalMarketing() {
               talks to each other.
             </p>
             <p>
-              <Link href="/full-loop-crm-pricing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Full Loop CRM replaces all of it</Link> for
-              starting at $199/month — with organic lead generation built in, so you never
+              <Link href="/full-loop-crm-pricing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Full Loop CRM replaces all of it</Link> at
+              $1,000 per user per month — with organic lead generation built in, so you never
               pay for ads again. That&apos;s not a cost. It&apos;s an investment that pays
               for itself within the first 90 days for most partners.
             </p>

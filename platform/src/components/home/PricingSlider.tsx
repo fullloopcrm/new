@@ -41,13 +41,15 @@ export default function PricingSlider() {
             Home Service CRM Pricing
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 font-heading">
-            Every Plan Gets Everything.{" "}
-            <span className="text-teal-600">Full Loop.</span>
+            $1,000 per user.{" "}
+            <span className="text-teal-600">Every feature.</span>
           </h2>
           <p className="mt-4 text-slate-600 text-lg max-w-2xl mx-auto">
-            No upsells. No hidden fees. No feature gates. Every{" "}
+            No tiers. No feature gates. No revenue caps. Flat per-user pricing
+            for the full{" "}
             <Link href="/full-loop-crm-101-educational-tips" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">home service CRM</Link>{" "}
-            tier gets the complete platform. The only difference is team size. View our full{" "}
+            platform. Add a seat, your invoice goes up. Remove a seat, it goes
+            down. View the full{" "}
             <Link href="/full-loop-crm-pricing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">pricing guide</Link>.
           </p>
         </motion.div>
@@ -60,36 +62,48 @@ export default function PricingSlider() {
           transition={{ duration: 0.5, delay: 0.15 }}
           className="mb-8"
         >
-          <p className="text-center text-sm text-slate-500 mb-6 font-cta">$999 one-time setup fee &mdash; same for every tier</p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { name: "Starter", price: "$199", period: "/mo", desc: "Solo operator", team: "1 team member" },
-              { name: "Growth", price: "$499", period: "/mo", desc: "$100K–$250K revenue", team: "Up to 5 members" },
-              { name: "Pro", price: "$999", period: "/mo", desc: "$250K–$1M revenue", team: "Unlimited members", highlighted: true },
-              { name: "Enterprise", price: "Get Pricing", period: "", desc: "$1M+ revenue", team: "Unlimited + multi-location" },
-            ].map((tier) => (
-              <div
-                key={tier.name}
-                className={`rounded-2xl border-2 p-6 text-center ${
-                  tier.highlighted
-                    ? "border-teal-600 bg-white shadow-lg scale-[1.02]"
-                    : "border-slate-200 bg-white shadow-sm"
-                }`}
-              >
-                {tier.highlighted && (
-                  <span className="inline-block mb-2 rounded-full bg-teal-600 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
-                    Most Popular
-                  </span>
-                )}
-                <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider font-cta">{tier.name}</p>
-                <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-mono mt-2">
-                  {tier.price}
-                  <span className="text-lg text-slate-400 font-medium">{tier.period}</span>
-                </div>
-                <p className="text-slate-500 text-xs mt-1">{tier.desc}</p>
-                <p className="text-teal-600 text-sm font-medium mt-3">{tier.team}</p>
-              </div>
-            ))}
+          <p className="text-center text-sm text-slate-500 mb-6 font-cta">$999 one-time setup &mdash; flat per-user thereafter</p>
+
+          {/* Single price card */}
+          <div className="mx-auto max-w-md rounded-2xl border-2 border-teal-600 bg-white shadow-lg p-8 text-center mb-8">
+            <p className="text-sm font-semibold text-teal-600 uppercase tracking-wider font-cta mb-2">
+              Per user / per month
+            </p>
+            <div className="text-5xl sm:text-6xl font-extrabold text-slate-900 font-mono">
+              $1,000
+              <span className="text-xl text-slate-400 font-medium">/user/mo</span>
+            </div>
+            <p className="text-slate-500 text-sm mt-3">
+              Every feature. Every seat. No upgrades, no add-on shelf, no caps.
+            </p>
+          </div>
+
+          {/* Seat math */}
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-left">
+                  <th className="px-4 py-2.5 font-semibold text-slate-700">Team size</th>
+                  <th className="px-4 py-2.5 font-semibold text-slate-700 text-right">Users</th>
+                  <th className="px-4 py-2.5 font-semibold text-slate-700 text-right">Per month</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {[
+                  { label: "Solo operator", users: 1 },
+                  { label: "Small crew", users: 3 },
+                  { label: "Standard team", users: 5 },
+                  { label: "Mid-size", users: 10 },
+                  { label: "Multi-crew", users: 25 },
+                ].map(({ label, users }) => (
+                  <tr key={users}>
+                    <td className="px-4 py-2.5 text-slate-700">{label}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-500">{users}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-900">${(users * 1000).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           <p className="text-center text-sm text-slate-500 mt-4">No contracts. Month to month. Cancel anytime.</p>
         </motion.div>

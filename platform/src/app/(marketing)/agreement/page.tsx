@@ -78,10 +78,11 @@ export default function AgreementPage() {
             <strong>Setup fee:</strong> $999 one-time.
           </p>
           <p>
-            <strong>Monthly subscription:</strong> $199, $499, $999, or a custom
-            plan depending on the size of your operation. Every plan includes
-            every feature &mdash; the only difference between tiers is team
-            member capacity.
+            <strong>Monthly subscription:</strong> Flat $1,000 per user / month.
+            No tiers, no feature gates, no revenue caps. Every operator on every
+            team size gets the complete platform. Add a seat in your Team page
+            and the next monthly invoice picks up the additional charge. Remove
+            a seat the same way.
           </p>
           <p>
             This is a month-to-month partnership. There is no long-term

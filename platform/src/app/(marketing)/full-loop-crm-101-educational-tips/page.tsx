@@ -34,7 +34,7 @@ const crm101Faqs = [
   {
     question: "Is a full-service CRM worth the investment?",
     answer:
-      "Only if it replaces multiple tools and generates enough revenue to justify itself. If a CRM generates 20 new leads per month and you close half at $300 each, that's $3,000 in new revenue — before counting the time you save. Full Loop starts at $199/month and replaces 9+ separate tools. If your CRM is just a glorified calendar, it's not worth $50/month.",
+      "Only if it replaces multiple tools and generates enough revenue to justify itself. If a CRM generates 20 new leads per month and you close half at $300 each, that's $3,000 in new revenue — before counting the time you save. Full Loop is a flat $1,000 per user per month and replaces 9+ separate tools, plus an answering service, plus a bookkeeper, plus a payroll seat. If your CRM is just a glorified calendar, it's not worth $50/month.",
   },
   {
     question: "Can I just use HubSpot or Salesforce for my service business?",

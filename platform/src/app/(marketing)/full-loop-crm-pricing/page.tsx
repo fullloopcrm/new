@@ -14,32 +14,31 @@ import {
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
   title:
-    "Territory Licenses from $199/mo | Full Loop CRM — One Operator Per Trade Per Metro",
+    "$1,000 per user / month | Full Loop CRM — One Trade Per Metro",
   description:
-    "The only full-cycle home service CRM — licensed to one operator per trade per metro. Every tier gets the full platform, every AI-generated local lead, and exclusivity in your city. From $199/mo.",
+    "Flat $1,000 per user / month. Every feature included. One operator per trade per metro holds the license. AI sales (Selena), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO. The category doesn't have a comparison.",
   keywords: [
-    "exclusive territory home service CRM",
-    "one trade per city CRM",
-    "home service CRM pricing",
-    "field service CRM cost",
     "Full Loop CRM pricing",
-    "CRM with exclusive territory",
-    "home service franchise CRM",
+    "home service CRM per user pricing",
+    "exclusive territory CRM",
+    "one trade per metro CRM",
+    "all-in-one home service platform",
+    "AI receptionist CRM",
   ],
   alternates: { canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
   openGraph: {
-    title: "Territory Licenses from $199/mo — One Trade Per Metro",
+    title: "$1,000 per user / month — One Trade Per Metro",
     description:
-      "One operator per trade per metro holds the Full Loop CRM license. 4 tiers, all features, exclusive territory. No contracts — but once a territory is claimed it's off the board.",
+      "Flat per-user pricing. Every feature, every tier. Exclusive territory in your city. The first full-cycle CRM with an AI receptionist that books while you sleep.",
     url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
     siteName: "Full Loop CRM",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Territory Licenses from $199/mo — One Trade Per Metro",
+    title: "$1,000 per user / month — One Trade Per Metro",
     description:
-      "One operator per trade per metro. All features, every tier. Claim the license before a competitor does.",
+      "One operator per trade per metro. Flat per-user pricing, every feature included. Claim the license before a competitor does.",
   },
 };
 
@@ -51,72 +50,42 @@ const breadcrumbs = [
   { name: "Pricing", url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
 ];
 
-const tiers = [
-  {
-    name: "Starter",
-    price: "$199",
-    period: "/mo",
-    revenue: "$0 – $100K revenue",
-    teamMembers: "1 team member (solo)",
-    cta: "Get Started",
-    highlighted: false,
-  },
-  {
-    name: "Growth",
-    price: "$499",
-    period: "/mo",
-    revenue: "$100K – $250K revenue",
-    teamMembers: "Up to 5 team members",
-    cta: "Get Started",
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: "$999",
-    period: "/mo",
-    revenue: "$250K – $1M revenue",
-    teamMembers: "Unlimited team members",
-    cta: "Get Started",
-    highlighted: true,
-    badge: "Most Popular",
-  },
-  {
-    name: "Enterprise",
-    price: "Get Pricing",
-    period: "",
-    revenue: "$1M+ revenue",
-    teamMembers: "Unlimited + multi-location",
-    cta: "Contact Us",
-    highlighted: false,
-  },
+const PRICE_PER_USER = 1000;
+const SETUP_FEE = 999;
+
+const seatExamples = [
+  { label: "Solo operator", users: 1 },
+  { label: "Small crew", users: 3 },
+  { label: "Standard team", users: 5 },
+  { label: "Mid-size", users: 10 },
+  { label: "Multi-crew", users: 25 },
+  { label: "Scale", users: 50 },
 ];
 
 const includedFeatures = [
-  "Custom Next.js website with auto-generated pages (services + areas + hiring)",
-  "Selena AI booking agent (SMS + web chat, bilingual EN/ES)",
-  "Full CRM (clients, bookings, calendar, finance)",
-  "Team portal (GPS check-in/out, video walkthroughs, 15-min heads up, earnings)",
-  "Hiring pages with Google Jobs schema — applications flow to dashboard",
-  "Review automation and referral program",
-  "SMS + email campaigns",
-  "Client portal",
-  "Full SEO management",
-  "White-glove onboarding ($999 setup — we do it all)",
-];
-
-const traditionalCosts = [
-  { item: "Receptionist / answering service", cost: "$2,400" },
-  { item: "CRM software (Jobber, Housecall Pro, etc.)", cost: "$1,800" },
-  { item: "Website design + hosting", cost: "$6,000" },
-  { item: "SEO agency", cost: "$12,000" },
-  { item: "SMS / phone system", cost: "$1,200" },
-  { item: "Review management software", cost: "$1,200" },
-  { item: "Email marketing platform", cost: "$1,200" },
-  { item: "Team scheduling / GPS tracking", cost: "$2,400" },
-  { item: "Hiring / job board postings", cost: "$3,600" },
+  "Custom Next.js website with auto-generated services + service-area + neighborhood + careers pages",
+  "Selena AI agent on SMS, web chat, AND inbound email — same brain, 17 intents, bilingual EN/ES",
+  "Full CRM (clients, bookings, calendar, recurring schedules, smart-schedule scoring)",
+  "Sales suite: leads, deals + pipeline, quotes, e-signature documents, invoices, route optimization",
+  "Mobile team portal (PIN login, GPS check-in/out with 528ft validation, before/after video walkthroughs, 15-min heads-up)",
+  "Stripe Connect crew payouts — auto-pay your team the moment a job closes",
+  "IMAP email monitor — auto-matches Zelle / Apple Pay / Venmo / Cash App receipts to bookings",
+  "Full bookkeeping — bank import, ML-suggested transaction matching, chart of accounts, P&L, AR aging, cash flow, payroll, 1099-ready exports, CPA portal",
+  "Review automation, negative-sentiment detection, AI escalation before bad reviews go public",
+  "Win-back campaigns + referral program with commission tracking",
+  "Google Business Profile + Facebook + Instagram posting from one place",
+  "Slack-style 'Connect' channels — your team, each client, each crew member",
+  "Hiring pages with Google Jobs schema — applications flow into your admin queue",
+  "Per-tenant SEO management (sitemap, IndexNow, JSON-LD, OG images)",
+  "White-glove onboarding ($999 one-time setup — we do the entire build)",
 ];
 
 const pricingFaqs = [
+  {
+    question: "Why $1,000 per user?",
+    answer:
+      "Because nothing else in this category exists. You're not buying a CRM — you're buying an AI receptionist that books leads at 11pm, an automated bookkeeping engine, a GPS field operations platform, an e-signature workflow, a route optimizer, a multi-channel review machine, and a per-tenant SEO website network. Selena alone replaces a $300–$400/mo answering service. Each user seat unlocks the GPS team portal, video walkthroughs, payroll line, and earnings tracker — every seat is worth more than $1,000 of operational lift per month.",
+  },
   {
     question: "Is there a contract?",
     answer:
@@ -135,12 +104,17 @@ const pricingFaqs = [
   {
     question: "What's the setup fee?",
     answer:
-      "$999 one-time, same for every tier. This covers white-glove onboarding: we build your custom website, configure Selena AI for your trade, import your existing clients, set up your service areas and pricing, and test everything end-to-end before you go live. You don't lift a finger.",
+      "$999 one-time. This covers white-glove onboarding: we build your custom website, configure Selena AI for your trade, import your existing clients, set up your service areas and pricing, and test everything end-to-end before you go live. You don't lift a finger.",
   },
   {
     question: "Do I own my client data?",
     answer:
       "Yes, always. Your client data is yours from the moment it enters the system. You can export a full CSV anytime — no fees, no waiting, no hoops. If you cancel, we export everything for free as part of the offboarding process.",
+  },
+  {
+    question: "What happens when I add a new team member?",
+    answer:
+      "Add them in your Team page and the next month's invoice picks up the additional seat. No tier upgrades, no renegotiation, no feature gates. Remove a seat the same way and your invoice drops the next cycle.",
   },
 ];
 
@@ -148,17 +122,13 @@ const pricingFaqs = [
 /*  Page component                                                     */
 /* ------------------------------------------------------------------ */
 export default function PricingPage() {
-  const traditionalTotal = traditionalCosts.reduce((sum, { cost }) => {
-    return sum + parseInt(cost.replace(/[$,]/g, ""), 10);
-  }, 0);
-
   return (
     <>
       {/* -- Schema ------------------------------------------------- */}
       <JsonLd
         data={webPageSchema(
           "Pricing | Full Loop CRM",
-          "4 simple tiers, all features included. Full Loop CRM replaces 9+ tools for home service businesses. Plans from $199/mo. No contracts.",
+          "Flat $1,000 per user / month. Every feature included. One operator per trade per metro. The category doesn't have a comparison.",
           "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
           breadcrumbs
         )}
@@ -166,7 +136,7 @@ export default function PricingPage() {
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd data={faqSchema(pricingFaqs)} />
       <JsonLd data={localBusinessSchema("United States", "Country")} />
-      <JsonLd data={softwareApplicationSchema("199", "USD")} />
+      <JsonLd data={softwareApplicationSchema(String(PRICE_PER_USER), "USD")} />
 
       {/* -- 1. Hero ------------------------------------------------ */}
       <section className="bg-slate-900 py-24 px-6 sm:py-32">
@@ -175,102 +145,93 @@ export default function PricingPage() {
             One Trade. One Metro. One License.
           </p>
           <h1 className="text-4xl font-extrabold font-heading text-white sm:text-5xl lg:text-6xl">
-            You&apos;re Not Buying Software.{" "}
-            <span className="text-yellow-300">You&apos;re Locking Out Your Competition.</span>
+            $1,000 per user.{" "}
+            <span className="text-yellow-300">Every feature. No tiers.</span>
           </h1>
           <p className="mt-6 text-lg text-slate-300 sm:text-xl max-w-2xl mx-auto">
-            Every tier gets the same full-cycle platform. The only difference is
-            team size. What you&apos;re really paying for is the exclusive right
-            to be the one operator in your trade, in your metro, running on Full
-            Loop CRM.
+            Flat per-user pricing. The whole platform from day one — Selena AI,
+            full CRM, GPS field operations, bookkeeping, e-signature, routes,
+            reviews, referrals, and your custom site network. Add a seat, your
+            invoice goes up. Remove a seat, it goes down.
           </p>
           <p className="mt-4 text-sm font-mono text-teal-400 tracking-wide">
-            No contracts. Month to month. But your territory stays yours as long as you hold the license.
+            No contracts. Month to month. But once a territory is claimed it&apos;s off the board.
           </p>
         </div>
       </section>
 
-      {/* -- 2. Pricing Tiers --------------------------------------- */}
-      <section className="py-20 px-6 bg-white" id="pricing-tiers">
-        <div className="mx-auto max-w-6xl">
-          <div className="text-center mb-6">
+      {/* -- 2. Single-price card + seat calculator ------------------ */}
+      <section className="py-20 px-6 bg-white" id="pricing">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-10">
             <p className="text-sm font-mono uppercase tracking-widest text-teal-600 mb-2">
-              $999 one-time setup fee — same for every tier
+              $999 one-time setup &middot; All features included
+            </p>
+            <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
+              One Price. Every Seat.
+            </h2>
+          </div>
+
+          {/* Headline price */}
+          <div className="mx-auto max-w-md rounded-2xl border-2 border-teal-600 bg-white p-10 shadow-xl text-center">
+            <p className="text-sm font-mono uppercase tracking-widest text-teal-600 mb-2">
+              Per user / per month
+            </p>
+            <p className="flex items-baseline justify-center gap-1">
+              <span className="text-6xl font-extrabold font-heading text-slate-900">
+                ${PRICE_PER_USER.toLocaleString()}
+              </span>
+              <span className="text-xl text-slate-500">/user/mo</span>
+            </p>
+            <p className="mt-3 text-sm text-slate-500">
+              Every feature, every seat, every tenant. No gates, no upgrades.
+            </p>
+            <Link
+              href="/crm-partnership-request-form"
+              className="mt-6 block w-full rounded-lg bg-teal-600 px-6 py-3 text-center text-sm font-cta font-semibold text-white shadow-sm hover:bg-teal-700 transition-colors"
+            >
+              Claim Your Territory
+            </Link>
+          </div>
+
+          {/* Seat calculator strip */}
+          <div className="mt-12">
+            <p className="text-center text-sm font-mono uppercase tracking-widest text-slate-600 mb-6">
+              What that looks like by team size
+            </p>
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-left">
+                    <th className="px-5 py-3 font-semibold text-slate-700">Team</th>
+                    <th className="px-5 py-3 font-semibold text-slate-700 text-right">Users</th>
+                    <th className="px-5 py-3 font-semibold text-slate-700 text-right">Per month</th>
+                    <th className="px-5 py-3 font-semibold text-slate-700 text-right">Per year</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {seatExamples.map(({ label, users }) => {
+                    const monthly = users * PRICE_PER_USER;
+                    const yearly = monthly * 12;
+                    return (
+                      <tr key={users}>
+                        <td className="px-5 py-3 text-slate-700 font-medium">{label}</td>
+                        <td className="px-5 py-3 text-right font-mono text-slate-500">{users}</td>
+                        <td className="px-5 py-3 text-right font-mono text-slate-900">${monthly.toLocaleString()}</td>
+                        <td className="px-5 py-3 text-right font-mono text-slate-500">${yearly.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-4 text-center text-xs text-slate-500">
+              50+ users? <Link href="/crm-partnership-request-form" className="text-teal-600 underline underline-offset-2">Talk to us</Link> — same flat rate, custom onboarding for multi-location operations.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {tiers.map((tier) => (
-              <div
-                key={tier.name}
-                className={`relative rounded-2xl border-2 p-8 flex flex-col ${
-                  tier.highlighted
-                    ? "border-teal-600 shadow-xl scale-[1.02] bg-white"
-                    : "border-slate-200 bg-white shadow-sm"
-                }`}
-              >
-                {tier.highlighted && (
-                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-teal-600 px-4 py-1 text-xs font-bold uppercase tracking-wider text-white">
-                    {tier.badge}
-                  </span>
-                )}
-
-                <h3 className="text-lg font-bold font-heading text-slate-900">
-                  {tier.name}
-                </h3>
-
-                <p className="mt-4 flex items-baseline gap-1">
-                  <span
-                    className={`text-4xl font-extrabold font-heading ${
-                      tier.highlighted ? "text-teal-600" : "text-slate-900"
-                    }`}
-                  >
-                    {tier.price}
-                  </span>
-                  {tier.period && (
-                    <span className="text-base text-slate-500">
-                      {tier.period}
-                    </span>
-                  )}
-                </p>
-
-                <p className="mt-2 text-sm text-slate-500">{tier.revenue}</p>
-
-                <div className="mt-4 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-                  <span
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600 text-xs"
-                    aria-hidden="true"
-                  >
-                    &#10003;
-                  </span>
-                  <span className="text-sm font-medium text-slate-700">
-                    {tier.teamMembers}
-                  </span>
-                </div>
-
-                <p className="mt-4 text-xs text-slate-500 leading-relaxed">
-                  All features included — same platform as every other tier.
-                </p>
-
-                <div className="mt-auto pt-6">
-                  <Link
-                    href="/crm-partnership-request-form"
-                    className={`block w-full rounded-lg px-6 py-3 text-center text-sm font-cta font-semibold shadow-sm transition-colors ${
-                      tier.highlighted
-                        ? "bg-teal-600 text-white hover:bg-teal-700"
-                        : "bg-slate-900 text-white hover:bg-slate-800"
-                    }`}
-                  >
-                    {tier.cta}
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-8 text-center text-sm text-slate-500">
-            No contracts. Month to month. Cancel anytime. $999 one-time setup
-            included with every tier.
+          <p className="mt-10 text-center text-sm text-slate-500">
+            No contracts. Month to month. Cancel anytime. ${SETUP_FEE} one-time setup.
           </p>
           <p className="mt-3 text-center">
             <Link href="/agreement" className="text-teal-600 underline underline-offset-2 hover:text-teal-700 text-sm font-medium">
@@ -280,7 +241,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* -- 3. What Every Tier Includes ----------------------------- */}
+      {/* -- 3. What Every Seat Includes ----------------------------- */}
       <section className="py-20 px-6 bg-slate-50" id="whats-included">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-14">
@@ -288,11 +249,11 @@ export default function PricingPage() {
               Zero Feature Gates
             </p>
             <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
-              What Every Tier Includes
+              What You Get From Day 1
             </h2>
             <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
-              There are no premium features behind a paywall. Every single
-              tenant on Full Loop gets the complete platform from day one.
+              Every operator on Full Loop runs the same complete platform. There
+              is no premium plan, no add-on shelf, no &quot;upgrade to unlock.&quot;
             </p>
           </div>
 
@@ -522,87 +483,69 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* -- 6. What You're Replacing -------------------------------- */}
-      <section className="py-20 px-6 bg-slate-900" id="cost-comparison">
+      {/* -- 6. Why this price ------------------------------------- */}
+      <section className="py-20 px-6 bg-slate-900" id="why-this-price">
         <div className="mx-auto max-w-4xl">
           <div className="text-center mb-14">
             <p className="mb-2 text-sm font-mono uppercase tracking-widest text-teal-400">
               The Math
             </p>
             <h2 className="text-3xl font-extrabold font-heading text-white sm:text-4xl">
-              9 Tools You're Replacing
+              Why $1,000 Per User
             </h2>
             <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-              Most home service businesses cobble together a stack of tools that
-              don't talk to each other. Full Loop replaces all of them.
+              No other CRM in this category exists. Jobber, Housecall Pro,
+              ServiceTitan — they ship 30–40% of the surface area Full Loop
+              ships. We don&apos;t price against them. We price against the value.
             </p>
           </div>
 
-          {/* Table */}
-          <div className="overflow-hidden rounded-xl border border-slate-700">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-800 text-left">
-                  <th className="px-5 py-3 font-semibold text-slate-300">
-                    Tool You're Replacing
-                  </th>
-                  <th className="px-5 py-3 font-semibold text-slate-300 text-right">
-                    Typical Cost / yr
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {traditionalCosts.map(({ item, cost }) => (
-                  <tr key={item}>
-                    <td className="px-5 py-3 text-slate-300">{item}</td>
-                    <td className="px-5 py-3 text-right font-mono text-slate-400">
-                      {cost}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-slate-700 bg-slate-800">
-                  <td className="px-5 py-3 font-semibold text-white">
-                    Total without Full Loop
-                  </td>
-                  <td className="px-5 py-3 text-right font-mono font-semibold text-red-400">
-                    ${traditionalTotal.toLocaleString()}/yr
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+          {/* Value stack */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="rounded-xl border border-slate-700 bg-slate-800 p-8">
+              <p className="text-sm font-mono uppercase tracking-widest text-teal-400 mb-3">
+                What Selena alone replaces
+              </p>
+              <ul className="space-y-3 text-slate-300 text-sm">
+                <li>📞 Answering service / receptionist — <span className="font-mono text-white">$300–$400/mo</span></li>
+                <li>💬 24/7 SMS + web chat coverage — <span className="font-mono text-white">$200–$500/mo</span></li>
+                <li>🌍 Bilingual EN/ES dispatcher — <span className="font-mono text-white">$1,500+/mo</span></li>
+                <li>🧠 Lead-qualification specialist — <span className="font-mono text-white">$2,000+/mo</span></li>
+              </ul>
+              <p className="mt-5 pt-5 border-t border-slate-700 text-sm text-teal-300">
+                Selena replaces a <strong>$4,000+/mo</strong> front office. Books while you sleep, never asks for time off.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-700 bg-slate-800 p-8">
+              <p className="text-sm font-mono uppercase tracking-widest text-teal-400 mb-3">
+                What each user seat unlocks
+              </p>
+              <ul className="space-y-3 text-slate-300 text-sm">
+                <li>📍 GPS-verified field portal (528ft validation)</li>
+                <li>🎥 Before/after video walkthroughs (proof of service)</li>
+                <li>⏱️ Smart half-hour rounding + auto-pay calc</li>
+                <li>📲 15-min heads-up + running-late SMS</li>
+                <li>💵 Stripe Connect auto-payout on job complete</li>
+                <li>📊 Earnings tracker + 1099-ready records</li>
+                <li>💬 Direct line into the team Connect channels</li>
+              </ul>
+              <p className="mt-5 pt-5 border-t border-slate-700 text-sm text-teal-300">
+                Each seat is a fully-equipped field operator — not just a CRM login.
+              </p>
+            </div>
           </div>
 
-          {/* Savings callout */}
-          <div className="mt-10 grid gap-6 sm:grid-cols-3 text-center">
-            <div className="rounded-xl bg-slate-800 p-6">
-              <p className="text-sm text-slate-400 mb-1 font-mono uppercase tracking-wider">
-                Without Full Loop
-              </p>
-              <p className="text-3xl font-extrabold font-heading text-red-400">
-                ${traditionalTotal.toLocaleString()}
-                <span className="text-base text-slate-500">/yr</span>
-              </p>
-            </div>
-            <div className="rounded-xl border-2 border-teal-400 bg-slate-800 p-6">
-              <p className="text-sm text-teal-400 mb-1 font-mono uppercase tracking-wider">
-                Full Loop Starter
-              </p>
-              <p className="text-3xl font-extrabold font-heading text-teal-400">
-                $2,388
-                <span className="text-base text-teal-600">/yr</span>
-              </p>
-            </div>
-            <div className="rounded-xl bg-slate-800 p-6">
-              <p className="text-sm text-yellow-300 mb-1 font-mono uppercase tracking-wider">
-                You Save Up To
-              </p>
-              <p className="text-3xl font-extrabold font-heading text-yellow-300">
-                ${(traditionalTotal - 2_388).toLocaleString()}
-                <span className="text-base text-yellow-400">/yr</span>
-              </p>
-            </div>
+          <div className="mt-12 rounded-xl border-2 border-teal-400 bg-slate-800 p-8 text-center">
+            <p className="text-sm font-mono uppercase tracking-widest text-teal-400 mb-2">
+              The category doesn&apos;t have a comparison
+            </p>
+            <p className="text-2xl sm:text-3xl font-extrabold font-heading text-white max-w-3xl mx-auto leading-snug">
+              Selena + the website + GPS + bookkeeping + e-sign + routes + reviews + referrals + Google + social — in one platform, with exclusive territory — doesn&apos;t exist anywhere else, at any price.
+            </p>
+            <p className="mt-4 text-yellow-300 font-cta uppercase tracking-widest text-sm">
+              $1,000 per user is the floor.
+            </p>
           </div>
         </div>
       </section>
@@ -644,15 +587,16 @@ export default function PricingPage() {
             Ready to Close the Loop?
           </h2>
           <p className="mt-4 text-lg text-slate-300 max-w-xl mx-auto">
-            No contracts. No feature gates. No upsells. Just the full platform
-            from day one — starting at $199/mo.
+            One trade per metro. Once a territory is claimed, it&apos;s off the
+            board — but every operator who claims one runs the same complete
+            platform from day one. ${PRICE_PER_USER.toLocaleString()} per user, every feature included.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/crm-partnership-request-form"
               className="inline-block rounded-lg bg-yellow-300 px-8 py-4 text-lg font-cta font-semibold text-slate-900 shadow-md hover:bg-yellow-400 transition-colors"
             >
-              Get Started Today
+              Claim Your Territory
             </Link>
             <a
               href="tel:+12122029220"

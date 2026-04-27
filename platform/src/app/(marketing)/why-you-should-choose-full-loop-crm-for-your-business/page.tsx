@@ -130,7 +130,7 @@ const comparisonRows = [
   { feature: "Automated review management", fullloop: true, jobber: false, housecall: false, servicetitan: false },
   { feature: "Retargeting & lifecycle campaigns", fullloop: true, jobber: false, housecall: false, servicetitan: false },
   { feature: "Exclusive territory protection", fullloop: true, jobber: false, housecall: false, servicetitan: false },
-  { feature: "Starting price", fullloop: "$199/mo", jobber: "$49/mo", housecall: "$49/mo", servicetitan: "Custom" },
+  { feature: "Pricing model", fullloop: "$1,000/user/mo flat", jobber: "$69–$349 + per-user", housecall: "$79–$279 + per-user", servicetitan: "$300+/user, enterprise only" },
 ];
 
 const autonomousRuns = [

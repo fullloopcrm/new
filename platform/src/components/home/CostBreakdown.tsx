@@ -91,7 +91,7 @@ export default function CostBreakdown() {
           They&rsquo;re Spending{" "}
           <span className="text-white/40 line-through">$178,800</span>.
           You&rsquo;ll Spend{" "}
-          <span className="text-teal-400">$199/mo</span>.
+          <span className="text-teal-400">$1,000/user/mo</span>.
         </motion.h2>
 
         <motion.p
@@ -158,7 +158,7 @@ export default function CostBreakdown() {
               $178,800
             </span>
             <span className="text-lg sm:text-xl font-mono font-bold text-teal-400 text-right sm:text-center">
-              $2,388
+              $12,000<span className="block text-[10px] font-normal text-teal-400/70 leading-tight">solo · per user</span>
             </span>
           </div>
         </motion.div>
@@ -186,15 +186,18 @@ export default function CostBreakdown() {
         >
           <div className="inline-block rounded-2xl border px-8 sm:px-12 py-6 sm:py-8" style={{ backgroundColor: "rgba(244, 244, 241, 0.06)", borderColor: "rgba(244, 244, 241, 0.2)" }}>
             <p className="text-teal-400 text-sm font-semibold tracking-[0.15em] uppercase mb-2 font-cta">
-              Annual Savings
+              Solo Operator Savings · Year 1
             </p>
             <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white font-mono">
-              $176,412
+              $166,800
               <span className="text-lg sm:text-xl text-white/50 font-normal">/yr</span>
             </p>
             <p className="mt-3 text-base sm:text-lg text-slate-300 max-w-md mx-auto">
-              That&rsquo;s <strong className="text-teal-400">98% less</strong>{" "}
-              &mdash; reinvested directly into growth and profit. See how our <Link href="/full-loop-crm-pricing" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">CRM pricing</Link> compares.
+              That&rsquo;s <strong className="text-teal-400">93% less</strong>{" "}
+              than running the front office the old way &mdash; with the AI
+              sales agent, GPS field ops, e-signature, books, and routes that
+              the old stack doesn&rsquo;t even include. Add seats as you grow
+              at the same flat $1,000/user/mo. See the full <Link href="/full-loop-crm-pricing" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">CRM pricing</Link> breakdown.
             </p>
           </div>
         </motion.div>

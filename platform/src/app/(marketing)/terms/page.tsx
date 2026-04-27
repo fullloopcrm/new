@@ -79,7 +79,7 @@ export default function TermsPage() {
             geographic metro area. Partnership terms include:
           </p>
           <ul>
-            <li>Monthly fee per selected tier ($199, $499, $999, or Enterprise), billed monthly</li>
+            <li>Monthly fee of $1,000 per user, billed monthly (flat per-seat, no tiers)</li>
             <li>90-day minimum commitment</li>
             <li>Month-to-month after the initial 90 days</li>
             <li>30-day written notice required for cancellation</li>

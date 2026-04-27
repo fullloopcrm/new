@@ -41,7 +41,7 @@ export async function generateMetadata({
 
   const trade = industry.name.toLowerCase();
   const title = `Best CRM for ${industry.name} Businesses | Full Loop CRM`;
-  const description = `The best CRM built for ${trade} businesses. AI-powered lead generation, automated sales, smart scheduling, GPS dispatch, invoicing, review management & retargeting in one platform. Plans from $199/mo.`;
+  const description = `The best CRM built for ${trade} businesses. AI-powered lead generation, automated sales, smart scheduling, GPS dispatch, invoicing, review management & retargeting in one platform. Flat $1,000 per user / month.`;
   const url = `https://homeservicesbusinesscrm.com/industry/${slug}`;
 
   return {
@@ -382,10 +382,10 @@ export default async function IndustryPage({
       <section className="py-20 px-6 bg-slate-50">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            {industry.name} CRM Pricing — Every Plan Gets Everything
+            {industry.name} CRM Pricing — Every Seat Gets Everything
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
-            $199<span className="text-xl text-slate-500 font-normal">/mo</span>
+            $1,000<span className="text-xl text-slate-500 font-normal">/user/mo</span>
           </p>
           <p className="text-slate-600 mb-4 text-lg">
             Exclusive {trade} territory. No other {trade} partner
@@ -395,9 +395,10 @@ export default async function IndustryPage({
             Full Loop CRM replaces 9+ separate tools — lead generation,
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
-            platform. The $199/mo license includes your exclusive territory,
-            all 7 lifecycle stages, the Selena AI assistant, client and team
-            portals, and all core updates.
+            platform. Flat $1,000 per user / month. The license includes your
+            exclusive territory, all 7 lifecycle stages, the Selena AI assistant,
+            client and team portals, full bookkeeping with 1099-ready exports,
+            and all core updates.
           </p>
           <p className="text-sm text-slate-500 mb-8">
             $999 one-time setup. No contracts. Cancel anytime.

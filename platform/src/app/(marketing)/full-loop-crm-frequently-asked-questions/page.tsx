@@ -11,7 +11,7 @@ import {
 export const metadata: Metadata = {
   title: "FAQ | Full Loop CRM - Home Service CRM Questions Answered",
   description:
-    "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, Selenas AI, and getting started. Plans from $199/mo.",
+    "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, Selenas AI, and getting started. Flat $1,000 per user per month.",
   keywords: [
     "full loop CRM FAQ",
     "home service CRM questions",
@@ -108,7 +108,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "How much does Full Loop CRM cost?",
         answer:
-          "Plans start at $199/month for solo operators, $499/month for teams up to 5, and $999/month for unlimited team members. Every tier gets the complete platform — website, CRM, Selena AI, SEO, team portal, hiring pages, and full automation. $999 one-time setup fee. No contracts, cancel anytime.",
+          "Flat $1,000 per user per month. Solo operator $1,000/mo, 5-person team $5,000/mo, 25-person team $25,000/mo. Every operator on every team size gets the complete platform — website, CRM, Selena AI on SMS + web + email, GPS team portal, e-signature, route optimization, full bookkeeping with 1099-ready exports, hiring pages, reviews, referrals. $999 one-time setup fee. No contracts, cancel anytime.",
       },
       {
         question: "Are there any setup fees?",

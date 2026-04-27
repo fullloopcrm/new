@@ -54,9 +54,9 @@ export default function Hero() {
           className="flex items-center justify-center gap-4 mb-6 animate-hero-slide-up"
           style={{ animationDelay: "0.3s" }}
         >
-          <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">$199<span className="text-lg sm:text-xl text-white/60 font-normal">/mo</span></span>
+          <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">$1,000<span className="text-lg sm:text-xl text-white/60 font-normal">/user/mo</span></span>
           <span className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-wider uppercase px-3 py-1.5 rounded font-cta">
-            ALL FEATURES INCLUDED
+            FLAT &middot; EVERY FEATURE
           </span>
         </div>
 
@@ -66,7 +66,7 @@ export default function Hero() {
           style={{ animationDelay: "0.4s" }}
         >
           When you claim a territory, every AI-generated lead in your city routes to you. Every local SEO asset points to you. Every competitor in your trade is locked out of this platform &mdash; forever.{" "}
-          <Link href="/full-loop-crm-pricing" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">$199/mo to hold the license.</Link>
+          <Link href="/full-loop-crm-pricing" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">$1,000 per user / month to hold the license.</Link>
         </p>
         <p
           className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed mb-4 animate-hero-slide-up"

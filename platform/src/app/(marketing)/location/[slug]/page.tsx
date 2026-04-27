@@ -69,7 +69,7 @@ export async function generateMetadata({
   if (!metro) return {};
 
   const title = `Best Home Service CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
-  const description = `The best CRM for home service businesses in ${metro.city}, ${metro.stateAbbr}. AI-powered lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one partner per trade. Plans from $199/mo.`;
+  const description = `The best CRM for home service businesses in ${metro.city}, ${metro.stateAbbr}. AI-powered lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one partner per trade. Flat $1,000 per user / month.`;
   const url = `https://homeservicesbusinesscrm.com/location/${slug}`;
 
   return {
@@ -300,11 +300,11 @@ export default async function LocationPage({
       <section className="py-20 px-6 bg-white">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            Every Plan Gets Everything.
+            Every Seat Gets Everything.
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
-            $199
-            <span className="text-xl text-slate-500 font-normal">/mo</span>
+            $1,000
+            <span className="text-xl text-slate-500 font-normal">/user/mo</span>
           </p>
           <p className="text-slate-600 mb-6 text-lg">
             Exclusive territory in {metro.city}, {metro.stateAbbr}. No other
