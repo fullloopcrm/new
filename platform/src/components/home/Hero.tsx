@@ -5,7 +5,7 @@ const trustBadges = [
   { label: "50+ Service Industries", href: "/full-loop-crm-service-business-industries" },
   { label: "All-in-One Full-Cycle CRM", href: "/full-loop-crm-service-features" },
   { label: "AI-Powered Automation", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
-  { label: "300+ US Metros", href: "/full-loop-crm-service-business-industries" },
+  { label: "Available in Every US Metro", href: "/full-loop-crm-service-business-industries" },
 ];
 
 export default function Hero() {
@@ -110,7 +110,7 @@ export default function Hero() {
           className="text-slate-400 text-sm mb-10 animate-hero-fade-in"
           style={{ animationDelay: "0.7s" }}
         >
-          Accepting one exclusive <Link href="/crm-partnership-request-form" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">partnership per trade per metro</Link> across <Link href="/full-loop-crm-service-business-industries" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">50+ industries</Link> and 300+ US cities.
+          Accepting one exclusive <Link href="/crm-partnership-request-form" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">partnership per trade per metro</Link> across <Link href="/full-loop-crm-service-business-industries" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">50+ industries</Link>, every US metro.
         </p>
 
         {/* Trust badges */}

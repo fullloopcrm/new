@@ -44,54 +44,66 @@ const breadcrumbs = [
   { name: "Features", url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-features" },
 ];
 
-const dashboardPages = [
+const dashboardSections = [
   {
-    name: "Executive Dashboard",
-    desc: "Revenue, bookings, lead conversion, and team performance at a glance.",
+    num: "00",
+    name: "The Loop",
+    desc: "Executive home — revenue, today's jobs, hot leads, conversion, system status, day-of-building.",
   },
   {
-    name: "Client Management",
-    desc: "Full client profiles with service history, notes, preferences, and LTV tracking.",
+    num: "01",
+    name: "Sales",
+    desc: "Leads · Pipeline · Quotes · E-signature documents · Invoices · Route optimization · Deals at-risk.",
   },
   {
-    name: "Bookings & Calendar",
-    desc: "Drag-and-drop scheduling with real-time availability and conflict detection.",
+    num: "02",
+    name: "Schedule",
+    desc: "Bookings · Calendar (drag-drop) · Recurring (7 patterns) · Smart-schedule scoring · Travel time.",
   },
   {
-    name: "Team Management",
-    desc: "Assign crews, track hours, manage pay rates, and monitor GPS check-ins.",
+    num: "03",
+    name: "Clients",
+    desc: "All Clients · SMS Inbox · Per-client transcript · Activity feed · Lifecycle status · LTV.",
   },
   {
-    name: "Lead Tracking",
-    desc: "Pipeline view from first touch to closed deal with source attribution.",
+    num: "04",
+    name: "Team",
+    desc: "Members · GPS field portal · Earnings · Applications · Stripe Connect onboarding.",
   },
   {
-    name: "Finance & P&L",
-    desc: "Revenue, expenses, payroll, and profit/loss — updated in real time.",
+    num: "05",
+    name: "Finance",
+    desc: "Overview · Transactions · Receipts · P&L · AR aging · Cash flow · Audit log.",
   },
   {
-    name: "Notification Center",
-    desc: "Centralized alerts for new leads, bookings, payments, and team activity.",
+    num: "06",
+    name: "Books",
+    desc: "Ledger · Bank import + ML reconcile · Chart of accounts · Payroll · 1099-ready exports · CPA portal.",
   },
   {
-    name: "Selena AI Dashboard",
-    desc: "Live conversation feed, booking conversion rate, error log, conversation transcripts, stats by date range, and one-click conversation reset.",
+    num: "07",
+    name: "Marketing",
+    desc: "Campaigns · Reviews · Referrals · Social (FB + IG) · Google Business Profile · Websites · Analytics · Map.",
   },
   {
-    name: "Referral Program",
-    desc: "Track referral sources, commissions earned, and payout status.",
+    num: "—",
+    name: "Selena AI",
+    desc: "Live conversation feed, conversion rate, channel mix, scoring, error log, one-click reset, persona editor.",
   },
   {
+    num: "—",
+    name: "Loop Connect",
+    desc: "Slack-style channels — your team, each client, each crew member — direct messaging across the platform.",
+  },
+  {
+    num: "—",
+    name: "Notifications + Activity + Docs + Feedback",
+    desc: "Real-time alerts, full audit trail, in-product documentation, and feedback widget — every platform surface in one nav.",
+  },
+  {
+    num: "—",
     name: "Settings",
-    desc: "Business hours, service areas, pricing rules, team permissions, and integrations.",
-  },
-  {
-    name: "Documentation",
-    desc: "Built-in guides, video walkthroughs, and API documentation for your team.",
-  },
-  {
-    name: "Connect",
-    desc: "Slack-style in-app chat with channels for your team, clients, and entire business — all in one place.",
+    desc: "Services, hours, brand, hero, SEO meta, policies, integrations, page configs, vendor keys (encrypted).",
   },
 ];
 
@@ -162,20 +174,21 @@ export default function FeaturesPage() {
           </h2>
           <p className="text-lg text-slate-600 mb-10 max-w-3xl">
             Most CRMs start after you already have a lead. Full Loop starts by <em>creating</em> them.
-            We build and manage a multi-domain SEO network that generates organic leads 24/7 — no ad
-            spend required.
+            Your main site is included; optional EMD microsites build out a multi-domain network — every
+            page on every domain reports into one attribution dashboard, no ad spend required.
           </p>
 
           <div className="grid gap-8 sm:grid-cols-2">
             <div className="rounded-xl border border-slate-200 p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
-                Multi-Domain SEO Network
+                Custom Site + Optional EMD Microsites
               </h3>
               <p className="text-slate-600">
-                We don&apos;t rely on a single website. Full Loop builds and manages multiple
-                SEO-optimized domains targeting your service areas and specialties — casting a wider
-                net than any single-site strategy. Each domain is purpose-built to rank for
-                high-intent local searches.
+                Your main Next.js site is included in your subscription — auto-generated services,
+                service-area, neighborhood, and careers pages with JSON-LD on every URL. Want a
+                multi-domain SEO network on top of that? Add EMD microsites at $500 build + $99/yr
+                each — exact-match domains in your name, casting a wider net than any single-site
+                strategy.
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 p-6">
@@ -183,9 +196,10 @@ export default function FeaturesPage() {
                 Domain Performance Analytics
               </h3>
               <p className="text-slate-600">
-                Track every domain in your network from a single dashboard. See which domains are
-                generating the most traffic, which keywords are ranking, and where your next
-                opportunity lies. No more logging into separate analytics accounts.
+                Every domain in your portfolio reports into one dashboard. Lead attribution captures
+                source domain, landing page, search query, and referrer for every visit — so you know
+                exactly which property generated which booking. No more logging into separate
+                analytics accounts.
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 p-6">
@@ -377,9 +391,10 @@ export default function FeaturesPage() {
                 7 Recurring Patterns
               </h3>
               <p className="text-slate-600">
-                Support for weekly, biweekly, every 3 weeks, monthly, every 6 weeks, every 2
-                months, and quarterly recurring appointments. Set it once and the system generates
-                future bookings automatically — no manual re-entry.
+                Daily, Weekly, Bi-weekly, Tri-weekly, Monthly (by date), Monthly (by weekday), and
+                Custom — covers every recurring cadence a service business needs. Set it once and
+                the system generates future bookings automatically. Pause one instance without
+                cancelling the series.
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 p-6">
@@ -478,13 +493,13 @@ export default function FeaturesPage() {
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
-                Bilingual Team Portal (EN/ES)
+                Bilingual Team + Client Portals (EN/ES)
               </h3>
               <p className="text-slate-600">
-                Your field team accesses their daily schedule, job details, and check-in system
-                through a mobile-optimized portal available in both English and Spanish. No app
-                download required — it works in any mobile browser and can be saved to the home
-                screen like a native app.
+                Your field team and your clients each get their own mobile-optimized portal in
+                English and Spanish. PWA today — works in any mobile browser, saves to the home
+                screen, runs offline-tolerant, no app store required. Native iOS + Android apps
+                shipping on the roadmap, included with your subscription when they go live.
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">
@@ -572,12 +587,14 @@ export default function FeaturesPage() {
             </div>
             <div className="rounded-xl border border-slate-200 p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
-                1099 Reports
+                1099-Ready Contractor Reports
               </h3>
               <p className="text-slate-600">
-                At tax time, generate 1099 contractor reports with all payment history already
-                tracked. Full Loop keeps a running total of contractor payments so you&apos;re
-                always audit-ready.
+                Every crew payout is tracked with year-to-date totals and flagged the moment a
+                contractor crosses the $600 1099 threshold. At tax time, export a clean CSV with
+                the contractor-payout section pre-formatted for your accountant or filing service —
+                no spreadsheet reconciliation required. Year-end ZIP includes everything your CPA
+                needs through the included CPA portal.
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 p-6 sm:col-span-2 lg:col-span-2">
@@ -734,21 +751,24 @@ export default function FeaturesPage() {
               Your Command Center
             </p>
             <h2 className="font-heading text-3xl sm:text-4xl font-extrabold text-white mb-6">
-              12 Dashboard Pages. Zero Tab Switching.
+              Eight Sections. Zero Tab Switching.
             </h2>
             <p className="text-lg text-slate-300 max-w-3xl mx-auto">
-              Every aspect of your business lives in one platform. No more logging into 5 different
-              apps to understand what&apos;s happening. Full Loop&apos;s command center gives you
-              complete visibility from a single login.
+              The locked Full Loop dashboard collapses your entire business into
+              eight numbered sections — Loop, Sales, Schedule, Clients, Team,
+              Finance, Books, Marketing — plus a Platform tray for Selena,
+              Connect, Settings, and audit. Every aspect of your operation lives
+              in one nav. No more logging into 5 different apps.
             </p>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {dashboardPages.map((page) => (
+            {dashboardSections.map((page) => (
               <div
                 key={page.name}
                 className="rounded-xl border border-slate-700 bg-slate-800 p-6"
               >
+                <p className="font-mono text-xs text-teal-400 mb-2">{page.num}</p>
                 <h3 className="font-heading text-lg font-bold text-white mb-2">
                   {page.name}
                 </h3>

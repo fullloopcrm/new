@@ -529,6 +529,7 @@ export default function PricingPage() {
                 <li>💵 Stripe Connect auto-payout on job complete</li>
                 <li>📊 Earnings tracker + 1099-ready records</li>
                 <li>💬 Direct line into the team Connect channels</li>
+                <li>📱 Mobile team + client portals (PWA today, native app shipping)</li>
               </ul>
               <p className="mt-5 pt-5 border-t border-slate-700 text-sm text-teal-300">
                 Each seat is a fully-equipped field operator — not just a CRM login.
@@ -550,7 +551,114 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* -- 7. FAQ ------------------------------------------------- */}
+      {/* -- 7. How $1,000 Pays for Itself --------------------------- */}
+      <section className="py-20 px-6 bg-white" id="cheap-math">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-14">
+            <p className="mb-2 text-sm font-mono uppercase tracking-widest text-teal-600">
+              The Receipt
+            </p>
+            <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
+              Why $1,000 Per User Is Cheap
+            </h2>
+            <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
+              Build this stack à la carte and you spend more in software alone
+              than Full Loop charges all-in. Then add the staff hours, the leads
+              you stop losing, and the things you literally cannot buy off any
+              shelf.
+            </p>
+          </div>
+
+          {/* À la carte stack table */}
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-100 text-left">
+                  <th className="px-5 py-3 font-semibold text-slate-700">If you tried to build this stack à la carte</th>
+                  <th className="px-5 py-3 font-semibold text-slate-700 text-right">Typical cost / mo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 text-slate-700">
+                <tr><td className="px-5 py-2.5">AI receptionist that books 24/7 (Ruby, Smith.ai)</td><td className="px-5 py-2.5 text-right font-mono">$400–$700</td></tr>
+                <tr><td className="px-5 py-2.5">Field service CRM (Jobber Grow, 5 users)</td><td className="px-5 py-2.5 text-right font-mono">$494</td></tr>
+                <tr><td className="px-5 py-2.5">Bookkeeping software + bookkeeper retainer</td><td className="px-5 py-2.5 text-right font-mono">$390+</td></tr>
+                <tr><td className="px-5 py-2.5">SEO agency + custom website maintenance</td><td className="px-5 py-2.5 text-right font-mono">$1,500</td></tr>
+                <tr><td className="px-5 py-2.5">Review management (Podium, NiceJob, Birdeye)</td><td className="px-5 py-2.5 text-right font-mono">$300</td></tr>
+                <tr><td className="px-5 py-2.5">Lead attribution / call tracking (CallRail + Hyros)</td><td className="px-5 py-2.5 text-right font-mono">$400</td></tr>
+                <tr><td className="px-5 py-2.5">E-signature for quotes + work orders (DocuSign, 5 seats)</td><td className="px-5 py-2.5 text-right font-mono">$200</td></tr>
+                <tr><td className="px-5 py-2.5">GPS time tracking + payroll seat (TSheets, 5 users)</td><td className="px-5 py-2.5 text-right font-mono">$125</td></tr>
+                <tr><td className="px-5 py-2.5">Route optimization (Routific, 5 drivers)</td><td className="px-5 py-2.5 text-right font-mono">$250</td></tr>
+                <tr><td className="px-5 py-2.5">SMS + email marketing (Twilio + Mailchimp)</td><td className="px-5 py-2.5 text-right font-mono">$200</td></tr>
+                <tr><td className="px-5 py-2.5">Google Business Profile management</td><td className="px-5 py-2.5 text-right font-mono">$300</td></tr>
+                <tr><td className="px-5 py-2.5">Hiring funnel (ZipRecruiter / Indeed sponsored)</td><td className="px-5 py-2.5 text-right font-mono">$300</td></tr>
+                <tr><td className="px-5 py-2.5">Dispatch / front-office salary (1 person, allocated)</td><td className="px-5 py-2.5 text-right font-mono">$2,500+</td></tr>
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-300 bg-slate-50">
+                  <td className="px-5 py-3 font-bold text-slate-900">Total stack cost — 5-tech operation</td>
+                  <td className="px-5 py-3 text-right font-mono font-bold text-red-600">~$7,400+/mo</td>
+                </tr>
+                <tr className="bg-teal-50">
+                  <td className="px-5 py-3 font-bold text-teal-700">Full Loop CRM — 5 users, all of it included</td>
+                  <td className="px-5 py-3 text-right font-mono font-bold text-teal-700">$5,000/mo</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <p className="mt-3 text-xs text-slate-500 text-center">
+            Software costs reflect 2026 list prices. Dispatcher allocation = 50% of one full-time salary.
+          </p>
+
+          {/* Things you cannot buy */}
+          <div className="mt-12 rounded-xl border border-slate-300 bg-slate-50 p-8">
+            <p className="text-sm font-mono uppercase tracking-widest text-teal-700 mb-3">
+              And the things you literally cannot buy off any shelf
+            </p>
+            <ul className="space-y-2.5 text-slate-700 text-sm">
+              <li>✦ Selena replying to inbound <strong>email</strong> leads automatically — no off-shelf product does this</li>
+              <li>✦ IMAP-monitored Zelle / Venmo / Apple Pay / Cash App auto-match to bookings — bespoke build, ~$50K of engineering</li>
+              <li>✦ 100% closed-loop attribution: visit → text → booking, source domain known per row</li>
+              <li>✦ Stripe Connect crew auto-payouts the moment a job closes — no other field-service CRM ships this</li>
+              <li>✦ Per-tenant Selena persona (24 fields) + custom intent router — your business&apos;s voice, not a generic chatbot</li>
+              <li>✦ Mobile team + client portals as PWA today, native app on the roadmap — included, never an upcharge</li>
+              <li>✦ Exclusive territory: nobody in your trade in your metro can sign up after you</li>
+            </ul>
+          </div>
+
+          {/* Revenue capture */}
+          <div className="mt-8 rounded-xl border-2 border-teal-600 bg-white p-8">
+            <p className="text-sm font-mono uppercase tracking-widest text-teal-600 mb-3">
+              Plus the leads you stop losing
+            </p>
+            <div className="grid gap-6 sm:grid-cols-3 text-center">
+              <div>
+                <p className="text-3xl font-extrabold font-heading text-slate-900">7×</p>
+                <p className="mt-1 text-xs text-slate-600 leading-snug">conversion rate when you respond in &lt;60 sec vs &gt;5 min (HBR study). Selena does it in seconds, 24/7.</p>
+              </div>
+              <div>
+                <p className="text-3xl font-extrabold font-heading text-slate-900">30–50%</p>
+                <p className="mt-1 text-xs text-slate-600 leading-snug">of inbound leads arrive after-hours. Without Selena, they call the next operator. With Selena, they book you.</p>
+              </div>
+              <div>
+                <p className="text-3xl font-extrabold font-heading text-slate-900">$2.5K–$8K</p>
+                <p className="mt-1 text-xs text-slate-600 leading-snug">of additional monthly revenue captured by a typical operator from leads previously lost to slow response.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Closing line */}
+          <div className="mt-12 text-center">
+            <p className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 max-w-3xl mx-auto leading-snug">
+              The real question isn&apos;t <em className="text-slate-500 font-normal">&quot;why $1,000?&quot;</em>
+            </p>
+            <p className="mt-3 text-2xl sm:text-3xl font-extrabold font-heading text-teal-600 max-w-3xl mx-auto leading-snug">
+              It&apos;s how is it not $2,000.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* -- 8. FAQ ------------------------------------------------- */}
       <section className="py-20 px-6 bg-slate-50" id="faq">
         <div className="mx-auto max-w-3xl">
           <div className="text-center mb-14">
