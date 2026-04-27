@@ -31,7 +31,7 @@ const steps = [
   {
     stage: "Stage 4",
     title: "Job Completed",
-    desc: "Crew checks in via mobile portal — GPS coordinates validated within 528 feet of the address. Before-photo video, work, after-photo video. 15-minute heads-up button SMSes admin with amount due + crew take. Half-hour rounding with 10-min grace handles billing automatically.",
+    desc: "Crew checks in via mobile portal — GPS coordinates validated within 528 feet of the address. Before-photo video, work, after-photo video. 30-minute heads-up button SMSes admin with amount due + crew take. Half-hour rounding with 10-min grace handles billing automatically.",
     reality: "GPS-verified means no time theft, no fake check-ins, no end-of-week disputes. Videos prove the job was done if a client ever pushes back. Bilingual SMS (EN/ES same message) keeps the whole crew aligned.",
     proof: "Live at nycmaid: late check-in cron catches a delayed crew within 5 minutes. Schedule conflict alert triggered when Karina got double-booked May 1 — caught before the customer noticed.",
     benefit: "Complete field visibility. Verifiable proof of service. No payroll arguments.",

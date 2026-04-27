@@ -269,13 +269,13 @@ const fullLoopProcess = [
   {
     num: "05",
     name: "Day of Job — GPS Field Ops",
-    summary: "116 GPS check-ins · 73 check-outs · 65 fifteen-min heads-ups · 528ft validation",
+    summary: "116 GPS check-ins · 73 check-outs · 65 30-min heads-ups · 528ft validation",
     steps: [
       { actor: "Cleaner", body: "Opens /team/[token] on phone (mobile PWA, no app needed). PIN login." },
       { actor: "Platform", body: "GPS coords captured. Distance from client.address calculated via Haversine. Within 528ft? check_in_time + check_in_location written to booking. Notification 'check_in' fires (1 of 116)." },
       { actor: "Cleaner", body: "Records before-walkthrough video → /api/team-portal/video-upload. Stored on booking.walkthrough_video_url. (cron/cleanup-videos auto-deletes after 30 days to save storage.)" },
       { actor: "Cleaner", body: "Taps 'running late' if needed → SMS to client + admin (running_late_at + running_late_eta saved)." },
-      { actor: "Cleaner", body: "15 min before finish: taps '15-min Heads Up' button. SMS fires to admin: client name, cleaner name, exact amount due, cleaner take. Button disappears so it can't be double-pressed. (65 used in production.)" },
+      { actor: "Cleaner", body: "30 min before finish: taps '30-min Heads Up' button. SMS fires to admin: client name, cleaner name, exact amount due, cleaner take. Button disappears so it can't be double-pressed. (65 used in production.)" },
       { actor: "Cleaner", body: "Records after-walkthrough video. GPS check-out: end_time saved, location validated, actual_hours computed with half-hour rounding + 10-min grace (3:09 = 3.0hr, 3:10 = 3.5hr)." },
       { actor: "Platform", body: "Booking status → 'completed'. cleaner_pay calculated automatically (actual_hours × cleaner_pay_rate). Notification 'check_out' + 'job_complete' fire (98 in production)." },
     ],
@@ -285,7 +285,7 @@ const fullLoopProcess = [
     name: "Payment — Stripe + IMAP Auto-Match",
     summary: "Stripe Connect crew payouts (168/169 = 99.4%) · 81 IMAP-parsed Zelle/Venmo/Apple/Cash matches",
     steps: [
-      { actor: "Admin", body: "Receives 15-min heads-up SMS with payment amount. Sends Stripe payment link to client OR client pays Zelle/Venmo/Apple/Cash to hi@thenycmaid.com." },
+      { actor: "Admin", body: "Receives 30-min heads-up SMS with payment amount. Sends Stripe payment link to client OR client pays Zelle/Venmo/Apple/Cash to hi@thenycmaid.com." },
       { actor: "Stripe webhook", body: "If card/Apple Pay: /api/stripe/webhook fires checkout.session.completed → marks booking paid, calculates tip (paid - expected). Confirmation SMS to client." },
       { actor: "cron/email-monitor", body: "Every 60 seconds. IMAP polls hi@thenycmaid.com inbox via lib/email-monitor.ts. Scans for new Zelle/Venmo/Apple Pay/Cash App receipt emails." },
       { actor: "payment-email-parser.ts", body: "Parses sender_name, amount, payment_method from the email body. Matches against bookings with payment_status='unpaid' by sender phone OR amount + recent booking." },

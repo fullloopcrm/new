@@ -22,7 +22,7 @@ const highlights = [
   },
   {
     name: "Team Portal",
-    desc: "GPS check-in, video walkthroughs, 15-min payment alert, earnings tracking. Bilingual.",
+    desc: "GPS check-in, video walkthroughs, 30-min payment alert, earnings tracking. Bilingual.",
   },
   {
     name: "SEO That Compounds",

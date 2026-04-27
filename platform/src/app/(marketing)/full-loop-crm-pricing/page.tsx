@@ -67,7 +67,7 @@ const includedFeatures = [
   "Selena AI agent on SMS, web chat, AND inbound email — same brain, 17 intents, bilingual EN/ES",
   "Full CRM (clients, bookings, calendar, recurring schedules, smart-schedule scoring)",
   "Sales suite: leads, deals + pipeline, quotes, e-signature documents, invoices, route optimization",
-  "Mobile team portal (PIN login, GPS check-in/out with 528ft validation, before/after video walkthroughs, 15-min heads-up)",
+  "Mobile team portal (PIN login, GPS check-in/out with 528ft validation, before/after video walkthroughs, 30-min heads-up)",
   "Stripe Connect crew payouts — auto-pay your team the moment a job closes",
   "IMAP email monitor — auto-matches Zelle / Apple Pay / Venmo / Cash App receipts to bookings",
   "Full bookkeeping — bank import, ML-suggested transaction matching, chart of accounts, P&L, AR aging, cash flow, payroll, 1099-ready exports, CPA portal",
@@ -525,7 +525,7 @@ export default function PricingPage() {
                 <li>📍 GPS-verified field portal (528ft validation)</li>
                 <li>🎥 Before/after video walkthroughs (proof of service)</li>
                 <li>⏱️ Smart half-hour rounding + auto-pay calc</li>
-                <li>📲 15-min heads-up + running-late SMS</li>
+                <li>📲 30-min heads-up + running-late SMS</li>
                 <li>💵 Stripe Connect auto-payout on job complete</li>
                 <li>📊 Earnings tracker + 1099-ready records</li>
                 <li>💬 Direct line into the team Connect channels</li>

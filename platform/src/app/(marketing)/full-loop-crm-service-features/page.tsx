@@ -475,10 +475,10 @@ export default function FeaturesPage() {
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
-                15-Minute Heads Up
+                30-Minute Heads Up
               </h3>
               <p className="text-slate-600">
-                When your team is 15 minutes from finishing, they tap one button and you get an
+                When your team is 30 minutes from finishing, they tap one button and you get an
                 instant SMS with the client name, team member, and exact amount to collect — both
                 what the client owes and what the team member earned. No mental math, no phone calls.
                 The button disappears after sending so it can&apos;t be double-tapped.

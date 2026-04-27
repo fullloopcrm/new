@@ -28,7 +28,7 @@ const stages = [
   {
     badge: "Stage 4",
     title: "Field Operations",
-    desc: "GPS check-in, video walkthroughs, 15-min payment alert, hiring pages for every neighborhood. Bilingual team portal.",
+    desc: "GPS check-in, video walkthroughs, 30-min payment alert, hiring pages for every neighborhood. Bilingual team portal.",
     href: "/full-loop-crm-service-features",
     emoji: "📍",
   },

@@ -372,7 +372,7 @@ export default function TheNYCMaidCaseStudy() {
               <li className="flex items-start gap-3">
                 <span className="text-teal-500 font-bold mt-1">&#9654;</span>
                 <span>
-                  <strong>15-minute payment heads up</strong> via SMS before the
+                  <strong>30-minute payment heads up</strong> via SMS before the
                   crew finishes.
                 </span>
               </li>
