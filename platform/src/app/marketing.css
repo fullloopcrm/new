@@ -60,7 +60,7 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  html { scroll-behavior: smooth; font-size: 16px; }
+  html { font-size: 16px; } /* scroll-behavior: smooth removed — caused visible auto-scroll on reflow */
 
   body {
     font-family: var(--font-dm-sans), system-ui, sans-serif;

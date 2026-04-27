@@ -525,7 +525,9 @@
 .loop-marketing .to-emerald-500 { --tw-gradient-from: var(--color-loop-ink); --tw-gradient-to: var(--color-loop-graphite); }
 
 html {
-  scroll-behavior: smooth;
+  /* scroll-behavior: smooth removed — was animating any scroll-to-top
+     reflow visibly. Use CSS scroll-margin-top per-anchor if smooth
+     anchor jumps are needed later. */
 }
 
 body {
