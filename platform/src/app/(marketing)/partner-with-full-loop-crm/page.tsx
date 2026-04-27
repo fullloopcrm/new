@@ -64,10 +64,13 @@ export default function PartnersPage() {
             <br />
             Is Your Market Still Available?
           </h1>
-          <p className="text-slate-300 text-lg md:text-xl max-w-2xl mx-auto mb-10">
+          <p className="text-slate-300 text-lg md:text-xl max-w-2xl mx-auto mb-6">
             Full Loop CRM grants exclusive territory rights to one service
             provider per trade per metropolitan area. Once a territory is
             claimed, it is permanently off the market for that trade.
+          </p>
+          <p className="font-mono text-sm text-teal-400 mb-10 tracking-wide">
+            $1,000 / user / month &middot; flat &middot; every feature included
           </p>
           <Link
             href="/crm-partnership-request-form"

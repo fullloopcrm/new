@@ -202,6 +202,9 @@ export default async function IndustryPage({
             </div>
           )}
 
+          <p className="font-mono text-sm text-teal-400 mb-6 tracking-wide">
+            $1,000 / user / month &middot; flat &middot; every feature included
+          </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/crm-partnership-request-form"

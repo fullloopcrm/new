@@ -299,9 +299,12 @@ export default function FAQPage() {
             Frequently Asked{" "}
             <span className="text-teal-400">Questions</span>
           </h1>
-          <p className="text-lg text-slate-300 max-w-2xl mx-auto">
+          <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-4">
             Everything you need to know about Full Loop CRM — pricing, features,
             territory, ownership, and more.
+          </p>
+          <p className="font-mono text-sm text-teal-400 tracking-wide">
+            $1,000 / user / month &middot; flat &middot; every feature included
           </p>
         </div>
       </section>

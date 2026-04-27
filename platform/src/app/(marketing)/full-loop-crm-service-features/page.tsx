@@ -139,10 +139,13 @@ export default function FeaturesPage() {
             Every Feature a Home Service Business Needs
             <span className="text-teal-400"> — In One Platform</span>
           </h1>
-          <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto mb-8">
+          <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto mb-6">
             Most home service businesses juggle 9+ disconnected tools — a website builder, a CRM, a scheduler, a payment
             processor, a review tool, and more. Full Loop CRM replaces all of them with a single, AI-powered platform
             built from the ground up for field service companies.
+          </p>
+          <p className="font-mono text-sm text-teal-400 mb-8 tracking-wide">
+            $1,000 / user / month &middot; flat &middot; every feature included
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link

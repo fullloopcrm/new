@@ -203,10 +203,13 @@ export default async function LocationPage({
               {metro.city}, {metro.stateAbbr}
             </span>
           </h1>
-          <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-8">
+          <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-6">
             The only full-cycle CRM for home service businesses in{" "}
             {metro.city}. One partner per trade — is your industry still
             available?
+          </p>
+          <p className="font-mono text-sm text-teal-400 mb-8 tracking-wide">
+            $1,000 / user / month &middot; flat &middot; every feature included
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link

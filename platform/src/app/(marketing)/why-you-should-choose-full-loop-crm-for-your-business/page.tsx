@@ -182,11 +182,14 @@ export default function WhyFullLoopPage() {
           <h1 className="font-heading text-4xl font-extrabold text-white sm:text-5xl lg:text-6xl mb-6">
             Your Competition Can&apos;t Buy This CRM
           </h1>
-          <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-6 leading-relaxed">
             Every other home service CRM sells to you and every competitor on
             your block. Full Loop is different: one license per trade per metro,
             full-cycle platform, and the moment you claim your city, we lock
             everyone else out of the system.
+          </p>
+          <p className="font-mono text-sm text-teal-400 mb-10 tracking-wide">
+            $1,000 / user / month &middot; flat &middot; every feature included
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
