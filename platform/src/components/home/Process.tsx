@@ -6,51 +6,58 @@ import Link from "next/link";
 const steps = [
   {
     stage: "Stage 1",
-    title: "Lead Gen",
-    desc: "Organic SEO across a multi-domain network drives high-intent local traffic to your business — no pay-per-click, no ad spend. Our home service CRM captures every lead from day one.",
-    reality: "Most CRMs make you buy leads or run ads. Full Loop generates leads organically through SEO — the same strategy that built our founding company to 10,000+ clients.",
+    title: "Lead Created",
+    desc: "Organic SEO across a multi-domain network sends high-intent traffic to the site. Every visit is tagged with source domain, landing page, search query, and referrer — so you know exactly which property converted which lead.",
+    reality: "Most CRMs start the moment a lead exists. Full Loop starts by creating them. No ad spend, no Thumbtack tax — just neighborhood-specific domains that rank organically and feed your CRM.",
+    proof: "Cymbre Colon hit thenycmaid.com from a Rego Park search → texted in 6 hours later → booked Deep Cleaning May 2 → 100% attributed to source domain.",
     benefit: "Lower cost per lead that compounds over time.",
   },
   {
     stage: "Stage 2",
-    title: "Sales",
-    desc: "An AI-powered chatbot qualifies and converts leads 24/7 — answering questions, collecting job details, and moving prospects through your pipeline without lifting a finger.",
-    reality: "No more missed calls or slow follow-ups. The field service CRM handles first contact instantly so you never lose a lead to a faster competitor.",
-    benefit: "Faster response time. Higher close rate.",
+    title: "Sale Made",
+    desc: "Selena AI engages every inbound lead — SMS, web chat, AND inbound email — within seconds. 17-intent state-machine collects 10 fields (service, bedrooms, day, time, name, phone, address, email, notes), recognizes returning clients, escalates to a human only when she should.",
+    reality: "<60-second response times convert 7× higher than >5min (HBR study). Selena does it 24/7, bilingual EN/ES, while you sleep. Email leads that other CRMs ignore? She handles those too — no other product on the market does.",
+    proof: "Live at nycmaid: Selena auto-engaging 10+ inbound email leads per hour right now. Allison Thacker booked Deep Cleaning May 29 via SMS — zero human touch.",
+    benefit: "Faster response time. Higher close rate. No missed leads after-hours.",
   },
   {
     stage: "Stage 3",
-    title: "Scheduling",
-    desc: "Automated booking with smart availability syncs your team's calendar, assigns jobs by zone, and sends confirmations and reminders to both your crew and your customer.",
-    reality: "Double-bookings and no-shows kill margins. Our all-in-one CRM eliminates scheduling chaos so your field teams stay productive.",
+    title: "Scheduled + Dispatched",
+    desc: "Smart-schedule scores every available crew member against the new booking — zone match, travel time, job clustering, client history, preference, car requirement, home-by-time. The right person gets assigned automatically. Recurring schedules generate forward bookings on a cron.",
+    reality: "Double-bookings and bad assignments kill margins. The scoring engine and 7 recurring patterns (daily, weekly, bi-weekly, tri-weekly, monthly-by-date, monthly-by-weekday, custom) keep the calendar tight without manual dispatching.",
+    proof: "Live at nycmaid: 160+ recurring bookings updated in one push (Brian Klig 87 + Natalie Pita 46 + Elaine Krauss 10 + Joyce 7 + Svetlana Goubanova 10) — Gabriela López notified push ✓ + SMS ✓ in seconds.",
     benefit: "Fewer no-shows. Tighter routes. More jobs per day.",
   },
   {
     stage: "Stage 4",
-    title: "Operations",
-    desc: "GPS-tracked field team management gives you real-time visibility into every technician, every job, and every route — from dispatch to completion.",
-    reality: "You can't manage what you can't see. Full Loop's operations layer replaces guesswork with live data so you can scale confidently.",
-    benefit: "Complete field visibility from your phone.",
+    title: "Job Completed",
+    desc: "Crew checks in via mobile portal — GPS coordinates validated within 528 feet of the address. Before-photo video, work, after-photo video. 15-minute heads-up button SMSes admin with amount due + crew take. Half-hour rounding with 10-min grace handles billing automatically.",
+    reality: "GPS-verified means no time theft, no fake check-ins, no end-of-week disputes. Videos prove the job was done if a client ever pushes back. Bilingual SMS (EN/ES same message) keeps the whole crew aligned.",
+    proof: "Live at nycmaid: late check-in cron catches a delayed crew within 5 minutes. Schedule conflict alert triggered when Karina got double-booked May 1 — caught before the customer noticed.",
+    benefit: "Complete field visibility. Verifiable proof of service. No payroll arguments.",
   },
   {
     stage: "Stage 5",
-    title: "Payment",
-    desc: "Collection, payroll, and full P&L reporting in one place. Accept payments on-site, automate payroll splits, and see your real profitability per job, per tech, per month.",
-    reality: "Most home service businesses don't know their true margins. Full Loop connects revenue to labor costs so every decision is data-driven.",
-    benefit: "Real-time P&L. No more spreadsheet guessing.",
+    title: "Payment Collected",
+    desc: "Stripe + Stripe Connect handles cards, Apple Pay, payment links — and auto-pays the crew the moment a job is marked complete. IMAP email monitor parses Zelle / Venmo / Cash App receipts every minute and matches them to bookings. Tips detected automatically.",
+    reality: "Real clients pay however they want. Full Loop tracks every method in one place AND automates crew payouts on the same cycle. No other field-service CRM does the IMAP payment-parsing piece — it's a bespoke build.",
+    proof: "Live at nycmaid: $177 Apple Pay from Mike Johnson auto-matched, job closed. $2,800+ in Zelle parsed in 2 hours from 11 different senders, queued for match — crew waiting on payouts.",
+    benefit: "Real-time payment status. Crew paid automatically. No spreadsheet guessing.",
   },
   {
     stage: "Stage 6",
-    title: "Reviews",
-    desc: "Automated feedback and review generation triggers after every completed job — capturing 5-star reviews on Google, Yelp, and the platforms that matter for local SEO.",
-    reality: "Reviews are the lifeblood of local search. Our CRM automates the ask so your review count grows on autopilot without awkward follow-ups.",
-    benefit: "More reviews. Better rankings. Stronger reputation.",
+    title: "Review Captured",
+    desc: "Post-job follow-up cron sends a review request via SMS + email 24 hours after every completed job. 10% rebooking discount baked into the message. Negative sentiment detected before the review goes public — Selena escalates the conversation to a phone call.",
+    reality: "Reviews are local-search oxygen. Most operators chase them manually and forget. Full Loop automates the ask, catches angry clients before they 1-star you, and auto-replies to Google reviews via the synced GMB integration.",
+    proof: "Live at nycmaid: post-job-followup cron firing every job complete. Auto-reply-reviews cron syncs Google reviews daily. Negative sentiment routed to private resolution flow before going public.",
+    benefit: "More reviews. Better rankings. Bad reviews caught early.",
   },
   {
     stage: "Stage 7",
-    title: "Retarget",
-    desc: "Re-engage at-risk clients, trigger seasonal reminders, and generate referrals — turning one-time customers into lifetime value and your best source of new business.",
-    reality: "Acquiring a new customer costs 5x more than keeping one. Full Loop's retargeting engine makes sure no client falls through the cracks.",
+    title: "Retargeted",
+    desc: "Lifecycle cron scores every client (active / at-risk / churned) based on booking frequency. Win-back campaigns target the at-risk segment automatically. Referral program tracks every referrer code, calculates 10% commission on first booking, and processes payouts.",
+    reality: "Acquiring a new client costs 5× more than keeping one. The retargeting engine makes sure no client slips through. Referrers turn your best customers into your sales team.",
+    proof: "Live at nycmaid: lifecycle cron flagging churn risk daily. Win-back SMS sent to at-risk clients with personalized offer. Referral commissions paid via Zelle with one-click admin approval.",
     benefit: "Higher retention. More referrals. Compounding growth.",
   },
 ];
@@ -68,14 +75,17 @@ export default function Process() {
           className="text-center mb-16"
         >
           <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            The Full Loop
+            What This Actually Does
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
-            Seven Stages. Zero Gaps.{" "}
-            <span className="text-teal-600">Every Stage Connected.</span>
+            Lead → Sale → Schedule → Job → Pay → Review → Rebook.{" "}
+            <span className="text-teal-600">All Of It. Automated.</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-3xl mx-auto">
-            Every stage of your home service business — from <Link href="/full-loop-crm-service-features" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">lead generation to client retention</Link> — managed inside one all-in-one CRM built specifically for field service companies.
+          <p className="text-slate-600 text-lg max-w-3xl mx-auto mb-6">
+            This is the same loop that runs <strong className="text-slate-900">The NYC Maid</strong> — a live home-cleaning operation in NYC — right now, every day, hands-off. Below is exactly what happens at each stage, with the actual evidence from the live system.
+          </p>
+          <p className="text-xs font-mono uppercase tracking-widest text-teal-700 max-w-2xl mx-auto">
+            Live proof from thenycmaid.com production · captured 2026-04-27
           </p>
         </motion.div>
 
@@ -113,6 +123,12 @@ export default function Process() {
                       <div className="rounded-lg bg-white border border-slate-200 p-4 mb-2">
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-cta">Why It Matters</p>
                         <p className="text-slate-600 text-sm leading-relaxed">{step.reality}</p>
+                      </div>
+
+                      {/* Live proof from nycmaid */}
+                      <div className="rounded-lg bg-slate-900 border border-teal-700 p-4 mb-2">
+                        <p className="text-xs font-semibold text-teal-400 uppercase tracking-wider mb-1 font-cta font-mono">Live at nycmaid</p>
+                        <p className="text-slate-200 text-sm leading-relaxed">{step.proof}</p>
                       </div>
 
                       {/* Benefit */}
