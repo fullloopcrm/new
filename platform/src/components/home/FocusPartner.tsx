@@ -388,6 +388,47 @@ export default function FocusPartner() {
           </div>
         </motion.div>
 
+        {/* ─────── 5b. ZERO PAID — every lead is organic ─────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.19 }}
+          className="rounded-2xl border-2 border-yellow-300/60 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8 sm:p-12 mb-20 text-center"
+        >
+          <p className="font-mono text-xs tracking-[0.25em] uppercase text-yellow-300 mb-4">
+            Verified · 23,078 lead clicks · UTM audit
+          </p>
+          <h3 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-6">
+            $0 in ads. $0 in bought leads.
+            <br className="hidden sm:block" />
+            <span className="text-yellow-300">Not once. Not ever.</span>
+          </h3>
+          <p className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed">
+            Every one of the 23,078 lead-click events was filtered for UTM markers
+            (cpc · ppc · paid · adwords · sponsored · display).{" "}
+            <strong className="text-yellow-300">Zero matches.</strong> The 232
+            UTM-tagged visits in the dataset are 207 organic Google Jobs +
+            25 owned-IG posts — both free. Every booking, every dollar, every
+            review came from owned SEO, owned social, owned email — not one
+            cent paid to Google Ads, Thumbtack, Yelp Ads, Angi, HomeAdvisor,
+            or a lead broker.
+          </p>
+          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto">
+            {[
+              { v: "$0", l: "Google Ads spend" },
+              { v: "$0", l: "Thumbtack / Yelp" },
+              { v: "$0", l: "Angi / HomeAdvisor" },
+              { v: "$0", l: "Lead brokers" },
+            ].map((x) => (
+              <div key={x.l} className="rounded-lg border border-yellow-300/30 bg-slate-900 p-4">
+                <p className="font-heading text-2xl sm:text-3xl font-extrabold text-yellow-300">{x.v}</p>
+                <p className="mt-1 font-cta text-[10px] sm:text-xs uppercase tracking-widest text-slate-400">{x.l}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 font-mono text-xs text-slate-500">
+            $221,988 in revenue. Built on 98 SEO domains, one AI receptionist, and zero paid acquisition.
+          </p>
+        </motion.div>
+
         {/* ─────── 6. WHERE LEADS COME FROM ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2 }}
