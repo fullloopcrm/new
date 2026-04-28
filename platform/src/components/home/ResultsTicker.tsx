@@ -70,7 +70,7 @@ export default function ResultsTicker() {
   return (
     <section
       ref={ref}
-      className="py-12 sm:py-16 bg-teal-600"
+      className="py-12 sm:py-16 bg-[#1F4D2C]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8 text-center">
@@ -82,7 +82,7 @@ export default function ResultsTicker() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
             >
-              <div className={`text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-1 font-mono ${stat.prefix === "$" ? "text-yellow-300" : "text-white"}`}>
+              <div className={`text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-1 font-mono ${stat.prefix === "$" ? "text-[#1F4D2C]" : "text-[#1C1C1C]"}`}>
                 <CountUp
                   target={stat.value}
                   prefix={stat.prefix}
@@ -90,11 +90,11 @@ export default function ResultsTicker() {
                   started={isInView}
                 />
               </div>
-              <div className="text-white/80 text-sm sm:text-base font-medium font-cta">
+              <div className="text-[#1C1C1C] text-sm sm:text-base font-medium font-cta">
                 {stat.label}
               </div>
               {stat.sublabel && (
-                <div className="text-white text-[11px] mt-1 italic font-mono">
+                <div className="text-[#1C1C1C] text-[11px] mt-1 italic font-mono">
                   {stat.sublabel}
                 </div>
               )}

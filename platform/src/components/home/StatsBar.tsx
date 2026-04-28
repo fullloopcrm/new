@@ -52,7 +52,7 @@ export default function StatsBar() {
   return (
     <section className="relative overflow-hidden">
       {/* Solid teal background */}
-      <div className="absolute inset-0 bg-teal-600" />
+      <div className="absolute inset-0 bg-[#1F4D2C]" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -71,13 +71,13 @@ export default function StatsBar() {
               transition={{ duration: 0.5, delay: i * 0.1 }}
               className="text-center"
             >
-              <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-2 font-mono">
+              <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-[#1C1C1C] mb-2 font-mono">
                 <AnimatedNumber
                   target={stat.target}
                   suffix={stat.suffix}
                 />
               </p>
-              <p className="text-white/80 text-sm sm:text-base font-medium tracking-wide uppercase font-cta">
+              <p className="text-[#1C1C1C] text-sm sm:text-base font-medium tracking-wide uppercase font-cta">
                 {stat.label}
               </p>
             </motion.div>

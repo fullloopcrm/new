@@ -22,19 +22,19 @@ export default function StickyBar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <p className="text-slate-900 text-sm sm:text-base font-medium hidden sm:block">
           Apply for Your Exclusive CRM Territory &mdash;{" "}
-          <span className="text-teal-600">Limited Spots This Month</span>
+          <span className="text-[#1F4D2C]">Limited Spots This Month</span>
         </p>
 
         <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-end">
           <a
             href="tel:+12122029220"
-            className="text-slate-600 hover:text-slate-900 text-sm sm:text-base font-medium transition-colors"
+            className="text-[#3A3A3A] hover:text-slate-900 text-sm sm:text-base font-medium transition-colors"
           >
             (212) 202-9220
           </a>
           <Link
             href="/crm-partnership-request-form"
-            className="inline-block px-6 py-2.5 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors whitespace-nowrap font-cta"
+            className="inline-block px-6 py-2.5 text-sm font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors whitespace-nowrap font-cta"
           >
             Apply Now
           </Link>

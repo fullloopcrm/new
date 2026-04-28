@@ -5,7 +5,7 @@ import Link from "next/link";
 import { type ReactNode } from "react";
 
 const L = ({ href, children }: { href: string; children: ReactNode }) => (
-  <Link href={href} className="text-teal-600 underline underline-offset-2 hover:text-teal-700">{children}</Link>
+  <Link href={href} className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">{children}</Link>
 );
 
 interface StageFeature {
@@ -316,14 +316,14 @@ export default function ServiceDeepDives() {
           transition={{ duration: 0.6 }}
           className="text-center mb-20"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             Full Loop CRM Feature Breakdown
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             Seven Stages of{" "}
-            <span className="text-teal-600">Automated Field Service Management</span>
+            <span className="text-[#1F4D2C]">Automated Field Service Management</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-3xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-3xl mx-auto">
             Every stage feeds the next. <L href="/full-loop-crm-service-features">Lead generation</L>{" "}
             fills your pipeline. AI sales close the deal. Scheduling and field
             ops execute flawlessly. Payments flow automatically. Reviews build
@@ -351,18 +351,18 @@ export default function ServiceDeepDives() {
               >
                 {/* Text block */}
                 <div className="flex-1">
-                  <span className="text-teal-600 text-sm font-semibold tracking-[0.15em] uppercase mb-3 block">
+                  <span className="text-[#1F4D2C] text-sm font-semibold tracking-[0.15em] uppercase mb-3 block">
                     {stage.badge} &mdash; {stage.title}
                   </span>
                   <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-6 font-heading">
                     {stage.headline}
                   </h3>
-                  <p className="text-slate-600 leading-relaxed mb-6">
+                  <p className="text-[#3A3A3A] leading-relaxed mb-6">
                     {stage.description}
                   </p>
                   <Link
                     href="/full-loop-crm-service-features"
-                    className="inline-block mt-2 px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta"
+                    className="inline-block mt-2 px-6 py-3 text-sm font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors font-cta"
                   >
                     Explore {stage.title} Features
                   </Link>
@@ -379,7 +379,7 @@ export default function ServiceDeepDives() {
                         <h4 className="text-sm font-bold text-slate-900 mb-2 font-heading">
                           {feature.name}
                         </h4>
-                        <p className="text-slate-500 text-xs leading-relaxed">
+                        <p className="text-[#6F6F6B] text-xs leading-relaxed">
                           {feature.description}
                         </p>
                       </div>

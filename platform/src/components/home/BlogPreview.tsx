@@ -53,18 +53,18 @@ export default function BlogPreview() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4">
             More Home Service CRM Reviews
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
-            More <span className="text-teal-600">Reviews</span>
+            More <span className="text-[#1F4D2C]">Reviews</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
             From cleaning companies to HVAC contractors &mdash; business owners
             across the country are switching to{" "}
             <Link
               href="/full-loop-crm-service-features"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               Full Loop
             </Link>
@@ -81,20 +81,20 @@ export default function BlogPreview() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.15 }}
-              className="group rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-teal-300 p-6 sm:p-8 transition-all flex flex-col"
+              className="group rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-[#1F4D2C] p-6 sm:p-8 transition-all flex flex-col"
             >
-              <p className="text-teal-600 text-xs font-bold tracking-wide uppercase mb-4 font-cta">
+              <p className="text-[#1F4D2C] text-xs font-bold tracking-wide uppercase mb-4 font-cta">
                 {review.service} &middot; {review.location}
               </p>
-              <h3 className="text-lg font-bold text-slate-900 group-hover:text-teal-600 transition-colors mb-3 leading-snug font-heading">
+              <h3 className="text-lg font-bold text-slate-900 group-hover:text-[#1F4D2C] transition-colors mb-3 leading-snug font-heading">
                 {review.name}
               </h3>
-              <p className="text-slate-600 text-sm leading-relaxed mb-6 flex-1">
+              <p className="text-[#3A3A3A] text-sm leading-relaxed mb-6 flex-1">
                 &ldquo;{review.quote}&rdquo;
               </p>
               <Link
                 href="/full-loop-crm-pricing"
-                className="inline-flex items-center gap-2 text-teal-600 text-sm font-semibold hover:underline font-cta"
+                className="inline-flex items-center gap-2 text-[#1F4D2C] text-sm font-semibold hover:underline font-cta"
               >
                 See Pricing
                 <svg
@@ -125,7 +125,7 @@ export default function BlogPreview() {
         >
           <Link
             href="/why-you-should-choose-full-loop-crm-for-your-business"
-            className="inline-flex items-center gap-2 text-teal-600 font-semibold hover:underline transition-all font-cta"
+            className="inline-flex items-center gap-2 text-[#1F4D2C] font-semibold hover:underline transition-all font-cta"
           >
             Why Full Loop CRM
             <svg

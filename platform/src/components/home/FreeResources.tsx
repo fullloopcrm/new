@@ -58,7 +58,7 @@ const cardVariants = {
 
 export default function FreeResources() {
   return (
-    <section className="relative py-24 px-6 bg-teal-50 overflow-hidden">
+    <section className="relative py-24 px-6 bg-[#F4F4F1] overflow-hidden">
       <div className="max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -70,7 +70,7 @@ export default function FreeResources() {
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 font-heading">
               Is Full Loop CRM Right for Your Business?
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
             Full Loop CRM is built for home service businesses ready to dominate
             their market. Here&apos;s who we work with — and why the partnership model
             works.
@@ -91,13 +91,13 @@ export default function FreeResources() {
               whileHover={{
                 y: -5,
               }}
-              className="rounded-2xl bg-white border border-slate-200 shadow-sm p-8 flex flex-col hover:border-teal-300 transition-all"
+              className="rounded-2xl bg-white border border-slate-200 shadow-sm p-8 flex flex-col hover:border-[#1F4D2C] transition-all"
             >
               <div
-                className="w-12 h-12 rounded-lg mb-6 flex items-center justify-center bg-teal-50 border border-teal-200"
+                className="w-12 h-12 rounded-lg mb-6 flex items-center justify-center bg-[#F4F4F1] border border-teal-200"
               >
                 <span
-                  className="text-2xl font-black text-teal-600"
+                  className="text-2xl font-black text-[#1F4D2C]"
                 >
                   {resource.letter}
                 </span>
@@ -106,13 +106,13 @@ export default function FreeResources() {
               <h3 className="text-slate-900 text-xl font-bold mb-3 font-heading">
                 {resource.title}
               </h3>
-              <p className="text-slate-600 leading-relaxed text-sm flex-1 mb-8">
+              <p className="text-[#3A3A3A] leading-relaxed text-sm flex-1 mb-8">
                 {resource.description}
               </p>
 
               <Link
                 href={resource.href}
-                className="inline-block text-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 hover:bg-teal-500 bg-teal-600 text-white font-cta"
+                className="inline-block text-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 hover:bg-[#1F4D2C] bg-[#1F4D2C] text-[#1C1C1C] font-cta"
               >
                 {resource.cta}
               </Link>
@@ -129,7 +129,7 @@ export default function FreeResources() {
         >
           <Link
             href="/crm-partnership-request-form"
-            className="inline-block px-10 py-4 rounded-full bg-teal-600 text-white font-bold text-lg hover:bg-teal-500 transition-colors duration-300 font-cta"
+            className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-[#1C1C1C] font-bold text-lg hover:bg-[#1F4D2C] transition-colors duration-300 font-cta"
           >
             Apply for Partnership
           </Link>

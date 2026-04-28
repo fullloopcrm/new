@@ -60,7 +60,7 @@ export default function ExitIntent() {
             {/* Close button */}
             <button
               onClick={handleDismiss}
-              className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors"
+              className="absolute top-3 right-3 text-[#6F6F6B] hover:text-[#3A3A3A] transition-colors"
               aria-label="Close"
             >
               <svg
@@ -81,13 +81,13 @@ export default function ExitIntent() {
             {/* Accent glow */}
             <div className="absolute -top-px left-6 right-6 h-px bg-gradient-to-r from-transparent via-teal-500 to-transparent" />
 
-            <p className="text-teal-600 text-xs font-semibold tracking-[0.15em] uppercase mb-2">
+            <p className="text-[#1F4D2C] text-xs font-semibold tracking-[0.15em] uppercase mb-2">
               Want to learn more?
             </p>
             <h3 className="text-slate-900 font-bold text-lg mb-2 leading-snug">
               Get a Personalized CRM Breakdown for Your Business
             </h3>
-            <p className="text-slate-600 text-sm mb-4">
+            <p className="text-[#3A3A3A] text-sm mb-4">
               Drop your email and we&rsquo;ll send you a detailed overview of how Full Loop CRM works for your specific trade and market.
             </p>
 
@@ -98,11 +98,11 @@ export default function ExitIntent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
-                className="flex-1 px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors"
+                className="flex-1 px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-sm placeholder:text-[#6F6F6B] focus:outline-none focus:border-[#1F4D2C] transition-colors"
               />
               <button
                 type="submit"
-                className="px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-bold hover:bg-teal-500 transition-colors whitespace-nowrap"
+                className="px-4 py-2.5 rounded-lg bg-[#1F4D2C] text-[#1C1C1C] text-sm font-bold hover:bg-[#1F4D2C] transition-colors whitespace-nowrap"
               >
                 Send It
               </button>

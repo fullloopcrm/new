@@ -48,23 +48,23 @@ export default function Timeline() {
           transition={{ duration: 0.6 }}
           className="text-center mb-20"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             Marketing Company Timeline
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             What Happens When You Hire a{" "}
-            <span className="text-teal-600">NYC Marketing Company</span>
+            <span className="text-[#1F4D2C]">NYC Marketing Company</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            Complete transparency from day one. Here&apos;s exactly what to expect when you partner with a marketing company in New York City — from your first <Link href="/contact-nyc-marketing-company-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">free strategy session</Link> to total market domination.
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
+            Complete transparency from day one. Here&apos;s exactly what to expect when you partner with a marketing company in New York City — from your first <Link href="/contact-nyc-marketing-company-consortium-nyc" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">free strategy session</Link> to total market domination.
           </p>
         </motion.div>
 
         {/* Timeline items */}
         <div className="relative">
           {/* Connecting line — vertical on mobile, horizontal on lg */}
-          <div className="hidden lg:block absolute top-6 left-0 right-0 h-px bg-teal-300" />
-          <div className="lg:hidden absolute left-6 top-0 bottom-0 w-px bg-teal-300" />
+          <div className="hidden lg:block absolute top-6 left-0 right-0 h-px bg-[#1F4D2C]" />
+          <div className="lg:hidden absolute left-6 top-0 bottom-0 w-px bg-[#1F4D2C]" />
 
           {/* Desktop: horizontal grid */}
           <div className="hidden lg:grid lg:grid-cols-6 gap-6">
@@ -78,15 +78,15 @@ export default function Timeline() {
                 className="relative pt-14"
               >
                 {/* Dot */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-white border-2 border-teal-500 flex items-center justify-center">
-                  <span className="text-teal-600 font-bold text-xs font-mono">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-white border-2 border-[#1F4D2C] flex items-center justify-center">
+                  <span className="text-[#1F4D2C] font-bold text-xs font-mono">
                     {m.label}
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-slate-900 mb-2 font-heading">
                   {m.title}
                 </h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
+                <p className="text-[#3A3A3A] text-sm leading-relaxed">
                   {m.desc}
                 </p>
               </motion.div>
@@ -105,15 +105,15 @@ export default function Timeline() {
                 className="relative pl-16"
               >
                 {/* Dot */}
-                <div className="absolute left-0 top-0 w-12 h-12 rounded-full bg-white border-2 border-teal-500 flex items-center justify-center">
-                  <span className="text-teal-600 font-bold text-[10px] font-mono">
+                <div className="absolute left-0 top-0 w-12 h-12 rounded-full bg-white border-2 border-[#1F4D2C] flex items-center justify-center">
+                  <span className="text-[#1F4D2C] font-bold text-[10px] font-mono">
                     {m.label}
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mb-1 font-heading">
                   {m.title}
                 </h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
+                <p className="text-[#3A3A3A] text-sm leading-relaxed">
                   {m.desc}
                 </p>
               </motion.div>
@@ -129,13 +129,13 @@ export default function Timeline() {
           transition={{ duration: 0.6 }}
           className="text-center mt-20"
         >
-          <p className="text-slate-600 text-lg mb-6">
+          <p className="text-[#3A3A3A] text-lg mb-6">
             Day 1 starts with a free call. No commitment. No credit card. Just a
             real strategy conversation.
           </p>
           <Link
             href="/contact"
-            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
+            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg shadow-teal-600/25 font-cta"
           >
             Book Your Free Strategy Call
           </Link>

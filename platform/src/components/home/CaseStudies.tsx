@@ -66,20 +66,20 @@ export default function CaseStudies() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             Command Center
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             One Dashboard to Run Your{" "}
-            <span className="text-teal-600">Entire Home Service Business</span>
+            <span className="text-[#1F4D2C]">Entire Home Service Business</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
             11 purpose-built admin pages covering every aspect of your
             operation. Real-time data, instant actions, zero switching between
             tools. See all{" "}
             <Link
               href="/full-loop-crm-service-features"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               Full Loop CRM features
             </Link>{" "}
@@ -101,7 +101,7 @@ export default function CaseStudies() {
               <h3 className="text-sm font-bold text-slate-900 font-heading">
                 {f.name}
               </h3>
-              <p className="text-teal-600 text-xs font-semibold font-cta mt-0.5 mb-3">
+              <p className="text-[#1F4D2C] text-xs font-semibold font-cta mt-0.5 mb-3">
                 {f.category}
               </p>
 
@@ -110,7 +110,7 @@ export default function CaseStudies() {
                 {f.capabilities.map((c) => (
                   <span
                     key={c}
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200"
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F4F4F1] text-[#1F4D2C] border border-teal-200"
                   >
                     {c}
                   </span>
@@ -126,7 +126,7 @@ export default function CaseStudies() {
               <div className="mt-4 pt-3 border-t border-slate-100">
                 <Link
                   href={f.link}
-                  className="text-teal-600 text-xs font-semibold hover:underline font-cta"
+                  className="text-[#1F4D2C] text-xs font-semibold hover:underline font-cta"
                 >
                   Learn more about this feature &rarr;
                 </Link>
@@ -146,13 +146,13 @@ export default function CaseStudies() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/full-loop-crm-service-features"
-              className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white border-2 border-teal-600 hover:bg-teal-50 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1F4D2C] rounded-lg bg-white border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors shadow-lg font-cta"
             >
               See All Features
             </Link>
             <Link
               href="/full-loop-crm-pricing"
-              className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               Get Started Today
             </Link>

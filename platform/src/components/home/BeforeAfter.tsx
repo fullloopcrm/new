@@ -53,7 +53,7 @@ const cardVariants = {
 
 export default function BeforeAfter() {
   return (
-    <section className="py-20 sm:py-28 bg-teal-50">
+    <section className="py-20 sm:py-28 bg-[#F4F4F1]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -63,15 +63,15 @@ export default function BeforeAfter() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             AI-Powered Sales &amp; Client Management
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             Selenas Replaces Your{" "}
-            <span className="text-teal-600">Entire Front Office</span>
+            <span className="text-[#1F4D2C]">Entire Front Office</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            Three full-time salaries. One AI. Available 24/7, bilingual, with full client context and memory on every conversation. See all <Link href="/full-loop-crm-service-features" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">features</Link> or learn <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">why Full Loop is different</Link>.
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
+            Three full-time salaries. One AI. Available 24/7, bilingual, with full client context and memory on every conversation. See all <Link href="/full-loop-crm-service-features" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">features</Link> or learn <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">why Full Loop is different</Link>.
           </p>
         </motion.div>
 
@@ -100,7 +100,7 @@ export default function BeforeAfter() {
                 <h3 className="text-slate-900 font-bold text-base mb-1 font-heading">
                   {item.before.role}
                 </h3>
-                <p className="text-slate-500 text-sm leading-relaxed">
+                <p className="text-[#6F6F6B] text-sm leading-relaxed">
                   {item.before.description}
                 </p>
               </div>
@@ -108,7 +108,7 @@ export default function BeforeAfter() {
               {/* Arrow divider */}
               <div className="flex items-center justify-center py-2 bg-white">
                 <svg
-                  className="w-6 h-6 text-teal-600"
+                  className="w-6 h-6 text-[#1F4D2C]"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -123,14 +123,14 @@ export default function BeforeAfter() {
               </div>
 
               {/* After */}
-              <div className="p-5 bg-teal-50 flex-1">
-                <span className="text-teal-600 text-xs font-semibold tracking-[0.15em] uppercase font-cta">
+              <div className="p-5 bg-[#F4F4F1] flex-1">
+                <span className="text-[#1F4D2C] text-xs font-semibold tracking-[0.15em] uppercase font-cta">
                   After
                 </span>
                 <h3 className="text-slate-900 font-bold text-base mb-1 mt-2 font-heading">
                   {item.after.role}
                 </h3>
-                <p className="text-slate-700 text-sm leading-relaxed">
+                <p className="text-[#1C1C1C] text-sm leading-relaxed">
                   {item.after.description}
                 </p>
               </div>
@@ -149,13 +149,13 @@ export default function BeforeAfter() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/full-loop-crm-pricing"
-              className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               See Pricing
             </Link>
             <Link
               href="/full-loop-crm-service-business-industries"
-              className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white border-2 border-teal-600 hover:bg-teal-50 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1F4D2C] rounded-lg bg-white border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors shadow-lg font-cta"
             >
               Browse Industries
             </Link>

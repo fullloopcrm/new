@@ -64,7 +64,7 @@ const steps = [
 
 export default function Process() {
   return (
-    <section className="py-20 sm:py-28 bg-teal-50">
+    <section className="py-20 sm:py-28 bg-[#F4F4F1]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -74,17 +74,17 @@ export default function Process() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             What This Actually Does
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             Lead → Sale → Schedule → Job → Pay → Review → Rebook.{" "}
-            <span className="text-teal-600">All Of It. Automated.</span>
+            <span className="text-[#1F4D2C]">All Of It. Automated.</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-3xl mx-auto mb-6">
+          <p className="text-[#3A3A3A] text-lg max-w-3xl mx-auto mb-6">
             This is the same loop that runs <strong className="text-slate-900">The NYC Maid</strong> — a live home-cleaning operation in NYC — right now, every day, hands-off. Below is exactly what happens at each stage, with the actual evidence from the live system.
           </p>
-          <p className="text-xs font-mono uppercase tracking-widest text-teal-700 max-w-2xl mx-auto">
+          <p className="text-xs font-mono uppercase tracking-widest text-[#1F4D2C] max-w-2xl mx-auto">
             Live proof from thenycmaid.com production · captured 2026-04-27
           </p>
         </motion.div>
@@ -95,7 +95,7 @@ export default function Process() {
           <div className="lg:w-[70%]">
             <div className="relative">
               {/* Vertical line */}
-              <div className="absolute left-4 top-0 bottom-0 w-px bg-teal-300" />
+              <div className="absolute left-4 top-0 bottom-0 w-px bg-[#1F4D2C]" />
 
               <div className="space-y-10">
                 {steps.map((step, i) => (
@@ -108,31 +108,31 @@ export default function Process() {
                     className="relative pl-14"
                   >
                     {/* Dot */}
-                    <div className="absolute left-0 top-1 w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center">
-                      <span className="text-white font-bold text-xs font-mono">{i + 1}</span>
+                    <div className="absolute left-0 top-1 w-8 h-8 rounded-full bg-[#1F4D2C] flex items-center justify-center">
+                      <span className="text-[#1C1C1C] font-bold text-xs font-mono">{i + 1}</span>
                     </div>
 
                     <div>
-                      <span className="text-teal-600 text-xs font-bold tracking-[0.1em] uppercase font-cta">{step.stage}</span>
+                      <span className="text-[#1F4D2C] text-xs font-bold tracking-[0.1em] uppercase font-cta">{step.stage}</span>
                       <h3 className="text-lg sm:text-xl font-bold text-slate-900 mt-1 mb-2 font-heading">
                         {step.title}
                       </h3>
-                      <p className="text-slate-600 text-sm leading-relaxed mb-3">{step.desc}</p>
+                      <p className="text-[#3A3A3A] text-sm leading-relaxed mb-3">{step.desc}</p>
 
                       {/* Reality check */}
                       <div className="rounded-lg bg-white border border-slate-200 p-4 mb-2">
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-cta">Why It Matters</p>
-                        <p className="text-slate-600 text-sm leading-relaxed">{step.reality}</p>
+                        <p className="text-xs font-semibold text-[#6F6F6B] uppercase tracking-wider mb-1 font-cta">Why It Matters</p>
+                        <p className="text-[#3A3A3A] text-sm leading-relaxed">{step.reality}</p>
                       </div>
 
                       {/* Live proof from nycmaid */}
-                      <div className="rounded-lg bg-slate-900 border border-teal-700 p-4 mb-2">
-                        <p className="text-xs font-semibold text-teal-400 uppercase tracking-wider mb-1 font-cta font-mono">Live at nycmaid</p>
-                        <p className="text-slate-200 text-sm leading-relaxed">{step.proof}</p>
+                      <div className="rounded-lg bg-[#F4F4F1] border border-[#1F4D2C] p-4 mb-2">
+                        <p className="text-xs font-semibold text-[#1F4D2C] uppercase tracking-wider mb-1 font-cta font-mono">Live at nycmaid</p>
+                        <p className="text-[#1C1C1C] text-sm leading-relaxed">{step.proof}</p>
                       </div>
 
                       {/* Benefit */}
-                      <p className="text-teal-600 text-xs font-semibold font-cta">
+                      <p className="text-[#1F4D2C] text-xs font-semibold font-cta">
                         Result: {step.benefit}
                       </p>
                     </div>
@@ -154,34 +154,34 @@ export default function Process() {
               {/* Why Full Loop */}
               <div className="rounded-xl bg-white border border-slate-200 p-6">
                 <h4 className="text-sm font-bold text-slate-900 mb-4 font-heading">Why Full Loop CRM</h4>
-                <ul className="space-y-3 text-sm text-slate-600">
+                <ul className="space-y-3 text-sm text-[#3A3A3A]">
                   <li className="flex gap-2">
-                    <span className="text-teal-600 shrink-0">&#x2713;</span>
+                    <span className="text-[#1F4D2C] shrink-0">&#x2713;</span>
                     Built by operators with 20+ years in home services
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-teal-600 shrink-0">&#x2713;</span>
-                    <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Exclusive territory protection</Link> — one partner per trade per city
+                    <span className="text-[#1F4D2C] shrink-0">&#x2713;</span>
+                    <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">Exclusive territory protection</Link> — one partner per trade per city
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-teal-600 shrink-0">&#x2713;</span>
+                    <span className="text-[#1F4D2C] shrink-0">&#x2713;</span>
                     Organic lead gen included — no ad spend required
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-teal-600 shrink-0">&#x2713;</span>
+                    <span className="text-[#1F4D2C] shrink-0">&#x2713;</span>
                     All 7 stages in one platform — no integrations needed
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-teal-600 shrink-0">&#x2713;</span>
-                    <Link href="/full-loop-crm-101-educational-tips" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Real consulting guidance</Link>, not just software
+                    <span className="text-[#1F4D2C] shrink-0">&#x2713;</span>
+                    <Link href="/full-loop-crm-101-educational-tips" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">Real consulting guidance</Link>, not just software
                   </li>
                 </ul>
               </div>
 
               {/* What makes us different */}
-              <div className="rounded-xl bg-slate-900 border border-slate-700 p-6">
-                <h4 className="text-sm font-bold text-white mb-4 font-heading">What Other CRMs Don&apos;t Do</h4>
-                <ul className="space-y-3 text-sm text-white/70">
+              <div className="rounded-xl bg-[#F4F4F1] border border-[#C8C5BC] p-6">
+                <h4 className="text-sm font-bold text-[#1C1C1C] mb-4 font-heading">What Other CRMs Don&apos;t Do</h4>
+                <ul className="space-y-3 text-sm text-[#1C1C1C]">
                   <li className="flex gap-2">
                     <span className="text-red-400 shrink-0">&#x2717;</span>
                     Generate your leads for you
@@ -212,25 +212,25 @@ export default function Process() {
               {/* Industries */}
               <div className="rounded-xl bg-amber-50 border border-amber-200 p-6">
                 <h4 className="text-sm font-bold text-slate-900 mb-3 font-heading">Built for Home Service Trades</h4>
-                <p className="text-slate-600 text-sm leading-relaxed mb-3">
+                <p className="text-[#3A3A3A] text-sm leading-relaxed mb-3">
                   Full Loop CRM is purpose-built for the trades that run on reputation and repeat business:
                 </p>
-                <ul className="space-y-2 text-sm text-slate-600">
+                <ul className="space-y-2 text-sm text-[#3A3A3A]">
                   <li>&bull; Cleaning &amp; maid services</li>
                   <li>&bull; HVAC, plumbing &amp; electrical</li>
                   <li>&bull; Pest control &amp; extermination</li>
                   <li>&bull; Landscaping &amp; lawn care</li>
                   <li>&bull; Junk removal &amp; hauling</li>
                 </ul>
-                <p className="text-slate-700 text-sm font-semibold mt-3">
-                  <Link href="/full-loop-crm-service-business-industries" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">See all industries we serve</Link>
+                <p className="text-[#1C1C1C] text-sm font-semibold mt-3">
+                  <Link href="/full-loop-crm-service-business-industries" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">See all industries we serve</Link>
                 </p>
               </div>
 
               {/* CTA */}
               <Link
                 href="/crm-partnership-request-form"
-                className="block w-full text-center px-6 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
+                className="block w-full text-center px-6 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
               >
                 Check Territory Availability
               </Link>

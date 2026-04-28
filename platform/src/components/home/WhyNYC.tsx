@@ -35,7 +35,7 @@ const paragraphs = [
 
 export default function WhyNYC() {
   return (
-    <section className="py-20 sm:py-28 bg-teal-50 relative overflow-hidden">
+    <section className="py-20 sm:py-28 bg-[#F4F4F1] relative overflow-hidden">
       {/* Background blobs */}
       <div className="absolute top-1/4 right-0 w-96 h-96 bg-[var(--color-loop-line-soft)] rounded-full blur-[128px] animate-blob opacity-40" />
       <div className="absolute bottom-1/4 left-0 w-80 h-80 bg-[var(--color-loop-line-soft)] rounded-full blur-[128px] animate-blob opacity-40 animation-delay-2000" />
@@ -49,28 +49,28 @@ export default function WhyNYC() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             The Founder
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-6 font-heading">
             Built by Someone Who&apos;s Actually{" "}
-            <span className="text-teal-600">Done the Work</span>
+            <span className="text-[#1F4D2C]">Done the Work</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-3xl mx-auto leading-relaxed">
+          <p className="text-[#3A3A3A] text-lg max-w-3xl mx-auto leading-relaxed">
             Most home service CRM platforms are designed by people who&apos;ve
             never stepped foot on a job site. Full Loop CRM is different — it
             was built from real-world field service management experience, not
             theory. Learn more{" "}
             <Link
               href="/about-full-loop-crm"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               about us
             </Link>{" "}
             and{" "}
             <Link
               href="/why-you-should-choose-full-loop-crm-for-your-business"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               why Full Loop
             </Link>
@@ -95,7 +95,7 @@ export default function WhyNYC() {
               transition={{ duration: 0.4, delay: i * 0.1 }}
               className="text-center p-6 rounded-xl bg-white border border-slate-200 shadow-sm"
             >
-              <p className="text-sm sm:text-base font-bold text-teal-600">
+              <p className="text-sm sm:text-base font-bold text-[#1F4D2C]">
                 {cred}
               </p>
             </motion.div>
@@ -120,7 +120,7 @@ export default function WhyNYC() {
               <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 font-heading">
                 {section.title}
               </h3>
-              <p className="text-slate-600 leading-relaxed">
+              <p className="text-[#3A3A3A] leading-relaxed">
                 {section.content}
               </p>
             </motion.div>
@@ -135,19 +135,19 @@ export default function WhyNYC() {
           transition={{ duration: 0.6 }}
           className="text-center mt-16"
         >
-          <p className="text-slate-600 text-lg mb-6 max-w-2xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg mb-6 max-w-2xl mx-auto">
             Ready to work with an automated CRM built by someone who understands
             home service businesses from the inside out? Explore our{" "}
             <Link
               href="/full-loop-crm-service-features"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               features
             </Link>{" "}
             or{" "}
             <Link
               href="/full-loop-crm-pricing"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               pricing
             </Link>
@@ -155,7 +155,7 @@ export default function WhyNYC() {
           </p>
           <Link
             href="/crm-partnership-request-form"
-            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
+            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
           >
             Request a Partnership
           </Link>

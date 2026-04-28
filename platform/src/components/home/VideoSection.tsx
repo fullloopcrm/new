@@ -15,12 +15,12 @@ export default function VideoSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4">
             Case Study
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             See How We Took a Brooklyn Plumber from{" "}
-            <span className="text-teal-600">Page 5 to #1</span>
+            <span className="text-[#1F4D2C]">Page 5 to #1</span>
           </h2>
         </motion.div>
 
@@ -43,9 +43,9 @@ export default function VideoSection() {
           />
 
           {/* Play Button */}
-          <div className="relative z-10 w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-teal-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+          <div className="relative z-10 w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#1F4D2C] flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
             <svg
-              className="w-8 h-8 sm:w-10 sm:h-10 text-white ml-1"
+              className="w-8 h-8 sm:w-10 sm:h-10 text-[#1C1C1C] ml-1"
               fill="currentColor"
               viewBox="0 0 24 24"
             >
@@ -54,7 +54,7 @@ export default function VideoSection() {
           </div>
 
           {/* Coming soon label */}
-          <div className="absolute bottom-4 right-4 text-slate-400 text-xs font-medium tracking-wide uppercase">
+          <div className="absolute bottom-4 right-4 text-[#6F6F6B] text-xs font-medium tracking-wide uppercase">
             Video Coming Soon
           </div>
         </motion.div>
@@ -67,7 +67,7 @@ export default function VideoSection() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="text-center mt-10"
         >
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto mb-8">
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto mb-8">
             When this Brooklyn plumbing company came to us, they were buried on
             page five of Google with zero inbound leads from search. Within six
             months, they ranked #1 for their top 12 keywords and tripled their
@@ -75,7 +75,7 @@ export default function VideoSection() {
           </p>
           <Link
             href="/contact"
-            className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-500 transition-colors font-cta"
+            className="inline-block px-8 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors font-cta"
           >
             Want This for Your Business?
           </Link>

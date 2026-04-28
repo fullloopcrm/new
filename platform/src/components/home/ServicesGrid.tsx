@@ -39,7 +39,7 @@ const iconMap: Record<string, React.ReactNode> = {
 
 export default function ServicesGrid() {
   return (
-    <section className="py-20 sm:py-28 bg-teal-50">
+    <section className="py-20 sm:py-28 bg-[#F4F4F1]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -49,15 +49,15 @@ export default function ServicesGrid() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             Marketing Services
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             Full-Service Marketing for{" "}
-            <span className="text-teal-600">New York City Businesses</span>
+            <span className="text-[#1F4D2C]">New York City Businesses</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            From <Link href="/nyc-marketing-company-services-list" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">SEO and web design</Link> to branding, social media, and <Link href="/ai" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">AI automation</Link> — every service integrated into one strategy that drives leads, revenue, and compounding growth for your business.
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
+            From <Link href="/nyc-marketing-company-services-list" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">SEO and web design</Link> to branding, social media, and <Link href="/ai" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">AI automation</Link> — every service integrated into one strategy that drives leads, revenue, and compounding growth for your business.
           </p>
         </motion.div>
 
@@ -72,18 +72,18 @@ export default function ServicesGrid() {
               transition={{ duration: 0.5, delay: i * 0.1 }}
               className="rounded-2xl bg-white border border-slate-200 shadow-sm p-8 flex flex-col group hover:shadow-md transition-shadow"
             >
-              <div className="text-teal-600 mb-5 group-hover:text-teal-500 transition-colors">
+              <div className="text-[#1F4D2C] mb-5 group-hover:text-[#1F4D2C] transition-colors">
                 {iconMap[service.icon] ?? iconMap.search}
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-2 font-heading">
                 {service.name}
               </h3>
-              <p className="text-slate-600 text-sm mb-6 flex-1">
+              <p className="text-[#3A3A3A] text-sm mb-6 flex-1">
                 {service.shortDesc}
               </p>
               <Link
                 href={`/services/${service.slug}`}
-                className="text-teal-600 text-sm font-semibold hover:text-teal-500 transition-colors font-cta"
+                className="text-[#1F4D2C] text-sm font-semibold hover:text-[#1F4D2C] transition-colors font-cta"
               >
                 Learn More &rarr;
               </Link>

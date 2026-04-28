@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 
 const L = ({ href, children }: { href: string; children: ReactNode }) => (
-  <Link href={href} className="text-teal-600 underline underline-offset-2 hover:text-teal-700">{children}</Link>
+  <Link href={href} className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">{children}</Link>
 );
 
 const faqs: { question: string; answer: ReactNode }[] = [
@@ -150,7 +150,7 @@ export default function ExpandedFAQ() {
           <motion.span
             animate={{ rotate: isOpen ? 45 : 0 }}
             transition={{ duration: 0.2 }}
-            className="text-teal-600 text-xl flex-shrink-0"
+            className="text-[#1F4D2C] text-xl flex-shrink-0"
           >
             +
           </motion.span>
@@ -164,7 +164,7 @@ export default function ExpandedFAQ() {
               transition={{ duration: 0.3, ease: "easeInOut" }}
             >
               <div className="px-5 pb-4">
-                <p className="text-slate-600 text-sm leading-relaxed">
+                <p className="text-[#3A3A3A] text-sm leading-relaxed">
                   {faq.answer}
                 </p>
               </div>
@@ -176,7 +176,7 @@ export default function ExpandedFAQ() {
   };
 
   return (
-    <section className="py-20 sm:py-28 bg-teal-50">
+    <section className="py-20 sm:py-28 bg-[#F4F4F1]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -186,14 +186,14 @@ export default function ExpandedFAQ() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             Frequently Asked Questions About Full Loop CRM
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             Everything Home Service Business Owners{" "}
-            <span className="text-teal-600">Want to Know</span>
+            <span className="text-[#1F4D2C]">Want to Know</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-3xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-3xl mx-auto">
             25 answers about Full Loop CRM, organic lead generation, AI sales, exclusive territories, and running a home service business on autopilot.
           </p>
         </motion.div>
@@ -216,19 +216,19 @@ export default function ExpandedFAQ() {
           transition={{ duration: 0.5 }}
           className="text-center mt-14"
         >
-          <p className="text-slate-600 text-lg mb-6">
+          <p className="text-[#3A3A3A] text-lg mb-6">
             Still have questions? We pick up the phone.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/crm-partnership-request-form"
-              className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               Apply for a Partnership
             </Link>
             <a
               href="tel:+12122029220"
-              className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white border-2 border-teal-600 hover:bg-teal-50 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1F4D2C] rounded-lg bg-white border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors shadow-lg font-cta"
             >
               Call (212) 202-9220
             </a>

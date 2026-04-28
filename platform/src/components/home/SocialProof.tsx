@@ -89,19 +89,19 @@ export default function SocialProof() {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             All-in-One Home Service CRM
           </p>
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 font-heading">
             One Home Service CRM Replaces{" "}
-            <span className="text-teal-600">9+ Tools</span>
+            <span className="text-[#1F4D2C]">9+ Tools</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-3xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-3xl mx-auto">
             Stop duct-taping your business together. Full Loop CRM handles
             everything these tools do — and generates leads they can&apos;t. One{" "}
             <Link
               href="/full-loop-crm-service-features"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               automated CRM platform
             </Link>{" "}
@@ -124,11 +124,11 @@ export default function SocialProof() {
             >
               <a href={tool.href} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center">
                 <span className="text-4xl mb-3">{tool.icon}</span>
-                <span className="text-slate-900 font-bold text-lg font-heading mb-1 hover:text-teal-600 transition-colors">
+                <span className="text-slate-900 font-bold text-lg font-heading mb-1 hover:text-[#1F4D2C] transition-colors">
                   {tool.name}
                 </span>
               </a>
-              <span className="text-teal-600 text-sm font-semibold px-3 py-1 rounded-full border border-teal-500/30 bg-teal-50">
+              <span className="text-[#1F4D2C] text-sm font-semibold px-3 py-1 rounded-full border border-[#1F4D2C] bg-[#F4F4F1]">
                 {tool.category}
               </span>
             </motion.div>
@@ -142,7 +142,7 @@ export default function SocialProof() {
           transition={{ delay: 0.8, duration: 0.5 }}
           className="text-center mt-12 space-y-4"
         >
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
             Full Loop is the all-in-one field service CRM built to replace your
             entire stack — scheduling, dispatch, invoicing, marketing, reviews,
             and lead generation — in one place.
@@ -150,13 +150,13 @@ export default function SocialProof() {
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href="/full-loop-crm-service-features"
-              className="inline-block px-8 py-3 rounded-full bg-teal-600 text-white font-bold text-lg hover:bg-teal-700 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-3 rounded-full bg-[#1F4D2C] text-[#1C1C1C] font-bold text-lg hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               See All Features
             </Link>
             <Link
               href="/full-loop-crm-pricing"
-              className="inline-block px-8 py-3 rounded-full border-2 border-teal-600 text-teal-600 font-bold text-lg hover:bg-teal-50 transition-colors font-cta"
+              className="inline-block px-8 py-3 rounded-full border-2 border-[#1F4D2C] text-[#1F4D2C] font-bold text-lg hover:bg-[#F4F4F1] transition-colors font-cta"
             >
               View Pricing
             </Link>

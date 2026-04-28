@@ -57,7 +57,7 @@ export default function Certifications() {
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 font-heading">
             Recognized. Certified. Proven.
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
             We don&apos;t just talk the talk. The platforms we master have certified
             us as experts. The industry recognizes what our clients already know.
           </p>
@@ -77,15 +77,15 @@ export default function Certifications() {
               whileHover={{
                 scale: 1.05,
               }}
-              className="border border-slate-200 rounded-xl bg-white shadow-sm p-6 text-center w-[200px] cursor-default transition-all duration-300 hover:border-teal-300"
+              className="border border-slate-200 rounded-xl bg-white shadow-sm p-6 text-center w-[200px] cursor-default transition-all duration-300 hover:border-[#1F4D2C]"
             >
-              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-teal-50 flex items-center justify-center border border-teal-200">
-                <span className="text-teal-600 text-2xl font-bold">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#F4F4F1] flex items-center justify-center border border-teal-200">
+                <span className="text-[#1F4D2C] text-2xl font-bold">
                   {cert.title.charAt(0)}
                 </span>
               </div>
               <p className="text-slate-900 font-bold text-sm mb-2 font-cta">{cert.title}</p>
-              <p className="text-slate-600 text-xs leading-relaxed">
+              <p className="text-[#3A3A3A] text-xs leading-relaxed">
                 {cert.description}
               </p>
             </motion.div>

@@ -44,26 +44,26 @@ export default function Competitors() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             Autonomous Field Service Management
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             Run It Hands-Free — Or{" "}
-            <span className="text-teal-600">Stay in the Loop</span>
+            <span className="text-[#1F4D2C]">Stay in the Loop</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
             Full Loop CRM is designed to run your entire operation autonomously.
             But you decide where humans stay in control. See all{" "}
             <Link
               href="/full-loop-crm-service-features"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               features
             </Link>{" "}
             or learn{" "}
             <Link
               href="/why-you-should-choose-full-loop-crm-for-your-business"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               why Full Loop
             </Link>
@@ -88,10 +88,10 @@ export default function Competitors() {
               transition={{ duration: 0.5, delay: 0.3 }}
               className="text-center mb-6"
             >
-              <p className="text-2xl sm:text-3xl font-extrabold text-teal-600 mb-2 font-heading">
+              <p className="text-2xl sm:text-3xl font-extrabold text-[#1F4D2C] mb-2 font-heading">
                 Fully Autonomous
               </p>
-              <p className="text-slate-400 text-sm">No Human Needed</p>
+              <p className="text-[#6F6F6B] text-sm">No Human Needed</p>
             </motion.div>
             <ul className="space-y-3">
               {autonomousItems.map((item, i) => (
@@ -101,9 +101,9 @@ export default function Competitors() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}
-                  className="flex items-start gap-3 text-slate-600 text-sm leading-relaxed"
+                  className="flex items-start gap-3 text-[#3A3A3A] text-sm leading-relaxed"
                 >
-                  <span className="text-teal-500 font-bold mt-0.5">&#10003;</span>
+                  <span className="text-[#1F4D2C] font-bold mt-0.5">&#10003;</span>
                   {item}
                 </motion.li>
               ))}
@@ -128,7 +128,7 @@ export default function Competitors() {
               <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2 font-heading">
                 Human Decision Points
               </p>
-              <p className="text-slate-400 text-sm">Optional</p>
+              <p className="text-[#6F6F6B] text-sm">Optional</p>
             </motion.div>
             <ul className="space-y-3">
               {humanItems.map((item, i) => (
@@ -138,9 +138,9 @@ export default function Competitors() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}
-                  className="flex items-start gap-3 text-slate-600 text-sm leading-relaxed"
+                  className="flex items-start gap-3 text-[#3A3A3A] text-sm leading-relaxed"
                 >
-                  <span className="text-slate-400 font-bold mt-0.5">&#9679;</span>
+                  <span className="text-[#6F6F6B] font-bold mt-0.5">&#9679;</span>
                   {item}
                 </motion.li>
               ))}
@@ -159,13 +159,13 @@ export default function Competitors() {
           <p className="text-slate-900 text-xl font-bold mb-4">
             Your Automated CRM. Your Rules.
           </p>
-          <p className="text-slate-600 text-base mb-8 max-w-2xl mx-auto">
+          <p className="text-[#3A3A3A] text-base mb-8 max-w-2xl mx-auto">
             Whether you want a fully hands-free home service CRM or prefer to
             approve every booking yourself, Full Loop CRM adapts to your
             workflow. New to CRM?{" "}
             <Link
               href="/full-loop-crm-101-educational-tips"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               Start with CRM 101
             </Link>
@@ -173,7 +173,7 @@ export default function Competitors() {
           </p>
           <Link
             href="/crm-partnership-request-form"
-            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
+            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
           >
             Request a Partnership
           </Link>

@@ -33,15 +33,15 @@ export default function NotLikeOthers() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             Marketing Company Comparison
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             Why NYC Businesses Choose{" "}
-            <span className="text-teal-600">Consortium NYC Over Other Marketing Agencies</span>
+            <span className="text-[#1F4D2C]">Consortium NYC Over Other Marketing Agencies</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            See why local businesses across Manhattan, Brooklyn, Queens, and Long Island choose a <Link href="/about-marketing-company-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">transparent marketing company</Link> with no contracts, no hidden fees, and <Link href="/nyc-marketing-pricing-guide" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">simple pricing</Link>.
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
+            See why local businesses across Manhattan, Brooklyn, Queens, and Long Island choose a <Link href="/about-marketing-company-consortium-nyc" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">transparent marketing company</Link> with no contracts, no hidden fees, and <Link href="/nyc-marketing-pricing-guide" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">simple pricing</Link>.
           </p>
         </motion.div>
 
@@ -60,7 +60,7 @@ export default function NotLikeOthers() {
             </h3>
             <ul className="space-y-5">
               {otherAgencies.map((item, i) => (
-                <li key={i} className="flex gap-3 text-slate-600">
+                <li key={i} className="flex gap-3 text-[#3A3A3A]">
                   <span className="text-red-500 mt-1 shrink-0">&#x2717;</span>
                   <span>{item}</span>
                 </li>
@@ -74,15 +74,15 @@ export default function NotLikeOthers() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="rounded-2xl bg-teal-50 border border-slate-200 p-8"
+            className="rounded-2xl bg-[#F4F4F1] border border-slate-200 p-8"
           >
-            <h3 className="text-xl font-bold text-teal-600 mb-6 uppercase tracking-wider">
+            <h3 className="text-xl font-bold text-[#1F4D2C] mb-6 uppercase tracking-wider">
               What Consortium Does
             </h3>
             <ul className="space-y-5">
               {consortiumDoes.map((item, i) => (
-                <li key={i} className="flex gap-3 text-slate-600">
-                  <span className="text-teal-600 mt-1 shrink-0">&#x2713;</span>
+                <li key={i} className="flex gap-3 text-[#3A3A3A]">
+                  <span className="text-[#1F4D2C] mt-1 shrink-0">&#x2713;</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -98,7 +98,7 @@ export default function NotLikeOthers() {
           transition={{ duration: 0.6 }}
           className="text-center max-w-3xl mx-auto"
         >
-          <p className="text-slate-600 text-lg mb-8 leading-relaxed">
+          <p className="text-[#3A3A3A] text-lg mb-8 leading-relaxed">
             You&apos;ve been burned by agencies before. We get it. That&apos;s
             exactly why we built Consortium for local businesses like yours
             &mdash; transparent pricing, no contracts, no excuses, no hiding
@@ -108,7 +108,7 @@ export default function NotLikeOthers() {
           </p>
           <Link
             href="/contact"
-            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
+            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg shadow-teal-600/25 font-cta"
           >
             See the Difference &mdash; Book a Free Call
           </Link>

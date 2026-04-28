@@ -32,7 +32,7 @@ const highlights = [
 
 export default function QuickTips() {
   return (
-    <section className="py-16 sm:py-20 bg-teal-600">
+    <section className="py-16 sm:py-20 bg-[#1F4D2C]">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -57,9 +57,9 @@ export default function QuickTips() {
               className="border rounded-lg px-5 py-4"
               style={{ backgroundColor: "rgba(244, 244, 241, 0.06)", borderColor: "rgba(244, 244, 241, 0.18)" }}
             >
-              <p className="text-white text-base leading-relaxed">
+              <p className="text-[#1C1C1C] text-base leading-relaxed">
                 <strong className="text-teal-100">{h.name}</strong>{" "}
-                <span className="text-white/80">&mdash;</span>{" "}
+                <span className="text-[#1C1C1C]">&mdash;</span>{" "}
                 {h.desc}
               </p>
             </motion.div>
@@ -75,7 +75,7 @@ export default function QuickTips() {
         >
           <Link
             href="/full-loop-crm-service-features"
-            className="inline-block px-8 py-3.5 text-base font-bold text-teal-700 bg-white rounded-lg hover:bg-teal-50 transition-colors shadow-lg font-cta"
+            className="inline-block px-8 py-3.5 text-base font-bold text-[#1F4D2C] bg-white rounded-lg hover:bg-[#F4F4F1] transition-colors shadow-lg font-cta"
           >
             See everything included &rarr;
           </Link>

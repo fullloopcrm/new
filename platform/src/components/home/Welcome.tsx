@@ -12,7 +12,7 @@ export default function Welcome() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta"
+          className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta"
         >
           Territory-Exclusive CRM for Home Service Operators
         </motion.p>
@@ -32,9 +32,9 @@ export default function Welcome() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-6 text-lg sm:text-xl text-slate-600 leading-relaxed max-w-3xl mx-auto"
+          className="mt-6 text-lg sm:text-xl text-[#3A3A3A] leading-relaxed max-w-3xl mx-auto"
         >
-          Most <Link href="/full-loop-crm-101-educational-tips" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">home service CRMs</Link> handle scheduling. Some handle invoicing. A few do field management. None of them generate your leads, close them with AI, track your crew by GPS, collect payment, earn your reviews, and retarget for the next booking. Full Loop is the only <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">full-service CRM</Link> that covers all seven stages &mdash; and we license it to <strong className="text-slate-800">one operator per trade per city.</strong> When it&apos;s yours, your competitors are locked out of this platform.
+          Most <Link href="/full-loop-crm-101-educational-tips" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">home service CRMs</Link> handle scheduling. Some handle invoicing. A few do field management. None of them generate your leads, close them with AI, track your crew by GPS, collect payment, earn your reviews, and retarget for the next booking. Full Loop is the only <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">full-service CRM</Link> that covers all seven stages &mdash; and we license it to <strong className="text-slate-800">one operator per trade per city.</strong> When it&apos;s yours, your competitors are locked out of this platform.
         </motion.p>
 
         <motion.p
@@ -42,9 +42,9 @@ export default function Welcome() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-5 text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl mx-auto"
+          className="mt-5 text-base sm:text-lg text-[#6F6F6B] leading-relaxed max-w-2xl mx-auto"
         >
-          Built by someone who ran home service companies for 20+ years &mdash; not a product team that Googled &ldquo;cleaning business software.&rdquo; Every feature in this <Link href="/full-loop-crm-service-features" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">automated service business platform</Link> exists because of a <strong className="text-slate-700">real operational problem</strong>. Every <Link href="/full-loop-crm-pricing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">territory license</Link> is exclusive: <strong className="text-slate-700">one partner per trade per city, for as long as you hold it.</strong>
+          Built by someone who ran home service companies for 20+ years &mdash; not a product team that Googled &ldquo;cleaning business software.&rdquo; Every feature in this <Link href="/full-loop-crm-service-features" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">automated service business platform</Link> exists because of a <strong className="text-[#1C1C1C]">real operational problem</strong>. Every <Link href="/full-loop-crm-pricing" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">territory license</Link> is exclusive: <strong className="text-[#1C1C1C]">one partner per trade per city, for as long as you hold it.</strong>
         </motion.p>
 
         <motion.div
@@ -54,25 +54,25 @@ export default function Welcome() {
           transition={{ duration: 0.5, delay: 0.4 }}
           className="mt-12"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-5 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-5 font-cta">
             Explore
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/full-loop-crm-service-features"
-              className="px-7 py-3.5 text-sm font-bold text-teal-600 rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors font-cta"
+              className="px-7 py-3.5 text-sm font-bold text-[#1F4D2C] rounded-lg border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors font-cta"
             >
               See All 7 Stages
             </Link>
             <Link
               href="/full-loop-crm-service-business-industries"
-              className="px-7 py-3.5 text-sm font-bold text-teal-600 rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors font-cta"
+              className="px-7 py-3.5 text-sm font-bold text-[#1F4D2C] rounded-lg border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors font-cta"
             >
               50+ Industries We Serve
             </Link>
             <Link
               href="/full-loop-crm-pricing"
-              className="px-7 py-3.5 text-sm font-bold text-teal-600 rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors font-cta"
+              className="px-7 py-3.5 text-sm font-bold text-[#1F4D2C] rounded-lg border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors font-cta"
             >
               Pricing & Partnership
             </Link>

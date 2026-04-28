@@ -23,20 +23,20 @@ export default function WhatIsDigitalMarketing() {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             CRM 101 for Home Service Businesses
           </p>
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 font-heading">
               What Is a Home Service CRM — and Why Does Yours Need to{" "}
-              <span className="text-teal-600">Close the Loop?</span>
+              <span className="text-[#1F4D2C]">Close the Loop?</span>
           </h2>
-          <p className="text-slate-600 text-lg">
-            Everything you need to know about running your home service business from a single platform. Read our full <Link href="/full-loop-crm-101-educational-tips" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">CRM 101 guide</Link> or explore <Link href="/full-loop-crm-service-features" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">our features</Link> — built
+          <p className="text-[#3A3A3A] text-lg">
+            Everything you need to know about running your home service business from a single platform. Read our full <Link href="/full-loop-crm-101-educational-tips" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">CRM 101 guide</Link> or explore <Link href="/full-loop-crm-service-features" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">our features</Link> — built
             by a team with 20+ years in the home service industry.
           </p>
         </motion.div>
 
-        <div className="space-y-12 text-slate-600 leading-relaxed">
+        <div className="space-y-12 text-[#3A3A3A] leading-relaxed">
           {/* Section 1 */}
           <motion.div
             variants={sectionVariants}
@@ -82,7 +82,7 @@ export default function WhatIsDigitalMarketing() {
               next booking.
             </p>
             <p>
-              <Link href="/full-loop-crm-service-features" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Full Loop CRM</Link> is
+              <Link href="/full-loop-crm-service-features" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">Full Loop CRM</Link> is
               the first platform built specifically for home service businesses
               that covers all seven stages — lead generation, AI-powered sales,
               intelligent scheduling, GPS-verified field operations, payment and
@@ -102,7 +102,7 @@ export default function WhatIsDigitalMarketing() {
               The Seven Stages of the Full Loop
             </h3>
             <p className="mb-4">
-              <strong className="text-teal-600">
+              <strong className="text-[#1F4D2C]">
                 Stage 1 — Lead Generation:
               </strong>{" "}
               Organic SEO, dedicated service websites, and Google Business
@@ -110,7 +110,7 @@ export default function WhatIsDigitalMarketing() {
               leads, your domains, your market.
             </p>
             <p className="mb-4">
-              <strong className="text-teal-600">
+              <strong className="text-[#1F4D2C]">
                 Stage 2 — AI-Powered Sales:
               </strong>{" "}
               Instant lead response, AI-driven qualification, and automated
@@ -118,7 +118,7 @@ export default function WhatIsDigitalMarketing() {
               24 hours a day, 7 days a week.
             </p>
             <p className="mb-4">
-              <strong className="text-teal-600">
+              <strong className="text-[#1F4D2C]">
                 Stage 3 — Intelligent Scheduling:
               </strong>{" "}
               Smart route optimization, crew management, and real-time
@@ -126,7 +126,7 @@ export default function WhatIsDigitalMarketing() {
               time.
             </p>
             <p className="mb-4">
-              <strong className="text-teal-600">Stage 4 — Field Operations:</strong>{" "}
+              <strong className="text-[#1F4D2C]">Stage 4 — Field Operations:</strong>{" "}
               GPS-verified clock-in/clock-out, digital checklists, before/after
               photo documentation, and real-time job tracking that keeps your
               field teams accountable and your clients informed.
@@ -169,7 +169,7 @@ export default function WhatIsDigitalMarketing() {
               talks to each other.
             </p>
             <p>
-              <Link href="/full-loop-crm-pricing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Full Loop CRM replaces all of it</Link> at
+              <Link href="/full-loop-crm-pricing" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">Full Loop CRM replaces all of it</Link> at
               $1,000 per user per month — with organic lead generation built in, so you never
               pay for ads again. That&apos;s not a cost. It&apos;s an investment that pays
               for itself within the first 90 days for most partners.
@@ -201,7 +201,7 @@ export default function WhatIsDigitalMarketing() {
               home service companies from startup to seven figures.
             </p>
             <p>
-              That&apos;s <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">why Full Loop CRM exists</Link> — to
+              That&apos;s <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">why Full Loop CRM exists</Link> — to
               give home service business owners a single platform that handles
               everything, so they can focus on what they do best: delivering
               exceptional service.
@@ -218,7 +218,7 @@ export default function WhatIsDigitalMarketing() {
         >
           <Link
             href="/full-loop-crm-101-educational-tips"
-            className="inline-block px-10 py-4 rounded-full bg-teal-600 text-white font-bold text-lg hover:bg-teal-500 transition-colors duration-300 font-cta"
+            className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-[#1C1C1C] font-bold text-lg hover:bg-[#1F4D2C] transition-colors duration-300 font-cta"
           >
             Learn More in Our CRM 101 Guide
           </Link>

@@ -9,8 +9,8 @@ import { areas } from "@/lib/siteData";
 const TriStateMap = dynamic(() => import("@/app/areas/TriStateMap"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-[420px] sm:h-[500px] rounded-2xl bg-slate-800 animate-pulse flex items-center justify-center">
-      <span className="text-slate-500 text-sm font-cta">Loading map...</span>
+    <div className="w-full h-[420px] sm:h-[500px] rounded-2xl bg-[#FAF9F5] animate-pulse flex items-center justify-center">
+      <span className="text-[#6F6F6B] text-sm font-cta">Loading map...</span>
     </div>
   ),
 });
@@ -40,15 +40,15 @@ export default function AreasServed() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             Marketing Company Service Areas
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             Local Marketing Across{" "}
-            <span className="text-teal-600">80+ Neighborhoods &amp; Cities</span>
+            <span className="text-[#1F4D2C]">80+ Neighborhoods &amp; Cities</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-3xl mx-auto">
-            Hyper-local marketing strategies for businesses in every neighborhood across NYC, Long Island, Westchester, and Northern New Jersey. Every location gets its own keyword strategy, competitor analysis, and <Link href="/nyc-marketing-company-services-list" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">local SEO plan</Link>. See our <Link href="/full-loop-crm-service-business-industries" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">100+ industries served</Link> or <Link href="/nyc-marketing-pricing-guide" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">transparent pricing</Link>.
+          <p className="text-[#3A3A3A] text-lg max-w-3xl mx-auto">
+            Hyper-local marketing strategies for businesses in every neighborhood across NYC, Long Island, Westchester, and Northern New Jersey. Every location gets its own keyword strategy, competitor analysis, and <Link href="/nyc-marketing-company-services-list" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">local SEO plan</Link>. See our <Link href="/full-loop-crm-service-business-industries" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">100+ industries served</Link> or <Link href="/nyc-marketing-pricing-guide" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">transparent pricing</Link>.
           </p>
         </motion.div>
 
@@ -69,7 +69,7 @@ export default function AreasServed() {
             }}
             height="h-[420px] sm:h-[500px]"
           />
-          <p className="text-center text-slate-400 text-xs mt-3 font-cta">
+          <p className="text-center text-[#6F6F6B] text-xs mt-3 font-cta">
             Hover pins to see areas &middot; Click a region to jump below
           </p>
         </motion.div>
@@ -90,7 +90,7 @@ export default function AreasServed() {
                 onMouseEnter={() => setActiveRegion(region.filter)}
                 onMouseLeave={() => setActiveRegion(null)}
                 className={`rounded-xl bg-white border shadow-sm hover:shadow-md p-5 transition-all ${
-                  isActive ? "border-teal-400 shadow-md" : "border-slate-200 hover:border-teal-400"
+                  isActive ? "border-[#1F4D2C] shadow-md" : "border-slate-200 hover:border-[#1F4D2C]"
                 }`}
               >
                 <h3 className="text-sm font-bold text-slate-900 font-heading mb-3">
@@ -101,7 +101,7 @@ export default function AreasServed() {
                     <Link
                       key={area.slug}
                       href={`/areas/${area.slug}`}
-                      className="inline-block text-[11px] font-medium px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 hover:border-teal-400 transition-all font-cta"
+                      className="inline-block text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#F4F4F1] text-[#1F4D2C] border border-teal-200 hover:bg-teal-100 hover:border-[#1F4D2C] transition-all font-cta"
                     >
                       {area.name}
                     </Link>
@@ -120,19 +120,19 @@ export default function AreasServed() {
           transition={{ duration: 0.6 }}
           className="text-center mt-16"
         >
-          <p className="text-slate-600 text-lg mb-6">
+          <p className="text-[#3A3A3A] text-lg mb-6">
             Every neighborhood is a market. Every market has keywords your competitors aren&apos;t targeting. We find them and we own them.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/areas"
-              className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white border-2 border-teal-600 hover:bg-teal-50 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1F4D2C] rounded-lg bg-white border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors shadow-lg font-cta"
             >
               See All Service Areas
             </Link>
             <Link
               href="/contact-nyc-marketing-company-consortium-nyc"
-              className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               I&apos;m Ready to Talk
             </Link>

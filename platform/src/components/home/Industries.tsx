@@ -33,7 +33,7 @@ const industries: { name: string; slug: string; desc: string }[] = [
 
 export default function Industries() {
   return (
-    <section className="py-20 sm:py-28 bg-teal-50">
+    <section className="py-20 sm:py-28 bg-[#F4F4F1]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -43,26 +43,26 @@ export default function Industries() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             Home Service Industries
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             50+ Home Service Industries.{" "}
-            <span className="text-teal-600">One CRM Platform.</span>
+            <span className="text-[#1F4D2C]">One CRM Platform.</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
             Full Loop CRM works for any field service business that books
             appointments in a defined geographic area. Explore our{" "}
             <Link
               href="/full-loop-crm-service-features"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               features
             </Link>{" "}
             or see{" "}
             <Link
               href="/full-loop-crm-pricing"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               pricing
             </Link>
@@ -82,15 +82,15 @@ export default function Industries() {
             >
               <Link
                 href={`/industry/crm-for-${ind.slug.replace(/-services$/, "-service").replace(/-s$/, "")}-businesses`}
-                className="group block rounded-xl bg-white border border-slate-200 hover:border-teal-400 p-5 h-full transition-all shadow-sm hover:shadow-md"
+                className="group block rounded-xl bg-white border border-slate-200 hover:border-[#1F4D2C] p-5 h-full transition-all shadow-sm hover:shadow-md"
               >
-                <h3 className="text-sm font-bold text-slate-900 group-hover:text-teal-700 transition-colors font-heading mb-2">
+                <h3 className="text-sm font-bold text-slate-900 group-hover:text-[#1F4D2C] transition-colors font-heading mb-2">
                   {ind.name}
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed mb-2">
+                <p className="text-xs text-[#6F6F6B] leading-relaxed mb-2">
                   {ind.desc}
                 </p>
-                <span className="text-teal-600 text-xs font-semibold group-hover:underline font-cta inline-block">
+                <span className="text-[#1F4D2C] text-xs font-semibold group-hover:underline font-cta inline-block">
                   Learn more &rarr;
                 </span>
               </Link>
@@ -106,12 +106,12 @@ export default function Industries() {
           transition={{ duration: 0.6 }}
           className="text-center mt-16"
         >
-          <p className="text-slate-600 text-lg mb-6">
+          <p className="text-[#3A3A3A] text-lg mb-6">
             These are just a sample. If your home service business books jobs in
             a service area, Full Loop CRM was built for you. Learn more in our{" "}
             <Link
               href="/full-loop-crm-101-educational-tips"
-              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+              className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               CRM 101 guide
             </Link>
@@ -120,13 +120,13 @@ export default function Industries() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/full-loop-crm-service-business-industries"
-              className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white border-2 border-teal-600 hover:bg-teal-50 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1F4D2C] rounded-lg bg-white border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors shadow-lg font-cta"
             >
               See All Industries We Serve
             </Link>
             <Link
               href="/crm-partnership-request-form"
-              className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               Request a Partnership
             </Link>

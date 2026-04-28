@@ -112,7 +112,7 @@ export default function NeighborhoodSlider() {
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 font-heading">
             Neighborhoods We <span className="gradient-text">Serve</span>
           </h2>
-          <p className="mt-4 text-slate-600 text-lg max-w-2xl mx-auto">
+          <p className="mt-4 text-[#3A3A3A] text-lg max-w-2xl mx-auto">
             Local expertise across the NYC city. We know these streets,
             these businesses, and what it takes to win here.
           </p>
@@ -156,18 +156,18 @@ export default function NeighborhoodSlider() {
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.4, delay: 0.2 }}
                   >
-                    <p className="text-teal-400 font-semibold text-sm uppercase tracking-widest mb-2 font-cta">
+                    <p className="text-[#1F4D2C] font-semibold text-sm uppercase tracking-widest mb-2 font-cta">
                       {slide.tagline}
                     </p>
-                    <h3 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white font-heading mb-3">
+                    <h3 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#1C1C1C] font-heading mb-3">
                       {slide.name}
                     </h3>
-                    <p className="text-slate-200 text-base sm:text-lg leading-relaxed mb-6 max-w-lg">
+                    <p className="text-[#1C1C1C] text-base sm:text-lg leading-relaxed mb-6 max-w-lg">
                       {slide.description}
                     </p>
                     <Link
                       href={slide.href}
-                      className="inline-block rounded-full bg-teal-600 px-6 py-3 text-sm font-semibold text-white hover:bg-teal-700 transition-colors font-cta"
+                      className="inline-block rounded-full bg-[#1F4D2C] px-6 py-3 text-sm font-semibold text-[#1C1C1C] hover:bg-[#1F4D2C] transition-colors font-cta"
                     >
                       Explore {slide.name}
                     </Link>
@@ -179,7 +179,7 @@ export default function NeighborhoodSlider() {
             {/* Arrows */}
             <button
               onClick={prev}
-              className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+              className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-[#1C1C1C] hover:bg-white/20 transition-colors"
               aria-label="Previous neighborhood"
             >
               <svg
@@ -198,7 +198,7 @@ export default function NeighborhoodSlider() {
             </button>
             <button
               onClick={next}
-              className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+              className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-[#1C1C1C] hover:bg-white/20 transition-colors"
               aria-label="Next neighborhood"
             >
               <svg
@@ -225,7 +225,7 @@ export default function NeighborhoodSlider() {
                 onClick={() => goTo(i)}
                 className={`h-2 rounded-full transition-all duration-300 ${
                   i === current
-                    ? "w-8 bg-teal-400"
+                    ? "w-8 bg-[#1F4D2C]"
                     : "w-2 bg-white/40 hover:bg-white/60"
                 }`}
                 aria-label={`Go to ${n.name}`}

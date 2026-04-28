@@ -29,9 +29,9 @@ const rows: ComparisonRow[] = [
 
 function RatingIcon({ rating }: { rating: CellRating }) {
   if (rating === "check")
-    return <span className="text-teal-600 text-xl font-bold">&#10003;</span>;
+    return <span className="text-[#1F4D2C] text-xl font-bold">&#10003;</span>;
   if (rating === "partial")
-    return <span className="text-yellow-500 text-xl font-bold">~</span>;
+    return <span className="text-[#1F4D2C] text-xl font-bold">~</span>;
   return <span className="text-red-500 text-xl font-bold">&#10005;</span>;
 }
 
@@ -46,7 +46,7 @@ const rowVariants = {
 
 export default function Comparison() {
   return (
-    <section className="relative py-24 px-6 bg-teal-50 overflow-hidden">
+    <section className="relative py-24 px-6 bg-[#F4F4F1] overflow-hidden">
       <div className="max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -55,15 +55,15 @@ export default function Comparison() {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
+          <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
             All-in-One CRM for Home Service Businesses
           </p>
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 font-heading">
             Full Loop CRM vs.{" "}
-            <span className="text-teal-600">Duct-Taping 9 Tools Together</span>
+            <span className="text-[#1F4D2C]">Duct-Taping 9 Tools Together</span>
           </h2>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            Most home service businesses use a different tool for each stage. Full Loop CRM replaces them all. See how our <Link href="/full-loop-crm-service-features" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">features</Link> compare to cobbling together separate platforms for scheduling, invoicing, marketing, and operations.
+          <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
+            Most home service businesses use a different tool for each stage. Full Loop CRM replaces them all. See how our <Link href="/full-loop-crm-service-features" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">features</Link> compare to cobbling together separate platforms for scheduling, invoicing, marketing, and operations.
           </p>
         </motion.div>
 
@@ -76,14 +76,14 @@ export default function Comparison() {
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="rounded-t-xl bg-teal-600 p-4 text-center"
+            className="rounded-t-xl bg-[#1F4D2C] p-4 text-center"
           >
-            <span className="text-white font-bold text-lg font-heading">
+            <span className="text-[#1C1C1C] font-bold text-lg font-heading">
               Full Loop CRM
             </span>
           </motion.div>
           <div className="bg-white rounded-t-xl p-4 text-center border border-slate-200">
-            <span className="text-slate-400 font-semibold font-heading">Others</span>
+            <span className="text-[#6F6F6B] font-semibold font-heading">Others</span>
           </div>
         </div>
 
@@ -103,7 +103,7 @@ export default function Comparison() {
                 {row.capability}
               </span>
             </div>
-            <div className="rounded-lg bg-teal-50 border border-teal-200 p-4 flex items-center justify-center">
+            <div className="rounded-lg bg-[#F4F4F1] border border-teal-200 p-4 flex items-center justify-center">
               <RatingIcon rating={row.fullLoop} />
             </div>
             <div className="bg-white rounded-lg p-4 border border-slate-200 flex items-center justify-center">
@@ -120,22 +120,22 @@ export default function Comparison() {
           transition={{ delay: 0.6, duration: 0.6 }}
           className="text-center mt-16"
         >
-          <p className="text-xl md:text-2xl text-slate-600 font-medium mb-8">
+          <p className="text-xl md:text-2xl text-[#3A3A3A] font-medium mb-8">
             Stop paying for 9 subscriptions.{" "}
-            <span className="text-teal-600 font-bold">
+            <span className="text-[#1F4D2C] font-bold">
               Run your entire business from one platform.
             </span>
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/full-loop-crm-pricing"
-              className="inline-block px-10 py-4 rounded-full bg-teal-600 text-white font-bold text-lg hover:bg-teal-700 transition-colors shadow-lg font-cta"
+              className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-[#1C1C1C] font-bold text-lg hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               See Pricing
             </Link>
             <Link
               href="/why-you-should-choose-full-loop-crm-for-your-business"
-              className="inline-block px-10 py-4 rounded-full bg-white text-teal-600 font-bold text-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors shadow-lg font-cta"
+              className="inline-block px-10 py-4 rounded-full bg-white text-[#1F4D2C] font-bold text-lg border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors shadow-lg font-cta"
             >
               Why Full Loop?
             </Link>
