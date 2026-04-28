@@ -75,7 +75,7 @@ export default function Hero() {
           One Trade Per City &middot; One Operator Gets Everything
         </p>
 
-        {/* Masthead h1 — Fraunces, big, ink, italic period accent */}
+        {/* Masthead h1 — Fraunces, big, ink */}
         <h1
           style={{
             fontFamily: "var(--display, 'Fraunces', serif)",
@@ -83,33 +83,51 @@ export default function Hero() {
             letterSpacing: "-0.03em",
             lineHeight: 0.98,
             color: C.ink,
-            fontSize: "clamp(48px, 8vw, 110px)",
+            fontSize: "clamp(44px, 6.5vw, 92px)",
           }}
-          className="mb-8"
+          className="mb-6 max-w-5xl"
         >
-          Your city.
-          <br />
-          Your trade<em style={{ fontStyle: "italic", fontWeight: 400, color: C.muted2 }}>.</em>{" "}
-          <em style={{ fontStyle: "italic", fontWeight: 400 }}>Nobody else.</em>
+          The home service business CRM that runs itself
+          <em style={{ fontStyle: "italic", fontWeight: 400, color: C.muted2 }}>.</em>
         </h1>
+
+        {/* H2 — italic accent line */}
+        <h2
+          style={{
+            fontFamily: "var(--display, 'Fraunces', serif)",
+            fontStyle: "italic",
+            fontWeight: 400,
+            letterSpacing: "-0.02em",
+            lineHeight: 1.05,
+            color: C.graphite,
+            fontSize: "clamp(28px, 3.6vw, 52px)",
+          }}
+          className="mb-10 max-w-5xl"
+        >
+          Autonomous lead gen. Autonomous sales.
+          <br />
+          Autonomous operations. Autonomous payments.
+        </h2>
 
         {/* Subhead */}
         <p
           className="max-w-3xl mb-10"
           style={{
-            fontFamily: "var(--display, 'Fraunces', serif)",
-            fontStyle: "italic",
+            fontFamily: "var(--body, system-ui, sans-serif)",
             fontWeight: 400,
-            fontSize: "clamp(18px, 1.6vw, 22px)",
-            lineHeight: 1.45,
+            fontSize: "clamp(16px, 1.3vw, 19px)",
+            lineHeight: 1.55,
             color: C.graphite,
             letterSpacing: "-0.005em",
           }}
         >
-          The first true full-loop business automation platform — licensed to one
-          operator per trade per city. When you claim the license, every AI-generated
-          lead in your city routes to you. Every competitor in your trade is locked
-          out of this platform — forever.
+          The first full-loop automation platform for home service businesses —
+          licensed to one operator per trade per city. AI generates your leads,
+          books your jobs, dispatches your team, collects payment, and earns
+          reviews.{" "}
+          <strong style={{ color: C.ink, fontWeight: 600 }}>
+            You own the business. The platform runs it.
+          </strong>
         </p>
 
         {/* Price strip */}
