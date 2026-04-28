@@ -38,6 +38,21 @@ export default function MarketingLayout({
       >
         Skip to main content
       </a>
+      <div
+        style={{
+          background: '#E8DCC4',
+          color: '#1C1C1C',
+          fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+          fontSize: '11px',
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+          textAlign: 'center',
+          padding: '8px 12px',
+          borderBottom: '1px solid #C8C5BC',
+        }}
+      >
+        Notice <span style={{ color: '#A8A8A4' }}>·</span> we are currently in beta <span style={{ color: '#A8A8A4' }}>|</span> testing the platform
+      </div>
       <AnnouncementBar />
       <Navbar />
       <main id="main-content">{children}</main>

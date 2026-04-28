@@ -379,7 +379,7 @@ export default function FocusPartner() {
             <br className="hidden sm:block" />
             That&apos;s what this is.
           </h2>
-          <p className="text-lg sm:text-xl text-[#3A3A3A] max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl text-[#1C1C1C] max-w-3xl mx-auto leading-relaxed">
             Full Loop CRM is the first true full-loop business automation platform — built by running a live home-cleaning company in New York City, not by guessing what cleaning companies need.{" "}
             <strong className="text-white">The NYC Maid</strong> wasn&apos;t a customer. It was the test bed. Every feature you see — Selena AI (the only CRM AI that handles SMS + web + email), GPS field operations, Stripe Connect crew auto-payouts, Zelle/Venmo IMAP parsing, 98 SEO domains, the recurring engine, 100% closed-loop attribution — was built, broken, fixed, and shipped while running real bookings for real clients.
           </p>
@@ -407,7 +407,7 @@ export default function FocusPartner() {
                   <div className={`absolute left-1.5 sm:left-5 top-1 w-5 h-5 rounded-full border-2 ${m.highlight ? "border-teal-300 bg-[#1F4D2C] shadow-[0_0_12px_rgba(45,212,191,0.6)]" : "border-teal-500 bg-[#F4F4F1]"}`} />
                   <p className="font-mono text-xs tracking-widest uppercase text-[#1F4D2C] mb-1">{m.when}</p>
                   <h4 className="font-heading text-xl font-bold text-white mb-2">{m.title}</h4>
-                  <p className="text-[#3A3A3A] text-sm sm:text-base leading-relaxed max-w-3xl">{m.body}</p>
+                  <p className="text-[#1C1C1C] text-sm sm:text-base leading-relaxed max-w-3xl">{m.body}</p>
                 </div>
               ))}
             </div>
@@ -442,7 +442,7 @@ export default function FocusPartner() {
               );
             })}
           </div>
-          <p className="mt-6 text-xs font-mono text-[#A8A8A4] text-center">
+          <p className="mt-6 text-xs font-mono text-[#6F6F6B] text-center">
             Source: <code className="text-[#1F4D2C]">SELECT date_trunc(&apos;month&apos;, start_time), AVG(price), COUNT(*) FROM bookings WHERE start_time &lt;= now()</code>
           </p>
         </motion.div>
@@ -461,7 +461,7 @@ export default function FocusPartner() {
               <div key={m.label} className="rounded-xl border border-[#C8C5BC] bg-[#FAF9F5] p-5 text-center">
                 <p className="font-heading text-2xl sm:text-3xl font-extrabold text-[#1F4D2C] leading-tight">{m.value}</p>
                 <p className="mt-2 font-cta text-xs uppercase tracking-widest text-[#1C1C1C]">{m.label}</p>
-                <p className="mt-1 text-xs text-[#A8A8A4]">{m.sub}</p>
+                <p className="mt-1 text-xs text-[#6F6F6B]">{m.sub}</p>
               </div>
             ))}
           </div>
@@ -486,7 +486,7 @@ export default function FocusPartner() {
                 <div key={s.stage} className="flex items-center gap-4">
                   <div className="w-32 sm:w-40 shrink-0 text-right">
                     <p className="font-cta text-xs sm:text-sm uppercase tracking-widest text-[#1C1C1C]">{s.stage}</p>
-                    <p className="text-[10px] sm:text-xs text-[#A8A8A4]">{s.sub}</p>
+                    <p className="text-[10px] sm:text-xs text-[#6F6F6B]">{s.sub}</p>
                   </div>
                   <div className="flex-1 relative h-10 sm:h-12 bg-[#FAF9F5] rounded-md overflow-hidden">
                     <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#1F4D2C] to-[#3A8055] rounded-md flex items-center px-3" style={{ width: `${widthPct}%`, minWidth: "100px" }}>
@@ -512,7 +512,7 @@ export default function FocusPartner() {
             <br className="hidden sm:block" />
             <span className="text-[#1F4D2C]">Not once. Not ever.</span>
           </h3>
-          <p className="text-base sm:text-lg text-[#3A3A3A] max-w-3xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg text-[#1C1C1C] max-w-3xl mx-auto leading-relaxed">
             Every one of the 23,078 lead-click events was filtered for UTM markers
             (cpc · ppc · paid · adwords · sponsored · display).{" "}
             <strong className="text-[#1F4D2C]">Zero matches.</strong> The 232
@@ -535,7 +535,7 @@ export default function FocusPartner() {
               </div>
             ))}
           </div>
-          <p className="mt-6 font-mono text-xs text-[#A8A8A4]">
+          <p className="mt-6 font-mono text-xs text-[#6F6F6B]">
             $221,988 in revenue. Built on 98 SEO domains, one AI receptionist, and zero paid acquisition.
           </p>
         </motion.div>
@@ -561,7 +561,7 @@ export default function FocusPartner() {
                     <div className="h-1.5 bg-[#FAF9F5] rounded-full overflow-hidden">
                       <div className="h-full bg-gradient-to-r from-[#1F4D2C] to-[#3A8055]" style={{ width: `${pct}%` }} />
                     </div>
-                    {d.label && <p className="text-[10px] text-[#A8A8A4] mt-0.5">{d.label}</p>}
+                    {d.label && <p className="text-[10px] text-[#6F6F6B] mt-0.5">{d.label}</p>}
                   </div>
                 );
               })}
@@ -580,7 +580,7 @@ export default function FocusPartner() {
                     <div className="flex items-center justify-between mb-0.5">
                       <p className="text-sm text-white">
                         {r.source}
-                        {r.label && <span className="ml-2 text-[10px] uppercase tracking-wider text-[#3A3A3A]">{r.label}</span>}
+                        {r.label && <span className="ml-2 text-[10px] uppercase tracking-wider text-[#1C1C1C]">{r.label}</span>}
                       </p>
                       <p className="font-mono text-xs text-[#1F4D2C] tabular-nums">{r.count}</p>
                     </div>
@@ -653,8 +653,8 @@ export default function FocusPartner() {
                 <ol className="divide-y divide-[#E4E2DC]">
                   {stage.steps.map((s, i) => (
                     <li key={i} className="grid grid-cols-[28px_100px_1fr] sm:grid-cols-[32px_140px_1fr] gap-3 sm:gap-4 px-6 py-3 sm:px-8 sm:py-4">
-                      <span className="font-mono text-[11px] sm:text-xs text-[#A8A8A4] tabular-nums pt-0.5">{stage.num}.{i + 1}</span>
-                      <span className="font-cta text-[10px] sm:text-xs uppercase tracking-widest text-[#3A3A3A] pt-0.5 break-words">{s.actor}</span>
+                      <span className="font-mono text-[11px] sm:text-xs text-[#6F6F6B] tabular-nums pt-0.5">{stage.num}.{i + 1}</span>
+                      <span className="font-cta text-[10px] sm:text-xs uppercase tracking-widest text-[#1C1C1C] pt-0.5 break-words">{s.actor}</span>
                       <span className="text-sm text-[#1C1C1C] leading-snug">{s.body}</span>
                     </li>
                   ))}
@@ -681,7 +681,7 @@ export default function FocusPartner() {
               {serviceTypeMix.map((s) => (
                 <div key={s.name}>
                   <div className="flex items-center justify-between mb-0.5">
-                    <p className="text-sm text-white">{s.name} <span className="ml-2 text-[10px] uppercase tracking-wider text-[#3A3A3A]">{s.rate}</span></p>
+                    <p className="text-sm text-white">{s.name} <span className="ml-2 text-[10px] uppercase tracking-wider text-[#1C1C1C]">{s.rate}</span></p>
                     <p className="font-mono text-xs text-[#1F4D2C] tabular-nums">{s.count} · {s.share}%</p>
                   </div>
                   <div className="h-2 bg-[#FAF9F5] rounded-full overflow-hidden">
@@ -728,7 +728,7 @@ export default function FocusPartner() {
               <div key={m.label} className="rounded-xl border border-[#C8C5BC] bg-[#F4F4F1] p-5">
                 <p className="font-heading text-2xl sm:text-3xl font-extrabold text-[#1F4D2C] leading-tight">{m.value}</p>
                 <p className="mt-2 font-cta text-xs uppercase tracking-widest text-[#1C1C1C]">{m.label}</p>
-                <p className="mt-1 text-xs text-[#A8A8A4]">{m.sub}</p>
+                <p className="mt-1 text-xs text-[#6F6F6B]">{m.sub}</p>
               </div>
             ))}
           </div>
@@ -767,10 +767,10 @@ export default function FocusPartner() {
             {sundayBooking.map((step, i) => (
               <div key={i} className={`grid grid-cols-[80px_1fr] sm:grid-cols-[100px_140px_1fr] gap-3 sm:gap-4 rounded-lg border p-3 sm:p-4 ${step.highlight ? "border-[#1F4D2C] bg-[rgba(31,77,44,0.08)]" : "border-[#C8C5BC] bg-[#F4F4F1]"}`}>
                 <p className="font-mono text-xs sm:text-sm text-[#1F4D2C] tabular-nums">{step.t}</p>
-                <p className="hidden sm:block font-mono text-xs text-[#A8A8A4] truncate">{step.where}</p>
+                <p className="hidden sm:block font-mono text-xs text-[#6F6F6B] truncate">{step.where}</p>
                 <div className="col-span-1 sm:col-span-1">
-                  <p className="text-[10px] sm:hidden font-mono text-[#A8A8A4] mb-1">{step.where}</p>
-                  <p className={`text-sm leading-snug ${step.highlight ? "text-white font-semibold" : "text-[#3A3A3A]"}`}>
+                  <p className="text-[10px] sm:hidden font-mono text-[#6F6F6B] mb-1">{step.where}</p>
+                  <p className={`text-sm leading-snug ${step.highlight ? "text-white font-semibold" : "text-[#1C1C1C]"}`}>
                     <span className="font-cta uppercase tracking-wider text-xs text-[#1F4D2C] mr-2">{step.actor}</span>
                     {step.body}
                   </p>
@@ -824,7 +824,7 @@ export default function FocusPartner() {
                 <span className="text-2xl shrink-0">{e.icon}</span>
                 <div>
                   <p className="font-heading text-sm font-bold text-white">{e.title}</p>
-                  <p className="mt-1 text-sm text-[#3A3A3A] leading-snug">{e.body}</p>
+                  <p className="mt-1 text-sm text-[#1C1C1C] leading-snug">{e.body}</p>
                 </div>
               </div>
             ))}
@@ -843,7 +843,7 @@ export default function FocusPartner() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {financialReality.map((row) => (
               <div key={row.label} className="rounded-xl border border-[#C8C5BC] bg-[#FAF9F5] p-5">
-                <p className="font-cta uppercase text-xs tracking-widest text-[#A8A8A4] mb-2">{row.label}</p>
+                <p className="font-cta uppercase text-xs tracking-widest text-[#6F6F6B] mb-2">{row.label}</p>
                 <p className="font-heading text-2xl font-extrabold text-[#1F4D2C]">{row.value}</p>
                 <p className="mt-1 text-xs text-[#6F6F6B]">{row.note}</p>
               </div>
@@ -859,7 +859,7 @@ export default function FocusPartner() {
           <p className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-snug">
             We don&apos;t sell you software we don&apos;t ship in our own business.
           </p>
-          <p className="mt-4 text-base sm:text-lg text-[#3A3A3A] leading-relaxed">
+          <p className="mt-4 text-base sm:text-lg text-[#1C1C1C] leading-relaxed">
             If a feature breaks for The NYC Maid, it breaks our cleaning company. If a feature pays for itself for The NYC Maid, it ships to every Focus Partner. Same engine. Same proof. Same loop. Just with your trade and your city.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -870,7 +870,7 @@ export default function FocusPartner() {
               Become a Focus Partner in your trade
             </Link>
           </div>
-          <p className="mt-6 text-xs font-mono text-[#A8A8A4] tracking-wide">
+          <p className="mt-6 text-xs font-mono text-[#6F6F6B] tracking-wide">
             One Focus Partner per trade per city. Once claimed, off the board.
           </p>
         </motion.div>

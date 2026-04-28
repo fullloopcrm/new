@@ -22,7 +22,7 @@ const C = {
 export default function Hero() {
   return (
     <section
-      className="relative min-h-screen flex items-center"
+      className="relative"
       style={{ background: C.cream, color: C.ink }}
     >
       {/* Hairline grid */}
@@ -34,7 +34,7 @@ export default function Hero() {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pt-32 pb-24">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pt-10 pb-20">
         {/* Topbar */}
         <div className="flex items-center justify-between mb-12">
           <span
