@@ -364,26 +364,26 @@ export default function FocusPartner() {
   const cleanerMax = cleanerRanking[0].count;
 
   return (
-    <section className="bg-slate-900 py-20 sm:py-28 px-6 sm:px-8 lg:px-12">
+    <section className="bg-[#F4F4F1] py-20 sm:py-28 px-6 sm:px-8 lg:px-12">
       <div className="mx-auto max-w-7xl">
         {/* ─────── 1. HEADER ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-4">
+          <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-4">
             The First Business Automation Platform · Our Focus Partner
           </p>
           <h2 className="font-heading text-4xl sm:text-5xl lg:text-7xl font-extrabold text-white leading-[1.05] mb-6">
-            Look at <span className="text-teal-400">The NYC Maid</span>.
+            Look at <span className="text-[#1F4D2C]">The NYC Maid</span>.
             <br className="hidden sm:block" />
             That&apos;s what this is.
           </h2>
-          <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl text-[#3A3A3A] max-w-3xl mx-auto leading-relaxed">
             Full Loop CRM is the first true full-loop business automation platform — built by running a live home-cleaning company in New York City, not by guessing what cleaning companies need.{" "}
             <strong className="text-white">The NYC Maid</strong> wasn&apos;t a customer. It was the test bed. Every feature you see — Selena AI (the only CRM AI that handles SMS + web + email), GPS field operations, Stripe Connect crew auto-payouts, Zelle/Venmo IMAP parsing, 98 SEO domains, the recurring engine, 100% closed-loop attribution — was built, broken, fixed, and shipped while running real bookings for real clients.
           </p>
-          <p className="mt-6 text-base text-slate-400 max-w-2xl mx-auto">
+          <p className="mt-6 text-base text-[#6F6F6B] max-w-2xl mx-auto">
             Today <strong className="text-white">The NYC Maid</strong> runs itself. <strong className="text-white">$221,988 revenue · 1,240 bookings · 23,078 lead clicks · 4,934 Selena messages · 5,998 notifications · 50/50 5-star reviews.</strong> Every number on this page is pulled from the production database <em>right now</em>.
           </p>
         </motion.div>
@@ -394,7 +394,7 @@ export default function FocusPartner() {
           className="mb-20"
         >
           <div className="text-center mb-10">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">Origin · Build journal</p>
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Origin · Build journal</p>
             <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">
               How a cleaning company became the first true full-loop CRM.
             </h3>
@@ -404,10 +404,10 @@ export default function FocusPartner() {
             <div className="space-y-8">
               {originTimeline.map((m) => (
                 <div key={m.when} className="relative pl-12 sm:pl-20">
-                  <div className={`absolute left-1.5 sm:left-5 top-1 w-5 h-5 rounded-full border-2 ${m.highlight ? "border-teal-300 bg-teal-400 shadow-[0_0_12px_rgba(45,212,191,0.6)]" : "border-teal-500 bg-slate-900"}`} />
-                  <p className="font-mono text-xs tracking-widest uppercase text-teal-400 mb-1">{m.when}</p>
+                  <div className={`absolute left-1.5 sm:left-5 top-1 w-5 h-5 rounded-full border-2 ${m.highlight ? "border-teal-300 bg-[#1F4D2C] shadow-[0_0_12px_rgba(45,212,191,0.6)]" : "border-teal-500 bg-[#F4F4F1]"}`} />
+                  <p className="font-mono text-xs tracking-widest uppercase text-[#1F4D2C] mb-1">{m.when}</p>
                   <h4 className="font-heading text-xl font-bold text-white mb-2">{m.title}</h4>
-                  <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl">{m.body}</p>
+                  <p className="text-[#3A3A3A] text-sm sm:text-base leading-relaxed max-w-3xl">{m.body}</p>
                 </div>
               ))}
             </div>
@@ -417,17 +417,17 @@ export default function FocusPartner() {
         {/* ─────── 3. TRAJECTORY ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.1 }}
-          className="rounded-2xl border border-teal-700/40 bg-slate-950/70 p-6 sm:p-10 mb-20"
+          className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3]/70 p-6 sm:p-10 mb-20"
         >
           <div className="mb-8 flex items-end justify-between flex-wrap gap-4">
             <div>
-              <p className="font-mono text-xs tracking-[0.2em] uppercase text-teal-400 mb-1">Avg ticket — by month · pulled from production DB</p>
+              <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-1">Avg ticket — by month · pulled from production DB</p>
               <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">$183 &rarr; $222 in 90 days.</h3>
-              <p className="text-slate-400 text-sm mt-2 max-w-xl">
+              <p className="text-[#6F6F6B] text-sm mt-2 max-w-xl">
                 Same business, same city, same crew. The platform shifted the economics: deep-clean upsells in the Selena flow, recurring discounts that lock in repeat clients (20% weekly · 10% bi-weekly/monthly), and 100% attribution on 458 of 1,240 bookings exposing which of the 98 EMD domains actually convert.
               </p>
             </div>
-            <p className="font-heading text-4xl sm:text-5xl lg:text-6xl font-extrabold text-teal-400">+21%</p>
+            <p className="font-heading text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#1F4D2C]">+21%</p>
           </div>
           <div className="grid grid-cols-3 gap-3 sm:gap-6 items-end h-48 sm:h-64">
             {trajectory.map((t) => {
@@ -435,15 +435,15 @@ export default function FocusPartner() {
               return (
                 <div key={t.month} className="flex flex-col items-center justify-end h-full">
                   <p className="font-mono text-sm sm:text-base text-white mb-1.5">${t.value}</p>
-                  <div className="w-full rounded-t-md bg-gradient-to-t from-teal-700 to-teal-400" style={{ height: `${pct}%`, minHeight: "20px" }} />
-                  <p className="font-mono text-xs sm:text-sm text-slate-400 mt-2 uppercase tracking-wider">{t.month}</p>
-                  {t.sub && <p className="text-[10px] sm:text-xs text-teal-300 mt-1 text-center leading-tight max-w-[120px]">{t.sub}</p>}
+                  <div className="w-full rounded-t-md bg-gradient-to-t from-[#1F4D2C] to-[#3A8055]" style={{ height: `${pct}%`, minHeight: "20px" }} />
+                  <p className="font-mono text-xs sm:text-sm text-[#6F6F6B] mt-2 uppercase tracking-wider">{t.month}</p>
+                  {t.sub && <p className="text-[10px] sm:text-xs text-[#1F4D2C] mt-1 text-center leading-tight max-w-[120px]">{t.sub}</p>}
                 </div>
               );
             })}
           </div>
-          <p className="mt-6 text-xs font-mono text-slate-500 text-center">
-            Source: <code className="text-teal-300">SELECT date_trunc(&apos;month&apos;, start_time), AVG(price), COUNT(*) FROM bookings WHERE start_time &lt;= now()</code>
+          <p className="mt-6 text-xs font-mono text-[#A8A8A4] text-center">
+            Source: <code className="text-[#1F4D2C]">SELECT date_trunc(&apos;month&apos;, start_time), AVG(price), COUNT(*) FROM bookings WHERE start_time &lt;= now()</code>
           </p>
         </motion.div>
 
@@ -453,15 +453,15 @@ export default function FocusPartner() {
           className="mb-20"
         >
           <div className="text-center mb-8">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">Live numbers · pulled 2026-04-27</p>
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Live numbers · pulled 2026-04-27</p>
             <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">What the platform is doing — right now.</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {liveMetrics.map((m) => (
-              <div key={m.label} className="rounded-xl border border-slate-700 bg-slate-800/60 p-5 text-center">
-                <p className="font-heading text-2xl sm:text-3xl font-extrabold text-teal-400 leading-tight">{m.value}</p>
-                <p className="mt-2 font-cta text-xs uppercase tracking-widest text-slate-200">{m.label}</p>
-                <p className="mt-1 text-xs text-slate-500">{m.sub}</p>
+              <div key={m.label} className="rounded-xl border border-[#C8C5BC] bg-[#FAF9F5] p-5 text-center">
+                <p className="font-heading text-2xl sm:text-3xl font-extrabold text-[#1F4D2C] leading-tight">{m.value}</p>
+                <p className="mt-2 font-cta text-xs uppercase tracking-widest text-[#1C1C1C]">{m.label}</p>
+                <p className="mt-1 text-xs text-[#A8A8A4]">{m.sub}</p>
               </div>
             ))}
           </div>
@@ -470,12 +470,12 @@ export default function FocusPartner() {
         {/* ─────── 5. LEAD FUNNEL ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.18 }}
-          className="rounded-2xl border border-teal-700/40 bg-slate-950/70 p-6 sm:p-10 mb-20"
+          className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3]/70 p-6 sm:p-10 mb-20"
         >
           <div className="mb-8 text-center">
-            <p className="font-mono text-xs tracking-[0.2em] uppercase text-teal-400 mb-2">Lead Funnel · 23,078 events tracked</p>
+            <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-2">Lead Funnel · 23,078 events tracked</p>
             <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">Visit → Engaged → CTA → Booking. Every step counted.</h3>
-            <p className="mt-3 text-slate-400 text-sm max-w-2xl mx-auto">
+            <p className="mt-3 text-[#6F6F6B] text-sm max-w-2xl mx-auto">
               Most platforms guess at attribution. We log every visit, scroll-depth checkpoint, CTA tap, and form step. Below is the real funnel for The NYC Maid in 84 days.
             </p>
           </div>
@@ -485,11 +485,11 @@ export default function FocusPartner() {
               return (
                 <div key={s.stage} className="flex items-center gap-4">
                   <div className="w-32 sm:w-40 shrink-0 text-right">
-                    <p className="font-cta text-xs sm:text-sm uppercase tracking-widest text-slate-200">{s.stage}</p>
-                    <p className="text-[10px] sm:text-xs text-slate-500">{s.sub}</p>
+                    <p className="font-cta text-xs sm:text-sm uppercase tracking-widest text-[#1C1C1C]">{s.stage}</p>
+                    <p className="text-[10px] sm:text-xs text-[#A8A8A4]">{s.sub}</p>
                   </div>
-                  <div className="flex-1 relative h-10 sm:h-12 bg-slate-800/60 rounded-md overflow-hidden">
-                    <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-teal-700 to-teal-400 rounded-md flex items-center px-3" style={{ width: `${widthPct}%`, minWidth: "100px" }}>
+                  <div className="flex-1 relative h-10 sm:h-12 bg-[#FAF9F5] rounded-md overflow-hidden">
+                    <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#1F4D2C] to-[#3A8055] rounded-md flex items-center px-3" style={{ width: `${widthPct}%`, minWidth: "100px" }}>
                       <span className="font-mono text-sm sm:text-base font-bold text-white">{s.value.toLocaleString()}</span>
                     </div>
                   </div>
@@ -502,20 +502,20 @@ export default function FocusPartner() {
         {/* ─────── 5b. ZERO PAID — every lead is organic ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.19 }}
-          className="rounded-2xl border-2 border-teal-400/50 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8 sm:p-12 mb-20 text-center"
+          className="rounded-2xl border-2 border-[#1F4D2C] bg-gradient-to-br from-[#EDEAE3] via-[#FAF9F5] to-[#EDEAE3] p-8 sm:p-12 mb-20 text-center"
         >
-          <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-4">
+          <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-4">
             Verified · 23,078 lead clicks · UTM audit
           </p>
           <h3 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-6">
             $0 in ads. $0 in bought leads.
             <br className="hidden sm:block" />
-            <span className="text-teal-400">Not once. Not ever.</span>
+            <span className="text-[#1F4D2C]">Not once. Not ever.</span>
           </h3>
-          <p className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg text-[#3A3A3A] max-w-3xl mx-auto leading-relaxed">
             Every one of the 23,078 lead-click events was filtered for UTM markers
             (cpc · ppc · paid · adwords · sponsored · display).{" "}
-            <strong className="text-teal-400">Zero matches.</strong> The 232
+            <strong className="text-[#1F4D2C]">Zero matches.</strong> The 232
             UTM-tagged visits in the dataset are 207 organic Google Jobs +
             25 owned-IG posts — both free. Every booking, every dollar, every
             review came from owned SEO, owned social, owned email — not one
@@ -529,13 +529,13 @@ export default function FocusPartner() {
               { v: "$0", l: "Angi / HomeAdvisor" },
               { v: "$0", l: "Lead brokers" },
             ].map((x) => (
-              <div key={x.l} className="rounded-lg border border-teal-400/30 bg-slate-900 p-4">
-                <p className="font-heading text-2xl sm:text-3xl font-extrabold text-teal-400">{x.v}</p>
-                <p className="mt-1 font-cta text-[10px] sm:text-xs uppercase tracking-widest text-slate-400">{x.l}</p>
+              <div key={x.l} className="rounded-lg border border-[#C8C5BC] bg-[#F4F4F1] p-4">
+                <p className="font-heading text-2xl sm:text-3xl font-extrabold text-[#1F4D2C]">{x.v}</p>
+                <p className="mt-1 font-cta text-[10px] sm:text-xs uppercase tracking-widest text-[#6F6F6B]">{x.l}</p>
               </div>
             ))}
           </div>
-          <p className="mt-6 font-mono text-xs text-slate-500">
+          <p className="mt-6 font-mono text-xs text-[#A8A8A4]">
             $221,988 in revenue. Built on 98 SEO domains, one AI receptionist, and zero paid acquisition.
           </p>
         </motion.div>
@@ -546,8 +546,8 @@ export default function FocusPartner() {
           className="grid lg:grid-cols-2 gap-6 mb-20"
         >
           {/* Top domains */}
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 sm:p-8">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">Top SEO domains by visit · 11,000 visits sampled</p>
+          <div className="rounded-2xl border border-[#C8C5BC] bg-[#F4F4F1]/70 p-6 sm:p-8">
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Top SEO domains by visit · 11,000 visits sampled</p>
             <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-5">98 EMDs in production. Long tail working.</h3>
             <div className="space-y-2">
               {topDomains.map((d) => {
@@ -556,12 +556,12 @@ export default function FocusPartner() {
                   <div key={d.domain}>
                     <div className="flex items-center justify-between mb-0.5">
                       <p className="font-mono text-[11px] sm:text-xs text-white">{d.domain}</p>
-                      <p className="font-mono text-[11px] sm:text-xs text-teal-400 tabular-nums">{d.count !== null ? d.count.toLocaleString() : "—"}</p>
+                      <p className="font-mono text-[11px] sm:text-xs text-[#1F4D2C] tabular-nums">{d.count !== null ? d.count.toLocaleString() : "—"}</p>
                     </div>
-                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-teal-700 to-teal-400" style={{ width: `${pct}%` }} />
+                    <div className="h-1.5 bg-[#FAF9F5] rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-[#1F4D2C] to-[#3A8055]" style={{ width: `${pct}%` }} />
                     </div>
-                    {d.label && <p className="text-[10px] text-slate-500 mt-0.5">{d.label}</p>}
+                    {d.label && <p className="text-[10px] text-[#A8A8A4] mt-0.5">{d.label}</p>}
                   </div>
                 );
               })}
@@ -569,8 +569,8 @@ export default function FocusPartner() {
           </div>
 
           {/* Referrer sources */}
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 sm:p-8">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">Where 1,280 CTA-bearing visitors came from</p>
+          <div className="rounded-2xl border border-[#C8C5BC] bg-[#F4F4F1]/70 p-6 sm:p-8">
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Where 1,280 CTA-bearing visitors came from</p>
             <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-5">Including 45 from AI assistants (ChatGPT + Claude).</h3>
             <div className="space-y-2">
               {referrerSources.map((r) => {
@@ -580,12 +580,12 @@ export default function FocusPartner() {
                     <div className="flex items-center justify-between mb-0.5">
                       <p className="text-sm text-white">
                         {r.source}
-                        {r.label && <span className="ml-2 text-[10px] uppercase tracking-wider text-teal-300/80">{r.label}</span>}
+                        {r.label && <span className="ml-2 text-[10px] uppercase tracking-wider text-[#3A3A3A]">{r.label}</span>}
                       </p>
-                      <p className="font-mono text-xs text-teal-400 tabular-nums">{r.count}</p>
+                      <p className="font-mono text-xs text-[#1F4D2C] tabular-nums">{r.count}</p>
                     </div>
-                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-teal-700 to-teal-400" style={{ width: `${pct}%` }} />
+                    <div className="h-1.5 bg-[#FAF9F5] rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-[#1F4D2C] to-[#3A8055]" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
@@ -597,19 +597,19 @@ export default function FocusPartner() {
         {/* ─────── 7. SELENA TRANSCRIPT ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.22 }}
-          className="rounded-2xl border border-teal-700/40 bg-slate-950/70 p-6 sm:p-10 mb-20"
+          className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3]/70 p-6 sm:p-10 mb-20"
         >
           <div className="mb-8 text-center">
-            <p className="font-mono text-xs tracking-[0.2em] uppercase text-teal-400 mb-2">Real Selena conversation · 2026-03-02 · anonymized</p>
+            <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-2">Real Selena conversation · 2026-03-02 · anonymized</p>
             <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">She handles the weird ones too.</h3>
-            <p className="mt-3 text-slate-400 text-sm max-w-2xl mx-auto">
+            <p className="mt-3 text-[#6F6F6B] text-sm max-w-2xl mx-auto">
               An actual SMS thread pulled from sms_conversation_messages — a returning client texts about a broken buzzer. Selena recognizes the existing booking, reassures the client, and routes the buzzer note to the cleaner&apos;s job notes. No human touched this conversation.
             </p>
           </div>
           <div className="max-w-2xl mx-auto space-y-3">
             {smsTranscript.map((m, i) => (
               <div key={i} className={`flex ${m.dir === "in" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-snug ${m.dir === "in" ? "bg-teal-500 text-slate-900 rounded-br-sm" : "bg-slate-800 text-white rounded-bl-sm border border-slate-700"}`}>
+                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-snug ${m.dir === "in" ? "bg-teal-500 text-slate-900 rounded-br-sm" : "bg-[#FAF9F5] text-white rounded-bl-sm border border-[#C8C5BC]"}`}>
                   <p className="font-mono text-[10px] uppercase tracking-widest mb-1 opacity-60">{m.dir === "in" ? "client" : "selena"}</p>
                   <p className="whitespace-pre-line">{m.body}</p>
                 </div>
@@ -624,7 +624,7 @@ export default function FocusPartner() {
           className="mb-20"
         >
           <div className="text-center mb-10">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">
               The Full Loop · every automation that runs on The NYC Maid
             </p>
             <h3 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight">
@@ -632,7 +632,7 @@ export default function FocusPartner() {
               <br className="hidden sm:block" />
               to the rebooking 90 days later.
             </h3>
-            <p className="mt-4 text-slate-400 text-sm sm:text-base max-w-3xl mx-auto">
+            <p className="mt-4 text-[#6F6F6B] text-sm sm:text-base max-w-3xl mx-auto">
               Eight stages. ~50 individual automations. Every one of them runs
               hands-off, every day, on the live cleaning company. Each
               automation below is a real production code path — same code that
@@ -641,28 +641,28 @@ export default function FocusPartner() {
           </div>
           <div className="space-y-6">
             {fullLoopProcess.map((stage) => (
-              <div key={stage.num} className="rounded-2xl border border-teal-700/40 bg-slate-950/60 overflow-hidden">
-                <div className="flex items-center justify-between gap-3 px-6 py-4 sm:px-8 sm:py-5 bg-gradient-to-r from-teal-900/40 to-slate-900/40 border-b border-teal-700/30">
+              <div key={stage.num} className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3]/60 overflow-hidden">
+                <div className="flex items-center justify-between gap-3 px-6 py-4 sm:px-8 sm:py-5 bg-gradient-to-r from-[#EDEAE3] to-[#FAF9F5] border-b border-[#C8C5BC]">
                   <div className="flex items-baseline gap-4">
-                    <span className="font-mono text-2xl sm:text-3xl font-extrabold text-teal-400 tabular-nums">{stage.num}</span>
+                    <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#1F4D2C] tabular-nums">{stage.num}</span>
                     <h4 className="font-heading text-xl sm:text-2xl font-extrabold text-white">{stage.name}</h4>
                   </div>
-                  <p className="hidden md:block font-mono text-xs text-teal-300 text-right max-w-md">{stage.summary}</p>
+                  <p className="hidden md:block font-mono text-xs text-[#1F4D2C] text-right max-w-md">{stage.summary}</p>
                 </div>
-                <p className="md:hidden px-6 py-2 font-mono text-[11px] text-teal-300 border-b border-teal-700/20">{stage.summary}</p>
-                <ol className="divide-y divide-slate-800">
+                <p className="md:hidden px-6 py-2 font-mono text-[11px] text-[#1F4D2C] border-b border-teal-700/20">{stage.summary}</p>
+                <ol className="divide-y divide-[#E4E2DC]">
                   {stage.steps.map((s, i) => (
                     <li key={i} className="grid grid-cols-[28px_100px_1fr] sm:grid-cols-[32px_140px_1fr] gap-3 sm:gap-4 px-6 py-3 sm:px-8 sm:py-4">
-                      <span className="font-mono text-[11px] sm:text-xs text-slate-500 tabular-nums pt-0.5">{stage.num}.{i + 1}</span>
-                      <span className="font-cta text-[10px] sm:text-xs uppercase tracking-widest text-teal-300/80 pt-0.5 break-words">{s.actor}</span>
-                      <span className="text-sm text-slate-200 leading-snug">{s.body}</span>
+                      <span className="font-mono text-[11px] sm:text-xs text-[#A8A8A4] tabular-nums pt-0.5">{stage.num}.{i + 1}</span>
+                      <span className="font-cta text-[10px] sm:text-xs uppercase tracking-widest text-[#3A3A3A] pt-0.5 break-words">{s.actor}</span>
+                      <span className="text-sm text-[#1C1C1C] leading-snug">{s.body}</span>
                     </li>
                   ))}
                 </ol>
               </div>
             ))}
           </div>
-          <p className="mt-8 text-center text-sm text-slate-400 max-w-2xl mx-auto">
+          <p className="mt-8 text-center text-sm text-[#6F6F6B] max-w-2xl mx-auto">
             <strong className="text-white">~50 automations.</strong> Zero phone
             calls answered by humans today. Owner spent the day building the
             platform. Platform spent the day running the business.
@@ -674,26 +674,26 @@ export default function FocusPartner() {
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.24 }}
           className="grid lg:grid-cols-2 gap-6 mb-20"
         >
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 sm:p-8">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">Service mix · 1,240 bookings</p>
+          <div className="rounded-2xl border border-[#C8C5BC] bg-[#F4F4F1]/70 p-6 sm:p-8">
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Service mix · 1,240 bookings</p>
             <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-5">90% Standard. The other 10% pays the deep-clean rate.</h3>
             <div className="space-y-3">
               {serviceTypeMix.map((s) => (
                 <div key={s.name}>
                   <div className="flex items-center justify-between mb-0.5">
-                    <p className="text-sm text-white">{s.name} <span className="ml-2 text-[10px] uppercase tracking-wider text-teal-300/80">{s.rate}</span></p>
-                    <p className="font-mono text-xs text-teal-400 tabular-nums">{s.count} · {s.share}%</p>
+                    <p className="text-sm text-white">{s.name} <span className="ml-2 text-[10px] uppercase tracking-wider text-[#3A3A3A]">{s.rate}</span></p>
+                    <p className="font-mono text-xs text-[#1F4D2C] tabular-nums">{s.count} · {s.share}%</p>
                   </div>
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-teal-700 to-teal-400" style={{ width: `${Math.min(100, s.share)}%` }} />
+                  <div className="h-2 bg-[#FAF9F5] rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-[#1F4D2C] to-[#3A8055]" style={{ width: `${Math.min(100, s.share)}%` }} />
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 sm:p-8">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">Cleaner workload · top 8 of 9</p>
+          <div className="rounded-2xl border border-[#C8C5BC] bg-[#F4F4F1]/70 p-6 sm:p-8">
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Cleaner workload · top 8 of 9</p>
             <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-5">Smart-schedule routes 80% of jobs to the top 2 cleaners.</h3>
             <div className="space-y-2">
               {cleanerRanking.map((c) => {
@@ -702,10 +702,10 @@ export default function FocusPartner() {
                   <div key={c.name}>
                     <div className="flex items-center justify-between mb-0.5">
                       <p className="text-sm text-white">{c.name}</p>
-                      <p className="font-mono text-xs text-teal-400 tabular-nums">{c.count} · {c.share}%</p>
+                      <p className="font-mono text-xs text-[#1F4D2C] tabular-nums">{c.count} · {c.share}%</p>
                     </div>
-                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-teal-700 to-teal-400" style={{ width: `${pct}%` }} />
+                    <div className="h-1.5 bg-[#FAF9F5] rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-[#1F4D2C] to-[#3A8055]" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
@@ -717,18 +717,18 @@ export default function FocusPartner() {
         {/* ─────── 9. PLATFORM ACTIVITY (notifications) ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.26 }}
-          className="rounded-2xl border border-slate-700 bg-slate-800/40 p-6 sm:p-10 mb-20"
+          className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3] p-6 sm:p-10 mb-20"
         >
           <div className="text-center mb-8">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">5,998 notifications fired · top events</p>
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">5,998 notifications fired · top events</p>
             <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">The platform actually does this much.</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {platformActivity.map((m) => (
-              <div key={m.label} className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-                <p className="font-heading text-2xl sm:text-3xl font-extrabold text-teal-400 leading-tight">{m.value}</p>
-                <p className="mt-2 font-cta text-xs uppercase tracking-widest text-slate-200">{m.label}</p>
-                <p className="mt-1 text-xs text-slate-500">{m.sub}</p>
+              <div key={m.label} className="rounded-xl border border-[#C8C5BC] bg-[#F4F4F1] p-5">
+                <p className="font-heading text-2xl sm:text-3xl font-extrabold text-[#1F4D2C] leading-tight">{m.value}</p>
+                <p className="mt-2 font-cta text-xs uppercase tracking-widest text-[#1C1C1C]">{m.label}</p>
+                <p className="mt-1 text-xs text-[#A8A8A4]">{m.sub}</p>
               </div>
             ))}
           </div>
@@ -737,15 +737,15 @@ export default function FocusPartner() {
         {/* ─────── 10. CUMULATIVE STRIP ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.28 }}
-          className="rounded-2xl border border-slate-700 bg-slate-800/40 p-6 sm:p-10 mb-20 text-center"
+          className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3] p-6 sm:p-10 mb-20 text-center"
         >
-          <p className="font-mono text-xs tracking-[0.2em] uppercase text-teal-400 mb-2">Cumulative on the same engine · since Feb 3 2026</p>
+          <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-2">Cumulative on the same engine · since Feb 3 2026</p>
           <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-6">One Focus Partner. Real numbers from production.</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {cumulativeStats.map((s) => (
               <div key={s.label}>
-                <p className="font-heading text-2xl sm:text-3xl font-extrabold text-teal-400">{s.value}</p>
-                <p className="mt-1 font-cta text-[10px] sm:text-xs uppercase tracking-widest text-slate-400">{s.label}</p>
+                <p className="font-heading text-2xl sm:text-3xl font-extrabold text-[#1F4D2C]">{s.value}</p>
+                <p className="mt-1 font-cta text-[10px] sm:text-xs uppercase tracking-widest text-[#6F6F6B]">{s.label}</p>
               </div>
             ))}
           </div>
@@ -754,24 +754,24 @@ export default function FocusPartner() {
         {/* ─────── 11. ANATOMY OF A SUNDAY 11PM BOOKING ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.3 }}
-          className="rounded-2xl border border-teal-700/40 bg-slate-950/70 p-6 sm:p-10 mb-20"
+          className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3]/70 p-6 sm:p-10 mb-20"
         >
           <div className="mb-8 text-center">
-            <p className="font-mono text-xs tracking-[0.2em] uppercase text-teal-400 mb-2">Anatomy of a real booking · production code path</p>
+            <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-2">Anatomy of a real booking · production code path</p>
             <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mb-2">Sunday 11:02 PM. The owner is asleep.</h3>
-            <p className="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base">
+            <p className="text-[#6F6F6B] max-w-2xl mx-auto text-sm sm:text-base">
               7 minutes from organic visit to booked + cleaner-assigned + confirmations sent. Every step below is real production code running for The NYC Maid right now — same code that ships to every Focus Partner.
             </p>
           </div>
           <div className="space-y-3">
             {sundayBooking.map((step, i) => (
-              <div key={i} className={`grid grid-cols-[80px_1fr] sm:grid-cols-[100px_140px_1fr] gap-3 sm:gap-4 rounded-lg border p-3 sm:p-4 ${step.highlight ? "border-teal-400 bg-teal-500/10" : "border-slate-700 bg-slate-900"}`}>
-                <p className="font-mono text-xs sm:text-sm text-teal-400 tabular-nums">{step.t}</p>
-                <p className="hidden sm:block font-mono text-xs text-slate-500 truncate">{step.where}</p>
+              <div key={i} className={`grid grid-cols-[80px_1fr] sm:grid-cols-[100px_140px_1fr] gap-3 sm:gap-4 rounded-lg border p-3 sm:p-4 ${step.highlight ? "border-[#1F4D2C] bg-[rgba(31,77,44,0.08)]" : "border-[#C8C5BC] bg-[#F4F4F1]"}`}>
+                <p className="font-mono text-xs sm:text-sm text-[#1F4D2C] tabular-nums">{step.t}</p>
+                <p className="hidden sm:block font-mono text-xs text-[#A8A8A4] truncate">{step.where}</p>
                 <div className="col-span-1 sm:col-span-1">
-                  <p className="text-[10px] sm:hidden font-mono text-slate-500 mb-1">{step.where}</p>
-                  <p className={`text-sm leading-snug ${step.highlight ? "text-white font-semibold" : "text-slate-300"}`}>
-                    <span className="font-cta uppercase tracking-wider text-xs text-teal-300 mr-2">{step.actor}</span>
+                  <p className="text-[10px] sm:hidden font-mono text-[#A8A8A4] mb-1">{step.where}</p>
+                  <p className={`text-sm leading-snug ${step.highlight ? "text-white font-semibold" : "text-[#3A3A3A]"}`}>
+                    <span className="font-cta uppercase tracking-wider text-xs text-[#1F4D2C] mr-2">{step.actor}</span>
                     {step.body}
                   </p>
                 </div>
@@ -786,18 +786,18 @@ export default function FocusPartner() {
           className="mb-20"
         >
           <div className="text-center mb-10">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">Before / After · the operator&apos;s actual day</p>
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Before / After · the operator&apos;s actual day</p>
             <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">What got removed from the operator&apos;s day.</h3>
           </div>
-          <div className="rounded-2xl border border-slate-700 overflow-hidden">
-            <div className="grid grid-cols-2 bg-slate-800/80 font-cta uppercase text-xs tracking-widest">
-              <div className="px-4 sm:px-6 py-3 text-red-400 border-r border-slate-700">Before — manual</div>
-              <div className="px-4 sm:px-6 py-3 text-teal-400">After — automated</div>
+          <div className="rounded-2xl border border-[#C8C5BC] overflow-hidden">
+            <div className="grid grid-cols-2 bg-[#EDEAE3] font-cta uppercase text-xs tracking-widest">
+              <div className="px-4 sm:px-6 py-3 text-red-400 border-r border-[#C8C5BC]">Before — manual</div>
+              <div className="px-4 sm:px-6 py-3 text-[#1F4D2C]">After — automated</div>
             </div>
             {removedFromDay.map((row, i) => (
-              <div key={i} className={`grid grid-cols-2 text-sm ${i % 2 === 0 ? "bg-slate-900" : "bg-slate-900/60"} border-t border-slate-800`}>
-                <div className="px-4 sm:px-6 py-3 text-slate-400 line-through decoration-red-500/40 border-r border-slate-700">{row.before}</div>
-                <div className="px-4 sm:px-6 py-3 text-slate-200">{row.after}</div>
+              <div key={i} className={`grid grid-cols-2 text-sm ${i % 2 === 0 ? "bg-[#F4F4F1]" : "bg-[#F4F4F1]/60"} border-t border-[#E4E2DC]`}>
+                <div className="px-4 sm:px-6 py-3 text-[#6F6F6B] line-through decoration-red-500/40 border-r border-[#C8C5BC]">{row.before}</div>
+                <div className="px-4 sm:px-6 py-3 text-[#1C1C1C]">{row.after}</div>
               </div>
             ))}
           </div>
@@ -806,25 +806,25 @@ export default function FocusPartner() {
         {/* ─────── 13. LIVE FEED SNAPSHOT ─────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.34 }}
-          className="rounded-2xl border border-teal-700/50 bg-slate-950/60 p-6 sm:p-10 mb-20"
+          className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3]/60 p-6 sm:p-10 mb-20"
         >
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div>
-              <p className="font-mono text-xs tracking-[0.2em] uppercase text-teal-400 mb-1">Live feed · captured 2026-04-27 5:24 PM ET</p>
+              <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-1">Live feed · captured 2026-04-27 5:24 PM ET</p>
               <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white">Six events from a normal afternoon.</h3>
             </div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-teal-500/10 border border-teal-500/40 px-3 py-1.5">
-              <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-              <span className="font-mono text-xs tracking-wider uppercase text-teal-300">Production</span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-[rgba(31,77,44,0.08)] border border-teal-500/40 px-3 py-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#1F4D2C] animate-pulse" />
+              <span className="font-mono text-xs tracking-wider uppercase text-[#1F4D2C]">Production</span>
             </span>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {liveEvidence.map((e) => (
-              <div key={e.title} className="rounded-lg border border-slate-700 bg-slate-900 p-4 flex gap-3">
+              <div key={e.title} className="rounded-lg border border-[#C8C5BC] bg-[#F4F4F1] p-4 flex gap-3">
                 <span className="text-2xl shrink-0">{e.icon}</span>
                 <div>
                   <p className="font-heading text-sm font-bold text-white">{e.title}</p>
-                  <p className="mt-1 text-sm text-slate-300 leading-snug">{e.body}</p>
+                  <p className="mt-1 text-sm text-[#3A3A3A] leading-snug">{e.body}</p>
                 </div>
               </div>
             ))}
@@ -837,15 +837,15 @@ export default function FocusPartner() {
           className="mb-20"
         >
           <div className="text-center mb-10">
-            <p className="font-mono text-xs tracking-[0.25em] uppercase text-teal-400 mb-2">The Finances · open book</p>
+            <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">The Finances · open book</p>
             <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">You can see everything.</h3>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {financialReality.map((row) => (
-              <div key={row.label} className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-                <p className="font-cta uppercase text-xs tracking-widest text-slate-500 mb-2">{row.label}</p>
-                <p className="font-heading text-2xl font-extrabold text-teal-400">{row.value}</p>
-                <p className="mt-1 text-xs text-slate-400">{row.note}</p>
+              <div key={row.label} className="rounded-xl border border-[#C8C5BC] bg-[#FAF9F5] p-5">
+                <p className="font-cta uppercase text-xs tracking-widest text-[#A8A8A4] mb-2">{row.label}</p>
+                <p className="font-heading text-2xl font-extrabold text-[#1F4D2C]">{row.value}</p>
+                <p className="mt-1 text-xs text-[#6F6F6B]">{row.note}</p>
               </div>
             ))}
           </div>
@@ -859,18 +859,18 @@ export default function FocusPartner() {
           <p className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-snug">
             We don&apos;t sell you software we don&apos;t ship in our own business.
           </p>
-          <p className="mt-4 text-base sm:text-lg text-slate-300 leading-relaxed">
+          <p className="mt-4 text-base sm:text-lg text-[#3A3A3A] leading-relaxed">
             If a feature breaks for The NYC Maid, it breaks our cleaning company. If a feature pays for itself for The NYC Maid, it ships to every Focus Partner. Same engine. Same proof. Same loop. Just with your trade and your city.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/case-study/the-nyc-maid" className="inline-block rounded-lg bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 text-base transition-colors">
+            <Link href="/case-study/the-nyc-maid" className="inline-block rounded-lg bg-teal-500 hover:bg-[#1F4D2C] text-white font-cta font-bold px-8 py-4 text-base transition-colors">
               Read the full Focus Partner case study
             </Link>
-            <Link href="/crm-partnership-request-form" className="inline-block rounded-lg border border-slate-600 hover:border-teal-400 text-slate-200 hover:text-teal-400 font-cta font-bold px-8 py-4 text-base transition-colors">
+            <Link href="/crm-partnership-request-form" className="inline-block rounded-lg border border-slate-600 hover:border-[#1F4D2C] text-[#1C1C1C] hover:text-[#1F4D2C] font-cta font-bold px-8 py-4 text-base transition-colors">
               Become a Focus Partner in your trade
             </Link>
           </div>
-          <p className="mt-6 text-xs font-mono text-slate-500 tracking-wide">
+          <p className="mt-6 text-xs font-mono text-[#A8A8A4] tracking-wide">
             One Focus Partner per trade per city. Once claimed, off the board.
           </p>
         </motion.div>

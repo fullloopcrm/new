@@ -8,121 +8,210 @@ const trustBadges = [
   { label: "Available in Every US Metro", href: "/full-loop-crm-service-business-industries" },
 ];
 
+// Editorial palette — matches /dashboard locked design system
+const C = {
+  cream: "#F4F4F1",
+  ink: "#1C1C1C",
+  graphite: "#3A3A3A",
+  muted: "#6F6F6B",
+  muted2: "#A8A8A4",
+  line: "#C8C5BC",
+  good: "#1F4D2C",
+};
+
 export default function Hero() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-900">
-      {/* Subtle grid pattern background */}
+    <section
+      className="relative min-h-screen flex items-center"
+      style={{ background: C.cream, color: C.ink }}
+    >
+      {/* Hairline grid */}
       <div
-        className="absolute inset-0 opacity-[0.04]"
+        className="absolute inset-0 opacity-[0.06] pointer-events-none"
         style={{
-          backgroundImage:
-            "linear-gradient(rgba(244, 244, 241, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(244, 244, 241, 0.5) 1px, transparent 1px)",
-          backgroundSize: "60px 60px",
+          backgroundImage: `linear-gradient(${C.ink} 1px, transparent 1px), linear-gradient(90deg, ${C.ink} 1px, transparent 1px)`,
+          backgroundSize: "80px 80px",
         }}
       />
 
-      {/* Ink overlay */}
-      <div className="absolute inset-0 z-[1]" style={{ backgroundColor: "rgba(28, 28, 28, 0.86)" }} />
-
-      {/* Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-36 pb-20">
-        {/* Pre-headline badge */}
-        <div className="mb-4 animate-hero-fade-in">
-          <span className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-[0.15em] uppercase px-5 py-2.5 font-cta">
-            One Trade Per City. One Operator Gets Everything.
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pt-32 pb-24">
+        {/* Topbar */}
+        <div className="flex items-center justify-between mb-12">
+          <span
+            style={{
+              fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+              fontSize: "11px",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: C.muted,
+            }}
+          >
+            Full Loop CRM <span style={{ color: C.line }}>·</span> The First Business Automation Platform
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+              fontSize: "11px",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: C.muted,
+            }}
+          >
+            Live · NYC
           </span>
         </div>
 
-        {/* Main headline */}
-        <h1
-          className="font-extrabold text-white leading-[1.1] font-heading mb-6 animate-hero-slide-up"
-          style={{ animationDelay: "0.15s" }}
+        {/* Pre-headline */}
+        <p
+          className="mb-6"
+          style={{
+            fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+            fontSize: "12px",
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: C.good,
+          }}
         >
-          <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl">
-            Your city.
-          </span>
-          <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-teal-400 mt-2">
-            <em className="not-italic">Your trade. Nobody else.</em>
-          </span>
-          <span className="block text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-slate-300 mt-4">
-            The only full-cycle CRM — licensed to one operator per city.
-          </span>
+          One Trade Per City &middot; One Operator Gets Everything
+        </p>
+
+        {/* Masthead h1 — Fraunces, big, ink, italic period accent */}
+        <h1
+          style={{
+            fontFamily: "var(--display, 'Fraunces', serif)",
+            fontWeight: 500,
+            letterSpacing: "-0.03em",
+            lineHeight: 0.98,
+            color: C.ink,
+            fontSize: "clamp(48px, 8vw, 110px)",
+          }}
+          className="mb-8"
+        >
+          Your city.
+          <br />
+          Your trade<em style={{ fontStyle: "italic", fontWeight: 400, color: C.muted2 }}>.</em>{" "}
+          <em style={{ fontStyle: "italic", fontWeight: 400 }}>Nobody else.</em>
         </h1>
 
-        {/* Price block */}
-        <div
-          className="flex items-center justify-center gap-4 mb-6 animate-hero-slide-up"
-          style={{ animationDelay: "0.3s" }}
+        {/* Subhead */}
+        <p
+          className="max-w-3xl mb-10"
+          style={{
+            fontFamily: "var(--display, 'Fraunces', serif)",
+            fontStyle: "italic",
+            fontWeight: 400,
+            fontSize: "clamp(18px, 1.6vw, 22px)",
+            lineHeight: 1.45,
+            color: C.graphite,
+            letterSpacing: "-0.005em",
+          }}
         >
-          <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">$1,000<span className="text-lg sm:text-xl text-white/60 font-normal">/user/mo</span></span>
-          <span className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-wider uppercase px-3 py-1.5 rounded font-cta">
-            FLAT &middot; EVERY FEATURE
+          The first true full-loop business automation platform — licensed to one
+          operator per trade per city. When you claim the license, every AI-generated
+          lead in your city routes to you. Every competitor in your trade is locked
+          out of this platform — forever.
+        </p>
+
+        {/* Price strip */}
+        <div
+          className="flex items-baseline flex-wrap gap-x-6 gap-y-2 mb-10 pb-8"
+          style={{ borderBottom: `1px solid ${C.line}` }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--display, 'Fraunces', serif)",
+              fontWeight: 500,
+              fontSize: "clamp(40px, 5vw, 64px)",
+              color: C.ink,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            $1,000
+            <span style={{ fontSize: "0.45em", color: C.muted, marginLeft: "0.25em", letterSpacing: "0" }}>
+              /user/month
+            </span>
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+              fontSize: "11px",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: C.muted,
+            }}
+          >
+            Flat &middot; Every Feature &middot; No Tiers
           </span>
         </div>
 
-        {/* Description */}
-        <p
-          className="text-base sm:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed mb-2 animate-hero-slide-up"
-          style={{ animationDelay: "0.4s" }}
-        >
-          When you claim a territory, every AI-generated lead in your city routes to you. Every local SEO asset points to you. Every competitor in your trade is locked out of this platform &mdash; forever.{" "}
-          <Link href="/full-loop-crm-pricing" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">$1,000 per user / month to hold the license.</Link>
-        </p>
-        <p
-          className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed mb-4 animate-hero-slide-up"
-          style={{ animationDelay: "0.45s" }}
-        >
-          No contracts. Month to month. We set it all up. But once a territory is claimed, it&apos;s off the board.
-        </p>
-
-        {/* Autonomy line */}
-        <div
-          className="flex items-center justify-center gap-2 mb-10 animate-hero-fade-in"
-          style={{ animationDelay: "0.5s" }}
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse" />
-          <span className="text-teal-400 text-sm sm:text-base font-semibold font-cta">
-            Flip one switch &mdash; 100% autonomous. Your business runs itself.
-          </span>
-        </div>
-
-        {/* CTAs */}
-        <div
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6 animate-hero-slide-up"
-          style={{ animationDelay: "0.6s" }}
-        >
+        {/* CTAs — ink, masthead-style, no glow */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-10">
           <Link
             href="/crm-partnership-request-form"
-            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
+            className="inline-flex items-center justify-center font-cta"
+            style={{
+              fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+              fontSize: "13px",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              padding: "16px 28px",
+              background: C.ink,
+              color: C.cream,
+              borderRadius: "2px",
+              fontWeight: 500,
+            }}
           >
-            Check My Territory
+            Check My Territory →
           </Link>
           <a
             href="tel:+12122029220"
-            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg border border-white/30 hover:bg-white/10 transition-colors font-cta"
+            style={{
+              fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+              fontSize: "13px",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              padding: "15px 26px",
+              background: "transparent",
+              color: C.ink,
+              border: `1px solid ${C.ink}`,
+              borderRadius: "2px",
+              fontWeight: 500,
+            }}
+            className="inline-flex items-center justify-center font-cta"
           >
             Call (212) 202-9220
           </a>
+          <span
+            style={{
+              fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+              fontSize: "11px",
+              letterSpacing: "0.08em",
+              color: C.muted,
+            }}
+            className="ml-0 sm:ml-2"
+          >
+            One license per trade per city. Once claimed, off the board.
+          </span>
         </div>
 
-        {/* Footer note */}
-        <p
-          className="text-slate-400 text-sm mb-10 animate-hero-fade-in"
-          style={{ animationDelay: "0.7s" }}
-        >
-          Accepting one exclusive <Link href="/crm-partnership-request-form" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">partnership per trade per city</Link> across <Link href="/full-loop-crm-service-business-industries" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">50+ industries</Link>, every US city.
-        </p>
-
-        {/* Trust badges */}
-        <div
-          className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 animate-hero-slide-up"
-          style={{ animationDelay: "0.8s" }}
-        >
+        {/* Trust badges — hairline pills */}
+        <div className="flex flex-wrap items-center gap-2.5">
           {trustBadges.map((badge) => (
             <Link
               key={badge.label}
               href={badge.href}
-              className="px-4 py-2 text-xs sm:text-sm font-medium text-white/90 border border-white/20 rounded-full bg-white/10 backdrop-blur-sm font-cta hover:bg-white/20 transition-colors"
+              style={{
+                fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+                fontSize: "11px",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                padding: "8px 14px",
+                color: C.graphite,
+                border: `1px solid ${C.line}`,
+                borderRadius: "999px",
+                background: "transparent",
+              }}
+              className="inline-block transition-colors hover:bg-[rgba(0,0,0,0.04)]"
             >
               {badge.label}
             </Link>
