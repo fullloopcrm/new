@@ -189,7 +189,7 @@ export default function WhatIsDigitalMarketing() {
             <p className="mb-4">
               Other CRMs give you software and wish you luck. Full Loop CRM is a
               business partnership. Every partner gets an exclusive territory lock —
-              one partner per trade per metro area — so your leads are truly yours.
+              one partner per trade per city area — so your leads are truly yours.
               No shared leads. No bidding wars. No competition from within the
               platform.
             </p>

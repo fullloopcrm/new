@@ -106,12 +106,12 @@ const steps = [
   {
     step: "1",
     title: "Apply",
-    description: "Submit your partnership request with your trade and target metro.",
+    description: "Submit your partnership request with your trade and target city.",
   },
   {
     step: "2",
     title: "Territory Check",
-    description: "We verify your metro is available for your trade — one partner per territory.",
+    description: "We verify your city is available for your trade — one partner per territory.",
   },
   {
     step: "3",
@@ -157,7 +157,7 @@ export default function IndustriesPage() {
             <span className="text-teal-400">One CRM Platform.</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto">
-            One partner per trade per metro.{" "}
+            One partner per trade per city.{" "}
             <span className="text-yellow-300 font-cta">Exclusive territory.</span>{" "}
             No competing with another Full Loop partner in your market.
           </p>
@@ -172,7 +172,7 @@ export default function IndustriesPage() {
           </h2>
           <p className="text-slate-600 text-center mb-12 max-w-2xl mx-auto">
             From cleaning to construction, Full Loop CRM is built for every field service trade.
-            Each partner gets an exclusive metro territory for their industry.
+            Each partner gets an exclusive city territory for their industry.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -239,7 +239,7 @@ export default function IndustriesPage() {
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-white font-heading mb-4">
-            Ready to Own Your Metro?
+            Ready to Own Your City?
           </h2>
           <p className="text-slate-300 mb-8 text-lg">
             Lock in your exclusive territory before a competitor does. One partner per trade per city.

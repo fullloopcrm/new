@@ -161,7 +161,7 @@ export default function Process() {
                   </li>
                   <li className="flex gap-2">
                     <span className="text-teal-600 shrink-0">&#x2713;</span>
-                    <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Exclusive territory protection</Link> — one partner per trade per metro
+                    <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Exclusive territory protection</Link> — one partner per trade per city
                   </li>
                   <li className="flex gap-2">
                     <span className="text-teal-600 shrink-0">&#x2713;</span>

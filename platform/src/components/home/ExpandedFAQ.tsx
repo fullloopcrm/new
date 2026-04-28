@@ -11,7 +11,7 @@ const L = ({ href, children }: { href: string; children: ReactNode }) => (
 const faqs: { question: string; answer: ReactNode }[] = [
   {
     question: "What is Full Loop CRM and how is it different from other home service CRMs?",
-    answer: <span>Full Loop CRM is the first and only CRM that handles every stage of a home service business — from organic lead generation and AI-powered sales through scheduling, GPS-verified field operations, payment collection, automated review generation, referral tracking, and client retargeting. Unlike traditional CRMs that cover one or two stages, Full Loop CRM replaces 9+ separate tools with one unified platform. It is exclusively available to one service provider per trade per metro area. See <L href="/full-loop-crm-service-features">all features</L> or learn <L href="/why-you-should-choose-full-loop-crm-for-your-business">why Full Loop is different</L>.</span>,
+    answer: <span>Full Loop CRM is the first and only CRM that handles every stage of a home service business — from organic lead generation and AI-powered sales through scheduling, GPS-verified field operations, payment collection, automated review generation, referral tracking, and client retargeting. Unlike traditional CRMs that cover one or two stages, Full Loop CRM replaces 9+ separate tools with one unified platform. It is exclusively available to one service provider per trade per city. See <L href="/full-loop-crm-service-features">all features</L> or learn <L href="/why-you-should-choose-full-loop-crm-for-your-business">why Full Loop is different</L>.</span>,
   },
   {
     question: "How does the AI sales chatbot convert leads into booked appointments?",
@@ -55,7 +55,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "Is Full Loop CRM available in my city?",
-    answer: <span>Exclusive territory model — one provider per trade per metropolitan area. First-come-first-serve. Currently accepting <L href="/crm-partnership-request-form">partnership requests</L>.</span>,
+    answer: <span>Exclusive territory model — one provider per trade per city. First-come-first-serve. Currently accepting <L href="/crm-partnership-request-form">partnership requests</L>.</span>,
   },
   {
     question: "Why one business per trade per city?",
@@ -115,7 +115,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "Does it work for businesses in any US city?",
-    answer: <span>Yes. Designed for any mid-to-large US metropolitan area. Multi-domain SEO, AI sales, scheduling, GPS ops, and financial tools work identically regardless of geography. Check <L href="/crm-partnership-request-form">territory availability</L>.</span>,
+    answer: <span>Yes. Designed for any mid-to-large US city. Multi-domain SEO, AI sales, scheduling, GPS ops, and financial tools work identically regardless of geography. Check <L href="/crm-partnership-request-form">territory availability</L>.</span>,
   },
   {
     question: "How do I apply to become a partner?",

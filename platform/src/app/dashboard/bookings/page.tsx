@@ -1,1463 +1,527 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import Link from 'next/link'
-import dynamic from 'next/dynamic'
-import { downloadCSV } from '@/lib/csv'
-import { usePoll } from '@/lib/use-poll'
-import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
-import { useTenantSettings } from '@/lib/use-tenant-settings'
-import { BOOKING_STATUS_COLORS } from '@/lib/constants'
-import { formatTime } from '@/lib/format'
+import { useEffect, useMemo, useState } from 'react'
+import './schedule.css'
+import BookingsListTab from './bookings-list-tab'
 
-const CalendarView = dynamic(() => import('./calendar-view'), { ssr: false })
-
-type Booking = {
-  id: string
-  service_type: string | null
-  start_time: string
-  end_time: string | null
-  status: string
-  price: number | null
-  payment_status: string | null
-  notes: string | null
-  clients: { name: string; phone: string | null; address: string | null } | null
-  team_members: { name: string; phone: string | null } | null
-  service_types: { name: string } | null
-}
-
-type Schedule = {
-  id: string
-  recurring_type: string
-  day_of_week: number | null
-  preferred_time: string | null
-  duration_hours: number | null
-  status: string
-  paused_until: string | null
-  notes: string | null
-  clients: { name: string } | null
-  team_members: { name: string } | null
-  service_types: { name: string } | null
-  created_at: string
-}
-
-type Client = { id: string; name: string }
-type TeamMember = { id: string; name: string }
-type ServiceType = { id: string; name: string; default_duration_hours: number; default_hourly_rate: number }
-
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-const frequencyLabels: Record<string, string> = {
-  weekly: 'Weekly',
-  biweekly: 'Every 2 Weeks',
-  triweekly: 'Every 3 Weeks',
-  monthly_date: 'Monthly (date)',
-  monthly_weekday: 'Monthly (weekday)',
-}
-
-const statusColors = BOOKING_STATUS_COLORS
-
-const statusTabs = [
-  { value: '', label: 'All' },
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'cancelled', label: 'Cancelled' },
+const TEAM_COLORS = [
+  'var(--sched-team-1)', 'var(--sched-team-2)', 'var(--sched-team-3)',
+  'var(--sched-team-4)', 'var(--sched-team-5)', 'var(--sched-team-6)',
+  'var(--sched-team-7)', 'var(--sched-team-8)', 'var(--sched-team-9)',
 ]
 
-const scheduleStatusTabs = [
-  { value: '', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'paused', label: 'Paused' },
-  { value: 'inactive', label: 'Inactive' },
+type Tab = 'calendar' | 'bookings' | 'map' | 'cleaner' | 'capacity'
+const TABS: Array<{ key: Tab; letter: string; label: string }> = [
+  { key: 'calendar', letter: 'A', label: 'Calendar' },
+  { key: 'bookings', letter: 'B', label: 'Bookings' },
+  { key: 'map', letter: 'C', label: 'Map' },
+  { key: 'cleaner', letter: 'D', label: 'By Cleaner' },
+  { key: 'capacity', letter: 'E', label: 'Capacity' },
 ]
 
-type CloseoutBooking = {
+type CalendarEvent = {
   id: string
-  service_type: string | null
-  start_time: string
-  end_time: string | null
+  start: string
+  end: string | null
+  client: string
+  team_member_id: string | null
+  team_member_name: string | null
   status: string
-  price: number | null
-  hourly_rate: number | null
-  pay_rate: number | null
-  actual_hours: number | null
-  team_pay: number | null
   payment_status: string | null
-  payment_method: string | null
-  team_paid: boolean | null
-  discount_enabled: boolean | null
-  check_in_time: string | null
-  check_out_time: string | null
-  clients: { name: string; phone: string | null; address: string | null } | null
-  team_members: { name: string } | null
-}
-
-type RecentClosed = {
-  id: string
   service_type: string | null
-  start_time: string
-  price: number | null
-  payment_method: string | null
-  team_pay: number | null
-  clients: { name: string } | null
-  team_members: { name: string } | null
+  price_cents: number
+  conflict: boolean
+  tight: boolean
+}
+type CalendarDay = {
+  date: string
+  events: CalendarEvent[]
+  jobs_count: number
+  has_conflict: boolean
+  is_idle: boolean
+  heat: 'none' | 'low' | 'mid' | 'high' | 'max'
+}
+type ApiTeam = { id: string; name: string; status: string | null }
+type CalendarData = {
+  month: string
+  grid: { start: string; end: string; days: CalendarDay[] }
+  team: ApiTeam[]
+  load: Array<{ id: string; name: string; jobs: number; over: boolean }>
+  utilization: Array<{ id: string; name: string; pct: number }>
+  live_ops: Array<{
+    team_member_id: string
+    team_member_name: string
+    client: string
+    status: 'in-progress' | 'upcoming' | 'done' | 'late'
+    start: string
+    detail: string
+    duration_label: string
+  }>
+  stats: {
+    today_active: number
+    today_total: number
+    week_jobs: number
+    week_revenue_cents: number
+    utilization_pct: number
+    unassigned: number
+    conflicts: number
+    idle_hours: number
+    idle_revenue_cents: number
+    first_upcoming: { client: string; start: string; team_member: string | null } | null
+  }
 }
 
-export default function BookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [total, setTotal] = useState(0)
-  const [view, setView] = useState<'list' | 'calendar' | 'schedules' | 'closeout'>('calendar')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [showCreate, setShowCreate] = useState(false)
-  const [clients, setClients] = useState<Client[]>([])
-  const [team, setTeam] = useState<TeamMember[]>([])
-  const [services, setServices] = useState<ServiceType[]>([])
-  const [form, setForm] = useState({
-    client_id: '', team_member_id: '', service_type_id: '',
-    date: '', time: '09:00', notes: '', price: '',
-    hours: '', rate: '', status: 'scheduled',
-    repeat: false, repeat_frequency: 'weekly',
-    discount: false,
+function fmtTime(iso: string): string {
+  const d = new Date(iso)
+  const h = d.getHours()
+  const m = d.getMinutes()
+  const period = h >= 12 ? 'p' : 'a'
+  const h12 = h % 12 || 12
+  if (m === 0) return `${h12}${period}`
+  return `${h12}:${String(m).padStart(2, '0')}${period}`
+}
+function fmtMoney(cents: number): string {
+  return '$' + Math.round(cents / 100).toLocaleString('en-US')
+}
+function ymdToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map((x) => parseInt(x, 10))
+  const d = new Date(y, m - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+function monthLabel(month: string): { name: string; year: string } {
+  const [y, m] = month.split('-').map((x) => parseInt(x, 10))
+  const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  return { name: names[m - 1], year: String(y) }
+}
+
+export default function SchedulePage() {
+  const [data, setData] = useState<CalendarData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<Tab>('calendar')
+  const [month, setMonth] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
-  const [clientSearch, setClientSearch] = useState('')
-  const [showClientDropdown, setShowClientDropdown] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [bookingCreated, setBookingCreated] = useState(false)
-  const [teamAvailability, setTeamAvailability] = useState<{ id: string; name: string; available: boolean; conflict?: string; tags?: string[]; preferred?: boolean }[]>([])
-  const [loadingAvailability, setLoadingAvailability] = useState(false)
+  const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(
+    new Set(['pending', 'scheduled', 'in_progress', 'completed']),
+  )
+  const [overlays, setOverlays] = useState({ conflicts: true, travel: true, recurring: false, idle: true })
 
-  // Fetch team availability when date/time/hours change
   useEffect(() => {
-    if (!form.date || !form.time) { setTeamAvailability([]); return }
-    const fetchAvailability = async () => {
-      setLoadingAvailability(true)
-      try {
-        const params = new URLSearchParams({ date: form.date, start_time: form.time, duration: form.hours || '2' })
-        if (form.client_id) params.set('client_id', form.client_id)
-        const res = await fetch(`/api/team-availability?${params}`)
-        if (res.ok) {
-          const data = await res.json()
-          setTeamAvailability(data.members || [])
-        }
-      } catch { /* ignore */ }
-      setLoadingAvailability(false)
-    }
-    fetchAvailability()
-  }, [form.date, form.time, form.hours, form.client_id])
-  const [stats, setStats] = useState({ upcoming: 0, thisWeek: 0, completed: 0, revenue: 0 })
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [bulkAction, setBulkAction] = useState('')
-
-  // Schedule state
-  const [schedules, setSchedules] = useState<Schedule[]>([])
-  const [showScheduleCreate, setShowScheduleCreate] = useState(false)
-  const [scheduleStatusFilter, setScheduleStatusFilter] = useState('')
-  const [scheduleSearch, setScheduleSearch] = useState('')
-  const [scheduleClients, setScheduleClients] = useState<{ id: string; name: string }[]>([])
-  const [scheduleTeam, setScheduleTeam] = useState<{ id: string; name: string }[]>([])
-  const [scheduleServices, setScheduleServices] = useState<{ id: string; name: string }[]>([])
-  const [scheduleForm, setScheduleForm] = useState({
-    client_id: '', team_member_id: '', service_type_id: '',
-    recurring_type: 'weekly', day_of_week: '1', preferred_time: '09:00', duration_hours: '3',
-    hourly_rate: '', pay_rate: '', notes: '',
-  })
-  const [scheduleSaving, setScheduleSaving] = useState(false)
-
-  // Close-out state
-  const [closeoutJobs, setCloseoutJobs] = useState<CloseoutBooking[]>([])
-  const [recentlyClosed, setRecentlyClosed] = useState<RecentClosed[]>([])
-  const [closeoutUpdating, setCloseoutUpdating] = useState<string | null>(null)
-
-  const tenantSettings = useTenantSettings()
-  const [bookingsPanelOpen, setBookingsPanelOpen] = useState(false)
-  const bookingsTenant = tenantSettings.tenant
-  const bookingsSelena = (bookingsTenant?.selena_config as Record<string, unknown> | null) || {}
-  const bookingsConfig: Record<string, unknown> = {
-    default_status: (bookingsSelena.default_booking_status as string) || 'scheduled',
-    default_duration: String(bookingsTenant?.default_duration_hours ?? 3),
-    require_team_member: Boolean(bookingsSelena.require_team_member),
-    auto_confirm: Boolean(bookingsSelena.auto_confirm_bookings),
-    booking_buffer: Number(bookingsTenant?.booking_buffer_minutes ?? 30),
-    allow_same_day: Boolean(bookingsTenant?.allow_same_day),
-    min_days_ahead: Number(bookingsTenant?.min_days_ahead ?? 1),
-    payment_methods: (bookingsTenant?.payment_methods as string[]) || ['cash', 'credit_card'],
-  }
-  function updateBookingsConfig(key: string, value: unknown) {
-    if (key === 'default_status') {
-      tenantSettings.updateSelenaConfig({ default_booking_status: value })
-    } else if (key === 'require_team_member') {
-      tenantSettings.updateSelenaConfig({ require_team_member: value })
-    } else if (key === 'auto_confirm') {
-      tenantSettings.updateSelenaConfig({ auto_confirm_bookings: value })
-    } else if (key === 'default_duration') {
-      tenantSettings.updateField('default_duration_hours', Number(value))
-    } else if (key === 'booking_buffer') {
-      tenantSettings.updateField('booking_buffer_minutes', Number(value))
-    } else if (key === 'allow_same_day') {
-      tenantSettings.updateField('allow_same_day', Boolean(value))
-    } else if (key === 'min_days_ahead') {
-      tenantSettings.updateField('min_days_ahead', Number(value))
-    } else if (key === 'payment_methods') {
-      tenantSettings.updateField('payment_methods', value)
-    }
-  }
-
-  const loadBookings = useCallback(() => {
-    const params = new URLSearchParams()
-    if (statusFilter) params.set('status', statusFilter)
-    if (search) params.set('search', search)
-    params.set('page', String(page))
-    params.set('limit', '50')
-    fetch(`/api/bookings?${params}`)
+    setLoading(true)
+    fetch(`/api/schedule/calendar?month=${month}`)
       .then((r) => r.json())
-      .then((data) => { setBookings(data.bookings || []); setTotal(data.total || 0) })
-  }, [statusFilter, search, page])
+      .then((d) => setData(d && !d.error ? d : null))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false))
+  }, [month])
 
-  useEffect(() => { loadBookings() }, [loadBookings])
-  usePoll(loadBookings, 30000)
+  const teamColorById = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!data) return map
+    data.team.forEach((t, i) => map.set(t.id, TEAM_COLORS[i % TEAM_COLORS.length]))
+    return map
+  }, [data])
 
-  // Load stats
-  useEffect(() => {
-    fetch('/api/bookings/stats')
-      .then((r) => r.json())
-      .then((data) => setStats(data))
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (showCreate) {
-      Promise.all([
-        fetch('/api/clients').then((r) => r.json()),
-        fetch('/api/team').then((r) => r.json()),
-        fetch('/api/settings/services').then((r) => r.json()),
-      ]).then(([c, t, s]) => {
-        setClients(c.clients || [])
-        setTeam(t.team || [])
-        setServices(s.services || [])
-      })
-    }
-  }, [showCreate])
-
-  // Load schedules when schedules view is active
-  useEffect(() => {
-    if (view === 'schedules') {
-      fetch('/api/schedules')
-        .then((r) => r.json())
-        .then((data) => setSchedules(data.schedules || []))
-    }
-  }, [view])
-
-  // Load close-out data when closeout view is active
-  const loadCloseout = useCallback(() => {
-    if (view !== 'closeout') return
-    fetch('/api/bookings/closeout')
-      .then((r) => r.json())
-      .then((data) => {
-        setCloseoutJobs(data.needsCloseout || [])
-        setRecentlyClosed(data.recentlyClosed || [])
-      })
-  }, [view])
-
-  useEffect(() => { loadCloseout() }, [loadCloseout])
-
-  // Load schedule form dropdowns when schedule create form opens
-  useEffect(() => {
-    if (showScheduleCreate) {
-      Promise.all([
-        fetch('/api/clients').then((r) => r.json()),
-        fetch('/api/team').then((r) => r.json()),
-        fetch('/api/settings/services').then((r) => r.json()),
-      ]).then(([c, t, s]) => {
-        setScheduleClients(c.clients || [])
-        setScheduleTeam(t.team || [])
-        setScheduleServices(s.services || [])
-      })
-    }
-  }, [showScheduleCreate])
-
-  async function createBooking(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    const hours = parseFloat(form.hours) || 0
-    const rate = parseFloat(form.rate) || 0
-    const startTime = form.date && form.time ? `${form.date}T${form.time}` : ''
-    const endTime = startTime && hours
-      ? new Date(new Date(startTime).getTime() + hours * 3600000).toISOString()
-      : null
-    let priceInCents = Math.round(hours * rate * 100)
-    if (form.discount) priceInCents = Math.round(priceInCents * 0.9)
-
-    const res = await fetch('/api/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: form.client_id || null,
-        team_member_id: form.team_member_id || null,
-        service_type_id: form.service_type_id || null,
-        start_time: startTime,
-        end_time: endTime,
-        status: form.status,
-        notes: form.notes,
-        price: priceInCents || null,
-        hourly_rate: rate || null,
+  const filteredDays = useMemo(() => {
+    if (!data) return []
+    return data.grid.days.map((d) => ({
+      ...d,
+      events: d.events.filter((e) => {
+        if (teamFilter !== 'all' && e.team_member_id !== teamFilter) return false
+        const status = (e.status || 'scheduled').toLowerCase()
+        if (!statusFilter.has(status)) return false
+        return true
       }),
-    })
-    if (res.ok) {
-      // If repeat is enabled, also create a recurring schedule
-      if (form.repeat && form.client_id) {
-        const startDate = new Date(startTime)
-        await fetch('/api/schedules', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            client_id: form.client_id,
-            team_member_id: form.team_member_id || null,
-            service_type_id: form.service_type_id || null,
-            recurring_type: form.repeat_frequency,
-            day_of_week: startDate.getDay(),
-            preferred_time: form.time,
-            duration_hours: hours || null,
-            hourly_rate: rate || null,
-            notes: form.notes || null,
-          }),
-        })
-      }
+    }))
+  }, [data, teamFilter, statusFilter])
 
-      setShowCreate(false)
-      setForm({
-        client_id: '', team_member_id: '', service_type_id: '',
-        date: '', time: '09:00', notes: '', price: '',
-        hours: '', rate: '', status: 'scheduled',
-        repeat: false, repeat_frequency: 'weekly',
-        discount: false,
-      })
-      setClientSearch('')
-      setShowClientDropdown(false)
-      loadBookings()
-      setView('calendar')
-      setBookingCreated(true)
-      setTimeout(() => setBookingCreated(false), 4000)
-    }
-    setSaving(false)
+  function toggleStatus(s: string) {
+    const next = new Set(statusFilter)
+    if (next.has(s)) next.delete(s)
+    else next.add(s)
+    setStatusFilter(next)
+  }
+  function toggleOverlay(k: keyof typeof overlays) {
+    setOverlays({ ...overlays, [k]: !overlays[k] })
   }
 
-  async function createSchedule(e: React.FormEvent) {
-    e.preventDefault()
-    setScheduleSaving(true)
-    const res = await fetch('/api/schedules', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: scheduleForm.client_id,
-        team_member_id: scheduleForm.team_member_id || null,
-        service_type_id: scheduleForm.service_type_id || null,
-        recurring_type: scheduleForm.recurring_type,
-        day_of_week: parseInt(scheduleForm.day_of_week),
-        preferred_time: scheduleForm.preferred_time,
-        duration_hours: parseFloat(scheduleForm.duration_hours),
-        hourly_rate: scheduleForm.hourly_rate ? Number(scheduleForm.hourly_rate) : null,
-        pay_rate: scheduleForm.pay_rate ? Number(scheduleForm.pay_rate) : null,
-        notes: scheduleForm.notes || null,
-      }),
-    })
-    if (res.ok) {
-      const { schedule } = await res.json()
-      setSchedules((prev) => [schedule, ...prev])
-      setShowScheduleCreate(false)
-    }
-    setScheduleSaving(false)
-  }
-
-  async function updateCloseout(id: string, updates: Record<string, unknown>) {
-    setCloseoutUpdating(id)
-    try {
-      await fetch(`/api/bookings/${id}/payment`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      })
-      loadCloseout()
-    } finally {
-      setCloseoutUpdating(null)
-    }
-  }
-
-  const fmt = (cents: number) => '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })
-
-  // Schedule computed values
-  const activeCount = schedules.filter(s => s.status === 'active').length
-  const pausedCount = schedules.filter(s => s.status === 'paused').length
-
-  const filteredSchedules = schedules.filter(s => {
-    if (scheduleStatusFilter && s.status !== scheduleStatusFilter) return false
-    if (scheduleSearch) {
-      const q = scheduleSearch.toLowerCase()
-      const clientMatch = s.clients?.name?.toLowerCase().includes(q)
-      const serviceMatch = s.service_types?.name?.toLowerCase().includes(q)
-      if (!clientMatch && !serviceMatch) return false
-    }
-    return true
-  })
+  const ml = monthLabel(month)
+  const todayStr = ymdToday()
+  const stats = data?.stats
+  const firstUp = stats?.first_upcoming
+  const firstUpLabel = firstUp
+    ? new Date(firstUp.start).toLocaleString('en-US', { weekday: 'short', hour: 'numeric' })
+    : null
 
   return (
-    <div>
-      {/* PORTAL LINK */}
-      <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-400">Client Booking Portal:</span>
-          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal/book` : '/portal/book'}</code>
-        </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal/book`)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Copy Link</button>
+    <div className="sched-scope">
+      {/* TABS */}
+      <div className="sched-tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            className={`sched-tab ${tab === t.key ? 'active' : ''}`}
+            onClick={() => setTab(t.key)}
+            type="button"
+          >
+            <span className="sched-tab-letter">{t.letter}</span>
+            {t.label}
+            {t.key === 'bookings' && stats?.week_jobs ? <span className="sched-tab-count">{stats.week_jobs}</span> : null}
+          </button>
+        ))}
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Bookings</h2>
-            <p className="text-sm text-slate-400">{view === 'schedules' ? `${schedules.length} total schedules` : `${total} total bookings`}</p>
+      {/* OUTLOOK */}
+      <div className="sched-bar-label">This Period</div>
+      <div className="sched-outlook">
+        <div className="sched-stat">
+          <div className="sched-stat-label">
+            Today
+            {(stats?.today_active ?? 0) > 0 && <span className="sched-stat-tag live">{stats?.today_active} active</span>}
           </div>
-          <PageSettingsGear open={bookingsPanelOpen} setOpen={setBookingsPanelOpen} title="Bookings" />
+          <div className="sched-stat-value">
+            {stats?.today_active ?? 0}
+            <span className="small"> / {stats?.today_total ?? 0}</span>
+          </div>
+          <div className="sched-stat-sub">{stats?.today_total ? 'Active vs total' : '—'}</div>
         </div>
-        <div className="flex gap-2">
-          {view !== 'schedules' && view !== 'closeout' && (
-            <button
-              onClick={() => downloadCSV(
-                bookings.map(b => ({
-                  date: new Date(b.start_time).toLocaleDateString(),
-                  time: new Date(b.start_time).toLocaleTimeString(),
-                  client: b.clients?.name || '',
-                  service: b.service_types?.name || b.service_type || '',
-                  team_member: b.team_members?.name || '',
-                  status: b.status,
-                  price: b.price != null ? (b.price / 100).toFixed(2) : '',
-                  payment_status: b.payment_status || '',
-                  notes: b.notes || '',
-                })),
-                'bookings',
-                ['date', 'time', 'client', 'service', 'team_member', 'status', 'price', 'payment_status', 'notes']
-              )}
-              className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg"
-            >
-              Export CSV
-            </button>
-          )}
-          <div className="flex bg-slate-50 rounded-lg p-0.5">
-            <button onClick={() => setView('list')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'list' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>List</button>
-            <button onClick={() => setView('calendar')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'calendar' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>Calendar</button>
-            <button onClick={() => setView('schedules')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'schedules' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>Schedules</button>
-            <button onClick={() => setView('closeout')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'closeout' ? 'bg-teal-600 text-white' : 'text-slate-400'}`}>
-              Close Out{closeoutJobs.length > 0 ? ` (${closeoutJobs.length})` : ''}
-            </button>
+        <div className="sched-stat">
+          <div className="sched-stat-label">
+            This Week
+            <span className="sched-stat-tag">{stats?.week_jobs ?? 0} jobs</span>
           </div>
-          {view === 'schedules' ? (
-            <button onClick={() => setShowScheduleCreate(!showScheduleCreate)}
-              className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
-              {showScheduleCreate ? 'Cancel' : '+ New Schedule'}
-            </button>
-          ) : view === 'closeout' ? (
-            <button onClick={loadCloseout}
-              className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg">
-              Refresh
-            </button>
-          ) : (
-            <button onClick={() => setShowCreate(!showCreate)}
-              className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
-              {showCreate ? 'Cancel' : '+ New Booking'}
-            </button>
-          )}
+          <div className="sched-stat-value"><span className="unit">$</span>{Math.round((stats?.week_revenue_cents ?? 0) / 100).toLocaleString('en-US')}</div>
+          <div className="sched-stat-sub">{firstUpLabel ? <>Next: <strong>{firstUpLabel}</strong> · {firstUp?.client}</> : 'Nothing upcoming'}</div>
+        </div>
+        <div className="sched-stat">
+          <div className="sched-stat-label">Utilization <span className="sched-stat-tag up">{stats?.utilization_pct ?? 0}%</span></div>
+          <div className="sched-stat-value">{stats?.utilization_pct ?? 0}<span className="pct">%</span></div>
+          <div className="sched-stat-sub">Hrs sold vs capacity</div>
+        </div>
+        <div className="sched-stat">
+          <div className="sched-stat-label">
+            Unassigned
+            {(stats?.unassigned ?? 0) > 0 && <span className="sched-stat-tag warn">{stats?.unassigned}</span>}
+          </div>
+          <div className="sched-stat-value">{stats?.unassigned ?? 0}</div>
+          <div className={`sched-stat-sub ${(stats?.unassigned ?? 0) > 0 ? 'warn' : ''}`}>
+            {(stats?.unassigned ?? 0) > 0 ? 'Needs assignment' : 'All assigned'}
+          </div>
+        </div>
+        <div className="sched-stat">
+          <div className="sched-stat-label">
+            Conflicts
+            {(stats?.conflicts ?? 0) > 0 && <span className="sched-stat-tag warn">action</span>}
+          </div>
+          <div className="sched-stat-value">{stats?.conflicts ?? 0}</div>
+          <div className={`sched-stat-sub ${(stats?.conflicts ?? 0) > 0 ? 'warn' : ''}`}>
+            {(stats?.conflicts ?? 0) > 0 ? 'Overlapping bookings' : 'Clean'}
+          </div>
+        </div>
+        <div className="sched-stat">
+          <div className="sched-stat-label">Idle Hours</div>
+          <div className="sched-stat-value">{stats?.idle_hours ?? 0}<span className="small">h</span></div>
+          <div className="sched-stat-sub">Sellable · ~{fmtMoney(stats?.idle_revenue_cents ?? 0)}</div>
         </div>
       </div>
 
-      <PageSettingsPanel
-        open={bookingsPanelOpen}
-        setOpen={setBookingsPanelOpen}
-        loaded={tenantSettings.loaded}
-        saving={tenantSettings.saving}
-        saveMsg={tenantSettings.saveMsg}
-        config={bookingsConfig}
-        updateConfig={updateBookingsConfig}
-        title="Bookings"
-        tips={[
-          'Use the calendar view to visualize your week',
-          'Enable repeat when creating bookings to auto-generate recurring schedules',
-          'Bulk select bookings to confirm or cancel multiple at once',
-          'Share the Client Booking Portal link so clients can self-book',
-        ]}
-      >
-        {({ config, updateConfig }) => (
-          <div className="space-y-5">
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Booking Status</label>
-              <select
-                value={(config.default_status as string) || 'scheduled'}
-                onChange={(e) => updateConfig('default_status', e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
-              >
-                <option value="scheduled">Scheduled</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Booking Duration</label>
-              <select
-                value={(config.default_duration as string) || '3'}
-                onChange={(e) => updateConfig('default_duration', e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
-              >
-                <option value="1">1 hour</option>
-                <option value="1.5">1.5 hours</option>
-                <option value="2">2 hours</option>
-                <option value="2.5">2.5 hours</option>
-                <option value="3">3 hours</option>
-                <option value="4">4 hours</option>
-                <option value="5">5 hours</option>
-                <option value="6">6 hours</option>
-                <option value="8">8 hours</option>
-              </select>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-700">Require team member assignment</label>
-              <button
-                onClick={() => updateConfig('require_team_member', !config.require_team_member)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_team_member ? 'bg-teal-600' : 'bg-slate-600'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.require_team_member ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-700">Auto-confirm bookings</label>
-              <button
-                onClick={() => updateConfig('auto_confirm', !config.auto_confirm)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.auto_confirm ? 'bg-teal-600' : 'bg-slate-600'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.auto_confirm ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div>
-              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Booking Buffer (minutes between jobs)</label>
-              <input
-                type="number"
-                min="0"
-                step="15"
-                value={(config.booking_buffer as number) ?? 30}
-                onChange={(e) => updateConfig('booking_buffer', parseInt(e.target.value) || 0)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
-              />
-            </div>
-            <div className="border-t border-slate-200" />
-            <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-700">Allow same-day booking</label>
-              <button
-                onClick={() => updateConfig('allow_same_day', !config.allow_same_day)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.allow_same_day ? 'bg-teal-600' : 'bg-slate-600'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.allow_same_day ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div>
-              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Minimum Days Ahead</label>
-              <input
-                type="number"
-                min="0"
-                value={(config.min_days_ahead as number) ?? 1}
-                onChange={(e) => updateConfig('min_days_ahead', parseInt(e.target.value) || 0)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
-              />
-            </div>
-            <div className="border-t border-slate-200" />
-            <div>
-              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Accepted Payment Methods</label>
-              <p className="text-xs text-slate-500 mb-3">Saved here is shared with the global settings page and the client portal.</p>
-              <div className="grid grid-cols-2 gap-2 max-w-xs">
-                {[
-                  { value: 'zelle', label: 'Zelle' },
-                  { value: 'apple_pay', label: 'Apple Pay' },
-                  { value: 'venmo', label: 'Venmo' },
-                  { value: 'cash', label: 'Cash' },
-                  { value: 'check', label: 'Check' },
-                  { value: 'credit_card', label: 'Credit Card' },
-                ].map((method) => {
-                  const methods = (config.payment_methods as string[]) || ['cash', 'credit_card']
-                  const checked = methods.includes(method.value)
-                  return (
-                    <label key={method.value} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          const updated = checked ? methods.filter((m: string) => m !== method.value) : [...methods, method.value]
-                          updateConfig('payment_methods', updated)
-                        }}
-                        className="w-3.5 h-3.5 accent-teal-600"
-                      />
-                      <span className="text-sm text-slate-300">{method.label}</span>
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </PageSettingsPanel>
+      {/* SELENA QUERY */}
+      <div className="sched-selena-query">
+        <span className="sched-selena-query-icon">Selena · Schedule</span>
+        <input className="sched-selena-query-input" placeholder="find me a 3hr deep clean slot in UWS this week with Jeff…" />
+        <span className="sched-selena-suggest-pill">Reassign overloaded</span>
+        <span className="sched-selena-suggest-pill">Fill idle days</span>
+        <span className="sched-selena-suggest-pill">Optimize routes</span>
+      </div>
 
-      {bookingCreated && (
-        <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-green-400 text-lg">&#10003;</span>
-            <span className="text-sm text-green-400 font-medium">Booking created successfully!</span>
-            {view !== 'calendar' && (
-              <button onClick={() => setView('calendar')} className="text-sm text-blue-400 hover:text-blue-300 ml-2 underline">
-                View on Calendar
-              </button>
-            )}
-          </div>
-          <button onClick={() => setBookingCreated(false)} className="text-slate-400 hover:text-slate-900">&times;</button>
+      {/* CONFLICT BANNER */}
+      {(stats?.conflicts ?? 0) > 0 && (
+        <div className="sched-conflict-banner">
+          <span className="sched-conflict-icon">!</span>
+          <span className="sched-conflict-text">
+            <strong>
+              {stats?.conflicts} {stats?.conflicts === 1 ? 'conflict' : 'conflicts'} need attention.
+            </strong>{' '}
+            Overlapping bookings on the same team member. Reassign or split.
+          </span>
+          <button className="sched-conflict-fix" type="button">Resolve</button>
         </div>
       )}
 
-      {view === 'closeout' ? (
-        <>
-          {/* CLOSE-OUT: NEEDS ATTENTION */}
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Needs Close-Out ({closeoutJobs.length})</h3>
-            {closeoutJobs.length === 0 ? (
-              <div className="border border-slate-200 rounded-lg p-8 text-center text-slate-400">
-                All caught up! No jobs need close-out.
+      {/* LOAD BAR */}
+      {data && data.load.length > 0 && (
+        <div className="sched-load-bar">
+          <span className="sched-load-label">Team Load · This Week</span>
+          <div className="sched-load-strip">
+            {data.load.map((l) => {
+              const idle = l.jobs <= 2
+              const color = idle ? undefined : teamColorById.get(l.id) || 'var(--sched-team-1)'
+              return (
+                <div
+                  key={l.id}
+                  className={`sched-load-cell ${idle ? 'idle' : ''} ${l.over ? 'over' : ''}`}
+                  style={idle ? undefined : { background: color }}
+                  title={`${l.name} · ${l.jobs} jobs${l.over ? ' · OVER' : idle ? ' · idle' : ''}`}
+                >
+                  <span className="sched-load-name">{l.name.split(' ')[0]}</span>
+                  <span className="sched-load-num">{l.jobs}</span>
+                </div>
+              )
+            })}
+          </div>
+          <div>
+            <div className="sched-load-summary">
+              {data.load.reduce((s, l) => s + l.jobs, 0)}
+              <span style={{ fontFamily: 'var(--sched-mono)', fontSize: 13, color: 'var(--sched-muted)', fontWeight: 400 }}>
+                {' / '}{data.load.length}
+              </span>
+            </div>
+            <div className="sched-load-summary-label">Jobs / Cleaners</div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'bookings' && <BookingsListTab />}
+
+      {tab !== 'calendar' && tab !== 'bookings' && (
+        <div className="sched-coming-soon">
+          <div className="sched-coming-soon-title">Coming soon.</div>
+          <div>This view ({TABS.find((t) => t.key === tab)?.label}) will land next pass.</div>
+        </div>
+      )}
+
+      {tab === 'calendar' && (
+        <div className="sched-grid">
+          <div>
+            {/* CALENDAR TOOLBAR */}
+            <div className="sched-cal-toolbar">
+              <div className="sched-cal-nav">
+                <button className="sched-cal-nav-btn" type="button" onClick={() => setMonth(shiftMonth(month, -1))}>‹</button>
+                <button
+                  className="sched-cal-nav-btn today"
+                  type="button"
+                  onClick={() => {
+                    const d = new Date()
+                    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+                  }}
+                >
+                  Today
+                </button>
+                <button className="sched-cal-nav-btn" type="button" onClick={() => setMonth(shiftMonth(month, 1))}>›</button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {closeoutJobs.map((job) => {
-                  const isUpdating = closeoutUpdating === job.id
-                  const isPaid = job.payment_status === 'paid'
-                  const isTeamPaid = job.team_paid === true
-                  const price = job.price != null ? job.price / 100 : null
-                  const teamPay = job.team_pay != null ? job.team_pay / 100 : null
-                  const checkedIn = !!job.check_in_time
-                  const checkedOut = !!job.check_out_time
-                  const isCompleted = job.status === 'completed' || job.status === 'paid'
+              <div className="sched-cal-month">
+                {ml.name} <em>{ml.year}</em>
+              </div>
+              <div className="sched-view-toggle">
+                <button className="sched-view-btn active" type="button">Month</button>
+                <button className="sched-view-btn" type="button" disabled>Week</button>
+                <button className="sched-view-btn" type="button" disabled>Day</button>
+                <button className="sched-view-btn" type="button" disabled>Cleaner</button>
+                <button className="sched-view-btn" type="button" disabled>Zone</button>
+              </div>
+            </div>
 
+            {/* OVERLAYS */}
+            <div className="sched-overlay-row">
+              <span className="sched-overlay-label">Overlays</span>
+              {(['conflicts', 'travel', 'recurring', 'idle'] as const).map((k) => (
+                <span
+                  key={k}
+                  className={`sched-overlay-toggle ${overlays[k] ? 'on' : ''}`}
+                  onClick={() => toggleOverlay(k)}
+                >
+                  <span className="sched-ov-check" />
+                  {k === 'conflicts' && 'Conflicts'}
+                  {k === 'travel' && 'Travel time'}
+                  {k === 'recurring' && 'Recurring forecast'}
+                  {k === 'idle' && 'Idle gaps'}
+                </span>
+              ))}
+            </div>
+
+            {/* FILTERS */}
+            <div className="sched-filters">
+              <span className="sched-filter-group-label">Team</span>
+              <select
+                className="sched-select"
+                value={teamFilter}
+                onChange={(e) => setTeamFilter(e.target.value)}
+              >
+                <option value="all">All Team Members</option>
+                {data?.team.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <span className="sched-filters-divider" />
+              <span className="sched-filter-group-label">Status</span>
+              {(['pending', 'scheduled', 'in_progress', 'completed', 'cancelled'] as const).map((s) => {
+                const slug = s === 'in_progress' ? 'in-progress' : s
+                const label = s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)
+                return (
+                  <span
+                    key={s}
+                    className={`sched-status-chip ${slug} ${statusFilter.has(s) ? 'active' : ''}`}
+                    onClick={() => toggleStatus(s)}
+                  >
+                    <span className="sched-status-chip-dot" />
+                    {label}
+                  </span>
+                )
+              })}
+              <span className="sched-filters-divider" />
+              <span className="sched-team-legend">
+                {data?.team.slice(0, 9).map((t) => (
+                  <span key={t.id} className="sched-team-pill">
+                    <span className="sched-team-dot" style={{ background: teamColorById.get(t.id) }} />
+                    {t.name.split(' ')[0]}
+                  </span>
+                ))}
+              </span>
+            </div>
+
+            {/* CALENDAR */}
+            <div className="sched-calendar">
+              <div className="sched-cal-head">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+                  <div key={d} className="sched-cal-head-cell">{d}</div>
+                ))}
+              </div>
+              <div className="sched-cal-grid">
+                {loading && <div className="sched-empty" style={{ gridColumn: '1 / -1' }}>Loading…</div>}
+                {!loading && filteredDays.map((day) => {
+                  const dt = new Date(day.date + 'T12:00:00')
+                  const inMonth = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` === month
+                  const isToday = day.date === todayStr
+                  const dayClasses = [
+                    'sched-cal-day',
+                    !inMonth ? 'muted' : '',
+                    isToday ? 'today' : '',
+                    day.heat === 'low' ? 'heat-low' : '',
+                    day.heat === 'mid' ? 'heat-mid' : '',
+                    day.heat === 'high' ? 'heat-high' : '',
+                    day.heat === 'max' ? 'heat-max' : '',
+                  ].filter(Boolean).join(' ')
+                  const visible = day.events.slice(0, 3)
+                  const more = day.events.length - visible.length
+                  const showIdleBanner = overlays.idle && inMonth && day.is_idle && !isToday
                   return (
-                    <div key={job.id} className="border border-slate-200 rounded-lg p-4">
-                      {/* Top row: job info */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <Link href={`/dashboard/bookings/${job.id}`} className="font-medium text-slate-900 hover:text-teal-600">
-                            {job.clients?.name || 'Unknown Client'}
-                          </Link>
-                          <p className="text-xs text-slate-400">
-                            {new Date(job.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            {' \u00b7 '}
-                            {formatTime(job.start_time)}
-                            {job.end_time && ` \u2013 ${formatTime(job.end_time)}`}
-                            {job.team_members?.name && ` \u00b7 ${job.team_members.name}`}
-                          </p>
-                          {job.clients?.address && (
-                            <p className="text-xs text-slate-400 mt-0.5">{job.clients.address}</p>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          {price != null && (
-                            <p className="text-lg font-bold text-slate-900">${price.toFixed(0)}</p>
-                          )}
-                          {teamPay != null && (
-                            <p className="text-xs text-slate-400">Team: ${teamPay.toFixed(0)}</p>
-                          )}
+                    <div key={day.date} className={dayClasses}>
+                      <div className="sched-cal-date-row">
+                        <span className="sched-cal-date">{dt.getDate()}</span>
+                        <div className="sched-cal-day-stats">
+                          {day.has_conflict && overlays.conflicts && <span className="sched-cal-day-stat warn">!</span>}
+                          {day.jobs_count > 0 && <span className="sched-cal-day-stat">{day.jobs_count}</span>}
+                          {day.is_idle && inMonth && <span className="sched-cal-day-stat idle">idle</span>}
                         </div>
                       </div>
-
-                      {/* Status indicators */}
-                      <div className="flex items-center gap-2 mb-3 text-xs">
-                        <span className={`px-2 py-0.5 rounded font-medium ${
-                          isCompleted ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'
-                        }`}>
-                          {job.status.replace('_', ' ')}
-                        </span>
-                        {checkedIn && (
-                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">Checked In</span>
-                        )}
-                        {checkedOut && (
-                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">Checked Out</span>
-                        )}
-                        {job.actual_hours && (
-                          <span className="text-slate-400">{job.actual_hours}hr actual</span>
-                        )}
+                      <div className="sched-cal-events">
+                        {visible.map((ev) => {
+                          const color = ev.team_member_id
+                            ? teamColorById.get(ev.team_member_id) || 'var(--sched-ink)'
+                            : 'var(--sched-ink)'
+                          const cls = [
+                            'sched-cal-event',
+                            ev.conflict && overlays.conflicts ? 'conflict' : '',
+                            ev.tight && overlays.travel ? 'tight' : '',
+                          ].filter(Boolean).join(' ')
+                          return (
+                            <div key={ev.id} className={cls} style={{ background: color }}>
+                              <span className="sched-cal-event-time">{fmtTime(ev.start)}</span>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {ev.client}{ev.team_member_id ? '' : ' · ?'}
+                              </span>
+                            </div>
+                          )
+                        })}
+                        {more > 0 && <div className="sched-cal-event-more">+{more} more</div>}
                       </div>
-
-                      {/* Action buttons */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* Step 1: Mark Job Done */}
-                        {!isCompleted && (
-                          <button
-                            onClick={() => {
-                              fetch(`/api/bookings/${job.id}`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: 'completed' }),
-                              }).then(() => loadCloseout())
-                            }}
-                            disabled={isUpdating}
-                            className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
-                          >
-                            Job Done
-                          </button>
-                        )}
-
-                        {/* Step 2: Mark Paid + payment method */}
-                        {!isPaid && (
-                          <>
-                            <button
-                              onClick={() => updateCloseout(job.id, { payment_status: 'paid', payment_method: 'zelle' })}
-                              disabled={isUpdating}
-                              className="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-purple-700 disabled:opacity-50"
-                            >
-                              Zelle
-                            </button>
-                            <button
-                              onClick={() => updateCloseout(job.id, { payment_status: 'paid', payment_method: 'apple_pay' })}
-                              disabled={isUpdating}
-                              className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-900 disabled:opacity-50"
-                            >
-                              Apple Pay
-                            </button>
-                            <button
-                              onClick={() => updateCloseout(job.id, { payment_status: 'paid', payment_method: 'cash' })}
-                              disabled={isUpdating}
-                              className="bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700 disabled:opacity-50"
-                            >
-                              Cash
-                            </button>
-                            <button
-                              onClick={() => updateCloseout(job.id, { payment_status: 'paid', payment_method: 'stripe' })}
-                              disabled={isUpdating}
-                              className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50"
-                            >
-                              Stripe
-                            </button>
-                          </>
-                        )}
-
-                        {/* Step 2 done indicator */}
-                        {isPaid && (
-                          <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            Paid ({job.payment_method?.replace('_', ' ') || 'unknown'})
-                          </span>
-                        )}
-
-                        {/* Divider */}
-                        {isPaid && !isTeamPaid && (
-                          <span className="text-slate-300">|</span>
-                        )}
-
-                        {/* Step 3: Mark Team Paid */}
-                        {isPaid && !isTeamPaid && (
-                          <button
-                            onClick={() => updateCloseout(job.id, { team_paid: true })}
-                            disabled={isUpdating}
-                            className="bg-teal-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-teal-700 disabled:opacity-50"
-                          >
-                            Team Paid
-                          </button>
-                        )}
-
-                        {isTeamPaid && (
-                          <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200">
-                            Team Paid
-                          </span>
-                        )}
-                      </div>
+                      {showIdleBanner && <div className="sched-cal-idle-banner">Open all day</div>}
                     </div>
                   )
                 })}
               </div>
-            )}
+            </div>
           </div>
 
-          {/* RECENTLY CLOSED */}
-          {recentlyClosed.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Recently Closed (Last 7 Days)</h3>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-slate-400">
-                      <th className="px-4 py-3 font-medium">Date</th>
-                      <th className="px-4 py-3 font-medium">Client</th>
-                      <th className="px-4 py-3 font-medium">Team</th>
-                      <th className="px-4 py-3 font-medium">Service</th>
-                      <th className="px-4 py-3 font-medium">Price</th>
-                      <th className="px-4 py-3 font-medium">Team Pay</th>
-                      <th className="px-4 py-3 font-medium">Method</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentlyClosed.map((job) => (
-                      <tr key={job.id} className="border-b border-slate-200/50 hover:bg-slate-50">
-                        <td className="px-4 py-3 text-slate-900">
-                          {new Date(job.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </td>
-                        <td className="px-4 py-3 text-slate-900">{job.clients?.name || '\u2014'}</td>
-                        <td className="px-4 py-3 text-slate-400">{job.team_members?.name || '\u2014'}</td>
-                        <td className="px-4 py-3 text-slate-400">{job.service_type || '\u2014'}</td>
-                        <td className="px-4 py-3 font-medium text-slate-900">
-                          {job.price != null ? `$${(job.price / 100).toFixed(0)}` : '\u2014'}
-                        </td>
-                        <td className="px-4 py-3 text-slate-400">
-                          {job.team_pay != null ? `$${(job.team_pay / 100).toFixed(0)}` : '\u2014'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
-                            {job.payment_method?.replace('_', ' ') || '\u2014'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* RIGHT PANEL */}
+          <aside className="sched-ops-panel">
+            <div className="sched-panel">
+              <div className="sched-panel-label">
+                <span>Live Ops · Today</span>
+                <span className="sched-live-tag">LIVE</span>
+              </div>
+              {data?.live_ops.length === 0 && <div className="sched-empty">No jobs today.</div>}
+              {data?.live_ops.map((row, i) => (
+                <div key={i} className="sched-ops-row">
+                  <span className={`sched-ops-status-dot ${row.status}`} />
+                  <div className="sched-ops-cleaner">
+                    <div className="sched-ops-cleaner-name">{row.team_member_name}</div>
+                    <div className="sched-ops-cleaner-job">{row.client} · {row.detail}</div>
+                  </div>
+                  <div>
+                    <div className={`sched-ops-time ${row.status === 'in-progress' ? 'live' : ''}`}>
+                      {row.duration_label}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="sched-panel">
+              <div className="sched-panel-label">Utilization · This Week</div>
+              {data?.utilization.length === 0 && <div className="sched-empty">No active team members.</div>}
+              {data?.utilization.map((u) => {
+                const fillClass = u.pct >= 100 ? 'over' : u.pct >= 75 ? 'full' : u.pct >= 40 ? 'med' : 'low'
+                return (
+                  <div key={u.id} className="sched-util-row">
+                    <span className="sched-util-dot" style={{ background: teamColorById.get(u.id) }} />
+                    <span className="sched-util-name">{u.name}</span>
+                    <div className="sched-util-bar">
+                      <div className={`sched-util-fill ${fillClass}`} style={{ width: `${Math.min(100, u.pct)}%` }} />
+                    </div>
+                    <span className="sched-util-pct" style={u.pct >= 100 ? { color: 'var(--sched-danger)' } : {}}>
+                      {u.pct}%
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="sched-panel">
+              <div className="sched-panel-label">Demand Heatmap</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <span style={{ fontFamily: 'var(--sched-mono)', fontSize: 10.5, color: 'var(--sched-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Less</span>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  <span className="sched-heat-swatch low" />
+                  <span className="sched-heat-swatch mid" />
+                  <span className="sched-heat-swatch high" />
+                  <span className="sched-heat-swatch max" />
+                </div>
+                <span style={{ fontFamily: 'var(--sched-mono)', fontSize: 10.5, color: 'var(--sched-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>More</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--sched-graphite)', lineHeight: 1.5 }}>
+                {(() => {
+                  if (!data) return null
+                  const peaks = [...data.grid.days].filter((d) => d.jobs_count > 0).sort((a, b) => b.jobs_count - a.jobs_count)
+                  const idle = data.grid.days.filter((d) => d.is_idle && d.date.startsWith(month)).map((d) => d.date.slice(-2)).slice(0, 3)
+                  const peak = peaks[0]
+                  return (
+                    <>
+                      {peak && <>Peak: <strong style={{ color: 'var(--sched-ink)' }}>{new Date(peak.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {peak.jobs_count} jobs</strong><br /></>}
+                      {idle.length > 0 && <>Idle days: <strong style={{ color: 'var(--sched-ink)' }}>{idle.join(', ')}</strong></>}
+                    </>
+                  )
+                })()}
               </div>
             </div>
-          )}
-        </>
-      ) : view === 'schedules' ? (
-        <>
-          {/* SCHEDULE STATS CARDS */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            {[
-              { label: 'Total Schedules', value: schedules.length, color: 'border-l-gray-400' },
-              { label: 'Active', value: activeCount, color: 'border-l-green-500' },
-              { label: 'Paused', value: pausedCount, color: 'border-l-yellow-500' },
-              { label: 'Weekly', value: schedules.filter(s => s.recurring_type === 'weekly').length, color: 'border-l-blue-500' },
-            ].map((card) => (
-              <div key={card.label} className={`border border-slate-200 rounded-lg border-l-4 ${card.color} p-5`}>
-                <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">{card.value}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* SCHEDULE CREATE FORM */}
-          {showScheduleCreate && (
-            <form onSubmit={createSchedule} className="border border-slate-200 rounded-lg p-6 mb-6">
-              <h3 className="font-semibold text-slate-900 mb-4">Create Recurring Schedule</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div>
-                  <label className="text-xs text-slate-400 uppercase mb-1 block">Client *</label>
-                  <select value={scheduleForm.client_id} onChange={(e) => setScheduleForm({ ...scheduleForm, client_id: e.target.value })} required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                    <option value="">Select Client</option>
-                    {scheduleClients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 uppercase mb-1 block">Team Member</label>
-                  <select value={scheduleForm.team_member_id} onChange={(e) => setScheduleForm({ ...scheduleForm, team_member_id: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                    <option value="">Select Team Member</option>
-                    {scheduleTeam.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 uppercase mb-1 block">Service</label>
-                  <select value={scheduleForm.service_type_id} onChange={(e) => setScheduleForm({ ...scheduleForm, service_type_id: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                    <option value="">Select Service</option>
-                    {scheduleServices.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 uppercase mb-1 block">Frequency</label>
-                  <select value={scheduleForm.recurring_type} onChange={(e) => setScheduleForm({ ...scheduleForm, recurring_type: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                    <option value="weekly">Weekly</option>
-                    <option value="biweekly">Every 2 Weeks</option>
-                    <option value="triweekly">Every 3 Weeks</option>
-                    <option value="monthly_date">Monthly (same date)</option>
-                    <option value="monthly_weekday">Monthly (same weekday)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 uppercase mb-1 block">Day</label>
-                  <select value={scheduleForm.day_of_week} onChange={(e) => setScheduleForm({ ...scheduleForm, day_of_week: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                    {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 uppercase mb-1 block">Time</label>
-                  <input type="time" value={scheduleForm.preferred_time} onChange={(e) => setScheduleForm({ ...scheduleForm, preferred_time: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 uppercase mb-1 block">Duration (hrs)</label>
-                  <input type="number" step="0.5" value={scheduleForm.duration_hours} onChange={(e) => setScheduleForm({ ...scheduleForm, duration_hours: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs text-slate-400 uppercase mb-1 block">Notes</label>
-                  <input placeholder="Special instructions..." value={scheduleForm.notes} onChange={(e) => setScheduleForm({ ...scheduleForm, notes: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" disabled={scheduleSaving || !scheduleForm.client_id}
-                  className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
-                  {scheduleSaving ? 'Creating...' : 'Create Schedule'}
-                </button>
-                <button type="button" onClick={() => setShowScheduleCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
-              </div>
-            </form>
-          )}
-
-          {/* SCHEDULE SEARCH */}
-          <div className="mb-4">
-            <input
-              value={scheduleSearch}
-              onChange={(e) => setScheduleSearch(e.target.value)}
-              placeholder="Search by client name or service type..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder-gray-500"
-            />
-          </div>
-
-          {/* SCHEDULE STATUS TABS */}
-          <div className="flex gap-1 mb-4">
-            {scheduleStatusTabs.map((tab) => (
-              <button key={tab.value} onClick={() => setScheduleStatusFilter(tab.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                  scheduleStatusFilter === tab.value
-                    ? 'bg-teal-600 text-white'
-                    : 'text-slate-400 hover:bg-slate-50'
-                }`}>
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* SCHEDULE TABLE */}
-          <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-400">
-                  <th className="px-4 py-3 font-medium">Client</th>
-                  <th className="px-4 py-3 font-medium">Team</th>
-                  <th className="px-4 py-3 font-medium">Service</th>
-                  <th className="px-4 py-3 font-medium">Frequency</th>
-                  <th className="px-4 py-3 font-medium">Day / Time</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSchedules.map((s) => (
-                  <tr key={s.id} className="border-b border-slate-200/50 hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <Link href={`/dashboard/schedules/${s.id}`} className="font-medium text-slate-900 hover:text-teal-600">
-                        {s.clients?.name || '\u2014'}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-slate-400">{s.team_members?.name || '\u2014'}</td>
-                    <td className="px-4 py-3 text-slate-400">{s.service_types?.name || '\u2014'}</td>
-                    <td className="px-4 py-3 text-slate-400">{frequencyLabels[s.recurring_type] || s.recurring_type}</td>
-                    <td className="px-4 py-3">
-                      <p className="text-slate-900 font-medium">{s.day_of_week != null ? DAYS[s.day_of_week] : '\u2014'}</p>
-                      <p className="text-xs text-slate-400">{s.preferred_time || ''} {s.duration_hours ? `\u00b7 ${s.duration_hours}hr` : ''}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                        s.status === 'active' ? 'bg-green-50 text-green-700' :
-                        s.status === 'paused' ? 'bg-yellow-50 text-yellow-700' :
-                        'bg-red-50 text-red-700'
-                      }`}>
-                        {s.status}
-                      </span>
-                      {s.paused_until && (
-                        <p className="text-[10px] text-slate-400 mt-0.5">until {new Date(s.paused_until).toLocaleDateString()}</p>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {filteredSchedules.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                    {scheduleStatusFilter ? `No ${scheduleStatusFilter} schedules` : 'No recurring schedules yet'}
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      ) : (
-        <>
-          {/* STATS CARDS */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            {[
-              { label: 'Upcoming', value: stats.upcoming, icon: '\u25EB', color: 'border-l-blue-500' },
-              { label: 'This Week', value: stats.thisWeek, icon: '\u25C8', color: 'border-l-indigo-500' },
-              { label: 'Completed', value: stats.completed, icon: '\u2713', color: 'border-l-green-500', sub: 'this month' },
-              { label: 'Revenue', value: fmt(stats.revenue), icon: '$', color: 'border-l-purple-500', sub: 'this month' },
-            ].map((card) => (
-              <div key={card.label} className={`border border-slate-200 rounded-lg border-l-4 ${card.color} p-5`}>
-                <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">{card.value}</p>
-                {card.sub && <p className="text-xs text-slate-400 mt-0.5">{card.sub}</p>}
-              </div>
-            ))}
-          </div>
-
-          {/* CREATE FORM */}
-          {showCreate && (() => {
-            const filteredClients = clients.filter((c) =>
-              clientSearch.length > 0 && c.name.toLowerCase().includes(clientSearch.toLowerCase())
-            )
-            const selectedClient = clients.find((c) => c.id === form.client_id)
-            const hours = parseFloat(form.hours) || 0
-            const rate = parseFloat(form.rate) || 0
-            const subtotal = hours * rate
-            const total = form.discount ? subtotal * 0.9 : subtotal
-
-            return (
-            <form onSubmit={createBooking} className="border border-slate-200 rounded-lg p-6 mb-6 space-y-5">
-              <h3 className="text-lg font-semibold text-slate-900">Create Booking</h3>
-
-              {/* Row 1: Client (full width) */}
-              <div>
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Client</label>
-                {selectedClient ? (
-                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                    <span className="text-slate-900 flex-1">{selectedClient.name}</span>
-                    <button type="button" onClick={() => { setForm({ ...form, client_id: '' }); setClientSearch(''); }} className="text-slate-400 hover:text-slate-900 text-xs">Clear</button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search clients..."
-                      value={clientSearch}
-                      onChange={(e) => { setClientSearch(e.target.value); setShowClientDropdown(true) }}
-                      onFocus={() => { if (clientSearch.length > 0) setShowClientDropdown(true) }}
-                      onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                    />
-                    {showClientDropdown && filteredClients.length > 0 && (
-                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-50 border border-slate-200 rounded-lg max-h-40 overflow-y-auto shadow-lg">
-                        {filteredClients.map((c) => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              setForm({ ...form, client_id: c.id })
-                              setClientSearch(c.name)
-                              setShowClientDropdown(false)
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                          >
-                            {c.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Row 2: Service (full width) */}
-              <div>
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Service</label>
-                <select
-                  value={form.service_type_id}
-                  onChange={(e) => {
-                    const svc = services.find((s) => s.id === e.target.value)
-                    setForm({
-                      ...form,
-                      service_type_id: e.target.value,
-                      hours: svc ? String(svc.default_duration_hours) : form.hours,
-                      rate: svc ? String(svc.default_hourly_rate) : form.rate,
-                    })
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">Select Service</option>
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.default_duration_hours}hr &middot; ${s.default_hourly_rate}/hr)</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Row 3: Date + Time (2 columns) — moved above team member for availability */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Date *</label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Time *</label>
-                  <input
-                    type="time"
-                    value={form.time}
-                    onChange={(e) => setForm({ ...form, time: e.target.value })}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: Team Member with availability */}
-              <div>
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Team Member *</label>
-                {form.date && teamAvailability.length > 0 ? (
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {teamAvailability.map((t) => {
-                      const selected = form.team_member_id === t.id
-                      return (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => setForm({ ...form, team_member_id: t.id })}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors ${
-                            selected
-                              ? 'border-teal-500 bg-teal-50 text-slate-900'
-                              : t.available
-                                ? 'border-slate-200 hover:border-slate-300 text-slate-700'
-                                : 'border-slate-200 text-slate-400'
-                          }`}
-                        >
-                          <span className={`flex items-center gap-2 ${selected ? 'font-medium' : ''}`}>
-                            {t.name}
-                            {t.preferred && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Preferred</span>}
-                          </span>
-                          {t.available
-                            ? <span className="text-xs text-green-600 font-medium">Available</span>
-                            : <span className="text-xs text-red-500">Not Available</span>
-                          }
-                        </button>
-                      )
-                    })}
-                  </div>
-                ) : loadingAvailability ? (
-                  <div className="text-xs text-slate-400 py-2">Checking availability...</div>
-                ) : (
-                  <select
-                    value={form.team_member_id}
-                    onChange={(e) => setForm({ ...form, team_member_id: e.target.value })}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="">Select date first for availability</option>
-                    {team.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Row 5: Hours + Rate (2 columns) */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Hours</label>
-                  <select
-                    value={form.hours}
-                    onChange={(e) => setForm({ ...form, hours: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="">Select Hours</option>
-                    {['1', '1.5', '2', '2.5', '3', '3.5', '4', '5', '6', '8'].map((h) => (
-                      <option key={h} value={h}>{h}hr</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Rate</label>
-                  <select
-                    value={form.rate}
-                    onChange={(e) => setForm({ ...form, rate: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="">Select Rate</option>
-                    {[25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((r) => (
-                      <option key={r} value={String(r)}>${r}/hr</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 6: Repeat toggle + Discount toggle */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-slate-400 uppercase tracking-wide">Repeat</label>
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, repeat: !form.repeat })}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.repeat ? 'bg-green-500' : 'bg-slate-600'}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.repeat ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                    </button>
-                  </div>
-                  {form.repeat && (
-                    <select
-                      value={form.repeat_frequency}
-                      onChange={(e) => setForm({ ...form, repeat_frequency: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-2"
-                    >
-                      <option value="weekly">Weekly</option>
-                      <option value="biweekly">Biweekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  )}
-                </div>
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-slate-400 uppercase tracking-wide">10% Discount</label>
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, discount: !form.discount })}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.discount ? 'bg-green-500' : 'bg-slate-600'}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.discount ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 7: Estimate Summary */}
-              {hours > 0 && rate > 0 && (
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between">
-                  <div className="text-sm text-slate-400">
-                    ~{hours}hrs &times; ${rate}/hr
-                  </div>
-                  <div className="text-right">
-                    {form.discount ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-slate-400 line-through">${subtotal.toFixed(0)}</span>
-                        <span className="text-lg font-bold text-green-400">~${total.toFixed(0)}</span>
-                      </div>
-                    ) : (
-                      <span className="text-lg font-bold text-slate-900">~${total.toFixed(0)}</span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Row 8: Status */}
-              <div>
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Status</label>
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="scheduled">Scheduled</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="pending">Pending</option>
-                </select>
-              </div>
-
-              {/* Row 9: Notes */}
-              <div>
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Notes</label>
-                <textarea
-                  placeholder="Access codes, special instructions..."
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  rows={3}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none"
-                />
-              </div>
-
-              {/* Row 10: Actions */}
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900 border border-slate-200 rounded-lg transition-colors">
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving || !form.date || !form.time || !form.team_member_id}
-                  className="bg-teal-600 text-white px-6 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 disabled:opacity-50 transition-colors"
-                >
-                  {saving ? 'Creating...' : 'Create Booking'}
-                </button>
-              </div>
-            </form>
-            )
-          })()}
-
-          {view === 'list' ? (
-            <>
-              {/* SEARCH + STATUS TABS */}
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mb-4">
-                <input
-                  placeholder="Search client, team member, service..."
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full md:w-64 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                />
-                <div className="flex gap-1 flex-wrap">
-                  {statusTabs.map((tab) => (
-                    <button key={tab.value} onClick={() => { setStatusFilter(tab.value); setPage(1) }}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                        statusFilter === tab.value
-                          ? 'bg-teal-600 text-white'
-                          : 'text-slate-400 hover:bg-slate-50'
-                      }`}>
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* BULK ACTION BAR */}
-              {selected.size > 0 && (
-                <div className="flex items-center gap-3 border border-slate-200 rounded-lg px-4 py-3 mb-4">
-                  <span className="text-sm text-slate-900 font-medium">{selected.size} selected</span>
-                  <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm">
-                    <option value="">Bulk action...</option>
-                    <option value="confirmed">Confirm All</option>
-                    <option value="cancelled">Cancel All</option>
-                    <option value="delete">Delete</option>
-                  </select>
-                  <button onClick={async () => {
-                    if (!bulkAction) return
-                    if (bulkAction === 'delete' && !confirm(`Delete ${selected.size} bookings?`)) return
-                    for (const id of selected) {
-                      if (bulkAction === 'delete') {
-                        await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
-                      } else {
-                        await fetch(`/api/bookings/${id}/status`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ status: bulkAction }),
-                        })
-                      }
-                    }
-                    setSelected(new Set())
-                    setBulkAction('')
-                    loadBookings()
-                  }} disabled={!bulkAction}
-                    className="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
-                    Apply
-                  </button>
-                  <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-900 ml-auto">Clear</button>
-                </div>
-              )}
-
-              {/* TABLE */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-slate-400">
-                      <th className="px-4 py-3 w-10">
-                        <input type="checkbox"
-                          checked={bookings.length > 0 && selected.size === bookings.length}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelected(new Set(bookings.map(b => b.id)))
-                            } else {
-                              setSelected(new Set())
-                            }
-                          }}
-                          className="rounded border-slate-200 bg-slate-50"
-                        />
-                      </th>
-                      <th className="px-4 py-3 font-medium">Date & Time</th>
-                      <th className="px-4 py-3 font-medium">Client</th>
-                      <th className="px-4 py-3 font-medium">Service</th>
-                      <th className="px-4 py-3 font-medium">Team</th>
-                      <th className="px-4 py-3 font-medium">Status</th>
-                      <th className="px-4 py-3 font-medium">Price</th>
-                      <th className="px-4 py-3 font-medium">Payment</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bookings.map((b) => (
-                      <tr key={b.id} className="border-b border-slate-200/50 hover:bg-slate-50">
-                        <td className="px-4 py-3">
-                          <input type="checkbox"
-                            checked={selected.has(b.id)}
-                            onChange={(e) => {
-                              const next = new Set(selected)
-                              if (e.target.checked) next.add(b.id)
-                              else next.delete(b.id)
-                              setSelected(next)
-                            }}
-                            className="rounded border-slate-200 bg-slate-50"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <Link href={`/dashboard/bookings/${b.id}`} className="font-medium text-slate-900 hover:text-teal-600">
-                            {new Date(b.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </Link>
-                          <p className="text-xs text-slate-400">
-                            {formatTime(b.start_time)}
-                            {b.end_time && ` \u2013 ${formatTime(b.end_time)}`}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-slate-900">{b.clients?.name || '\u2014'}</p>
-                          {b.clients?.phone && <p className="text-xs text-slate-400">{b.clients.phone}</p>}
-                        </td>
-                        <td className="px-4 py-3 text-slate-400">{b.service_types?.name || b.service_type || '\u2014'}</td>
-                        <td className="px-4 py-3 text-slate-400">{b.team_members?.name || '\u2014'}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[b.status] || 'bg-slate-100 text-slate-500'}`}>
-                            {b.status.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-slate-900">
-                          {b.price != null ? fmt(b.price) : '\u2014'}
-                        </td>
-                        <td className="px-4 py-3">
-                          {b.payment_status === 'paid' ? (
-                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">Paid</span>
-                          ) : b.payment_status === 'pending' ? (
-                            <span className="text-xs px-2 py-0.5 rounded bg-yellow-50 text-yellow-700 font-medium">Pending</span>
-                          ) : (
-                            <span className="text-xs text-slate-400">{'\u2014'}</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    {bookings.length === 0 && (
-                      <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">No bookings found</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {total > 50 && (
-                <div className="flex items-center justify-center gap-2 mt-4">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                    className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50">Previous</button>
-                  <span className="px-3 py-1.5 text-sm text-slate-400">Page {page} of {Math.ceil(total / 50)}</span>
-                  <button onClick={() => setPage((p) => p + 1)} disabled={page * 50 >= total}
-                    className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50">Next</button>
-                </div>
-              )}
-            </>
-          ) : (
-            <CalendarView
-              bookings={bookings}
-              onDateClick={(date, time) => {
-                setForm(f => ({ ...f, date, time }))
-                setShowCreate(true)
-              }}
-            />
-          )}
-        </>
+          </aside>
+        </div>
       )}
     </div>
   )

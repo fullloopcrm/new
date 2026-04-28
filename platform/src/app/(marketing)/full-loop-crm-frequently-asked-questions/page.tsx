@@ -82,7 +82,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "Does Full Loop CRM include a website?",
         answer:
-          "Yes. Every partner gets a full SEO-optimized website built on Next.js with city and service pages, blog content, schema markup, and local SEO targeting. This site is designed to generate organic leads in your metro.",
+          "Yes. Every partner gets a full SEO-optimized website built on Next.js with city and service pages, blog content, schema markup, and local SEO targeting. This site is designed to generate organic leads in your city.",
       },
       {
         question: "Can I customize my CRM dashboard?",
@@ -175,22 +175,22 @@ const faqCategories: FaqCategory[] = [
       {
         question: "What does exclusive territory mean?",
         answer:
-          "We accept only one partner per trade per metro area. If you are the cleaning services partner in Austin, TX, no other cleaning company can join Full Loop in that metro. This eliminates internal competition and maximizes your ROI.",
+          "We accept only one partner per trade per city. If you are the cleaning services partner in Austin, TX, no other cleaning company can join Full Loop in that metro. This eliminates internal competition and maximizes your ROI.",
       },
       {
-        question: "How are metro areas defined?",
+        question: "How are citys defined?",
         answer:
-          "Metro areas follow standard metropolitan statistical areas (MSAs). Major cities and their surrounding suburbs are grouped together. During onboarding, we confirm the exact boundaries of your territory.",
+          "City territories follow standard MSA boundaries. Major cities and their surrounding suburbs are grouped together. During onboarding, we confirm the exact boundaries of your territory.",
       },
       {
         question: "What if my territory is already taken?",
         answer:
-          "If your trade is claimed in your metro, we will add you to a waitlist and notify you if the territory opens up. You can also apply for a different metro or a different trade.",
+          "If your trade is claimed in your city, we will add you to a waitlist and notify you if the territory opens up. You can also apply for a different city or a different trade.",
       },
       {
         question: "Can I expand to multiple metros?",
         answer:
-          "Yes. Each additional metro is a separate subscription. Multi-metro partners get priority support and shared reporting across territories.",
+          "Yes. Each additional city is a separate subscription. Multi-city partners get priority support and shared reporting across territories.",
       },
     ],
   },
@@ -201,7 +201,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "How do I apply?",
         answer:
-          "Submit a partnership request through our website. Include your trade, target metro, and basic business information. We review applications within 48 hours and respond with territory availability.",
+          "Submit a partnership request through our website. Include your trade, target city, and basic business information. We review applications within 48 hours and respond with territory availability.",
       },
       {
         question: "How long does onboarding take?",
@@ -216,7 +216,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "What information do I need to get started?",
         answer:
-          "Your business name, trade/service type, target metro area, a list of your services with pricing, and photos of your work. We handle everything else including domain setup, content creation, and CRM configuration.",
+          "Your business name, trade/service type, target city, a list of your services with pricing, and photos of your work. We handle everything else including domain setup, content creation, and CRM configuration.",
       },
     ],
   },
@@ -386,7 +386,7 @@ export default function FAQPage() {
             Ready to Get Started?
           </h2>
           <p className="text-slate-300 mb-8 text-lg">
-            One partner per trade per metro. Lock in your exclusive territory today.
+            One partner per trade per city. Lock in your exclusive territory today.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link

@@ -17,7 +17,7 @@ export default function FinalCTA() {
           transition={{ duration: 0.7 }}
         >
           <p className="text-white/70 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            One Trade Per Metro &mdash; Forever
+            One Trade Per City &mdash; Forever
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 font-heading">
             Is Your City Still Open?

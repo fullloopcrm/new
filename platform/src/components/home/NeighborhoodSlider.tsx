@@ -113,7 +113,7 @@ export default function NeighborhoodSlider() {
             Neighborhoods We <span className="gradient-text">Serve</span>
           </h2>
           <p className="mt-4 text-slate-600 text-lg max-w-2xl mx-auto">
-            Local expertise across the NYC metro area. We know these streets,
+            Local expertise across the NYC city. We know these streets,
             these businesses, and what it takes to win here.
           </p>
         </motion.div>

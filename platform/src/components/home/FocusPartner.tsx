@@ -424,7 +424,7 @@ export default function FocusPartner() {
               <p className="font-mono text-xs tracking-[0.2em] uppercase text-teal-400 mb-1">Avg ticket — by month · pulled from production DB</p>
               <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">$183 &rarr; $222 in 90 days.</h3>
               <p className="text-slate-400 text-sm mt-2 max-w-xl">
-                Same business, same metro, same crew. The platform shifted the economics: deep-clean upsells in the Selena flow, recurring discounts that lock in repeat clients (20% weekly · 10% bi-weekly/monthly), and 100% attribution on 458 of 1,240 bookings exposing which of the 98 EMD domains actually convert.
+                Same business, same city, same crew. The platform shifted the economics: deep-clean upsells in the Selena flow, recurring discounts that lock in repeat clients (20% weekly · 10% bi-weekly/monthly), and 100% attribution on 458 of 1,240 bookings exposing which of the 98 EMD domains actually convert.
               </p>
             </div>
             <p className="font-heading text-4xl sm:text-5xl lg:text-6xl font-extrabold text-teal-400">+21%</p>
@@ -860,7 +860,7 @@ export default function FocusPartner() {
             We don&apos;t sell you software we don&apos;t ship in our own business.
           </p>
           <p className="mt-4 text-base sm:text-lg text-slate-300 leading-relaxed">
-            If a feature breaks for The NYC Maid, it breaks our cleaning company. If a feature pays for itself for The NYC Maid, it ships to every Focus Partner. Same engine. Same proof. Same loop. Just with your trade and your metro.
+            If a feature breaks for The NYC Maid, it breaks our cleaning company. If a feature pays for itself for The NYC Maid, it ships to every Focus Partner. Same engine. Same proof. Same loop. Just with your trade and your city.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/case-study/the-nyc-maid" className="inline-block rounded-lg bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 text-base transition-colors">
@@ -871,7 +871,7 @@ export default function FocusPartner() {
             </Link>
           </div>
           <p className="mt-6 text-xs font-mono text-slate-500 tracking-wide">
-            One Focus Partner per trade per metro. Once claimed, off the board.
+            One Focus Partner per trade per city. Once claimed, off the board.
           </p>
         </motion.div>
       </div>

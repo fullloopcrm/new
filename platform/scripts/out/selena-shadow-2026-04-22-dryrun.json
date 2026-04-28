@@ -1,0 +1,102 @@
+{
+  "args": {
+    "days": 3,
+    "sample": 10,
+    "tenantId": "24d94cd6-9fc0-4882-b544-fa25a4542e9e",
+    "dryRun": true
+  },
+  "eventCount": 334,
+  "sampleSize": 10,
+  "sample": [
+    {
+      "conversation_id": "b15430ac-dfde-4399-ad19-ea49c5d53cc9",
+      "message_id": "5dd18c33-b86f-43dd-84af-7f6e395ee590",
+      "inbound_text": "191 W 23th St Apt 14F NY 10023",
+      "inbound_ts": "2026-04-19T23:49:51.303895+00:00",
+      "actual_outbound_text": "Almost done! Any special notes for the cleaner? You can also add notes anytime through your portal at thenycmaid.com/portal 😊",
+      "actual_outbound_ts": "2026-04-19T23:49:51.631831+00:00",
+      "phone": "email-362f386a-da69-4acf-8ec2-7cacbbbb49ef"
+    },
+    {
+      "conversation_id": "bb698645-d3ff-4750-821e-366c0eda0c42",
+      "message_id": "87f3313a-a5e4-4728-98ac-95e16f6af6d6",
+      "inbound_text": "I never authorized this charge",
+      "inbound_ts": "2026-04-19T23:39:00.091052+00:00",
+      "actual_outbound_text": "I hear you. Our manager will pull the booking, invoice, and GPS records and call you back today. Or call (212) 202-8400 now to reach her directly.",
+      "actual_outbound_ts": "2026-04-19T23:39:00.162284+00:00",
+      "phone": "web-5d4de2f8"
+    },
+    {
+      "conversation_id": "90e17b38-58fb-488a-840e-f998e57fb13a",
+      "message_id": "570fd2c4-8f50-4851-a2b8-4195717cae4a",
+      "inbound_text": "Can I get a discount?",
+      "inbound_ts": "2026-04-19T18:23:43.996834+00:00",
+      "actual_outbound_text": "I can't adjust pricing on my own — our manager handles any billing review. Call (212) 202-8400 and she'll pull the records with you today.",
+      "actual_outbound_ts": "2026-04-19T18:23:51.648179+00:00",
+      "phone": "2125551064"
+    },
+    {
+      "conversation_id": "859965cf-31cb-46a2-a53b-a9a78a13f01b",
+      "message_id": "1225f17a-df19-4b94-90f4-c37c32480dff",
+      "inbound_text": "Cleaner was on her phone the whole time",
+      "inbound_ts": "2026-04-19T23:37:05.45763+00:00",
+      "actual_outbound_text": "That's not how we operate and I'm sorry. Our manager is going to want to hear exactly what happened — call (212) 202-8400 today or she'll reach out to you this afternoon.",
+      "actual_outbound_ts": "2026-04-19T23:37:05.533731+00:00",
+      "phone": "web-a12942b4"
+    },
+    {
+      "conversation_id": "bef00d96-cffe-4fa3-b7f7-1897b2144d5d",
+      "message_id": "3b58557e-2233-469b-a7f0-a2b4bea0da92",
+      "inbound_text": "The clock started 30 min early",
+      "inbound_ts": "2026-04-19T18:26:11.479837+00:00",
+      "actual_outbound_text": "I hear you — let me pull the records, GPS check-in/check-out times, and invoice. Our manager will review with you at (212) 202-8400. I won't make billing changes without her sign-off.",
+      "actual_outbound_ts": "2026-04-19T18:26:19.660858+00:00",
+      "phone": "2125551071"
+    },
+    {
+      "conversation_id": "1c63c1ba-1322-4429-8bf8-ef636715f379",
+      "message_id": "bbb79bb0-2013-4151-aaeb-d4f37dfbf109",
+      "inbound_text": "She was here 1 hour not 3",
+      "inbound_ts": "2026-04-19T18:23:01.682146+00:00",
+      "actual_outbound_text": "I hear you — let me pull the records, GPS check-in/check-out times, and invoice. Our manager will review with you at (212) 202-8400. I won't make billing changes without her sign-off.",
+      "actual_outbound_ts": "2026-04-19T18:23:09.891605+00:00",
+      "phone": "2125551062"
+    },
+    {
+      "conversation_id": "bf4cbe3f-c5b4-4ee3-9d99-20ba5b07b220",
+      "message_id": "8cdf426c-eeb5-457b-91e0-66d5b00c6f49",
+      "inbound_text": "can i get the recurring discount on my first clean?",
+      "inbound_ts": "2026-04-19T23:32:34.553628+00:00",
+      "actual_outbound_text": "The 10% recurring discount ($67.50/hr) only applies after your first visit — once you're a recurring client. First booking is at standard rates ($75 or $59).",
+      "actual_outbound_ts": "2026-04-19T23:32:34.640693+00:00",
+      "phone": "web-eb21a84a"
+    },
+    {
+      "conversation_id": "7473dec4-32df-4459-88aa-9e299f3a9af7",
+      "message_id": "661e66d8-a8f2-4e90-9de7-9443b150b9db",
+      "inbound_text": "2 bed 1 bath",
+      "inbound_ts": "2026-04-19T23:50:51.040366+00:00",
+      "actual_outbound_text": "2BR/1BA — that typically runs 2-4 hours.\n\n$75/hr — we bring all supplies\n$59/hr — you provide your own supplies\n\nWhich works for you?",
+      "actual_outbound_ts": "2026-04-19T23:50:51.606782+00:00",
+      "phone": "email-1ffbc6cc-5457-459f-8bca-19123080eccc"
+    },
+    {
+      "conversation_id": "2f479248-099f-4859-9be7-d768796b5893",
+      "message_id": "7a5a035c-a3b5-4dba-9afa-896e8b8a81af",
+      "inbound_text": "Do you clean airbnbs?",
+      "inbound_ts": "2026-04-19T23:32:41.376962+00:00",
+      "actual_outbound_text": "Yes — we do airbnb turnovers regularly. Same hourly rates ($75/hr with supplies, $59/hr without). Want to book?",
+      "actual_outbound_ts": "2026-04-19T23:32:41.453502+00:00",
+      "phone": "web-1646335b"
+    },
+    {
+      "conversation_id": "b15430ac-dfde-4399-ad19-ea49c5d53cc9",
+      "message_id": "b60eb1d3-e895-44fb-949f-61aaf2d00af7",
+      "inbound_text": "Leo Singh",
+      "inbound_ts": "2026-04-19T23:49:45.315184+00:00",
+      "actual_outbound_text": "Got it! What's your full address — street, apt/unit, city, zip?",
+      "actual_outbound_ts": "2026-04-19T23:49:45.497594+00:00",
+      "phone": "email-362f386a-da69-4acf-8ec2-7cacbbbb49ef"
+    }
+  ]
+}

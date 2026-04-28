@@ -61,10 +61,10 @@ export async function generateMetadata({
   const title = `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — One Exclusive License | Full Loop CRM`;
   const description =
     status === "claimed"
-      ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} has been claimed. Full Loop CRM licenses only one ${trade} partner per metro — see nearby markets still available.`
+      ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} has been claimed. Full Loop CRM licenses only one ${trade} partner per city — see nearby markets still available.`
       : status === "pending"
-        ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for the exclusive Full Loop CRM license. Only one per metro — get on the waitlist if the application falls through.`
-        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it's licensed to one operator per metro. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one platform. Claim the ${metro.city} territory at $1,000 per user / month.`;
+        ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for the exclusive Full Loop CRM license. Only one per city — get on the waitlist if the application falls through.`
+        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it's licensed to one operator per city. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one platform. Claim the ${metro.city} territory at $1,000 per user / month.`;
   const url = `https://homeservicesbusinesscrm.com/${slug}`;
 
   return {
@@ -250,7 +250,7 @@ export default async function ComboPage({
           </h1>
           <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-4">
             Full Loop CRM is the only full-cycle CRM built for {trade} businesses,
-            and we license a single exclusive partner per metro. In {metro.city},
+            and we license a single exclusive partner per city. In {metro.city},
             that means one {trade} company gets every AI-generated lead, every
             local SEO asset, and the entire platform — and nobody else.
           </p>
@@ -564,7 +564,7 @@ export default async function ComboPage({
       )}
 
       {/* ================================================================= */}
-      {/* 7. PRICING — one license, one metro                               */}
+      {/* 7. PRICING — one license, one city                               */}
       {/* ================================================================= */}
       <section className="py-20 px-6 bg-slate-50">
         <div className="mx-auto max-w-3xl text-center">
@@ -577,7 +577,7 @@ export default async function ComboPage({
           <p className="text-slate-600 mb-4 text-lg">
             The exclusive {trade} CRM license for {metro.city},{" "}
             {metro.stateAbbr}. When it&apos;s yours, no other {trade}{" "}
-            business in the metro can sign up — ever.
+            business in the city can sign up — ever.
           </p>
           <p className="text-slate-700 mb-6 max-w-xl mx-auto">
             Full Loop CRM replaces 9+ separate tools — lead generation,
@@ -771,10 +771,10 @@ export default async function ComboPage({
           </h2>
           <p className="text-slate-300 mb-8 text-lg">
             {isClaimed
-              ? `Full Loop CRM licenses one ${trade} operator per metro. The ${metro.city}, ${metro.stateAbbr} license is active. Check nearby markets or waitlist in case it opens back up.`
+              ? `Full Loop CRM licenses one ${trade} operator per city. The ${metro.city}, ${metro.stateAbbr} license is active. Check nearby markets or waitlist in case it opens back up.`
               : isPending
                 ? `Another ${trade} operator has applied for the ${metro.city}, ${metro.stateAbbr} license. Get on the waitlist — if the application doesn't close, the next in line gets it.`
-                : `One partner per trade per metro. Once the ${trade} license in ${metro.city}, ${metro.stateAbbr} is claimed, it's off the table — forever.`}
+                : `One partner per trade per city. Once the ${trade} license in ${metro.city}, ${metro.stateAbbr} is claimed, it's off the table — forever.`}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link

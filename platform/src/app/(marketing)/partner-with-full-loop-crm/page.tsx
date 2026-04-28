@@ -15,7 +15,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Partner With Full Loop CRM | Exclusive Territory CRM Partnership",
   description:
-    "One partner per trade per metro. Get exclusive territory, AI-powered CRM, Selenas SMS automation, SEO microsites, and GMB optimization. Apply to see if your market is available.",
+    "One partner per trade per city. Get exclusive territory, AI-powered CRM, Selenas SMS automation, SEO microsites, and GMB optimization. Apply to see if your market is available.",
   keywords: [
     "CRM partnership program",
     "home service CRM partner",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Partner With Full Loop CRM | Exclusive Territory CRM Partnership",
     description:
-      "One partner per trade per metro. Apply to see if your market is still available.",
+      "One partner per trade per city. Apply to see if your market is still available.",
     url: "https://homeservicesbusinesscrm.com/partner-with-full-loop-crm",
     type: "website",
   },
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Partner With Full Loop CRM | Exclusive Territory CRM Partnership",
     description:
-      "One partner per trade per metro. Apply to see if your market is still available.",
+      "One partner per trade per city. Apply to see if your market is still available.",
   },
 };
 
@@ -45,7 +45,7 @@ export default function PartnersPage() {
       <JsonLd
         data={webPageSchema(
           "Partner With Full Loop CRM | Exclusive Territory CRM Partnership",
-          "One partner per trade per metro. Get exclusive territory, AI-powered CRM, Selenas SMS automation, SEO microsites, and GMB optimization.",
+          "One partner per trade per city. Get exclusive territory, AI-powered CRM, Selenas SMS automation, SEO microsites, and GMB optimization.",
           "https://homeservicesbusinesscrm.com/partner-with-full-loop-crm",
           breadcrumbs
         )}
@@ -60,13 +60,13 @@ export default function PartnersPage() {
             Partnership Program
           </p>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white font-heading leading-tight mb-6">
-            One Partner Per Trade Per Metro.
+            One Partner Per Trade Per City.
             <br />
             Is Your Market Still Available?
           </h1>
           <p className="text-slate-300 text-lg md:text-xl max-w-2xl mx-auto mb-6">
             Full Loop CRM grants exclusive territory rights to one service
-            provider per trade per metropolitan area. Once a territory is
+            provider per trade per city. Once a territory is
             claimed, it is permanently off the market for that trade.
           </p>
           <p className="font-mono text-sm text-teal-400 mb-10 tracking-wide">
@@ -97,7 +97,7 @@ export default function PartnersPage() {
               {
                 step: "02",
                 title: "Territory Check",
-                desc: "We verify your metro area is available for your specific trade. One partner per trade per metro — no exceptions.",
+                desc: "We verify your city is available for your specific trade. One partner per trade per city — no exceptions.",
               },
               {
                 step: "03",
@@ -150,7 +150,7 @@ export default function PartnersPage() {
               },
               {
                 title: "Exclusive Territory Rights",
-                desc: "Your metro area is locked for your trade. No other provider in your trade will be onboarded in your territory. Period.",
+                desc: "Your city is locked for your trade. No other provider in your trade will be onboarded in your territory. Period.",
               },
               {
                 title: "Microsite Network",
@@ -287,7 +287,7 @@ export default function PartnersPage() {
           </div>
           <p className="text-slate-700 text-lg max-w-xl mx-auto">
             Territories are claimed on a first-come, first-served basis. Once
-            your trade is taken in a metro, it does not reopen. Check
+            your trade is taken in a city, it does not reopen. Check
             availability before your competitor does.
           </p>
         </div>

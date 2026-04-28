@@ -1,243 +1,342 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import './sales.css'
+import SalesQuotesTab from './sales-quotes-tab'
+import SalesWonTab from './sales-won-tab'
+import SalesForecastTab from './sales-forecast-tab'
+import SalesConversationsTab from './sales-conversations-tab'
 
-type QuoteStats = {
-  draft: number
-  sent: number
-  viewed: number
-  accepted: number
-  declined: number
-  converted: number
-  pipeline_value_cents: number
-  accepted_value_cents: number
-}
+type Tab = 'pipeline' | 'leads' | 'quotes' | 'won' | 'lost' | 'forecast' | 'conversations'
+const TABS: Array<{ key: Tab; letter: string; label: string }> = [
+  { key: 'pipeline', letter: 'A', label: 'Pipeline' },
+  { key: 'leads', letter: 'B', label: 'Leads' },
+  { key: 'quotes', letter: 'C', label: 'Quotes' },
+  { key: 'won', letter: 'D', label: 'Won' },
+  { key: 'lost', letter: 'E', label: 'Lost' },
+  { key: 'forecast', letter: 'F', label: 'Forecast' },
+  { key: 'conversations', letter: 'G', label: 'Conversations' },
+]
 
-type RecentQuote = {
+type Stage = 'new' | 'contacted' | 'qualified' | 'quoted' | 'negotiating' | 'booked'
+const STAGES: Array<{ key: Stage; label: string }> = [
+  { key: 'new', label: 'Inbound' },
+  { key: 'contacted', label: 'Contacted' },
+  { key: 'qualified', label: 'Qualified' },
+  { key: 'quoted', label: 'Quoted' },
+  { key: 'negotiating', label: 'Negotiating' },
+  { key: 'booked', label: 'Booked' },
+]
+const KANBAN_STAGES: Stage[] = ['new', 'qualified', 'quoted', 'negotiating', 'booked']
+
+type Deal = {
   id: string
-  quote_number: string
-  title: string | null
-  status: string
-  total_cents: number
-  contact_name: string | null
+  client_id: string | null
+  title: string
+  stage: string
+  value_cents: number
+  probability: number | null
+  source: string | null
+  notes: string | null
+  status: string | null
+  last_activity_at: string | null
   created_at: string
-  sent_at: string | null
+  clients: { name: string | null; address: string | null } | null
 }
 
-function formatCents(cents: number): string {
-  return ((cents || 0) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+function fmtMoney(cents: number): string {
+  return '$' + Math.round(cents / 100).toLocaleString('en-US')
+}
+function ageDays(createdAt: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000))
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-600',
-  sent: 'bg-blue-50 text-blue-600',
-  viewed: 'bg-violet-50 text-violet-600',
-  accepted: 'bg-green-50 text-green-600',
-  declined: 'bg-red-50 text-red-600',
-  expired: 'bg-amber-50 text-amber-600',
-  converted: 'bg-teal-50 text-teal-700',
-}
-
-export default function SalesHubPage() {
-  const [stats, setStats] = useState<QuoteStats | null>(null)
-  const [recent, setRecent] = useState<RecentQuote[]>([])
+export default function SalesPage() {
+  const [tab, setTab] = useState<Tab>('pipeline')
+  const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/quotes?limit=500')
-      .then(r => r.json())
-      .then(data => {
-        const quotes: RecentQuote[] = data.quotes || []
-        const s: QuoteStats = {
-          draft: 0, sent: 0, viewed: 0, accepted: 0, declined: 0, converted: 0,
-          pipeline_value_cents: 0, accepted_value_cents: 0,
-        }
-        for (const q of quotes) {
-          if (q.status in s) (s as unknown as Record<string, number>)[q.status] += 1
-          if (['sent', 'viewed'].includes(q.status)) s.pipeline_value_cents += q.total_cents || 0
-          if (['accepted', 'converted'].includes(q.status)) s.accepted_value_cents += q.total_cents || 0
-        }
-        setStats(s)
-        setRecent(quotes.slice(0, 8))
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    setLoading(true)
+    fetch('/api/deals')
+      .then((r) => r.json())
+      .then((d) => setDeals((d?.deals || []) as Deal[]))
+      .catch(() => setDeals([]))
+      .finally(() => setLoading(false))
   }, [])
 
+  const byStage = useMemo(() => {
+    const map = new Map<Stage, Deal[]>()
+    for (const s of STAGES) map.set(s.key, [])
+    for (const d of deals) {
+      const stage = (d.stage as Stage) || 'new'
+      if (map.has(stage)) map.get(stage)!.push(d)
+    }
+    return map
+  }, [deals])
+
+  const stageStats = useMemo(() => {
+    return STAGES.map((s) => {
+      const list = byStage.get(s.key) || []
+      const value = list.reduce((sum, d) => sum + d.value_cents, 0)
+      return { stage: s.key, label: s.label, count: list.length, value }
+    })
+  }, [byStage])
+
+  const totalPipelineValue = stageStats.reduce((s, x) => s + x.value, 0)
+  const bookedThisMonth = (() => {
+    const start = new Date()
+    start.setDate(1)
+    start.setHours(0, 0, 0, 0)
+    return deals.filter((d) => d.stage === 'booked' && new Date(d.last_activity_at || d.created_at) >= start)
+  })()
+  const bookedCount = bookedThisMonth.length
+  const bookedValue = bookedThisMonth.reduce((s, d) => s + d.value_cents, 0)
+
+  const sourceCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const d of deals) {
+      const src = (d.source || 'web').toLowerCase()
+      counts[src] = (counts[src] || 0) + 1
+    }
+    return counts
+  }, [deals])
+  const sourceTotal = Object.values(sourceCounts).reduce((s, n) => s + n, 0) || 1
+
   return (
-    <div>
-      <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-bold text-slate-900">Sales</h1>
-          <p className="text-sm text-slate-500">Quotes, invoices, routes, and pipeline — in one place.</p>
+    <div className="sl-scope">
+      <div className="sl-tabs">
+        {TABS.map((t) => (
+          <button key={t.key} className={`sl-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)} type="button">
+            <span className="sl-tab-letter">{t.letter}</span>
+            {t.label}
+            {t.key === 'pipeline' && deals.length > 0 && <span className="sl-tab-count">{deals.length}</span>}
+          </button>
+        ))}
+      </div>
+
+      <div className="sl-bar-label">Pipeline · This Month</div>
+      <div className="sl-outlook">
+        <div className="sl-stat">
+          <div className="sl-stat-label">Open Deals</div>
+          <div className="sl-stat-value">{deals.length}</div>
+          <div className="sl-stat-sub">Across stages</div>
         </div>
-        <Link
-          href="/dashboard/sales/quotes/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
-        >
-          <span>+</span>
-          <span>New Quote</span>
-        </Link>
+        <div className="sl-stat">
+          <div className="sl-stat-label">Pipeline Value</div>
+          <div className="sl-stat-value"><span className="unit">$</span>{Math.round(totalPipelineValue / 100).toLocaleString('en-US')}</div>
+          <div className="sl-stat-sub">Sum of open deals</div>
+        </div>
+        <div className="sl-stat">
+          <div className="sl-stat-label">Booked · MTD</div>
+          <div className="sl-stat-value">{bookedCount}</div>
+          <div className="sl-stat-sub good">{fmtMoney(bookedValue)}</div>
+        </div>
+        <div className="sl-stat">
+          <div className="sl-stat-label">Win Rate</div>
+          <div className="sl-stat-value">{deals.length > 0 ? Math.round((bookedCount / deals.length) * 100) : 0}<span className="pct">%</span></div>
+          <div className="sl-stat-sub">Booked / total open</div>
+        </div>
+        <div className="sl-stat">
+          <div className="sl-stat-label">Stale {deals.filter((d) => ageDays(d.last_activity_at || d.created_at) > 7).length > 0 && <span className="sl-stat-tag warn">action</span>}</div>
+          <div className="sl-stat-value">{deals.filter((d) => ageDays(d.last_activity_at || d.created_at) > 7).length}</div>
+          <div className="sl-stat-sub">No activity 7d+</div>
+        </div>
+        <div className="sl-stat">
+          <div className="sl-stat-label">Avg Deal Size</div>
+          <div className="sl-stat-value"><span className="unit">$</span>{deals.length > 0 ? Math.round(totalPipelineValue / 100 / deals.length).toLocaleString('en-US') : 0}</div>
+          <div className="sl-stat-sub">Per open deal</div>
+        </div>
       </div>
 
-      {/* Product cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <Link
-          href="/dashboard/sales/quotes"
-          className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-teal-400 hover:shadow-md transition-all"
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <p className="text-xs text-teal-600 uppercase tracking-wide font-medium">Live</p>
-              <h3 className="text-lg font-bold text-slate-900 mt-1">Quotes &amp; E-sign</h3>
-            </div>
-            <span className="text-2xl">📝</span>
+      {/* GOAL TRACKER */}
+      <div className="sl-goal-card">
+        <div className="sl-goal-block">
+          <span className="sl-goal-label">This Month · Bookings</span>
+          <span className={`sl-goal-num ${bookedCount > 0 ? 'good' : ''}`}>{bookedCount} / 32</span>
+          <div className="sl-goal-bar">
+            <div className={`sl-goal-fill ${bookedCount >= 32 ? 'over' : ''}`} style={{ width: `${Math.min(100, (bookedCount / 32) * 100)}%` }} />
           </div>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            Send itemized quotes with tiered pricing. Clients accept online with a signature. Auto-converts to a booking.
-          </p>
-          {stats && (
-            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-4 text-xs">
-              <span className="text-slate-500">Pipeline <strong className="text-slate-900">{formatCents(stats.pipeline_value_cents)}</strong></span>
-              <span className="text-slate-500">Won <strong className="text-slate-900">{formatCents(stats.accepted_value_cents)}</strong></span>
-            </div>
-          )}
-        </Link>
-
-        <Link
-          href="/dashboard/sales/invoices"
-          className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-teal-400 hover:shadow-md transition-all"
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <p className="text-xs text-teal-600 uppercase tracking-wide font-medium">Live</p>
-              <h3 className="text-lg font-bold text-slate-900 mt-1">Invoices</h3>
-            </div>
-            <span className="text-2xl">📄</span>
+          <span className="sl-goal-meta">{Math.round((bookedCount / 32) * 100)}% to plan</span>
+        </div>
+        <div className="sl-goal-block">
+          <span className="sl-goal-label">Revenue Goal</span>
+          <span className="sl-goal-num">{fmtMoney(bookedValue)} / $6,400</span>
+          <div className="sl-goal-bar">
+            <div className="sl-goal-fill" style={{ width: `${Math.min(100, (bookedValue / 640000) * 100)}%` }} />
           </div>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            Send invoices via email or SMS. Stripe online payment + Zelle/Venmo/cash reconciliation. Auto-status from paid amount.
-          </p>
-        </Link>
-
-        <Link
-          href="/dashboard/sales/routes"
-          className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-teal-400 hover:shadow-md transition-all"
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <p className="text-xs text-teal-600 uppercase tracking-wide font-medium">Live</p>
-              <h3 className="text-lg font-bold text-slate-900 mt-1">Route Optimizer</h3>
-            </div>
-            <span className="text-2xl">🗺️</span>
+          <span className="sl-goal-meta">{Math.round((bookedValue / 640000) * 100)}% to plan</span>
+        </div>
+        <div className="sl-goal-block">
+          <span className="sl-goal-label">Pipeline Health</span>
+          <span className="sl-goal-num">{deals.length}</span>
+          <div className="sl-goal-bar">
+            <div className="sl-goal-fill" style={{ width: `${Math.min(100, deals.length * 5)}%` }} />
           </div>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            Auto-build daily routes from bookings. Nearest-neighbor + 2-opt optimization. Publish to team via SMS with Google Maps navigation.
-          </p>
-        </Link>
-
-        <Link
-          href="/dashboard/sales/pipeline"
-          className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-teal-400 hover:shadow-md transition-all"
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <p className="text-xs text-teal-600 uppercase tracking-wide font-medium">Live</p>
-              <h3 className="text-lg font-bold text-slate-900 mt-1">Deal Pipeline</h3>
-            </div>
-            <span className="text-2xl">📊</span>
+          <span className="sl-goal-meta">Target: 20+ open deals</span>
+        </div>
+        <div className="sl-goal-block">
+          <span className="sl-goal-label">Days Left in Month</span>
+          <span className="sl-goal-num">
+            {(() => {
+              const today = new Date()
+              const last = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+              return last.getDate() - today.getDate()
+            })()}
+          </span>
+          <div className="sl-goal-bar">
+            <div className="sl-goal-fill" style={{ width: `${(new Date().getDate() / 30) * 100}%` }} />
           </div>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            Kanban stages, probability weighting, monthly forecast, activity timeline. Drag-drop stage moves, overdue follow-up tracking.
-          </p>
-        </Link>
-
-        <Link
-          href="/dashboard/sales/documents"
-          className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-teal-400 hover:shadow-md transition-all"
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <p className="text-xs text-teal-600 uppercase tracking-wide font-medium">Live</p>
-              <h3 className="text-lg font-bold text-slate-900 mt-1">Documents &amp; E-sign</h3>
-            </div>
-            <span className="text-2xl">📑</span>
-          </div>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            Upload any PDF, add signers with roles, drag-drop signature &amp; date fields, send. Multi-party parallel or sequential. ESIGN consent + SHA-256 integrity + audit certificate.
-          </p>
-        </Link>
+          <span className="sl-goal-meta"><strong>{new Date().getDate()}</strong> days done</span>
+        </div>
       </div>
 
-      {/* Stats bar */}
-      {stats && (
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-8">
-          {(['draft', 'sent', 'viewed', 'accepted', 'declined', 'converted'] as const).map(k => (
-            <div key={k} className="bg-white border border-slate-200 rounded-lg p-3">
-              <p className="text-xs text-slate-400 uppercase tracking-wide">{k}</p>
-              <p className="text-xl font-bold text-slate-900 mt-0.5">{stats[k]}</p>
-            </div>
-          ))}
+      {tab === 'quotes' && <SalesQuotesTab />}
+      {tab === 'won' && <SalesWonTab view="won" />}
+      {tab === 'lost' && <SalesWonTab view="lost" />}
+      {tab === 'forecast' && <SalesForecastTab />}
+      {tab === 'conversations' && <SalesConversationsTab />}
+
+      {tab === 'leads' && (
+        <div className="sl-coming-soon">
+          <div className="sl-coming-soon-title">Coming soon.</div>
+          <div>Leads view will land next pass.</div>
         </div>
       )}
 
-      {/* Recent quotes */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="font-heading font-semibold text-slate-900">Recent Quotes</h2>
-          <Link href="/dashboard/sales/quotes" className="text-xs text-teal-600 hover:underline">View all →</Link>
-        </div>
-        {loading ? (
-          <div className="p-8 text-center text-slate-400 text-sm">Loading…</div>
-        ) : recent.length === 0 ? (
-          <div className="p-10 text-center">
-            <p className="text-slate-500 mb-3">No quotes yet.</p>
-            <Link
-              href="/dashboard/sales/quotes/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700"
-            >
-              Create your first quote →
-            </Link>
+      {tab === 'pipeline' && (
+        <>
+          <div className="sl-section-head">
+            <h2 className="sl-section-title">Pipeline<em>.</em></h2>
+            <span className="sl-section-meta">{deals.length} {deals.length === 1 ? 'deal' : 'deals'} · {fmtMoney(totalPipelineValue)} value</span>
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
-              <tr>
-                <th className="px-5 py-2 font-medium">Number</th>
-                <th className="px-5 py-2 font-medium">Title / Contact</th>
-                <th className="px-5 py-2 font-medium">Status</th>
-                <th className="px-5 py-2 font-medium text-right">Total</th>
-                <th className="px-5 py-2 font-medium">Created</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {recent.map(q => (
-                <tr key={q.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-5 py-3">
-                    <Link href={`/dashboard/sales/quotes/${q.id}`} className="text-teal-600 font-medium hover:underline">
-                      {q.quote_number}
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3">
-                    <p className="text-slate-900">{q.title || '—'}</p>
-                    <p className="text-xs text-slate-400">{q.contact_name || '—'}</p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[q.status] || 'bg-slate-100 text-slate-500'}`}>
-                      {q.status}
+
+          {/* STAGE STATS */}
+          <div className="sl-stage-stats">
+            {stageStats.map((s) => (
+              <div key={s.stage} className="sl-stage-cell">
+                <span className="sl-stage-name">
+                  <span className={`sl-stage-dot ${s.stage}`} />
+                  {s.label}
+                </span>
+                <div className="sl-stage-row">
+                  <span className="sl-stage-count">{s.count}</span>
+                  <span className="sl-stage-value">{fmtMoney(s.value)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* KANBAN */}
+          <div className="sl-kanban">
+            {KANBAN_STAGES.map((stage) => {
+              const list = byStage.get(stage) || []
+              const stageMeta = STAGES.find((s) => s.key === stage)!
+              const total = list.reduce((s, d) => s + d.value_cents, 0)
+              return (
+                <div key={stage} className="sl-lane">
+                  <div className="sl-lane-head">
+                    <span className="sl-lane-name">
+                      <span className={`sl-stage-dot ${stage}`} />
+                      {stageMeta.label}
                     </span>
-                  </td>
-                  <td className="px-5 py-3 text-right font-medium text-slate-900">{formatCents(q.total_cents)}</td>
-                  <td className="px-5 py-3 text-xs text-slate-500">
-                    {new Date(q.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                    <span className="sl-lane-count">{list.length}</span>
+                  </div>
+                  <div className="sl-lane-value">{fmtMoney(total)}</div>
+                  {loading && list.length === 0 && <div className="sl-empty" style={{ padding: 8 }}>—</div>}
+                  {list.map((d) => {
+                    const age = ageDays(d.last_activity_at || d.created_at)
+                    const ageClass = age >= 14 ? 'danger' : age >= 7 ? 'warn' : ''
+                    const dealClass = d.probability && d.probability >= 75 ? 'hot' : age >= 14 ? 'stale' : age >= 7 ? 'aging' : ''
+                    const sourceClass = ((d.source || 'web') as string).toLowerCase().includes('selena') ? 'selena' : ((d.source || 'web') as string).toLowerCase()
+                    const srcSafe: 'selena' | 'web' | 'referral' | 'repeat' =
+                      sourceClass === 'selena' || sourceClass === 'web' || sourceClass === 'referral' || sourceClass === 'repeat'
+                        ? sourceClass as 'selena' | 'web' | 'referral' | 'repeat'
+                        : 'web'
+                    return (
+                      <div key={d.id} className={`sl-deal ${dealClass}`}>
+                        <div className="sl-deal-name">{d.clients?.name || d.title || 'Untitled'}</div>
+                        <div className="sl-deal-meta">
+                          <span className="sl-deal-ctx">{d.title || (d.clients?.address ?? '—')}</span>
+                          <span className="sl-deal-value">{fmtMoney(d.value_cents)}</span>
+                        </div>
+                        <div className="sl-deal-foot">
+                          <span className={`sl-deal-source ${srcSafe}`}>{srcSafe}</span>
+                          <span className={`sl-deal-age ${ageClass}`}>{age === 0 ? 'today' : `${age}d`}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* PANEL ROW */}
+          <div className="sl-panel-row">
+            <div className="sl-panel">
+              <div className="sl-panel-head">
+                <span className="sl-panel-label">Selena · Active Conversations</span>
+                <span className="sl-live-tag">LIVE</span>
+              </div>
+              <div className="sl-empty">Conversation feed wires next pass.</div>
+            </div>
+
+            <div className="sl-panel">
+              <div className="sl-panel-head">
+                <span className="sl-panel-label">Source Mix</span>
+              </div>
+              {Object.entries(sourceCounts).slice(0, 5).map(([src, n]) => {
+                const pct = Math.round((n / sourceTotal) * 100)
+                const colorMap: Record<string, string> = {
+                  selena: 'var(--sl-good)',
+                  web: 'var(--sl-ink)',
+                  referral: 'var(--sl-vip)',
+                  repeat: 'var(--sl-warn)',
+                }
+                const color = colorMap[src] || 'var(--sl-muted)'
+                return (
+                  <div key={src} className="sl-source-row">
+                    <span className="sl-source-dot" style={{ background: color }} />
+                    <span className="sl-source-name">{src}</span>
+                    <div className="sl-source-bar"><div className="sl-source-fill" style={{ width: `${pct}%`, background: color }} /></div>
+                    <span className="sl-source-pct">{pct}%</span>
+                  </div>
+                )
+              })}
+              {Object.keys(sourceCounts).length === 0 && <div className="sl-empty">No deals yet.</div>}
+            </div>
+
+            <div className="sl-panel">
+              <div className="sl-panel-head">
+                <span className="sl-panel-label">Lost Reasons</span>
+              </div>
+              <div className="sl-empty">Wires next pass.</div>
+            </div>
+
+            <div className="sl-panel">
+              <div className="sl-panel-head">
+                <span className="sl-panel-label">Funnel · Mini</span>
+              </div>
+              <div className="sl-funnel-mini">
+                {stageStats.map((s, i) => {
+                  const max = Math.max(1, ...stageStats.map((x) => x.count))
+                  const pctOfPrev = i === 0 ? 100 : stageStats[i - 1].count > 0 ? Math.round((s.count / stageStats[i - 1].count) * 100) : 0
+                  return (
+                    <div key={s.stage} className="sl-funnel-step">
+                      <span className="sl-funnel-label">{s.label}</span>
+                      <div className="sl-funnel-bar">
+                        <div className="sl-funnel-fill" style={{ width: `${(s.count / max) * 100}%` }}>{s.count}</div>
+                      </div>
+                      <span className={`sl-funnel-pct ${i === 0 ? 'muted' : ''}`}>{i === 0 ? '—' : `${pctOfPrev}%`}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

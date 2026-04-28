@@ -14,20 +14,20 @@ import {
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
   title:
-    "$1,000 per user / month | Full Loop CRM — One Trade Per Metro",
+    "$1,000 per user / month | Full Loop CRM — One Trade Per City",
   description:
-    "Flat $1,000 per user / month. Every feature included. One operator per trade per metro holds the license. AI sales (Selena), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO. The category doesn't have a comparison.",
+    "Flat $1,000 per user / month. Every feature included. One operator per trade per city holds the license. AI sales (Selena), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO. The category doesn't have a comparison.",
   keywords: [
     "Full Loop CRM pricing",
     "home service CRM per user pricing",
     "exclusive territory CRM",
-    "one trade per metro CRM",
+    "one trade per city CRM",
     "all-in-one home service platform",
     "AI receptionist CRM",
   ],
   alternates: { canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
   openGraph: {
-    title: "$1,000 per user / month — One Trade Per Metro",
+    title: "$1,000 per user / month — One Trade Per City",
     description:
       "Flat per-user pricing. Every feature, every tier. Exclusive territory in your city. The first full-cycle CRM with an AI receptionist that books while you sleep.",
     url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
@@ -36,9 +36,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "$1,000 per user / month — One Trade Per Metro",
+    title: "$1,000 per user / month — One Trade Per City",
     description:
-      "One operator per trade per metro. Flat per-user pricing, every feature included. Claim the license before a competitor does.",
+      "One operator per trade per city. Flat per-user pricing, every feature included. Claim the license before a competitor does.",
   },
 };
 
@@ -128,7 +128,7 @@ export default function PricingPage() {
       <JsonLd
         data={webPageSchema(
           "Pricing | Full Loop CRM",
-          "Flat $1,000 per user / month. Every feature included. One operator per trade per metro. The category doesn't have a comparison.",
+          "Flat $1,000 per user / month. Every feature included. One operator per trade per city. The category doesn't have a comparison.",
           "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
           breadcrumbs
         )}
@@ -142,7 +142,7 @@ export default function PricingPage() {
       <section className="bg-slate-900 py-24 px-6 sm:py-32">
         <div className="mx-auto max-w-4xl text-center">
           <p className="mb-4 text-sm font-mono uppercase tracking-widest text-teal-400">
-            One Trade. One Metro. One License.
+            One Trade. One City. One License.
           </p>
           <h1 className="text-4xl font-extrabold font-heading text-white sm:text-5xl lg:text-6xl">
             $1,000 per user.{" "}
@@ -621,7 +621,7 @@ export default function PricingPage() {
               <li>✦ Stripe Connect crew auto-payouts the moment a job closes — no other field-service CRM ships this</li>
               <li>✦ Per-tenant Selena persona (24 fields) + custom intent router — your business&apos;s voice, not a generic chatbot</li>
               <li>✦ Mobile team + client portals as PWA today, native app on the roadmap — included, never an upcharge</li>
-              <li>✦ Exclusive territory: nobody in your trade in your metro can sign up after you</li>
+              <li>✦ Exclusive territory: nobody in your trade in your city can sign up after you</li>
             </ul>
           </div>
 
@@ -695,7 +695,7 @@ export default function PricingPage() {
             Ready to Close the Loop?
           </h2>
           <p className="mt-4 text-lg text-slate-300 max-w-xl mx-auto">
-            One trade per metro. Once a territory is claimed, it&apos;s off the
+            One trade per city. Once a territory is claimed, it&apos;s off the
             board — but every operator who claims one runs the same complete
             platform from day one. ${PRICE_PER_USER.toLocaleString()} per user, every feature included.
           </p>

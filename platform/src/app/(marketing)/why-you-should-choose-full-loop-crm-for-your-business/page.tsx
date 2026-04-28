@@ -12,9 +12,9 @@ import {
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
   title:
-    "Why Full Loop CRM | The Only Full-Cycle Home Service CRM — And Only One Operator Per Metro Gets It",
+    "Why Full Loop CRM | The Only Full-Cycle Home Service CRM — And Only One Operator Per City Gets It",
   description:
-    "Jobber, Housecall Pro, and ServiceTitan sell to every competitor on your block. Full Loop CRM licenses to one operator per trade per metro — then locks everyone else out. See why exclusivity beats features.",
+    "Jobber, Housecall Pro, and ServiceTitan sell to every competitor on your block. Full Loop CRM licenses to one operator per trade per city — then locks everyone else out. See why exclusivity beats features.",
   keywords: [
     "why full loop CRM",
     "exclusive home service CRM",
@@ -30,15 +30,15 @@ export const metadata: Metadata = {
     canonical: "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business",
   },
   openGraph: {
-    title: "Why Full Loop CRM — One Operator Per Trade Per Metro, Nobody Else",
+    title: "Why Full Loop CRM — One Operator Per Trade Per City, Nobody Else",
     description:
-      "Your competitors buy the same Jobber subscription you do. Full Loop CRM is different — we license to one operator per trade per metro, then lock everyone else out.",
+      "Your competitors buy the same Jobber subscription you do. Full Loop CRM is different — we license to one operator per trade per city, then lock everyone else out.",
     url: "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Why Full Loop CRM — One Operator Per Trade Per Metro",
+    title: "Why Full Loop CRM — One Operator Per Trade Per City",
     description:
       "Exclusivity beats features. Full-cycle platform, single license per city, zero competition inside the system.",
   },
@@ -106,7 +106,7 @@ const differentiators = [
   },
   {
     title: "Exclusive Territory",
-    desc: "We accept one partner per trade per metro area. Your competitor can't buy the same system. Your territory is yours alone — guaranteed in writing.",
+    desc: "We accept one partner per trade per city. Your competitor can't buy the same system. Your territory is yours alone — guaranteed in writing.",
     highlight: "Your market. Protected.",
   },
   {
@@ -177,14 +177,14 @@ export default function WhyFullLoopPage() {
       <section className="bg-slate-900 py-24 px-6 sm:py-32">
         <div className="mx-auto max-w-4xl text-center">
           <p className="font-mono text-sm uppercase tracking-widest text-teal-400 mb-4">
-            One Operator Per Trade. One Per Metro.
+            One Operator Per Trade. One Per City.
           </p>
           <h1 className="font-heading text-4xl font-extrabold text-white sm:text-5xl lg:text-6xl mb-6">
             Your Competition Can&apos;t Buy This CRM
           </h1>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-6 leading-relaxed">
             Every other home service CRM sells to you and every competitor on
-            your block. Full Loop is different: one license per trade per metro,
+            your block. Full Loop is different: one license per trade per city,
             full-cycle platform, and the moment you claim your city, we lock
             everyone else out of the system.
           </p>

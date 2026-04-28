@@ -59,7 +59,11 @@ const navMain: Array<{
     { letter: 'B', label: 'Transactions', href: '/dashboard/finance/transactions' },
     { letter: 'C', label: 'Receipts', href: '/dashboard/finance/receipts' },
   ]},
-  { num: '06', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', subs: [
+  { num: '06', label: 'Books', href: '/dashboard/books', fold: 'books', subs: [
+    { letter: 'A', label: 'Overview', href: '/dashboard/books' },
+    { letter: 'B', label: 'Ledger', href: '/dashboard/books' },
+  ]},
+  { num: '07', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
     { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
@@ -80,6 +84,7 @@ const foldMap: Record<string, string[]> = {
   clients: ['/dashboard/clients', '/dashboard/sms'],
   team: ['/dashboard/team'],
   finance: ['/dashboard/finance'],
+  books: ['/dashboard/books'],
   marketing: [
     '/dashboard/campaigns', '/dashboard/reviews', '/dashboard/referrals',
     '/dashboard/social', '/dashboard/google', '/dashboard/websites',
@@ -93,7 +98,7 @@ const navPlatform = [
   { label: 'Notifications', href: '/dashboard/notifications' },
   { label: 'Activity', href: '/dashboard/activity' },
   { label: 'Docs', href: '/dashboard/docs' },
-  { label: 'Connect', href: '/dashboard/connect' },
+  { label: 'Loop Connect', href: '/dashboard/connect' },
   { label: 'Feedback', href: '/dashboard/feedback' },
 ]
 
@@ -106,8 +111,16 @@ function activeFold(pathname: string): string | null {
   return null
 }
 
+// Path → masthead title overrides. Used when the URL segment doesn't match
+// the human label we want shown (e.g. /dashboard/bookings is the Schedule hub).
+const TITLE_OVERRIDES: Record<string, string> = {
+  '/dashboard/bookings': 'Schedule',
+  '/dashboard/connect': 'Loop Connect',
+}
+
 function pageTitleFromPath(pathname: string): string {
   if (pathname === '/dashboard') return 'The Loop'
+  if (TITLE_OVERRIDES[pathname]) return TITLE_OVERRIDES[pathname]
   const seg = pathname.replace(/^\/dashboard\/?/, '').split('/')[0] || 'The Loop'
   // Capitalize each word, replace dashes with spaces
   return seg

@@ -575,7 +575,7 @@ export default async function IndustryPage({
           <p className="text-slate-600 text-center mb-8 max-w-2xl mx-auto">
             Full Loop CRM is available for {trade} businesses in{" "}
             {metros.length}+ cities across the United States. One partner
-            per trade per metro — claim yours before a competitor does.
+            per trade per city — claim yours before a competitor does.
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -610,7 +610,7 @@ export default async function IndustryPage({
             Lock Your {industry.name} Territory
           </h2>
           <p className="text-slate-300 mb-8 text-lg">
-            One partner per trade per metro. Once a {trade} territory is
+            One partner per trade per city. Once a {trade} territory is
             claimed, it&apos;s off the table. Apply now to check
             availability in your market.
           </p>

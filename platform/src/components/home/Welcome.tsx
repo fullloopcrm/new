@@ -34,7 +34,7 @@ export default function Welcome() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="mt-6 text-lg sm:text-xl text-slate-600 leading-relaxed max-w-3xl mx-auto"
         >
-          Most <Link href="/full-loop-crm-101-educational-tips" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">home service CRMs</Link> handle scheduling. Some handle invoicing. A few do field management. None of them generate your leads, close them with AI, track your crew by GPS, collect payment, earn your reviews, and retarget for the next booking. Full Loop is the only <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">full-service CRM</Link> that covers all seven stages &mdash; and we license it to <strong className="text-slate-800">one operator per trade per metro.</strong> When it&apos;s yours, your competitors are locked out of this platform.
+          Most <Link href="/full-loop-crm-101-educational-tips" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">home service CRMs</Link> handle scheduling. Some handle invoicing. A few do field management. None of them generate your leads, close them with AI, track your crew by GPS, collect payment, earn your reviews, and retarget for the next booking. Full Loop is the only <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">full-service CRM</Link> that covers all seven stages &mdash; and we license it to <strong className="text-slate-800">one operator per trade per city.</strong> When it&apos;s yours, your competitors are locked out of this platform.
         </motion.p>
 
         <motion.p
@@ -44,7 +44,7 @@ export default function Welcome() {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="mt-5 text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl mx-auto"
         >
-          Built by someone who ran home service companies for 20+ years &mdash; not a product team that Googled &ldquo;cleaning business software.&rdquo; Every feature in this <Link href="/full-loop-crm-service-features" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">automated service business platform</Link> exists because of a <strong className="text-slate-700">real operational problem</strong>. Every <Link href="/full-loop-crm-pricing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">territory license</Link> is exclusive: <strong className="text-slate-700">one partner per trade per metro, for as long as you hold it.</strong>
+          Built by someone who ran home service companies for 20+ years &mdash; not a product team that Googled &ldquo;cleaning business software.&rdquo; Every feature in this <Link href="/full-loop-crm-service-features" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">automated service business platform</Link> exists because of a <strong className="text-slate-700">real operational problem</strong>. Every <Link href="/full-loop-crm-pricing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">territory license</Link> is exclusive: <strong className="text-slate-700">one partner per trade per city, for as long as you hold it.</strong>
         </motion.p>
 
         <motion.div

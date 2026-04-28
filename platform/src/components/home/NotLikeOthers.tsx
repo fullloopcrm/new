@@ -18,7 +18,7 @@ const consortiumDoes = [
   "Custom strategies built for YOUR neighborhood, YOUR market, YOUR competitors. No two local businesses get the same playbook.",
   "Every project is handled by our NYC-based team. The people in your strategy call are the ones doing the work for your business.",
   "Dedicated account manager. Weekly updates. We're always available because that's what real partners do for local businesses.",
-  "Real results for real small businesses — plumbers, dentists, restaurants, law firms. We know what works in the NYC metro area.",
+  "Real results for real small businesses — plumbers, dentists, restaurants, law firms. We know what works in the NYC city.",
 ];
 
 export default function NotLikeOthers() {

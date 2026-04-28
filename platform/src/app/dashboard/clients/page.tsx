@@ -1,16 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { downloadCSV } from '@/lib/csv'
-import { formatPhone } from '@/lib/phone'
-import AddressAutocomplete from '@/components/address-autocomplete'
-import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
-import { useTenantSettings } from '@/lib/use-tenant-settings'
-import { CLIENT_STATUS_COLORS } from '@/lib/constants'
-import CsvImport from '@/components/CsvImport'
+import { useEffect, useMemo, useState } from 'react'
+import dynamic from 'next/dynamic'
+import './clients.css'
+import ClientDrawer from './client-drawer'
 
-type Client = {
+const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
+
+type Stage = 'lead' | 'first' | 'active' | 'vip' | 'risk' | 'lapsed' | 'dns'
+type HealthBand = 'vip' | 'healthy' | 'ok' | 'risk' | 'critical'
+
+type EnrichedClient = {
   id: string
   name: string
   email: string | null
@@ -19,443 +19,440 @@ type Client = {
   status: string
   source: string | null
   created_at: string
+  dns_status: boolean
+  health: number
+  health_band: HealthBand
+  health_factors: { frequency: number; spend: number; payment: number; sentiment: number }
+  stage: Stage
+  ltv_actual_cents: number
+  ltv_projected_cents: number
+  bookings_count: number
+  last_booking: { date: string; label: string; sub: string; overdue: boolean } | null
+  recurring: { frequency: string; discount_pct: number; day: string; time: string; status: string } | null
+  preferred_cleaner: { name: string; jobs_with: number; total_jobs: number } | null
+  cohort: string
 }
 
-type Stats = {
+type Totals = {
   total: number
+  healthy: number
+  vip: number
+  vip_projected_cents: number
+  at_risk: number
+  first_time: number
   active: number
-  newThisMonth: number
-  inactive: number
-  referrals: number
-  totalRevenue: number
-  avgLtv: number
+  lapsed: number
+  dns: number
+  avg_health: number
+  mrr_cents: number
+  recurring: number
 }
 
-const statusTabs = [
-  { value: '', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'do_not_contact', label: 'Do Not Contact' },
+type Tab = 'all' | 'map' | 'lifecycle' | 'cohorts' | 'conversations' | 'reviews' | 'referrals'
+
+const TABS: Array<{ key: Tab; letter: string; label: string }> = [
+  { key: 'all', letter: 'A', label: 'All Clients' },
+  { key: 'map', letter: 'B', label: 'Map' },
+  { key: 'lifecycle', letter: 'C', label: 'Lifecycle' },
+  { key: 'cohorts', letter: 'D', label: 'Cohorts' },
+  { key: 'conversations', letter: 'E', label: 'Conversations' },
+  { key: 'reviews', letter: 'F', label: 'Reviews' },
+  { key: 'referrals', letter: 'G', label: 'Referrals' },
 ]
 
-const statusColors = CLIENT_STATUS_COLORS
-
-const sourceLabels: Record<string, string> = {
-  manual: 'Manual',
-  import: 'Import',
-  referral: 'Referral',
-  portal: 'Portal',
-  website: 'Website',
-  unknown: 'Unknown',
+function initials(name: string): string {
+  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+function fmtMoney(cents: number): string {
+  return '$' + Math.round(cents / 100).toLocaleString('en-US')
 }
 
-function avatarColor(name: string) {
-  const colors = [
-    'bg-teal-600', 'bg-purple-500', 'bg-green-500', 'bg-orange-500',
-    'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-red-500',
-  ]
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  return colors[Math.abs(hash) % colors.length]
+function fmtMoneyShort(cents: number): string {
+  const dollars = cents / 100
+  if (dollars >= 1000) return `${(dollars / 1000).toFixed(1)}k`
+  return `${Math.round(dollars)}`
 }
 
-const fmt = (cents: number) => '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })
+function cohortLabel(yyyymm: string): string {
+  if (!yyyymm || yyyymm.length < 7) return '—'
+  const [y, m] = yyyymm.split('-')
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const idx = parseInt(m, 10) - 1
+  return `${months[idx]} '${y.slice(2)}`
+}
+
+function stageLabel(stage: Stage): string {
+  if (stage === 'lead') return 'Lead'
+  if (stage === 'first') return 'First-Time'
+  if (stage === 'active') return 'Active'
+  if (stage === 'vip') return 'VIP'
+  if (stage === 'risk') return 'At-Risk'
+  if (stage === 'lapsed') return 'Lapsed'
+  return 'DNS'
+}
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([])
-  const [total, setTotal] = useState(0)
+  const [clients, setClients] = useState<EnrichedClient[]>([])
+  const [totals, setTotals] = useState<Totals | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<Tab>('all')
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [page, setPage] = useState(1)
-  const [showAdd, setShowAdd] = useState(false)
-  const [showImport, setShowImport] = useState(false)
-  const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', source: 'manual' })
-  const [saving, setSaving] = useState(false)
-  const [stats, setStats] = useState<Stats | null>(null)
+  const [stageFilter, setStageFilter] = useState<Stage | 'all'>('all')
+  const [cohortFilter, setCohortFilter] = useState<string | 'all'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'recurring' | 'one-time'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [bulkAction, setBulkAction] = useState('')
-
-  const tenantSettings = useTenantSettings()
-  const [clientsPanelOpen, setClientsPanelOpen] = useState(false)
-  const clientsTenant = tenantSettings.tenant
-  const clientsSelena = (clientsTenant?.selena_config as Record<string, unknown> | null) || {}
-  const clientsConfig: Record<string, unknown> = {
-    default_status: (clientsSelena.default_client_status as string) || 'active',
-    active_client_threshold_days: Number(clientsTenant?.active_client_threshold_days ?? 45),
-    at_risk_threshold_days: Number(clientsTenant?.at_risk_threshold_days ?? 90),
-    require_phone: Boolean(clientsSelena.require_client_phone),
-    require_email: Boolean(clientsSelena.require_client_email),
-  }
-  function updateClientsConfig(key: string, value: unknown) {
-    if (key === 'default_status') tenantSettings.updateSelenaConfig({ default_client_status: value })
-    else if (key === 'require_phone') tenantSettings.updateSelenaConfig({ require_client_phone: Boolean(value) })
-    else if (key === 'require_email') tenantSettings.updateSelenaConfig({ require_client_email: Boolean(value) })
-    else if (key === 'active_client_threshold_days') tenantSettings.updateField('active_client_threshold_days', Number(value) || 45)
-    else if (key === 'at_risk_threshold_days') tenantSettings.updateField('at_risk_threshold_days', Number(value) || 90)
-  }
+  const [drawerId, setDrawerId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/clients/stats').then(r => r.json()).then(setStats).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (search) params.set('search', search)
-    if (statusFilter) params.set('status', statusFilter)
-    params.set('page', String(page))
-    fetch(`/api/clients?${params}`)
+    setLoading(true)
+    fetch('/api/clients/enriched')
       .then((r) => r.json())
       .then((data) => {
-        setClients(data.clients || [])
-        setTotal(data.total || 0)
+        if (data && Array.isArray(data.clients)) {
+          setClients(data.clients)
+          setTotals(data.totals || null)
+        }
       })
-  }, [search, statusFilter, page])
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
 
-  async function addClient(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    const res = await fetch('/api/clients', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    })
-    if (res.ok) {
-      const { client } = await res.json()
-      setClients((prev) => [client, ...prev])
-      setShowAdd(false)
-      setForm({ name: '', email: '', phone: '', address: '', source: 'manual' })
-      fetch('/api/clients/stats').then(r => r.json()).then(setStats).catch(() => {})
+  const cohortOptions = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const c of clients) {
+      counts.set(c.cohort, (counts.get(c.cohort) || 0) + 1)
     }
-    setSaving(false)
+    return [...counts.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .slice(0, 5)
+      .map(([cohort, count]) => ({ cohort, count }))
+  }, [clients])
+
+  const stageCounts = useMemo(() => {
+    const counts: Record<Stage | 'all', number> = {
+      all: clients.length,
+      lead: 0, first: 0, active: 0, vip: 0, risk: 0, lapsed: 0, dns: 0,
+    }
+    for (const c of clients) counts[c.stage]++
+    return counts
+  }, [clients])
+
+  const filtered = useMemo(() => {
+    return clients.filter((c) => {
+      if (stageFilter !== 'all' && c.stage !== stageFilter) return false
+      if (cohortFilter !== 'all' && c.cohort !== cohortFilter) return false
+      if (typeFilter === 'recurring' && !c.recurring) return false
+      if (typeFilter === 'one-time' && c.recurring) return false
+      if (search) {
+        const q = search.toLowerCase()
+        const hay = `${c.name} ${c.email || ''} ${c.phone || ''} ${c.address || ''}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+  }, [clients, stageFilter, cohortFilter, typeFilter, search])
+
+  const drawerClient = useMemo(() => clients.find((c) => c.id === drawerId) || null, [clients, drawerId])
+
+  function toggleSelected(id: string) {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelected(next)
+  }
+  function toggleAll() {
+    if (selected.size === filtered.length) setSelected(new Set())
+    else setSelected(new Set(filtered.map((c) => c.id)))
   }
 
   return (
-    <div>
-      {/* PORTAL LINK */}
-      <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-400">Client Portal:</span>
-          <code className="text-teal-600 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal` : '/portal'}</code>
+    <div className="clients-scope">
+      {/* OUTLOOK BAR */}
+      <div className="clients-bar-label">Health</div>
+      <div className="clients-outlook">
+        <div className="clients-stat">
+          <div className="clients-stat-label">Total <span className="clients-stat-tag">all time</span></div>
+          <div className="clients-stat-value">{totals?.total ?? clients.length}</div>
+          <div className="clients-stat-sub">Roster + new + DNS</div>
         </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal`)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Copy Link</button>
+        <div className="clients-stat">
+          <div className="clients-stat-label">
+            Healthy
+            <span className="clients-stat-tag up">
+              {totals && totals.total ? Math.round((totals.healthy / totals.total) * 100) : 0}%
+            </span>
+          </div>
+          <div className="clients-stat-value">{totals?.healthy ?? 0}</div>
+          <div className="clients-stat-sub">Score 70+ · active</div>
+        </div>
+        <div className="clients-stat">
+          <div className="clients-stat-label">VIPs <span className="clients-stat-tag vip">●</span></div>
+          <div className="clients-stat-value">{totals?.vip ?? 0}</div>
+          <div className="clients-stat-sub">
+            <strong>{fmtMoney(totals?.vip_projected_cents ?? 0)}</strong> proj. LTV
+          </div>
+        </div>
+        <div className="clients-stat">
+          <div className="clients-stat-label">At-Risk <span className="clients-stat-tag warn">churn</span></div>
+          <div className="clients-stat-value">{totals?.at_risk ?? 0}</div>
+          <div className="clients-stat-sub warn">Selena drafted nudges</div>
+        </div>
+        <div className="clients-stat">
+          <div className="clients-stat-label">Avg Health</div>
+          <div className="clients-stat-value">{totals?.avg_health ?? 0}</div>
+          <div className="clients-stat-sub">Across {(totals?.active ?? 0) + (totals?.vip ?? 0)} active</div>
+        </div>
+        <div className="clients-stat">
+          <div className="clients-stat-label">MRR</div>
+          <div className="clients-stat-value">
+            <span className="unit">$</span>{fmtMoneyShort(totals?.mrr_cents ?? 0)}
+          </div>
+          <div className="clients-stat-sub">From <strong>{totals?.recurring ?? 0}</strong> recurring</div>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-heading font-bold text-slate-900">Clients</h1>
-            <p className="text-sm text-slate-400">{total} total clients</p>
-          </div>
-          <PageSettingsGear open={clientsPanelOpen} setOpen={setClientsPanelOpen} title="Clients" />
-        </div>
-        <div className="flex gap-2">
+      {/* TABS */}
+      <div className="clients-tabs">
+        {TABS.map((t) => (
           <button
-            onClick={() => downloadCSV(clients as unknown as Record<string, unknown>[], 'clients', ['name', 'email', 'phone', 'address', 'status', 'source', 'created_at'])}
-            className="text-sm text-slate-500 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg"
+            key={t.key}
+            className={`clients-tab ${tab === t.key ? 'active' : ''}`}
+            onClick={() => setTab(t.key)}
+            type="button"
           >
-            Export CSV
+            <span className="clients-tab-letter">{t.letter}</span>
+            {t.label}
+            {t.key === 'all' && <span className="clients-tab-count">{stageCounts.all}</span>}
           </button>
-          <button onClick={() => { setShowImport(!showImport); if (!showImport) setShowAdd(false) }}
-            className="text-sm text-slate-500 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg">
-            {showImport ? 'Cancel' : 'Import CSV'}
+        ))}
+      </div>
+
+      {/* TOOLBAR */}
+      <div className="clients-toolbar">
+        <div className="clients-ai-search">
+          <span className="clients-ai-search-icon">Ask Selena</span>
+          <input
+            type="text"
+            placeholder="biweekly clients in Murray Hill who haven't reviewed yet…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <span className="clients-ai-search-key">⌘K</span>
+        </div>
+        <div className="clients-toolbar-right">
+          <button className="clients-btn clients-btn-ghost" type="button">
+            <span className="clients-btn-icon">⚲</span>Filters
           </button>
-          <button onClick={() => { setShowAdd(!showAdd); if (!showAdd) setShowImport(false) }}
-            className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition-colors">
-            {showAdd ? 'Cancel' : '+ Add Client'}
+          <button className="clients-btn clients-btn-ghost" type="button">
+            <span className="clients-btn-icon">↓</span>Export
+          </button>
+          <button className="clients-btn clients-btn-ghost" type="button" disabled={selected.size === 0}>
+            Bulk Actions{selected.size > 0 ? ` (${selected.size})` : ''}
+          </button>
+          <button className="clients-btn clients-btn-primary" type="button">
+            <span className="clients-btn-icon">+</span>Add Client
           </button>
         </div>
       </div>
 
-      <PageSettingsPanel
-        open={clientsPanelOpen}
-        setOpen={setClientsPanelOpen}
-        loaded={tenantSettings.loaded}
-        saving={tenantSettings.saving}
-        saveMsg={tenantSettings.saveMsg}
-        config={clientsConfig}
-        updateConfig={updateClientsConfig}
-        title="Clients"
-        tips={[
-          'Add clients manually or import via CSV in Settings > Tools',
-          'Track client lifecycle: New > Active > At-Risk > Churned',
-          'Click any client to see their full profile, booking history and notes',
-          'Use the search bar to find clients by name, email, or phone',
-        ]}
-      >
-        {({ config, updateConfig }) => (
-          <div className="space-y-5">
-            <div>
-              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Default Client Status</label>
-              <select
-                value={(config.default_status as string) || 'active'}
-                onChange={(e) => updateConfig('default_status', e.target.value)}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs"
-              >
-                <option value="active">Active</option>
-                <option value="lead">Lead</option>
-              </select>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div>
-              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Active Client Threshold</label>
-              <div className="flex items-center gap-2">
-                <input type="number" min="1" value={(config.active_client_threshold_days as number) || 30}
-                  onChange={(e) => updateConfig('active_client_threshold_days', parseInt(e.target.value) || 30)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32" />
-                <span className="text-xs text-slate-400">days</span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">Clients with a booking within this many days are considered &ldquo;active&rdquo;</p>
-            </div>
-            <div>
-              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">At-Risk Threshold</label>
-              <div className="flex items-center gap-2">
-                <input type="number" min="1" value={(config.at_risk_threshold_days as number) || 60}
-                  onChange={(e) => updateConfig('at_risk_threshold_days', parseInt(e.target.value) || 60)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32" />
-                <span className="text-xs text-slate-400">days</span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">No booking in this many days marks a client as &ldquo;at risk&rdquo;</p>
-            </div>
-            <div>
-              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">Churned Threshold</label>
-              <p className="text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-fit">
-                Auto: beyond {(config.at_risk_threshold_days as number) || 60} days (at-risk threshold)
-              </p>
-              <p className="text-xs text-slate-500 mt-1">Clients beyond the at-risk threshold are automatically considered churned</p>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-700">Require phone number</label>
-              <button onClick={() => updateConfig('require_phone', !config.require_phone)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_phone ? 'bg-teal-600' : 'bg-slate-300'}`}>
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.require_phone ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-            <div className="flex items-center justify-between max-w-xs">
-              <label className="text-sm text-slate-700">Require email address</label>
-              <button onClick={() => updateConfig('require_email', !config.require_email)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.require_email ? 'bg-teal-600' : 'bg-slate-300'}`}>
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.require_email ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-          </div>
-        )}
-      </PageSettingsPanel>
-
-      {/* STATS CARDS */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-          {[
-            { label: 'Total', value: stats.total, color: 'border-l-slate-400' },
-            { label: 'Active', value: stats.active, color: 'border-l-green-500' },
-            { label: 'New', value: stats.newThisMonth, color: 'border-l-blue-500', sub: 'this month' },
-            { label: 'Inactive', value: stats.inactive, color: 'border-l-slate-300' },
-            { label: 'Referrals', value: stats.referrals, color: 'border-l-purple-500' },
-            { label: 'Avg LTV', value: fmt(stats.avgLtv), color: 'border-l-orange-500' },
-          ].map((card) => (
-            <div key={card.label} className={`border-l-4 ${card.color} pl-3 py-2`}>
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide">{card.label}</p>
-              <p className="text-xl font-bold font-mono text-slate-900">{card.value}</p>
-              {card.sub && <p className="text-[10px] text-slate-400">{card.sub}</p>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* IMPORT CSV */}
-      {showImport && (
-        <div className="mb-6">
-          <CsvImport onComplete={() => { setShowImport(false); setPage(1); setSearch('') }} />
-        </div>
-      )}
-
-      {/* ADD FORM */}
-      {showAdd && (
-        <form onSubmit={addClient} className="border border-slate-200 rounded-lg p-6 mb-6">
-          <h3 className="font-semibold text-slate-900 mb-4">Add Client</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="text-xs text-slate-500 uppercase mb-1 block">Name *</label>
-              <input placeholder="Jane Smith" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-slate-500 uppercase mb-1 block">Email</label>
-              <input placeholder="jane@example.com" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-slate-500 uppercase mb-1 block">Phone</label>
-              <input placeholder="(555) 123-4567" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-slate-500 uppercase mb-1 block">Address</label>
-              <AddressAutocomplete value={form.address} onChange={(v) => setForm({ ...form, address: v })} placeholder="123 Main St, City, State" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-slate-500 uppercase mb-1 block">Source</label>
-              <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                <option value="manual">Manual</option>
-                <option value="referral">Referral</option>
-                <option value="website">Website</option>
-                <option value="portal">Portal</option>
-                <option value="import">Import</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button type="submit" disabled={saving || !form.name}
-              className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
-              {saving ? 'Saving...' : 'Save Client'}
-            </button>
-            <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
-          </div>
-        </form>
-      )}
-
-      {/* SEARCH + STATUS TABS */}
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mb-4">
-        <input
-          placeholder="Search by name, email, phone..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-          className="w-full md:w-64 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-        />
-        <div className="flex gap-1">
-          {statusTabs.map((tab) => (
-            <button key={tab.value} onClick={() => { setStatusFilter(tab.value); setPage(1) }}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                statusFilter === tab.value
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-500 hover:bg-slate-100'
-              }`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      {/* FILTER CHIPS */}
+      <div className="clients-filter-row">
+        <span className="clients-filter-label">Stage</span>
+        {([
+          ['all', 'All', null],
+          ['first', 'First-Time', 'good'],
+          ['active', 'Active', null],
+          ['vip', 'VIP', 'vip'],
+          ['risk', 'At-Risk', 'warn'],
+          ['lapsed', 'Lapsed', null],
+          ['dns', 'DNS', 'danger'],
+        ] as Array<[Stage | 'all', string, string | null]>).map(([key, label, dot]) => (
+          <span
+            key={key}
+            className={`clients-chip ${stageFilter === key ? 'active' : ''}`}
+            onClick={() => setStageFilter(key)}
+          >
+            {dot && <span className={`clients-chip-dot ${dot}`} />}
+            {label}
+            <span className="clients-chip-count">{stageCounts[key as Stage] ?? stageCounts.all}</span>
+          </span>
+        ))}
       </div>
 
-      {/* BULK ACTIONS */}
-      {selected.size > 0 && (
-        <div className="flex items-center gap-3 border border-slate-200 rounded-lg px-4 py-3 mb-4">
-          <span className="text-sm text-slate-900 font-medium">{selected.size} selected</span>
-          <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value)}
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm">
-            <option value="">Bulk action...</option>
-            <option value="active">Set Active</option>
-            <option value="inactive">Set Inactive</option>
-            <option value="delete">Delete</option>
-          </select>
-          <button onClick={async () => {
-            if (!bulkAction) return
-            if (bulkAction === 'delete' && !confirm(`Delete ${selected.size} clients?`)) return
-            for (const id of selected) {
-              if (bulkAction === 'delete') {
-                await fetch(`/api/clients/${id}`, { method: 'DELETE' })
-              } else {
-                await fetch(`/api/clients/${id}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ status: bulkAction }),
-                })
-              }
-            }
-            setSelected(new Set())
-            setBulkAction('')
-            const params = new URLSearchParams()
-            if (search) params.set('search', search)
-            if (statusFilter) params.set('status', statusFilter)
-            params.set('page', String(page))
-            fetch(`/api/clients?${params}`).then(r => r.json()).then(data => { setClients(data.clients || []); setTotal(data.total || 0) })
-            fetch('/api/clients/stats').then(r => r.json()).then(setStats).catch(() => {})
-          }} disabled={!bulkAction}
-            className="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold disabled:opacity-50">
-            Apply
-          </button>
-          <button onClick={() => setSelected(new Set())} className="text-xs text-slate-400 hover:text-slate-900 ml-auto">Clear</button>
+      <div className="clients-filter-row">
+        <span className="clients-filter-label">Cohort</span>
+        <span
+          className={`clients-chip ${cohortFilter === 'all' ? 'active' : ''}`}
+          onClick={() => setCohortFilter('all')}
+        >
+          All <span className="clients-chip-count">{clients.length}</span>
+        </span>
+        {cohortOptions.map((c) => (
+          <span
+            key={c.cohort}
+            className={`clients-chip ${cohortFilter === c.cohort ? 'active' : ''}`}
+            onClick={() => setCohortFilter(c.cohort)}
+          >
+            {cohortLabel(c.cohort)} <span className="clients-chip-count">{c.count}</span>
+          </span>
+        ))}
+        <span className="clients-filter-label" style={{ marginLeft: 14 }}>Type</span>
+        <span className={`clients-chip ${typeFilter === 'all' ? 'active' : ''}`} onClick={() => setTypeFilter('all')}>
+          All <span className="clients-chip-count">{clients.length}</span>
+        </span>
+        <span className={`clients-chip ${typeFilter === 'recurring' ? 'active' : ''}`} onClick={() => setTypeFilter('recurring')}>
+          Recurring <span className="clients-chip-count">{totals?.recurring ?? 0}</span>
+        </span>
+        <span className={`clients-chip ${typeFilter === 'one-time' ? 'active' : ''}`} onClick={() => setTypeFilter('one-time')}>
+          One-Time <span className="clients-chip-count">{Math.max(0, clients.length - (totals?.recurring ?? 0))}</span>
+        </span>
+      </div>
+
+      {/* MAP TAB */}
+      {tab === 'map' && (
+        <div style={{ height: 640, border: '1px solid var(--clients-line)', borderRadius: 4, overflow: 'hidden', marginBottom: 22 }}>
+          <ClientsMap
+            clients={filtered.map((c) => ({
+              id: c.id,
+              name: c.name,
+              address: c.address || '',
+              status: (c.stage === 'lead' ? 'potential' : c.stage === 'first' ? 'new' : c.stage === 'lapsed' || c.stage === 'risk' || c.stage === 'dns' ? 'inactive' : 'active') as 'potential' | 'new' | 'active' | 'inactive',
+              totalBookings: c.bookings_count,
+              totalSpent: c.ltv_actual_cents / 100,
+              lastBooking: c.last_booking?.date || null,
+              do_not_service: c.dns_status,
+            }))}
+            onClientClick={(id) => setDrawerId(id)}
+          />
         </div>
       )}
 
       {/* TABLE */}
-      <div className="border border-slate-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-left text-slate-500">
-              <th className="px-4 py-3 w-10">
-                <input type="checkbox"
-                  checked={selected.size === clients.length && clients.length > 0}
-                  onChange={(e) => setSelected(e.target.checked ? new Set(clients.map(c => c.id)) : new Set())}
-                  className="rounded border-slate-300"
-                />
-              </th>
-              <th className="px-4 py-3 font-medium">Client</th>
-              <th className="px-4 py-3 font-medium">Contact</th>
-              <th className="px-4 py-3 font-medium">Source</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Added</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients.map((c) => (
-              <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-3">
-                  <input type="checkbox"
-                    checked={selected.has(c.id)}
-                    onChange={(e) => {
-                      const next = new Set(selected)
-                      e.target.checked ? next.add(c.id) : next.delete(c.id)
-                      setSelected(next)
-                    }}
-                    className="rounded border-slate-300"
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <Link href={`/dashboard/clients/${c.id}`} className="flex items-center gap-3 group">
-                    <div className={`w-8 h-8 rounded-full ${avatarColor(c.name)} flex items-center justify-center text-slate-900 text-xs font-bold flex-shrink-0`}>
-                      {initials(c.name)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-slate-900 group-hover:text-teal-600 truncate">{c.name}</p>
-                      {c.address && <p className="text-[11px] text-slate-400 truncate max-w-[200px]">{c.address}</p>}
-                    </div>
-                  </Link>
-                </td>
-                <td className="px-4 py-3">
-                  {c.email && <p className="text-sm text-slate-600">{c.email}</p>}
-                  {c.phone && <p className="text-xs text-slate-400">{c.phone}</p>}
-                  {!c.email && !c.phone && <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <span className="text-xs text-slate-500">{sourceLabels[c.source || 'unknown'] || c.source}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[c.status] || 'bg-slate-100 text-slate-500'}`}>
-                    {c.status.replace('_', ' ')}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-xs text-slate-400">
-                  {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </td>
-              </tr>
-            ))}
-            {clients.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">No clients found</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {tab === 'all' && (
+      <div className="clients-table">
+        <div className="clients-thead">
+          <div>
+            <span
+              className={`clients-check ${selected.size > 0 && selected.size === filtered.length ? 'checked' : ''}`}
+              onClick={toggleAll}
+            />
+          </div>
+          <div>Health</div>
+          <div>Client</div>
+          <div>Recurring Slot</div>
+          <div>Affinity</div>
+          <div>Stage</div>
+          <div className="right">LTV</div>
+          <div>Last</div>
+          <div />
+        </div>
 
-      {total > 50 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50">Previous</button>
-          <span className="px-3 py-1.5 text-sm text-slate-400">Page {page} of {Math.ceil(total / 50)}</span>
-          <button onClick={() => setPage((p) => p + 1)} disabled={page * 50 >= total}
-            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50">Next</button>
+        {loading && <div className="clients-empty">Loading clients…</div>}
+        {!loading && filtered.length === 0 && <div className="clients-empty">No clients match these filters.</div>}
+
+        {!loading &&
+          filtered.map((c) => (
+            <div key={c.id} className="clients-row" onClick={() => setDrawerId(c.id)}>
+              <div onClick={(e) => e.stopPropagation()}>
+                <span
+                  className={`clients-check ${selected.has(c.id) ? 'checked' : ''}`}
+                  onClick={() => toggleSelected(c.id)}
+                />
+              </div>
+              <div className="clients-health-cell">
+                <span className={`clients-health-num ${c.health_band}`}>{c.health}</span>
+                <div className="clients-health-bar">
+                  <div className={`clients-health-fill ${c.health_band}`} style={{ width: `${c.health}%` }} />
+                </div>
+              </div>
+              <div className="clients-row-client">
+                <span className={`clients-avatar ${c.stage === 'vip' ? 'vip' : ''}`}>{initials(c.name)}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div className="clients-row-name">
+                    {c.name}
+                    {c.stage === 'vip' && <span className="clients-row-name-tag vip">VIP</span>}
+                  </div>
+                  {c.address && <div className="clients-row-addr">{c.address}</div>}
+                </div>
+              </div>
+              <div className="clients-recurring-cell">
+                {c.recurring ? (
+                  <>
+                    <span className="clients-recurring-tier">
+                      {c.recurring.frequency}
+                      {c.recurring.discount_pct > 0 ? ` · ${c.recurring.discount_pct}%` : ''}
+                    </span>
+                    <span className="clients-recurring-slot">
+                      {c.recurring.day && c.recurring.time ? `${c.recurring.day} ${c.recurring.time}` : 'Recurring'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="clients-recurring-tier none">One-time</span>
+                    <span className="clients-recurring-slot empty">No standing slot</span>
+                  </>
+                )}
+              </div>
+              <div className="clients-cleaner-cell">
+                {c.preferred_cleaner ? (
+                  <>
+                    <div className="clients-cleaner-name">{c.preferred_cleaner.name}</div>
+                    <div className="clients-cleaner-affinity">
+                      {c.preferred_cleaner.jobs_with} of {c.preferred_cleaner.total_jobs} jobs
+                    </div>
+                  </>
+                ) : (
+                  <div className="clients-cleaner-affinity">—</div>
+                )}
+              </div>
+              <div>
+                <span className={`clients-stage ${c.stage}`}>{stageLabel(c.stage)}</span>
+              </div>
+              <div className="clients-ltv-cell">
+                <div className="clients-ltv-actual">{fmtMoney(c.ltv_actual_cents)}</div>
+                <div className={`clients-ltv-projected ${c.ltv_projected_cents === 0 ? 'muted' : ''}`}>
+                  {fmtMoneyShort(c.ltv_projected_cents)}
+                </div>
+              </div>
+              <div className={`clients-last-cell ${c.last_booking?.overdue ? 'muted' : ''}`}>
+                {c.last_booking ? (
+                  <>
+                    <strong>{c.last_booking.label}</strong>
+                    <div className="clients-last-cell-sub">{c.last_booking.sub}</div>
+                  </>
+                ) : (
+                  <span className="clients-last-cell-sub">no bookings</span>
+                )}
+              </div>
+              <div className="clients-row-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="clients-icon-btn"
+                  onClick={() => {
+                    if (c.email) window.location.href = `mailto:${c.email}`
+                  }}
+                  aria-label="Email client"
+                >
+                  ✉
+                </button>
+              </div>
+            </div>
+          ))}
+      </div>
+      )}
+
+      {tab !== 'all' && tab !== 'map' && (
+        <div style={{ padding: 60, textAlign: 'center', background: 'var(--clients-canvas)', border: '1px dashed var(--clients-line)', borderRadius: 4, marginBottom: 22 }}>
+          <div style={{ fontFamily: 'var(--clients-display)', fontSize: 24, color: 'var(--clients-ink)', fontWeight: 500, marginBottom: 8 }}>Coming soon.</div>
+          <div style={{ color: 'var(--clients-muted)' }}>{TABS.find((t) => t.key === tab)?.label} view will land next pass.</div>
         </div>
       )}
+
+      <ClientDrawer
+        client={drawerClient}
+        open={!!drawerId}
+        onClose={() => setDrawerId(null)}
+      />
     </div>
   )
 }

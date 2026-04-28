@@ -76,7 +76,7 @@ export default function TermsPage() {
           <p>
             Full Loop CRM operates on an exclusive territory model. Each
             partner receives exclusive rights to one trade within one
-            geographic metro area. Partnership terms include:
+            geographic city. Partnership terms include:
           </p>
           <ul>
             <li>Monthly fee of $1,000 per user, billed monthly (flat per-seat, no tiers)</li>

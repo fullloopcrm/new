@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const trustBadges = [
-  { label: "One Trade Per Metro — Exclusive", href: "/full-loop-crm-pricing" },
+  { label: "One Trade Per City — Exclusive", href: "/full-loop-crm-pricing" },
   { label: "50+ Service Industries", href: "/full-loop-crm-service-business-industries" },
   { label: "All-in-One Full-Cycle CRM", href: "/full-loop-crm-service-features" },
   { label: "AI-Powered Automation", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
@@ -29,7 +29,7 @@ export default function Hero() {
         {/* Pre-headline badge */}
         <div className="mb-4 animate-hero-fade-in">
           <span className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-[0.15em] uppercase px-5 py-2.5 font-cta">
-            One Trade Per Metro. One Operator Gets Everything.
+            One Trade Per City. One Operator Gets Everything.
           </span>
         </div>
 
@@ -45,7 +45,7 @@ export default function Hero() {
             <em className="not-italic">Your trade. Nobody else.</em>
           </span>
           <span className="block text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-slate-300 mt-4">
-            The only full-cycle CRM — licensed to one operator per metro.
+            The only full-cycle CRM — licensed to one operator per city.
           </span>
         </h1>
 
@@ -110,7 +110,7 @@ export default function Hero() {
           className="text-slate-400 text-sm mb-10 animate-hero-fade-in"
           style={{ animationDelay: "0.7s" }}
         >
-          Accepting one exclusive <Link href="/crm-partnership-request-form" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">partnership per trade per metro</Link> across <Link href="/full-loop-crm-service-business-industries" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">50+ industries</Link>, every US metro.
+          Accepting one exclusive <Link href="/crm-partnership-request-form" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">partnership per trade per city</Link> across <Link href="/full-loop-crm-service-business-industries" className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200">50+ industries</Link>, every US city.
         </p>
 
         {/* Trust badges */}

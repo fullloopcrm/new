@@ -4,7 +4,7 @@ import PartnershipForm from "@/components/PartnershipForm";
 export const metadata: Metadata = {
   title: "CRM Partnership Request | Full Loop CRM",
   description:
-    "Apply for an exclusive CRM territory. One partner per trade per metro area. Full Loop CRM handles leads, scheduling, invoicing, reviews, and more for home service businesses.",
+    "Apply for an exclusive CRM territory. One partner per trade per city. Full Loop CRM handles leads, scheduling, invoicing, reviews, and more for home service businesses.",
   keywords: [
     "CRM partnership request",
     "home service CRM application",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Request Your CRM Partnership | Full Loop CRM",
     description:
-      "One partner per trade per metro. Apply to lock your exclusive territory with Full Loop CRM.",
+      "One partner per trade per city. Apply to lock your exclusive territory with Full Loop CRM.",
     url: "https://homeservicesbusinesscrm.com/crm-partnership-request-form",
     type: "website",
   },
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Request Your CRM Partnership | Full Loop CRM",
     description:
-      "One partner per trade per metro. Apply to lock your exclusive territory with Full Loop CRM.",
+      "One partner per trade per city. Apply to lock your exclusive territory with Full Loop CRM.",
   },
 };
 
@@ -33,7 +33,7 @@ const jsonLd = {
   "@type": "WebPage",
   name: "CRM Partnership Request Form",
   description:
-    "Apply for an exclusive CRM territory. One partner per trade per metro area.",
+    "Apply for an exclusive CRM territory. One partner per trade per city.",
   url: "https://homeservicesbusinesscrm.com/crm-partnership-request-form",
   publisher: {
     "@type": "Organization",

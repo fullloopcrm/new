@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChatBubble, DateDivider, NewMessagesDivider, ChatInput } from '@/components/chat-bubble'
 import type { ChatMessage } from '@/components/chat-bubble'
+import './loop-connect.css'
 
 type Channel = {
   id: string
@@ -25,13 +26,8 @@ function formatPreviewTime(iso: string): string {
 function groupMessagesByDate(messages: ChatMessage[]): { date: string; messages: ChatMessage[] }[] {
   const groups: { date: string; messages: ChatMessage[] }[] = []
   let currentDate = ''
-
   for (const msg of messages) {
-    const d = new Date(msg.created_at).toLocaleDateString([], {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    })
+    const d = new Date(msg.created_at).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
     if (d !== currentDate) {
       currentDate = d
       groups.push({ date: d, messages: [] })
@@ -41,7 +37,15 @@ function groupMessagesByDate(messages: ChatMessage[]): { date: string; messages:
   return groups
 }
 
-export default function ConnectPage() {
+type Tab = 'chat' | 'announcements' | 'directory'
+const TABS: Array<{ key: Tab; letter: string; label: string }> = [
+  { key: 'chat', letter: 'A', label: 'Chat' },
+  { key: 'announcements', letter: 'B', label: 'Announcements' },
+  { key: 'directory', letter: 'C', label: 'Directory' },
+]
+
+export default function LoopConnectPage() {
+  const [tab, setTab] = useState<Tab>('chat')
   const [channels, setChannels] = useState<Channel[]>([])
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -53,14 +57,12 @@ export default function ConnectPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
 
-  // Fetch channels
   const fetchChannels = useCallback(() => {
     fetch('/api/connect/channels')
       .then((r) => r.json())
       .then((data) => {
         if (data.channels) {
           setChannels(data.channels)
-          // Auto-select general channel on first load
           if (!activeChannelId && data.channels.length > 0) {
             const general = data.channels.find((c: Channel) => c.type === 'general')
             setActiveChannelId(general?.id || data.channels[0].id)
@@ -70,7 +72,6 @@ export default function ConnectPage() {
       .catch(() => {})
   }, [activeChannelId])
 
-  // Fetch messages for active channel
   const fetchMessages = useCallback(() => {
     if (!activeChannelId) return
     fetch(`/api/connect/messages?channel_id=${activeChannelId}`)
@@ -79,21 +80,16 @@ export default function ConnectPage() {
         if (data.messages) {
           const oldLen = messages.length
           setMessages(data.messages)
-          // Track last read position for new messages divider
           if (oldLen > 0 && data.messages.length > oldLen) {
             lastReadRef.current = messages[messages.length - 1]?.created_at || null
           }
         }
       })
       .catch(() => {})
-  }, [activeChannelId, messages.length])
+  }, [activeChannelId, messages])
 
-  // Initial load
-  useEffect(() => {
-    fetchChannels()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchChannels() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Poll messages every 5s
   useEffect(() => {
     if (!activeChannelId) return
     fetchMessages()
@@ -101,13 +97,11 @@ export default function ConnectPage() {
     return () => clearInterval(interval)
   }, [activeChannelId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Poll channels every 15s for last message updates
   useEffect(() => {
     const interval = setInterval(fetchChannels, 15000)
     return () => clearInterval(interval)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
@@ -125,7 +119,7 @@ export default function ConnectPage() {
       })
       fetchMessages()
     } catch {
-      setDraft(body) // Restore on failure
+      setDraft(body)
     } finally {
       setSending(false)
     }
@@ -153,165 +147,143 @@ export default function ConnectPage() {
   const filteredChannels = search
     ? channels.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
     : channels
-
   const generalChannels = filteredChannels.filter((c) => c.type === 'general')
   const clientChannels = filteredChannels.filter((c) => c.type === 'client')
   const customChannels = filteredChannels.filter((c) => c.type === 'custom')
-
   const grouped = groupMessagesByDate(messages)
 
   return (
-    <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-4">Connect</h1>
+    <div className="lc-scope">
+      <div className="lc-tabs">
+        {TABS.map((t) => (
+          <button key={t.key} className={`lc-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)} type="button">
+            <span className="lc-tab-letter">{t.letter}</span>
+            {t.label}
+            {t.key === 'chat' && channels.length > 0 && <span className="lc-tab-count">{channels.length}</span>}
+          </button>
+        ))}
+      </div>
 
-      <div className="flex border border-slate-200 rounded-lg overflow-hidden bg-white" style={{ height: 'calc(100vh - 180px)' }}>
-        {/* Left panel — Channel list */}
-        <div className="w-64 border-r border-slate-200 flex flex-col shrink-0">
-          <div className="p-3 border-b border-slate-100">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search channels..."
-              className="w-full text-sm border border-slate-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-teal-500"
-            />
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {/* General */}
-            {generalChannels.map((ch) => (
-              <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
-            ))}
-
-            {/* Client channels */}
-            {clientChannels.length > 0 && (
-              <div className="px-3 pt-3 pb-1">
-                <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Clients</p>
-              </div>
-            )}
-            {clientChannels.map((ch) => (
-              <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
-            ))}
-
-            {/* Custom channels */}
-            {customChannels.length > 0 && (
-              <div className="px-3 pt-3 pb-1">
-                <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Custom</p>
-              </div>
-            )}
-            {customChannels.map((ch) => (
-              <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
-            ))}
-          </div>
-
-          {/* New channel button */}
-          <div className="p-2 border-t border-slate-100">
-            {showNewChannel ? (
-              <div className="flex gap-1">
-                <input
-                  type="text"
-                  value={newChannelName}
-                  onChange={(e) => setNewChannelName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && createChannel()}
-                  placeholder="Channel name"
-                  className="flex-1 text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:border-teal-500"
-                  autoFocus
-                />
-                <button onClick={createChannel} className="text-xs bg-teal-600 text-white px-2 py-1 rounded">
-                  Add
-                </button>
-                <button onClick={() => setShowNewChannel(false)} className="text-xs text-slate-400 px-1">
-                  ×
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowNewChannel(true)}
-                className="w-full text-xs text-slate-400 hover:text-teal-600 py-1 text-left px-2"
-              >
-                + New channel
-              </button>
-            )}
-          </div>
+      {tab !== 'chat' && (
+        <div style={{ padding: 60, textAlign: 'center', background: 'var(--lc-canvas)', border: '1px dashed var(--lc-line)', borderRadius: 4, color: 'var(--lc-muted)' }}>
+          <div style={{ fontFamily: 'var(--lc-display)', fontSize: 24, color: 'var(--lc-ink)', fontWeight: 500, marginBottom: 8, letterSpacing: '-0.02em' }}>Coming soon.</div>
+          <div>{TABS.find((t) => t.key === tab)?.label} view will land next pass.</div>
         </div>
+      )}
 
-        {/* Right panel — Messages */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Channel header */}
-          {activeChannel && (
-            <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
-              <span className="font-semibold text-sm text-slate-800">
-                {activeChannel.type === 'general' ? '# ' : ''}{activeChannel.name}
-              </span>
-              <span className="text-xs text-slate-400">
-                {activeChannel.type === 'client' ? 'Private channel' : activeChannel.type === 'general' ? 'Everyone' : ''}
-              </span>
-            </div>
-          )}
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3">
-            {messages.length === 0 && (
-              <div className="flex items-center justify-center h-full text-sm text-slate-400">
-                No messages yet. Start the conversation!
-              </div>
-            )}
-            {grouped.map((group) => (
-              <div key={group.date}>
-                <DateDivider date={group.date} />
-                {group.messages.map((msg) => {
-                  const showNewDivider =
-                    lastReadRef.current && msg.created_at > lastReadRef.current && !group.messages.find((m) => m.created_at <= lastReadRef.current! && m.created_at > lastReadRef.current!)
-                  return (
-                    <div key={msg.id}>
-                      {showNewDivider && <NewMessagesDivider />}
-                      <ChatBubble msg={msg} variant="slack" />
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          {activeChannel && (
-            <div className="px-4 py-3 border-t border-slate-200">
-              <ChatInput
-                value={draft}
-                onChange={setDraft}
-                onSend={sendMessage}
-                placeholder={`Message ${activeChannel.type === 'general' ? '#general' : activeChannel.name}...`}
-                disabled={sending}
+      {tab === 'chat' && (
+        <div className="lc-shell">
+          <aside className="lc-sidebar">
+            <div className="lc-search-box">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search channels…"
+                className="lc-search-input"
               />
             </div>
-          )}
+            <div className="lc-channel-list">
+              {generalChannels.map((ch) => (
+                <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
+              ))}
+              {clientChannels.length > 0 && <div className="lc-channel-section">Clients</div>}
+              {clientChannels.map((ch) => (
+                <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
+              ))}
+              {customChannels.length > 0 && <div className="lc-channel-section">Custom</div>}
+              {customChannels.map((ch) => (
+                <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
+              ))}
+            </div>
+            <div className="lc-channel-foot">
+              {showNewChannel ? (
+                <div className="lc-new-row">
+                  <input
+                    type="text"
+                    value={newChannelName}
+                    onChange={(e) => setNewChannelName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && createChannel()}
+                    placeholder="Channel name"
+                    className="lc-new-input"
+                    autoFocus
+                  />
+                  <button className="lc-new-add" type="button" onClick={createChannel}>Add</button>
+                  <button className="lc-new-cancel" type="button" onClick={() => setShowNewChannel(false)}>×</button>
+                </div>
+              ) : (
+                <button className="lc-new-btn" type="button" onClick={() => setShowNewChannel(true)}>+ New channel</button>
+              )}
+            </div>
+          </aside>
+
+          <div className="lc-main">
+            {activeChannel && (
+              <div className="lc-channel-head">
+                <span className="lc-channel-head-name">
+                  {activeChannel.type === 'general' && <span style={{ color: 'var(--lc-muted)', fontFamily: 'var(--lc-mono)', fontWeight: 400, marginRight: 4 }}>#</span>}
+                  {activeChannel.name}
+                </span>
+                <span className="lc-channel-head-meta">
+                  {activeChannel.type === 'client' ? 'Private channel' : activeChannel.type === 'general' ? 'Everyone' : 'Custom'}
+                </span>
+              </div>
+            )}
+
+            <div className="lc-messages">
+              {messages.length === 0 && (
+                <div className="lc-empty">No messages yet. Start the conversation.</div>
+              )}
+              {grouped.map((group) => (
+                <div key={group.date}>
+                  <DateDivider date={group.date} />
+                  {group.messages.map((msg) => {
+                    const showNewDivider =
+                      lastReadRef.current && msg.created_at > lastReadRef.current && !group.messages.find((m) => m.created_at <= lastReadRef.current! && m.created_at > lastReadRef.current!)
+                    return (
+                      <div key={msg.id}>
+                        {showNewDivider && <NewMessagesDivider />}
+                        <ChatBubble msg={msg} variant="slack" />
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {activeChannel && (
+              <div className="lc-input-bar">
+                <ChatInput
+                  value={draft}
+                  onChange={setDraft}
+                  onSend={sendMessage}
+                  placeholder={`Message ${activeChannel.type === 'general' ? '#' + activeChannel.name : activeChannel.name}…`}
+                  disabled={sending}
+                />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
 function ChannelItem({ channel, active, onClick }: { channel: Channel; active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors ${active ? 'bg-teal-50 border-r-2 border-teal-500' : ''}`}
-    >
-      <div className="flex items-center justify-between">
-        <span className={`text-sm truncate ${active ? 'text-teal-700 font-semibold' : 'text-slate-700'}`}>
-          {channel.type === 'general' ? '# ' : ''}{channel.name}
+    <button className={`lc-channel ${active ? 'active' : ''}`} onClick={onClick} type="button">
+      <div className="lc-channel-row">
+        <span className="lc-channel-name">
+          {channel.type === 'general' && <span className="hash">#</span>}
+          {channel.name}
         </span>
         {channel.last_message && (
-          <span className="text-[10px] text-slate-400 shrink-0 ml-2">
-            {formatPreviewTime(channel.last_message.created_at)}
-          </span>
+          <span className="lc-channel-time">{formatPreviewTime(channel.last_message.created_at)}</span>
         )}
       </div>
       {channel.last_message && (
-        <p className="text-xs text-slate-400 truncate mt-0.5">
-          {channel.last_message.sender_name}: {channel.last_message.body}
-        </p>
+        <div className="lc-channel-preview">{channel.last_message.sender_name}: {channel.last_message.body}</div>
       )}
     </button>
   )
