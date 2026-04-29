@@ -116,7 +116,7 @@ export default function CostBreakdown() {
           {/* Table header */}
           <div className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_140px_140px] bg-[#FAF9F5] px-4 sm:px-6 py-4 text-xs sm:text-sm font-bold tracking-wider uppercase font-cta">
             <span className="text-[#6F6F6B]">Expense</span>
-            <span className="text-red-400 text-right sm:text-center">Traditional</span>
+            <span className="text-red-700 text-right sm:text-center">Traditional</span>
             <span className="text-[#1F4D2C] text-right sm:text-center">Full Loop</span>
           </div>
 
@@ -140,7 +140,7 @@ export default function CostBreakdown() {
                   {item.desc}
                 </span>
               </div>
-              <span className="text-sm sm:text-base font-mono font-semibold text-red-400/80 text-right sm:text-center">
+              <span className="text-sm sm:text-base font-mono font-semibold text-red-700/80 text-right sm:text-center">
                 {item.traditional}
               </span>
               <span className="text-sm sm:text-base font-semibold text-[#1F4D2C] text-right sm:text-center font-cta">
@@ -154,7 +154,7 @@ export default function CostBreakdown() {
             <span className="text-base sm:text-lg font-bold text-[#1C1C1C] font-heading">
               Total Annual Operating Cost
             </span>
-            <span className="text-lg sm:text-xl font-mono font-bold text-red-400 text-right sm:text-center">
+            <span className="text-lg sm:text-xl font-mono font-bold text-red-700 text-right sm:text-center">
               $178,800
             </span>
             <span className="text-lg sm:text-xl font-mono font-bold text-[#1F4D2C] text-right sm:text-center">
@@ -197,7 +197,7 @@ export default function CostBreakdown() {
               than running the front office the old way &mdash; with the AI
               sales agent, GPS field ops, e-signature, books, and routes that
               the old stack doesn&rsquo;t even include. Add seats as you grow
-              at the same flat $1,000/user/mo. See the full <Link href="/full-loop-crm-pricing" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">CRM pricing</Link> breakdown.
+              at the same flat $1,000/user/mo. See the full <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">CRM pricing</Link> breakdown.
             </p>
           </div>
         </motion.div>

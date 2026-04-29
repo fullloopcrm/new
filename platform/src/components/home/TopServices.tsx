@@ -14,7 +14,7 @@ const stages = [
   {
     badge: "Stage 2",
     title: "AI Sales",
-    desc: "Selena AI books jobs via SMS and web chat using a state machine. Recognizes returning clients. Bilingual. 24/7.",
+    desc: "Yinez AI books jobs via SMS and web chat using a state machine. Recognizes returning clients. Bilingual. 24/7.",
     href: "/full-loop-crm-service-features",
     emoji: "🤖",
   },
@@ -80,7 +80,7 @@ export default function TopServices() {
               full feature breakdown
             </Link>
             , see{" "}
-            <Link href="/full-loop-crm-pricing" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">
+            <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">
               transparent pricing
             </Link>
             , learn{" "}

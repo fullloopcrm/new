@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 const included = [
   { label: "Full CRM Platform", href: "/full-loop-crm-service-features" },
-  { label: "Selenas AI Assistant", href: "/full-loop-crm-service-features" },
+  { label: "Yinez AI Assistant", href: "/full-loop-crm-service-features" },
   { label: "GMB Optimization", href: null },
   { label: "SEO Strategy & Structure", href: null },
   { label: "AI Sales & Booking", href: "/full-loop-crm-service-features" },
@@ -17,7 +17,7 @@ const included = [
   { label: "Command Center Dashboard", href: null },
   { label: "Team & Client Portals", href: null },
   { label: "Finance & P&L Tracking", href: null },
-  { label: "Exclusive Territory Lock", href: "/full-loop-crm-pricing" },
+  { label: "Exclusive Territory Lock", href: "/waitlist" },
   { label: "100% Autonomous Mode", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
 ];
 
@@ -50,7 +50,7 @@ export default function PricingSlider() {
             <Link href="/full-loop-crm-101-educational-tips" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">home service CRM</Link>{" "}
             platform. Add a seat, your invoice goes up. Remove a seat, it goes
             down. View the full{" "}
-            <Link href="/full-loop-crm-pricing" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">pricing guide</Link>.
+            <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">pricing guide</Link>.
           </p>
         </motion.div>
 
@@ -153,8 +153,8 @@ export default function PricingSlider() {
           {/* CTA */}
           <div className="mt-8 flex flex-col items-center gap-3">
             <Link
-              href="/crm-partnership-request-form"
-              className="inline-block px-10 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
+              href="/waitlist"
+              className="inline-block px-10 py-4 text-base font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               Get Started
             </Link>
@@ -271,7 +271,7 @@ export default function PricingSlider() {
             <div>
               <p className="font-bold text-slate-900 mb-2">Full Loop Owns</p>
               <ul className="space-y-1.5 text-[#3A3A3A]">
-                <li>&#10003; CRM platform &amp; Selenas AI</li>
+                <li>&#10003; CRM platform &amp; Yinez AI</li>
                 <li>&#10003; Full SEO site &amp; domain (until buyout)</li>
                 <li>&#10003; Google Business Profiles we create</li>
                 <li>&#10003; All website code &amp; templates</li>
@@ -293,7 +293,7 @@ export default function PricingSlider() {
           className="text-center mt-8"
         >
           <Link
-            href="/full-loop-crm-pricing"
+            href="/waitlist"
             className="text-[#1F4D2C] hover:text-[#1F4D2C] text-sm font-semibold underline underline-offset-2 decoration-teal-600/50 font-cta"
           >
             View Full Pricing &amp; Ownership Details

@@ -125,7 +125,7 @@ export default function AboutPage() {
             </p>
             <p>
               One platform that generates leads organically through multi-domain
-              SEO. Converts those leads with an AI assistant named Selenas who
+              SEO. Converts those leads with an AI assistant named Yinez who
               answers calls, texts, and chats 24/7. Books the job automatically.
               Tracks the crew with GPS. Collects payment on-site. Earns the
               five-star review. Then retargets that customer for rebooking when
@@ -156,7 +156,7 @@ export default function AboutPage() {
               {
                 num: "02",
                 title: "AI-Powered Sales",
-                desc: "Selenas answers calls, texts, and web chats — qualifying leads and booking jobs autonomously.",
+                desc: "Yinez answers calls, texts, and web chats — qualifying leads and booking jobs autonomously.",
               },
               {
                 num: "03",
@@ -269,10 +269,10 @@ export default function AboutPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
-              Request Partnership
+              Request to Join Waitlist
             </Link>
             <Link
               href="/full-loop-crm-service-features"
@@ -281,7 +281,7 @@ export default function AboutPage() {
               Explore Features
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="inline-block border-2 border-slate-500 hover:border-slate-300 text-slate-300 hover:text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
               View Pricing

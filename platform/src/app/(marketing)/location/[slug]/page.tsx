@@ -69,7 +69,7 @@ export async function generateMetadata({
   if (!metro) return {};
 
   const title = `Best Home Service CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
-  const description = `The best CRM for home service businesses in ${metro.city}, ${metro.stateAbbr}. AI-powered lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one partner per trade. Flat $1,000 per user / month.`;
+  const description = `The best CRM for home service businesses in ${metro.city}, ${metro.stateAbbr}. AI-powered lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one partner per trade.`;
   const url = `https://homeservicesbusinesscrm.com/location/${slug}`;
 
   return {
@@ -121,7 +121,7 @@ function getStages(): { title: string; desc: string }[] {
     },
     {
       title: "2. AI Sales Automation",
-      desc: "Selenas AI responds to inquiries via SMS within seconds, 24/7 — qualifying leads and booking estimates while you sleep.",
+      desc: "Yinez AI responds to inquiries via SMS within seconds, 24/7 — qualifying leads and booking estimates while you sleep.",
     },
     {
       title: "3. Smart Scheduling",
@@ -209,11 +209,11 @@ export default async function LocationPage({
             available?
           </p>
           <p className="font-mono text-sm text-teal-400 mb-8 tracking-wide">
-            $1,000 / user / month &middot; flat &middot; every feature included
+            invite-only &middot; one operator per trade per city &middot; waitlist required
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
               Lock Your Territory
@@ -298,29 +298,29 @@ export default async function LocationPage({
       </section>
 
       {/* ----------------------------------------------------------------- */}
-      {/* 4. Pricing Callout */}
+      {/* 4. Access Callout */}
       {/* ----------------------------------------------------------------- */}
       <section className="py-20 px-6 bg-white">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            Every Seat Gets Everything.
+            One Operator. Whole Market.
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
-            $1,000
-            <span className="text-xl text-slate-500 font-normal">/user/mo</span>
+            Invite-only
+            <span className="text-xl text-slate-500 font-normal"> waitlist</span>
           </p>
           <p className="text-slate-600 mb-6 text-lg">
             Exclusive territory in {metro.city}, {metro.stateAbbr}. No other
             partner in your trade competes with you in this market.
           </p>
           <p className="text-sm text-slate-500 mb-8">
-            $999 one-time setup. No contracts. Cancel anytime.
+            Joining the waitlist isn&apos;t a guarantee. We open one slot per trade per city.
           </p>
           <Link
-            href="/full-loop-crm-pricing"
+            href="/waitlist"
             className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
           >
-            View Full Pricing Details
+            Request to Join Waitlist
           </Link>
         </div>
       </section>
@@ -369,10 +369,10 @@ export default async function LocationPage({
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Request Partnership
+              Request to Join Waitlist
             </Link>
             <a
               href="tel:+12122029220"
@@ -421,7 +421,7 @@ export default async function LocationPage({
               All Features
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               Pricing

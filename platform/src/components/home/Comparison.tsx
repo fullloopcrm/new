@@ -128,8 +128,8 @@ export default function Comparison() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/full-loop-crm-pricing"
-              className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-[#1C1C1C] font-bold text-lg hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
+              href="/waitlist"
+              className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-white font-bold text-lg hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               See Pricing
             </Link>

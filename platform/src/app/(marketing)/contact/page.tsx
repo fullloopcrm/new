@@ -152,10 +152,10 @@ export default function ContactPage() {
             Located in Midtown Manhattan. Available by appointment.
           </p>
           <Link
-            href="/crm-partnership-request-form"
+            href="/waitlist"
             className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
           >
-            Request Partnership
+            Request to Join Waitlist
           </Link>
         </div>
       </section>
@@ -172,7 +172,7 @@ export default function ContactPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
               Apply Now

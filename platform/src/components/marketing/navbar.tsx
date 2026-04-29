@@ -111,7 +111,7 @@ export default function Navbar() {
           <div className="flex items-center gap-4 text-xs text-white/70">
             <Link href="/sign-in" className="hover:text-white transition-colors font-medium">Client Access</Link>
             <span className="text-white/30">|</span>
-            <Link href="/crm-partnership-request-form" className="hover:text-white transition-colors font-medium">Apply Now</Link>
+            <Link href="/waitlist" className="hover:text-white transition-colors font-medium">Apply Now</Link>
             <span className="text-white/30">|</span>
             <Link href="/feedback" className="hover:text-white transition-colors font-medium">Feedback</Link>
           </div>
@@ -183,7 +183,7 @@ export default function Navbar() {
             </div>
 
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="text-[15px] font-medium tracking-wide text-white/90 transition-colors hover:text-white font-cta whitespace-nowrap"
             >
               Pricing
@@ -203,7 +203,7 @@ export default function Navbar() {
 
           {/* CTA — right */}
           <div className="hidden lg:flex justify-end">
-            <Link href="/crm-partnership-request-form">
+            <Link href="/waitlist">
               <motion.span
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.97 }}
@@ -363,7 +363,7 @@ export default function Navbar() {
                 </AnimatePresence>
 
                 <Link
-                  href="/full-loop-crm-pricing"
+                  href="/waitlist"
                   onClick={() => setMobileOpen(false)}
                   className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
                 >
@@ -380,7 +380,7 @@ export default function Navbar() {
                 </Link>
 
                 <Link
-                  href="/crm-partnership-request-form"
+                  href="/waitlist"
                   onClick={() => setMobileOpen(false)}
                   className="mt-6"
                 >
@@ -508,7 +508,7 @@ function SolutionsPanel() {
         <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-green-400 mb-3 font-cta">Exclusive Territories</span>
         <h3 className="text-xl font-extrabold text-white mb-3 font-heading">One partner per trade, per metro.</h3>
         <p className="text-sm text-white/70 leading-relaxed mb-4">Full Loop CRM only accepts one business per industry per metro area. Your leads are yours alone — no shared leads, no bidding wars.</p>
-        <Link href="/crm-partnership-request-form" className="text-sm font-semibold text-green-400 hover:text-green-300 transition-colors font-cta">
+        <Link href="/waitlist" className="text-sm font-semibold text-green-400 hover:text-green-300 transition-colors font-cta">
           Check availability &rarr;
         </Link>
       </div>

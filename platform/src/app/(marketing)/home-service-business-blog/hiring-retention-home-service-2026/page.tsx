@@ -654,7 +654,7 @@ export default function HiringPillarPage() {
             have time to hire well, see the{" "}
             <Link href="/full-loop-crm-service-features">feature list</Link>,
             the{" "}
-            <Link href="/full-loop-crm-pricing">pricing page</Link>, the{" "}
+            <Link href="/waitlist">pricing page</Link>, the{" "}
             <Link href="/full-loop-crm-service-business-industries">
               industries served
             </Link>
@@ -719,9 +719,9 @@ export default function HiringPillarPage() {
             compensation structures can be tied to measurable outcomes.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/crm-partnership-request-form" className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100">Apply for your territory</Link>
+            <Link href="/waitlist" className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100">Apply for your territory</Link>
             <Link href="/full-loop-crm-service-features" className="rounded-lg border border-slate-700 bg-slate-800 px-5 py-3 text-sm font-medium text-white hover:bg-slate-700">See the platform</Link>
-            <Link href="/full-loop-crm-pricing" className="rounded-lg border border-slate-700 bg-slate-800 px-5 py-3 text-sm font-medium text-white hover:bg-slate-700">Pricing</Link>
+            <Link href="/waitlist" className="rounded-lg border border-slate-700 bg-slate-800 px-5 py-3 text-sm font-medium text-white hover:bg-slate-700">Pricing</Link>
           </div>
         </aside>
       </article>

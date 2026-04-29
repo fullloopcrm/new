@@ -17,7 +17,7 @@ export const services: ServiceData[] = [
     description: 'Full Loop CRM for house cleaning businesses — organic lead gen, AI sales, scheduling, GPS operations, payments, reviews, and retargeting in one platform.',
     longDescription: 'House cleaning is one of the most competitive home service trades. Clients expect reliability, consistency, and easy scheduling. Full Loop CRM gives house cleaning businesses the tools to dominate their local market with organic lead generation, convert leads 24/7 with AI-powered SMS sales, manage recurring schedules, track field teams with GPS, and automate payments and reviews — all in one platform.',
     challenges: ['High competition from national franchises and solo operators', 'Client churn from inconsistent service quality', 'Difficulty tracking recurring schedules across multiple team members', 'No visibility into which marketing channels generate paying clients', 'Manual payroll calculations eating into profit margins'],
-    howFullLoopHelps: ['Multi-domain SEO network targets every neighborhood you serve', 'Selenas AI books clients 24/7 — no missed leads at 11pm or weekends', 'Recurring booking engine handles weekly, biweekly, monthly, and custom schedules', 'GPS check-in/out verifies team arrival and auto-calculates pay', 'Revenue attribution shows exactly which domains drive your best clients'],
+    howFullLoopHelps: ['Multi-domain SEO network targets every neighborhood you serve', 'Yinez AI books clients 24/7 — no missed leads at 11pm or weekends', 'Recurring booking engine handles weekly, biweekly, monthly, and custom schedules', 'GPS check-in/out verifies team arrival and auto-calculates pay', 'Revenue attribution shows exactly which domains drive your best clients'],
     keywords: ['house cleaning CRM', 'cleaning business software', 'maid service management', 'cleaning scheduling software', 'house cleaning lead generation'],
   },
   {
@@ -37,7 +37,7 @@ export const services: ServiceData[] = [
     description: 'Full Loop CRM for deep cleaning businesses — convert one-time jobs into recurring clients with AI sales and automated follow-ups.',
     longDescription: 'Deep cleaning services face a unique challenge: most jobs are one-time. Full Loop CRM helps deep cleaning businesses convert those one-time clients into recurring customers through automated post-service follow-ups, discount offers, and lifecycle tracking that identifies when a client is due for another deep clean.',
     challenges: ['Majority of deep cleaning jobs are one-time with no repeat business', 'Higher price point requires strong sales and objection handling', 'Seasonal demand fluctuations make revenue unpredictable', 'Difficulty communicating the value difference vs regular cleaning', 'No automated way to re-engage past clients'],
-    howFullLoopHelps: ['Selenas AI handles pricing objections and communicates the value of deep cleaning', 'Automated thank-you emails with rebooking discounts 3 days after service', 'Client lifecycle tracking alerts you when past clients are due for another deep clean', 'Referral program turns satisfied one-time clients into lead generators', 'Revenue forecasting helps plan for seasonal fluctuations'],
+    howFullLoopHelps: ['Yinez AI handles pricing objections and communicates the value of deep cleaning', 'Automated thank-you emails with rebooking discounts 3 days after service', 'Client lifecycle tracking alerts you when past clients are due for another deep clean', 'Referral program turns satisfied one-time clients into lead generators', 'Revenue forecasting helps plan for seasonal fluctuations'],
     keywords: ['deep cleaning CRM', 'deep cleaning business software', 'deep cleaning scheduling', 'deep cleaning lead generation', 'deep cleaning business management'],
   },
   {
@@ -45,7 +45,7 @@ export const services: ServiceData[] = [
     slug: 'move-in-out-cleaning',
     category: 'Cleaning',
     description: 'Full Loop CRM for move in/out cleaning — capture time-sensitive leads with AI and dominate local search.',
-    longDescription: 'Move in/out cleaning is the most time-sensitive trade in the cleaning industry. Clients need service within days, often searching at the last minute. Full Loop CRM captures these urgent leads through neighborhood-specific websites and converts them instantly via Selenas AI — before they call your competitor.',
+    longDescription: 'Move in/out cleaning is the most time-sensitive trade in the cleaning industry. Clients need service within days, often searching at the last minute. Full Loop CRM captures these urgent leads through neighborhood-specific websites and converts them instantly via Yinez AI — before they call your competitor.',
     challenges: ['Extremely time-sensitive leads — clients need service within 48-72 hours', 'High search volume but fierce competition for local keywords', 'Seasonal peaks around lease cycles (summer, end of month)', 'Clients rarely become recurring — pure one-time transactions', 'Real estate agent relationships are hard to scale'],
     howFullLoopHelps: ['AI responds to leads within seconds — critical for time-sensitive bookings', 'Multi-domain SEO captures hyper-local move-out cleaning searches', 'Referral program helps scale real estate agent relationships', 'Automated booking with real-time availability prevents double-booking during peaks', 'Revenue attribution tracks which neighborhoods generate the most move-out requests'],
     keywords: ['move in out cleaning CRM', 'move out cleaning software', 'move in cleaning lead generation', 'move out cleaning scheduling', 'end of lease cleaning CRM'],
@@ -57,7 +57,7 @@ export const services: ServiceData[] = [
     description: 'Full Loop CRM for carpet cleaning — generate organic leads, automate quoting, and manage field technicians.',
     longDescription: 'Carpet cleaning businesses need a steady flow of local leads and efficient scheduling for equipment-heavy jobs. Full Loop CRM generates organic traffic through neighborhood websites, uses AI to qualify leads and provide instant estimates, and manages field technicians with GPS-verified check-in/out.',
     challenges: ['Equipment logistics add complexity to scheduling', 'Clients often comparison-shop on price alone', 'Difficulty building recurring revenue from one-time carpet cleaning jobs', 'No attribution for which marketing channels drive bookings', 'Manual quoting based on room count and square footage'],
-    howFullLoopHelps: ['Selenas AI qualifies leads by room count and provides instant estimates', 'Multi-domain SEO targets neighborhood-specific carpet cleaning keywords', 'Automated follow-ups convert one-time clients into annual deep-clean schedules', 'GPS tracking ensures technicians arrive on time with equipment', 'Full P&L reporting shows profit per job after labor and supply costs'],
+    howFullLoopHelps: ['Yinez AI qualifies leads by room count and provides instant estimates', 'Multi-domain SEO targets neighborhood-specific carpet cleaning keywords', 'Automated follow-ups convert one-time clients into annual deep-clean schedules', 'GPS tracking ensures technicians arrive on time with equipment', 'Full P&L reporting shows profit per job after labor and supply costs'],
     keywords: ['carpet cleaning CRM', 'carpet cleaning software', 'carpet cleaning lead generation', 'carpet cleaning scheduling', 'carpet cleaning business management'],
   },
   {
@@ -77,7 +77,7 @@ export const services: ServiceData[] = [
     description: 'Full Loop CRM for pressure washing — dominate local search and convert leads with AI-powered sales.',
     longDescription: 'Pressure washing is a high-demand, seasonal trade with strong local search volume. Full Loop CRM helps pressure washing businesses capture organic leads through neighborhood websites, convert them instantly with AI sales, and manage teams in the field with GPS tracking.',
     challenges: ['Highly seasonal demand with weather dependency', 'Clients often need one-time service with no recurring revenue', 'Price-sensitive market with many solo operators', 'Equipment and travel logistics affect scheduling', 'Difficulty standing out in crowded local search results'],
-    howFullLoopHelps: ['Multi-domain SEO dominates neighborhood-level pressure washing searches', 'Selenas AI qualifies leads by property type, surface area, and service needs', 'Automated post-service follow-ups convert one-time into annual clients', 'GPS check-in/out tracks team efficiency across multiple job sites', 'Revenue attribution identifies which neighborhoods are most profitable'],
+    howFullLoopHelps: ['Multi-domain SEO dominates neighborhood-level pressure washing searches', 'Yinez AI qualifies leads by property type, surface area, and service needs', 'Automated post-service follow-ups convert one-time into annual clients', 'GPS check-in/out tracks team efficiency across multiple job sites', 'Revenue attribution identifies which neighborhoods are most profitable'],
     keywords: ['pressure washing CRM', 'pressure washing software', 'pressure washing lead generation', 'pressure washing scheduling', 'power washing business management'],
   },
   {
@@ -107,7 +107,7 @@ export const services: ServiceData[] = [
     description: 'Full Loop CRM for HVAC repair — capture emergency leads 24/7 and manage technician dispatch with GPS.',
     longDescription: 'HVAC repair is one of the highest-value home service trades with strong emergency demand. Full Loop CRM captures emergency HVAC leads around the clock with AI-powered sales, dispatches technicians with GPS tracking, and builds long-term maintenance contracts through automated follow-ups.',
     challenges: ['Emergency calls come at all hours — nights, weekends, holidays', 'High-value leads require fast response to prevent losing to competitors', 'Technician dispatch and routing across wide service areas', 'Building recurring maintenance contracts from one-time repair calls', 'Seasonal peaks in summer (AC) and winter (heating) strain capacity'],
-    howFullLoopHelps: ['Selenas AI engages emergency HVAC leads within seconds, 24/7/365', 'GPS-verified technician dispatch with real-time location tracking', 'Automated post-repair follow-ups convert one-time into annual maintenance contracts', 'Emergency job broadcasting dispatches nearest available technician', 'Multi-domain SEO captures "HVAC repair near me" searches in every neighborhood'],
+    howFullLoopHelps: ['Yinez AI engages emergency HVAC leads within seconds, 24/7/365', 'GPS-verified technician dispatch with real-time location tracking', 'Automated post-repair follow-ups convert one-time into annual maintenance contracts', 'Emergency job broadcasting dispatches nearest available technician', 'Multi-domain SEO captures "HVAC repair near me" searches in every neighborhood'],
     keywords: ['HVAC CRM', 'HVAC business software', 'HVAC scheduling', 'HVAC lead generation', 'HVAC repair business management'],
   },
   {
@@ -127,7 +127,7 @@ export const services: ServiceData[] = [
     description: 'Full Loop CRM for electricians — generate local leads, automate scheduling, and manage technician dispatch.',
     longDescription: 'Electrical businesses need efficient scheduling, reliable lead generation, and clear communication with clients about complex work. Full Loop CRM provides the complete business platform — from capturing organic leads to scheduling, dispatch, payment, and review generation.',
     challenges: ['Complex job types require detailed quoting and communication', 'Licensing and permit requirements add scheduling complexity', 'Mix of residential and commercial work with different pricing', 'Emergency service calls disrupt planned schedules', 'Building ongoing relationships beyond one-time repairs'],
-    howFullLoopHelps: ['Selenas AI qualifies leads by job type and urgency level', 'Smart scheduling with buffer times for jobs that run long', 'GPS tracking verifies technician arrival and calculates hours worked', 'Automated post-service follow-ups drive Google reviews', 'Revenue attribution shows which services and neighborhoods are most profitable'],
+    howFullLoopHelps: ['Yinez AI qualifies leads by job type and urgency level', 'Smart scheduling with buffer times for jobs that run long', 'GPS tracking verifies technician arrival and calculates hours worked', 'Automated post-service follow-ups drive Google reviews', 'Revenue attribution shows which services and neighborhoods are most profitable'],
     keywords: ['electrician CRM', 'electrical business software', 'electrician scheduling', 'electrical lead generation', 'electrical contractor management'],
   },
   {
@@ -157,7 +157,7 @@ export const services: ServiceData[] = [
     description: 'Full Loop CRM for painting businesses — generate leads, manage project scheduling, and track crew profitability.',
     longDescription: 'Painting businesses handle multi-day projects with complex scheduling needs. Full Loop CRM provides the project management backbone — from lead generation through estimation, scheduling, crew dispatch, and payment collection — with full profitability tracking per job.',
     challenges: ['Multi-day projects require careful scheduling and crew coordination', 'Estimating accuracy directly impacts profitability', 'Seasonal demand peaks in spring and summer', 'Competition from both professional crews and DIY homeowners', 'Managing multiple concurrent projects across different locations'],
-    howFullLoopHelps: ['Multi-domain SEO captures local painting searches by neighborhood', 'Selenas AI qualifies leads by project type, room count, and timeline', 'Scheduling with multi-day job support and crew assignment', 'GPS check-in/out tracks daily crew hours on multi-day projects', 'P&L reporting shows true profitability per project after labor and materials'],
+    howFullLoopHelps: ['Multi-domain SEO captures local painting searches by neighborhood', 'Yinez AI qualifies leads by project type, room count, and timeline', 'Scheduling with multi-day job support and crew assignment', 'GPS check-in/out tracks daily crew hours on multi-day projects', 'P&L reporting shows true profitability per project after labor and materials'],
     keywords: ['painting CRM', 'painting business software', 'painter scheduling', 'painting lead generation', 'painting contractor management'],
   },
   {
@@ -207,7 +207,7 @@ export const services: ServiceData[] = [
     description: 'Full Loop CRM for air duct cleaning — generate leads, schedule technicians, and build recurring maintenance contracts.',
     longDescription: 'Air duct cleaning businesses benefit from health-conscious homeowners searching for indoor air quality solutions. Full Loop CRM captures these searches through targeted local SEO, qualifies leads with AI that explains the health benefits, and builds recurring annual maintenance schedules.',
     challenges: ['Educating homeowners on the health benefits drives conversion', 'Seasonal demand tied to HVAC usage patterns', 'Equipment-heavy service requires careful scheduling', 'Building annual or biannual maintenance contracts', 'Competing with HVAC companies offering duct cleaning as add-on'],
-    howFullLoopHelps: ['Selenas AI educates leads on air quality benefits during qualification', 'Multi-domain SEO targets health-conscious homeowner searches', 'Recurring scheduling for annual duct cleaning maintenance', 'GPS-verified technician dispatch with equipment tracking', 'Automated follow-ups remind clients when annual cleaning is due'],
+    howFullLoopHelps: ['Yinez AI educates leads on air quality benefits during qualification', 'Multi-domain SEO targets health-conscious homeowner searches', 'Recurring scheduling for annual duct cleaning maintenance', 'GPS-verified technician dispatch with equipment tracking', 'Automated follow-ups remind clients when annual cleaning is due'],
     keywords: ['air duct cleaning CRM', 'duct cleaning software', 'air duct cleaning scheduling', 'duct cleaning lead generation', 'HVAC duct cleaning management'],
   },
 ]

@@ -11,13 +11,13 @@ import {
 export const metadata: Metadata = {
   title: "FAQ | Full Loop CRM - Home Service CRM Questions Answered",
   description:
-    "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, Selenas AI, and getting started. Flat $1,000 per user per month.",
+    "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, Yinez AI, and getting started. Invite-only waitlist.",
   keywords: [
     "full loop CRM FAQ",
     "home service CRM questions",
     "CRM pricing FAQ",
     "territory exclusivity CRM",
-    "Selenas AI questions",
+    "Yinez AI questions",
     "home service CRM cost",
   ],
   openGraph: {
@@ -97,7 +97,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "How does the review management work?",
         answer:
-          "After every completed job, Selenas AI automatically sends a review request via SMS and email. Positive reviews are directed to Google. Negative feedback is routed privately so you can resolve issues before they go public.",
+          "After every completed job, Yinez AI automatically sends a review request via SMS and email. Positive reviews are directed to Google. Negative feedback is routed privately so you can resolve issues before they go public.",
       },
     ],
   },
@@ -108,17 +108,17 @@ const faqCategories: FaqCategory[] = [
       {
         question: "How much does Full Loop CRM cost?",
         answer:
-          "Flat $1,000 per user per month. Solo operator $1,000/mo, 5-person team $5,000/mo, 25-person team $25,000/mo. Every operator on every team size gets the complete platform — website, CRM, Selena AI on SMS + web + email, GPS team portal, e-signature, route optimization, full bookkeeping with 1099-ready exports, hiring pages, reviews, referrals. $999 one-time setup fee. No contracts, cancel anytime.",
+          "Full Loop is currently invite-only — pricing is shared with waitlist members once we open a slot in your trade and city. One operator gets exclusive territory, so we don't list public pricing. Join the waitlist and we'll send the details when an opening matches you.",
       },
       {
         question: "Are there any setup fees?",
         answer:
-          "$999 one-time setup fee, same for every tier. This covers white-glove onboarding: we build your custom website, configure Selena AI for your trade, import your existing clients, set up your service areas and pricing, and test everything end-to-end before you go live.",
+          "There is a one-time onboarding fee that covers white-glove setup: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas, and test everything end-to-end before you go live. The exact amount is shared with waitlist members at invitation.",
       },
       {
-        question: "What are microsites and how much do they cost?",
+        question: "What are microsites?",
         answer:
-          "Microsites are standalone landing pages targeting specific services or neighborhoods (e.g., 'Carpet Cleaning in Astoria'). They cost $500 each and you own them outright — they are yours to keep even if you cancel.",
+          "Microsites are standalone landing pages targeting specific services or neighborhoods (e.g., 'Carpet Cleaning in Astoria'). You own them outright — they are yours to keep even if you cancel. Pricing for additional microsites is shared with waitlist members.",
       },
       {
         question: "Is there a long-term contract?",
@@ -211,7 +211,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "Do I need to be tech-savvy?",
         answer:
-          "No. Full Loop CRM is designed for home service professionals, not tech experts. We handle all the technical setup. Your daily workflow is simple: check your dashboard, confirm jobs, and let Selenas handle the rest.",
+          "No. Full Loop CRM is designed for home service professionals, not tech experts. We handle all the technical setup. Your daily workflow is simple: check your dashboard, confirm jobs, and let Yinez handle the rest.",
       },
       {
         question: "What information do I need to get started?",
@@ -221,28 +221,28 @@ const faqCategories: FaqCategory[] = [
     ],
   },
   {
-    title: "Selenas AI",
+    title: "Yinez AI",
     id: "selenas",
     items: [
       {
-        question: "What is Selenas AI?",
+        question: "What is Yinez AI?",
         answer:
-          "Selenas is Full Loop's AI assistant that handles your front office. She answers calls, responds to texts, qualifies leads, books estimates, sends quotes, follows up on open proposals, requests reviews after jobs, and re-engages past customers — 24/7 with no missed calls.",
+          "Yinez is Full Loop's AI assistant that handles your front office. She answers calls, responds to texts, qualifies leads, books estimates, sends quotes, follows up on open proposals, requests reviews after jobs, and re-engages past customers — 24/7 with no missed calls.",
       },
       {
-        question: "Does Selenas replace my receptionist?",
+        question: "Does Yinez replace my receptionist?",
         answer:
-          "For most home service businesses, yes. Selenas handles inbound calls, lead qualification, appointment scheduling, follow-ups, and review requests. You focus on the field work while she manages the phone and inbox.",
+          "For most home service businesses, yes. Yinez handles inbound calls, lead qualification, appointment scheduling, follow-ups, and review requests. You focus on the field work while she manages the phone and inbox.",
       },
       {
-        question: "Can Selenas handle Spanish-speaking callers?",
+        question: "Can Yinez handle Spanish-speaking callers?",
         answer:
-          "Yes. Selenas supports both English and Spanish communication across phone, SMS, and email channels.",
+          "Yes. Yinez supports both English and Spanish communication across phone, SMS, and email channels.",
       },
       {
         question: "What if a caller needs to speak to a real person?",
         answer:
-          "Selenas can transfer calls to you or your team when needed. You set the rules for when live transfers happen — emergency calls, high-value leads, existing customers, or any criteria you define.",
+          "Yinez can transfer calls to you or your team when needed. You set the rules for when live transfers happen — emergency calls, high-value leads, existing customers, or any criteria you define.",
       },
     ],
   },
@@ -283,7 +283,7 @@ export default function FAQPage() {
       <JsonLd
         data={webPageSchema(
           "FAQ | Full Loop CRM",
-          "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, and Selenas AI.",
+          "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, and Yinez AI.",
           "https://homeservicesbusinesscrm.com/full-loop-crm-frequently-asked-questions",
           breadcrumbs
         )}
@@ -304,7 +304,7 @@ export default function FAQPage() {
             territory, ownership, and more.
           </p>
           <p className="font-mono text-sm text-teal-400 tracking-wide">
-            $1,000 / user / month &middot; flat &middot; every feature included
+            invite-only &middot; one operator per trade per city &middot; waitlist required
           </p>
         </div>
       </section>
@@ -390,10 +390,10 @@ export default function FAQPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Request Partnership
+              Request to Join Waitlist
             </Link>
             <a
               href="tel:+12122029220"

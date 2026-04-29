@@ -95,7 +95,6 @@ export default function AccessibilityPage() {
             limitations:
           </p>
           <ul>
-            <li>Third-party integrations (Tawk.to chat widget) may not fully meet WCAG standards</li>
             <li>Some dynamically generated content may have limited screen reader support</li>
           </ul>
           <p>

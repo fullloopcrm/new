@@ -151,8 +151,8 @@ export default function CaseStudies() {
               See All Features
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
-              className="inline-block px-8 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
+              href="/waitlist"
+              className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               Get Started Today
             </Link>

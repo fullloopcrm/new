@@ -590,7 +590,7 @@ export const serviceCategories: ServiceCategory[] = [
     shortDesc:
       "Custom AI chatbots, text bots, lead follow-up, review requests, and appointment booking — built for NYC businesses.",
     description:
-      "Your competitors are answering leads at 2am while you sleep. Our AI automation services level the playing field. We build custom AI text bots (like Selena), chatbots, automated lead follow-up, review request systems, and appointment scheduling — all running 24/7 on our own infrastructure. Not a plugin. Not a widget. Real AI built on Telnyx, Supabase, and Claude AI.",
+      "Your competitors are answering leads at 2am while you sleep. Our AI automation services level the playing field. We build custom AI text bots (like Yinez), chatbots, automated lead follow-up, review request systems, and appointment scheduling — all running 24/7 on our own infrastructure. Not a plugin. Not a widget. Real AI built on Telnyx, Supabase, and Claude AI.",
     icon: "cpu",
     features: [
       "Custom AI Text Bot (SMS-Based)",
@@ -1008,7 +1008,7 @@ export const testimonials = [
   {
     name: "Marcus T.",
     business: "Maid Service · Atlanta, GA",
-    text: "The AI chatbot blew my mind. I get leads at 11pm, 2am, weekends — and they used to just sit there until Monday. Watching Selena engage a lead, qualify them, answer their pricing question, and push them to book — all via text, all automatic — that alone is worth it.",
+    text: "The AI chatbot blew my mind. I get leads at 11pm, 2am, weekends — and they used to just sit there until Monday. Watching Yinez engage a lead, qualify them, answer their pricing question, and push them to book — all via text, all automatic — that alone is worth it.",
     rating: 5,
   },
   {
@@ -1070,7 +1070,7 @@ export const faqs = {
     },
     {
       question: "How does the AI sales chatbot convert leads into booked appointments?",
-      answer: "Selenas is a bilingual AI SMS sales assistant that engages every inbound lead within seconds, 24 hours a day. She qualifies prospects by asking about their location, service needs, home size, and budget, then guides them to book online. She answers 12+ common questions about pricing, insurance, cancellation policy, eco-friendly products, and more.",
+      answer: "Yinez is a bilingual AI SMS sales assistant that engages every inbound lead within seconds, 24 hours a day. She qualifies prospects by asking about their location, service needs, home size, and budget, then guides them to book online. She answers 12+ common questions about pricing, insurance, cancellation policy, eco-friendly products, and more.",
     },
     {
       question: "What types of home service businesses can use Full Loop CRM?",
@@ -1122,15 +1122,15 @@ export const faqs = {
     },
     {
       question: "How much does Full Loop CRM cost?",
-      answer: "Flat $1,000 per user per month. Solo operator $1,000/mo, 5-person team $5,000/mo, 25-person team $25,000/mo. Every operator gets the complete platform — website, CRM, Selena AI on SMS + web + email, GPS team portal, e-signature, route optimization, full bookkeeping with 1099-ready exports, hiring pages, reviews, referrals. $999 one-time setup fee. No contracts, cancel anytime.",
+      answer: "Full Loop is currently invite-only. We open one slot per trade per city, and pricing is shared with waitlist members when an opening matches them. Join the waitlist to be considered.",
     },
     {
       question: "Who owns what in a Full Loop CRM partnership?",
-      answer: "100% transparent from day one. You own: your Telnyx phone number, your Resend email account, your business name/LLC, and any $500 microsites you purchase. Full Loop owns: the CRM platform, Selenas AI, the full SEO site and domain (unless you complete the buyout), any Google Business Profiles we create, and all website code and templates.",
+      answer: "100% transparent from day one. You own: your Telnyx phone number, your Resend email account, your business name/LLC, and any microsites you purchase. Full Loop owns: the CRM platform, Yinez AI, the full SEO site and domain (unless you complete the buyout), any Google Business Profiles we create, and all website code and templates.",
     },
     {
       question: "What happens if I cancel my partnership?",
-      answer: "You keep everything that's yours — your phone number (Telnyx), your email account (Resend), your business name, and any microsites you purchased. Full Loop retains the CRM platform access, the full SEO site, the Google Business Profiles, and the lead generation network. If you want to take the full SEO site with you, you can buy it for $5,000 upfront or pay the buyout price of $20,000 + 10%/mo compound.",
+      answer: "You keep everything that's yours — your phone number (Telnyx), your email account (Resend), your business name, and any microsites you purchased. Full Loop retains the CRM platform access, the full SEO site, the Google Business Profiles, and the lead generation network. Buyout details for the full SEO site are shared with active partners.",
     },
     {
       question: "Can I buy the full SEO site that Full Loop builds for my business?",
@@ -1174,7 +1174,7 @@ export const faqs = {
     },
     {
       question: "How do I apply to become a partner?",
-      answer: "Text us at (212) 202-9220, call us, or email hello@homeservicesbusinesscrm.com. Tell us your trade and city. We'll check territory availability. Or submit a partnership request online at homeservicesbusinesscrm.com/crm-partnership-request-form.",
+      answer: "Text us at (212) 202-9220, call us, or email hello@homeservicesbusinesscrm.com. Tell us your trade and city. We'll check territory availability. Or submit a partnership request online at homeservicesbusinesscrm.com/waitlist.",
     },
   ],
 };

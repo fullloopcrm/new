@@ -61,7 +61,7 @@ export default function Guarantees() {
               <p className="text-[#3A3A3A] text-lg md:text-xl leading-relaxed mb-8">
                 Full Loop replaces your entire operational stack — sales,
                 scheduling, customer service, payments, reviews, retargeting —
-                at a flat $1,000 per user per month. Add your website network once, and organic leads
+                in one invite-only platform. Add your website network once, and organic leads
                 flow in forever. No ad spend. No staffing headaches. No gaps.
               </p>
               <p className="text-[#6F6F6B] text-base leading-relaxed mb-10">
@@ -79,8 +79,8 @@ export default function Guarantees() {
               </p>
               <div className="flex flex-wrap justify-center gap-4">
                 <Link
-                  href="/full-loop-crm-pricing"
-                  className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-[#1C1C1C] font-bold text-lg hover:bg-[#1F4D2C] transition-colors duration-300 font-cta"
+                  href="/waitlist"
+                  className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-white font-bold text-lg hover:bg-[#1F4D2C] transition-colors duration-300 font-cta"
                 >
                   See Full Pricing Breakdown
                 </Link>
@@ -112,7 +112,7 @@ export default function Guarantees() {
             </Link>{" "}
             or{" "}
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C] font-semibold"
             >
               request a partnership consultation

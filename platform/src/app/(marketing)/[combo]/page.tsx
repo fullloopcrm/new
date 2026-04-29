@@ -64,7 +64,7 @@ export async function generateMetadata({
       ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} has been claimed. Full Loop CRM licenses only one ${trade} partner per city — see nearby markets still available.`
       : status === "pending"
         ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for the exclusive Full Loop CRM license. Only one per city — get on the waitlist if the application falls through.`
-        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it's licensed to one operator per city. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one platform. Claim the ${metro.city} territory at $1,000 per user / month.`;
+        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it's licensed to one operator per city. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one platform. Claim the territory by joining the waitlist.`;
   const url = `https://homeservicesbusinesscrm.com/${slug}`;
 
   return {
@@ -162,7 +162,7 @@ export default async function ComboPage({
       : "Claim This Territory";
   const primaryCtaHref = isClaimed
     ? `/location/home-service-crm-in-${metro.shortSlug}`
-    : "/crm-partnership-request-form";
+    : "/waitlist";
 
   // Find deep page content via slug mapping
   const contentSlug = getIndustryContentSlug(industry.slug);
@@ -277,7 +277,7 @@ export default async function ComboPage({
           )}
 
           <p className="font-mono text-sm text-teal-400 mb-6 tracking-wide">
-            $1,000 / user / month &middot; flat &middot; every feature included
+            invite-only &middot; one operator per trade per city &middot; waitlist required
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
@@ -564,15 +564,15 @@ export default async function ComboPage({
       )}
 
       {/* ================================================================= */}
-      {/* 7. PRICING — one license, one city                               */}
+      {/* 7. ACCESS — one operator per city                                */}
       {/* ================================================================= */}
       <section className="py-20 px-6 bg-slate-50">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            One {industry.name} License for {metro.city}. $1,000 / user.
+            One {industry.name} Operator. {metro.city}. Waitlist Only.
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
-            $1,000<span className="text-xl text-slate-500 font-normal">/user/mo</span>
+            Invite-only<span className="text-xl text-slate-500 font-normal"> waitlist</span>
           </p>
           <p className="text-slate-600 mb-4 text-lg">
             The exclusive {trade} CRM license for {metro.city},{" "}
@@ -583,14 +583,12 @@ export default async function ComboPage({
             Full Loop CRM replaces 9+ separate tools — lead generation,
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
-            platform. Flat $1,000 per user / month. No tiers. No feature
-            gates. The license includes your exclusive {metro.city}{" "}
-            territory, all 7 lifecycle stages, the Selena AI assistant,
+            platform. The license includes your exclusive {metro.city}{" "}
+            territory, all 7 lifecycle stages, the Yinez AI assistant,
             client and team portals, and all core updates.
           </p>
           <p className="text-sm text-slate-500 mb-8">
-            $999 one-time setup. No contracts. Cancel anytime — but the next
-            applicant inherits the {metro.city} license.
+            Joining the waitlist isn&apos;t a guarantee — we open one slot per trade per city, and the {metro.city} {trade} license goes to a single operator.
           </p>
           <Link
             href={primaryCtaHref}
@@ -859,7 +857,7 @@ export default async function ComboPage({
               All Features
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               Pricing

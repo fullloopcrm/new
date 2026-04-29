@@ -64,7 +64,7 @@ const stages = [
   {
     number: "2",
     name: "AI Sales & Booking",
-    desc: "Selenas AI answers every inquiry in under 60 seconds, qualifies the lead, quotes the job, and books it on your calendar — 24/7/365.",
+    desc: "Yinez AI answers every inquiry in under 60 seconds, qualifies the lead, quotes the job, and books it on your calendar — 24/7/365.",
   },
   {
     number: "3",
@@ -100,8 +100,8 @@ const differentiators = [
     highlight: "No other CRM does this.",
   },
   {
-    title: "Selenas AI",
-    desc: "Your AI-powered receptionist, salesperson, and customer service rep rolled into one. Selenas answers calls, texts, and web inquiries instantly, qualifies leads, sends quotes, and books jobs — replacing roles that cost $121,000/year in payroll.",
+    title: "Yinez AI",
+    desc: "Your AI-powered receptionist, salesperson, and customer service rep rolled into one. Yinez answers calls, texts, and web inquiries instantly, qualifies leads, sends quotes, and books jobs — replacing roles that cost $121,000/year in payroll.",
     highlight: "Replaces $121K in staff costs.",
   },
   {
@@ -130,7 +130,7 @@ const comparisonRows = [
   { feature: "Automated review management", fullloop: true, jobber: false, housecall: false, servicetitan: false },
   { feature: "Retargeting & lifecycle campaigns", fullloop: true, jobber: false, housecall: false, servicetitan: false },
   { feature: "Exclusive territory protection", fullloop: true, jobber: false, housecall: false, servicetitan: false },
-  { feature: "Pricing model", fullloop: "$1,000/user/mo flat", jobber: "$69–$349 + per-user", housecall: "$79–$279 + per-user", servicetitan: "$300+/user, enterprise only" },
+  { feature: "Access model", fullloop: "Invite-only waitlist", jobber: "Self-serve", housecall: "Self-serve", servicetitan: "Sales-led" },
 ];
 
 const autonomousRuns = [
@@ -196,7 +196,7 @@ export default function WhyFullLoopPage() {
               href="/partner-with-full-loop-crm"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-3.5 text-sm font-semibold text-slate-900 shadow-lg hover:bg-teal-300 transition-colors"
             >
-              Request Partnership
+              Request to Join Waitlist
             </Link>
             <Link
               href="/full-loop-crm-service-features"
@@ -514,7 +514,7 @@ export default function WhyFullLoopPage() {
 
           <p className="text-center mt-8 text-slate-500 text-sm">
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="text-teal-600 font-semibold underline underline-offset-2 hover:text-teal-700"
             >
               See Full Loop pricing details&nbsp;&rarr;
@@ -609,10 +609,10 @@ export default function WhyFullLoopPage() {
               href="/partner-with-full-loop-crm"
               className="font-cta inline-block rounded-lg bg-teal-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg hover:bg-teal-700 transition-colors"
             >
-              Request Partnership
+              Request to Join Waitlist
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="font-cta inline-block rounded-lg border border-slate-300 px-8 py-3.5 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-600 transition-colors"
             >
               View Pricing

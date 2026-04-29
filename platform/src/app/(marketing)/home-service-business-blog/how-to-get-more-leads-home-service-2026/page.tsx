@@ -237,7 +237,7 @@ export default function LeadsPillarPage() {
               operators who haven&apos;t adopted AI intake. For the primer,
               see{" "}
               <Link href="/home-service-business-blog/what-is-selena-ai">
-                what Selena is (and isn&apos;t)
+                what Yinez is (and isn&apos;t)
               </Link>
               .
             </li>
@@ -454,7 +454,7 @@ export default function LeadsPillarPage() {
               <strong>AI lead agent</strong> — responds in under 8 seconds,
               qualifies, quotes, books, and collects deposit. Inside{" "}
               <Link href="/full-loop-crm-service-features">Full Loop CRM</Link>{" "}
-              this is Selena. Handles 95%+ of inbound without human
+              this is Yinez. Handles 95%+ of inbound without human
               intervention. This is the step-change fix.
             </li>
             <li>
@@ -593,7 +593,7 @@ export default function LeadsPillarPage() {
             . For the platform that runs the full loop, see the{" "}
             <Link href="/full-loop-crm-service-features">feature list</Link>.
             Pricing lives at{" "}
-            <Link href="/full-loop-crm-pricing">full pricing</Link>. For
+            <Link href="/waitlist">full pricing</Link>. For
             which trades this fits, see{" "}
             <Link href="/full-loop-crm-service-business-industries">
               industries served
@@ -663,7 +663,7 @@ export default function LeadsPillarPage() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100"
             >
               Apply for your territory
@@ -675,7 +675,7 @@ export default function LeadsPillarPage() {
               See the platform
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="rounded-lg border border-slate-700 bg-slate-800 px-5 py-3 text-sm font-medium text-white hover:bg-slate-700"
             >
               Pricing

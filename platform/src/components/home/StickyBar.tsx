@@ -33,7 +33,7 @@ export default function StickyBar() {
             (212) 202-9220
           </a>
           <Link
-            href="/crm-partnership-request-form"
+            href="/waitlist"
             className="inline-block px-6 py-2.5 text-sm font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors whitespace-nowrap font-cta"
           >
             Apply Now

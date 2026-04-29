@@ -17,8 +17,6 @@ import Welcome from "@/components/home/Welcome";
 import ResultsTicker from "@/components/home/ResultsTicker";
 
 // Below the fold — lazy loaded
-const CostBreakdown = dynamic(() => import("@/components/home/CostBreakdown"));
-const PricingSlider = dynamic(() => import("@/components/home/PricingSlider"));
 const Testimonials = dynamic(() => import("@/components/home/Testimonials"));
 const TopServices = dynamic(() => import("@/components/home/TopServices"));
 const ServiceDeepDives = dynamic(() => import("@/components/home/ServiceDeepDives"));
@@ -26,7 +24,6 @@ const Process = dynamic(() => import("@/components/home/Process"));
 const BeforeAfter = dynamic(() => import("@/components/home/BeforeAfter"));
 const Industries = dynamic(() => import("@/components/home/Industries"));
 const WhyNYC = dynamic(() => import("@/components/home/WhyNYC"));
-const AssetPricing = dynamic(() => import("@/components/home/AssetPricing"));
 const Competitors = dynamic(() => import("@/components/home/Competitors"));
 const Comparison = dynamic(() => import("@/components/home/Comparison"));
 const SocialProof = dynamic(() => import("@/components/home/SocialProof"));
@@ -77,12 +74,6 @@ export default function Home() {
       {/* 3. Stats bar */}
       <ResultsTicker />
 
-      {/* 4. Cost breakdown table */}
-      <CostBreakdown />
-
-      {/* 5. Pricing slider */}
-      <PricingSlider />
-
       {/* 6. Reviews from home service owners */}
       <Testimonials />
 
@@ -95,14 +86,11 @@ export default function Home() {
       {/* 9. The Full Loop — 7-step process */}
       <Process />
 
-      {/* 10. Selenas replaces your front office */}
+      {/* 10. Yinez replaces your front office */}
       <BeforeAfter />
 
       {/* 11. 50+ industries */}
       <Industries />
-
-      {/* 11b. Asset pricing — buy now or pay later */}
-      <AssetPricing />
 
       {/* 12. Founder story */}
       <WhyNYC />

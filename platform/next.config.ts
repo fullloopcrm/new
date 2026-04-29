@@ -51,6 +51,9 @@ const nextConfig: NextConfig = {
       { source: '/book/dashboard', destination: '/portal', permanent: true },
       { source: '/team/:token', destination: '/team/checkin/:token', permanent: true },
       { source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator', permanent: true },
+      // Waitlist-only era — partnership form route renamed, pricing page retired.
+      { source: '/crm-partnership-request-form', destination: '/waitlist', permanent: true },
+      { source: '/full-loop-crm-pricing', destination: '/waitlist', permanent: true },
       // Clean marketing URLs are handled via afterFiles rewrites above
       // (they run after middleware injects /site prefix for tenant domains).
     ]

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title:
     "$1,000 per user / month | Full Loop CRM — One Trade Per City",
   description:
-    "Flat $1,000 per user / month. Every feature included. One operator per trade per city holds the license. AI sales (Selena), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO. The category doesn't have a comparison.",
+    "Flat $1,000 per user / month. Every feature included. One operator per trade per city holds the license. AI sales (Yinez), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO. The category doesn't have a comparison.",
   keywords: [
     "Full Loop CRM pricing",
     "home service CRM per user pricing",
@@ -64,7 +64,7 @@ const seatExamples = [
 
 const includedFeatures = [
   "Custom Next.js website with auto-generated services + service-area + neighborhood + careers pages",
-  "Selena AI agent on SMS, web chat, AND inbound email — same brain, 17 intents, bilingual EN/ES",
+  "Yinez AI agent on SMS, web chat, AND inbound email — same brain, 17 intents, bilingual EN/ES",
   "Full CRM (clients, bookings, calendar, recurring schedules, smart-schedule scoring)",
   "Sales suite: leads, deals + pipeline, quotes, e-signature documents, invoices, route optimization",
   "Mobile team portal (PIN login, GPS check-in/out with 528ft validation, before/after video walkthroughs, 30-min heads-up)",
@@ -84,7 +84,7 @@ const pricingFaqs = [
   {
     question: "Why $1,000 per user?",
     answer:
-      "Because nothing else in this category exists. You're not buying a CRM — you're buying an AI receptionist that books leads at 11pm, an automated bookkeeping engine, a GPS field operations platform, an e-signature workflow, a route optimizer, a multi-channel review machine, and a per-tenant SEO website network. Selena alone replaces a $300–$400/mo answering service. Each user seat unlocks the GPS team portal, video walkthroughs, payroll line, and earnings tracker — every seat is worth more than $1,000 of operational lift per month.",
+      "Because nothing else in this category exists. You're not buying a CRM — you're buying an AI receptionist that books leads at 11pm, an automated bookkeeping engine, a GPS field operations platform, an e-signature workflow, a route optimizer, a multi-channel review machine, and a per-tenant SEO website network. Yinez alone replaces a $300–$400/mo answering service. Each user seat unlocks the GPS team portal, video walkthroughs, payroll line, and earnings tracker — every seat is worth more than $1,000 of operational lift per month.",
   },
   {
     question: "Is there a contract?",
@@ -94,7 +94,7 @@ const pricingFaqs = [
   {
     question: "What if I cancel?",
     answer:
-      "Give us 30 days notice. We export all your client data for free (CSV format, always yours). Your website goes dark and your Selena AI stops responding, but your data walks out the door with you — no fees, no games.",
+      "Give us 30 days notice. We export all your client data for free (CSV format, always yours). Your website goes dark and your Yinez AI stops responding, but your data walks out the door with you — no fees, no games.",
   },
   {
     question: "Can I buy my website?",
@@ -104,7 +104,7 @@ const pricingFaqs = [
   {
     question: "What's the setup fee?",
     answer:
-      "$999 one-time. This covers white-glove onboarding: we build your custom website, configure Selena AI for your trade, import your existing clients, set up your service areas and pricing, and test everything end-to-end before you go live. You don't lift a finger.",
+      "$999 one-time. This covers white-glove onboarding: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas and pricing, and test everything end-to-end before you go live. You don't lift a finger.",
   },
   {
     question: "Do I own my client data?",
@@ -149,7 +149,7 @@ export default function PricingPage() {
             <span className="text-yellow-300">Every feature. No tiers.</span>
           </h1>
           <p className="mt-6 text-lg text-slate-300 sm:text-xl max-w-2xl mx-auto">
-            Flat per-user pricing. The whole platform from day one — Selena AI,
+            Flat per-user pricing. The whole platform from day one — Yinez AI,
             full CRM, GPS field operations, bookkeeping, e-signature, routes,
             reviews, referrals, and your custom site network. Add a seat, your
             invoice goes up. Remove a seat, it goes down.
@@ -187,7 +187,7 @@ export default function PricingPage() {
               Every feature, every seat, every tenant. No gates, no upgrades.
             </p>
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="mt-6 block w-full rounded-lg bg-teal-600 px-6 py-3 text-center text-sm font-cta font-semibold text-white shadow-sm hover:bg-teal-700 transition-colors"
             >
               Claim Your Territory
@@ -226,7 +226,7 @@ export default function PricingPage() {
               </table>
             </div>
             <p className="mt-4 text-center text-xs text-slate-500">
-              50+ users? <Link href="/crm-partnership-request-form" className="text-teal-600 underline underline-offset-2">Talk to us</Link> — same flat rate, custom onboarding for multi-location operations.
+              50+ users? <Link href="/waitlist" className="text-teal-600 underline underline-offset-2">Talk to us</Link> — same flat rate, custom onboarding for multi-location operations.
             </p>
           </div>
 
@@ -504,7 +504,7 @@ export default function PricingPage() {
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-xl border border-slate-700 bg-slate-800 p-8">
               <p className="text-sm font-mono uppercase tracking-widest text-teal-400 mb-3">
-                What Selena alone replaces
+                What Yinez alone replaces
               </p>
               <ul className="space-y-3 text-slate-300 text-sm">
                 <li>📞 Answering service / receptionist — <span className="font-mono text-white">$300–$400/mo</span></li>
@@ -513,7 +513,7 @@ export default function PricingPage() {
                 <li>🧠 Lead-qualification specialist — <span className="font-mono text-white">$2,000+/mo</span></li>
               </ul>
               <p className="mt-5 pt-5 border-t border-slate-700 text-sm text-teal-300">
-                Selena replaces a <strong>$4,000+/mo</strong> front office. Books while you sleep, never asks for time off.
+                Yinez replaces a <strong>$4,000+/mo</strong> front office. Books while you sleep, never asks for time off.
               </p>
             </div>
 
@@ -542,7 +542,7 @@ export default function PricingPage() {
               The category doesn&apos;t have a comparison
             </p>
             <p className="text-2xl sm:text-3xl font-extrabold font-heading text-white max-w-3xl mx-auto leading-snug">
-              Selena + the website + GPS + bookkeeping + e-sign + routes + reviews + referrals + Google + social — in one platform, with exclusive territory — doesn&apos;t exist anywhere else, at any price.
+              Yinez + the website + GPS + bookkeeping + e-sign + routes + reviews + referrals + Google + social — in one platform, with exclusive territory — doesn&apos;t exist anywhere else, at any price.
             </p>
             <p className="mt-4 text-yellow-300 font-cta uppercase tracking-widest text-sm">
               $1,000 per user is the floor.
@@ -615,11 +615,11 @@ export default function PricingPage() {
               And the things you literally cannot buy off any shelf
             </p>
             <ul className="space-y-2.5 text-slate-700 text-sm">
-              <li>✦ Selena replying to inbound <strong>email</strong> leads automatically — no off-shelf product does this</li>
+              <li>✦ Yinez replying to inbound <strong>email</strong> leads automatically — no off-shelf product does this</li>
               <li>✦ IMAP-monitored Zelle / Venmo / Apple Pay / Cash App auto-match to bookings — bespoke build, ~$50K of engineering</li>
               <li>✦ 100% closed-loop attribution: visit → text → booking, source domain known per row</li>
               <li>✦ Stripe Connect crew auto-payouts the moment a job closes — no other field-service CRM ships this</li>
-              <li>✦ Per-tenant Selena persona (24 fields) + custom intent router — your business&apos;s voice, not a generic chatbot</li>
+              <li>✦ Per-tenant Yinez persona (24 fields) + custom intent router — your business&apos;s voice, not a generic chatbot</li>
               <li>✦ Mobile team + client portals as PWA today, native app on the roadmap — included, never an upcharge</li>
               <li>✦ Exclusive territory: nobody in your trade in your city can sign up after you</li>
             </ul>
@@ -633,11 +633,11 @@ export default function PricingPage() {
             <div className="grid gap-6 sm:grid-cols-3 text-center">
               <div>
                 <p className="text-3xl font-extrabold font-heading text-slate-900">7×</p>
-                <p className="mt-1 text-xs text-slate-600 leading-snug">conversion rate when you respond in &lt;60 sec vs &gt;5 min (HBR study). Selena does it in seconds, 24/7.</p>
+                <p className="mt-1 text-xs text-slate-600 leading-snug">conversion rate when you respond in &lt;60 sec vs &gt;5 min (HBR study). Yinez does it in seconds, 24/7.</p>
               </div>
               <div>
                 <p className="text-3xl font-extrabold font-heading text-slate-900">30–50%</p>
-                <p className="mt-1 text-xs text-slate-600 leading-snug">of inbound leads arrive after-hours. Without Selena, they call the next operator. With Selena, they book you.</p>
+                <p className="mt-1 text-xs text-slate-600 leading-snug">of inbound leads arrive after-hours. Without Yinez, they call the next operator. With Yinez, they book you.</p>
               </div>
               <div>
                 <p className="text-3xl font-extrabold font-heading text-slate-900">$2.5K–$8K</p>
@@ -701,7 +701,7 @@ export default function PricingPage() {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block rounded-lg bg-yellow-300 px-8 py-4 text-lg font-cta font-semibold text-slate-900 shadow-md hover:bg-yellow-400 transition-colors"
             >
               Claim Your Territory

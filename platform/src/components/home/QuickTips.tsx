@@ -9,7 +9,7 @@ const highlights = [
     desc: "One operator per trade per metro. Every lead we generate in your city routes to you \u2014 and only you.",
   },
   {
-    name: "Selena AI",
+    name: "Yinez AI",
     desc: "Your 24/7 AI receptionist that books appointments via SMS and web chat. Bilingual.",
   },
   {

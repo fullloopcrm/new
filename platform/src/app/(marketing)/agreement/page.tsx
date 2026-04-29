@@ -105,7 +105,7 @@ export default function AgreementPage() {
               pages, and ongoing content
             </li>
             <li>
-              Selena, our AI booking agent, handling SMS and web chat
+              Yinez, our AI booking agent, handling SMS and web chat
               conversations in English and Spanish
             </li>
             <li>
@@ -158,7 +158,7 @@ export default function AgreementPage() {
               below)
             </li>
             <li>The website template and codebase</li>
-            <li>The Selena AI system</li>
+            <li>The Yinez AI system</li>
           </ul>
 
           {/* ── 5. Website Ownership Options ── */}
@@ -181,7 +181,7 @@ export default function AgreementPage() {
           </p>
           <p>
             Your monthly subscription stays the same whether you buy the site or
-            not. The subscription covers the CRM, Selena, SEO management, and
+            not. The subscription covers the CRM, Yinez, SEO management, and
             ongoing support.
           </p>
 
@@ -224,7 +224,7 @@ export default function AgreementPage() {
           <ul>
             <li>Give us 30 days written notice</li>
             <li>Your CRM access ends at the end of your billing period</li>
-            <li>Selena stops responding to your leads</li>
+            <li>Yinez stops responding to your leads</li>
             <li>
               Your website goes dark (unless you purchased it)
             </li>
@@ -305,7 +305,7 @@ export default function AgreementPage() {
             If these terms work for you, let&apos;s get started.
           </p>
           <a
-            href="/crm-partnership-request-form"
+            href="/waitlist"
             className="inline-block rounded-lg bg-teal-600 px-8 py-3 text-white font-cta font-semibold hover:bg-teal-700 transition-colors"
           >
             Apply for Partnership

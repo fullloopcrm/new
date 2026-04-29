@@ -157,7 +157,7 @@ export default function AssetPricing() {
             . Plain language, no legalese.
           </p>
           <Link
-            href="/full-loop-crm-pricing"
+            href="/waitlist"
             className="inline-block px-8 py-4 text-base font-bold text-slate-900 rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors font-cta"
           >
             View All Plans

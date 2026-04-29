@@ -41,7 +41,7 @@ export async function generateMetadata({
 
   const trade = industry.name.toLowerCase();
   const title = `Best CRM for ${industry.name} Businesses | Full Loop CRM`;
-  const description = `The best CRM built for ${trade} businesses. AI-powered lead generation, automated sales, smart scheduling, GPS dispatch, invoicing, review management & retargeting in one platform. Flat $1,000 per user / month.`;
+  const description = `The best CRM built for ${trade} businesses. AI-powered lead generation, automated sales, smart scheduling, GPS dispatch, invoicing, review management & retargeting in one platform.`;
   const url = `https://homeservicesbusinesscrm.com/industry/${slug}`;
 
   return {
@@ -203,11 +203,11 @@ export default async function IndustryPage({
           )}
 
           <p className="font-mono text-sm text-teal-400 mb-6 tracking-wide">
-            $1,000 / user / month &middot; flat &middot; every feature included
+            invite-only &middot; one operator per trade per city &middot; waitlist required
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
               Lock Your Territory
@@ -380,15 +380,15 @@ export default async function IndustryPage({
       )}
 
       {/* ================================================================= */}
-      {/* 7. PRICING                                                        */}
+      {/* 7. ACCESS                                                         */}
       {/* ================================================================= */}
       <section className="py-20 px-6 bg-slate-50">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4">
-            {industry.name} CRM Pricing — Every Seat Gets Everything
+            One {industry.name} Operator Per City
           </h2>
           <p className="text-5xl font-extrabold text-teal-600 font-heading mb-2">
-            $1,000<span className="text-xl text-slate-500 font-normal">/user/mo</span>
+            Invite-only<span className="text-xl text-slate-500 font-normal"> waitlist</span>
           </p>
           <p className="text-slate-600 mb-4 text-lg">
             Exclusive {trade} territory. No other {trade} partner
@@ -398,19 +398,19 @@ export default async function IndustryPage({
             Full Loop CRM replaces 9+ separate tools — lead generation,
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
-            platform. Flat $1,000 per user / month. The license includes your
-            exclusive territory, all 7 lifecycle stages, the Selena AI assistant,
-            client and team portals, full bookkeeping with 1099-ready exports,
-            and all core updates.
+            platform. The license includes your exclusive territory,
+            all 7 lifecycle stages, the Yinez AI assistant, client and team
+            portals, full bookkeeping with 1099-ready exports, and all
+            core updates.
           </p>
           <p className="text-sm text-slate-500 mb-8">
-            $999 one-time setup. No contracts. Cancel anytime.
+            Joining the waitlist isn&apos;t a guarantee. We open one slot per trade per city.
           </p>
           <Link
-            href="/full-loop-crm-pricing"
+            href="/waitlist"
             className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
           >
-            View Full Pricing Details
+            Request to Join Waitlist
           </Link>
         </div>
       </section>
@@ -616,10 +616,10 @@ export default async function IndustryPage({
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Request Partnership
+              Request to Join Waitlist
             </Link>
             <a
               href="tel:+12122029220"
@@ -668,7 +668,7 @@ export default async function IndustryPage({
               All Features
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               Pricing

@@ -17,7 +17,7 @@ const resources = [
     description:
       "You're ready for an exclusive territory lock — one partner per trade per metro. Your leads, your domains, your market. No shared leads, no bidding wars, no competition from within the platform.",
     cta: "View Pricing",
-    href: "/full-loop-crm-pricing",
+    href: "/waitlist",
     letter: "M",
   },
   {
@@ -112,7 +112,7 @@ export default function FreeResources() {
 
               <Link
                 href={resource.href}
-                className="inline-block text-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 hover:bg-[#1F4D2C] bg-[#1F4D2C] text-[#1C1C1C] font-cta"
+                className="inline-block text-center px-6 py-3 rounded-full font-bold text-sm transition-all duration-300 hover:bg-[#1F4D2C] bg-[#1F4D2C] text-white font-cta"
               >
                 {resource.cta}
               </Link>
@@ -128,8 +128,8 @@ export default function FreeResources() {
           className="text-center mt-10"
         >
           <Link
-            href="/crm-partnership-request-form"
-            className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-[#1C1C1C] font-bold text-lg hover:bg-[#1F4D2C] transition-colors duration-300 font-cta"
+            href="/waitlist"
+            className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-white font-bold text-lg hover:bg-[#1F4D2C] transition-colors duration-300 font-cta"
           >
             Apply for Partnership
           </Link>

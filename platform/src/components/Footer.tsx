@@ -3,7 +3,7 @@ import Link from "next/link";
 const platform = [
   { label: "Features", href: "/full-loop-crm-service-features" },
   { label: "AI Sales", href: "/full-loop-crm-service-features" },
-  { label: "Pricing", href: "/full-loop-crm-pricing" },
+  { label: "Join Waitlist", href: "/waitlist" },
   { label: "Industries", href: "/full-loop-crm-service-business-industries" },
   { label: "CRM 101", href: "/full-loop-crm-101-educational-tips" },
 ];

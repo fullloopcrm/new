@@ -15,7 +15,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Partner With Full Loop CRM | Exclusive Territory CRM Partnership",
   description:
-    "One partner per trade per city. Get exclusive territory, AI-powered CRM, Selenas SMS automation, SEO microsites, and GMB optimization. Apply to see if your market is available.",
+    "One partner per trade per city. Get exclusive territory, AI-powered CRM, Yinez SMS automation, SEO microsites, and GMB optimization. Apply to see if your market is available.",
   keywords: [
     "CRM partnership program",
     "home service CRM partner",
@@ -45,7 +45,7 @@ export default function PartnersPage() {
       <JsonLd
         data={webPageSchema(
           "Partner With Full Loop CRM | Exclusive Territory CRM Partnership",
-          "One partner per trade per city. Get exclusive territory, AI-powered CRM, Selenas SMS automation, SEO microsites, and GMB optimization.",
+          "One partner per trade per city. Get exclusive territory, AI-powered CRM, Yinez SMS automation, SEO microsites, and GMB optimization.",
           "https://homeservicesbusinesscrm.com/partner-with-full-loop-crm",
           breadcrumbs
         )}
@@ -73,7 +73,7 @@ export default function PartnersPage() {
             $1,000 / user / month &middot; flat &middot; every feature included
           </p>
           <Link
-            href="/crm-partnership-request-form"
+            href="/waitlist"
             className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
           >
             Check Territory Availability
@@ -102,7 +102,7 @@ export default function PartnersPage() {
               {
                 step: "03",
                 title: "Onboarding",
-                desc: "CRM setup takes one day. Selenas AI SMS configuration takes one to two weeks. You are live within days.",
+                desc: "CRM setup takes one day. Yinez AI SMS configuration takes one to two weeks. You are live within days.",
               },
               {
                 step: "04",
@@ -137,7 +137,7 @@ export default function PartnersPage() {
                 desc: "Complete seven-stage CRM with scheduling, dispatch, invoicing, payments, GPS tracking, and customer management.",
               },
               {
-                title: "Selenas AI Assistant",
+                title: "Yinez AI Assistant",
                 desc: "AI-powered SMS, phone, and web chat agent that qualifies leads, books jobs, and follows up — 24/7, no staff required.",
               },
               {
@@ -242,7 +242,7 @@ export default function PartnersPage() {
               <ul className="space-y-3">
                 {[
                   "The CRM software platform and code",
-                  "Selenas AI engine and training data",
+                  "Yinez AI engine and training data",
                   "SEO microsite domains and content",
                   "The proprietary lead routing system",
                   "Platform infrastructure and hosting",
@@ -305,10 +305,10 @@ export default function PartnersPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
-              Request Partnership
+              Request to Join Waitlist
             </Link>
             <a
               href="tel:+12122029220"

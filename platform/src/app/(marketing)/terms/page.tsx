@@ -96,7 +96,7 @@ export default function TermsPage() {
           </ul>
           <h3>Full Loop Owns:</h3>
           <ul>
-            <li>The CRM platform and Selenas AI engine</li>
+            <li>The CRM platform and Yinez AI engine</li>
             <li>The full SEO site and domain (unless buyout is completed)</li>
             <li>Google Business Profiles created by Full Loop</li>
             <li>All website code, templates, and SEO architecture</li>

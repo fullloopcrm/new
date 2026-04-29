@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const trustBadges = [
-  { label: "One Trade Per City — Exclusive", href: "/full-loop-crm-pricing" },
+  { label: "One Trade Per City — Exclusive", href: "/waitlist" },
   { label: "50+ Service Industries", href: "/full-loop-crm-service-business-industries" },
   { label: "All-in-One Full-Cycle CRM", href: "/full-loop-crm-service-features" },
   { label: "AI-Powered Automation", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
@@ -130,7 +130,7 @@ export default function Hero() {
           </strong>
         </p>
 
-        {/* Price strip */}
+        {/* Access strip */}
         <div
           className="flex items-baseline flex-wrap gap-x-6 gap-y-2 mb-10 pb-8"
           style={{ borderBottom: `1px solid ${C.line}` }}
@@ -144,9 +144,9 @@ export default function Hero() {
               letterSpacing: "-0.02em",
             }}
           >
-            $1,000
-            <span style={{ fontSize: "0.45em", color: C.muted, marginLeft: "0.25em", letterSpacing: "0" }}>
-              /user/month
+            Invite-only
+            <span style={{ fontSize: "0.45em", color: C.muted, marginLeft: "0.5em", letterSpacing: "0" }}>
+              waitlist
             </span>
           </span>
           <span
@@ -158,14 +158,14 @@ export default function Hero() {
               color: C.muted,
             }}
           >
-            Flat &middot; Every Feature &middot; No Tiers
+            One Trade &middot; One City &middot; One Operator
           </span>
         </div>
 
         {/* CTAs — ink, masthead-style, no glow */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-10">
           <Link
-            href="/crm-partnership-request-form"
+            href="/waitlist"
             className="inline-flex items-center justify-center font-cta"
             style={{
               fontFamily: "var(--mono, 'JetBrains Mono', monospace)",

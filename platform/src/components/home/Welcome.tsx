@@ -44,7 +44,7 @@ export default function Welcome() {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="mt-5 text-base sm:text-lg text-[#6F6F6B] leading-relaxed max-w-2xl mx-auto"
         >
-          Built by someone who ran home service companies for 20+ years &mdash; not a product team that Googled &ldquo;cleaning business software.&rdquo; Every feature in this <Link href="/full-loop-crm-service-features" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">automated service business platform</Link> exists because of a <strong className="text-[#1C1C1C]">real operational problem</strong>. Every <Link href="/full-loop-crm-pricing" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">territory license</Link> is exclusive: <strong className="text-[#1C1C1C]">one partner per trade per city, for as long as you hold it.</strong>
+          Built by someone who ran home service companies for 20+ years &mdash; not a product team that Googled &ldquo;cleaning business software.&rdquo; Every feature in this <Link href="/full-loop-crm-service-features" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">automated service business platform</Link> exists because of a <strong className="text-[#1C1C1C]">real operational problem</strong>. Every <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">territory license</Link> is exclusive: <strong className="text-[#1C1C1C]">one partner per trade per city, for as long as you hold it.</strong>
         </motion.p>
 
         <motion.div
@@ -71,7 +71,7 @@ export default function Welcome() {
               50+ Industries We Serve
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="px-7 py-3.5 text-sm font-bold text-[#1F4D2C] rounded-lg border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors font-cta"
             >
               Pricing & Partnership

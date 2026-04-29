@@ -293,7 +293,7 @@ export default function TheNYCMaidCaseStudy() {
       <section className="py-20 px-6 bg-white">
         <div className="mx-auto max-w-3xl">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-8">
-            Selena AI
+            Yinez AI
           </h2>
           <p className="text-slate-500 text-lg mb-8">
             Your 24/7 AI receptionist. Built into the platform.
@@ -336,7 +336,7 @@ export default function TheNYCMaidCaseStudy() {
               </li>
             </ul>
             <blockquote className="bg-slate-900 text-white rounded-xl p-6 text-xl font-heading">
-              &ldquo;Selena responded to a lead at 11pm on a Sunday. That lead
+              &ldquo;Yinez responded to a lead at 11pm on a Sunday. That lead
               booked a $260 cleaning.&rdquo;
             </blockquote>
           </div>
@@ -433,13 +433,13 @@ export default function TheNYCMaidCaseStudy() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
-              Request Partnership
+              Request to Join Waitlist
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="inline-block border-2 border-slate-500 hover:border-slate-300 text-slate-300 hover:text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
               View Pricing

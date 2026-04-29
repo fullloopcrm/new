@@ -9,7 +9,7 @@ function SiteNav() {
   const pathname = usePathname()
   const links = [
     { href: '/', label: 'Home' },
-    { href: '/full-loop-crm-pricing', label: 'Pricing' },
+    { href: '/waitlist', label: 'Pricing' },
     { href: '/full-loop-crm-service-features', label: 'Features' },
     { href: '/businesses', label: 'Businesses' },
     { href: '/locations', label: 'Locations' },
@@ -26,7 +26,7 @@ function SiteNav() {
             <Link key={l.href} href={l.href} className={`text-sm font-medium transition-colors ${pathname === l.href ? 'text-gray-900 font-semibold' : 'text-gray-500 hover:text-gray-900'}`}>{l.label}</Link>
           ))}
           <Link href="/sign-in" className="text-sm font-medium text-gray-500 hover:text-gray-900">Sign In</Link>
-          <Link href="/crm-partnership-request-form" className="bg-gray-900 text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-gray-800 transition-colors">Apply Now</Link>
+          <Link href="/waitlist" className="bg-gray-900 text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-gray-800 transition-colors">Apply Now</Link>
         </div>
         <button className="md:hidden p-2" onClick={() => setMobileOpen(true)} aria-label="Open menu">
           <span className="block w-6 h-0.5 bg-gray-900 mb-1.5"></span>
@@ -42,7 +42,7 @@ function SiteNav() {
             {links.map((l) => (
               <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)} className="block py-3 text-gray-700 font-medium border-b border-gray-100">{l.label}</Link>
             ))}
-            <Link href="/crm-partnership-request-form" onClick={() => setMobileOpen(false)} className="mt-4 block text-center bg-gray-900 text-white py-3 rounded-lg font-bold">Apply Now</Link>
+            <Link href="/waitlist" onClick={() => setMobileOpen(false)} className="mt-4 block text-center bg-gray-900 text-white py-3 rounded-lg font-bold">Apply Now</Link>
           </div>
         </>
       )}
@@ -192,7 +192,7 @@ export default function FeedbackPage() {
             <div>
               <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-4">Platform</h4>
               <Link href="/full-loop-crm-service-features" className="block text-sm py-1 hover:text-white transition-colors">Features</Link>
-              <Link href="/full-loop-crm-pricing" className="block text-sm py-1 hover:text-white transition-colors">Pricing</Link>
+              <Link href="/waitlist" className="block text-sm py-1 hover:text-white transition-colors">Pricing</Link>
               <Link href="/full-loop-crm-service-business-industries" className="block text-sm py-1 hover:text-white transition-colors">Industries</Link>
               <Link href="/locations" className="block text-sm py-1 hover:text-white transition-colors">Locations</Link>
               <Link href="/full-loop-crm-frequently-asked-questions" className="block text-sm py-1 hover:text-white transition-colors">FAQ</Link>
@@ -200,7 +200,7 @@ export default function FeedbackPage() {
             <div>
               <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-4">Company</h4>
               <Link href="/about-full-loop-crm" className="block text-sm py-1 hover:text-white transition-colors">About</Link>
-              <Link href="/crm-partnership-request-form" className="block text-sm py-1 hover:text-white transition-colors">Apply for Partnership</Link>
+              <Link href="/waitlist" className="block text-sm py-1 hover:text-white transition-colors">Apply for Partnership</Link>
               <Link href="/contact" className="block text-sm py-1 hover:text-white transition-colors">Contact</Link>
               <Link href="/feedback" className="block text-sm py-1 hover:text-white transition-colors">Feedback</Link>
               <a href="https://consortiumnyc.com" target="_blank" rel="noopener noreferrer" className="block text-sm py-1 hover:text-white transition-colors">Built by Consortium NYC</a>

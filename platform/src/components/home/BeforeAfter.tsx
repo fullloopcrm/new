@@ -11,7 +11,7 @@ const replacements = [
       description: "Answers calls 9-5, misses after-hours leads, loses context between conversations",
     },
     after: {
-      role: "Selenas Sales Agent",
+      role: "Yinez Sales Agent",
       description:
         "Engages every inbound lead via SMS and web chat within seconds. 24/7, bilingual EN/ES. Follows a 10-field booking checklist — service type, size, rate, date, time, name, phone, address, email — collecting one at a time, never re-asking.",
     },
@@ -23,7 +23,7 @@ const replacements = [
       description: "Follows up manually, forgets leads, no after-hours coverage",
     },
     after: {
-      role: "Selenas Lead Closer",
+      role: "Yinez Lead Closer",
       description:
         "Closes at 80%+ from day one. Handles objections, offers pricing tiers, creates urgency, does the full recap, and books the job — all in one conversation. Returning clients are recognized by phone number with their full profile pre-loaded.",
     },
@@ -35,7 +35,7 @@ const replacements = [
       description: "Handles complaints, rescheduling, always starting from scratch",
     },
     after: {
-      role: "Selenas Client Manager",
+      role: "Yinez Client Manager",
       description:
         "Every inbound text matched to client file instantly — past bookings, preferred team member, last rate, conversation history. Escalates complex issues to you with full transcript. One-click conversation reset if anything gets stuck.",
     },
@@ -67,7 +67,7 @@ export default function BeforeAfter() {
             AI-Powered Sales &amp; Client Management
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
-            Selenas Replaces Your{" "}
+            Yinez Replaces Your{" "}
             <span className="text-[#1F4D2C]">Entire Front Office</span>
           </h2>
           <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
@@ -148,8 +148,8 @@ export default function BeforeAfter() {
         >
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/full-loop-crm-pricing"
-              className="inline-block px-8 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
+              href="/waitlist"
+              className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               See Pricing
             </Link>

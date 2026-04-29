@@ -146,7 +146,7 @@ export default function WhyNYC() {
             </Link>{" "}
             or{" "}
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               pricing
@@ -154,8 +154,8 @@ export default function WhyNYC() {
             .
           </p>
           <Link
-            href="/crm-partnership-request-form"
-            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
+            href="/waitlist"
+            className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
           >
             Request a Partnership
           </Link>

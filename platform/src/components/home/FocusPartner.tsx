@@ -52,7 +52,7 @@ import { motion } from "framer-motion";
 /*    check_out=73 · 15min_warning=65 · daily_summary=35                */
 /*                                                                      */
 /*  Code-side verified (from /Users/jefftucker/Desktop/nycmaid/src):    */
-/*    98 EMD domains · 10 service zones · 17 Selena intents             */
+/*    98 EMD domains · 10 service zones · 17 Yinez intents             */
 /*    $59 / $79 / $99 pricing tiers                                     */
 /*    20% weekly · 10% bi-weekly recurring discounts                    */
 /* ------------------------------------------------------------------ */
@@ -71,22 +71,22 @@ const originTimeline = [
   {
     when: "Feb 14 2026",
     title: "First fully hands-off booking",
-    body: "Selena books a regular cleaning at 2:14am. Smart-schedule auto-assigns. Cleaner GPS-checks in next morning. IMAP parses the Zelle receipt. Stripe Connect pays the cleaner. The owner slept through the entire chain.",
+    body: "Yinez books a regular cleaning at 2:14am. Smart-schedule auto-assigns. Cleaner GPS-checks in next morning. IMAP parses the Zelle receipt. Stripe Connect pays the cleaner. The owner slept through the entire chain.",
   },
   {
     when: "Mar 2026",
     title: "117 bookings · $25,858 revenue · avg ticket $221",
-    body: "17-intent Selena state machine + recurring engine + smart-schedule scoring all live. Bookings 2.5× the launch month with the same crew. Avg ticket up $38 from launch.",
+    body: "17-intent Yinez state machine + recurring engine + smart-schedule scoring all live. Bookings 2.5× the launch month with the same crew. Avg ticket up $38 from launch.",
   },
   {
     when: "Apr 2026",
     title: "Email channel + 100% closed-loop attribution",
-    body: "Selena gets an inbound-email channel — first product on the market that does. Cold inbound emails auto-engage instantly. Attribution closes on every booking (visit → text → book, source domain known). 458 of 1,240 bookings now have full source attribution.",
+    body: "Yinez gets an inbound-email channel — first product on the market that does. Cold inbound emails auto-engage instantly. Attribution closes on every booking (visit → text → book, source domain known). 458 of 1,240 bookings now have full source attribution.",
   },
   {
     when: "Today · 2026-04-27",
     title: "84 days live · the platform runs the business",
-    body: "23,078 lead clicks tracked. 4,934 SMS messages handled by Selena across 881 conversations. 5,998 notifications fired. 168 of 169 cleaner payouts ran auto via Stripe Connect (99.4% success). The same engine you license is the engine running this business right now.",
+    body: "23,078 lead clicks tracked. 4,934 SMS messages handled by Yinez across 881 conversations. 5,998 notifications fired. 168 of 169 cleaner payouts ran auto via Stripe Connect (99.4% success). The same engine you license is the engine running this business right now.",
     highlight: true,
   },
 ];
@@ -101,11 +101,11 @@ const liveMetrics = [
   { value: "$221,988", label: "Lifetime Revenue", sub: "84 days · $0 ad spend" },
   { value: "1,240", label: "Bookings", sub: "270 historical · 970 forward recurring" },
   { value: "23,078", label: "Lead Clicks", sub: "tracked across 98 EMD domains" },
-  { value: "4,934", label: "SMS Messages", sub: "Selena across 881 conversations" },
+  { value: "4,934", label: "SMS Messages", sub: "Yinez across 881 conversations" },
   { value: "50/50", label: "5★ Reviews", sub: "every review is 5-star · 100%" },
   { value: "85%", label: "Recurring Share", sub: "1,053 of 1,240 bookings" },
   { value: "99.4%", label: "Auto-Paid Crew", sub: "168/169 Stripe Connect payouts" },
-  { value: "0", label: "Front Desk", sub: "Selena answers everything" },
+  { value: "0", label: "Front Desk", sub: "Yinez answers everything" },
 ];
 
 const cumulativeStats = [
@@ -174,16 +174,16 @@ const serviceTypeMix = [
 
 const platformActivity = [
   { value: "235", label: "Hot Lead Notifications", sub: "attributed leads in 84 days" },
-  { value: "221", label: "Crew Auto-Assignments", sub: "Selena → smart-schedule → SMS" },
+  { value: "221", label: "Crew Auto-Assignments", sub: "Yinez → smart-schedule → SMS" },
   { value: "189", label: "Errors Auto-Caught", sub: "logged with full context · zero customer-facing" },
-  { value: "129", label: "Reschedules Handled", sub: "client portal + Selena combined" },
+  { value: "129", label: "Reschedules Handled", sub: "client portal + Yinez combined" },
   { value: "116", label: "GPS Check-Ins", sub: "528ft validation · production" },
   { value: "98", label: "Jobs Auto-Closed", sub: "GPS check-out → payroll calc → review trigger" },
   { value: "81", label: "Payments Auto-Matched", sub: "IMAP Zelle/Venmo/Apple/Cash" },
   { value: "65", label: "15-Min Heads-Ups Used", sub: "owner SMS w/ amount due + crew take" },
 ];
 
-// Real anonymized Selena conversation from 2026-03-02 (Jordan, broken-buzzer client)
+// Real anonymized Yinez conversation from 2026-03-02 (Jordan, broken-buzzer client)
 const smsTranscript = [
   { dir: "in",  body: "my buzzer doesnt work so let me know when you get here!" },
   { dir: "out", body: "Hola, Thank You for reaching out. How are you?" },
@@ -227,16 +227,16 @@ const fullLoopProcess = [
   },
   {
     num: "02",
-    name: "Selena Receives the Lead",
+    name: "Yinez Receives the Lead",
     summary: "881 conversations · 4,934 SMS messages handled · 17-intent state machine",
     steps: [
       { actor: "Telnyx", body: "Inbound SMS arrives at the tenant Telnyx number. Webhook POSTs to /api/webhook/telnyx." },
       { actor: "Platform", body: "isCleanerPhone() checks the sender against cleaners.phone — if cleaner, route to acknowledgment flow. If client, continue. (Bug-fix from production: Gloria + Emma were being booked as clients before this check shipped.)" },
       { actor: "Platform", body: "Find or create sms_conversations row. Lookup client by phone — if returning, getClientProfile() loads name, address, last booking, preferred cleaner, last rate, payment history." },
-      { actor: "Selena (AI)", body: "Intent router classifies the message into 1 of 17 intents (booking, reschedule, cancel, payment_check, dispute, callback, account_update, etc.). Each intent gets its own focused tool set." },
-      { actor: "Selena (AI)", body: "If new booking: state machine starts. Deterministic 10-field checklist (service_type → bedrooms → rate → day → time → name → phone → address → email → recap). Identity collected LAST — fixed 42 of 45 abandoned conversations that used to drop off at name." },
-      { actor: "Selena (AI)", body: "Each reply: bilingual EN/ES auto-detected, banned-phrase guard (no 'absolutely', no 'happy to help'), max one 😊 emoji. Returning clients greeted by name; known fields skipped." },
-      { actor: "Selena (AI)", body: "On recap: payment methods listed (Zelle/CC/CashApp/Venmo), cancellation policy stated, arrival buffer (30 min weekday/60 min weekend), portal link sent. create_booking tool fires." },
+      { actor: "Yinez (AI)", body: "Intent router classifies the message into 1 of 17 intents (booking, reschedule, cancel, payment_check, dispute, callback, account_update, etc.). Each intent gets its own focused tool set." },
+      { actor: "Yinez (AI)", body: "If new booking: state machine starts. Deterministic 10-field checklist (service_type → bedrooms → rate → day → time → name → phone → address → email → recap). Identity collected LAST — fixed 42 of 45 abandoned conversations that used to drop off at name." },
+      { actor: "Yinez (AI)", body: "Each reply: bilingual EN/ES auto-detected, banned-phrase guard (no 'absolutely', no 'happy to help'), max one 😊 emoji. Returning clients greeted by name; known fields skipped." },
+      { actor: "Yinez (AI)", body: "On recap: payment methods listed (Zelle/CC/CashApp/Venmo), cancellation policy stated, arrival buffer (30 min weekday/60 min weekend), portal link sent. create_booking tool fires." },
     ],
   },
   {
@@ -260,7 +260,7 @@ const fullLoopProcess = [
     steps: [
       { actor: "cron/confirmations", body: "Hourly. Sends 7-day, 3-day, 24h, 2h confirmation reminders. SMS + email." },
       { actor: "cron/reminders", body: "8am daily. Sends day-of reminders to clients + crew. Bilingual." },
-      { actor: "Client", body: "Can reschedule from /portal — /api/client/reschedule. Selena handles SMS reschedules too. (129 booking_rescheduled events fired in production.)" },
+      { actor: "Client", body: "Can reschedule from /portal — /api/client/reschedule. Yinez handles SMS reschedules too. (129 booking_rescheduled events fired in production.)" },
       { actor: "cron/lifecycle", body: "Daily. Scores every client active / at-risk / churned based on booking frequency. Updates clients.lifecycle_status." },
       { actor: "cron/no-show-check", body: "Catches missed bookings, alerts admin." },
       { actor: "cron/late-check-in", body: "Every 5 min. If start_time was >15 min ago and no check_in_time → SMS to admin. Already saved a Karina double-book on May 1." },
@@ -303,7 +303,7 @@ const fullLoopProcess = [
       { actor: "Platform", body: "Negative-sentiment detection: if rating < 4 OR negative keywords detected, flag for admin private resolution before review goes public." },
       { actor: "cron/auto-reply-reviews", body: "Every Google review gets an AI-generated reply via Claude — posted to GMB through the Google Business Profile API." },
       { actor: "cron/sync-google-reviews", body: "Daily pull of Google reviews into reviews table. Stars + comment indexed." },
-      { actor: "Selena", body: "If client expresses frustration mid-conversation, escalates via 'request_callback' intent — phone-call recommendation routed to admin before a 1-star review can post." },
+      { actor: "Yinez", body: "If client expresses frustration mid-conversation, escalates via 'request_callback' intent — phone-call recommendation routed to admin before a 1-star review can post." },
     ],
   },
   {
@@ -323,7 +323,7 @@ const fullLoopProcess = [
 ];
 
 const removedFromDay = [
-  { before: "30+ phone calls / day", after: "0 — Selena handles all 4,934 messages across 881 conversations" },
+  { before: "30+ phone calls / day", after: "0 — Yinez handles all 4,934 messages across 881 conversations" },
   { before: "Manual scheduling on a whiteboard", after: "Smart-schedule scoring across 9 cleaners · 221 auto-assignments fired" },
   { before: "Chasing Zelle receipts in Gmail", after: "IMAP auto-match every 60 seconds · 81 payments auto-matched" },
   { before: "Manual cleaner payouts", after: "Stripe Connect on job complete · 168/169 paid (99.4%) · $17,842 total" },
@@ -332,13 +332,13 @@ const removedFromDay = [
   { before: "Separate Google reviews app", after: "Auto-reply + daily sync built-in" },
   { before: "Hiring funnel via Indeed manually", after: "Public apply page → admin queue · Google Jobs schema" },
   { before: "Manually computing payroll hours", after: "GPS check-in/out · 116 check-ins, 73 check-outs · half-hour rounding" },
-  { before: "Owner answering at 11pm Sunday", after: "Owner asleep. Selena books the next deep clean." },
+  { before: "Owner answering at 11pm Sunday", after: "Owner asleep. Yinez books the next deep clean." },
 ];
 
 const liveEvidence = [
   { icon: "📞", title: "Website → Sale", body: "Cymbre Colon (Rego Park) — texted from thenycmaid.com 6 hr ago → booked Deep Cleaning May 2 at 100% attribution. (1 of 458 attributed bookings · 1 of 235 hot_lead notifications.)" },
   { icon: "💰", title: "Apple Pay $177 — auto-matched", body: "Mike Johnson · Standard Cleaning Apr 26 · paid via Apple Pay · auto-matched · job closed in one click. (1 of 81 auto-matched payments.)" },
-  { icon: "📨", title: "New Email Lead — Selena engaging", body: "Catherine Miller · catherine.millernic@outlook.com · cold inbound email · Selena replied without human touch." },
+  { icon: "📨", title: "New Email Lead — Yinez engaging", body: "Catherine Miller · catherine.millernic@outlook.com · cold inbound email · Yinez replied without human touch." },
   { icon: "📅", title: "Series Updated — 87 bookings in one push", body: "Brian Klig · 87 forward bookings updated from Fri May 1 · Gabriela López notified push ✓ + SMS ✓ in seconds. (1 of 221 cleaner_notified events.)" },
   { icon: "💵", title: "Zelle $260 — auto-detected", body: "Jonathan Epstein · IMAP email monitor caught it · queued for one-click admin match · cleaner waiting on payout." },
   { icon: "🚨", title: "Schedule conflict caught automatically", body: "Karina got double-booked May 1 — system flagged it before either client got an SMS. Resolved in 30 seconds. (1 of 189 errors auto-caught with zero customer-facing impact.)" },
@@ -374,17 +374,17 @@ export default function FocusPartner() {
           <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-4">
             The First Business Automation Platform · Our Focus Partner
           </p>
-          <h2 className="font-heading text-4xl sm:text-5xl lg:text-7xl font-extrabold text-white leading-[1.05] mb-6">
+          <h2 className="font-heading text-4xl sm:text-5xl lg:text-7xl font-extrabold text-[#1C1C1C] leading-[1.05] mb-6">
             Look at <span className="text-[#1F4D2C]">The NYC Maid</span>.
             <br className="hidden sm:block" />
             That&apos;s what this is.
           </h2>
           <p className="text-lg sm:text-xl text-[#1C1C1C] max-w-3xl mx-auto leading-relaxed">
             Full Loop CRM is the first true full-loop business automation platform — built by running a live home-cleaning company in New York City, not by guessing what cleaning companies need.{" "}
-            <strong className="text-white">The NYC Maid</strong> wasn&apos;t a customer. It was the test bed. Every feature you see — Selena AI (the only CRM AI that handles SMS + web + email), GPS field operations, Stripe Connect crew auto-payouts, Zelle/Venmo IMAP parsing, 98 SEO domains, the recurring engine, 100% closed-loop attribution — was built, broken, fixed, and shipped while running real bookings for real clients.
+            <strong className="text-[#1C1C1C]">The NYC Maid</strong> wasn&apos;t a customer. It was the test bed. Every feature you see — Yinez AI (the only CRM AI that handles SMS + web + email), GPS field operations, Stripe Connect crew auto-payouts, Zelle/Venmo IMAP parsing, 98 SEO domains, the recurring engine, 100% closed-loop attribution — was built, broken, fixed, and shipped while running real bookings for real clients.
           </p>
           <p className="mt-6 text-base text-[#6F6F6B] max-w-2xl mx-auto">
-            Today <strong className="text-white">The NYC Maid</strong> runs itself. <strong className="text-white">$221,988 revenue · 1,240 bookings · 23,078 lead clicks · 4,934 Selena messages · 5,998 notifications · 50/50 5-star reviews.</strong> Every number on this page is pulled from the production database <em>right now</em>.
+            Today <strong className="text-[#1C1C1C]">The NYC Maid</strong> runs itself. <strong className="text-[#1C1C1C]">$221,988 revenue · 1,240 bookings · 23,078 lead clicks · 4,934 Yinez messages · 5,998 notifications · 50/50 5-star reviews.</strong> Every number on this page is pulled from the production database <em>right now</em>.
           </p>
         </motion.div>
 
@@ -395,7 +395,7 @@ export default function FocusPartner() {
         >
           <div className="text-center mb-10">
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Origin · Build journal</p>
-            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">
+            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C]">
               How a cleaning company became the first true full-loop CRM.
             </h3>
           </div>
@@ -406,7 +406,7 @@ export default function FocusPartner() {
                 <div key={m.when} className="relative pl-12 sm:pl-20">
                   <div className={`absolute left-1.5 sm:left-5 top-1 w-5 h-5 rounded-full border-2 ${m.highlight ? "border-teal-300 bg-[#1F4D2C] shadow-[0_0_12px_rgba(45,212,191,0.6)]" : "border-teal-500 bg-[#F4F4F1]"}`} />
                   <p className="font-mono text-xs tracking-widest uppercase text-[#1F4D2C] mb-1">{m.when}</p>
-                  <h4 className="font-heading text-xl font-bold text-white mb-2">{m.title}</h4>
+                  <h4 className="font-heading text-xl font-bold text-[#1C1C1C] mb-2">{m.title}</h4>
                   <p className="text-[#1C1C1C] text-sm sm:text-base leading-relaxed max-w-3xl">{m.body}</p>
                 </div>
               ))}
@@ -422,9 +422,9 @@ export default function FocusPartner() {
           <div className="mb-8 flex items-end justify-between flex-wrap gap-4">
             <div>
               <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-1">Avg ticket — by month · pulled from production DB</p>
-              <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">$183 &rarr; $222 in 90 days.</h3>
+              <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C]">$183 &rarr; $222 in 90 days.</h3>
               <p className="text-[#6F6F6B] text-sm mt-2 max-w-xl">
-                Same business, same city, same crew. The platform shifted the economics: deep-clean upsells in the Selena flow, recurring discounts that lock in repeat clients (20% weekly · 10% bi-weekly/monthly), and 100% attribution on 458 of 1,240 bookings exposing which of the 98 EMD domains actually convert.
+                Same business, same city, same crew. The platform shifted the economics: deep-clean upsells in the Yinez flow, recurring discounts that lock in repeat clients (20% weekly · 10% bi-weekly/monthly), and 100% attribution on 458 of 1,240 bookings exposing which of the 98 EMD domains actually convert.
               </p>
             </div>
             <p className="font-heading text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#1F4D2C]">+21%</p>
@@ -434,7 +434,7 @@ export default function FocusPartner() {
               const pct = (t.value / trajectoryMax) * 100;
               return (
                 <div key={t.month} className="flex flex-col items-center justify-end h-full">
-                  <p className="font-mono text-sm sm:text-base text-white mb-1.5">${t.value}</p>
+                  <p className="font-mono text-sm sm:text-base text-[#1C1C1C] mb-1.5">${t.value}</p>
                   <div className="w-full rounded-t-md bg-gradient-to-t from-[#1F4D2C] to-[#3A8055]" style={{ height: `${pct}%`, minHeight: "20px" }} />
                   <p className="font-mono text-xs sm:text-sm text-[#6F6F6B] mt-2 uppercase tracking-wider">{t.month}</p>
                   {t.sub && <p className="text-[10px] sm:text-xs text-[#1F4D2C] mt-1 text-center leading-tight max-w-[120px]">{t.sub}</p>}
@@ -454,7 +454,7 @@ export default function FocusPartner() {
         >
           <div className="text-center mb-8">
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Live numbers · pulled 2026-04-27</p>
-            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">What the platform is doing — right now.</h3>
+            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C]">What the platform is doing — right now.</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {liveMetrics.map((m) => (
@@ -474,7 +474,7 @@ export default function FocusPartner() {
         >
           <div className="mb-8 text-center">
             <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-2">Lead Funnel · 23,078 events tracked</p>
-            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">Visit → Engaged → CTA → Booking. Every step counted.</h3>
+            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C]">Visit → Engaged → CTA → Booking. Every step counted.</h3>
             <p className="mt-3 text-[#6F6F6B] text-sm max-w-2xl mx-auto">
               Most platforms guess at attribution. We log every visit, scroll-depth checkpoint, CTA tap, and form step. Below is the real funnel for The NYC Maid in 84 days.
             </p>
@@ -507,7 +507,7 @@ export default function FocusPartner() {
           <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-4">
             Verified · 23,078 lead clicks · UTM audit
           </p>
-          <h3 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-6">
+          <h3 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#1C1C1C] leading-tight mb-6">
             $0 in ads. $0 in bought leads.
             <br className="hidden sm:block" />
             <span className="text-[#1F4D2C]">Not once. Not ever.</span>
@@ -548,14 +548,14 @@ export default function FocusPartner() {
           {/* Top domains */}
           <div className="rounded-2xl border border-[#C8C5BC] bg-[#F4F4F1]/70 p-6 sm:p-8">
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Top SEO domains by visit · 11,000 visits sampled</p>
-            <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-5">98 EMDs in production. Long tail working.</h3>
+            <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-[#1C1C1C] mb-5">98 EMDs in production. Long tail working.</h3>
             <div className="space-y-2">
               {topDomains.map((d) => {
                 const pct = d.count ? (d.count / domainMax) * 100 : 0;
                 return (
                   <div key={d.domain}>
                     <div className="flex items-center justify-between mb-0.5">
-                      <p className="font-mono text-[11px] sm:text-xs text-white">{d.domain}</p>
+                      <p className="font-mono text-[11px] sm:text-xs text-[#1C1C1C]">{d.domain}</p>
                       <p className="font-mono text-[11px] sm:text-xs text-[#1F4D2C] tabular-nums">{d.count !== null ? d.count.toLocaleString() : "—"}</p>
                     </div>
                     <div className="h-1.5 bg-[#FAF9F5] rounded-full overflow-hidden">
@@ -571,14 +571,14 @@ export default function FocusPartner() {
           {/* Referrer sources */}
           <div className="rounded-2xl border border-[#C8C5BC] bg-[#F4F4F1]/70 p-6 sm:p-8">
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Where 1,280 CTA-bearing visitors came from</p>
-            <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-5">Including 45 from AI assistants (ChatGPT + Claude).</h3>
+            <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-[#1C1C1C] mb-5">Including 45 from AI assistants (ChatGPT + Claude).</h3>
             <div className="space-y-2">
               {referrerSources.map((r) => {
                 const pct = (r.count / refMax) * 100;
                 return (
                   <div key={r.source}>
                     <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-sm text-white">
+                      <p className="text-sm text-[#1C1C1C]">
                         {r.source}
                         {r.label && <span className="ml-2 text-[10px] uppercase tracking-wider text-[#1C1C1C]">{r.label}</span>}
                       </p>
@@ -600,16 +600,16 @@ export default function FocusPartner() {
           className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3]/70 p-6 sm:p-10 mb-20"
         >
           <div className="mb-8 text-center">
-            <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-2">Real Selena conversation · 2026-03-02 · anonymized</p>
-            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">She handles the weird ones too.</h3>
+            <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-2">Real Yinez conversation · 2026-03-02 · anonymized</p>
+            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C]">She handles the weird ones too.</h3>
             <p className="mt-3 text-[#6F6F6B] text-sm max-w-2xl mx-auto">
-              An actual SMS thread pulled from sms_conversation_messages — a returning client texts about a broken buzzer. Selena recognizes the existing booking, reassures the client, and routes the buzzer note to the cleaner&apos;s job notes. No human touched this conversation.
+              An actual SMS thread pulled from sms_conversation_messages — a returning client texts about a broken buzzer. Yinez recognizes the existing booking, reassures the client, and routes the buzzer note to the cleaner&apos;s job notes. No human touched this conversation.
             </p>
           </div>
           <div className="max-w-2xl mx-auto space-y-3">
             {smsTranscript.map((m, i) => (
               <div key={i} className={`flex ${m.dir === "in" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-snug ${m.dir === "in" ? "bg-teal-500 text-slate-900 rounded-br-sm" : "bg-[#FAF9F5] text-white rounded-bl-sm border border-[#C8C5BC]"}`}>
+                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-snug ${m.dir === "in" ? "bg-teal-500 text-slate-900 rounded-br-sm" : "bg-[#FAF9F5] text-[#1C1C1C] rounded-bl-sm border border-[#C8C5BC]"}`}>
                   <p className="font-mono text-[10px] uppercase tracking-widest mb-1 opacity-60">{m.dir === "in" ? "client" : "selena"}</p>
                   <p className="whitespace-pre-line">{m.body}</p>
                 </div>
@@ -627,7 +627,7 @@ export default function FocusPartner() {
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">
               The Full Loop · every automation that runs on The NYC Maid
             </p>
-            <h3 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight">
+            <h3 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#1C1C1C] leading-tight">
               From the first website visit
               <br className="hidden sm:block" />
               to the rebooking 90 days later.
@@ -645,7 +645,7 @@ export default function FocusPartner() {
                 <div className="flex items-center justify-between gap-3 px-6 py-4 sm:px-8 sm:py-5 bg-gradient-to-r from-[#EDEAE3] to-[#FAF9F5] border-b border-[#C8C5BC]">
                   <div className="flex items-baseline gap-4">
                     <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#1F4D2C] tabular-nums">{stage.num}</span>
-                    <h4 className="font-heading text-xl sm:text-2xl font-extrabold text-white">{stage.name}</h4>
+                    <h4 className="font-heading text-xl sm:text-2xl font-extrabold text-[#1C1C1C]">{stage.name}</h4>
                   </div>
                   <p className="hidden md:block font-mono text-xs text-[#1F4D2C] text-right max-w-md">{stage.summary}</p>
                 </div>
@@ -663,7 +663,7 @@ export default function FocusPartner() {
             ))}
           </div>
           <p className="mt-8 text-center text-sm text-[#6F6F6B] max-w-2xl mx-auto">
-            <strong className="text-white">~50 automations.</strong> Zero phone
+            <strong className="text-[#1C1C1C]">~50 automations.</strong> Zero phone
             calls answered by humans today. Owner spent the day building the
             platform. Platform spent the day running the business.
           </p>
@@ -676,12 +676,12 @@ export default function FocusPartner() {
         >
           <div className="rounded-2xl border border-[#C8C5BC] bg-[#F4F4F1]/70 p-6 sm:p-8">
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Service mix · 1,240 bookings</p>
-            <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-5">90% Standard. The other 10% pays the deep-clean rate.</h3>
+            <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-[#1C1C1C] mb-5">90% Standard. The other 10% pays the deep-clean rate.</h3>
             <div className="space-y-3">
               {serviceTypeMix.map((s) => (
                 <div key={s.name}>
                   <div className="flex items-center justify-between mb-0.5">
-                    <p className="text-sm text-white">{s.name} <span className="ml-2 text-[10px] uppercase tracking-wider text-[#1C1C1C]">{s.rate}</span></p>
+                    <p className="text-sm text-[#1C1C1C]">{s.name} <span className="ml-2 text-[10px] uppercase tracking-wider text-[#1C1C1C]">{s.rate}</span></p>
                     <p className="font-mono text-xs text-[#1F4D2C] tabular-nums">{s.count} · {s.share}%</p>
                   </div>
                   <div className="h-2 bg-[#FAF9F5] rounded-full overflow-hidden">
@@ -694,14 +694,14 @@ export default function FocusPartner() {
 
           <div className="rounded-2xl border border-[#C8C5BC] bg-[#F4F4F1]/70 p-6 sm:p-8">
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Cleaner workload · top 8 of 9</p>
-            <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-5">Smart-schedule routes 80% of jobs to the top 2 cleaners.</h3>
+            <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-[#1C1C1C] mb-5">Smart-schedule routes 80% of jobs to the top 2 cleaners.</h3>
             <div className="space-y-2">
               {cleanerRanking.map((c) => {
                 const pct = (c.count / cleanerMax) * 100;
                 return (
                   <div key={c.name}>
                     <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-sm text-white">{c.name}</p>
+                      <p className="text-sm text-[#1C1C1C]">{c.name}</p>
                       <p className="font-mono text-xs text-[#1F4D2C] tabular-nums">{c.count} · {c.share}%</p>
                     </div>
                     <div className="h-1.5 bg-[#FAF9F5] rounded-full overflow-hidden">
@@ -721,7 +721,7 @@ export default function FocusPartner() {
         >
           <div className="text-center mb-8">
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">5,998 notifications fired · top events</p>
-            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">The platform actually does this much.</h3>
+            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C]">The platform actually does this much.</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {platformActivity.map((m) => (
@@ -740,7 +740,7 @@ export default function FocusPartner() {
           className="rounded-2xl border border-[#C8C5BC] bg-[#EDEAE3] p-6 sm:p-10 mb-20 text-center"
         >
           <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-2">Cumulative on the same engine · since Feb 3 2026</p>
-          <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white mb-6">One Focus Partner. Real numbers from production.</h3>
+          <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-[#1C1C1C] mb-6">One Focus Partner. Real numbers from production.</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {cumulativeStats.map((s) => (
               <div key={s.label}>
@@ -758,7 +758,7 @@ export default function FocusPartner() {
         >
           <div className="mb-8 text-center">
             <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-2">Anatomy of a real booking · production code path</p>
-            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mb-2">Sunday 11:02 PM. The owner is asleep.</h3>
+            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C] mb-2">Sunday 11:02 PM. The owner is asleep.</h3>
             <p className="text-[#6F6F6B] max-w-2xl mx-auto text-sm sm:text-base">
               7 minutes from organic visit to booked + cleaner-assigned + confirmations sent. Every step below is real production code running for The NYC Maid right now — same code that ships to every Focus Partner.
             </p>
@@ -770,7 +770,7 @@ export default function FocusPartner() {
                 <p className="hidden sm:block font-mono text-xs text-[#6F6F6B] truncate">{step.where}</p>
                 <div className="col-span-1 sm:col-span-1">
                   <p className="text-[10px] sm:hidden font-mono text-[#6F6F6B] mb-1">{step.where}</p>
-                  <p className={`text-sm leading-snug ${step.highlight ? "text-white font-semibold" : "text-[#1C1C1C]"}`}>
+                  <p className={`text-sm leading-snug ${step.highlight ? "text-[#1C1C1C] font-semibold" : "text-[#1C1C1C]"}`}>
                     <span className="font-cta uppercase tracking-wider text-xs text-[#1F4D2C] mr-2">{step.actor}</span>
                     {step.body}
                   </p>
@@ -787,11 +787,11 @@ export default function FocusPartner() {
         >
           <div className="text-center mb-10">
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">Before / After · the operator&apos;s actual day</p>
-            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">What got removed from the operator&apos;s day.</h3>
+            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C]">What got removed from the operator&apos;s day.</h3>
           </div>
           <div className="rounded-2xl border border-[#C8C5BC] overflow-hidden">
             <div className="grid grid-cols-2 bg-[#EDEAE3] font-cta uppercase text-xs tracking-widest">
-              <div className="px-4 sm:px-6 py-3 text-red-400 border-r border-[#C8C5BC]">Before — manual</div>
+              <div className="px-4 sm:px-6 py-3 text-red-700 border-r border-[#C8C5BC]">Before — manual</div>
               <div className="px-4 sm:px-6 py-3 text-[#1F4D2C]">After — automated</div>
             </div>
             {removedFromDay.map((row, i) => (
@@ -811,7 +811,7 @@ export default function FocusPartner() {
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div>
               <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#1F4D2C] mb-1">Live feed · captured 2026-04-27 5:24 PM ET</p>
-              <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-white">Six events from a normal afternoon.</h3>
+              <h3 className="font-heading text-xl sm:text-2xl font-extrabold text-[#1C1C1C]">Six events from a normal afternoon.</h3>
             </div>
             <span className="inline-flex items-center gap-2 rounded-full bg-[rgba(31,77,44,0.08)] border border-teal-500/40 px-3 py-1.5">
               <span className="w-2 h-2 rounded-full bg-[#1F4D2C] animate-pulse" />
@@ -823,7 +823,7 @@ export default function FocusPartner() {
               <div key={e.title} className="rounded-lg border border-[#C8C5BC] bg-[#F4F4F1] p-4 flex gap-3">
                 <span className="text-2xl shrink-0">{e.icon}</span>
                 <div>
-                  <p className="font-heading text-sm font-bold text-white">{e.title}</p>
+                  <p className="font-heading text-sm font-bold text-[#1C1C1C]">{e.title}</p>
                   <p className="mt-1 text-sm text-[#1C1C1C] leading-snug">{e.body}</p>
                 </div>
               </div>
@@ -838,7 +838,7 @@ export default function FocusPartner() {
         >
           <div className="text-center mb-10">
             <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C] mb-2">The Finances · open book</p>
-            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">You can see everything.</h3>
+            <h3 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C]">You can see everything.</h3>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {financialReality.map((row) => (
@@ -856,7 +856,7 @@ export default function FocusPartner() {
           initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.4 }}
           className="text-center max-w-3xl mx-auto"
         >
-          <p className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-snug">
+          <p className="font-heading text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1C1C1C] leading-snug">
             We don&apos;t sell you software we don&apos;t ship in our own business.
           </p>
           <p className="mt-4 text-base sm:text-lg text-[#1C1C1C] leading-relaxed">
@@ -866,7 +866,7 @@ export default function FocusPartner() {
             <Link href="/case-study/the-nyc-maid" className="inline-block rounded-lg bg-teal-500 hover:bg-[#1F4D2C] text-white font-cta font-bold px-8 py-4 text-base transition-colors">
               Read the full Focus Partner case study
             </Link>
-            <Link href="/crm-partnership-request-form" className="inline-block rounded-lg border border-slate-600 hover:border-[#1F4D2C] text-[#1C1C1C] hover:text-[#1F4D2C] font-cta font-bold px-8 py-4 text-base transition-colors">
+            <Link href="/waitlist" className="inline-block rounded-lg border border-slate-600 hover:border-[#1F4D2C] text-[#1C1C1C] hover:text-[#1F4D2C] font-cta font-bold px-8 py-4 text-base transition-colors">
               Become a Focus Partner in your trade
             </Link>
           </div>

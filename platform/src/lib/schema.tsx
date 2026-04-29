@@ -267,7 +267,7 @@ export function softwareApplicationSchema(
         .toISOString()
         .split("T")[0],
       availability: "https://schema.org/InStock",
-      url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
+      url: "https://homeservicesbusinesscrm.com/waitlist",
       priceSpecification: {
         "@type": "UnitPriceSpecification",
         price,

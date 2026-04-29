@@ -9,7 +9,7 @@ const reviews = [
     service: "Deep Cleaning",
     location: "Chicago",
     quote:
-      "I thought I needed to hire a receptionist. Turns out I needed Selenas. She handles 80% of what a front desk person would do. The ROI isn\u2019t even close.",
+      "I thought I needed to hire a receptionist. Turns out I needed Yinez. She handles 80% of what a front desk person would do. The ROI isn\u2019t even close.",
   },
   {
     name: "David H.",
@@ -93,7 +93,7 @@ export default function BlogPreview() {
                 &ldquo;{review.quote}&rdquo;
               </p>
               <Link
-                href="/full-loop-crm-pricing"
+                href="/waitlist"
                 className="inline-flex items-center gap-2 text-[#1F4D2C] text-sm font-semibold hover:underline font-cta"
               >
                 See Pricing

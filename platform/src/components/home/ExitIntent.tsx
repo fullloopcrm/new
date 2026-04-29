@@ -102,7 +102,7 @@ export default function ExitIntent() {
               />
               <button
                 type="submit"
-                className="px-4 py-2.5 rounded-lg bg-[#1F4D2C] text-[#1C1C1C] text-sm font-bold hover:bg-[#1F4D2C] transition-colors whitespace-nowrap"
+                className="px-4 py-2.5 rounded-lg bg-[#1F4D2C] text-white text-sm font-bold hover:bg-[#1F4D2C] transition-colors whitespace-nowrap"
               >
                 Send It
               </button>

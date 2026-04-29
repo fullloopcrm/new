@@ -15,9 +15,9 @@ const steps = [
   {
     stage: "Stage 2",
     title: "Sale Made",
-    desc: "Selena AI engages every inbound lead — SMS, web chat, AND inbound email — within seconds. 17-intent state-machine collects 10 fields (service, bedrooms, day, time, name, phone, address, email, notes), recognizes returning clients, escalates to a human only when she should.",
-    reality: "<60-second response times convert 7× higher than >5min (HBR study). Selena does it 24/7, bilingual EN/ES, while you sleep. Email leads that other CRMs ignore? She handles those too — no other product on the market does.",
-    proof: "Live at nycmaid: Selena auto-engaging 10+ inbound email leads per hour right now. Allison Thacker booked Deep Cleaning May 29 via SMS — zero human touch.",
+    desc: "Yinez AI engages every inbound lead — SMS, web chat, AND inbound email — within seconds. 17-intent state-machine collects 10 fields (service, bedrooms, day, time, name, phone, address, email, notes), recognizes returning clients, escalates to a human only when she should.",
+    reality: "<60-second response times convert 7× higher than >5min (HBR study). Yinez does it 24/7, bilingual EN/ES, while you sleep. Email leads that other CRMs ignore? She handles those too — no other product on the market does.",
+    proof: "Live at nycmaid: Yinez auto-engaging 10+ inbound email leads per hour right now. Allison Thacker booked Deep Cleaning May 29 via SMS — zero human touch.",
     benefit: "Faster response time. Higher close rate. No missed leads after-hours.",
   },
   {
@@ -47,7 +47,7 @@ const steps = [
   {
     stage: "Stage 6",
     title: "Review Captured",
-    desc: "Post-job follow-up cron sends a review request via SMS + email 24 hours after every completed job. 10% rebooking discount baked into the message. Negative sentiment detected before the review goes public — Selena escalates the conversation to a phone call.",
+    desc: "Post-job follow-up cron sends a review request via SMS + email 24 hours after every completed job. 10% rebooking discount baked into the message. Negative sentiment detected before the review goes public — Yinez escalates the conversation to a phone call.",
     reality: "Reviews are local-search oxygen. Most operators chase them manually and forget. Full Loop automates the ask, catches angry clients before they 1-star you, and auto-replies to Google reviews via the synced GMB integration.",
     proof: "Live at nycmaid: post-job-followup cron firing every job complete. Auto-reply-reviews cron syncs Google reviews daily. Negative sentiment routed to private resolution flow before going public.",
     benefit: "More reviews. Better rankings. Bad reviews caught early.",
@@ -183,27 +183,27 @@ export default function Process() {
                 <h4 className="text-sm font-bold text-[#1C1C1C] mb-4 font-heading">What Other CRMs Don&apos;t Do</h4>
                 <ul className="space-y-3 text-sm text-[#1C1C1C]">
                   <li className="flex gap-2">
-                    <span className="text-red-400 shrink-0">&#x2717;</span>
+                    <span className="text-red-700 shrink-0">&#x2717;</span>
                     Generate your leads for you
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-red-400 shrink-0">&#x2717;</span>
+                    <span className="text-red-700 shrink-0">&#x2717;</span>
                     Protect your territory from competitors
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-red-400 shrink-0">&#x2717;</span>
+                    <span className="text-red-700 shrink-0">&#x2717;</span>
                     Manage payroll and P&L in-platform
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-red-400 shrink-0">&#x2717;</span>
+                    <span className="text-red-700 shrink-0">&#x2717;</span>
                     Provide hands-on consulting from industry veterans
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-red-400 shrink-0">&#x2717;</span>
+                    <span className="text-red-700 shrink-0">&#x2717;</span>
                     Build your SEO and review reputation automatically
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-red-400 shrink-0">&#x2717;</span>
+                    <span className="text-red-700 shrink-0">&#x2717;</span>
                     Close the loop from lead to retention
                   </li>
                 </ul>
@@ -229,8 +229,8 @@ export default function Process() {
 
               {/* CTA */}
               <Link
-                href="/crm-partnership-request-form"
-                className="block w-full text-center px-6 py-4 text-base font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
+                href="/waitlist"
+                className="block w-full text-center px-6 py-4 text-base font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
               >
                 Check Territory Availability
               </Link>

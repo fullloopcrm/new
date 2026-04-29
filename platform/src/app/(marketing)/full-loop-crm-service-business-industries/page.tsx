@@ -121,7 +121,7 @@ const steps = [
   {
     step: "4",
     title: "Launch",
-    description: "Go live with leads, automation, and Selenas AI handling your front office.",
+    description: "Go live with leads, automation, and Yinez AI handling your front office.",
   },
 ];
 
@@ -200,7 +200,7 @@ export default function IndustriesPage() {
               </span>
             </p>
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
             >
               Request Your Territory
@@ -246,10 +246,10 @@ export default function IndustriesPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/crm-partnership-request-form"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Request Partnership
+              Request to Join Waitlist
             </Link>
             <Link
               href="/full-loop-crm-service-features"
@@ -258,7 +258,7 @@ export default function IndustriesPage() {
               See All Features
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
             >
               View Pricing

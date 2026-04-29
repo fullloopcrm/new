@@ -150,12 +150,12 @@ export default function SocialProof() {
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href="/full-loop-crm-service-features"
-              className="inline-block px-8 py-3 rounded-full bg-[#1F4D2C] text-[#1C1C1C] font-bold text-lg hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
+              className="inline-block px-8 py-3 rounded-full bg-[#1F4D2C] text-white font-bold text-lg hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               See All Features
             </Link>
             <Link
-              href="/full-loop-crm-pricing"
+              href="/waitlist"
               className="inline-block px-8 py-3 rounded-full border-2 border-[#1F4D2C] text-[#1F4D2C] font-bold text-lg hover:bg-[#F4F4F1] transition-colors font-cta"
             >
               View Pricing
