@@ -2,10 +2,15 @@
  * Smart-schedule scoring — industry-neutral team-member matching for any
  * home-services business (cleaning, HVAC, landscaping, pest, etc).
  * Multi-tenant: all queries scoped by tenant_id.
+ *
+ * Multi-tech aware: a team_member is "on" a booking if they're the lead
+ * (bookings.team_member_id) OR listed in booking_team_members (extras). Both
+ * count as conflicts for scheduling.
+ *
  * Required team_members columns (added in migration 049):
  *   home_latitude, home_longitude, home_by_time, service_zones.
- * Already present: address, schedule, unavailable_dates, working_days,
- *   max_jobs_per_day, has_car, status.
+ * Required clients columns (added in migration 050):
+ *   preferred_team_member_id.
  *
  * Industry-specific rules (e.g. cleaning's "labor-only vs supplies-included")
  * are NOT baked in here. They belong in tenant-config / per-industry hooks.
@@ -31,6 +36,7 @@ export interface TeamMemberScore {
   can_make_home?: boolean
   zone_match: boolean
   has_car: boolean
+  is_preferred: boolean // client's preferred team member — strongest signal
   day_jobs: { time: string; client: string; address: string }[]
   reason: string
 }
@@ -39,12 +45,17 @@ type ClientFK = { name?: string | null; address?: string | null; latitude?: numb
 
 /**
  * Score every team member for a candidate booking slot. Factors:
- * 1. Zone match (+50) / mismatch (-30)
- * 2. Zone requires car but member doesn't have one (-80)
- * 3. Proximity from member's home (max +30 for <1mi)
- * 4. Clustering with the member's other jobs that day (+5/+10/+20)
- * 5. Travel-from-previous job penalty (max +20 for <10min commute)
- * 6. Won't make it home by `home_by_time` after this slot (-50)
+ * 1. Preferred team member (+200) — strongest signal, ahead of zone match
+ * 2. Zone match (+50) / mismatch (-30)
+ * 3. Zone requires car but member doesn't have one (-80)
+ * 4. Proximity from member's home (max +30 for <1mi)
+ * 5. Clustering with the member's other jobs that day (+5/+10/+20)
+ * 6. Travel-from-previous job penalty (max +20 for <10min commute)
+ * 7. Won't make it home by `home_by_time` after this slot (-50)
+ *
+ * Multi-tech: a member is conflicted on a booking when they're the lead
+ * (bookings.team_member_id) OR an extra (booking_team_members row).
+ *
  * Returns sorted list, available first by score, then unavailable with reasons.
  */
 export async function scoreTeamForBooking(opts: {
@@ -58,18 +69,21 @@ export async function scoreTeamForBooking(opts: {
 }): Promise<TeamMemberScore[]> {
   const { tenantId, date, startTime, durationHours, clientAddress, clientId, excludeBookingId } = opts
 
-  // Geocode the job address — prefer cached client coords.
+  // Geocode the job address — prefer cached client coords. Also pull preferred
+  // team-member id for the +200 score bonus.
   let jobCoords: { lat: number; lng: number } | null = null
+  let preferredMemberId: string | null = null
   if (clientId) {
     const { data: client } = await supabaseAdmin
       .from('clients')
-      .select('latitude, longitude')
+      .select('latitude, longitude, preferred_team_member_id')
       .eq('id', clientId)
       .eq('tenant_id', tenantId)
       .single()
     if (client?.latitude && client?.longitude) {
       jobCoords = { lat: Number(client.latitude), lng: Number(client.longitude) }
     }
+    preferredMemberId = (client?.preferred_team_member_id as string | null) || null
   }
   if (!jobCoords) {
     jobCoords = await geocodeAddress(clientAddress)
@@ -104,6 +118,24 @@ export async function scoreTeamForBooking(opts: {
   if (excludeBookingId) bookingsQuery = bookingsQuery.neq('id', excludeBookingId)
   const { data: dayBookings } = await bookingsQuery
 
+  // Multi-tech: pull booking_team_members rows for any of today's bookings so
+  // a team_member who's listed as an extra on someone else's booking is also
+  // counted as conflicted. Fall back to empty when the table isn't populated.
+  const dayBookingIds = (dayBookings || []).map((b) => b.id as string)
+  const teamMap = new Map<string, string[]>() // booking_id -> [team_member_ids]
+  if (dayBookingIds.length > 0) {
+    const { data: teamRows } = await supabaseAdmin
+      .from('booking_team_members')
+      .select('booking_id, team_member_id')
+      .eq('tenant_id', tenantId)
+      .in('booking_id', dayBookingIds)
+    for (const r of teamRows || []) {
+      const list = teamMap.get(r.booking_id as string) || []
+      list.push(r.team_member_id as string)
+      teamMap.set(r.booking_id as string, list)
+    }
+  }
+
   const [sh, sm] = startTime.split(':').map(Number)
   const slotStartMin = sh * 60 + sm
   const slotEndMin = slotStartMin + durationHours * 60
@@ -112,6 +144,8 @@ export async function scoreTeamForBooking(opts: {
   const scores: TeamMemberScore[] = []
 
   for (const member of allMembers || []) {
+    const isPreferred = member.id === preferredMemberId
+
     // Day-of-week availability
     const worksToday = (() => {
       if ((member.unavailable_dates as string[] | null)?.includes(date)) return false
@@ -128,13 +162,20 @@ export async function scoreTeamForBooking(opts: {
         conflict: 'Not scheduled to work',
         home_by: (member.home_by_time as string) || '18:00',
         zone_match: false, has_car: Boolean(member.has_car),
+        is_preferred: isPreferred,
         day_jobs: [], reason: 'off',
       })
       continue
     }
 
-    // Time-conflict + max-jobs-per-day
-    const memberBookings = (dayBookings || []).filter((b) => b.team_member_id === member.id)
+    // Time-conflict + max-jobs-per-day. A member is "on" a booking if they're
+    // the lead OR listed in booking_team_members for that booking.
+    const memberBookings = (dayBookings || []).filter((b) => {
+      if (b.team_member_id === member.id) return true
+      const extras = teamMap.get(b.id as string) || []
+      return extras.includes(member.id)
+    })
+
     let hasConflict = false
     let conflictReason = ''
 
@@ -168,6 +209,7 @@ export async function scoreTeamForBooking(opts: {
         conflict: conflictReason,
         home_by: (member.home_by_time as string) || '18:00',
         zone_match: false, has_car: Boolean(member.has_car),
+        is_preferred: isPreferred,
         day_jobs: dayJobs, reason: 'conflict',
       })
       continue
@@ -176,7 +218,11 @@ export async function scoreTeamForBooking(opts: {
     // ── SCORING ──
     let score = 100
 
-    // 0. Zone match (strongest signal)
+    // 0a. Preferred team member — strongest possible signal. The client picked
+    // this tech before; barring conflict/zone/car blockers, they win.
+    if (isPreferred) score += 200
+
+    // 0b. Zone match (next strongest)
     const jobZone = guessZoneFromAddress(clientAddress)
     const memberZones = (member.service_zones as string[] | null) || []
     const zoneMatch = jobZone ? memberZones.includes(jobZone) : false
@@ -299,7 +345,8 @@ export async function scoreTeamForBooking(opts: {
     }
 
     let reason = ''
-    if (zoneMatch && clusterBonus >= 20) reason = 'Zone match + near other jobs'
+    if (isPreferred) reason = "Client's preferred tech"
+    else if (zoneMatch && clusterBonus >= 20) reason = 'Zone match + near other jobs'
     else if (zoneMatch) reason = 'Zone match'
     else if (clusterBonus >= 20) reason = 'Near other jobs'
     else if (distMiles && distMiles < 2) reason = 'Close to home'
@@ -322,6 +369,7 @@ export async function scoreTeamForBooking(opts: {
       can_make_home: canMakeHome,
       zone_match: zoneMatch,
       has_car: hasCar,
+      is_preferred: isPreferred,
       day_jobs: dayJobs,
       reason,
     })
@@ -348,4 +396,24 @@ function formatTime(min: number): string {
   const ampm = h >= 12 ? 'PM' : 'AM'
   const hr = h % 12 || 12
   return m > 0 ? `${hr}:${String(m).padStart(2, '0')} ${ampm}` : `${hr} ${ampm}`
+}
+
+/**
+ * Pick the best N available team members as a team. Returns the lead first
+ * (highest-scoring available member), then extras in score order.
+ * Falls back gracefully if fewer than N members are available.
+ */
+export function pickBestTeam(scores: TeamMemberScore[], teamSize: number): {
+  lead: TeamMemberScore | null
+  extras: TeamMemberScore[]
+  short: number  // how many slots couldn't be filled (0 if fully staffed)
+} {
+  const available = scores.filter((s) => s.available).sort((a, b) => b.score - a.score)
+  const want = Math.max(1, Math.floor(teamSize))
+  const team = available.slice(0, want)
+  return {
+    lead: team[0] || null,
+    extras: team.slice(1),
+    short: Math.max(0, want - team.length),
+  }
 }
