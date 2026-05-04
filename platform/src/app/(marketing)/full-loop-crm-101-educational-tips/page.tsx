@@ -34,7 +34,7 @@ const crm101Faqs = [
   {
     question: "Is a full-service CRM worth the investment?",
     answer:
-      "Only if it replaces multiple tools and generates enough revenue to justify itself. If a CRM generates 20 new leads per month and you close half at $300 each, that's $3,000 in new revenue — before counting the time you save. Full Loop is invite-only and replaces 9+ separate tools, plus an answering service, plus a bookkeeper, plus a payroll seat. If your CRM is just a glorified calendar, it's not worth $50/month.",
+      "Only if it replaces multiple tools and generates enough revenue to justify itself. If a CRM generates 20 new leads per month and you close half at $300 each, that's $3,000 in new revenue — before counting the time you save. Full Loop replaces 9+ separate tools, plus an answering service, plus a bookkeeper, plus a payroll seat. If your CRM is just a glorified calendar, it's not worth $50/month.",
   },
   {
     question: "Can I just use HubSpot or Salesforce for my service business?",
@@ -78,10 +78,10 @@ const categoryCTAs: Record<string, { text: string; href: string; label: string }
   leads: { text: "See how Full Loop generates exclusive leads with multi-domain SEO", href: "/full-loop-crm-service-features", label: "See the Lead Generation Engine" },
   sales: { text: "Questions about AI-powered sales and how it works?", href: "/full-loop-crm-frequently-asked-questions", label: "Read the FAQ" },
   ops: { text: "See scheduling, dispatch, and GPS tracking in action", href: "/full-loop-crm-service-features", label: "View Scheduling & Field Ops Features" },
-  money: { text: "See how pricing and payments work inside Full Loop", href: "/waitlist", label: "View Pricing Plans" },
+  money: { text: "See how pricing and payments work inside Full Loop", href: "/contact", label: "View Pricing Plans" },
   reviews: { text: "See how automated review requests work inside the platform", href: "/full-loop-crm-service-features", label: "Explore Review Automation" },
   retention: { text: "Want to see the full customer lifecycle in one platform?", href: "/full-loop-crm-service-features", label: "See the Full Loop in Action" },
-  truth: { text: "No pressure — just explore what we built and decide for yourself", href: "/waitlist", label: "Apply for Your Territory" },
+  truth: { text: "No pressure — just explore what we built and decide for yourself", href: "/contact", label: "Inquire" },
 };
 
 const tips: { num: number; cat: string; text: string }[] = [
@@ -321,7 +321,7 @@ export default function CRM101Page() {
               See How Full Loop CRM Works
             </Link>
             <Link
-              href="/full-loop-crm-frequently-asked-questions"
+              href="/contact"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               Read the FAQ
@@ -475,32 +475,22 @@ export default function CRM101Page() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-4 text-lg font-bold text-slate-900 hover:bg-teal-300 transition-colors"
             >
-              Apply for Your Territory
+              Inquire
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               View Pricing
             </Link>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-slate-400">
-            <a
-              href="tel:+12122029220"
-              className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200"
-            >
-              Call (212) 202-9220
-            </a>
+            
             <span className="hidden sm:inline text-slate-600">|</span>
-            <a
-              href="sms:+12122029220"
-              className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200"
-            >
-              Text (212) 202-9220
-            </a>
+            
           </div>
           <p className="mt-8 text-sm text-slate-500">
             Explore{" "}

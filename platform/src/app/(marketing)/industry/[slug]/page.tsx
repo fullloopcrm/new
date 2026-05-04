@@ -203,21 +203,15 @@ export default async function IndustryPage({
           )}
 
           <p className="font-mono text-sm text-teal-400 mb-6 tracking-wide">
-            invite-only &middot; one operator per trade per city &middot; waitlist required
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Lock Your Territory
+              Inquire about the platform
             </Link>
-            <a
-              href="tel:+12122029220"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
-            >
-              Call (212) 202-9220
-            </a>
+            
           </div>
         </div>
       </section>
@@ -399,7 +393,7 @@ export default async function IndustryPage({
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
             platform. The license includes your exclusive territory,
-            all 7 lifecycle stages, the Yinez AI assistant, client and team
+            all 7 lifecycle stages, the Our AI receptionist assistant, client and team
             portals, full bookkeeping with 1099-ready exports, and all
             core updates.
           </p>
@@ -407,10 +401,10 @@ export default async function IndustryPage({
             Joining the waitlist isn&apos;t a guarantee. We open one slot per trade per city.
           </p>
           <Link
-            href="/waitlist"
+            href="/contact"
             className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
           >
-            Request to Join Waitlist
+            Inquire
           </Link>
         </div>
       </section>
@@ -616,23 +610,13 @@ export default async function IndustryPage({
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Request to Join Waitlist
+              Inquire
             </Link>
-            <a
-              href="tel:+12122029220"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
-            >
-              Call (212) 202-9220
-            </a>
-            <a
-              href="sms:+12122029220"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
-            >
-              Text Us
-            </a>
+            
+            
           </div>
         </div>
       </section>
@@ -668,7 +652,7 @@ export default async function IndustryPage({
               All Features
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               Pricing
@@ -692,7 +676,7 @@ export default async function IndustryPage({
               CRM 101
             </Link>
             <Link
-              href="/full-loop-crm-frequently-asked-questions"
+              href="/contact"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               FAQ

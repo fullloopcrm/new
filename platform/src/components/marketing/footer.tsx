@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 const platform = [
   { label: 'Features', href: '/full-loop-crm-service-features' },
-  { label: 'Pricing', href: '/waitlist' },
+  { label: 'Inquire', href: '/contact' },
   { label: 'Industries', href: '/full-loop-crm-service-business-industries' },
   { label: 'Why Full Loop?', href: '/why-you-should-choose-full-loop-crm-for-your-business' },
   { label: 'CRM 101', href: '/full-loop-crm-101-educational-tips' },
@@ -12,7 +12,7 @@ const platform = [
 const company = [
   { label: 'About', href: '/about-full-loop-crm' },
   { label: 'Partners', href: '/partner-with-full-loop-crm' },
-  { label: 'Apply for Partnership', href: '/waitlist' },
+  { label: 'Inquire', href: '/contact' },
   { label: 'Feedback', href: '/feedback' },
 ]
 
@@ -207,10 +207,10 @@ export default function Footer() {
               Call Now
             </a>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block rounded-lg bg-white px-6 py-2.5 text-sm font-bold text-teal-700 hover:bg-teal-50 transition-colors font-cta whitespace-nowrap"
             >
-              Apply for Partnership
+              Inquire
             </Link>
           </div>
         </div>

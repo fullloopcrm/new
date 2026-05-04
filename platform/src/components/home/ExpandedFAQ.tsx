@@ -47,7 +47,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "What payment methods does Full Loop CRM support?",
-    answer: <span>Tracks payments via Zelle, Apple Pay, Venmo, Cash, Check, and credit card. The finance dashboard shows revenue, payroll with one-click Mark Paid, expense tracking, and auto-generated 1099 reports. See our <L href="/waitlist">pricing page</L> for platform costs.</span>,
+    answer: <span>Tracks payments via Zelle, Apple Pay, Venmo, Cash, Check, and credit card. The finance dashboard shows revenue, payroll with one-click Mark Paid, expense tracking, and auto-generated 1099 reports. See our <L href="/contact">pricing page</L> for platform costs.</span>,
   },
   {
     question: "How does the automated review system work?",
@@ -55,7 +55,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "Is Full Loop CRM available in my city?",
-    answer: <span>Exclusive territory model — one provider per trade per city. First-come-first-serve. Currently accepting <L href="/waitlist">partnership requests</L>.</span>,
+    answer: <span>Exclusive territory model — one provider per trade per city. First-come-first-serve. Currently accepting <L href="/contact">partnership requests</L>.</span>,
   },
   {
     question: "Why one business per trade per city?",
@@ -63,11 +63,11 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "What does Full Loop CRM look for in a partner?",
-    answer: <span>Business owners committed to organic, sustainable growth. Partners who appreciate consulting guidance and real-world experience from 20+ years in home services. Learn about our <L href="/partner-with-full-loop-crm">partner program</L>.</span>,
+    answer: <span>Business owners committed to organic, sustainable growth. Partners who appreciate consulting guidance and real-world experience from 20+ years in home services. Learn about our <L href="/contact">partner program</L>.</span>,
   },
   {
     question: "How much does Full Loop CRM cost?",
-    answer: <span>Flat $1,000 per user per month. Every feature, every seat — no tiers, no upgrades, no caps. Solo at $1,000/mo, 5-person team at $5,000/mo, 25-person team at $25,000/mo. Every operator gets the complete platform — CRM, Yinez AI, custom website, SEO, GPS team portal, e-signature, route optimization, full bookkeeping with 1099-ready exports, hiring pages, reviews, referrals. $999 one-time setup. No contracts, cancel anytime. Full details on our <L href="/waitlist">pricing page</L>.</span>,
+    answer: <span>Flat $1,000 per user per month. Every feature, every seat — no tiers, no upgrades, no caps. Solo at $1,000/mo, 5-person team at $5,000/mo, 25-person team at $25,000/mo. Every operator gets the complete platform — CRM, Yinez AI, custom website, SEO, GPS team portal, e-signature, route optimization, full bookkeeping with 1099-ready exports, hiring pages, reviews, referrals. $999 one-time setup. No contracts, cancel anytime. Full details on our <L href="/contact">pricing page</L>.</span>,
   },
   {
     question: "Who owns what in a Full Loop CRM partnership?",
@@ -115,11 +115,11 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "Does it work for businesses in any US city?",
-    answer: <span>Yes. Designed for any mid-to-large US city. Multi-domain SEO, AI sales, scheduling, GPS ops, and financial tools work identically regardless of geography. Check <L href="/waitlist">territory availability</L>.</span>,
+    answer: <span>Yes. Designed for any mid-to-large US city. Multi-domain SEO, AI sales, scheduling, GPS ops, and financial tools work identically regardless of geography. Check <L href="/contact">territory availability</L>.</span>,
   },
   {
     question: "How do I apply to become a partner?",
-    answer: <span>Text us at (212) 202-9220, call us, or email hello@homeservicesbusinesscrm.com. Tell us your trade and city. We&apos;ll check territory availability. Or <L href="/waitlist">submit a partnership request</L> online.</span>,
+    answer: <span>Text us at (212) 202-9220, call us, or email hello@homeservicesbusinesscrm.com. Tell us your trade and city. We&apos;ll check territory availability. Or <L href="/contact">submit a partnership request</L> online.</span>,
   },
 ];
 
@@ -221,7 +221,7 @@ export default function ExpandedFAQ() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               Apply for a Partnership

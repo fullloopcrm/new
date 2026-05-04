@@ -14,7 +14,7 @@ export default function CtaSection({
       <h2>{heading}</h2>
       <p>{description}</p>
       <div className="cta-buttons">
-        <Link href="/waitlist" className="btn-white" style={{fontSize: '1.15rem', padding: '1rem 3rem'}}>Apply Now</Link>
+        <Link href="/contact" className="btn-white" style={{fontSize: '1.15rem', padding: '1rem 3rem'}}>Inquire</Link>
       </div>
       <div className="cta-buttons" style={{marginTop: '1rem', gap: '1rem'}}>
         <a href="sms:+12122029220" className="btn-outline">Text Us</a>

@@ -197,7 +197,7 @@ export default function CostBreakdown() {
               than running the front office the old way &mdash; with the AI
               sales agent, GPS field ops, e-signature, books, and routes that
               the old stack doesn&rsquo;t even include. Add seats as you grow
-              at the same flat $1,000/user/mo. See the full <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">CRM pricing</Link> breakdown.
+              at the same flat $1,000/user/mo. See the full <Link href="/contact" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">CRM pricing</Link> breakdown.
             </p>
           </div>
         </motion.div>

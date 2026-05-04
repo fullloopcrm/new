@@ -128,7 +128,7 @@ export default function Comparison() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-white font-bold text-lg hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               See Pricing

@@ -38,6 +38,15 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
           '/join/',
           '/unsubscribe',
           '/stripe-onboard/',
+          // Killed in 2026-05-03 teaser pivot — middleware returns 410.
+          // Listed here as belt-and-suspenders so crawlers stop fetching them.
+          '/apply',
+          '/full-loop-crm-pricing',
+          '/full-loop-crm-frequently-asked-questions',
+          '/agreement',
+          '/waitlist',
+          '/partner-with-full-loop-crm',
+          '/focus-partner',
         ],
       },
     ],

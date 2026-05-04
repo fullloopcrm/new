@@ -14,11 +14,11 @@ export const metadata: Metadata = {
   title:
     "Why Full Loop CRM | The Only Full-Cycle Home Service CRM — And Only One Operator Per City Gets It",
   description:
-    "Jobber, Housecall Pro, and ServiceTitan sell to every competitor on your block. Full Loop CRM licenses to one operator per trade per city — then locks everyone else out. See why exclusivity beats features.",
+    "Jobber, Housecall Pro, and ServiceTitan sell to every competitor on your block. Full Loop CRM licenses to a single full-cycle operating system See why exclusivity beats features.",
   keywords: [
     "why full loop CRM",
     "exclusive home service CRM",
-    "one trade per city CRM",
+    "operating platform",
     "Jobber alternative",
     "Housecall Pro alternative",
     "ServiceTitan alternative",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Why Full Loop CRM — One Operator Per Trade Per City, Nobody Else",
     description:
-      "Your competitors buy the same Jobber subscription you do. Full Loop CRM is different — we license to one operator per trade per city, then lock everyone else out.",
+      "Your competitors buy the same Jobber subscription you do. Full Loop CRM is different — the platform powers our own portfolio of vertical brands.",
     url: "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business",
     type: "website",
   },
@@ -64,7 +64,7 @@ const stages = [
   {
     number: "2",
     name: "AI Sales & Booking",
-    desc: "Yinez AI answers every inquiry in under 60 seconds, qualifies the lead, quotes the job, and books it on your calendar — 24/7/365.",
+    desc: "Our AI receptionist answers every inquiry in under 60 seconds, qualifies the lead, quotes the job, and books it on your calendar — 24/7/365.",
   },
   {
     number: "3",
@@ -100,8 +100,8 @@ const differentiators = [
     highlight: "No other CRM does this.",
   },
   {
-    title: "Yinez AI",
-    desc: "Your AI-powered receptionist, salesperson, and customer service rep rolled into one. Yinez answers calls, texts, and web inquiries instantly, qualifies leads, sends quotes, and books jobs — replacing roles that cost $121,000/year in payroll.",
+    title: "Our AI receptionist",
+    desc: "Your AI-powered receptionist, salesperson, and customer service rep rolled into one. The AI answers calls, texts, and web inquiries instantly, qualifies leads, sends quotes, and books jobs — replacing roles that cost $121,000/year in payroll.",
     highlight: "Replaces $121K in staff costs.",
   },
   {
@@ -189,14 +189,13 @@ export default function WhyFullLoopPage() {
             everyone else out of the system.
           </p>
           <p className="font-mono text-sm text-teal-400 mb-10 tracking-wide">
-            $1,000 / user / month &middot; flat &middot; every feature included
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/partner-with-full-loop-crm"
+              href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-3.5 text-sm font-semibold text-slate-900 shadow-lg hover:bg-teal-300 transition-colors"
             >
-              Request to Join Waitlist
+              Inquire
             </Link>
             <Link
               href="/full-loop-crm-service-features"
@@ -514,7 +513,7 @@ export default function WhyFullLoopPage() {
 
           <p className="text-center mt-8 text-slate-500 text-sm">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-teal-600 font-semibold underline underline-offset-2 hover:text-teal-700"
             >
               See Full Loop pricing details&nbsp;&rarr;
@@ -606,13 +605,13 @@ export default function WhyFullLoopPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <Link
-              href="/partner-with-full-loop-crm"
+              href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg hover:bg-teal-700 transition-colors"
             >
-              Request to Join Waitlist
+              Inquire
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="font-cta inline-block rounded-lg border border-slate-300 px-8 py-3.5 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-600 transition-colors"
             >
               View Pricing

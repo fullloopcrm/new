@@ -64,7 +64,7 @@ export async function generateMetadata({
       ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} has been claimed. Full Loop CRM licenses only one ${trade} partner per city — see nearby markets still available.`
       : status === "pending"
         ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for the exclusive Full Loop CRM license. Only one per city — get on the waitlist if the application falls through.`
-        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it's licensed to one operator per city. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one platform. Claim the territory by joining the waitlist.`;
+        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it powers our own portfolio of vertical brands. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one system. Inquire about the platform.`;
   const url = `https://homeservicesbusinesscrm.com/${slug}`;
 
   return {
@@ -77,7 +77,7 @@ export async function generateMetadata({
       `${trade} CRM ${metro.stateAbbr}`,
       `${trade} business software ${metro.city} ${metro.stateAbbr}`,
       `${trade} scheduling software ${metro.city}`,
-      `one trade per city CRM`,
+      `operating platform`,
       `${metro.city} home services CRM`,
     ],
     openGraph: {
@@ -162,7 +162,7 @@ export default async function ComboPage({
       : "Claim This Territory";
   const primaryCtaHref = isClaimed
     ? `/location/home-service-crm-in-${metro.shortSlug}`
-    : "/waitlist";
+    : "/contact";
 
   // Find deep page content via slug mapping
   const contentSlug = getIndustryContentSlug(industry.slug);
@@ -277,7 +277,6 @@ export default async function ComboPage({
           )}
 
           <p className="font-mono text-sm text-teal-400 mb-6 tracking-wide">
-            invite-only &middot; one operator per trade per city &middot; waitlist required
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
@@ -286,12 +285,7 @@ export default async function ComboPage({
             >
               {primaryCtaLabel}
             </Link>
-            <a
-              href="tel:+12122029220"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
-            >
-              Call (212) 202-9220
-            </a>
+            
           </div>
         </div>
       </section>
@@ -584,7 +578,7 @@ export default async function ComboPage({
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
             platform. The license includes your exclusive {metro.city}{" "}
-            territory, all 7 lifecycle stages, the Yinez AI assistant,
+            territory, all 7 lifecycle stages, the Our AI receptionist assistant,
             client and team portals, and all core updates.
           </p>
           <p className="text-sm text-slate-500 mb-8">
@@ -781,18 +775,8 @@ export default async function ComboPage({
             >
               {primaryCtaLabel}
             </Link>
-            <a
-              href="tel:+12122029220"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
-            >
-              Call (212) 202-9220
-            </a>
-            <a
-              href="sms:+12122029220"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
-            >
-              Text Us
-            </a>
+            
+            
           </div>
         </div>
       </section>
@@ -857,7 +841,7 @@ export default async function ComboPage({
               All Features
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               Pricing
@@ -875,7 +859,7 @@ export default async function ComboPage({
               Industries We Serve
             </Link>
             <Link
-              href="/full-loop-crm-frequently-asked-questions"
+              href="/contact"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               FAQ

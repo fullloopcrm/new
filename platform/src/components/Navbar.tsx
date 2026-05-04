@@ -9,17 +9,17 @@ import {
   useMotionValueEvent,
 } from "framer-motion";
 
+// 2026-05-03 teaser pivot: nav stripped down to public-safe pages only.
+// Pricing / Apply / Partners / Waitlist / FAQ are 410 Gone and removed.
 const navLinks = [
-  { label: "Features", href: "/full-loop-crm-service-features" },
-  { label: "Why Full Loop", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
+  { label: "Capabilities", href: "/full-loop-crm-service-features" },
   { label: "Industries", href: "/full-loop-crm-service-business-industries" },
+  { label: "Case Study", href: "/case-study/the-nyc-maid" },
 ];
 
 const moreLinks = [
   { label: "About", href: "/about-full-loop-crm" },
-  { label: "FAQ", href: "/full-loop-crm-frequently-asked-questions" },
-  { label: "Partners", href: "/partner-with-full-loop-crm" },
-  { label: "CRM 101", href: "/full-loop-crm-101-educational-tips" },
+  { label: "Notes", href: "/full-loop-crm-101-educational-tips" },
 ];
 
 export default function Navbar() {
@@ -162,14 +162,14 @@ export default function Navbar() {
 
           {/* Right — CTA + phone */}
           <div className="hidden lg:flex items-center justify-end">
-            <Link href="/waitlist">
+            <Link href="/contact">
               <motion.span
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
                 className="inline-block bg-white px-5 py-2 text-[10.5px] uppercase tracking-[0.18em] font-mono transition-colors hover:bg-[#F4F4F1]"
                 style={{ color: "#1C1C1C", borderRadius: 4 }}
               >
-                Request to Join Waitlist
+                Inquire
               </motion.span>
             </Link>
           </div>
@@ -252,19 +252,14 @@ export default function Navbar() {
                 ))}
 
                 <Link
-                  href="/waitlist"
+                  href="/contact"
                   onClick={() => setMobileOpen(false)}
                   className="mt-6"
                 >
                   <span className="block rounded-lg bg-teal-600 px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-teal-700 font-cta">
-                    Request to Join Waitlist
+                    Inquire
                   </span>
                 </Link>
-
-                <div className="mt-4 flex flex-col gap-2 text-sm text-slate-500">
-                  <a href="sms:+12122029220" className="hover:text-teal-600 transition-colors">Text Us: (212) 202-9220</a>
-                  <a href="tel:+12122029220" className="hover:text-teal-600 transition-colors">Call Us: (212) 202-9220</a>
-                </div>
               </div>
             </motion.div>
           </>

@@ -305,7 +305,7 @@ export default function AgreementPage() {
             If these terms work for you, let&apos;s get started.
           </p>
           <a
-            href="/waitlist"
+            href="/contact"
             className="inline-block rounded-lg bg-teal-600 px-8 py-3 text-white font-cta font-semibold hover:bg-teal-700 transition-colors"
           >
             Apply for Partnership

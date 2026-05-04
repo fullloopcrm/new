@@ -19,6 +19,25 @@ function isMainHost(hostname: string): boolean {
   return MAIN_HOSTS.has(host)
 }
 
+// Routes killed during the 2026-05-03 teaser pivot. Strategy shifted away
+// from licensing the platform to operators; these pages all assumed a
+// buyer/applicant funnel that no longer exists. Returning 410 (not 404)
+// tells Google to drop them from the index quickly.
+const KILLED_ROUTES = [
+  '/apply',
+  '/full-loop-crm-pricing',
+  '/full-loop-crm-frequently-asked-questions',
+  '/agreement',
+  '/waitlist',
+  '/partner-with-full-loop-crm',
+  '/focus-partner',
+  '/onboarding',
+]
+
+function isKilledRoute(pathname: string): boolean {
+  return KILLED_ROUTES.some(p => pathname === p || pathname.startsWith(p + '/'))
+}
+
 function extractSubdomain(hostname: string): string | null {
   const host = hostname.split(':')[0]
   // Match *.homeservicesbusinesscrm.com
@@ -34,7 +53,6 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
-  '/waitlist',
   '/full-loop-crm-service-features',
   '/businesses',
   '/full-loop-crm-service-business-industries',
@@ -44,16 +62,12 @@ const isPublicRoute = createRouteMatcher([
   '/locations(.*)',
   '/services(.*)',
   '/about-full-loop-crm',
-  '/full-loop-crm-frequently-asked-questions',
   '/contact',
   '/privacy-policy',
   '/terms',
   '/accessibility',
   '/full-loop-crm-101-educational-tips',
   '/why-you-should-choose-full-loop-crm-for-your-business',
-  '/partner-with-full-loop-crm',
-  '/waitlist',
-  '/agreement',
   '/case-study(.*)',
   '/home-service-business-blog(.*)',
   '/feedback',
@@ -104,6 +118,19 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
+
+  // --- Killed routes: return 410 Gone for the marketing-site buyer-funnel
+  // pages we shut down in the 2026-05-03 teaser pivot. Only applies on the
+  // main host so tenant subdomains/custom domains are unaffected.
+  if (isMainHost(hostname) && isKilledRoute(req.nextUrl.pathname)) {
+    return new NextResponse('Gone', {
+      status: 410,
+      headers: {
+        'Content-Type': 'text/plain',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    })
+  }
 
   // --- Tenant subdomain routing (runs before Clerk auth) ---
   const subdomain = extractSubdomain(hostname)

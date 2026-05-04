@@ -80,7 +80,7 @@ export default function TopServices() {
               full feature breakdown
             </Link>
             , see{" "}
-            <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">
+            <Link href="/contact" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">
               transparent pricing
             </Link>
             , learn{" "}

@@ -18,7 +18,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Home Service Business Blog | Run, Automate & Scale | Full Loop CRM",
   description:
-    "102 long-form guides for home service operators: running without overhead, autonomous operations in 2026, Yinez AI, dispatch, pricing, hiring, payments, and scaling a crew-based business.",
+    "102 long-form guides for home service operators: running without overhead, autonomous operations in 2026, Our AI receptionist, dispatch, pricing, hiring, payments, and scaling a crew-based business.",
   alternates: { canonical: HUB },
   openGraph: {
     title: "Home Service Business Blog | Full Loop CRM",
@@ -591,56 +591,56 @@ const POSTS: Post[] = [
   // ── PLATFORM SERIES: SELENA (8) ──────────────────────────────
   {
     slug: "what-is-selena-ai",
-    title: "What Yinez Is (And What She Isn't): The AI Lead Agent Inside Full Loop",
-    blurb: "The honest description of what Yinez does, how she was trained, and where she fails.",
+    title: "What the AI Is (And What She Isn't): The AI Lead Agent Inside Full Loop",
+    blurb: "The honest description of what the AI does, how she was trained, and where she fails.",
     pillar: "platform-selena",
     status: "coming-soon",
   },
   {
     slug: "selena-voice-setup",
-    title: "Setting Up Yinez's Voice, Personality, and Red Lines",
-    blurb: "How to make Yinez sound like your company, not a chatbot.",
+    title: "Setting Up the AI's Voice, Personality, and Red Lines",
+    blurb: "How to make the AI sound like your company, not a chatbot.",
     pillar: "platform-selena",
     status: "coming-soon",
   },
   {
     slug: "selena-books-jobs-at-2am",
-    title: "How Yinez Books Jobs at 2am Without a Human in the Loop",
+    title: "How the AI Books Jobs at 2am Without a Human in the Loop",
     blurb: "The full booking flow, screenshot by screenshot.",
     pillar: "platform-selena",
     status: "coming-soon",
   },
   {
     slug: "selena-objection-handling",
-    title: "Yinez's Objection-Handling Playbook",
-    blurb: "The 11 most common objections and how Yinez handles each.",
+    title: "the AI's Objection-Handling Playbook",
+    blurb: "The 11 most common objections and how the AI handles each.",
     pillar: "platform-selena",
     status: "coming-soon",
   },
   {
     slug: "selena-sms-vs-webchat",
-    title: "Yinez on SMS vs. Web Chat: What's Different",
+    title: "the AI on SMS vs. Web Chat: What's Different",
     blurb: "Why SMS trails webchat and how to close the gap.",
     pillar: "platform-selena",
     status: "coming-soon",
   },
   {
     slug: "selena-quote-negotiation",
-    title: "Quote Negotiation: When Yinez Holds the Line and When She Flexes",
+    title: "Quote Negotiation: When the AI Holds the Line and When She Flexes",
     blurb: "The rules engine behind negotiable vs. non-negotiable pricing.",
     pillar: "platform-selena",
     status: "coming-soon",
   },
   {
     slug: "selena-payment-collection",
-    title: "How Yinez Collects Deposits and Final Payments",
+    title: "How the AI Collects Deposits and Final Payments",
     blurb: "The payment flow from quote to closed invoice.",
     pillar: "platform-selena",
     status: "coming-soon",
   },
   {
     slug: "selena-reschedule-flow",
-    title: "Yinez's Reschedule Flow: When Customers Change Their Mind",
+    title: "the AI's Reschedule Flow: When Customers Change Their Mind",
     blurb: "Why reschedules are the most underrated retention feature.",
     pillar: "platform-selena",
     status: "coming-soon",
@@ -822,7 +822,7 @@ const pillarMeta: Record<string, { label: string; accent: string }> = {
   cx: { label: "Customer Experience", accent: "bg-blue-100 text-blue-900" },
   growth: { label: "Growth & Scaling", accent: "bg-teal-100 text-teal-900" },
   money: { label: "Money & Back-Office", accent: "bg-orange-100 text-orange-900" },
-  "platform-selena": { label: "Platform: Yinez", accent: "bg-indigo-100 text-indigo-900" },
+  "platform-selena": { label: "Platform: the AI", accent: "bg-indigo-100 text-indigo-900" },
   "platform-leads": { label: "Platform: Lead Capture", accent: "bg-violet-100 text-violet-900" },
   "platform-dispatch": { label: "Platform: Dispatch", accent: "bg-rose-100 text-rose-900" },
   "platform-billing": { label: "Platform: Billing", accent: "bg-orange-100 text-orange-900" },
@@ -907,7 +907,7 @@ export default function HomeServiceBusinessBlogPage() {
               See the platform
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900 hover:bg-slate-100"
             >
               Pricing
@@ -998,13 +998,13 @@ export default function HomeServiceBusinessBlogPage() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800"
             >
               Apply for your territory
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100"
             >
               See pricing

@@ -121,7 +121,7 @@ function getStages(): { title: string; desc: string }[] {
     },
     {
       title: "2. AI Sales Automation",
-      desc: "Yinez AI responds to inquiries via SMS within seconds, 24/7 — qualifying leads and booking estimates while you sleep.",
+      desc: "Our AI receptionist responds to inquiries via SMS within seconds, 24/7 — qualifying leads and booking estimates while you sleep.",
     },
     {
       title: "3. Smart Scheduling",
@@ -209,21 +209,15 @@ export default async function LocationPage({
             available?
           </p>
           <p className="font-mono text-sm text-teal-400 mb-8 tracking-wide">
-            invite-only &middot; one operator per trade per city &middot; waitlist required
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Lock Your Territory
+              Inquire about the platform
             </Link>
-            <a
-              href="tel:+12122029220"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
-            >
-              Call (212) 202-9220
-            </a>
+            
           </div>
         </div>
       </section>
@@ -317,10 +311,10 @@ export default async function LocationPage({
             Joining the waitlist isn&apos;t a guarantee. We open one slot per trade per city.
           </p>
           <Link
-            href="/waitlist"
+            href="/contact"
             className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
           >
-            Request to Join Waitlist
+            Inquire
           </Link>
         </div>
       </section>
@@ -359,7 +353,7 @@ export default async function LocationPage({
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-white font-heading mb-4">
-            Lock Your Territory in{" "}
+            Inquire about the platform in{" "}
             <span className="text-yellow-300">{metro.city}</span>
           </h2>
           <p className="text-slate-300 mb-8 text-lg">
@@ -369,23 +363,13 @@ export default async function LocationPage({
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Request to Join Waitlist
+              Inquire
             </Link>
-            <a
-              href="tel:+12122029220"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
-            >
-              Call (212) 202-9220
-            </a>
-            <a
-              href="sms:+12122029220"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
-            >
-              Text Us
-            </a>
+            
+            
           </div>
         </div>
       </section>
@@ -421,7 +405,7 @@ export default async function LocationPage({
               All Features
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               Pricing
@@ -445,7 +429,7 @@ export default async function LocationPage({
               CRM 101
             </Link>
             <Link
-              href="/full-loop-crm-frequently-asked-questions"
+              href="/contact"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               FAQ

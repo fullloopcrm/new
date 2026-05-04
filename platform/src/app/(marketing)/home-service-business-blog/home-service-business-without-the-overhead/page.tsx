@@ -329,7 +329,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
             In 2026, the path is this: prospect Googles, lands on your website,
             starts chatting. An AI lead agent — inside{" "}
             <Link href="/full-loop-crm-service-features">Full Loop CRM</Link>{" "}
-            she&apos;s named Yinez — responds in under 8 seconds. She asks the
+            she&apos;s named the AI — responds in under 8 seconds. She asks the
             same qualifying questions your receptionist would have asked:
             square footage, number of bedrooms, when you want service, pets,
             access method, special requirements. She quotes in real time using
@@ -343,11 +343,11 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
             to you.&quot; If you want a deeper breakdown of exactly how the
             flow works, see{" "}
             <Link href="/home-service-business-blog/selena-books-jobs-at-2am">
-              how Yinez books jobs at 2am without a human in the loop
+              how the AI books jobs at 2am without a human in the loop
             </Link>{" "}
             and the primer on{" "}
             <Link href="/home-service-business-blog/what-is-selena-ai">
-              what Yinez actually is and isn&apos;t
+              what the AI actually is and isn&apos;t
             </Link>
             .
           </p>
@@ -376,7 +376,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
           <p>
             Parts (1) and (3) are now rule-driven. If you codify your dispatch
             rules once — &quot;Priscilla prefers the Upper West Side, she
-            doesn&apos;t do pet homes, she&apos;s trained on deep cleans, she
+            doesn&apos;t do pet homes, it&apos;s trained on deep cleans, she
             works Tuesday through Saturday&quot; — software does the assignment
             deterministically. It routes for travel time (see{" "}
             <Link href="/home-service-business-blog/route-optimization-home-service">
@@ -589,7 +589,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
             Review what she&apos;s saying every week for the first few months.
             See{" "}
             <Link href="/home-service-business-blog/selena-voice-setup">
-              setting up Yinez&apos;s voice and boundaries
+              setting up the AI&apos;s voice and boundaries
             </Link>
             .
           </p>
@@ -705,7 +705,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
             </li>
             <li>
               Check{" "}
-              <Link href="/waitlist">pricing</Link> to confirm the
+              <Link href="/contact">pricing</Link> to confirm the
               software cost fits your revenue stage.
             </li>
             <li>
@@ -722,7 +722,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
                 101 educational tips
               </Link>{" "}
               and the{" "}
-              <Link href="/full-loop-crm-frequently-asked-questions">
+              <Link href="/contact">
                 platform FAQ
               </Link>{" "}
               cover every objection we&apos;ve heard.
@@ -731,10 +731,10 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
               Learn who we are in{" "}
               <Link href="/about-full-loop-crm">about Full Loop CRM</Link>, or
               if you&apos;re ready,{" "}
-              <Link href="/waitlist">
+              <Link href="/contact">
                 apply for your territory
               </Link>{" "}
-              — we only take one operator per trade per market.
+              — the platform powers our own portfolio of vertical brands.
             </li>
           </ul>
           <p>
@@ -803,7 +803,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100"
             >
               Apply for your territory
@@ -815,7 +815,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
               See the platform
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="rounded-lg border border-slate-700 bg-slate-800 px-5 py-3 text-sm font-medium text-white hover:bg-slate-700"
             >
               Pricing

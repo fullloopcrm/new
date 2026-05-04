@@ -187,10 +187,10 @@ export default function PricingPage() {
               Every feature, every seat, every tenant. No gates, no upgrades.
             </p>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="mt-6 block w-full rounded-lg bg-teal-600 px-6 py-3 text-center text-sm font-cta font-semibold text-white shadow-sm hover:bg-teal-700 transition-colors"
             >
-              Claim Your Territory
+              Inquire
             </Link>
           </div>
 
@@ -226,7 +226,7 @@ export default function PricingPage() {
               </table>
             </div>
             <p className="mt-4 text-center text-xs text-slate-500">
-              50+ users? <Link href="/waitlist" className="text-teal-600 underline underline-offset-2">Talk to us</Link> — same flat rate, custom onboarding for multi-location operations.
+              50+ users? <Link href="/contact" className="text-teal-600 underline underline-offset-2">Talk to us</Link> — same flat rate, custom onboarding for multi-location operations.
             </p>
           </div>
 
@@ -701,10 +701,10 @@ export default function PricingPage() {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block rounded-lg bg-yellow-300 px-8 py-4 text-lg font-cta font-semibold text-slate-900 shadow-md hover:bg-yellow-400 transition-colors"
             >
-              Claim Your Territory
+              Inquire
             </Link>
             <a
               href="tel:+12122029220"

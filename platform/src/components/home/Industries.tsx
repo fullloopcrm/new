@@ -61,7 +61,7 @@ export default function Industries() {
             </Link>{" "}
             or see{" "}
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               pricing
@@ -125,7 +125,7 @@ export default function Industries() {
               See All Industries We Serve
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               Request a Partnership

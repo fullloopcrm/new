@@ -87,7 +87,7 @@ const dashboardSections = [
   },
   {
     num: "—",
-    name: "Yinez AI",
+    name: "Our AI receptionist",
     desc: "Live conversation feed, conversion rate, channel mix, scoring, error log, one-click reset, persona editor.",
   },
   {
@@ -145,17 +145,16 @@ export default function FeaturesPage() {
             built from the ground up for field service companies.
           </p>
           <p className="font-mono text-sm text-teal-400 mb-8 tracking-wide">
-            $1,000 / user / month &middot; flat &middot; every feature included
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-4 text-lg font-bold text-slate-900 hover:bg-teal-300 transition-colors"
             >
               Request Your Partnership
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               View Pricing
@@ -253,18 +252,18 @@ export default function FeaturesPage() {
             AI Sales & Conversion
           </h2>
           <p className="text-lg text-slate-600 mb-10 max-w-3xl">
-            Meet <strong>Yinez</strong> — your AI-powered SMS sales agent that responds to leads in
-            seconds, not hours. Yinez qualifies prospects, answers questions, and books appointments
+            Meet our <strong>AI receptionist</strong> — your AI-powered SMS sales agent that responds to leads in
+            seconds, not hours. It qualifies prospects, answers questions, and books appointments
             while you focus on running your business.
           </p>
 
           <div className="grid gap-8 sm:grid-cols-2">
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
-                Yinez AI SMS Chatbot
+                Our AI receptionist SMS Chatbot
               </h3>
               <p className="text-slate-600">
-                Yinez is not a generic chatbot — she&apos;s trained on your specific services,
+                The AI receptionist is not a generic chatbot — it&apos;s trained on your specific services,
                 pricing, availability, and service areas. She responds to inbound leads via SMS
                 within seconds, keeping your response time under 60 seconds — the window where
                 conversion rates are highest.
@@ -275,7 +274,7 @@ export default function FeaturesPage() {
                 24/7 Bilingual Coverage
               </h3>
               <p className="text-slate-600">
-                Yinez operates around the clock in both English and Spanish. Leads that come in at
+                the AI operates around the clock in both English and Spanish. Leads that come in at
                 11 PM on a Sunday get the same fast, professional response as those arriving at
                 10 AM on a Tuesday. No missed opportunities, no language barriers.
               </p>
@@ -285,7 +284,7 @@ export default function FeaturesPage() {
                 State Machine Booking Flow
               </h3>
               <p className="text-slate-600">
-                Yinez doesn&apos;t wing it — she follows a deterministic 10-field booking checklist
+                the AI doesn&apos;t wing it — she follows a deterministic 10-field booking checklist
                 (service type, bedrooms, bathrooms, rate, day, time, name, phone, address, email).
                 She collects one field at a time, never re-asks for info she already has, and
                 handles numbered SMS replies so clients can book with just &quot;1&quot;, &quot;2&quot;, &quot;3&quot;.
@@ -296,7 +295,7 @@ export default function FeaturesPage() {
                 Returning Client Recognition
               </h3>
               <p className="text-slate-600">
-                When a returning client texts in, Yinez pulls their full profile — name, address,
+                When a returning client texts in, the AI pulls their full profile — name, address,
                 previous bookings, preferred cleaner, last rate, and conversation history. She greets
                 them by name and skips questions she already knows the answers to, making rebooking
                 feel effortless.
@@ -307,9 +306,9 @@ export default function FeaturesPage() {
                 Web Chat + SMS — Same AI
               </h3>
               <p className="text-slate-600">
-                Yinez works on your website too — not just SMS. Website visitors can chat with
-                Yinez directly, choose &quot;new client&quot; or &quot;returning client,&quot; and book without
-                ever making a phone call. Returning clients enter their phone number and Yinez
+                the AI works on your website too — not just SMS. Website visitors can chat with
+                the AI directly, choose &quot;new client&quot; or &quot;returning client,&quot; and book without
+                ever making a phone call. Returning clients enter their phone number and the AI
                 pulls up their full history instantly.
               </p>
             </div>
@@ -319,7 +318,7 @@ export default function FeaturesPage() {
               </h3>
               <p className="text-slate-600">
                 When a client is upset, reports damage, or has a request outside normal flow,
-                Yinez doesn&apos;t guess — she escalates to a human with full conversation context.
+                the AI doesn&apos;t guess — she escalates to a human with full conversation context.
                 You get an instant notification with the transcript so you can jump in informed,
                 not cold.
               </p>
@@ -329,7 +328,7 @@ export default function FeaturesPage() {
                 AI Performance Dashboard
               </h3>
               <p className="text-slate-600">
-                Monitor Yinez in real time — total conversations, booking conversion rate, average
+                Monitor the AI in real time — total conversations, booking conversion rate, average
                 messages per booking, checklist completion, and channel breakdown (SMS vs web).
                 Filter stats by date to track performance over any period. Every error is logged
                 with full context for troubleshooting.
@@ -609,7 +608,7 @@ export default function FeaturesPage() {
                 Loop&apos;s finance dashboard gives you the financial clarity most service business
                 owners never had — without hiring a bookkeeper. Compare with{" "}
                 <Link
-                  href="/waitlist"
+                  href="/contact"
                   className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
                 >
                   our pricing plans
@@ -674,7 +673,7 @@ export default function FeaturesPage() {
                 AI Escalation to Phone
               </h3>
               <p className="text-slate-600">
-                When Yinez detects frustration or a complex issue, she escalates the conversation
+                When the AI detects frustration or a complex issue, she escalates the conversation
                 from SMS to a phone call recommendation — connecting the client with a human before
                 a negative review is posted. Prevention over damage control.
               </p>
@@ -759,7 +758,7 @@ export default function FeaturesPage() {
             <p className="text-lg text-slate-300 max-w-3xl mx-auto">
               The locked Full Loop dashboard collapses your entire business into
               eight numbered sections — Loop, Sales, Schedule, Clients, Team,
-              Finance, Books, Marketing — plus a Platform tray for Yinez,
+              Finance, Books, Marketing — plus a Platform tray for the AI,
               Connect, Settings, and audit. Every aspect of your operation lives
               in one nav. No more logging into 5 different apps.
             </p>
@@ -816,7 +815,7 @@ export default function FeaturesPage() {
                 <tr className="border-b border-slate-200">
                   <td className="py-3 pr-4 font-medium">AI Chatbot</td>
                   <td className="py-3 pr-4">Intercom, Drift, ManyChat</td>
-                  <td className="py-3">Yinez AI SMS agent</td>
+                  <td className="py-3">Our AI receptionist SMS agent</td>
                 </tr>
                 <tr className="border-b border-slate-200">
                   <td className="py-3 pr-4 font-medium">Scheduling</td>
@@ -855,7 +854,7 @@ export default function FeaturesPage() {
           <p className="mt-8 text-center text-slate-600">
             See the full cost comparison on our{" "}
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
             >
               pricing page
@@ -878,13 +877,13 @@ export default function FeaturesPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-4 text-lg font-bold text-slate-900 hover:bg-teal-300 transition-colors"
             >
               Request Your Partnership
             </Link>
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               View Pricing
@@ -892,19 +891,9 @@ export default function FeaturesPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-slate-400">
-            <a
-              href="tel:+12122029220"
-              className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200"
-            >
-              Call (212) 202-9220
-            </a>
+            
             <span className="hidden sm:inline text-slate-600">|</span>
-            <a
-              href="sms:+12122029220"
-              className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200"
-            >
-              Text (212) 202-9220
-            </a>
+            
           </div>
 
           <p className="mt-8 text-sm text-slate-500">

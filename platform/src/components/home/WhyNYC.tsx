@@ -146,7 +146,7 @@ export default function WhyNYC() {
             </Link>{" "}
             or{" "}
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               pricing
@@ -154,7 +154,7 @@ export default function WhyNYC() {
             .
           </p>
           <Link
-            href="/waitlist"
+            href="/contact"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
           >
             Request a Partnership

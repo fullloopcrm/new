@@ -72,7 +72,7 @@ export default function MarketingFooter({ businessName, phone, email, services, 
               <li><Link href="/book/new" target="_blank" className="text-sm hover:text-white transition-colors">Book Online</Link></li>
               <li><Link href="/referral" className="text-sm hover:text-white transition-colors">Referral Program</Link></li>
               <li><Link href="/faq" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
-              <li><Link href="/apply" className="text-sm hover:text-white transition-colors">Apply</Link></li>
+              <li><Link href="/contact" className="text-sm hover:text-white transition-colors">Apply</Link></li>
               <li><Link href="/feedback" className="text-sm hover:text-white transition-colors">Leave Feedback</Link></li>
             </ul>
           </div>

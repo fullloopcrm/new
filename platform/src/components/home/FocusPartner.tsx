@@ -866,7 +866,7 @@ export default function FocusPartner() {
             <Link href="/case-study/the-nyc-maid" className="inline-block rounded-lg bg-teal-500 hover:bg-[#1F4D2C] text-white font-cta font-bold px-8 py-4 text-base transition-colors">
               Read the full Focus Partner case study
             </Link>
-            <Link href="/waitlist" className="inline-block rounded-lg border border-slate-600 hover:border-[#1F4D2C] text-[#1C1C1C] hover:text-[#1F4D2C] font-cta font-bold px-8 py-4 text-base transition-colors">
+            <Link href="/contact" className="inline-block rounded-lg border border-slate-600 hover:border-[#1F4D2C] text-[#1C1C1C] hover:text-[#1F4D2C] font-cta font-bold px-8 py-4 text-base transition-colors">
               Become a Focus Partner in your trade
             </Link>
           </div>

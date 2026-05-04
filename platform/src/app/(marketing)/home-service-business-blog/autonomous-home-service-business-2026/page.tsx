@@ -286,11 +286,11 @@ export default function AutonomousHomeServiceBusiness2026Page() {
             Business Profile message. In the old world, this lead sat in an
             inbox until someone saw it. In the new world, an AI agent — inside{" "}
             <Link href="/full-loop-crm-service-features">Full Loop CRM</Link>{" "}
-            she&apos;s Yinez — responds in under 8 seconds, introduces
+            she&apos;s the AI — responds in under 8 seconds, introduces
             herself, and opens a qualifying conversation. For the primer on
             what she is, see{" "}
             <Link href="/home-service-business-blog/what-is-selena-ai">
-              what Yinez actually is (and isn&apos;t)
+              what the AI actually is (and isn&apos;t)
             </Link>
             .
           </p>
@@ -304,12 +304,12 @@ export default function AutonomousHomeServiceBusiness2026Page() {
             &quot;can I get a discount if I book three&quot; — without
             escalating. The full objection-handling catalog is documented in{" "}
             <Link href="/home-service-business-blog/selena-objection-handling">
-              Yinez&apos;s objection-handling playbook
+              the AI&apos;s objection-handling playbook
             </Link>
             . The nuance between quotes she can negotiate and quotes she
             can&apos;t is covered in{" "}
             <Link href="/home-service-business-blog/selena-quote-negotiation">
-              when Yinez holds the line and when she flexes
+              when the AI holds the line and when she flexes
             </Link>
             .
           </p>
@@ -320,11 +320,11 @@ export default function AutonomousHomeServiceBusiness2026Page() {
             Stripe, saves the card on file, sends confirmation with the
             tech&apos;s name, photo, and ETA window. See the deep dive on{" "}
             <Link href="/home-service-business-blog/selena-books-jobs-at-2am">
-              how Yinez books jobs at 2am
+              how the AI books jobs at 2am
             </Link>{" "}
             and{" "}
             <Link href="/home-service-business-blog/selena-payment-collection">
-              how Yinez collects deposits and final payments
+              how the AI collects deposits and final payments
             </Link>
             .
           </p>
@@ -422,7 +422,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
 
           <h3>The new stack (2026)</h3>
           <ul>
-            <li><strong>Full Loop CRM subscription</strong> — invite-only platform (<Link href="/waitlist">join the waitlist</Link>); subscription replaces the entire back-office stack above</li>
+            <li><strong>Full Loop CRM subscription</strong> — the operating platform; subscription replaces the entire back-office stack above</li>
             <li><strong>Stripe processing fees above what you paid before</strong> — $0 (you were paying processing anyway)</li>
             <li><strong>Quarterly bookkeeper cleanup</strong> — $2,400/yr</li>
             <li><strong>Part-time field supervisor for exceptions</strong> — $10,000/yr of exception-handling hours</li>
@@ -523,7 +523,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
             <strong>Brand voice definition.</strong> The AI performs the
             voice. Somebody has to write it. See{" "}
             <Link href="/home-service-business-blog/selena-voice-setup">
-              setting up Yinez&apos;s voice and red lines
+              setting up the AI&apos;s voice and red lines
             </Link>
             .
           </p>
@@ -575,7 +575,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
             will not automate). At noon she takes a two-hour break because
             the business does not need her. At 2 she takes a sales call with
             a commercial prospect her field supervisor flagged as outside
-            Yinez&apos;s scope. By 4 she&apos;s done.
+            the AI&apos;s scope. By 4 she&apos;s done.
           </p>
           <p>
             That&apos;s a 6-hour work day. In the old model the same revenue
@@ -602,7 +602,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
               industries served
             </Link>
             . For pricing,{" "}
-            <Link href="/waitlist">full pricing is here</Link>.
+            <Link href="/contact">full pricing is here</Link>.
             If you want the philosophy before the product, the{" "}
             <Link href="/full-loop-crm-101-educational-tips">
               101 CRM educational tips
@@ -616,7 +616,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
               why Full Loop CRM
             </Link>{" "}
             page does the side-by-side. Objections get answered in the{" "}
-            <Link href="/full-loop-crm-frequently-asked-questions">
+            <Link href="/contact">
               platform FAQ
             </Link>
             . For the editorial home of this series, the{" "}
@@ -627,11 +627,10 @@ export default function AutonomousHomeServiceBusiness2026Page() {
           </p>
           <p>
             And when you&apos;re ready to run the loop in your own business,{" "}
-            <Link href="/waitlist">
+            <Link href="/contact">
               apply for your territory
             </Link>{" "}
-            — we take one operator per trade per market, and once a territory
-            is claimed, it&apos;s closed.
+            — the platform powers our own portfolio of vertical brands.
           </p>
 
           <h2 id="faq">Frequently asked questions</h2>
@@ -677,7 +676,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100"
             >
               Apply for your territory

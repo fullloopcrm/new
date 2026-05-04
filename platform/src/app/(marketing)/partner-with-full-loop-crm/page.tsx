@@ -73,7 +73,7 @@ export default function PartnersPage() {
             $1,000 / user / month &middot; flat &middot; every feature included
           </p>
           <Link
-            href="/waitlist"
+            href="/contact"
             className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
           >
             Check Territory Availability
@@ -305,10 +305,10 @@ export default function PartnersPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
-              Request to Join Waitlist
+              Inquire
             </Link>
             <a
               href="tel:+12122029220"

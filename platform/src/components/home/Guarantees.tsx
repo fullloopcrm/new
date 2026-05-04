@@ -79,7 +79,7 @@ export default function Guarantees() {
               </p>
               <div className="flex flex-wrap justify-center gap-4">
                 <Link
-                  href="/waitlist"
+                  href="/contact"
                   className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-white font-bold text-lg hover:bg-[#1F4D2C] transition-colors duration-300 font-cta"
                 >
                   See Full Pricing Breakdown
@@ -105,14 +105,14 @@ export default function Guarantees() {
           <p className="text-[#3A3A3A] text-base">
             Have questions?{" "}
             <Link
-              href="/full-loop-crm-frequently-asked-questions"
+              href="/contact"
               className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C] font-semibold"
             >
               Check our FAQ
             </Link>{" "}
             or{" "}
             <Link
-              href="/waitlist"
+              href="/contact"
               className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C] font-semibold"
             >
               request a partnership consultation

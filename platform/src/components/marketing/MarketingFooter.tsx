@@ -104,7 +104,7 @@ export default function MarketingFooter() {
               <li><Link href="/nyc-maid-service-blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
               <li><Link href="/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>
               <li><Link href="/service/nyc-emergency-cleaning-service" className="text-sm hover:text-white transition-colors">Emergency Cleaning</Link></li>
-              <li><Link href="/apply" className="text-sm hover:text-white transition-colors">Apply to Clean</Link></li>
+              <li><Link href="/contact" className="text-sm hover:text-white transition-colors">Apply to Clean</Link></li>
               <li><Link href="/feedback" className="text-sm hover:text-white transition-colors">Leave Feedback</Link></li>
             </ul>
           </div>

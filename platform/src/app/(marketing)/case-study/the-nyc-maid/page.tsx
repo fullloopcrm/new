@@ -293,7 +293,7 @@ export default function TheNYCMaidCaseStudy() {
       <section className="py-20 px-6 bg-white">
         <div className="mx-auto max-w-3xl">
           <h2 className="text-3xl font-bold text-slate-900 font-heading mb-8">
-            Yinez AI
+            Our AI receptionist
           </h2>
           <p className="text-slate-500 text-lg mb-8">
             Your 24/7 AI receptionist. Built into the platform.
@@ -336,7 +336,7 @@ export default function TheNYCMaidCaseStudy() {
               </li>
             </ul>
             <blockquote className="bg-slate-900 text-white rounded-xl p-6 text-xl font-heading">
-              &ldquo;Yinez responded to a lead at 11pm on a Sunday. That lead
+              &ldquo;The AI responded to a lead at 11pm on a Sunday. That lead
               booked a $260 cleaning.&rdquo;
             </blockquote>
           </div>
@@ -426,34 +426,19 @@ export default function TheNYCMaidCaseStudy() {
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white font-heading mb-4">
-            Ready to Be Our Next Case Study?
+            One vertical. One city. Real numbers.
           </h2>
           <p className="text-slate-300 text-lg mb-10">
-            Same platform. Same tools. Your business.
+            We&apos;re building the same playbook out across more cities and trades — under one roof.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
+          <div className="flex justify-center">
             <Link
-              href="/waitlist"
+              href="/contact"
               className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
-              Request to Join Waitlist
-            </Link>
-            <Link
-              href="/waitlist"
-              className="inline-block border-2 border-slate-500 hover:border-slate-300 text-slate-300 hover:text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
-            >
-              View Pricing
+              Inquire about the platform
             </Link>
           </div>
-          <p className="text-slate-400 text-sm">
-            Or call/text us directly:{" "}
-            <a
-              href="tel:+12122029220"
-              className="text-teal-400 hover:text-teal-300 font-bold"
-            >
-              212-202-9220
-            </a>
-          </p>
         </div>
       </section>
     </>
