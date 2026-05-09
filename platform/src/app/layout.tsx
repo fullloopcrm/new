@@ -51,8 +51,14 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Don't mount ClerkProvider when the publishable key isn't set — the
+  // static SEO /site/* pages prerender at build time and shouldn't crash
+  // when Clerk envs are missing. Pages that actually need auth are all
+  // dynamic and gated separately.
+  const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+  const Wrapper = hasClerk ? ClerkProvider : ({ children }: { children: React.ReactNode }) => <>{children}</>
   return (
-    <ClerkProvider>
+    <Wrapper>
       <html lang="en">
         <body className={`${sora.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${jetbrains.variable} ${fraunces.variable} antialiased`}>
           {children}
@@ -81,6 +87,6 @@ export default function RootLayout({
           />
         </body>
       </html>
-    </ClerkProvider>
+    </Wrapper>
   )
 }

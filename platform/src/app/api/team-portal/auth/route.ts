@@ -3,14 +3,17 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import crypto from 'crypto'
 
-if (!process.env.TEAM_PORTAL_SECRET) {
-  throw new Error('TEAM_PORTAL_SECRET env var is required. Do not fall back to SUPABASE_SERVICE_ROLE_KEY — a leaked team portal token would then act as a signature oracle against the service role key.')
+function getSecret(): string {
+  const s = process.env.TEAM_PORTAL_SECRET
+  if (!s) {
+    throw new Error('TEAM_PORTAL_SECRET env var is required. Do not fall back to SUPABASE_SERVICE_ROLE_KEY — a leaked team portal token would then act as a signature oracle against the service role key.')
+  }
+  return s
 }
-const SECRET = process.env.TEAM_PORTAL_SECRET
 
 function createToken(memberId: string, tenantId: string, payRate?: number | null): string {
   const payload = JSON.stringify({ id: memberId, tid: tenantId, pr: payRate || 0, exp: Date.now() + 24 * 3600 * 1000 })
-  const hmac = crypto.createHmac('sha256', SECRET).update(payload).digest('hex')
+  const hmac = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
   return Buffer.from(payload).toString('base64') + '.' + hmac
 }
 
@@ -18,7 +21,7 @@ export function verifyToken(token: string): { id: string; tid: string } | null {
   try {
     const [payloadB64, sig] = token.split('.')
     const payload = Buffer.from(payloadB64, 'base64').toString()
-    const expected = crypto.createHmac('sha256', SECRET).update(payload).digest('hex')
+    const expected = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
     if (sig !== expected) return null
     const data = JSON.parse(payload)
     if (data.exp < Date.now()) return null
