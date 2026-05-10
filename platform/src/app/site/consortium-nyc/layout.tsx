@@ -1,7 +1,7 @@
 // @ts-nocheck
 import type { Metadata } from "next";
 import { Sora, DM_Sans, Space_Grotesk, JetBrains_Mono } from "next/font/google";
-import "@/app/globals.css";
+import "./globals.css";
 import Script from "next/script";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { JsonLd, organizationSchema, websiteSchema } from "@/app/site/consortium-nyc/_lib/schema";

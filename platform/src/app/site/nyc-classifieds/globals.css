@@ -1,0 +1,329 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&display=swap');
+@import "tailwindcss";
+
+/* ─── Design System: The NYC Classifieds ─── */
+:root {
+  /* Primary */
+  --blue-700: #1a56db;
+  --blue-600: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-50:  #eff6ff;
+
+  /* Neutrals */
+  --gray-900: #111827;
+  --gray-700: #374151;
+  --gray-500: #6b7280;
+  --gray-400: #9ca3af;
+  --gray-200: #e5e7eb;
+  --gray-100: #f3f4f6;
+  --gray-50:  #f9fafb;
+  --white:    #ffffff;
+
+  /* Semantic */
+  --green-600: #16a34a;
+  --green-50:  #f0fdf4;
+  --red-600:   #dc2626;
+  --red-50:    #fef2f2;
+  --amber-600: #d97706;
+  --amber-50:  #fffbeb;
+
+  /* Category Accents */
+  --cat-barter:     #7c3aed;
+  --cat-community:  #059669;
+  --cat-for-sale:   #2563eb;
+  --cat-gigs:       #d97706;
+  --cat-housing:    #dc2626;
+  --cat-jobs:       #0891b2;
+  --cat-personals:  #db2777;
+  --cat-pets:       #65a30d;
+  --cat-rentals:    #7c3aed;
+  --cat-resumes:    #4b5563;
+  --cat-services:   #ea580c;
+
+  /* Typography */
+  --font-sans:  'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+
+  /* Spacing */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-12: 3rem;
+
+  /* Layout */
+  --max-width: 1050px;
+  --header-height: 56px;
+}
+
+@theme inline {
+  --color-background: var(--gray-50);
+  --color-foreground: var(--gray-900);
+  --color-accent: var(--blue-700);
+  --color-muted: var(--gray-500);
+  --color-secondary: var(--gray-700);
+  --color-border: var(--gray-200);
+  --color-card: var(--white);
+  --color-success: var(--green-600);
+  --color-warning: var(--amber-600);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--gray-50);
+  color: var(--gray-900);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Typography ─── */
+h1, h2, h3 {
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+/* Serif headings */
+.font-serif {
+  font-family: var(--font-serif);
+  letter-spacing: -0.02em;
+}
+
+/* ─── Links ─── */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.link {
+  color: var(--blue-700);
+  text-decoration: none;
+}
+
+a.link:hover {
+  color: var(--blue-600);
+  text-decoration: underline;
+}
+
+/* ─── Focus ─── */
+:focus-visible {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 2px;
+}
+
+/* ─── Skip to content ─── */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.skip-to-content:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  padding: 0.5rem 1rem;
+  background: var(--blue-700);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ─── Screen reader only ─── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ─── Footer ─── */
+.footer-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+
+.footer-link {
+  display: block;
+  font-size: 0.8125rem;
+  color: #d1d5db;
+  line-height: 1.55;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* ─── Porch nudge animation ─── */
+@keyframes porch-nudge {
+  0%, 100% { transform: translateY(0); }
+  20% { transform: translateY(-3px); }
+  40% { transform: translateY(1px); }
+  60% { transform: translateY(-2px); }
+  80% { transform: translateY(0); }
+}
+
+.porch-nudge {
+  animation: porch-nudge 0.6s ease-in-out;
+  animation-delay: 1.5s;
+  animation-iteration-count: 3;
+}
+
+@keyframes launch-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.launch-blink {
+  animation: launch-blink 1.2s ease-in-out infinite;
+}
+
+/* ─── Homepage top: search left, ad right on desktop ─── */
+.homepage-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.homepage-top-left { min-width: 0; }
+.homepage-top-right {
+  min-width: 0;
+  display: flex;
+  max-height: 220px;
+}
+.homepage-top-right > * { width: 100%; }
+
+/* ─── Ad placements ─── */
+.mobile-only-ad { display: none; }
+.desktop-only-ad { display: flex; }
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .homepage-top {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .mobile-only-ad { display: block; margin: 4px 0 8px; }
+  .desktop-only-ad { display: none !important; }
+
+  main {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Header: shrink logo, tighten padding */
+  .header-inner {
+    padding: 0 12px !important;
+  }
+
+  .header-logo {
+    font-size: 1.125rem !important;
+  }
+
+  .header-nav-tabs {
+    margin-left: 12px !important;
+    gap: 0 !important;
+  }
+
+  .header-nav-tabs a {
+    padding: 6px 8px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .header-right {
+    gap: 8px !important;
+  }
+
+  .header-post-btn {
+    padding: 6px 12px !important;
+    font-size: 0.8125rem !important;
+  }
+
+  /* Listings: 2 cols on mobile */
+  .listing-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Homepage: categories 2 cols on mobile */
+  .home-category-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0 12px !important;
+  }
+
+  /* Homepage: search full width */
+  .home-search-form {
+    max-width: 100% !important;
+  }
+
+  /* Homepage: borough nav wraps nicely */
+  .home-borough-nav {
+    gap: 10px 14px !important;
+    font-size: 0.875rem !important;
+  }
+
+  .home-borough-nav a {
+    font-size: 0.875rem !important;
+  }
+
+  /* Footer: 2 cols on mobile */
+  .footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 24px 16px !important;
+  }
+
+  .footer-bottom {
+    flex-direction: column !important;
+    gap: 4px !important;
+    text-align: center !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-logo {
+    font-size: 1rem !important;
+  }
+
+  .header-nav-tabs {
+    margin-left: 8px !important;
+  }
+
+  .header-nav-tabs a {
+    padding: 6px 6px !important;
+    font-size: 0.6875rem !important;
+  }
+
+  .header-post-btn {
+    padding: 5px 10px !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Homepage: always 2 cols, even on small screens */
+  .home-category-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0 8px !important;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

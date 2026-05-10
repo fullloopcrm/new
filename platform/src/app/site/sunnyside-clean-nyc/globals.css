@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #1E2A4A;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #ffffff;
+    --foreground: #1E2A4A;
+  }
+}
+
+.fc {
+  --fc-border-color: #e5e5e5;
+  --fc-button-bg-color: #1E2A4A;
+  --fc-button-border-color: #1E2A4A;
+  --fc-button-hover-bg-color: #243352;
+  --fc-button-hover-border-color: #243352;
+  --fc-button-active-bg-color: #1E2A4A;
+  --fc-today-bg-color: #f5f5f5;
+  --fc-event-bg-color: #1E2A4A;
+  --fc-event-border-color: #1E2A4A;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1E2A4A;
+}
+
+.fc .fc-button {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.fc .fc-col-header-cell-cushion {
+  color: #1E2A4A;
+  font-weight: 500;
+}
+
+.fc .fc-daygrid-day-number {
+  color: #1E2A4A;
+}
+
+.fc .fc-timegrid-slot-label {
+  color: #666666;
+}
+
+.fc-theme-standard td, .fc-theme-standard th {
+  border-color: #e5e5e5;
+}

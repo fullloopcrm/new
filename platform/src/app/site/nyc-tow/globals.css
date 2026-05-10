@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-dm-sans);
+  --color-teal-50: #fdecec;
+  --color-teal-100: #fbcccc;
+  --color-teal-200: #f5a3a3;
+  --color-teal-300: #ef7676;
+  --color-teal-400: #b91c1c;
+  --color-teal-500: #b91c1c;
+  --color-teal-600: #dc2626;
+  --color-teal-700: #b91c1c;
+  --color-teal-800: #7f1d1d;
+  --color-accent: #f77f00;
+  --color-accent-dark: #e36414;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #0f172a;
+  background: #fff;
+}
+
+.font-heading { font-family: var(--font-sora), "Sora", system-ui, sans-serif; }
+.font-body { font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif; }
+.font-cta { font-family: var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif; }
+
+.bg-section-white { background: #fff; }
+.bg-section-teal { background: #fef2f2; }
+
+.gradient-text {
+  -webkit-text-fill-color: transparent;
+  background: linear-gradient(135deg, #f77f00 0%, #ffb347 50%, #ffd699 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(185,28,28,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(185,28,28,0.06) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+details summary::-webkit-details-marker { display: none; }
+details summary::marker { content: ""; }

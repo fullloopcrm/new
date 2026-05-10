@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Sora, DM_Sans, Space_Grotesk } from "next/font/google";
-import "@/app/globals.css";
+import "./globals.css";
 import { Header } from "@/app/site/toll-trucks-near-me/_components/Header";
 import { Footer } from "@/app/site/toll-trucks-near-me/_components/Footer";
 

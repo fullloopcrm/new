@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Sora, DM_Sans, Space_Grotesk, JetBrains_Mono } from "next/font/google";
-import "@/app/globals.css";
+import "./globals.css";
 import { JsonLd, organizationSchema, websiteSchema } from "@/app/site/landscaping-in-nyc/_lib/schema";
 import Navbar from "@/app/site/landscaping-in-nyc/_components/Navbar";
 import Footer from "@/app/site/landscaping-in-nyc/_components/Footer";

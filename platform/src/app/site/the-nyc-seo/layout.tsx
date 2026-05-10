@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
-import "@/app/globals.css";
+import "./globals.css";
 import Header from "@/app/site/the-nyc-seo/_components/Header";
 import Footer from "@/app/site/the-nyc-seo/_components/Footer";
 import { getOrganizationSchema, getWebsiteSchema, SITE_URL } from "@/app/site/the-nyc-seo/_lib/seo";
