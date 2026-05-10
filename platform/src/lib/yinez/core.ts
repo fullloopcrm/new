@@ -8,6 +8,11 @@ import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
 
+// nycmaid's well-known UUID — fallback when a conversation row pre-dates the
+// tenant_id column. Phase 3.2 sweep: every tenant-scoped query in this file
+// resolves tid from convo.tenant_id and falls back to this constant.
+const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
 // ─── Error Monitoring ───────────────────────────────────────────────────────
 
 export async function yinezError(context: string, err: unknown, conversationId?: string) {
@@ -1011,8 +1016,9 @@ function parseTime(time: string): { hours: number; minutes: number } | null {
 
 export async function handleCreateBooking(input: Record<string, unknown>, conversationId: string, result: YinezResult): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, bedrooms, bathrooms, phone').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, bedrooms, bathrooms, phone, tenant_id').eq('id', conversationId).single()
     if (!convo) return JSON.stringify({ error: 'Conversation not found' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
 
     // Auto-link by phone if no client_id on the conversation row.
     if (!convo.client_id && convo.phone) {
@@ -1021,12 +1027,13 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
         const { data: existingClient } = await supabaseAdmin
           .from('clients')
           .select('id')
+          .eq('tenant_id', tid)
           .ilike('phone', `%${last10}%`)
           .limit(1)
           .maybeSingle()
         if (existingClient?.id) {
           convo.client_id = existingClient.id
-          await supabaseAdmin.from('sms_conversations').update({ client_id: existingClient.id }).eq('id', conversationId)
+          await supabaseAdmin.from('sms_conversations').update({ client_id: existingClient.id }).eq('id', conversationId).eq('tenant_id', tid)
         }
       }
     }
@@ -1051,7 +1058,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       const pin = Math.floor(100000 + Math.random() * 900000).toString()
       const { data: newClient, error: clientErr } = await supabaseAdmin
         .from('clients')
-        .insert({ name: inputName, phone: digits, email: inputEmail, address: inputAddress, status: 'potential', pin })
+        .insert({ tenant_id: tid, name: inputName, phone: digits, email: inputEmail, address: inputAddress, status: 'potential', pin })
         .select('id')
         .single()
       if (clientErr || !newClient) {
@@ -1062,6 +1069,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
         .from('sms_conversations')
         .update({ client_id: newClient.id, name: inputName })
         .eq('id', conversationId)
+        .eq('tenant_id', tid)
       result.clientCreated = true
     }
 
@@ -1083,6 +1091,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     const endTimeStr = `${date}T${String(endHoursInt).padStart(2, '0')}:${String(endMinutesInt).padStart(2, '0')}:00`
 
     const { data: existing } = await supabaseAdmin.from('bookings').select('id')
+      .eq('tenant_id', tid)
       .eq('client_id', convo.client_id).eq('start_time', startTimeStr)
       .in('status', ['pending', 'scheduled', 'in_progress']).limit(1)
     if (existing && existing.length > 0) {
@@ -1111,6 +1120,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     const finalPriceCents = basePriceCents
 
     const { data: booking, error } = await supabaseAdmin.from('bookings').insert({
+      tenant_id: tid,
       client_id: convo.client_id,
       start_time: startTimeStr, end_time: endTimeStr,
       status: 'pending', service_type: serviceType,
@@ -1125,7 +1135,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       booking_id: booking.id, completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(), outcome: 'booked',
       summary: `Booked ${serviceType} ${date} ${time} $${hourlyRate}/hr`,
-    }).eq('id', conversationId)
+    }).eq('id', conversationId).eq('tenant_id', tid)
 
     await updateChecklist(conversationId, { status: 'confirmed' })
     result.bookingCreated = true
