@@ -191,7 +191,7 @@ export async function runTool(
     case 'record_skill_use':
       return await handleRecordSkillUse(input as { name: string }, tid)
     case 'get_briefing':
-      return await handleGetBriefing(input as { since_hours?: number })
+      return await handleGetBriefing(input as { since_hours?: number }, tid)
     case 'score_cleaners':
       return await handleScoreCleaners(input as { date: string; time: string; duration_hours: number; client_address?: string; client_id?: string; exclude_booking_id?: string; hourly_rate?: number })
     case 'get_smart_suggestion':
@@ -286,7 +286,7 @@ async function handleGetSmartSuggestion(input: { booking_id: string }): Promise<
 // Returns a structured digest Yinez can read aloud to Jeff on Telegram. Anything Jeff
 // would want at a glance: new skills, fresh lessons, escalations, low-scored convos.
 
-async function handleGetBriefing(input: { since_hours?: number }): Promise<string> {
+async function handleGetBriefing(input: { since_hours?: number }, tid: string): Promise<string> {
   // No "smart" summary layer — fan out to the same raw tools an owner would
   // call manually and concatenate their outputs verbatim. Anything Yinez
   // quotes from the briefing comes from a real tool result, not a derived
@@ -296,13 +296,14 @@ async function handleGetBriefing(input: { since_hours?: number }): Promise<strin
   const since = new Date(Date.now() - hours * 3_600_000).toISOString()
 
   const [today, outstanding, atRisk, notifications, newSkills, newLessons, lowScoredConvos] = await Promise.all([
-    handleTodaySummary(),
-    handleOutstandingPayments(),
-    handleAtRiskClients(),
+    handleTodaySummary(tid),
+    handleOutstandingPayments(tid),
+    handleAtRiskClients(tid),
     handleListNotifications({ limit: 15 }),
     supabaseAdmin
       .from('yinez_skills')
       .select('name, when_to_use, hit_count, created_at')
+      .eq('tenant_id', tid)
       .gte('created_at', since)
       .eq('active', true)
       .order('created_at', { ascending: false })
@@ -311,6 +312,7 @@ async function handleGetBriefing(input: { since_hours?: number }): Promise<strin
     supabaseAdmin
       .from('yinez_memory')
       .select('type, content, created_at')
+      .eq('tenant_id', tid)
       .is('client_id', null)
       .in('type', ['lesson', 'rule', 'instruction'])
       .gte('created_at', since)
@@ -320,6 +322,7 @@ async function handleGetBriefing(input: { since_hours?: number }): Promise<strin
     supabaseAdmin
       .from('sms_conversations')
       .select('id, phone, name, quality_score, summary, updated_at')
+      .eq('tenant_id', tid)
       .lt('quality_score', 60)
       .gte('updated_at', since)
       .order('quality_score', { ascending: true })
