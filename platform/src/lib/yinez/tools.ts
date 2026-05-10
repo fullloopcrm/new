@@ -95,7 +95,7 @@ export async function runTool(
 
   switch (name) {
     case 'recall':
-      return await handleRecall(phone)
+      return await handleRecall(phone, tid)
     case 'get_today_summary':
       return await handleTodaySummary()
     case 'get_revenue':
@@ -179,17 +179,17 @@ export async function runTool(
     case 'block_cleaner_dates':
       return await handleBlockCleanerDates(input as { cleaner_id: string; from_date: string; to_date: string; reason?: string })
     case 'list_skills':
-      return await handleListSkills(input as { include_inactive?: boolean })
+      return await handleListSkills(input as { include_inactive?: boolean }, tid)
     case 'create_skill':
-      return await handleCreateSkill(input as { name: string; when_to_use: string; body: string })
+      return await handleCreateSkill(input as { name: string; when_to_use: string; body: string }, tid)
     case 'update_skill':
-      return await handleUpdateSkill(input as { name: string; fields: Record<string, unknown> })
+      return await handleUpdateSkill(input as { name: string; fields: Record<string, unknown> }, tid)
     case 'deactivate_skill':
-      return await handleSetSkillActive({ name: (input as { name: string }).name, active: false })
+      return await handleSetSkillActive({ name: (input as { name: string }).name, active: false }, tid)
     case 'activate_skill':
-      return await handleSetSkillActive({ name: (input as { name: string }).name, active: true })
+      return await handleSetSkillActive({ name: (input as { name: string }).name, active: true }, tid)
     case 'record_skill_use':
-      return await handleRecordSkillUse(input as { name: string })
+      return await handleRecordSkillUse(input as { name: string }, tid)
     case 'get_briefing':
       return await handleGetBriefing(input as { since_hours?: number })
     case 'score_cleaners':
@@ -345,10 +345,11 @@ async function handleGetBriefing(input: { since_hours?: number }): Promise<strin
 
 // ── skills — Jeff-authored procedures Yinez follows on-demand ──
 
-async function handleListSkills(input: { include_inactive?: boolean }): Promise<string> {
+async function handleListSkills(input: { include_inactive?: boolean }, tid: string): Promise<string> {
   let q = supabaseAdmin
     .from('yinez_skills')
     .select('id, name, when_to_use, body, active, hit_count, updated_at')
+    .eq('tenant_id', tid)
     .order('updated_at', { ascending: false })
   if (!input.include_inactive) q = q.eq('active', true)
   const { data, error } = await q
@@ -356,49 +357,51 @@ async function handleListSkills(input: { include_inactive?: boolean }): Promise<
   return JSON.stringify({ count: (data || []).length, skills: data || [] })
 }
 
-async function handleCreateSkill(input: { name: string; when_to_use: string; body: string }): Promise<string> {
+async function handleCreateSkill(input: { name: string; when_to_use: string; body: string }, tid: string): Promise<string> {
   if (!input.name || !input.when_to_use || !input.body) {
     return JSON.stringify({ error: 'name, when_to_use, and body are all required' })
   }
   const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
   const { data, error } = await supabaseAdmin
     .from('yinez_skills')
-    .insert({ name: slug, when_to_use: input.when_to_use, body: input.body, active: true })
+    .insert({ tenant_id: tid, name: slug, when_to_use: input.when_to_use, body: input.body, active: true })
     .select('id, name')
     .single()
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, skill_id: data.id, name: data.name })
 }
 
-async function handleUpdateSkill(input: { name: string; fields: Record<string, unknown> }): Promise<string> {
+async function handleUpdateSkill(input: { name: string; fields: Record<string, unknown> }, tid: string): Promise<string> {
   const allowed = ['when_to_use', 'body', 'active']
   const update: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(input.fields || {})) {
     if (allowed.includes(k)) update[k] = v
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })
-  const { error } = await supabaseAdmin.from('yinez_skills').update(update).eq('name', input.name)
+  const { error } = await supabaseAdmin.from('yinez_skills').update(update).eq('tenant_id', tid).eq('name', input.name)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, name: input.name, updated_fields: Object.keys(update) })
 }
 
-async function handleSetSkillActive(input: { name: string; active: boolean }): Promise<string> {
-  const { error } = await supabaseAdmin.from('yinez_skills').update({ active: input.active }).eq('name', input.name)
+async function handleSetSkillActive(input: { name: string; active: boolean }, tid: string): Promise<string> {
+  const { error } = await supabaseAdmin.from('yinez_skills').update({ active: input.active }).eq('tenant_id', tid).eq('name', input.name)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, name: input.name, active: input.active })
 }
 
-async function handleRecordSkillUse(input: { name: string }): Promise<string> {
+async function handleRecordSkillUse(input: { name: string }, tid: string): Promise<string> {
   if (!input.name) return JSON.stringify({ error: 'name required' })
   const { data: row } = await supabaseAdmin
     .from('yinez_skills')
     .select('id, hit_count')
+    .eq('tenant_id', tid)
     .eq('name', input.name)
     .maybeSingle()
   if (!row) return JSON.stringify({ error: `no skill named ${input.name}` })
   await supabaseAdmin
     .from('yinez_skills')
     .update({ hit_count: (row.hit_count || 0) + 1 })
+    .eq('tenant_id', tid)
     .eq('id', row.id)
   return JSON.stringify({ ok: true, name: input.name, hit_count: (row.hit_count || 0) + 1 })
 }
@@ -406,7 +409,7 @@ async function handleRecordSkillUse(input: { name: string }): Promise<string> {
 // ── recall — read yinez_memory for current client OR (when called by Jeff/no client match)
 // surface every global lesson + active skill so he can audit what Yinez knows.
 
-async function handleRecall(phone: string | null): Promise<string> {
+async function handleRecall(phone: string | null, tid: string): Promise<string> {
   const last10 = (phone || '').replace(/\D/g, '').slice(-10)
 
   // Look up the per-client side first, if a client matches.
@@ -415,12 +418,14 @@ async function handleRecall(phone: string | null): Promise<string> {
     const { data: client } = await supabaseAdmin
       .from('clients')
       .select('id')
+      .eq('tenant_id', tid)
       .ilike('phone', `%${last10}%`)
       .maybeSingle()
     if (client) {
       const { data } = await supabaseAdmin
         .from('yinez_memory')
         .select('type, content, source, created_at')
+        .eq('tenant_id', tid)
         .eq('client_id', client.id)
         .order('created_at', { ascending: false })
         .limit(20)
@@ -434,6 +439,7 @@ async function handleRecall(phone: string | null): Promise<string> {
     supabaseAdmin
       .from('yinez_memory')
       .select('type, content, created_at')
+      .eq('tenant_id', tid)
       .is('client_id', null)
       .in('type', ['lesson', 'rule', 'instruction'])
       .order('created_at', { ascending: false })
@@ -441,6 +447,7 @@ async function handleRecall(phone: string | null): Promise<string> {
     supabaseAdmin
       .from('yinez_skills')
       .select('name, when_to_use, body, active, hit_count')
+      .eq('tenant_id', tid)
       .eq('active', true)
       .order('hit_count', { ascending: false })
       .limit(50),
