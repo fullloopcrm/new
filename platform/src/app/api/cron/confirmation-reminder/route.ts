@@ -7,6 +7,10 @@ import { protectCronAPI } from '@/lib/nycmaid/auth'
 // Runs every 5 min. Finds bookings still status='pending' (client hasn't replied
 // CONFIRM yet) that were created at least 30 min ago and have a future
 // start_time, then sends one reminder SMS per booking. Dedupe via sms_logs.
+//
+// Multi-tenant: iterates active tenants and runs per-tenant. Tenants without
+// `bookings` data (or using the team_members data model) get empty queries
+// and are no-ops here.
 export async function GET(request: Request) {
   const authError = protectCronAPI(request)
   if (authError) return authError
@@ -14,41 +18,51 @@ export async function GET(request: Request) {
   const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
   const nowIso = new Date().toISOString()
 
-  const { data: pending, error } = await supabaseAdmin
-    .from('bookings')
-    .select('id, client_id, start_time, service_type, hourly_rate, notes, clients(name, phone)')
-    .eq('status', 'pending')
-    .lte('created_at', thirtyMinAgo)
-    .gte('start_time', nowIso)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  const { data: tenants } = await supabaseAdmin
+    .from('tenants')
+    .select('id')
+    .eq('status', 'active')
+    .limit(1000)
 
   let sent = 0
-  for (const booking of pending || []) {
-    if (!booking.client_id) continue
+  let scanned = 0
 
-    // Skip bookings the client already accepted terms on — either via the
-    // form recap (`[Client confirmed terms ...]`) or via SMS CONFIRM reply
-    // (`[Client accepted terms ...]`). The reminder is only for true silent
-    // pending — never fire it once consent is on file.
-    if (typeof booking.notes === 'string' && /\[Client (confirmed|accepted) terms /.test(booking.notes)) continue
+  for (const tenant of tenants || []) {
+    const tenantId = tenant.id
 
-    const { count } = await supabaseAdmin
-      .from('sms_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('booking_id', booking.id)
-      .eq('sms_type', 'confirmation_reminder')
+    const { data: pending, error } = await supabaseAdmin
+      .from('bookings')
+      .select('id, client_id, start_time, service_type, hourly_rate, notes, clients(name, phone)')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'pending')
+      .lte('created_at', thirtyMinAgo)
+      .gte('start_time', nowIso)
 
-    if ((count || 0) > 0) continue
+    if (error) continue
 
-    await sendClientSMS(booking.client_id, smsConfirmationReminder(booking), {
-      smsType: 'confirmation_reminder',
-      bookingId: booking.id,
-    })
-    sent++
+    scanned += (pending || []).length
+
+    for (const booking of pending || []) {
+      if (!booking.client_id) continue
+
+      if (typeof booking.notes === 'string' && /\[Client (confirmed|accepted) terms /.test(booking.notes)) continue
+
+      const { count } = await supabaseAdmin
+        .from('sms_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('booking_id', booking.id)
+        .eq('sms_type', 'confirmation_reminder')
+
+      if ((count || 0) > 0) continue
+
+      await sendClientSMS(booking.client_id, smsConfirmationReminder(booking), {
+        smsType: 'confirmation_reminder',
+        bookingId: booking.id,
+      })
+      sent++
+    }
   }
 
-  return NextResponse.json({ ok: true, sent, scanned: pending?.length || 0 })
+  return NextResponse.json({ ok: true, sent, scanned })
 }
