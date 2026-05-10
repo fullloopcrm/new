@@ -1326,14 +1326,15 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
 
 async function handleCheckPayment(conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
     const { data: unpaid } = await supabaseAdmin.from('bookings')
       .select('id, start_time, price, hourly_rate, actual_hours, payment_status, service_type')
-      .eq('client_id', convo.client_id).in('status', ['completed', 'checked_in', 'in_progress', 'scheduled'])
+      .eq('tenant_id', tid).eq('client_id', convo.client_id).in('status', ['completed', 'checked_in', 'in_progress', 'scheduled'])
       .neq('payment_status', 'paid').order('start_time', { ascending: false }).limit(5)
     const { data: payments } = await supabaseAdmin.from('payments')
-      .select('amount, tip, method, created_at').eq('client_id', convo.client_id)
+      .select('amount, tip, method, created_at').eq('tenant_id', tid).eq('client_id', convo.client_id)
       .order('created_at', { ascending: false }).limit(5)
     return JSON.stringify({
       outstanding: (unpaid || []).map(b => ({ date: b.start_time?.split('T')[0], amount: b.price ? `$${(b.price / 100).toFixed(0)}` : 'TBD', status: b.payment_status })),
@@ -1349,11 +1350,13 @@ async function handleConfirmPayment(input: Record<string, unknown>, conversation
   try {
     const method = (input.method as string) || 'zelle'
     const senderName = (input.sender_name as string)?.trim() || null
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
 
     const { data: booking } = await supabaseAdmin.from('bookings')
-      .select('id, cleaner_id, start_time, clients(name), cleaners(name, phone, sms_consent)').eq('client_id', convo.client_id)
+      .select('id, cleaner_id, start_time, clients(name), cleaners(name, phone, sms_consent)')
+      .eq('tenant_id', tid).eq('client_id', convo.client_id)
       .neq('payment_status', 'paid').not('fifteen_min_alert_time', 'is', null)
       .order('start_time', { ascending: false }).limit(1).single()
 
@@ -1364,7 +1367,7 @@ async function handleConfirmPayment(input: Record<string, unknown>, conversation
     if (booking) {
       const updates: Record<string, unknown> = { payment_method: method }
       if (senderName) updates.payment_sender_name = senderName
-      await supabaseAdmin.from('bookings').update(updates).eq('id', booking.id)
+      await supabaseAdmin.from('bookings').update(updates).eq('id', booking.id).eq('tenant_id', tid)
     }
 
     // Trigger immediate email monitor (Zelle/Venmo verification path).
@@ -1394,14 +1397,15 @@ async function handleConfirmPayment(input: Record<string, unknown>, conversation
 
 async function handleGetInvoice(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
 
-    const { data: client } = await supabaseAdmin.from('clients').select('name, email').eq('id', convo.client_id).single()
+    const { data: client } = await supabaseAdmin.from('clients').select('name, email').eq('id', convo.client_id).eq('tenant_id', tid).single()
     if (!client?.email) return JSON.stringify({ error: 'No email on file — ask client for email first' })
 
     const { data: payment } = await supabaseAdmin.from('payments')
-      .select('amount, tip, method, created_at, booking_id').eq('client_id', convo.client_id)
+      .select('amount, tip, method, created_at, booking_id').eq('tenant_id', tid).eq('client_id', convo.client_id)
       .order('created_at', { ascending: false }).limit(1).single()
     if (!payment) return JSON.stringify({ error: 'No payments found' })
 
