@@ -39,6 +39,11 @@ export async function GET(req: NextRequest) {
     socketTimeout: 30_000,
   })
 
+  // Bind to nycmaid tenant — IMAP source is nycmaid's hi@thenycmaid.com.
+  // Other tenants need their own per-tenant IMAP wiring (separate cron).
+  const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+  const tid = NYCMAID_TENANT_ID
+
   let mirrored = 0
   let skipped = 0
   let scanned = 0
@@ -90,6 +95,7 @@ export async function GET(req: NextRequest) {
         const sentAt = parsed.date ? parsed.date.toISOString() : new Date().toISOString()
 
         await supabaseAdmin.from('comhub_messages').insert({
+          tenant_id: tid,
           thread_id: threadId,
           contact_id: contactId,
           channel: 'email',
@@ -132,6 +138,7 @@ export async function GET(req: NextRequest) {
                 const { data: outMsg } = await supabaseAdmin
                   .from('comhub_messages')
                   .insert({
+                    tenant_id: tid,
                     thread_id: threadId,
                     contact_id: contactId,
                     channel: 'email',
@@ -158,6 +165,7 @@ export async function GET(req: NextRequest) {
                     last_message_preview: (replySubject + ' — ' + result.text).slice(0, 140),
                     updated_at: new Date().toISOString(),
                   })
+                  .eq('tenant_id', tid)
                   .eq('id', threadId as string)
               }
             }
@@ -175,16 +183,19 @@ export async function GET(req: NextRequest) {
             unread_count: (await supabaseAdmin
               .from('comhub_threads')
               .select('unread_count')
+              .eq('tenant_id', tid)
               .eq('id', threadId)
               .single()).data?.unread_count != null
               ? ((await supabaseAdmin
                   .from('comhub_threads')
                   .select('unread_count')
+                  .eq('tenant_id', tid)
                   .eq('id', threadId)
                   .single()).data!.unread_count + 1)
               : 1,
             updated_at: new Date().toISOString(),
           })
+          .eq('tenant_id', tid)
           .eq('id', threadId)
 
         mirrored++
