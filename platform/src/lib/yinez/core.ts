@@ -1799,26 +1799,28 @@ export async function handleTool(name: string, input: Record<string, unknown>, c
 
 // ─── Client Profile ─────────────────────────────────────────────────────────
 
-export async function getClientProfile(phone: string): Promise<string> {
+export async function getClientProfile(phone: string, tenantId?: string): Promise<string> {
   try {
+    const tid = tenantId || NYCMAID_TENANT_ID
     const lookupPhone = phone.replace(/\D/g, '').slice(-10)
     const { data: client } = await supabaseAdmin.from('clients')
       .select('id, name, email, phone, address, notes, active, do_not_service, created_at')
+      .eq('tenant_id', tid)
       .ilike('phone', `%${lookupPhone}%`).limit(1).single()
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
     const { data: recentBookings } = await supabaseAdmin.from('bookings')
       .select('id, start_time, service_type, price, hourly_rate, status, payment_status, cleaners(name)')
-      .eq('client_id', client.id).in('status', ['completed', 'scheduled', 'in_progress', 'pending'])
+      .eq('tenant_id', tid).eq('client_id', client.id).in('status', ['completed', 'scheduled', 'in_progress', 'pending'])
       .order('start_time', { ascending: false }).limit(5)
 
     const { count: totalBookings } = await supabaseAdmin.from('bookings')
       .select('id', { count: 'exact', head: true })
-      .eq('client_id', client.id).in('status', ['completed', 'scheduled', 'in_progress'])
+      .eq('tenant_id', tid).eq('client_id', client.id).in('status', ['completed', 'scheduled', 'in_progress'])
 
     let preferredCleaner: string | null = null
     const { data: completedBookings } = await supabaseAdmin.from('bookings')
-      .select('cleaners(name)').eq('client_id', client.id).eq('status', 'completed')
+      .select('cleaners(name)').eq('tenant_id', tid).eq('client_id', client.id).eq('status', 'completed')
     if (completedBookings && completedBookings.length > 0) {
       const counts: Record<string, number> = {}
       for (const b of completedBookings) {
@@ -1830,7 +1832,7 @@ export async function getClientProfile(phone: string): Promise<string> {
     }
 
     const { data: memories } = await supabaseAdmin.from('yinez_memory')
-      .select('type, content, created_at').eq('client_id', client.id)
+      .select('type, content, created_at').eq('tenant_id', tid).eq('client_id', client.id)
       .order('created_at', { ascending: false }).limit(20)
 
     const upcoming = (recentBookings || [])
@@ -2287,6 +2289,10 @@ export async function askYinez(
     // ── STEP 0: Load state + detect returning client ──
     let checklist = await loadChecklist(conversationId)
 
+    // Resolve tenant for this conversation (needed for all downstream queries).
+    const { data: convoTenantRow } = await supabaseAdmin.from('sms_conversations').select('tenant_id').eq('id', conversationId).single()
+    const tid = (convoTenantRow as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+
     // Determine if returning client.
     // - SMS: convo.phone is a real phone → use it directly.
     // - Email: convo.phone is 'email-{uuid}', not a real phone. Look up the
@@ -2300,7 +2306,7 @@ export async function askYinez(
     } else if (channel === 'email') {
       const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
       if (convo?.client_id) {
-        const { data: c } = await supabaseAdmin.from('clients').select('phone').eq('id', convo.client_id).single()
+        const { data: c } = await supabaseAdmin.from('clients').select('phone').eq('id', convo.client_id).eq('tenant_id', tid).single()
         if (c?.phone && !c.phone.startsWith('email-') && !c.phone.startsWith('web-') && /\d{7,}/.test(c.phone)) {
           lookupPhone = c.phone
         }
@@ -2312,7 +2318,7 @@ export async function askYinez(
     let clientContext = ''
     let isReturning = false
     if (lookupPhone && !lookupPhone.startsWith('web-') && !lookupPhone.startsWith('email-')) {
-      const profile = await getClientProfile(lookupPhone)
+      const profile = await getClientProfile(lookupPhone, tid)
       if (!profile.includes('"error"')) {
         clientContext = `\n\nCLIENT PROFILE:\n${profile}`
         isReturning = true
