@@ -1,0 +1,116 @@
+// @ts-nocheck
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { breadcrumbSchema } from '@/app/site/wash-and-fold-nyc/_lib/seo/schema'
+import JsonLd from '@/app/site/wash-and-fold-nyc/_components/marketing/JsonLd'
+import Breadcrumbs from '@/app/site/wash-and-fold-nyc/_components/marketing/Breadcrumbs'
+
+export const metadata: Metadata = {
+  title: 'Refund Policy | Wash and Fold NYC',
+  description: 'Wash and Fold NYC refund policy — no money upfront, pay only after cleaning is complete. No deposits. Service from $3/lb. (917) 970-6002',
+  alternates: { canonical: 'https://www.washandfoldnyc.com/refund-policy' },
+}
+
+export default function RefundPolicyPage() {
+  return (
+    <>
+      <JsonLd data={breadcrumbSchema([
+        { name: 'Home', url: 'https://www.washandfoldnyc.com' },
+        { name: 'Refund Policy', url: 'https://www.washandfoldnyc.com/refund-policy' },
+      ])} />
+
+      <section className="bg-gradient-to-b from-[#1a3a5c] to-[#2B7BB0] py-16 md:py-20">
+        <div className="max-w-5xl mx-auto px-4 text-center">
+          <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide">Refund Policy</h1>
+          <p className="text-sky-200/60 mt-3">No money upfront means no refunds needed</p>
+        </div>
+      </section>
+
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        <Breadcrumbs items={[{ name: 'Refund Policy', href: '/refund-policy' }]} />
+
+        <div className="mt-8 space-y-10">
+          <p className="text-gray-400 text-sm">Last updated: February 2026</p>
+
+          <div>
+            <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1a3a5c] tracking-wide mb-4">Why We Don&apos;t Issue Refunds</h2>
+            <div className="bg-[#F0F8FF] border border-[#4BA3D4]/30 rounded-xl p-6">
+              <p className="text-gray-600 leading-relaxed mb-3">
+                <strong className="text-[#1a3a5c]">We do not collect any money upfront.</strong> There are no deposits, no pre-authorizations, no advance charges, and no pre-payments of any kind.
+              </p>
+              <p className="text-gray-600 leading-relaxed mb-3">
+                Payment is collected only after your cleaning is complete — upon delivery your home. You see the results before you pay. Because we never take your money in advance, there is nothing to refund.
+              </p>
+              <p className="text-gray-600 leading-relaxed">
+                This is by design. We believe you should only pay for work that&apos;s been done, and you should be able to see the quality before handing over payment.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1a3a5c] tracking-wide mb-4">Our Satisfaction Guarantee</h2>
+            <p className="text-gray-600 leading-relaxed mb-4">
+              If you are not satisfied with any aspect of your cleaning, contact us within 24 hours. We will send a cleaner back to address the specific issues at no additional charge. We stand behind our work — always.
+            </p>
+            <ul className="space-y-2.5">
+              {[
+                'Contact us within 24 hours of service completion with your concern',
+                'We will schedule a re-clean to address the specific issue — free of charge',
+                'Our goal is to make it right, not to argue about it',
+              ].map(item => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="text-[#4BA3D4] mt-0.5 flex-shrink-0">&#10003;</span>
+                  <span className="text-gray-600 text-sm">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1a3a5c] tracking-wide mb-4">Payment Method</h2>
+            <p className="text-gray-600 leading-relaxed mb-4">
+              Payment is due upon completion of your laundry service, upon delivery. We accept:
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {['Zelle', 'Apple Pay', 'Venmo', 'Credit Card', 'Debit Card', 'Cash'].map(method => (
+                <div key={method} className="bg-gray-50 rounded-lg p-3 text-center">
+                  <span className="text-gray-700 text-sm font-medium">{method}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1a3a5c] tracking-wide mb-4">Cancellation Policy Summary</h2>
+            <p className="text-gray-600 leading-relaxed mb-4">
+              Since we do not take money upfront, cancellation refunds do not apply. We hold your spot on our busy schedule, turning away other clients — late cancellations and no-shows directly affect our team members who depend on this income. Our cancellation terms protect our cleaners&apos; livelihoods:
+            </p>
+            <div className="space-y-3">
+              <div className="bg-gray-50 rounded-xl p-5">
+                <p className="text-[#1a3a5c] font-semibold text-sm mb-1">One-Time &amp; First-Time Bookings</p>
+                <p className="text-gray-600 text-sm">Cannot be cancelled or rescheduled once confirmed. We reserve a cleaner exclusively for your slot and turn away other clients to hold it.</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-5">
+                <p className="text-[#1a3a5c] font-semibold text-sm mb-1">Recurring Services (Weekly, Bi-Weekly, Monthly)</p>
+                <p className="text-gray-600 text-sm">7 days notice required to reschedule. Cancellations are only permitted if discontinuing the service entirely with 7 days notice.</p>
+              </div>
+            </div>
+            <p className="text-gray-500 text-sm mt-4">
+              For full cancellation details, see our <Link href="/terms-conditions" className="text-[#1a3a5c] underline underline-offset-2">Terms &amp; Conditions</Link>.
+            </p>
+          </div>
+
+          <div className="border-t border-gray-200 pt-8">
+            <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1a3a5c] tracking-wide mb-4">Contact Us</h2>
+            <p className="text-gray-600 leading-relaxed">
+              Questions? Contact us at <a href="mailto:hi@washandfoldnyc.com" className="text-[#1a3a5c] underline underline-offset-2">hi@washandfoldnyc.com</a> or text/call <a href="tel:9179706002" className="text-[#1a3a5c] underline underline-offset-2">(917) 970-6002</a>.
+            </p>
+            <p className="text-gray-500 text-sm mt-4">
+              See also: <Link href="/privacy-policy" className="text-[#1a3a5c] underline underline-offset-2">Privacy Policy</Link> &middot; <Link href="/terms-conditions" className="text-[#1a3a5c] underline underline-offset-2">Terms &amp; Conditions</Link> &middot; <Link href="/do-not-share-policy" className="text-[#1a3a5c] underline underline-offset-2">Do Not Share Policy</Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
