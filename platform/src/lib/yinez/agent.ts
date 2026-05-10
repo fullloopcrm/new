@@ -437,6 +437,71 @@ export function isOwner(phone: string | null | undefined): boolean {
   return list.includes(norm)
 }
 
+// nycmaid's well-known UUID — when the tenant being served IS nycmaid, the
+// hardcoded references inside YINEZ_PROMPT are correct as-is.
+const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
+/**
+ * Build a brand-override preamble for non-nycmaid tenants. Yinez's main
+ * system prompt was authored for The NYC Maid and contains hardcoded
+ * references (company name, phone, domain, payment handles). Rather than
+ * rewrite the prompt and risk regressing tested behavior, we PREPEND a
+ * brand override that instructs Yinez to substitute tenant-specific
+ * values everywhere.
+ *
+ * For the nycmaid tenant the override is empty — the original prompt is
+ * already correct.
+ */
+async function buildBrandOverride(tenantId: string): Promise<string> {
+  if (tenantId === NYCMAID_TENANT_ID) return ''
+
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name, slug, domain, phone, email, industry, address, tagline, website_url, primary_color')
+    .eq('id', tenantId)
+    .single()
+
+  if (!tenant) return ''
+
+  const cfg = (tenant as { brand_config?: Record<string, unknown> }).brand_config || {}
+  const phone = tenant.phone || (cfg.phone as string) || '<not configured>'
+  const email = tenant.email || (cfg.email as string) || '<not configured>'
+  const domain = tenant.domain || tenant.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || '<not configured>'
+  const portal = `${tenant.website_url || `https://${tenant.domain || ''}`}/portal`
+  const industry = tenant.industry || 'home services'
+
+  return `=== BRAND OVERRIDE — READ FIRST, APPLY THROUGHOUT ===
+
+You are working for ${tenant.name} — NOT The NYC Maid. The system prompt below
+was originally written for The NYC Maid and contains hardcoded references that
+must be SUBSTITUTED with the values below for every interaction.
+
+Substitution table (apply mentally on every reference):
+  Company name      "The NYC Maid"          →  "${tenant.name}"
+  Phone             "(212) 202-8400"         →  "${phone}"
+  Domain            "thenycmaid.com"         →  "${domain}"
+  Email             "hi@thenycmaid.com"      →  "${email}"
+  Venmo handle      "@thenycmaid"            →  (use ${tenant.name}'s configured handle, or omit)
+  Portal            "thenycmaid.com/portal"  →  "${portal}"
+  Industry          "cleaning service"       →  "${industry}"
+  ${tenant.tagline ? `Tagline                                          →  "${tenant.tagline}"` : ''}
+
+When you'd quote any nycmaid-specific value above, substitute the right column.
+NEVER quote The NYC Maid, the (212) 202-8400 number, thenycmaid.com, or
+hi@thenycmaid.com to a ${tenant.name} client. Those are template artifacts.
+
+Pricing, policies, and tools that are nycmaid-specific (cleaning rates,
+"Insured up to $1 million", etc) DO NOT APPLY here. If a tool or response
+would only make sense for nycmaid, ask the owner instead of inventing.
+
+If anything in the prompt below conflicts with this override, the override
+wins. Period.
+
+=== END BRAND OVERRIDE — ORIGINAL TEMPLATE PROMPT FOLLOWS ===
+
+`
+}
+
 export async function loadContext(phone: string | null, _conversationId: string): Promise<string> {
   const parts: string[] = []
 
@@ -544,6 +609,7 @@ export async function askYinez(channel: Channel, message: string, conversationId
     // fall back to current tenant (nycmaid) if the conversation row hasn't been
     // tagged yet. Phase 3.2: every downstream tool query gains .eq('tenant_id', tenantId).
     const tenantId = await resolveTenantForConversation(conversationId)
+    const brandOverride = await buildBrandOverride(tenantId)
     const context = await loadContext(lookupPhone, conversationId)
     const ctxBlock = ctx ? buildCtxBlock(ctx) : ''
     const channelNote = channel === 'telegram'
@@ -559,7 +625,7 @@ When Jeff teaches you something:
 When you don't know → "I don't know — show me once and I'll save it."
 When you flubbed on another channel → flag it here unprompted next check-in.`
       : ''
-    const systemPrompt = YINEZ_PROMPT + context + channelNote + ctxBlock
+    const systemPrompt = brandOverride + YINEZ_PROMPT + context + channelNote + ctxBlock
 
     const { data: msgs } = await supabaseAdmin
       .from('sms_conversation_messages')
