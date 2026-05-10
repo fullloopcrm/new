@@ -1,6 +1,6 @@
 // @ts-nocheck
-import servicesData from "@/app/site//_data/services.json";
-import neighborhoodsData from "@/app/site//_data/neighborhoods.json";
+import servicesData from "@/app/site/the-nyc-exterminator/_data/services.json";
+import neighborhoodsData from "@/app/site/the-nyc-exterminator/_data/neighborhoods.json";
 
 export interface FAQ {
   q: string;

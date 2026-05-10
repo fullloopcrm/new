@@ -1,8 +1,8 @@
 // @ts-nocheck
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, HOURS } from "@/app/site//_data/content";
-import { SERVICES } from "@/app/site//_data/services";
-import { STATES } from "@/app/site//_data/cities";
+import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, HOURS } from "@/app/site/the-home-services-company/_data/content";
+import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
+import { STATES } from "@/app/site/the-home-services-company/_data/cities";
 
 const TOP_CITY_LINKS = [
   { name: "New York", state: "new-york", city: "new-york-city" },

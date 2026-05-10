@@ -1,9 +1,9 @@
 // @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/nyc-tow/_data/content";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
-import { FAQ } from "@/app/site//_data/content";
+import { FAQ } from "@/app/site/nyc-tow/_data/content";
 import { JsonLd, breadcrumbSchema, faqPageSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export const metadata: Metadata = {

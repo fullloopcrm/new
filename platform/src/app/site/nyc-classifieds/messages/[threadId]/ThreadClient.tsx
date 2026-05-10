@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import PreLaunchGate from '@/app/site//_components/PreLaunchGate'
+import PreLaunchGate from '@/app/site/nyc-classifieds/_components/PreLaunchGate'
 
 interface Message {
   id: number

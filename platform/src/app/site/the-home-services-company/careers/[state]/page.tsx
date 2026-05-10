@@ -2,9 +2,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL } from "@/app/site//_data/content";
-import { STATES, getStateBySlug } from "@/app/site//_data/cities";
-import { getOfficeByState } from "@/app/site//_data/offices";
+import { PHONE, PHONE_HREF, SMS_HREF, EMAIL } from "@/app/site/the-home-services-company/_data/content";
+import { STATES, getStateBySlug } from "@/app/site/the-home-services-company/_data/cities";
+import { getOfficeByState } from "@/app/site/the-home-services-company/_data/offices";
 import { OfficeBlock } from "@/app/site/the-home-services-company/_components/OfficeBlock";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
 import { JobApplicationForm } from "@/app/site/the-home-services-company/_components/JobApplicationForm";

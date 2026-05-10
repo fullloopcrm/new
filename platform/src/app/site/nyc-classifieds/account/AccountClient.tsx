@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import VerifiedBadge from '@/app/site//_components/VerifiedBadge'
+import VerifiedBadge from '@/app/site/nyc-classifieds/_components/VerifiedBadge'
 import { porchPostTypeBySlug, slugify, businessCategories, boroughs, businessProfileUrl } from '@/app/site/nyc-classifieds/_lib/data'
 
 function formatPhone(value: string): string {

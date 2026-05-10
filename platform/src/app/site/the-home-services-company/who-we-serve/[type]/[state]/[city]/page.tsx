@@ -2,14 +2,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site//_data/content";
-import { CUSTOMER_TYPES } from "@/app/site//_data/customer-types";
-import { SERVICES } from "@/app/site//_data/services";
-import { getTopCitiesPerState, getCityBySlug } from "@/app/site//_data/cities";
-import { getOfficeByState } from "@/app/site//_data/offices";
+import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/the-home-services-company/_data/content";
+import { CUSTOMER_TYPES } from "@/app/site/the-home-services-company/_data/customer-types";
+import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
+import { getTopCitiesPerState, getCityBySlug } from "@/app/site/the-home-services-company/_data/cities";
+import { getOfficeByState } from "@/app/site/the-home-services-company/_data/offices";
 import { OfficeBlock } from "@/app/site/the-home-services-company/_components/OfficeBlock";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
-import { customerCityContent } from "@/app/site//_data/customer-content";
+import { customerCityContent } from "@/app/site/the-home-services-company/_data/customer-content";
 
 export const dynamicParams = true;
 

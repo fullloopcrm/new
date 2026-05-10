@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/nyc-tow/_data/content";
 import { AddressAutocomplete } from "@/app/site/nyc-tow/_components/AddressAutocomplete";
 import { JsonLd, breadcrumbSchema } from "@/app/site/nyc-tow/_lib/schema";
 

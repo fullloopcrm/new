@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, HOURS } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, HOURS } from "@/app/site/the-home-services-company/_data/content";
 import { JobApplicationForm } from "@/app/site/the-home-services-company/_components/JobApplicationForm";
 
 export default function ApplyPage() {

@@ -16,9 +16,9 @@ import {
   FAQ,
   TOP_CITIES,
   STATES,
-} from "@/app/site//_data/content";
-import { STATES as BOROUGHS } from "@/app/site//_data/cities";
-import { OFFICES } from "@/app/site//_data/offices";
+} from "@/app/site/nyc-tow/_data/content";
+import { STATES as BOROUGHS } from "@/app/site/nyc-tow/_data/cities";
+import { OFFICES } from "@/app/site/nyc-tow/_data/offices";
 import { JsonLd, allOfficeLocalBusinessSchemas, faqPageSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export default function HomePage() {

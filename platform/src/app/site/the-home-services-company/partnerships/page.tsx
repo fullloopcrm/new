@@ -1,9 +1,9 @@
 // @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site//_data/content";
-import { STATES } from "@/app/site//_data/cities";
-import { SERVICES } from "@/app/site//_data/services";
+import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site/the-home-services-company/_data/content";
+import { STATES } from "@/app/site/the-home-services-company/_data/cities";
+import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
 import { getPostedLabel } from "@/app/site/the-home-services-company/_lib/freshness";
 
 export const revalidate = 86400; // regenerate daily so the "Posted" dates stay fresh

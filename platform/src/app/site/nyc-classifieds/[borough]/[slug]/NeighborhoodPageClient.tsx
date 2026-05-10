@@ -2,9 +2,9 @@
 'use client'
 
 import Link from 'next/link'
-import BrowsePage from '@/app/site//_components/BrowsePage'
-import { LocationDescription } from '@/app/site//_components/PageDescription'
-import NeighborhoodHome from '@/app/site//_components/NeighborhoodHome'
+import BrowsePage from '@/app/site/nyc-classifieds/_components/BrowsePage'
+import { LocationDescription } from '@/app/site/nyc-classifieds/_components/PageDescription'
+import NeighborhoodHome from '@/app/site/nyc-classifieds/_components/NeighborhoodHome'
 import { boroughBySlug, findNeighborhood, categories } from '@/app/site/nyc-classifieds/_lib/data'
 
 export default function NeighborhoodPageClient({ boroughSlug, neighborhoodSlug }: { boroughSlug: string; neighborhoodSlug: string }) {

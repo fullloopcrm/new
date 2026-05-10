@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { SERVICES } from "@/app/site//_data/services";
+import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
 
 export function PartnershipForm({ city, state }: { city?: string; state?: string }) {
   const [submitted, setSubmitted] = useState(false);

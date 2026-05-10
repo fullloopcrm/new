@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
-import { BLOG_POSTS, BLOG_CATEGORIES } from "@/app/site//_data/blog-posts";
+import { BLOG_POSTS, BLOG_CATEGORIES } from "@/app/site/the-home-services-company/_data/blog-posts";
 
 export const metadata: Metadata = {
   title: "Know Before You Hire — 100 Home Services Guides for Homeowners",

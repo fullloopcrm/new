@@ -1,7 +1,7 @@
 // @ts-nocheck
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "./globals.css";
+import "@/app/globals.css";
 import Header from "@/app/site/fla-dumpster-rentals/_components/Header";
 import Footer from "@/app/site/fla-dumpster-rentals/_components/Footer";
 import { getOrganizationSchema, getWebsiteSchema, SITE_URL } from "@/app/site/fla-dumpster-rentals/_lib/seo";

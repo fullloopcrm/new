@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site/the-home-services-company/_data/content";
 
 export const metadata: Metadata = {
   title: "Home Services Jobs — Hiring Licensed Techs Nationwide",

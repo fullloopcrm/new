@@ -2,8 +2,8 @@
 'use client'
 
 import Link from 'next/link'
-import BrowsePage from '@/app/site//_components/BrowsePage'
-import { LocationDescription } from '@/app/site//_components/PageDescription'
+import BrowsePage from '@/app/site/nyc-classifieds/_components/BrowsePage'
+import { LocationDescription } from '@/app/site/nyc-classifieds/_components/PageDescription'
 import { boroughBySlug, categories, neighborhoodSlug } from '@/app/site/nyc-classifieds/_lib/data'
 
 export default function BoroughPageClient({ boroughSlug }: { boroughSlug: string }) {

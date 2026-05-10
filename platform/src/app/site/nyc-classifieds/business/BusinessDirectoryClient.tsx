@@ -5,9 +5,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import SearchAutocomplete from '@/app/site//_components/SearchAutocomplete'
+import SearchAutocomplete from '@/app/site/nyc-classifieds/_components/SearchAutocomplete'
 import { businessCategories, boroughs, businessProfileUrl } from '@/app/site/nyc-classifieds/_lib/data'
-import PreLaunchGate from '@/app/site//_components/PreLaunchGate'
+import PreLaunchGate from '@/app/site/nyc-classifieds/_components/PreLaunchGate'
 
 interface Business {
   id: number

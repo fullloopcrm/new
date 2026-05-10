@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
-import { PHONE, PHONE_HREF, SMS_HREF, PRICING, CITY_COUNT } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, SMS_HREF, PRICING, CITY_COUNT } from "@/app/site/the-home-services-company/_data/content";
 
 export const metadata: Metadata = {
   title: "Home Services Pricing — Starting at $99/Hour, Upfront Pricing, No Hidden Fees",

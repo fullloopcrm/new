@@ -2,8 +2,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { STATES, getStateBySlug } from "@/app/site//_data/cities";
-import { getOfficeByState } from "@/app/site//_data/offices";
+import { STATES, getStateBySlug } from "@/app/site/nyc-tow/_data/cities";
+import { getOfficeByState } from "@/app/site/nyc-tow/_data/offices";
 import { OfficeBlock } from "@/app/site/nyc-tow/_components/OfficeBlock";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
 import { JobApplicationForm } from "@/app/site/nyc-tow/_components/JobApplicationForm";

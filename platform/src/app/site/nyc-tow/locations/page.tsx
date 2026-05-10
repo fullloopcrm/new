@@ -2,9 +2,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
-import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site//_data/content";
-import { STATES, TOTAL_CITIES } from "@/app/site//_data/cities";
-import { OFFICES } from "@/app/site//_data/offices";
+import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/nyc-tow/_data/content";
+import { STATES, TOTAL_CITIES } from "@/app/site/nyc-tow/_data/cities";
+import { OFFICES } from "@/app/site/nyc-tow/_data/offices";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export const metadata: Metadata = {

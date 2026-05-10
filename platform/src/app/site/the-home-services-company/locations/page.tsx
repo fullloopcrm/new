@@ -2,9 +2,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
-import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site//_data/content";
-import { STATES, TOTAL_CITIES } from "@/app/site//_data/cities";
-import { OFFICES } from "@/app/site//_data/offices";
+import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/the-home-services-company/_data/content";
+import { STATES, TOTAL_CITIES } from "@/app/site/the-home-services-company/_data/cities";
+import { OFFICES } from "@/app/site/the-home-services-company/_data/offices";
 
 export const metadata: Metadata = {
   title: `Home Services Locations — 50 Offices, ${TOTAL_CITIES}+ Cities, All 50 States`,

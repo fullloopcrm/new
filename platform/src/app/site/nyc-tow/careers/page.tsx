@@ -1,7 +1,7 @@
 // @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
-import { EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site//_data/content";
+import { EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site/nyc-tow/_data/content";
 import { JsonLd, breadcrumbSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export const metadata: Metadata = {

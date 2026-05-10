@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import ListingGrid from '@/app/site//_components/ListingGrid'
-import PreLaunchGate from '@/app/site//_components/PreLaunchGate'
+import ListingGrid from '@/app/site/nyc-classifieds/_components/ListingGrid'
+import PreLaunchGate from '@/app/site/nyc-classifieds/_components/PreLaunchGate'
 import { getCategorySeo, SITE_URL } from '@/app/site/nyc-classifieds/_lib/seo'
 
 // ─── Types ───

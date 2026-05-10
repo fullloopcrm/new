@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
-import { SERVICES } from "@/app/site//_data/services";
+import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
 
 export const metadata: Metadata = {
   title: "Commercial Home Services — Offices, Retail, Property Management & More",

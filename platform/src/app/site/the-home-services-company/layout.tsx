@@ -2,7 +2,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Sora, DM_Sans, Space_Grotesk } from "next/font/google";
-import "./globals.css";
+import "@/app/globals.css";
 import { SiteChromeHeader, SiteChromeFooter } from "@/app/site/the-home-services-company/_components/SiteChrome";
 import { SiteSchema } from "@/app/site/the-home-services-company/_components/SiteSchema";
 

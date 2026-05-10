@@ -3,10 +3,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import ListingGrid from '@/app/site//_components/ListingGrid'
-import SearchAutocomplete from '@/app/site//_components/SearchAutocomplete'
-import PreLaunchGate from '@/app/site//_components/PreLaunchGate'
-import AlertButton from '@/app/site//_components/AlertButton'
+import ListingGrid from '@/app/site/nyc-classifieds/_components/ListingGrid'
+import SearchAutocomplete from '@/app/site/nyc-classifieds/_components/SearchAutocomplete'
+import PreLaunchGate from '@/app/site/nyc-classifieds/_components/PreLaunchGate'
+import AlertButton from '@/app/site/nyc-classifieds/_components/AlertButton'
 
 interface Listing {
   id: number

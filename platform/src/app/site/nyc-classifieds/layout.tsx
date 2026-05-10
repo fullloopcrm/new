@@ -2,7 +2,7 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
 import LayoutClient from './LayoutClient'
-import './globals.css'
+import '@/app/globals.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),

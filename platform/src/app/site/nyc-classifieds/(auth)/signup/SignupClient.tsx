@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import SelfieVerification from '@/app/site//_components/SelfieVerification'
+import SelfieVerification from '@/app/site/nyc-classifieds/_components/SelfieVerification'
 import { boroughs, businessCategories } from '@/app/site/nyc-classifieds/_lib/data'
 
 type Step = 'email' | 'otp' | 'type' | 'name' | 'business' | 'pin' | 'address' | 'selfie' | 'done'

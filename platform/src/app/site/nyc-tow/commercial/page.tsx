@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
-import { SERVICES } from "@/app/site//_data/services";
+import { SERVICES } from "@/app/site/nyc-tow/_data/services";
 import { JsonLd, breadcrumbSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export const metadata: Metadata = {

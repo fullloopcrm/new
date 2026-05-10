@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import PreLaunchGate from '@/app/site//_components/PreLaunchGate'
+import PreLaunchGate from '@/app/site/nyc-classifieds/_components/PreLaunchGate'
 
 interface Thread {
   threadId: string

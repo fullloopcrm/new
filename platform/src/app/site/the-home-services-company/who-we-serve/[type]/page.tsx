@@ -2,12 +2,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site//_data/content";
-import { CUSTOMER_TYPES } from "@/app/site//_data/customer-types";
-import { SERVICES } from "@/app/site//_data/services";
-import { STATES } from "@/app/site//_data/cities";
+import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/the-home-services-company/_data/content";
+import { CUSTOMER_TYPES } from "@/app/site/the-home-services-company/_data/customer-types";
+import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
+import { STATES } from "@/app/site/the-home-services-company/_data/cities";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
-import { customerTypeContent } from "@/app/site//_data/customer-content";
+import { customerTypeContent } from "@/app/site/the-home-services-company/_data/customer-content";
 
 export function generateStaticParams() {
   return CUSTOMER_TYPES.map((ct) => ({ type: ct.slug }));

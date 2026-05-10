@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/the-home-services-company/_data/content";
 import { AddressAutocomplete } from "@/app/site/the-home-services-company/_components/AddressAutocomplete";
 
 export default function BookPage() {

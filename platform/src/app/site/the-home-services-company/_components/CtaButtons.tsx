@@ -1,6 +1,6 @@
 // @ts-nocheck
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/the-home-services-company/_data/content";
 
 /** Standard CTA buttons — Text (primary), Call, Book Now. Use on dark or light backgrounds. */
 export function CtaButtons({ variant = "dark" }: { variant?: "dark" | "light" }) {

@@ -2,9 +2,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PHONE, PHONE_HREF, EMAIL } from "@/app/site//_data/content";
-import { STATES, getStateBySlug } from "@/app/site//_data/cities";
-import { SERVICES } from "@/app/site//_data/services";
+import { PHONE, PHONE_HREF, EMAIL } from "@/app/site/the-home-services-company/_data/content";
+import { STATES, getStateBySlug } from "@/app/site/the-home-services-company/_data/cities";
+import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
 import { PartnershipForm } from "@/app/site/the-home-services-company/_components/PartnershipForm";
 import { getPostedLabel, getDatePostedISO, getValidThroughISO } from "@/app/site/the-home-services-company/_lib/freshness";
 

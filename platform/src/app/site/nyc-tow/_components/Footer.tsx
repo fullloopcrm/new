@@ -1,9 +1,9 @@
 // @ts-nocheck
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, HOURS } from "@/app/site//_data/content";
-import { SERVICES } from "@/app/site//_data/services";
-import { STATES } from "@/app/site//_data/cities";
-import { OFFICES } from "@/app/site//_data/offices";
+import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, HOURS } from "@/app/site/nyc-tow/_data/content";
+import { SERVICES } from "@/app/site/nyc-tow/_data/services";
+import { STATES } from "@/app/site/nyc-tow/_data/cities";
+import { OFFICES } from "@/app/site/nyc-tow/_data/offices";
 
 // Building labels per borough, aligned to OFFICES order (Manhattan, Brooklyn,
 // Queens, Bronx, Staten Island). Kept in the footer file so we don't widen

@@ -1,8 +1,8 @@
 // @ts-nocheck
 'use client'
 
-import BrowsePage from '@/app/site//_components/BrowsePage'
-import PageDescription from '@/app/site//_components/PageDescription'
+import BrowsePage from '@/app/site/nyc-classifieds/_components/BrowsePage'
+import PageDescription from '@/app/site/nyc-classifieds/_components/PageDescription'
 import { categoryBySlug } from '@/app/site/nyc-classifieds/_lib/data'
 import { categoryFaqs } from '@/app/site/nyc-classifieds/_lib/seo-faqs'
 import { getLongTailH1 } from '@/app/site/nyc-classifieds/_lib/page-content'

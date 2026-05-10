@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
-import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/the-home-services-company/_data/content";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);

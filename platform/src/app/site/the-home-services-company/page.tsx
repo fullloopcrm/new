@@ -14,8 +14,8 @@ import {
   TESTIMONIALS,
   FAQ,
   TOP_CITIES,
-} from "@/app/site//_data/content";
-import { STATES } from "@/app/site//_data/cities";
+} from "@/app/site/the-home-services-company/_data/content";
+import { STATES } from "@/app/site/the-home-services-company/_data/cities";
 
 export default function HomePage() {
   return (

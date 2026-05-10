@@ -2,10 +2,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BLOG_POSTS } from "@/app/site//_data/blog-posts";
+import { BLOG_POSTS } from "@/app/site/the-home-services-company/_data/blog-posts";
 import { AudioReader } from "@/app/site/the-home-services-company/_components/AudioReader";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
-import { SITE_URL } from "@/app/site//_data/content";
+import { SITE_URL } from "@/app/site/the-home-services-company/_data/content";
 
 export function generateStaticParams() {
   return BLOG_POSTS.map((p) => ({ slug: p.slug }));

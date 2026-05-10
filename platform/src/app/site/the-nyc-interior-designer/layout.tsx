@@ -1,7 +1,7 @@
 // @ts-nocheck
 import type { Metadata } from "next";
 import { Sora, DM_Sans, Space_Grotesk, JetBrains_Mono } from "next/font/google";
-import "./globals.css";
+import "@/app/globals.css";
 import { JsonLd, organizationSchema, websiteSchema } from "@/app/site/the-nyc-interior-designer/_lib/schema";
 import Navbar from "@/app/site/the-nyc-interior-designer/_components/Navbar";
 import Footer from "@/app/site/the-nyc-interior-designer/_components/Footer";

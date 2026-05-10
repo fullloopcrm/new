@@ -1,7 +1,7 @@
 // @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getAllTips, getTipCategories } from "@/app/site//_data/tips";
+import { getAllTips, getTipCategories } from "@/app/site/the-nyc-exterminator/_data/tips";
 import {
   PHONE,
   SITE_URL,

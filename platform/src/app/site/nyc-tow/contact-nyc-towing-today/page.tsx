@@ -4,8 +4,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
-import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site//_data/content";
-import { OFFICES } from "@/app/site//_data/offices";
+import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/nyc-tow/_data/content";
+import { OFFICES } from "@/app/site/nyc-tow/_data/offices";
 import { JsonLd, breadcrumbSchema, allOfficeLocalBusinessSchemas, SITE_URL, BRAND_NAME } from "@/app/site/nyc-tow/_lib/schema";
 
 const OFFICE_BUILDING_NAMES: Record<string, string> = {

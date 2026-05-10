@@ -4,9 +4,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import ImageUploader from '@/app/site//_components/ImageUploader'
+import ImageUploader from '@/app/site/nyc-classifieds/_components/ImageUploader'
 import { categories, slugify, boroughs, businessCategories } from '@/app/site/nyc-classifieds/_lib/data'
-import PreLaunchGate from '@/app/site//_components/PreLaunchGate'
+import PreLaunchGate from '@/app/site/nyc-classifieds/_components/PreLaunchGate'
 
 export default function PostListingClient() {
   const router = useRouter()

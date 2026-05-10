@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Sora, DM_Sans, Space_Grotesk, JetBrains_Mono } from "next/font/google";
-import "./globals.css";
+import "@/app/globals.css";
 import { JsonLd, organizationSchema, websiteSchema, navigationSchema, howToSchema } from "@/app/site/stretch-ny/_lib/schema";
 import Navbar from "@/app/site/stretch-ny/_components/Navbar";
 import Footer from "@/app/site/stretch-ny/_components/Footer";

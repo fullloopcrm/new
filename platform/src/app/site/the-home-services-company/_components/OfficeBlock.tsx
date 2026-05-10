@@ -1,7 +1,7 @@
 // @ts-nocheck
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site//_data/content";
-import type { Office } from "@/app/site//_data/offices";
+import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/the-home-services-company/_data/content";
+import type { Office } from "@/app/site/the-home-services-company/_data/offices";
 
 export function OfficeBlock({ office, cityName }: { office: Office; cityName?: string }) {
   return (

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/nyc-tow/_data/content";
 
 /** Standard CTA buttons — Text (primary), Call, Request a Tow. Use on dark or light backgrounds. */
 export function CtaButtons({ variant = "dark" }: { variant?: "dark" | "light" }) {

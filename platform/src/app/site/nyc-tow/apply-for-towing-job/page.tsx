@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { JobApplicationForm } from "@/app/site/nyc-tow/_components/JobApplicationForm";
-import { getOfficeByState } from "@/app/site//_data/offices";
+import { getOfficeByState } from "@/app/site/nyc-tow/_data/offices";
 import { JsonLd, breadcrumbSchema, jobPostingSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export default function ApplyPage() {

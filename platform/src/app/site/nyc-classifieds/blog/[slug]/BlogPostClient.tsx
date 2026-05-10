@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import type { BlogPost } from '@/app/site/nyc-classifieds/_lib/blog-posts'
-import ListenButton from '@/app/site//_components/ListenButton'
+import ListenButton from '@/app/site/nyc-classifieds/_components/ListenButton'
 
 export default function BlogPostClient({
   post,

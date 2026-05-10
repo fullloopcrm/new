@@ -2,7 +2,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getAllTips, getTipBySlug } from "@/app/site//_data/tips";
+import { getAllTips, getTipBySlug } from "@/app/site/the-nyc-exterminator/_data/tips";
 import {
   PHONE,
   SITE_URL,

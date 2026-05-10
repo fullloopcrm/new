@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
-import { PHONE } from "@/app/site//_data/content";
-import { SERVICES, SERVICE_CATEGORIES } from "@/app/site//_data/services";
-import { getServiceTips, parseLinks, type TextPart } from "@/app/site//_data/service-tips";
+import { PHONE } from "@/app/site/nyc-tow/_data/content";
+import { SERVICES, SERVICE_CATEGORIES } from "@/app/site/nyc-tow/_data/services";
+import { getServiceTips, parseLinks, type TextPart } from "@/app/site/nyc-tow/_data/service-tips";
 import { JsonLd, breadcrumbSchema, howToSchema, articleSchema, faqPageSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export function generateStaticParams() {

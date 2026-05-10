@@ -4,7 +4,7 @@ import { Suspense } from 'react'
 import { buildMetadata, itemListSchema, speakableSchema } from '@/app/site/nyc-classifieds/_lib/seo'
 import { getSupabaseAdmin } from '@/app/site/nyc-classifieds/_lib/supabase-server'
 import PorchClient from './PorchClient'
-import PorchRedirect from '@/app/site//_components/PorchRedirect'
+import PorchRedirect from '@/app/site/nyc-classifieds/_components/PorchRedirect'
 
 export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({

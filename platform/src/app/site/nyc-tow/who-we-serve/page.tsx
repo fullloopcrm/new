@@ -1,7 +1,7 @@
 // @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CUSTOMER_TYPES } from "@/app/site//_data/customer-types";
+import { CUSTOMER_TYPES } from "@/app/site/nyc-tow/_data/customer-types";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "@/app/site/nyc-tow/_lib/schema";
 

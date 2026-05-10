@@ -8,10 +8,10 @@
 import type { ReactElement } from "react";
 import { createElement, Fragment } from "react";
 
-import { PHONE, EMAIL, RATING, REVIEW_COUNT, FAQ } from "@/app/site//_data/content";
-import { PRICING } from "@/app/site//_data/content";
-import { OFFICES, type Office } from "@/app/site//_data/offices";
-import { SERVICES, SERVICE_CATEGORIES, type Service } from "@/app/site//_data/services";
+import { PHONE, EMAIL, RATING, REVIEW_COUNT, FAQ } from "@/app/site/nyc-tow/_data/content";
+import { PRICING } from "@/app/site/nyc-tow/_data/content";
+import { OFFICES, type Office } from "@/app/site/nyc-tow/_data/offices";
+import { SERVICES, SERVICE_CATEGORIES, type Service } from "@/app/site/nyc-tow/_data/services";
 
 export const SITE_URL = "https://www.thenyctowingservice.com";
 export const BRAND_NAME = "The NYC Towing Service";

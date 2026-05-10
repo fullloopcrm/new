@@ -1,8 +1,8 @@
 // @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CITY_COUNT, STATE_COUNT, PHONE, PHONE_HREF } from "@/app/site//_data/content";
-import { CUSTOMER_TYPES } from "@/app/site//_data/customer-types";
+import { CITY_COUNT, STATE_COUNT, PHONE, PHONE_HREF } from "@/app/site/the-home-services-company/_data/content";
+import { CUSTOMER_TYPES } from "@/app/site/the-home-services-company/_data/customer-types";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
 
 export const metadata: Metadata = {

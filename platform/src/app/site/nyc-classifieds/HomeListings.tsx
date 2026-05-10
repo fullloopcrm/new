@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import ListingGrid from '@/app/site//_components/ListingGrid'
+import ListingGrid from '@/app/site/nyc-classifieds/_components/ListingGrid'
 
 interface Listing {
   id: number

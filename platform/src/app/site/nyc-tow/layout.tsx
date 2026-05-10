@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Sora, DM_Sans, Space_Grotesk } from "next/font/google";
-import "./globals.css";
+import "@/app/globals.css";
 import { Header } from "@/app/site/nyc-tow/_components/Header";
 import { Footer } from "@/app/site/nyc-tow/_components/Footer";
 import { MobileStickyBar } from "@/app/site/nyc-tow/_components/MobileStickyBar";

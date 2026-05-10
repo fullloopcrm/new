@@ -1,8 +1,8 @@
 // @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PHONE, PHONE_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site//_data/content";
-import { SERVICES, SERVICE_CATEGORIES } from "@/app/site//_data/services";
+import { PHONE, PHONE_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/nyc-tow/_data/content";
+import { SERVICES, SERVICE_CATEGORIES } from "@/app/site/nyc-tow/_data/services";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "@/app/site/nyc-tow/_lib/schema";
 

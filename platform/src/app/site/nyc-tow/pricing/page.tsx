@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
-import { PHONE, PHONE_HREF, PRICING } from "@/app/site//_data/content";
+import { PHONE, PHONE_HREF, PRICING } from "@/app/site/nyc-tow/_data/content";
 import { JsonLd, breadcrumbSchema, SITE_URL, BRAND_NAME } from "@/app/site/nyc-tow/_lib/schema";
 
 export const metadata: Metadata = {

@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import VerifiedBadge from '@/app/site//_components/VerifiedBadge'
-import PreLaunchGate from '@/app/site//_components/PreLaunchGate'
+import VerifiedBadge from '@/app/site/nyc-classifieds/_components/VerifiedBadge'
+import PreLaunchGate from '@/app/site/nyc-classifieds/_components/PreLaunchGate'
 import { categoryBySlug } from '@/app/site/nyc-classifieds/_lib/data'
 
 interface Listing {

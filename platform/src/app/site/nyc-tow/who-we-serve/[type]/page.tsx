@@ -2,12 +2,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site//_data/content";
-import { CUSTOMER_TYPES } from "@/app/site//_data/customer-types";
-import { SERVICES } from "@/app/site//_data/services";
-import { STATES } from "@/app/site//_data/cities";
+import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/nyc-tow/_data/content";
+import { CUSTOMER_TYPES } from "@/app/site/nyc-tow/_data/customer-types";
+import { SERVICES } from "@/app/site/nyc-tow/_data/services";
+import { STATES } from "@/app/site/nyc-tow/_data/cities";
 import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
-import { customerTypeContent } from "@/app/site//_data/customer-content";
+import { customerTypeContent } from "@/app/site/nyc-tow/_data/customer-content";
 import { JsonLd, breadcrumbSchema, serviceSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export function generateStaticParams() {

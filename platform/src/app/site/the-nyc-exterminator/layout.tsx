@@ -4,7 +4,7 @@ import { Inter } from "next/font/google";
 import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import "./globals.css";
+import "@/app/globals.css";
 import Header from "@/app/site/the-nyc-exterminator/_components/Header";
 import Footer from "@/app/site/the-nyc-exterminator/_components/Footer";
 import Tracker from "@/app/site/the-nyc-exterminator/_components/Tracker";
