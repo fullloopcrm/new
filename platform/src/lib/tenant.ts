@@ -161,3 +161,13 @@ export async function getTenantByDomain(domain: string): Promise<Tenant | null> 
 
   return data
 }
+
+// Fallback tenant resolver for code paths that don't have a conversation/host
+// context (e.g. agent fallback path in src/lib/yinez/agent.ts). Throws when
+// no tenant can be inferred — that's the correct multi-tenant behavior over
+// silently leaking across tenants.
+export async function getCurrentTenantId(): Promise<string> {
+  const t = await getCurrentTenant()
+  if (!t) throw new Error('No tenant context — cannot resolve tenant id')
+  return t.id
+}
