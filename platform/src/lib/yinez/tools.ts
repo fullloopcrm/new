@@ -173,11 +173,11 @@ export async function runTool(
     case 'list_service_types':
       return await handleListServiceTypes(tid)
     case 'process_stripe_refund':
-      return await handleProcessStripeRefund(input as { booking_id: string; amount_dollars: number; reason?: string })
+      return await handleProcessStripeRefund(input as { booking_id: string; amount_dollars: number; reason?: string }, tid)
     case 'trigger_cron':
       return await handleTriggerCron(input as { name: string })
     case 'block_cleaner_dates':
-      return await handleBlockCleanerDates(input as { cleaner_id: string; from_date: string; to_date: string; reason?: string })
+      return await handleBlockCleanerDates(input as { cleaner_id: string; from_date: string; to_date: string; reason?: string }, tid)
     case 'list_skills':
       return await handleListSkills(input as { include_inactive?: boolean }, tid)
     case 'create_skill':
@@ -195,7 +195,7 @@ export async function runTool(
     case 'score_cleaners':
       return await handleScoreCleaners(input as { date: string; time: string; duration_hours: number; client_address?: string; client_id?: string; exclude_booking_id?: string; hourly_rate?: number })
     case 'get_smart_suggestion':
-      return await handleGetSmartSuggestion(input as { booking_id: string })
+      return await handleGetSmartSuggestion(input as { booking_id: string }, tid)
     default:
       return JSON.stringify({ error: `unknown tool: ${name}` })
   }
@@ -240,12 +240,13 @@ async function handleScoreCleaners(input: { date: string; time: string; duration
   })
 }
 
-async function handleGetSmartSuggestion(input: { booking_id: string }): Promise<string> {
+async function handleGetSmartSuggestion(input: { booking_id: string }, tid: string): Promise<string> {
   if (!input.booking_id) return JSON.stringify({ error: 'booking_id required' })
   const { data: booking } = await supabaseAdmin
     .from('bookings')
     .select('id, start_time, end_time, hourly_rate, status, cleaner_id, suggested_cleaner_id, suggested_reason, client_id, clients(name, address), cleaners(name)')
     .eq('id', input.booking_id)
+    .eq('tenant_id', tid)
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
 
@@ -1241,10 +1242,11 @@ async function handleListServiceTypes(tid: string): Promise<string> {
   return JSON.stringify({ count: (data || []).length, service_types: data || [] })
 }
 
-async function handleProcessStripeRefund(input: { booking_id: string; amount_dollars: number; reason?: string }): Promise<string> {
+async function handleProcessStripeRefund(input: { booking_id: string; amount_dollars: number; reason?: string }, tid: string): Promise<string> {
   const { data: payment } = await supabaseAdmin
     .from('payments')
     .select('id, stripe_payment_intent_id, amount')
+    .eq('tenant_id', tid)
     .eq('booking_id', input.booking_id)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -1260,7 +1262,7 @@ async function handleProcessStripeRefund(input: { booking_id: string; amount_dol
       reason: 'requested_by_customer',
       metadata: { booking_id: input.booking_id, note: input.reason || '' },
     })
-    await supabaseAdmin.from('bookings').update({ payment_status: 'refunded' }).eq('id', input.booking_id)
+    await supabaseAdmin.from('bookings').update({ payment_status: 'refunded' }).eq('id', input.booking_id).eq('tenant_id', tid)
     return JSON.stringify({ ok: true, refund_id: refund.id, amount: input.amount_dollars, status: refund.status })
   } catch (err) {
     return JSON.stringify({ error: err instanceof Error ? err.message : String(err) })
@@ -1281,8 +1283,9 @@ async function handleTriggerCron(input: { name: string }): Promise<string> {
   }
 }
 
-async function handleBlockCleanerDates(input: { cleaner_id: string; from_date: string; to_date: string; reason?: string }): Promise<string> {
+async function handleBlockCleanerDates(input: { cleaner_id: string; from_date: string; to_date: string; reason?: string }, tid: string): Promise<string> {
   const { error } = await supabaseAdmin.from('cleaner_blocks').insert({
+    tenant_id: tid,
     cleaner_id: input.cleaner_id,
     from_date: input.from_date,
     to_date: input.to_date,
