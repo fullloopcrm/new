@@ -1194,22 +1194,23 @@ async function handleGetQuote(input: Record<string, unknown>): Promise<string> {
 
 async function handleGetAccount(conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
 
-    const { data: client } = await supabaseAdmin.from('clients').select('name, email, phone, address, pin, created_at').eq('id', convo.client_id).single()
+    const { data: client } = await supabaseAdmin.from('clients').select('name, email, phone, address, pin, created_at').eq('id', convo.client_id).eq('tenant_id', tid).single()
     const { data: upcoming } = await supabaseAdmin.from('bookings')
       .select('id, start_time, status, service_type, hourly_rate, payment_status, cleaners(name)')
-      .eq('client_id', convo.client_id).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])
+      .eq('tenant_id', tid).eq('client_id', convo.client_id).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])
       .gte('start_time', new Date().toISOString()).order('start_time').limit(5)
     const { data: payments } = await supabaseAdmin.from('payments')
-      .select('amount, tip, method, created_at').eq('client_id', convo.client_id)
+      .select('amount, tip, method, created_at').eq('tenant_id', tid).eq('client_id', convo.client_id)
       .order('created_at', { ascending: false }).limit(5)
     const { data: memories } = await supabaseAdmin.from('yinez_memory')
-      .select('type, content').eq('client_id', convo.client_id).limit(10)
+      .select('type, content').eq('tenant_id', tid).eq('client_id', convo.client_id).limit(10)
     const { data: recurring } = await supabaseAdmin.from('recurring_schedules')
       .select('id, recurring_type, day_of_week, preferred_time, status, cleaners(name)')
-      .eq('client_id', convo.client_id).eq('status', 'active')
+      .eq('tenant_id', tid).eq('client_id', convo.client_id).eq('status', 'active')
 
     return JSON.stringify({
       client: { name: client?.name, email: client?.email, phone: client?.phone, address: client?.address, member_since: client?.created_at?.split('T')[0] },
@@ -1231,13 +1232,14 @@ async function handleGetAccount(conversationId: string): Promise<string> {
 
 async function handleUpdateAccount(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
     const field = input.field as string
     const value = input.value as string
     const allowed = ['address', 'email', 'phone', 'name']
     if (!allowed.includes(field)) return JSON.stringify({ error: `Cannot update ${field}` })
-    await supabaseAdmin.from('clients').update({ [field]: value }).eq('id', convo.client_id)
+    await supabaseAdmin.from('clients').update({ [field]: value }).eq('id', convo.client_id).eq('tenant_id', tid)
     return JSON.stringify({ success: true, message: `${field} updated to ${value}` })
   } catch (err) {
     await yinezError('update_account', err, conversationId)
@@ -1247,16 +1249,17 @@ async function handleUpdateAccount(input: Record<string, unknown>, conversationI
 
 async function handleSendPin(conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, phone').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, phone, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
-    const { data: client } = await supabaseAdmin.from('clients').select('id, pin, name, phone').eq('id', convo.client_id).single()
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const { data: client } = await supabaseAdmin.from('clients').select('id, pin, name, phone').eq('id', convo.client_id).eq('tenant_id', tid).single()
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
     // Validate PIN is 6 digits — regenerate if not
     let pin = client.pin
     if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
       pin = Math.floor(100000 + Math.random() * 900000).toString()
-      await supabaseAdmin.from('clients').update({ pin }).eq('id', client.id)
+      await supabaseAdmin.from('clients').update({ pin }).eq('id', client.id).eq('tenant_id', tid)
     }
 
     const phone = client.phone || convo.phone
@@ -1272,13 +1275,14 @@ async function handleSendPin(conversationId: string): Promise<string> {
 
 async function handleResendConfirmation(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
 
     let bookingId = input.booking_id as string | undefined
     if (!bookingId) {
       const { data: next } = await supabaseAdmin.from('bookings')
-        .select('id').eq('client_id', convo.client_id)
+        .select('id').eq('tenant_id', tid).eq('client_id', convo.client_id)
         .in('status', ['pending', 'scheduled']).gte('start_time', new Date().toISOString())
         .order('start_time').limit(1).single()
       bookingId = next?.id
@@ -1287,7 +1291,7 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
 
     const { data: booking } = await supabaseAdmin.from('bookings')
       .select('start_time, service_type, hourly_rate, clients(name, email, pin), cleaners(name)')
-      .eq('id', bookingId).single()
+      .eq('id', bookingId).eq('tenant_id', tid).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
 
     const client = booking.clients as unknown as { name: string; email: string; pin: string }
