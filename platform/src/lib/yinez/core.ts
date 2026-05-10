@@ -1437,13 +1437,14 @@ async function handleGetInvoice(input: Record<string, unknown>, conversationId: 
 
 async function handleLookupBookings(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
     const filter = (input.status_filter as string) || 'upcoming'
     const now = new Date().toISOString()
     let query = supabaseAdmin.from('bookings')
       .select('id, start_time, end_time, status, service_type, hourly_rate, price, payment_status, cleaners(name), actual_hours, recurring_type')
-      .eq('client_id', convo.client_id).order('start_time', { ascending: filter === 'upcoming' }).limit(5)
+      .eq('tenant_id', tid).eq('client_id', convo.client_id).order('start_time', { ascending: filter === 'upcoming' }).limit(5)
     if (filter === 'upcoming') query = query.gte('start_time', now).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress', 'checked_in'])
     else if (filter === 'completed') query = query.eq('status', 'completed').order('start_time', { ascending: false })
     const { data: bookings } = await query
@@ -1465,8 +1466,9 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
 async function handleRescheduleBooking(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
     const bookingId = input.booking_id as string
-    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id').eq('id', bookingId).single()
+    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, tenant_id').eq('id', bookingId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
+    const tid = (booking as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time and one-time bookings cannot be rescheduled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
@@ -1474,7 +1476,7 @@ async function handleRescheduleBooking(input: Record<string, unknown>, conversat
     if (!parsed) return JSON.stringify({ error: 'Invalid time' })
     const newStart = `${input.new_date}T${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
     const newEnd = `${input.new_date}T${(parsed.hours + 2).toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
-    await supabaseAdmin.from('bookings').update({ start_time: newStart, end_time: newEnd, notes: `Rescheduled via Yinez from ${booking.start_time.split('T')[0]}` }).eq('id', bookingId)
+    await supabaseAdmin.from('bookings').update({ start_time: newStart, end_time: newEnd, notes: `Rescheduled via Yinez from ${booking.start_time.split('T')[0]}` }).eq('id', bookingId).eq('tenant_id', tid)
     return JSON.stringify({ success: true, message: `Rescheduled to ${input.new_date} at ${input.new_time}.` })
   } catch (err) {
     await yinezError('reschedule_booking', err, conversationId)
@@ -1486,12 +1488,13 @@ async function handleCancelBooking(input: Record<string, unknown>, conversationI
   try {
     const bookingId = input.booking_id as string
     const reason = (input.reason as string) || 'Client requested'
-    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, clients(name)').eq('id', bookingId).single()
+    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, clients(name), tenant_id').eq('id', bookingId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
+    const tid = (booking as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
-    await supabaseAdmin.from('bookings').update({ status: 'cancelled', notes: `Cancelled via Yinez: ${reason}` }).eq('id', bookingId)
+    await supabaseAdmin.from('bookings').update({ status: 'cancelled', notes: `Cancelled via Yinez: ${reason}` }).eq('id', bookingId).eq('tenant_id', tid)
     const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
     await notify({ type: 'booking_cancelled', title: `Cancelled — ${clientName}`, message: `${clientName} cancelled ${booking.start_time.split('T')[0]} via SMS. Reason: ${reason}`, booking_id: bookingId }).catch(() => {})
     return JSON.stringify({ success: true })
@@ -1504,29 +1507,30 @@ async function handleCancelBooking(input: Record<string, unknown>, conversationI
 async function handleManageRecurring(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
     const action = input.action as string
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
 
     // Find their active recurring schedule
     let scheduleId = input.schedule_id as string | undefined
     if (!scheduleId) {
       const { data: schedule } = await supabaseAdmin.from('recurring_schedules')
-        .select('id').eq('client_id', convo.client_id).eq('status', 'active').limit(1).single()
+        .select('id').eq('tenant_id', tid).eq('client_id', convo.client_id).eq('status', 'active').limit(1).single()
       scheduleId = schedule?.id
     }
     if (!scheduleId) return JSON.stringify({ error: 'No active recurring schedule found' })
 
     if (action === 'pause') {
       const pauseUntil = input.pause_until as string
-      await supabaseAdmin.from('recurring_schedules').update({ status: 'paused', paused_until: pauseUntil || null }).eq('id', scheduleId)
+      await supabaseAdmin.from('recurring_schedules').update({ status: 'paused', paused_until: pauseUntil || null }).eq('id', scheduleId).eq('tenant_id', tid)
       return JSON.stringify({ success: true, message: `Recurring paused${pauseUntil ? ` until ${pauseUntil}` : ''}` })
     }
     if (action === 'resume') {
-      await supabaseAdmin.from('recurring_schedules').update({ status: 'active', paused_until: null }).eq('id', scheduleId)
+      await supabaseAdmin.from('recurring_schedules').update({ status: 'active', paused_until: null }).eq('id', scheduleId).eq('tenant_id', tid)
       return JSON.stringify({ success: true, message: 'Recurring resumed' })
     }
     if (action === 'cancel') {
-      await supabaseAdmin.from('recurring_schedules').update({ status: 'cancelled' }).eq('id', scheduleId)
+      await supabaseAdmin.from('recurring_schedules').update({ status: 'cancelled' }).eq('id', scheduleId).eq('tenant_id', tid)
       await notify({ type: 'recurring_cancelled', title: 'Recurring Cancelled', message: `Client cancelled recurring schedule via SMS` }).catch(() => {})
       return JSON.stringify({ success: true, message: 'Recurring schedule cancelled' })
     }
