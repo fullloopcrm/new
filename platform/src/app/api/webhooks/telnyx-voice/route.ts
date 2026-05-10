@@ -6,6 +6,10 @@ const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
 const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
 const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').trim()
 
+// Bind to nycmaid tenant — single Telnyx voice connection (TELNYX_VOICE_CONNECTION_ID,
+// ADMIN_RING_LIST) is nycmaid's. Other tenants need their own voice routing config.
+const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
 // Comma-separated E.164 list. We dial them one at a time, 25s each, until
 // someone picks up. If the list is exhausted with no pickup, drop the
 // caller into voicemail.
@@ -236,6 +240,7 @@ async function logVoiceMessage(opts: {
   const { data, error } = await supabaseAdmin
     .from('comhub_messages')
     .insert({
+      tenant_id: NYCMAID_TENANT_ID,
       thread_id: opts.threadId,
       contact_id: opts.contactId,
       channel: 'voice',
@@ -301,6 +306,7 @@ async function maybeSendMissedCallSMS(opts: {
 
   if (result.success) {
     await supabaseAdmin.from('comhub_missed_call_sms').insert({
+      tenant_id: NYCMAID_TENANT_ID,
       customer_phone: opts.customerPhone,
       thread_id: opts.threadId,
       active_call_id: opts.activeCallId,
@@ -466,6 +472,7 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin.from('comhub_threads').update({ unread_count: 1 }).eq('id', threadId)
 
     await supabaseAdmin.from('comhub_active_calls').insert({
+      tenant_id: NYCMAID_TENANT_ID,
       customer_call_id: callControlId,
       thread_id: threadId,
       contact_id: contactId,
