@@ -7,7 +7,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { areas } from "@/app/site/the-nyc-marketing-company/_lib/siteData";
 
-const TriStateMap = dynamic(() => import("@/app/services-areas-we-offer-marketing-services-in/TriStateMap"), {
+const TriStateMap = dynamic(() => import("@/app/site/the-nyc-marketing-company/services-areas-we-offer-marketing-services-in/TriStateMap"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-[420px] sm:h-[500px] rounded-2xl bg-slate-800 animate-pulse flex items-center justify-center">
