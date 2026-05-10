@@ -97,21 +97,21 @@ export async function runTool(
     case 'recall':
       return await handleRecall(phone, tid)
     case 'get_today_summary':
-      return await handleTodaySummary()
+      return await handleTodaySummary(tid)
     case 'get_revenue':
-      return await handleGetRevenue(String(input.period || 'today'))
+      return await handleGetRevenue(String(input.period || 'today'), tid)
     case 'lookup_client':
-      return await handleLookupClient(String(input.query || ''))
+      return await handleLookupClient(String(input.query || ''), tid)
     case 'list_bookings':
-      return await handleListBookings(input as { date?: string; from_date?: string; to_date?: string; cleaner_id?: string })
+      return await handleListBookings(input as { date?: string; from_date?: string; to_date?: string; cleaner_id?: string }, tid)
     case 'lookup_cleaner':
-      return await handleLookupCleaner(String(input.name || ''))
+      return await handleLookupCleaner(String(input.name || ''), tid)
     case 'get_outstanding_payments':
-      return await handleOutstandingPayments()
+      return await handleOutstandingPayments(tid)
     case 'get_at_risk_clients':
-      return await handleAtRiskClients()
+      return await handleAtRiskClients(tid)
     case 'search_messages':
-      return await handleSearchMessages(String(input.query || ''))
+      return await handleSearchMessages(String(input.query || ''), tid)
     case 'assign_cleaner_to_booking':
       return await handleAssignCleaner(input as { booking_id: string; cleaner_id: string })
     case 'send_message_to_client':
@@ -462,29 +462,33 @@ async function handleRecall(phone: string | null, tid: string): Promise<string> 
 
 // ── owner ops ──
 
-async function handleTodaySummary(): Promise<string> {
+async function handleTodaySummary(tid: string): Promise<string> {
   const today = ymd(new Date())
 
   const [bookingsToday, payouts, outstanding, cleanersOnDuty] = await Promise.all([
     supabaseAdmin
       .from('bookings')
       .select('id, status, hourly_rate, clients(name), cleaners(name), start_time, end_time')
+      .eq('tenant_id', tid)
       .gte('start_time', today + 'T00:00:00')
       .lt('start_time', today + 'T23:59:59')
       .order('start_time', { ascending: true }),
     supabaseAdmin
       .from('cleaner_payouts')
       .select('amount, status, cleaner_id, cleaners(name)')
+      .eq('tenant_id', tid)
       .eq('status', 'pending'),
     supabaseAdmin
       .from('bookings')
       .select('id, payment_status, hourly_rate, start_time, end_time, clients(name)')
+      .eq('tenant_id', tid)
       .eq('status', 'completed')
       .neq('payment_status', 'paid')
       .limit(50),
     supabaseAdmin
       .from('bookings')
       .select('cleaner_id, cleaners(name)')
+      .eq('tenant_id', tid)
       .gte('start_time', today + 'T00:00:00')
       .lt('start_time', today + 'T23:59:59')
       .not('cleaner_id', 'is', null),
@@ -525,12 +529,13 @@ async function handleTodaySummary(): Promise<string> {
   })
 }
 
-async function handleGetRevenue(period: string): Promise<string> {
+async function handleGetRevenue(period: string, tid: string): Promise<string> {
   const { from, to } = startOfPeriod(period)
 
   const { data: payments, error } = await supabaseAdmin
     .from('payments')
     .select('amount, tip, created_at')
+    .eq('tenant_id', tid)
     .gte('created_at', from + 'T00:00:00')
     .lte('created_at', to + 'T23:59:59')
   if (error) return JSON.stringify({ error: error.message })
@@ -548,6 +553,7 @@ async function handleGetRevenue(period: string): Promise<string> {
   const { data: yoy } = await supabaseAdmin
     .from('payments')
     .select('amount, tip')
+    .eq('tenant_id', tid)
     .gte('created_at', yoyFrom + 'T00:00:00')
     .lte('created_at', yoyTo + 'T23:59:59')
 
@@ -568,11 +574,12 @@ async function handleGetRevenue(period: string): Promise<string> {
   })
 }
 
-async function handleLookupClient(query: string): Promise<string> {
+async function handleLookupClient(query: string, tid: string): Promise<string> {
   const digits = query.replace(/\D/g, '')
   let q = supabaseAdmin
     .from('clients')
     .select('id, name, phone, email, address, status, notes, created_at, do_not_service, preferred_cleaner_id')
+    .eq('tenant_id', tid)
     .limit(5)
   if (digits.length >= 7) {
     q = q.ilike('phone', `%${digits.slice(-10)}%`)
@@ -589,17 +596,20 @@ async function handleLookupClient(query: string): Promise<string> {
         supabaseAdmin
           .from('bookings')
           .select('id, status, start_time, end_time, hourly_rate')
+          .eq('tenant_id', tid)
           .eq('client_id', c.id)
           .order('start_time', { ascending: false })
           .limit(20),
         supabaseAdmin
           .from('payments')
           .select('amount, tip')
+          .eq('tenant_id', tid)
           .eq('client_id', c.id),
         c.preferred_cleaner_id
           ? supabaseAdmin
               .from('cleaners')
               .select('name')
+              .eq('tenant_id', tid)
               .eq('id', c.preferred_cleaner_id)
               .maybeSingle()
           : Promise.resolve({ data: null }),
@@ -628,7 +638,7 @@ async function handleLookupClient(query: string): Promise<string> {
   return JSON.stringify({ matches: enriched })
 }
 
-async function handleListBookings(input: { date?: string; from_date?: string; to_date?: string; cleaner_id?: string }): Promise<string> {
+async function handleListBookings(input: { date?: string; from_date?: string; to_date?: string; cleaner_id?: string }, tid: string): Promise<string> {
   const from = input.from_date || input.date
   const to = input.to_date || input.date
   if (!from || !to) return JSON.stringify({ error: 'provide date or from_date+to_date' })
@@ -636,6 +646,7 @@ async function handleListBookings(input: { date?: string; from_date?: string; to
   let q = supabaseAdmin
     .from('bookings')
     .select('id, status, payment_status, start_time, end_time, hourly_rate, team_size, max_hours, clients(name), cleaners(name, id)')
+    .eq('tenant_id', tid)
     .gte('start_time', from + 'T00:00:00')
     .lte('start_time', to + 'T23:59:59')
     .order('start_time', { ascending: true })
@@ -652,6 +663,7 @@ async function handleListBookings(input: { date?: string; from_date?: string; to
     const { data: teamRows } = await supabaseAdmin
       .from('booking_cleaners')
       .select('booking_id, is_lead, position, cleaners(name)')
+      .eq('tenant_id', tid)
       .in('booking_id', teamBookingIds)
       .order('position', { ascending: true })
     teamMap = (teamRows || []).reduce((acc, r) => {
@@ -667,10 +679,11 @@ async function handleListBookings(input: { date?: string; from_date?: string; to
   return JSON.stringify({ count: enriched.length, bookings: enriched })
 }
 
-async function handleLookupCleaner(name: string): Promise<string> {
+async function handleLookupCleaner(name: string, tid: string): Promise<string> {
   const { data: cleaners, error } = await supabaseAdmin
     .from('cleaners')
     .select('id, name, phone, status')
+    .eq('tenant_id', tid)
     .ilike('name', `%${name}%`)
     .limit(3)
   if (error) return JSON.stringify({ error: error.message })
@@ -682,17 +695,20 @@ async function handleLookupCleaner(name: string): Promise<string> {
         supabaseAdmin
           .from('bookings')
           .select('id, start_time, end_time, status, clients(name), hourly_rate')
+          .eq('tenant_id', tid)
           .eq('cleaner_id', c.id)
           .order('start_time', { ascending: false })
           .limit(5),
         supabaseAdmin
           .from('cleaner_payouts')
           .select('amount, status')
+          .eq('tenant_id', tid)
           .eq('cleaner_id', c.id)
           .eq('status', 'pending'),
         supabaseAdmin
           .from('ratings')
           .select('cleaner_rating, service_rating, feedback, created_at')
+          .eq('tenant_id', tid)
           .eq('cleaner_id', c.id)
           .order('created_at', { ascending: false })
           .limit(10),
@@ -725,10 +741,11 @@ async function handleLookupCleaner(name: string): Promise<string> {
   return JSON.stringify({ matches: enriched })
 }
 
-async function handleOutstandingPayments(): Promise<string> {
+async function handleOutstandingPayments(tid: string): Promise<string> {
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .select('id, start_time, end_time, hourly_rate, payment_status, clients(name, phone)')
+    .eq('tenant_id', tid)
     .eq('status', 'completed')
     .neq('payment_status', 'paid')
     .order('end_time', { ascending: true })
@@ -753,7 +770,7 @@ async function handleOutstandingPayments(): Promise<string> {
   return JSON.stringify({ count: aged.length, items: aged })
 }
 
-async function handleAtRiskClients(): Promise<string> {
+async function handleAtRiskClients(tid: string): Promise<string> {
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 45)
   const cutoffISO = cutoff.toISOString()
@@ -761,6 +778,7 @@ async function handleAtRiskClients(): Promise<string> {
   const { data: clients, error } = await supabaseAdmin
     .from('clients')
     .select('id, name, phone, email, status, do_not_service')
+    .eq('tenant_id', tid)
     .neq('do_not_service', true)
     .limit(500)
   if (error) return JSON.stringify({ error: error.message })
@@ -770,6 +788,7 @@ async function handleAtRiskClients(): Promise<string> {
     const { data: lastBooking } = await supabaseAdmin
       .from('bookings')
       .select('start_time, status')
+      .eq('tenant_id', tid)
       .eq('client_id', c.id)
       .order('start_time', { ascending: false })
       .limit(1)
@@ -790,12 +809,13 @@ async function handleAtRiskClients(): Promise<string> {
   return JSON.stringify({ count: results.length, clients: results.slice(0, 50) })
 }
 
-async function handleSearchMessages(query: string): Promise<string> {
+async function handleSearchMessages(query: string, tid: string): Promise<string> {
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 30)
   const { data, error } = await supabaseAdmin
     .from('sms_conversation_messages')
     .select('conversation_id, direction, message, created_at')
+    .eq('tenant_id', tid)
     .ilike('message', `%${query}%`)
     .gte('created_at', cutoff.toISOString())
     .order('created_at', { ascending: false })
@@ -806,6 +826,7 @@ async function handleSearchMessages(query: string): Promise<string> {
   const { data: convos } = await supabaseAdmin
     .from('sms_conversations')
     .select('id, phone, client_id, clients(name)')
+    .eq('tenant_id', tid)
     .in('id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000'])
   const convoMap = new Map(
     (convos || []).map((c) => [
