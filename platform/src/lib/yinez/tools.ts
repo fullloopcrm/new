@@ -131,47 +131,47 @@ export async function runTool(
     case 'mark_payout_paid':
       return await handleMarkPayoutPaid(input as { payout_id: string }, tid)
     case 'block_client':
-      return await handleBlockClient(input as { client_id: string; reason: string })
+      return await handleBlockClient(input as { client_id: string; reason: string }, tid)
     case 'create_client':
-      return await handleCreateClient(input as { name: string; phone: string; email?: string }, conversationId)
+      return await handleCreateClient(input as { name: string; phone: string; email?: string }, conversationId, tid)
     case 'create_cleaner':
-      return await handleCreateCleaner(input as { name: string; phone: string; email?: string; zone?: string })
+      return await handleCreateCleaner(input as { name: string; phone: string; email?: string; zone?: string }, tid)
     case 'update_cleaner':
-      return await handleUpdateCleaner(input as { cleaner_id: string; fields: Record<string, unknown> })
+      return await handleUpdateCleaner(input as { cleaner_id: string; fields: Record<string, unknown> }, tid)
     case 'deactivate_cleaner':
-      return await handleDeactivateCleaner(input as { cleaner_id: string; reason?: string })
+      return await handleDeactivateCleaner(input as { cleaner_id: string; reason?: string }, tid)
     case 'list_cleaners':
-      return await handleListCleaners(input as { status?: string })
+      return await handleListCleaners(input as { status?: string }, tid)
     case 'list_recurring':
-      return await handleListRecurring(input as { client_id?: string; status?: string })
+      return await handleListRecurring(input as { client_id?: string; status?: string }, tid)
     case 'pause_recurring':
-      return await handlePauseRecurring(input as { schedule_id: string; until_date?: string })
+      return await handlePauseRecurring(input as { schedule_id: string; until_date?: string }, tid)
     case 'resume_recurring':
-      return await handleResumeRecurring(input as { schedule_id: string })
+      return await handleResumeRecurring(input as { schedule_id: string }, tid)
     case 'cancel_recurring':
-      return await handleCancelRecurring(input as { schedule_id: string; reason?: string })
+      return await handleCancelRecurring(input as { schedule_id: string; reason?: string }, tid)
     case 'list_deals':
-      return await handleListDeals(input as { stage?: string })
+      return await handleListDeals(input as { stage?: string }, tid)
     case 'create_deal':
-      return await handleCreateDeal(input as { client_id: string; value_dollars?: number; follow_up_at?: string; note?: string })
+      return await handleCreateDeal(input as { client_id: string; value_dollars?: number; follow_up_at?: string; note?: string }, tid)
     case 'update_deal':
-      return await handleUpdateDeal(input as { deal_id: string; fields: Record<string, unknown> })
+      return await handleUpdateDeal(input as { deal_id: string; fields: Record<string, unknown> }, tid)
     case 'list_notifications':
-      return await handleListNotifications(input as { type?: string; limit?: number })
+      return await handleListNotifications(input as { type?: string; limit?: number }, tid)
     case 'mark_notification_read':
-      return await handleMarkNotificationRead(input as { notification_id: string })
+      return await handleMarkNotificationRead(input as { notification_id: string }, tid)
     case 'list_cleaner_applications':
-      return await handleListCleanerApplications(input as { status?: string })
+      return await handleListCleanerApplications(input as { status?: string }, tid)
     case 'approve_cleaner_application':
-      return await handleApproveCleanerApplication(input as { application_id: string })
+      return await handleApproveCleanerApplication(input as { application_id: string }, tid)
     case 'reject_cleaner_application':
-      return await handleRejectCleanerApplication(input as { application_id: string; reason?: string })
+      return await handleRejectCleanerApplication(input as { application_id: string; reason?: string }, tid)
     case 'get_setting':
-      return await handleGetSetting(input as { key: string })
+      return await handleGetSetting(input as { key: string }, tid)
     case 'update_setting':
-      return await handleUpdateSetting(input as { key: string; value: unknown })
+      return await handleUpdateSetting(input as { key: string; value: unknown }, tid)
     case 'list_service_types':
-      return await handleListServiceTypes()
+      return await handleListServiceTypes(tid)
     case 'process_stripe_refund':
       return await handleProcessStripeRefund(input as { booking_id: string; amount_dollars: number; reason?: string })
     case 'trigger_cron':
@@ -299,7 +299,7 @@ async function handleGetBriefing(input: { since_hours?: number }, tid: string): 
     handleTodaySummary(tid),
     handleOutstandingPayments(tid),
     handleAtRiskClients(tid),
-    handleListNotifications({ limit: 15 }),
+    handleListNotifications({ limit: 15 }, tid),
     supabaseAdmin
       .from('yinez_skills')
       .select('name, when_to_use, hit_count, created_at')
@@ -1039,17 +1039,19 @@ async function handleMarkPayoutPaid(input: { payout_id: string }, tid: string): 
   return JSON.stringify({ ok: true, payout_id: input.payout_id })
 }
 
-async function handleBlockClient(input: { client_id: string; reason: string }): Promise<string> {
+async function handleBlockClient(input: { client_id: string; reason: string }, tid: string): Promise<string> {
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('notes')
     .eq('id', input.client_id)
+    .eq('tenant_id', tid)
     .maybeSingle()
   const note = `[DNS ${new Date().toISOString().slice(0, 10)} — ${input.reason}]`
   await supabaseAdmin
     .from('clients')
     .update({ do_not_service: true, notes: client?.notes ? `${client.notes}\n${note}` : note, sms_consent: false })
     .eq('id', input.client_id)
+    .eq('tenant_id', tid)
   return JSON.stringify({ ok: true, client_id: input.client_id, status: 'do_not_service' })
 }
 
@@ -1057,34 +1059,34 @@ async function handleBlockClient(input: { client_id: string; reason: string }): 
 // EXTENDED CONTROL TOOLS — cleaners, recurring, deals, settings, etc.
 // ──────────────────────────────────────────────────────────────────────────
 
-async function handleCreateCleaner(input: { name: string; phone: string; email?: string; zone?: string }): Promise<string> {
+async function handleCreateCleaner(input: { name: string; phone: string; email?: string; zone?: string }, tid: string): Promise<string> {
   const { data, error } = await supabaseAdmin
     .from('cleaners')
-    .insert({ name: input.name, phone: input.phone, email: input.email || null, zone: input.zone || null, status: 'active', sms_consent: true })
+    .insert({ tenant_id: tid, name: input.name, phone: input.phone, email: input.email || null, zone: input.zone || null, status: 'active', sms_consent: true })
     .select('id, name')
     .single()
   if (error || !data) return JSON.stringify({ error: error?.message || 'insert failed' })
   return JSON.stringify({ ok: true, cleaner_id: data.id, name: data.name })
 }
 
-async function handleUpdateCleaner(input: { cleaner_id: string; fields: Record<string, unknown> }): Promise<string> {
+async function handleUpdateCleaner(input: { cleaner_id: string; fields: Record<string, unknown> }, tid: string): Promise<string> {
   const allowed = ['name', 'phone', 'email', 'zone', 'status', 'sms_consent', 'hourly_rate', 'has_car', 'labor_only']
   const update: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(input.fields || {})) if (allowed.includes(k)) update[k] = v
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields' })
-  const { error } = await supabaseAdmin.from('cleaners').update(update).eq('id', input.cleaner_id)
+  const { error } = await supabaseAdmin.from('cleaners').update(update).eq('id', input.cleaner_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, updated_fields: Object.keys(update) })
 }
 
-async function handleDeactivateCleaner(input: { cleaner_id: string; reason?: string }): Promise<string> {
-  const { error } = await supabaseAdmin.from('cleaners').update({ status: 'inactive' }).eq('id', input.cleaner_id)
+async function handleDeactivateCleaner(input: { cleaner_id: string; reason?: string }, tid: string): Promise<string> {
+  const { error } = await supabaseAdmin.from('cleaners').update({ status: 'inactive' }).eq('id', input.cleaner_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, status: 'inactive', reason: input.reason })
 }
 
-async function handleListCleaners(input: { status?: string }): Promise<string> {
-  let q = supabaseAdmin.from('cleaners').select('id, name, phone, status, zone, hourly_rate')
+async function handleListCleaners(input: { status?: string }, tid: string): Promise<string> {
+  let q = supabaseAdmin.from('cleaners').select('id, name, phone, status, zone, hourly_rate').eq('tenant_id', tid)
   const status = input.status || 'active'
   if (status !== 'all') q = q.eq('status', status)
   const { data, error } = await q.order('name', { ascending: true }).limit(100)
@@ -1092,8 +1094,8 @@ async function handleListCleaners(input: { status?: string }): Promise<string> {
   return JSON.stringify({ count: (data || []).length, cleaners: data || [] })
 }
 
-async function handleListRecurring(input: { client_id?: string; status?: string }): Promise<string> {
-  let q = supabaseAdmin.from('recurring_schedules').select('*, clients(name)')
+async function handleListRecurring(input: { client_id?: string; status?: string }, tid: string): Promise<string> {
+  let q = supabaseAdmin.from('recurring_schedules').select('*, clients(name)').eq('tenant_id', tid)
   if (input.client_id) q = q.eq('client_id', input.client_id)
   if (input.status) q = q.eq('status', input.status)
   const { data, error } = await q.order('created_at', { ascending: false }).limit(50)
@@ -1101,35 +1103,38 @@ async function handleListRecurring(input: { client_id?: string; status?: string 
   return JSON.stringify({ count: (data || []).length, schedules: data || [] })
 }
 
-async function handlePauseRecurring(input: { schedule_id: string; until_date?: string }): Promise<string> {
+async function handlePauseRecurring(input: { schedule_id: string; until_date?: string }, tid: string): Promise<string> {
   const { error } = await supabaseAdmin
     .from('recurring_schedules')
     .update({ status: 'paused', paused_until: input.until_date || null })
     .eq('id', input.schedule_id)
+    .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, schedule_id: input.schedule_id, paused_until: input.until_date })
 }
 
-async function handleResumeRecurring(input: { schedule_id: string }): Promise<string> {
+async function handleResumeRecurring(input: { schedule_id: string }, tid: string): Promise<string> {
   const { error } = await supabaseAdmin
     .from('recurring_schedules')
     .update({ status: 'active', paused_until: null })
     .eq('id', input.schedule_id)
+    .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, schedule_id: input.schedule_id, status: 'active' })
 }
 
-async function handleCancelRecurring(input: { schedule_id: string; reason?: string }): Promise<string> {
+async function handleCancelRecurring(input: { schedule_id: string; reason?: string }, tid: string): Promise<string> {
   const { error } = await supabaseAdmin
     .from('recurring_schedules')
     .update({ status: 'cancelled' })
     .eq('id', input.schedule_id)
+    .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, schedule_id: input.schedule_id, status: 'cancelled', reason: input.reason })
 }
 
-async function handleListDeals(input: { stage?: string }): Promise<string> {
-  let q = supabaseAdmin.from('deals').select('*, clients(name, phone)')
+async function handleListDeals(input: { stage?: string }, tid: string): Promise<string> {
+  let q = supabaseAdmin.from('deals').select('*, clients(name, phone)').eq('tenant_id', tid)
   const stage = input.stage || 'active'
   if (stage !== 'all') q = q.eq('stage', stage)
   const { data, error } = await q.order('follow_up_at', { ascending: true }).limit(50)
@@ -1137,10 +1142,11 @@ async function handleListDeals(input: { stage?: string }): Promise<string> {
   return JSON.stringify({ count: (data || []).length, deals: data || [] })
 }
 
-async function handleCreateDeal(input: { client_id: string; value_dollars?: number; follow_up_at?: string; note?: string }): Promise<string> {
+async function handleCreateDeal(input: { client_id: string; value_dollars?: number; follow_up_at?: string; note?: string }, tid: string): Promise<string> {
   const { data, error } = await supabaseAdmin
     .from('deals')
     .insert({
+      tenant_id: tid,
       client_id: input.client_id,
       value: input.value_dollars ? Math.round(input.value_dollars * 100) : null,
       stage: 'active',
@@ -1153,7 +1159,7 @@ async function handleCreateDeal(input: { client_id: string; value_dollars?: numb
   return JSON.stringify({ ok: true, deal_id: data.id })
 }
 
-async function handleUpdateDeal(input: { deal_id: string; fields: Record<string, unknown> }): Promise<string> {
+async function handleUpdateDeal(input: { deal_id: string; fields: Record<string, unknown> }, tid: string): Promise<string> {
   const allowed = ['stage', 'value_dollars', 'follow_up_at', 'follow_up_note', 'notes']
   const update: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(input.fields || {})) {
@@ -1164,27 +1170,27 @@ async function handleUpdateDeal(input: { deal_id: string; fields: Record<string,
     }
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields' })
-  const { error } = await supabaseAdmin.from('deals').update(update).eq('id', input.deal_id)
+  const { error } = await supabaseAdmin.from('deals').update(update).eq('id', input.deal_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, deal_id: input.deal_id, updated_fields: Object.keys(update) })
 }
 
-async function handleListNotifications(input: { type?: string; limit?: number }): Promise<string> {
-  let q = supabaseAdmin.from('notifications').select('id, type, title, message, booking_id, created_at, read').order('created_at', { ascending: false }).limit(Math.min(input.limit || 20, 100))
+async function handleListNotifications(input: { type?: string; limit?: number }, tid: string): Promise<string> {
+  let q = supabaseAdmin.from('notifications').select('id, type, title, message, booking_id, created_at, read').eq('tenant_id', tid).order('created_at', { ascending: false }).limit(Math.min(input.limit || 20, 100))
   if (input.type) q = q.eq('type', input.type)
   const { data, error } = await q
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ count: (data || []).length, notifications: data || [] })
 }
 
-async function handleMarkNotificationRead(input: { notification_id: string }): Promise<string> {
-  const { error } = await supabaseAdmin.from('notifications').update({ read: true }).eq('id', input.notification_id)
+async function handleMarkNotificationRead(input: { notification_id: string }, tid: string): Promise<string> {
+  const { error } = await supabaseAdmin.from('notifications').update({ read: true }).eq('id', input.notification_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, notification_id: input.notification_id })
 }
 
-async function handleListCleanerApplications(input: { status?: string }): Promise<string> {
-  let q = supabaseAdmin.from('cleaner_applications').select('*')
+async function handleListCleanerApplications(input: { status?: string }, tid: string): Promise<string> {
+  let q = supabaseAdmin.from('cleaner_applications').select('*').eq('tenant_id', tid)
   const status = input.status || 'pending'
   if (status !== 'all') q = q.eq('status', status)
   const { data, error } = await q.order('created_at', { ascending: false }).limit(50)
@@ -1192,44 +1198,45 @@ async function handleListCleanerApplications(input: { status?: string }): Promis
   return JSON.stringify({ count: (data || []).length, applications: data || [] })
 }
 
-async function handleApproveCleanerApplication(input: { application_id: string }): Promise<string> {
-  const { data: app } = await supabaseAdmin.from('cleaner_applications').select('*').eq('id', input.application_id).maybeSingle()
+async function handleApproveCleanerApplication(input: { application_id: string }, tid: string): Promise<string> {
+  const { data: app } = await supabaseAdmin.from('cleaner_applications').select('*').eq('id', input.application_id).eq('tenant_id', tid).maybeSingle()
   if (!app) return JSON.stringify({ error: 'application not found' })
   // Create cleaner record from application
   const { data: cleaner, error: cErr } = await supabaseAdmin
     .from('cleaners')
-    .insert({ name: app.name, phone: app.phone, email: app.email || null, zone: app.zone || null, status: 'active', sms_consent: true })
+    .insert({ tenant_id: tid, name: app.name, phone: app.phone, email: app.email || null, zone: app.zone || null, status: 'active', sms_consent: true })
     .select('id')
     .single()
   if (cErr || !cleaner) return JSON.stringify({ error: cErr?.message || 'cleaner insert failed' })
-  await supabaseAdmin.from('cleaner_applications').update({ status: 'approved', approved_at: new Date().toISOString(), cleaner_id: cleaner.id }).eq('id', input.application_id)
+  await supabaseAdmin.from('cleaner_applications').update({ status: 'approved', approved_at: new Date().toISOString(), cleaner_id: cleaner.id }).eq('id', input.application_id).eq('tenant_id', tid)
   return JSON.stringify({ ok: true, application_id: input.application_id, cleaner_id: cleaner.id })
 }
 
-async function handleRejectCleanerApplication(input: { application_id: string; reason?: string }): Promise<string> {
+async function handleRejectCleanerApplication(input: { application_id: string; reason?: string }, tid: string): Promise<string> {
   const { error } = await supabaseAdmin
     .from('cleaner_applications')
     .update({ status: 'rejected', rejected_reason: input.reason || null, rejected_at: new Date().toISOString() })
     .eq('id', input.application_id)
+    .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, application_id: input.application_id })
 }
 
-async function handleGetSetting(input: { key: string }): Promise<string> {
-  const { data, error } = await supabaseAdmin.from('settings').select('*').eq('key', input.key).maybeSingle()
+async function handleGetSetting(input: { key: string }, tid: string): Promise<string> {
+  const { data, error } = await supabaseAdmin.from('settings').select('*').eq('tenant_id', tid).eq('key', input.key).maybeSingle()
   if (error) return JSON.stringify({ error: error.message })
   if (!data) return JSON.stringify({ error: 'setting not found', key: input.key })
   return JSON.stringify({ key: data.key, value: data.value, updated_at: data.updated_at })
 }
 
-async function handleUpdateSetting(input: { key: string; value: unknown }): Promise<string> {
-  const { error } = await supabaseAdmin.from('settings').upsert({ key: input.key, value: input.value, updated_at: new Date().toISOString() })
+async function handleUpdateSetting(input: { key: string; value: unknown }, tid: string): Promise<string> {
+  const { error } = await supabaseAdmin.from('settings').upsert({ tenant_id: tid, key: input.key, value: input.value, updated_at: new Date().toISOString() })
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, key: input.key })
 }
 
-async function handleListServiceTypes(): Promise<string> {
-  const { data, error } = await supabaseAdmin.from('service_types').select('*').order('name', { ascending: true })
+async function handleListServiceTypes(tid: string): Promise<string> {
+  const { data, error } = await supabaseAdmin.from('service_types').select('*').eq('tenant_id', tid).order('name', { ascending: true })
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ count: (data || []).length, service_types: data || [] })
 }
@@ -1285,7 +1292,7 @@ async function handleBlockCleanerDates(input: { cleaner_id: string; from_date: s
   return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, from_date: input.from_date, to_date: input.to_date })
 }
 
-async function handleCreateClient(input: { name: string; phone: string; email?: string }, conversationId: string): Promise<string> {
+async function handleCreateClient(input: { name: string; phone: string; email?: string }, conversationId: string, tid: string): Promise<string> {
   const digits = input.phone.replace(/\D/g, '')
   const last10 = digits.slice(-10)
   if (last10.length !== 10) return JSON.stringify({ error: 'invalid phone' })
@@ -1296,23 +1303,24 @@ async function handleCreateClient(input: { name: string; phone: string; email?: 
   const { data: existing } = await supabaseAdmin
     .from('clients')
     .select('id, name')
+    .eq('tenant_id', tid)
     .ilike('phone', `%${last10}%`)
     .maybeSingle()
   if (existing?.id) {
-    await supabaseAdmin.from('sms_conversations').update({ client_id: existing.id }).eq('id', conversationId)
+    await supabaseAdmin.from('sms_conversations').update({ client_id: existing.id }).eq('id', conversationId).eq('tenant_id', tid)
     return JSON.stringify({ ok: true, client_id: existing.id, name: existing.name, note: 'already existed; linked conversation' })
   }
 
   const pin = Math.floor(100000 + Math.random() * 900000).toString()
   const { data: client, error } = await supabaseAdmin
     .from('clients')
-    .insert({ name: input.name, phone, email: input.email || null, status: 'potential', pin })
+    .insert({ tenant_id: tid, name: input.name, phone, email: input.email || null, status: 'potential', pin })
     .select('id')
     .single()
   if (error || !client) return JSON.stringify({ error: error?.message || 'insert failed' })
 
   // Link this conversation to the new client so the transcript appears in their feed
-  await supabaseAdmin.from('sms_conversations').update({ client_id: client.id, name: input.name, phone }).eq('id', conversationId)
+  await supabaseAdmin.from('sms_conversations').update({ client_id: client.id, name: input.name, phone }).eq('id', conversationId).eq('tenant_id', tid)
 
   return JSON.stringify({ ok: true, client_id: client.id, name: input.name, pin })
 }
