@@ -91,6 +91,10 @@ const isPublicRoute = createRouteMatcher([
   '/api/requests',            // Partnership form submissions
   '/api/feedback',            // Feedback form submissions
   '/api/chat',                // Public web chat for tenant sites
+  '/api/yinez(.*)',           // Public Yinez agent chat endpoint
+  '/api/admin-chat(.*)',      // Admin chat (Yinez owner-side) uses admin PIN auth
+  '/api/auth(.*)',            // Ported nycmaid cookie/bcrypt auth endpoints
+  '/api/client-analytics(.*)', // Client analytics admin endpoint (admin PIN gated in route)
   '/api/selena(.*)',          // Selena API routes
   '/api/tenant-sitemap',       // Tenant sitemap endpoint
   '/sitemap.xml',             // Sitemap
