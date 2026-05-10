@@ -609,6 +609,26 @@ export async function askYinez(channel: Channel, message: string, conversationId
     // fall back to current tenant (nycmaid) if the conversation row hasn't been
     // tagged yet. Phase 3.2: every downstream tool query gains .eq('tenant_id', tenantId).
     const tenantId = await resolveTenantForConversation(conversationId)
+
+    // Phase 3.2 safety guard. Yinez's tool handlers (core.ts, tools.ts) have
+    // 87 supabase queries that don't yet filter by tenant_id. For non-nycmaid
+    // tenants, those queries would either return nycmaid data (today, since
+    // nycmaid is the only populated tenant) or cross-tenant data (once other
+    // tenants populate their tables). Until the handler-level sweep ships,
+    // refuse non-nycmaid tenants explicitly rather than silently leak.
+    if (tenantId !== NYCMAID_TENANT_ID) {
+      const owner = process.env.OWNER_EMAIL || 'support'
+      result.text = `This service is being prepared for your account — please contact ${owner} for help.`
+      // Telegram + admin-chat channels are owner-side; let those through even
+      // for non-nycmaid because the owner debugging their own tenant config
+      // shouldn't get this stub message.
+      if (channel === 'telegram' || channel === 'email') {
+        // fall through — owner-side channels are not exposed to client data
+      } else {
+        return result
+      }
+    }
+
     const brandOverride = await buildBrandOverride(tenantId)
     const context = await loadContext(lookupPhone, conversationId)
     const ctxBlock = ctx ? buildCtxBlock(ctx) : ''
