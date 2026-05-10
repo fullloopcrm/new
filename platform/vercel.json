@@ -91,6 +91,26 @@
     {
       "path": "/api/cron/comms-monitor",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/rating-prompt",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/confirmation-reminder",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/phone-fixup",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-job-postings",
+      "schedule": "0 3 */15 * *"
+    },
+    {
+      "path": "/api/cron/comhub-email",
+      "schedule": "*/2 * * * *"
     }
   ]
 }
