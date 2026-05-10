@@ -767,18 +767,19 @@ export async function extractAndSave(
     await updateChecklist(conversationId, extracted)
 
     const { data: convo } = await supabaseAdmin
-      .from('sms_conversations').select('client_id').eq('id', conversationId).single()
+      .from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
     if (convo?.client_id) {
       const clientUpdate: Record<string, unknown> = {}
       if (extracted.phone) clientUpdate.phone = extracted.phone
       if (extracted.address) clientUpdate.address = extracted.address
       if (extracted.email) clientUpdate.email = extracted.email
       if (extracted.notes && extracted.notes !== 'none') {
-        const { data: c } = await supabaseAdmin.from('clients').select('notes').eq('id', convo.client_id).single()
+        const { data: c } = await supabaseAdmin.from('clients').select('notes').eq('id', convo.client_id).eq('tenant_id', tid).single()
         clientUpdate.notes = c?.notes ? `${c.notes}\n${extracted.notes}` : extracted.notes
       }
       if (Object.keys(clientUpdate).length > 0) {
-        await supabaseAdmin.from('clients').update(clientUpdate).eq('id', convo.client_id)
+        await supabaseAdmin.from('clients').update(clientUpdate).eq('id', convo.client_id).eq('tenant_id', tid)
       }
     }
 
@@ -790,7 +791,7 @@ export async function extractAndSave(
     if (extracted.date) convoUpdate.preferred_date = extracted.date
     if (extracted.time) convoUpdate.preferred_time = extracted.time
     if (Object.keys(convoUpdate).length > 1) {
-      await supabaseAdmin.from('sms_conversations').update(convoUpdate).eq('id', conversationId)
+      await supabaseAdmin.from('sms_conversations').update(convoUpdate).eq('id', conversationId).eq('tenant_id', tid)
     }
   }
 
@@ -800,10 +801,11 @@ export async function extractAndSave(
 async function createOrLinkClient(name: string, conversationId: string): Promise<void> {
   try {
     const { data: convo } = await supabaseAdmin
-      .from('sms_conversations').select('phone, client_id').eq('id', conversationId).single()
+      .from('sms_conversations').select('phone, client_id, tenant_id').eq('id', conversationId).single()
+    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
 
     if (convo?.client_id) {
-      await supabaseAdmin.from('clients').update({ name }).eq('id', convo.client_id)
+      await supabaseAdmin.from('clients').update({ name }).eq('id', convo.client_id).eq('tenant_id', tid)
       return
     }
 
@@ -814,25 +816,25 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
 
     if (cleanPhone.length >= 7 && !phone.startsWith('web-')) {
       const { data: existing } = await supabaseAdmin.from('clients')
-        .select('id').ilike('phone', `%${cleanPhone.slice(-10)}%`).limit(1)
+        .select('id').eq('tenant_id', tid).ilike('phone', `%${cleanPhone.slice(-10)}%`).limit(1)
       if (existing && existing.length > 0) {
-        await supabaseAdmin.from('clients').update({ name }).eq('id', existing[0].id)
+        await supabaseAdmin.from('clients').update({ name }).eq('id', existing[0].id).eq('tenant_id', tid)
         await supabaseAdmin.from('sms_conversations')
           .update({ client_id: existing[0].id, name, phone, updated_at: new Date().toISOString() })
-          .eq('id', conversationId)
+          .eq('id', conversationId).eq('tenant_id', tid)
         return
       }
     }
 
     const { data: client } = await supabaseAdmin
-      .from('clients').insert({ name, phone, status: 'potential', pin: Math.floor(100000 + Math.random() * 900000).toString() }).select('id').single()
+      .from('clients').insert({ tenant_id: tid, name, phone, status: 'potential', pin: Math.floor(100000 + Math.random() * 900000).toString() }).select('id').single()
 
     if (client) {
       const { createPrimaryContact } = await import('@/lib/nycmaid/client-contacts')
       await createPrimaryContact(client.id, { name, phone }).catch(() => {})
       await supabaseAdmin.from('sms_conversations')
         .update({ client_id: client.id, name, phone, updated_at: new Date().toISOString() })
-        .eq('id', conversationId)
+        .eq('id', conversationId).eq('tenant_id', tid)
     }
   } catch (err) {
     await yinezError('createOrLinkClient', err, conversationId)
@@ -1531,10 +1533,11 @@ async function handleReportIssue(input: Record<string, unknown>, conversationId:
   try {
     const description = input.description as string
     const severity = (input.severity as string) || 'medium'
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, name, phone').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, name, phone, tenant_id').eq('id', conversationId).single()
+    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
 
     await supabaseAdmin.from('yinez_memory').insert({
-      client_id: convo?.client_id || null, type: 'issue', content: description, source: 'yinez',
+      tenant_id: tid, client_id: convo?.client_id || null, type: 'issue', content: description, source: 'yinez',
     })
 
     await notify({
@@ -1731,8 +1734,10 @@ async function handleRemember(input: Record<string, unknown>, conversationId: st
       // accept the data and normalize than to throw and lose the lesson.
       type = 'observation'
     }
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
     await supabaseAdmin.from('yinez_memory').insert({
+      tenant_id: tid,
       client_id: convo?.client_id || null,
       type,
       content: input.content as string,
