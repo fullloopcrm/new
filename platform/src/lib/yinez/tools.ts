@@ -113,23 +113,23 @@ export async function runTool(
     case 'search_messages':
       return await handleSearchMessages(String(input.query || ''), tid)
     case 'assign_cleaner_to_booking':
-      return await handleAssignCleaner(input as { booking_id: string; cleaner_id: string })
+      return await handleAssignCleaner(input as { booking_id: string; cleaner_id: string }, tid)
     case 'send_message_to_client':
-      return await handleSendToClient(input as { client_id: string; message: string; channel?: 'sms' | 'email' })
+      return await handleSendToClient(input as { client_id: string; message: string; channel?: 'sms' | 'email' }, tid)
     case 'send_message_to_cleaner':
-      return await handleSendToCleaner(input as { cleaner_id: string; message: string })
+      return await handleSendToCleaner(input as { cleaner_id: string; message: string }, tid)
     case 'send_broadcast':
-      return await handleBroadcast(input as { audience: 'all_clients' | 'recurring_clients' | 'all_cleaners'; message: string })
+      return await handleBroadcast(input as { audience: 'all_clients' | 'recurring_clients' | 'all_cleaners'; message: string }, tid)
     case 'create_manual_booking':
-      return await handleCreateManualBooking(input as { client_id: string; date: string; time: string; service_type: string; hourly_rate: number; estimated_hours: number; cleaner_id?: string })
+      return await handleCreateManualBooking(input as { client_id: string; date: string; time: string; service_type: string; hourly_rate: number; estimated_hours: number; cleaner_id?: string }, tid)
     case 'update_booking':
-      return await handleUpdateBooking(input as { booking_id: string; fields: Record<string, unknown> })
+      return await handleUpdateBooking(input as { booking_id: string; fields: Record<string, unknown> }, tid)
     case 'approve_refund':
-      return await handleApproveRefund(input as { booking_id: string; amount_dollars: number; reason: string })
+      return await handleApproveRefund(input as { booking_id: string; amount_dollars: number; reason: string }, tid)
     case 'mark_payment_received':
-      return await handleMarkPaymentReceived(input as { booking_id: string; amount_dollars: number; method: string })
+      return await handleMarkPaymentReceived(input as { booking_id: string; amount_dollars: number; method: string }, tid)
     case 'mark_payout_paid':
-      return await handleMarkPayoutPaid(input as { payout_id: string })
+      return await handleMarkPayoutPaid(input as { payout_id: string }, tid)
     case 'block_client':
       return await handleBlockClient(input as { client_id: string; reason: string })
     case 'create_client':
@@ -853,20 +853,22 @@ async function handleSearchMessages(query: string, tid: string): Promise<string>
 // CONTROL TOOLS — destructive, owner-only intent
 // ──────────────────────────────────────────────────────────────────────────
 
-async function handleAssignCleaner(input: { booking_id: string; cleaner_id: string }): Promise<string> {
+async function handleAssignCleaner(input: { booking_id: string; cleaner_id: string }, tid: string): Promise<string> {
   const { error } = await supabaseAdmin
     .from('bookings')
     .update({ cleaner_id: input.cleaner_id, status: 'scheduled' })
     .eq('id', input.booking_id)
+    .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, booking_id: input.booking_id, cleaner_id: input.cleaner_id })
 }
 
-async function handleSendToClient(input: { client_id: string; message: string; channel?: 'sms' | 'email' }): Promise<string> {
+async function handleSendToClient(input: { client_id: string; message: string; channel?: 'sms' | 'email' }, tid: string): Promise<string> {
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('id, name, phone, email')
     .eq('id', input.client_id)
+    .eq('tenant_id', tid)
     .maybeSingle()
   if (!client) return JSON.stringify({ error: 'client not found' })
 
@@ -884,30 +886,32 @@ async function handleSendToClient(input: { client_id: string; message: string; c
   return JSON.stringify({ error: 'unknown channel' })
 }
 
-async function handleSendToCleaner(input: { cleaner_id: string; message: string }): Promise<string> {
+async function handleSendToCleaner(input: { cleaner_id: string; message: string }, tid: string): Promise<string> {
   const { data: cleaner } = await supabaseAdmin
     .from('cleaners')
     .select('id, name, phone')
     .eq('id', input.cleaner_id)
+    .eq('tenant_id', tid)
     .maybeSingle()
   if (!cleaner?.phone) return JSON.stringify({ error: 'cleaner not found or no phone' })
   const r = await sendSMS(cleaner.phone, input.message, { skipConsent: true, smsType: 'admin_to_cleaner', recipientType: 'cleaner', recipientId: cleaner.id })
   return JSON.stringify({ ok: true, sent_to: cleaner.name, result: r })
 }
 
-async function handleBroadcast(input: { audience: 'all_clients' | 'recurring_clients' | 'all_cleaners'; message: string }): Promise<string> {
+async function handleBroadcast(input: { audience: 'all_clients' | 'recurring_clients' | 'all_cleaners'; message: string }, tid: string): Promise<string> {
   let phones: string[] = []
   if (input.audience === 'all_clients') {
-    const { data } = await supabaseAdmin.from('clients').select('phone, sms_consent, do_not_service')
+    const { data } = await supabaseAdmin.from('clients').select('phone, sms_consent, do_not_service').eq('tenant_id', tid)
     phones = (data || []).filter((c) => c.phone && c.sms_consent && !c.do_not_service).map((c) => c.phone as string)
   } else if (input.audience === 'recurring_clients') {
     const { data } = await supabaseAdmin
       .from('clients')
       .select('phone, sms_consent, do_not_service, status')
+      .eq('tenant_id', tid)
       .eq('status', 'active')
     phones = (data || []).filter((c) => c.phone && c.sms_consent && !c.do_not_service).map((c) => c.phone as string)
   } else if (input.audience === 'all_cleaners') {
-    const { data } = await supabaseAdmin.from('cleaners').select('phone, sms_consent').eq('sms_consent', true)
+    const { data } = await supabaseAdmin.from('cleaners').select('phone, sms_consent').eq('tenant_id', tid).eq('sms_consent', true)
     phones = (data || []).filter((c) => c.phone).map((c) => c.phone as string)
   } else {
     return JSON.stringify({ error: 'unknown audience' })
@@ -926,7 +930,7 @@ async function handleBroadcast(input: { audience: 'all_clients' | 'recurring_cli
   return JSON.stringify({ ok: true, audience: input.audience, recipients: phones.length, sent, failed })
 }
 
-async function handleCreateManualBooking(input: { client_id: string; date: string; time: string; service_type: string; hourly_rate: number; estimated_hours: number; cleaner_id?: string }): Promise<string> {
+async function handleCreateManualBooking(input: { client_id: string; date: string; time: string; service_type: string; hourly_rate: number; estimated_hours: number; cleaner_id?: string }, tid: string): Promise<string> {
   const startISO = `${input.date}T${parseTimeToISO(input.time)}`
   const startMs = new Date(startISO).getTime()
   const endISO = new Date(startMs + Math.round((input.estimated_hours || 2) * 3_600_000)).toISOString()
@@ -936,6 +940,7 @@ async function handleCreateManualBooking(input: { client_id: string; date: strin
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .insert({
+      tenant_id: tid,
       client_id: input.client_id,
       cleaner_id: null,
       suggested_cleaner_id: input.cleaner_id || null,
@@ -966,7 +971,7 @@ function parseTimeToISO(t: string): string {
   return `${h.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}:00`
 }
 
-async function handleUpdateBooking(input: { booking_id: string; fields: Record<string, unknown> }): Promise<string> {
+async function handleUpdateBooking(input: { booking_id: string; fields: Record<string, unknown> }, tid: string): Promise<string> {
   // Whitelist mutable fields
   const allowed = ['status', 'payment_status', 'cleaner_id', 'hourly_rate', 'start_time', 'end_time', 'notes', 'service_type']
   const update: Record<string, unknown> = {}
@@ -974,17 +979,18 @@ async function handleUpdateBooking(input: { booking_id: string; fields: Record<s
     if (allowed.includes(k)) update[k] = v
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })
-  const { error } = await supabaseAdmin.from('bookings').update(update).eq('id', input.booking_id)
+  const { error } = await supabaseAdmin.from('bookings').update(update).eq('id', input.booking_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, booking_id: input.booking_id, updated_fields: Object.keys(update) })
 }
 
-async function handleApproveRefund(input: { booking_id: string; amount_dollars: number; reason: string }): Promise<string> {
+async function handleApproveRefund(input: { booking_id: string; amount_dollars: number; reason: string }, tid: string): Promise<string> {
   // Don't actually issue Stripe refund here — that's a separate step. Just record approval.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
     .select('id, client_id, payment_status, notes')
     .eq('id', input.booking_id)
+    .eq('tenant_id', tid)
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
 
@@ -993,38 +999,42 @@ async function handleApproveRefund(input: { booking_id: string; amount_dollars: 
     .from('bookings')
     .update({ notes: booking.notes ? `${booking.notes}\n${note}` : note, payment_status: 'refund_pending' })
     .eq('id', input.booking_id)
+    .eq('tenant_id', tid)
 
   await notify({ type: 'refund_approved', title: `Refund approved — $${input.amount_dollars}`, message: `Booking ${input.booking_id}: ${input.reason}`, booking_id: input.booking_id }).catch(() => {})
   await smsAdmins(`✓ Refund approved: $${input.amount_dollars} for booking ${input.booking_id}. Reason: ${input.reason}. Process in Stripe.`).catch(() => {})
   return JSON.stringify({ ok: true, status: 'refund_approved_pending_processing', amount: input.amount_dollars })
 }
 
-async function handleMarkPaymentReceived(input: { booking_id: string; amount_dollars: number; method: string }): Promise<string> {
+async function handleMarkPaymentReceived(input: { booking_id: string; amount_dollars: number; method: string }, tid: string): Promise<string> {
   const cents = Math.round(input.amount_dollars * 100)
   const { data: booking } = await supabaseAdmin
     .from('bookings')
     .select('id, client_id')
     .eq('id', input.booking_id)
+    .eq('tenant_id', tid)
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
 
   await supabaseAdmin.from('payments').insert({
+    tenant_id: tid,
     booking_id: input.booking_id,
     client_id: booking.client_id,
     amount: cents,
     method: input.method,
     status: 'received',
   })
-  await supabaseAdmin.from('bookings').update({ payment_status: 'paid', payment_received_at: new Date().toISOString() }).eq('id', input.booking_id)
+  await supabaseAdmin.from('bookings').update({ payment_status: 'paid', payment_received_at: new Date().toISOString() }).eq('id', input.booking_id).eq('tenant_id', tid)
 
   return JSON.stringify({ ok: true, booking_id: input.booking_id, amount: input.amount_dollars, method: input.method })
 }
 
-async function handleMarkPayoutPaid(input: { payout_id: string }): Promise<string> {
+async function handleMarkPayoutPaid(input: { payout_id: string }, tid: string): Promise<string> {
   const { error } = await supabaseAdmin
     .from('cleaner_payouts')
     .update({ status: 'paid', paid_at: new Date().toISOString() })
     .eq('id', input.payout_id)
+    .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, payout_id: input.payout_id })
 }
