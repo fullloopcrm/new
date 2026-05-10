@@ -94,16 +94,19 @@ function getClient(): Anthropic {
 // CLEANER DETECTION — Check if this phone belongs to staff, not a client
 // ════════════════════════════════════════════════════════════════════════════
 
-export async function isCleanerPhone(phone: string): Promise<{ isCleaner: boolean; name?: string }> {
+export async function isCleanerPhone(phone: string, tenantId?: string): Promise<{ isCleaner: boolean; name?: string }> {
   const cleanPhone = phone.replace(/\D/g, '').slice(-10)
   if (!cleanPhone || cleanPhone.length < 7) return { isCleaner: false }
 
-  const { data } = await supabaseAdmin
+  let q = supabaseAdmin
     .from('cleaners')
     .select('name')
     .eq('active', true)
     .ilike('phone', `%${cleanPhone}%`)
     .limit(1)
+  if (tenantId) q = q.eq('tenant_id', tenantId)
+
+  const { data } = await q
 
   if (data && data.length > 0) return { isCleaner: true, name: data[0].name }
   return { isCleaner: false }
@@ -1156,11 +1159,12 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
 
 async function handleAddToWaitlist(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, phone, name, booking_checklist').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, phone, name, booking_checklist, tenant_id').eq('id', conversationId).single()
+    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
     await supabaseAdmin.from('sms_conversations').update({
       outcome: 'waitlisted', updated_at: new Date().toISOString(),
       summary: `Waitlisted for ${input.preferred_date}${input.preferred_time ? ' ' + input.preferred_time : ''}`,
-    }).eq('id', conversationId)
+    }).eq('id', conversationId).eq('tenant_id', tid)
     await notify({ type: 'waitlist', title: 'New Waitlist', message: `${convo?.name || convo?.phone || 'Client'} waitlisted for ${input.preferred_date}` }).catch(() => {})
     return JSON.stringify({ success: true })
   } catch (err) {
@@ -1567,11 +1571,12 @@ async function handleReportIssue(input: Record<string, unknown>, conversationId:
 async function handleRequestCallback(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
     const reason = (input.reason as string) || 'Client requested callback'
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, name, phone').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, name, phone, tenant_id').eq('id', conversationId).single()
+    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
 
     // Get last few messages for context
     const { data: msgs } = await supabaseAdmin.from('sms_conversation_messages')
-      .select('direction, message').eq('conversation_id', conversationId)
+      .select('direction, message').eq('tenant_id', tid).eq('conversation_id', conversationId)
       .order('created_at', { ascending: false }).limit(10)
     const context = (msgs || []).reverse().map(m => `${m.direction === 'inbound' ? 'Client' : 'Yinez'}: ${m.message}`).join('\n')
 
@@ -1584,6 +1589,7 @@ async function handleRequestCallback(input: Record<string, unknown>, conversatio
       .from('sms_conversations')
       .update({ escalation_locked_until: lockUntil })
       .eq('id', conversationId)
+      .eq('tenant_id', tid)
       .then(() => {}, () => {})
 
     await notify({
@@ -1601,14 +1607,15 @@ async function handleRequestCallback(input: Record<string, unknown>, conversatio
 
 export async function handleBookingDetails(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
 
     let bookingId = input.booking_id as string | undefined
     if (!bookingId) {
       // Get most recent completed or in-progress booking
       const { data: recent } = await supabaseAdmin.from('bookings')
-        .select('id').eq('client_id', convo.client_id)
+        .select('id').eq('tenant_id', tid).eq('client_id', convo.client_id)
         .in('status', ['completed', 'in_progress', 'checked_in'])
         .order('start_time', { ascending: false }).limit(1).single()
       bookingId = recent?.id
@@ -1616,7 +1623,7 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
     if (!bookingId) {
       // Try any booking
       const { data: any } = await supabaseAdmin.from('bookings')
-        .select('id').eq('client_id', convo.client_id)
+        .select('id').eq('tenant_id', tid).eq('client_id', convo.client_id)
         .order('start_time', { ascending: false }).limit(1).single()
       bookingId = any?.id
     }
@@ -1624,7 +1631,7 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
 
     const { data: booking } = await supabaseAdmin.from('bookings')
       .select('id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, actual_hours, hourly_rate, price, cleaner_pay, payment_status, payment_method, status, service_type, cleaners(name), clients(name, address)')
-      .eq('id', bookingId).single()
+      .eq('id', bookingId).eq('tenant_id', tid).single()
 
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
 
@@ -1683,6 +1690,7 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
     // Get payment records
     const { data: payments } = await supabaseAdmin.from('payments')
       .select('amount, tip, method, created_at')
+      .eq('tenant_id', tid)
       .eq('booking_id', bookingId)
       .order('created_at', { ascending: false })
       .limit(3)
