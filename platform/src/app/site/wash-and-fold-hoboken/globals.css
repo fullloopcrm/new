@@ -1,0 +1,3 @@
+/* @ts-nocheck — minimal brand stub for wash-and-fold-hoboken. Replace with real theme tokens. */
+@import "../../globals.css";
+:root { --brand-accent: #3b82f6; }
