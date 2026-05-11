@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { homepageColumns, mobileHomepageColumns, boroughs, slugify, findNeighborhood } from '@/lib/data'
+import { homepageColumns, mobileHomepageColumns, boroughs, slugify, findNeighborhood } from '@/app/site/nyc-classifieds/_lib/data'
 
 function useIsMobile(breakpoint = 768) {
   const [mobile, setMobile] = useState(false)

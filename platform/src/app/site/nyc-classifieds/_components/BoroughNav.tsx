@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { boroughs, neighborhoodSlug, findNeighborhood } from '@/lib/data'
+import { boroughs, neighborhoodSlug, findNeighborhood } from '@/app/site/nyc-classifieds/_lib/data'
 
 interface PendingSelection {
   boroughSlug: string

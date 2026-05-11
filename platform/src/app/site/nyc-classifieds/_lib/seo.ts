@@ -24,3 +24,18 @@ export function buildMetadata(opts?: { title?: string; description?: string; pat
     description: opts?.description || SITE_NAME,
   }
 }
+
+export const articleSchema = (..._args: unknown[]) => ({ '@context': 'https://schema.org', '@type': 'Article' })
+export const placeSchema = (..._args: unknown[]) => ({ '@context': 'https://schema.org', '@type': 'Place' })
+
+export function getCategorySeo(_args?: Record<string, unknown>): { title: string; description: string; h1?: string } {
+  return { title: SITE_NAME, description: SITE_NAME }
+}
+
+export function getLongTailH1(_args?: Record<string, unknown>): string {
+  return SITE_NAME
+}
+
+export function getSecondarySchemas(..._args: unknown[]): unknown[] {
+  return []
+}

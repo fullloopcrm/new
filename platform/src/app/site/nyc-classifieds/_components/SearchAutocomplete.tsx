@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { categories, boroughs, slugify, neighborhoodSlug } from '@/lib/data'
+import { categories, boroughs, slugify, neighborhoodSlug } from '@/app/site/nyc-classifieds/_lib/data'
 
 interface SearchAutocompleteProps {
   initialQuery?: string

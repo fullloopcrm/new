@@ -6,7 +6,7 @@ import Link from 'next/link'
 import ListingGrid, { getDisplayMode } from './ListingGrid'
 import PreLaunchGate from './PreLaunchGate'
 import AlertButton from './AlertButton'
-import { type Category, slugify } from '@/lib/data'
+import { type Category, slugify } from '@/app/site/nyc-classifieds/_lib/data'
 
 interface Listing {
   id: number

@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { slugify } from '@/lib/data'
+import { slugify } from '@/app/site/nyc-classifieds/_lib/data'
 
 interface Ad {
   id: number
