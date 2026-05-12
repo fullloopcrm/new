@@ -9,9 +9,10 @@ import { STATES } from "@/app/site/we-pay-you-junk/_data/cities";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { customerTypeContent } from "@/app/site/we-pay-you-junk/_data/customer-content";
 
-export function generateStaticParams() {
-  return CUSTOMER_TYPES.map((ct) => ({ type: ct.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ type: string }> }): Promise<Metadata> {
   const { type } = await params;

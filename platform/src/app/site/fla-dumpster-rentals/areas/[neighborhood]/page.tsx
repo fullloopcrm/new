@@ -28,9 +28,10 @@ interface PageProps {
   params: Promise<{ neighborhood: string }>;
 }
 
-export async function generateStaticParams() {
-  return getAllNeighborhoods().map((n) => ({ neighborhood: n.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

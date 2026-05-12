@@ -30,17 +30,7 @@ interface PageProps {
 export const dynamicParams = true;
 export const revalidate = 86400;
 
-export async function generateStaticParams() {
-  const services = getAllServices().slice(0, 5);
-  const neighborhoods = getAllNeighborhoods().slice(0, 10);
-
-  return services.flatMap((s) =>
-    neighborhoods.map((n) => ({
-      service: s.slug,
-      neighborhood: n.slug,
-    }))
-  );
-}
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

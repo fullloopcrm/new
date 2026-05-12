@@ -17,9 +17,7 @@ export const dynamicParams = true;
 
 // Return empty — pages build on first visit and cache forever (revalidate = false).
 // Saves ~6,200 ISR writes per deploy.
-export function generateStaticParams() {
-  return [];
-}
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

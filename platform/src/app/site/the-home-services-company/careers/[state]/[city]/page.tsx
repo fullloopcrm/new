@@ -14,9 +14,7 @@ import { getPostedLabel, getDatePostedISO, getValidThroughISO } from "@/app/site
 export const dynamicParams = true;
 export const revalidate = 86400; // regenerate daily so job dates auto-refresh within the 15-day window
 
-export function generateStaticParams() {
-  return getTopCitiesPerState(1).map(({ state, city }) => ({ state: state.slug, city: city.slug }));
-}
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ state: string; city: string }> }): Promise<Metadata> {
   const { state: stateSlug, city: citySlug } = await params;

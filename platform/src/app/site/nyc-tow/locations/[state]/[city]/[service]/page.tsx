@@ -20,9 +20,7 @@ function isTipsSlug(slug: string) {
 export const dynamicParams = true;
 export const revalidate = 3600;
 
-export function generateStaticParams() {
-  return [];
-}
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ state: string; city: string; service: string }> }): Promise<Metadata> {
   const { state: stateSlug, city: citySlug, service: serviceSlug } = await params;

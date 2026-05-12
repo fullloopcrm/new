@@ -7,9 +7,10 @@ import { AudioReader } from "@/app/site/the-home-services-company/_components/Au
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
 import { SITE_URL } from "@/app/site/the-home-services-company/_data/content";
 
-export function generateStaticParams() {
-  return BLOG_POSTS.map((p) => ({ slug: p.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

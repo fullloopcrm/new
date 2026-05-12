@@ -10,9 +10,10 @@ interface Props {
   params: Promise<{ state: string }>;
 }
 
-export async function generateStaticParams() {
-  return getAllStates().map((s) => ({ state: s.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { state } = await params;

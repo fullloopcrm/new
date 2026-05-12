@@ -8,9 +8,10 @@ import { CtaButtons } from "@/app/site/nyc-tow/_components/CtaButtons";
 import { getBlogImage } from "@/app/site/nyc-tow/_lib/blog-images";
 import { JsonLd, breadcrumbSchema, articleSchema } from "@/app/site/nyc-tow/_lib/schema";
 
-export function generateStaticParams() {
-  return BLOG_POSTS.map((p) => ({ slug: p.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

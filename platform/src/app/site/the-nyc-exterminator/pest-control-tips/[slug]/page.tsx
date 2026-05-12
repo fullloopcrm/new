@@ -12,9 +12,10 @@ import CTAGroup from "@/app/site/the-nyc-exterminator/_components/CTAGroup";
 
 const phonePlain = PHONE.replace(/-/g, "");
 
-export function generateStaticParams() {
-  return getAllTips().map((tip) => ({ slug: tip.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 type Params = Promise<{ slug: string }>;
 

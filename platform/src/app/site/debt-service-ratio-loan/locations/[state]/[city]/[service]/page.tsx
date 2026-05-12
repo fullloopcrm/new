@@ -24,9 +24,7 @@ interface Props {
 export const dynamicParams = true;
 export const revalidate = 86400; // re-generate every 24h
 
-export async function generateStaticParams() {
-  return []; // all pages rendered on first request, then cached
-}
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { state, city: citySlug, service: serviceSlug } = await params;

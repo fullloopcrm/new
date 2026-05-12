@@ -26,9 +26,7 @@ interface Props {
 export const dynamicParams = true;
 export const revalidate = 86400;
 
-export async function generateStaticParams() {
-  return [];
-}
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { borough, area: areaSlug } = await params;

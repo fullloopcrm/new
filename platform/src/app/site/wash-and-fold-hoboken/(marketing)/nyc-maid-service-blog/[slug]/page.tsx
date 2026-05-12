@@ -8,9 +8,10 @@ import JsonLd from '@/app/site/wash-and-fold-hoboken/_components/marketing/JsonL
 import Breadcrumbs from '@/app/site/wash-and-fold-hoboken/_components/marketing/Breadcrumbs'
 import CTABlock from '@/app/site/wash-and-fold-hoboken/_components/marketing/CTABlock'
 
-export function generateStaticParams() {
-  return getAllBlogSlugs().map(slug => ({ slug }))
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

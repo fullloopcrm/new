@@ -10,9 +10,9 @@ import { getPostedLabel, getDatePostedISO, getValidThroughISO } from "@/app/site
 
 export const revalidate = 86400; // regenerate daily
 
-export function generateStaticParams() {
-  return STATES.map((s) => ({ state: s.slug }));
-}
+export const dynamicParams = true
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ state: string }> }): Promise<Metadata> {
   const { state: stateSlug } = await params;

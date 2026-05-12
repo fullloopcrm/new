@@ -29,12 +29,9 @@ function parseSlug(slug: string): string | null {
   return slug.slice(0, -suffix.length);
 }
 
-export async function generateStaticParams() {
-  const neighborhoods = getAllNeighborhoods();
-  return neighborhoods.map((n) => ({
-    slug: `${n.slug}-exterminator-jobs`,
-  }));
-}
+export const dynamicParams = true
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

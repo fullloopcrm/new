@@ -27,9 +27,9 @@ interface PageProps {
 
 export const dynamicParams = false;
 
-export async function generateStaticParams() {
-  return getAllServices().map((s) => ({ service: s.slug }));
-}
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

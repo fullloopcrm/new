@@ -11,9 +11,10 @@ import { getOfficeByState } from "@/app/site/nyc-tow/_data/offices";
 import { OfficeBlock } from "@/app/site/nyc-tow/_components/OfficeBlock";
 import { JsonLd, breadcrumbSchema, localBusinessSchemaPerOffice, placeSchema } from "@/app/site/nyc-tow/_lib/schema";
 
-export function generateStaticParams() {
-  return STATES.map((s) => ({ state: s.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ state: string }> }): Promise<Metadata> {
   const { state: stateSlug } = await params;

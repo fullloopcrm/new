@@ -18,9 +18,9 @@ const PHONE = "212.202.9220";
 // revalidate = false → once cached, never regenerate (saves ISR writes).
 export const revalidate = false;
 
-export function generateStaticParams() {
-  return [];
-}
+export const dynamicParams = true
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

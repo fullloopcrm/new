@@ -9,9 +9,9 @@ import NeighborhoodCategoryClient from './NeighborhoodCategoryClient'
 
 export const dynamicParams = true
 
-export async function generateStaticParams() {
-  return []
-}
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ borough: string; slug: string; category: string }> }): Promise<Metadata> {
   const { borough, slug, category } = await params

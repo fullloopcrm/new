@@ -28,12 +28,9 @@ interface Props {
 
 export const dynamicParams = false
 
-export async function generateStaticParams() {
-  return [
-    ...AREAS.map(a => ({ slug: a.urlSlug })),
-    ...ALL_NEIGHBORHOODS.map(n => ({ slug: n.urlSlug })),
-  ]
-}
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params

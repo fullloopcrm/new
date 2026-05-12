@@ -11,9 +11,9 @@ import Breadcrumbs from '@/app/site/wash-and-fold-hoboken/_components/marketing/
 // Revalidate every 3 days so datePosted stays fresh in Google Jobs
 export const revalidate = 259200
 
-export function generateStaticParams() {
-  return ALL_NEIGHBORHOODS.map(n => ({ slug: n.slug }))
-}
+export const dynamicParams = true
+
+export async function generateStaticParams() { return [] }
 
 function getNeighborhood(slug: string): Neighborhood | undefined {
   return ALL_NEIGHBORHOODS.find(n => n.slug === slug)

@@ -6,9 +6,10 @@ import { BLOG_POSTS } from "@/app/site/toll-trucks-near-me/_data/blog-posts";
 import { AudioReader } from "@/app/site/toll-trucks-near-me/_components/AudioReader";
 import { CtaButtons } from "@/app/site/toll-trucks-near-me/_components/CtaButtons";
 
-export function generateStaticParams() {
-  return BLOG_POSTS.map((p) => ({ slug: p.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

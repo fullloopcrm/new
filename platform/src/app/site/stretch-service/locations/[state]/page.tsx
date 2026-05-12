@@ -28,9 +28,7 @@ interface Props { params: Promise<{ state: string }> }
 export const dynamicParams = true;
 export const revalidate = 86400;
 
-export async function generateStaticParams() {
-  return [];
-}
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { state: stateSlug } = await params;

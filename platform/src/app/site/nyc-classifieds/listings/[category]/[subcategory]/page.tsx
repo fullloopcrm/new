@@ -11,9 +11,9 @@ import ListingDetailClient from './ListingDetailClient'
 
 export const dynamicParams = true
 
-export async function generateStaticParams() {
-  return []
-}
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 // ─── Server-side listing fetch ───
 

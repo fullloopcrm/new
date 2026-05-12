@@ -10,15 +10,9 @@ import { getPostedLabel, getDatePostedISO, getValidThroughISO } from "@/app/site
 
 export const revalidate = 86400;
 
-export function generateStaticParams() {
-  const params: { state: string; city: string }[] = [];
-  for (const state of STATES) {
-    for (const city of state.cities) {
-      params.push({ state: state.slug, city: city.slug });
-    }
-  }
-  return params;
-}
+export const dynamicParams = true
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ state: string; city: string }> }): Promise<Metadata> {
   const { state: stateSlug, city: citySlug } = await params;

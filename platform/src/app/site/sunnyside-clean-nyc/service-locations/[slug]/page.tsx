@@ -45,9 +45,10 @@ function getLocationData(slug: string) {
   return null
 }
 
-export async function generateStaticParams() {
-  return SERVICE_LOCATION_SLUGS.map(slug => ({ slug }))
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params

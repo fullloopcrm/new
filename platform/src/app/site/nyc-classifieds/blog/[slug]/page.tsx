@@ -7,9 +7,10 @@ import { blogPosts, getPostBySlug, getAllSlugs, BLOG_CATEGORIES } from '@/app/si
 import { getSecondarySchemas } from '@/app/site/nyc-classifieds/_lib/blog-schemas'
 import BlogPostClient from './BlogPostClient'
 
-export function generateStaticParams() {
-  return getAllSlugs().map(slug => ({ slug }))
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

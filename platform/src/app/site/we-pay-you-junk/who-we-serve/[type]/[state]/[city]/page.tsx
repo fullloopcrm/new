@@ -13,16 +13,9 @@ import { customerCityContent } from "@/app/site/we-pay-you-junk/_data/customer-c
 
 export const dynamicParams = true;
 
-export function generateStaticParams() {
-  const topCities = getTopCitiesPerState(1);
-  const params: { type: string; state: string; city: string }[] = [];
-  for (const ct of CUSTOMER_TYPES) {
-    for (const { state, city } of topCities) {
-      params.push({ type: ct.slug, state: state.slug, city: city.slug });
-    }
-  }
-  return params;
-}
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ type: string; state: string; city: string }> }): Promise<Metadata> {
   const { type, state: stateSlug, city: citySlug } = await params;

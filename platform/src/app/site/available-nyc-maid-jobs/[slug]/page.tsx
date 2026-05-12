@@ -13,9 +13,7 @@ import { requireLegacySeoPages } from '@/lib/tenant-site'
 export const dynamicParams = false
 export const revalidate = 1296000
 
-export function generateStaticParams() {
-  return ALL_NEIGHBORHOODS.map(n => ({ slug: n.slug }))
-}
+export async function generateStaticParams() { return [] }
 
 // Stable 15-day window: datePosted and validThrough only change when the 15-day
 // revalidation cron fires. Prevents Google Jobs from seeing drifting dates.

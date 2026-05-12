@@ -15,9 +15,7 @@ import { JsonLd, breadcrumbSchema, localBusinessSchemaPerOffice, serviceSchema }
 export const dynamicParams = true;
 export const revalidate = 3600;
 
-export function generateStaticParams() {
-  return [];
-}
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ type: string; state: string; city: string }> }): Promise<Metadata> {
   const { type, state: stateSlug, city: citySlug } = await params;

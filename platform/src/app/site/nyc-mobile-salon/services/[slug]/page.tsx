@@ -9,9 +9,9 @@ import LeadForm from "@/app/site/nyc-mobile-salon/_components/LeadForm";
 
 export const revalidate = 86400;
 
-export function generateStaticParams() {
-  return [];
-}
+export const dynamicParams = true
+
+export async function generateStaticParams() { return [] }
 
 type Props = { params: Promise<{ slug: string }> };
 

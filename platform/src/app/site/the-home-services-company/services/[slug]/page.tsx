@@ -7,9 +7,10 @@ import { PHONE, CITY_COUNT, STATE_COUNT } from "@/app/site/the-home-services-com
 import { SERVICES, SERVICE_CATEGORIES, getExtendedContent } from "@/app/site/the-home-services-company/_data/services";
 import { ServiceSchema, BreadcrumbSchema } from "@/app/site/the-home-services-company/_components/SiteSchema";
 
-export function generateStaticParams() {
-  return SERVICES.map((s) => ({ slug: s.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

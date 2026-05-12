@@ -12,9 +12,9 @@ import { JobApplicationForm } from "@/app/site/we-pay-you-junk/_components/JobAp
 
 export const dynamicParams = true;
 
-export function generateStaticParams() {
-  return getTopCitiesPerState(1).map(({ state, city }) => ({ state: state.slug, city: city.slug }));
-}
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ state: string; city: string }> }): Promise<Metadata> {
   const { state: stateSlug, city: citySlug } = await params;

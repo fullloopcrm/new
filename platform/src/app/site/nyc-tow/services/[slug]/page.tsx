@@ -11,9 +11,10 @@ import { getServiceFAQs } from "@/app/site/nyc-tow/_data/service-faq";
 import { STATES } from "@/app/site/nyc-tow/_data/cities";
 import { JsonLd, breadcrumbSchema, serviceSchema, faqPageSchema } from "@/app/site/nyc-tow/_lib/schema";
 
-export function generateStaticParams() {
-  return SERVICES.map((s) => ({ slug: s.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

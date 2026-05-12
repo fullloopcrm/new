@@ -6,9 +6,10 @@ import { boroughs, boroughBySlug } from '@/app/site/nyc-classifieds/_lib/data'
 import { buildMetadata, breadcrumbSchema, collectionPageSchema, faqSchema, speakableSchema, SITE_URL } from '@/app/site/nyc-classifieds/_lib/seo'
 import PorchClient from '../PorchClient'
 
-export async function generateStaticParams() {
-  return boroughs.map(b => ({ borough: b.slug }))
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ borough: string }> }): Promise<Metadata> {
   const { borough } = await params

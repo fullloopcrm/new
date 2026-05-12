@@ -13,9 +13,10 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-export function generateStaticParams() {
-  return SERVICES.map(s => ({ slug: s.urlSlug }))
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params

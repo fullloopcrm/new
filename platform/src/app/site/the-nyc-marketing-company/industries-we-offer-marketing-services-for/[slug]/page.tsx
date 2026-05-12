@@ -18,9 +18,9 @@ type Props = { params: Promise<{ slug: string }> };
 
 export const revalidate = false;
 
-export async function generateStaticParams() {
-  return industries.map((ind) => ({ slug: ind.slug }));
-}
+export const dynamicParams = true
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;

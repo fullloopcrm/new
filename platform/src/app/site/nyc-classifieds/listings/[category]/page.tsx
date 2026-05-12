@@ -6,9 +6,10 @@ import { buildMetadata, faqSchema, speakableSchema, SITE_URL } from '@/app/site/
 import { categoryFaqs } from '@/app/site/nyc-classifieds/_lib/seo-faqs'
 import CategoryPageClient from './CategoryPageClient'
 
-export async function generateStaticParams() {
-  return categories.map(c => ({ category: c.slug }))
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 // Custom per-category SEO copy
 const categoryMeta: Record<string, { title: string; desc: string }> = {

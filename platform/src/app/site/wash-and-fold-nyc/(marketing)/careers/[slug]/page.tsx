@@ -9,9 +9,10 @@ import Breadcrumbs from '@/app/site/wash-and-fold-nyc/_components/marketing/Brea
 
 interface Props { params: Promise<{ slug: string }> }
 
-export function generateStaticParams() {
-  return ALL_NEIGHBORHOODS.map(n => ({ slug: n.slug }))
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params

@@ -17,9 +17,10 @@ interface Props {
   params: Promise<{ borough: string }>;
 }
 
-export async function generateStaticParams() {
-  return getAllBoroughs().map((b) => ({ borough: b.slug }));
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { borough } = await params;

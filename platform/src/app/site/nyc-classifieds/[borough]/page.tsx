@@ -7,9 +7,10 @@ import { buildMetadata, faqSchema, speakableSchema } from '@/app/site/nyc-classi
 import { boroughFaqs } from '@/app/site/nyc-classifieds/_lib/seo-faqs'
 import BoroughPageClient from './BoroughPageClient'
 
-export async function generateStaticParams() {
-  return boroughs.map(b => ({ borough: b.slug }))
-}
+export const dynamicParams = true
+export const revalidate = 86400
+
+export async function generateStaticParams() { return [] }
 
 const boroughMeta: Record<string, { title: string; desc: string }> = {
   'manhattan': {
