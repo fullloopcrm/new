@@ -214,12 +214,19 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
 
   const tenantSig = signTenantHeader(tenantId)
 
-  // Rewrite /sitemap.xml to the tenant sitemap API — pass slug via both
-  // searchParam and header for robustness across Next.js rewrite behaviors.
+  // Rewrite /sitemap.xml. Tenants in TENANTS_WITH_RICH_SITEMAP own a
+  // sitemap.ts at /site/<slug>/sitemap.xml that enumerates their full
+  // route tree. All other tenants fall back to the generic 7-URL
+  // /api/tenant-sitemap until they ship their own rich sitemap.
+  const TENANTS_WITH_RICH_SITEMAP = new Set(['the-nyc-exterminator'])
   if (pathname === '/sitemap.xml') {
     const url = req.nextUrl.clone()
-    url.pathname = '/api/tenant-sitemap'
-    url.searchParams.set('slug', tenantSlug)
+    if (TENANTS_WITH_RICH_SITEMAP.has(tenantSlug)) {
+      url.pathname = `/site/${tenantSlug}/sitemap.xml`
+    } else {
+      url.pathname = '/api/tenant-sitemap'
+      url.searchParams.set('slug', tenantSlug)
+    }
     const requestHeaders = new Headers(req.headers)
     requestHeaders.delete('x-tenant-sig') // strip any caller-supplied
     requestHeaders.set('x-tenant-id', tenantId)
