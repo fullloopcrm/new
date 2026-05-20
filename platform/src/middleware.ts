@@ -90,6 +90,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
   '/api/requests',            // Partnership form submissions
   '/api/feedback',            // Feedback form submissions
+  '/api/contact',             // Tenant-aware contact form lead capture (tenant resolved from host)
   '/api/chat',                // Public web chat for tenant sites
   '/api/yinez(.*)',           // Public Yinez agent chat endpoint
   '/api/admin-chat(.*)',      // Admin chat (Yinez owner-side) uses admin PIN auth
