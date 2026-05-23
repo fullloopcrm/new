@@ -41,6 +41,25 @@ type Booking = {
   status: string
 }
 
+type Application = {
+  id: string
+  name: string
+  email: string | null
+  phone: string
+  address: string | null
+  experience: string | null
+  availability: string | null
+  referral_source: string | null
+  references: { name: string; phone: string }[] | null
+  notes: string | null
+  photo_url: string | null
+  service_zones: string[] | null
+  has_car: boolean | null
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  reviewed_at: string | null
+}
+
 const PALETTE = ['#D946A8', '#2563EB', '#EAB308', '#F97316', '#A855F7', '#F59E0B', '#DC2626', '#06B6D4', '#14B8A6']
 
 function colorFor(id: string): string {
@@ -57,7 +76,9 @@ export default function TeamPage() {
   const [tab, setTab] = useState<Tab>('team')
   const [members, setMembers] = useState<TeamMember[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
+  const [appsLoading, setAppsLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
@@ -69,7 +90,46 @@ export default function TeamPage() {
       setBookings((b?.bookings || []) as Booking[])
       setLoading(false)
     })
+    loadApplications()
   }, [])
+
+  async function loadApplications() {
+    setAppsLoading(true)
+    try {
+      const res = await fetch('/api/team-applications')
+      if (res.ok) {
+        const json = await res.json()
+        setApplications(Array.isArray(json) ? json : json?.applications || [])
+      }
+    } catch {}
+    setAppsLoading(false)
+  }
+
+  async function updateApplication(id: string, status: 'approved' | 'rejected') {
+    if (!confirm(`Mark this application as ${status}?`)) return
+    const res = await fetch('/api/team-applications', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert(`Failed: ${err.error || res.statusText}`)
+      return
+    }
+    loadApplications()
+  }
+
+  async function deleteApplication(id: string) {
+    if (!confirm('Delete this application permanently?')) return
+    const res = await fetch(`/api/team-applications?id=${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert(`Failed: ${err.error || res.statusText}`)
+      return
+    }
+    loadApplications()
+  }
 
   const enriched: EnrichedMember[] = useMemo(() => {
     const now = new Date()
@@ -137,6 +197,9 @@ export default function TeamPage() {
             <span className="tm-tab-letter">{t.letter}</span>
             {t.label}
             {t.key === 'team' && stats.active > 0 && <span className="tm-tab-count">{stats.active}</span>}
+            {t.key === 'applications' && applications.filter((a) => a.status === 'pending').length > 0 && (
+              <span className="tm-tab-count">{applications.filter((a) => a.status === 'pending').length}</span>
+            )}
           </button>
         ))}
       </div>
@@ -175,7 +238,106 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {tab !== 'team' && (
+      {tab === 'applications' && (
+        <>
+          <div className="tm-section-head">
+            <h2 className="tm-section-title">Applications<em>.</em></h2>
+            <span className="tm-section-meta">
+              {applications.length} total · {applications.filter((a) => a.status === 'pending').length} pending
+            </span>
+          </div>
+
+          {appsLoading && <div className="tm-empty">Loading…</div>}
+          {!appsLoading && applications.length === 0 && (
+            <div className="tm-empty">
+              No applications yet. Share the apply link: <code>/apply</code>
+            </div>
+          )}
+
+          {!appsLoading && applications.length > 0 && (
+            <div className="tm-apps">
+              {applications.filter((a) => a.status === 'pending').length > 0 && (
+                <div className="tm-apps-group">
+                  <div className="tm-apps-group-head">Pending</div>
+                  {applications
+                    .filter((a) => a.status === 'pending')
+                    .map((app) => (
+                      <div key={app.id} className="tm-app-row">
+                        <div className="tm-app-photo">
+                          {app.photo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={app.photo_url} alt={app.name} />
+                          ) : (
+                            <span className="tm-app-photo-fallback">{initials(app.name)}</span>
+                          )}
+                        </div>
+                        <div className="tm-app-body">
+                          <div className="tm-app-name">{app.name}</div>
+                          <div className="tm-app-meta">
+                            {app.phone} · {app.email || 'no email'}
+                          </div>
+                          {app.address && <div className="tm-app-meta">📍 {app.address}</div>}
+                          <div className="tm-app-meta">
+                            {app.experience && <span>{app.experience} exp · </span>}
+                            {app.availability && <span>{app.availability} · </span>}
+                            {app.has_car !== null && <span>drives: {app.has_car ? 'yes' : 'no'}</span>}
+                          </div>
+                          {Array.isArray(app.service_zones) && app.service_zones.length > 0 && (
+                            <div className="tm-app-meta">zones: {app.service_zones.join(', ')}</div>
+                          )}
+                          {Array.isArray(app.references) && app.references.length > 0 && (
+                            <div className="tm-app-meta">
+                              refs: {app.references.map((r) => `${r.name} (${r.phone})`).join('; ')}
+                            </div>
+                          )}
+                          {app.notes && <div className="tm-app-notes">&ldquo;{app.notes}&rdquo;</div>}
+                          <div className="tm-app-date">
+                            applied {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                        </div>
+                        <div className="tm-app-actions">
+                          <button className="tm-action-btn" type="button" onClick={() => updateApplication(app.id, 'approved')}>Approve</button>
+                          <button className="tm-action-btn" type="button" onClick={() => updateApplication(app.id, 'rejected')}>Reject</button>
+                          <button className="tm-action-btn" type="button" onClick={() => deleteApplication(app.id)}>Delete</button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              {applications.filter((a) => a.status !== 'pending').length > 0 && (
+                <div className="tm-apps-group">
+                  <div className="tm-apps-group-head">Past</div>
+                  {applications
+                    .filter((a) => a.status !== 'pending')
+                    .map((app) => (
+                      <div key={app.id} className="tm-app-row past">
+                        <div className="tm-app-photo">
+                          {app.photo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={app.photo_url} alt={app.name} />
+                          ) : (
+                            <span className="tm-app-photo-fallback">{initials(app.name)}</span>
+                          )}
+                        </div>
+                        <div className="tm-app-body">
+                          <div className="tm-app-name">{app.name}</div>
+                          <div className="tm-app-meta">{app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                        </div>
+                        <div className="tm-app-actions">
+                          <span className={`tm-app-status ${app.status}`}>{app.status}</span>
+                          <button className="tm-action-btn" type="button" onClick={() => deleteApplication(app.id)}>Delete</button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab !== 'team' && tab !== 'applications' && (
         <div className="tm-coming-soon">
           <div className="tm-coming-soon-title">Coming soon.</div>
           <div>{TABS.find((t) => t.key === tab)?.label} view will land next pass.</div>
