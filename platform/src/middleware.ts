@@ -246,6 +246,26 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
+  // On a tenant domain, /admin IS that tenant's own Loop dashboard (mirrors
+  // the standalone nycmaid, which serves its Loop at /admin). The platform
+  // super-admin /admin only exists on the main host. We rewrite the page
+  // route /admin(/*) -> /dashboard(/*) so the tenant gets the Loop layout,
+  // scoped to itself via the injected signed x-tenant-id header. Note this
+  // does NOT match /api/admin/* (those start with /api/, not /admin/), which
+  // remain the platform admin APIs.
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    const url = req.nextUrl.clone()
+    url.pathname = pathname === '/admin'
+      ? '/dashboard'
+      : `/dashboard${pathname.slice('/admin'.length)}`
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.delete('x-tenant-sig')
+    requestHeaders.set('x-tenant-id', tenantId)
+    requestHeaders.set('x-tenant-slug', tenantSlug)
+    requestHeaders.set('x-tenant-sig', tenantSig)
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
+  }
+
   // API routes + tenant-scoped app routes that live at the root are NOT
   // rewritten under /site — they run at their own path with tenant headers
   // injected so getTenantFromHeaders() can resolve them.

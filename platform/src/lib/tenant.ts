@@ -1,8 +1,9 @@
 import { auth } from '@clerk/nextjs/server'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
+import { verifyTenantHeaderSig } from './tenant-header-sig'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 
@@ -91,7 +92,31 @@ async function getClerkImpersonatedTenant(userId: string): Promise<Tenant | null
 }
 
 // Get the current tenant for the logged-in user (server-side)
+// Resolve the tenant from the signed x-tenant-id header that middleware
+// injects on tenant custom-domain / subdomain requests. Verifying the sig
+// means only middleware (which holds the secret) could have set it, so a
+// raw caller cannot forge tenant context. This is what scopes a tenant
+// domain's /admin (rewritten to /dashboard) to that one tenant.
+async function getHeaderTenant(): Promise<Tenant | null> {
+  const h = await headers()
+  const tenantId = h.get('x-tenant-id')
+  const sig = h.get('x-tenant-sig')
+  if (!tenantId || !verifyTenantHeaderSig(tenantId, sig)) return null
+
+  const { data } = await supabaseAdmin
+    .from('tenants')
+    .select('*')
+    .eq('id', tenantId)
+    .single()
+
+  return data
+}
+
 export async function getCurrentTenant(): Promise<Tenant | null> {
+  // Tenant custom-domain / subdomain context (signed header from middleware)
+  const headerTenant = await getHeaderTenant()
+  if (headerTenant) return headerTenant
+
   // Admin PIN impersonation — no Clerk needed
   const adminImpersonated = await getAdminImpersonatedTenant()
   if (adminImpersonated) return adminImpersonated

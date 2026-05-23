@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation'
+import { cookies, headers } from 'next/headers'
 import { auth } from '@clerk/nextjs/server'
 import { getCurrentTenant, isImpersonating } from '@/lib/tenant'
+import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import ImpersonationBanner from './impersonation-banner'
@@ -14,6 +17,22 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  // On a tenant custom domain, /admin is rewritten to /dashboard and the
+  // tenant is resolved from the signed header — NOT from Clerk or an
+  // impersonation cookie, so middleware's auth.protect() never ran. Without
+  // this gate the tenant's entire CRM (clients, finance, bookings) would be
+  // publicly readable. Require the admin PIN — the same gate platform /admin
+  // uses. (Shared admin PIN for now; per-tenant PINs are a later concern.)
+  const hdrs = await headers()
+  const hdrTenantId = hdrs.get('x-tenant-id')
+  const onTenantDomain = !!hdrTenantId && verifyTenantHeaderSig(hdrTenantId, hdrs.get('x-tenant-sig'))
+  if (onTenantDomain) {
+    const adminToken = (await cookies()).get('admin_token')?.value
+    if (!adminToken || !verifyAdminToken(adminToken)) {
+      redirect('/admin-login')
+    }
+  }
+
   const tenant = await getCurrentTenant()
 
   if (!tenant) {
