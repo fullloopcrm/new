@@ -175,9 +175,14 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Recurring discount */}
+          <div className="mb-10 -mt-6 inline-flex items-center gap-2 bg-[#1E2A4A] text-[#A8F0DC] text-sm font-bold tracking-wide px-5 py-2 rounded-full">
+            <span className="text-base">&#9733;</span> Save 20% on weekly service &middot; 10% on bi-weekly &amp; monthly
+          </div>
+
           {/* CTA: book, text, or call */}
           <div className="flex flex-col sm:flex-row items-start gap-5">
-            <Link href="/portal/collect" className="bg-white text-[#CC6222] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-gray-100 transition-colors">
+            <Link href="/portal/collect" target="_blank" rel="noopener" className="bg-white text-[#CC6222] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-gray-100 transition-colors">
               Book Online Now
             </Link>
             <a href="sms:9547103636" className="bg-[#34D399] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">

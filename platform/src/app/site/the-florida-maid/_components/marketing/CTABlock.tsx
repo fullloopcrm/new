@@ -16,7 +16,7 @@ export default function CTABlock({ title, subtitle }: { title?: string; subtitle
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 flex-shrink-0">
-          <Link href="/portal/collect" className="bg-[#1E2A4A] text-white px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#2a3a5e] transition-colors">
+          <Link href="/portal/collect" target="_blank" rel="noopener" className="bg-[#1E2A4A] text-white px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#2a3a5e] transition-colors">
             Book Now
           </Link>
           <a href="sms:9547103636" className="border-2 border-[#1E2A4A] text-[#1E2A4A] px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A] hover:text-white transition-colors">
