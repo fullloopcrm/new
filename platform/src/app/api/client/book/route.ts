@@ -195,7 +195,7 @@ export async function POST(request: Request) {
         hourly_rate: Number(body.hourly_rate) || 75,
         notes: (body.notes as string) || '',
         recurring_type: body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined),
-        cleaner_token: cleanerToken,
+        team_member_token: cleanerToken,
         token_expires_at: tokenExpiresAt.toISOString(),
         referrer_id: referrerId,
         ref_code: (body.ref_code as string) || null,
