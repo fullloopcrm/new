@@ -7,6 +7,14 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 import MarketingNav from '@/app/site/the-florida-maid/_components/marketing/MarketingNav'
 import MarketingFooter from '@/app/site/the-florida-maid/_components/marketing/MarketingFooter'
 
+export const metadata = {
+  icons: {
+    icon: '/sites/the-florida-maid/favicon.png',
+    shortcut: '/sites/the-florida-maid/favicon.png',
+    apple: '/sites/the-florida-maid/favicon.png',
+  },
+}
+
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`${bebasNeue.variable} ${inter.variable} font-[family-name:var(--font-inter)]`}>
