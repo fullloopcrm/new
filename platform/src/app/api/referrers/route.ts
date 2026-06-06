@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const { data } = await supabaseAdmin
-      .from('referrals')
+      .from('referrers')
       .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
       .eq('tenant_id', lookupTenant.id)
       .eq('referral_code', code)
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 
   if (email) {
     const { data } = await supabaseAdmin
-      .from('referrals')
+      .from('referrers')
       .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
       .eq('tenant_id', lookupTenant.id)
       .ilike('email', email)
@@ -128,10 +128,7 @@ export async function POST(request: NextRequest) {
       commission_rate: 10,
       total_earned: 0,
       total_paid: 0,
-      total_clicks: 0,
-      total_referrals: 0,
-      total_converted: 0,
-      total_pending: 0,
+      status: 'active',
     })
     .select()
     .single()
