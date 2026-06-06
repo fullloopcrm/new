@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
+import { verifyTenantHeaderSig } from './tenant-header-sig'
 import type { Tenant } from './tenant'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
@@ -59,6 +60,28 @@ export async function getTenantForRequest(): Promise<TenantContext> {
           tenantId: tenant.id,
           tenant,
           role: 'owner',
+        }
+      }
+    }
+  }
+
+  // PIN admin on a tenant's OWN domain. Middleware injects a signed x-tenant-id
+  // header for the domain; a valid admin_token authorizes that tenant's Loop.
+  // (No impersonation cookie exists here — the domain identifies the tenant.)
+  {
+    const h = await headers()
+    const headerTenantId = h.get('x-tenant-id')
+    const headerSig = h.get('x-tenant-sig')
+    if (headerTenantId && verifyTenantHeaderSig(headerTenantId, headerSig)) {
+      const adminToken = cookieStore.get('admin_token')?.value
+      if (adminToken && verifyAdminToken(adminToken)) {
+        const { data: tenant } = await supabaseAdmin
+          .from('tenants')
+          .select('*')
+          .eq('id', headerTenantId)
+          .single()
+        if (tenant) {
+          return { userId: 'admin', tenantId: tenant.id, tenant, role: 'owner' }
         }
       }
     }
