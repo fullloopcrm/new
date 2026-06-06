@@ -119,7 +119,7 @@ export default function MarketingNav() {
 
             <div className="hidden lg:flex items-center gap-3">
               <Link href="/portal/collect" target="_blank" rel="noopener" className="bg-[#1E2A4A] text-white px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#2a3a5e] transition-colors whitespace-nowrap">
-                Book Now
+                Self Booking $20 Off
               </Link>
               <a href="sms:9547103636" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors whitespace-nowrap">
                 Text (954) 710-3636
@@ -129,7 +129,7 @@ export default function MarketingNav() {
             {/* Mobile hamburger */}
             <div className="lg:hidden flex items-center gap-3">
               <Link href="/portal/collect" target="_blank" rel="noopener" className="bg-[#1E2A4A] text-white px-4 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
-                Book Now
+                Self Booking $20 Off
               </Link>
               <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Open navigation menu" aria-expanded={mobileOpen} className="p-2 text-[#1E2A4A]">
                 <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -203,7 +203,7 @@ export default function MarketingNav() {
               </div>
 
               <div className="border-t border-white/10 mt-4 pt-6 space-y-3 text-center">
-                <Link href="/portal/collect" target="_blank" rel="noopener" onClick={closeMenu} className="block bg-[#A8F0DC] text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Book Now</Link>
+                <Link href="/portal/collect" target="_blank" rel="noopener" onClick={closeMenu} className="block bg-[#A8F0DC] text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Self Booking $20 Off</Link>
                 <a href="sms:9547103636" className="block text-white/50 font-medium text-sm">or Text (954) 710-3636</a>
               </div>
             </div>

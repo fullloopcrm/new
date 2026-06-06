@@ -111,7 +111,7 @@ export default function ContactPage() {
               <p className="text-[#CC6222] text-lg font-bold">thefloridamaid.com/book</p>
               <p className="text-gray-500 text-sm mt-3">Submit your details online and we&apos;ll confirm your appointment within the hour.</p>
               <Link href="/portal/collect" target="_blank" className="inline-block mt-5 bg-[#CC6222] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#CC6222]/90 transition-colors">
-                Book Now
+                Self Booking $20 Off
               </Link>
             </div>
           </div>
