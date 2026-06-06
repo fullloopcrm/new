@@ -206,14 +206,31 @@ export default function DashboardShell({
     return () => clearInterval(id)
   }, [])
 
-  // Stub notifications: real wiring (security_events / overdue / Selena
-  // escalations) lands in a follow-up. For now, derive a small list from
-  // sidebar counts so the block isn't empty.
-  const notifs: Notif[] = []
-  if (counts && counts.notifications > 0) {
+  // Real notifications from /api/notifications (admin, tenant-scoped). Falls
+  // back to sidebar-count summary if the fetch returns nothing.
+  const [liveNotifs, setLiveNotifs] = useState<Notif[]>([])
+  useEffect(() => {
+    fetch('/api/notifications?limit=20')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const rows = (d?.notifications || []) as Array<{ id: string; type?: string; title?: string; message?: string; created_at?: string; metadata?: { read?: boolean } }>
+        if (!rows.length) return
+        setLiveNotifs(rows.slice(0, 8).map((n) => ({
+          id: n.id,
+          tone: /opt_out|error|no_show|fail|overdue/i.test(n.type || '') ? 'warn' : 'info',
+          text: n.title || n.message || 'Notification',
+          time: n.created_at ? new Date(n.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '',
+          seen: !!n.metadata?.read,
+        })))
+      })
+      .catch(() => {})
+  }, [])
+
+  const notifs: Notif[] = liveNotifs.length > 0 ? liveNotifs : []
+  if (notifs.length === 0 && counts && counts.notifications > 0) {
     notifs.push({ id: 'n', tone: 'warn', text: `${counts.notifications} unread notification${counts.notifications === 1 ? '' : 's'}`, time: 'now' })
   }
-  if (counts && counts.leads > 0) {
+  if (notifs.length === 0 && counts && counts.leads > 0) {
     notifs.push({ id: 'l', tone: 'info', text: `${counts.leads} new lead${counts.leads === 1 ? '' : 's'}`, time: 'today' })
   }
 
