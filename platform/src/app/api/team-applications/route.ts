@@ -151,7 +151,7 @@ export async function PUT(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('team_applications')
-      .update({ status, reviewed_at: new Date().toISOString() })
+      .update({ status })
       .eq('id', id)
       .eq('tenant_id', tenant.tenantId)
       .select()
@@ -171,7 +171,10 @@ export async function DELETE(request: Request) {
   if (authError) return authError
 
   try {
-    const { id } = await request.json()
+    // Page sends id as a query param (?id=); also accept a JSON body for safety.
+    const url = new URL(request.url)
+    let id = url.searchParams.get('id')
+    if (!id) { id = (await request.json().catch(() => ({})))?.id || null }
 
     if (!id) {
       return NextResponse.json({ error: 'ID required' }, { status: 400 })
