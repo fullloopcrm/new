@@ -2424,9 +2424,12 @@ export async function askYinez(
         // Get PIN if available
         let pinLine = ''
         try {
-          const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
+          const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
           if (convo?.client_id) {
-            const { data: c } = await supabaseAdmin.from('clients').select('pin').eq('id', convo.client_id).single()
+            let pinQuery = supabaseAdmin.from('clients').select('pin').eq('id', convo.client_id)
+            const convoTid = (convo as { tenant_id?: string }).tenant_id
+            if (convoTid) pinQuery = pinQuery.eq('tenant_id', convoTid)
+            const { data: c } = await pinQuery.single()
             if (c?.pin) pinLine = ` Your portal PIN is ${c.pin} — log in at thenycmaid.com/portal to view your booking and add notes.`
           }
         } catch {}

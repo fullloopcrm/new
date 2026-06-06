@@ -600,7 +600,51 @@ export async function loadContext(phone: string | null, _conversationId: string)
   return parts.length > 0 ? '\n\n' + parts.join('\n\n') : ''
 }
 
+// Literal NYC-template tokens leak into DETERMINISTIC (non-LLM) responses in
+// core.ts — booking confirmations, quick replies, fallback messages. The brand
+// override only steers the LLM; those hardcoded strings bypass it. So for
+// non-nycmaid tenants we rewrite the final outbound text token-by-token here.
+// This is the safety net that lets a tenant be served without auditing all ~65
+// hardcoded brand references individually.
+async function applyBrandRewrite(text: string, tenantId: string): Promise<string> {
+  if (!text || tenantId === NYCMAID_TENANT_ID) return text
+  try {
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('name, domain, phone, email, website_url')
+      .eq('id', tenantId)
+      .single()
+    if (!tenant) return text
+    const domain = tenant.domain || tenant.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''
+    let out = text
+    if (domain) out = out.replace(/thenycmaid\.com\/portal/gi, `${domain}/portal`)
+    if (domain) out = out.replace(/thenycmaid\.com/gi, domain)
+    if (tenant.email) out = out.replace(/hi@thenycmaid\.com/gi, tenant.email)
+    // any (212) 202-XXXX nycmaid line → tenant phone
+    if (tenant.phone) out = out.replace(/\(?212\)?[\s.\-]*202[\s.\-]*\d{4}/g, tenant.phone)
+    if (tenant.name) out = out.replace(/\bThe NYC Maid\b/g, tenant.name).replace(/\bNYC Maid\b/g, tenant.name)
+    return out
+  } catch {
+    return text
+  }
+}
+
+// Public entry point. Runs the agent, then rewrites NYC-template branding out of
+// the response for non-nycmaid tenants before it ever reaches the customer.
 export async function askYinez(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
+  const result = await askYinezCore(channel, message, conversationId, phone, ctx)
+  try {
+    const tenantId = await resolveTenantForConversation(conversationId)
+    if (tenantId !== NYCMAID_TENANT_ID && result?.text) {
+      result.text = await applyBrandRewrite(result.text, tenantId)
+    }
+  } catch {
+    // never let brand rewrite break a response
+  }
+  return result
+}
+
+async function askYinezCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
   const result: YinezResult = { text: '', toolsCalled: [] }
 
   try {
