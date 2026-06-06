@@ -194,7 +194,7 @@ export default function ApplyPage() {
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
-              placeholder="(212) 555-1234"
+              placeholder="(954) 555-1234"
             />
           </div>
 
