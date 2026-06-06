@@ -11,6 +11,9 @@ export default function CTABlock({ title, subtitle }: { title?: string; subtitle
           <p className="text-[#1E2A4A]/70 text-lg mt-2">
             {subtitle || 'Book online in 30 seconds or call us — trusted by Florida residents statewide.'}
           </p>
+          <p className="inline-block mt-3 bg-[#1E2A4A] text-[#A8F0DC] text-sm font-bold tracking-wide px-4 py-1.5 rounded-full">
+            Save 20% on weekly service · 10% bi-weekly &amp; monthly
+          </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 flex-shrink-0">
           <Link href="/portal/collect" className="bg-[#1E2A4A] text-white px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#2a3a5e] transition-colors">

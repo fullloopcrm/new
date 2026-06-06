@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../auth/route'
 import { getSettings } from '@/lib/settings'
+import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -75,6 +76,12 @@ export async function POST(request: Request) {
     price = svc.default_hourly_rate * svc.default_duration_hours * 100
   }
 
+  // Recurring-service discount ("save 20%"): weekly 20% off, biweekly/monthly 10% off.
+  const recurringType = body.recurring_type && body.recurring_type !== 'none' ? String(body.recurring_type) : null
+  if (price != null && recurringType) {
+    price = applyRecurringDiscount(price, recurringType)
+  }
+
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .insert({
@@ -87,6 +94,7 @@ export async function POST(request: Request) {
       notes: body.notes || null,
       special_instructions: body.special_instructions || null,
       price,
+      recurring_type: recurringType,
       status: 'pending',
     })
     .select()

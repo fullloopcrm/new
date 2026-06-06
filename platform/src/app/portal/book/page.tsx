@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePortalAuth } from '../layout'
+import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
 
 type ServiceType = {
   id: string
@@ -20,6 +21,7 @@ export default function BookingWizardPage() {
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null)
   const [dateTime, setDateTime] = useState('')
   const [notes, setNotes] = useState('')
+  const [recurring, setRecurring] = useState('none')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function BookingWizardPage() {
         start_time: new Date(dateTime).toISOString(),
         end_time: endTime.toISOString(),
         notes,
+        recurring_type: recurring,
       }),
     })
     if (res.ok) {
@@ -104,6 +107,22 @@ export default function BookingWizardPage() {
             onChange={(e) => setDateTime(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-4"
           />
+          <label className="block text-sm font-medium text-slate-600 mb-1">Frequency</label>
+          <select
+            value={recurring}
+            onChange={(e) => setRecurring(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-1"
+          >
+            <option value="none">One-time</option>
+            <option value="weekly">Weekly — save 20%</option>
+            <option value="biweekly">Bi-weekly — save 10%</option>
+            <option value="monthly">Monthly — save 10%</option>
+          </select>
+          {recurring !== 'none' && (
+            <p className="text-xs text-emerald-600 mb-4">
+              Recurring discount applied — {recurring === 'weekly' ? '20%' : '10%'} off every visit.
+            </p>
+          )}
           <textarea
             placeholder="Any notes or special instructions?"
             value={notes}
@@ -125,7 +144,20 @@ export default function BookingWizardPage() {
             <div className="flex justify-between text-sm"><span className="text-slate-400">Service</span><span className="font-medium">{selectedService.name}</span></div>
             <div className="flex justify-between text-sm"><span className="text-slate-400">Date</span><span>{new Date(dateTime).toLocaleString()}</span></div>
             <div className="flex justify-between text-sm"><span className="text-slate-400">Duration</span><span>{selectedService.default_duration_hours} hours</span></div>
-            <div className="flex justify-between text-sm"><span className="text-slate-400">Est. Price</span><span className="font-medium">${selectedService.default_hourly_rate * selectedService.default_duration_hours}</span></div>
+            {(() => {
+              const base = selectedService.default_hourly_rate * selectedService.default_duration_hours
+              const pct = recurringDiscountPct(recurring)
+              const net = Math.round(base * (1 - pct))
+              return (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">Est. Price</span>
+                  <span className="font-medium">
+                    {pct > 0 ? (<><span className="line-through text-slate-400 mr-1">${base}</span>${net} <span className="text-emerald-600">({pct * 100}% off)</span></>) : (<>${base}</>)}
+                  </span>
+                </div>
+              )
+            })()}
+            {recurring !== 'none' && <div className="flex justify-between text-sm"><span className="text-slate-400">Frequency</span><span className="capitalize">{recurring}</span></div>}
             {notes && <div className="text-sm"><span className="text-slate-400">Notes: </span>{notes}</div>}
           </div>
           <div className="flex gap-2">

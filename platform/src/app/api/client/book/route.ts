@@ -4,6 +4,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
 import { emailAdmins } from '@/lib/admin-contacts'
+import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
 import {
   adminNewBookingRequestEmail,
   referralSignupNotifyEmail,
@@ -190,7 +191,7 @@ export async function POST(request: Request) {
         end_time: endTime,
         service_type: (body.service_type as string) || 'Standard Cleaning',
         status: 'pending',
-        price: Number(body.price) || (Number(body.hourly_rate) || 75) * (Number(body.estimated_hours) || 2) * 100,
+        price: applyRecurringDiscount(Number(body.price) || (Number(body.hourly_rate) || 75) * (Number(body.estimated_hours) || 2) * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined)),
         hourly_rate: Number(body.hourly_rate) || 75,
         notes: (body.notes as string) || '',
         recurring_type: body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined),
