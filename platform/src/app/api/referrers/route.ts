@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
 
 // Rate limiting
 const attempts = new Map<string, { count: number; resetAt: number }>()
@@ -39,10 +40,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
 
+  // Scope every lookup to the tenant whose domain this request came in on.
+  const lookupTenant = await getTenantFromHeaders()
+  if (!lookupTenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
+
   if (code) {
     const { data } = await supabaseAdmin
       .from('referrals')
       .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
+      .eq('tenant_id', lookupTenant.id)
       .eq('referral_code', code)
       .single()
 
@@ -54,6 +60,7 @@ export async function GET(request: NextRequest) {
     const { data } = await supabaseAdmin
       .from('referrals')
       .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
+      .eq('tenant_id', lookupTenant.id)
       .ilike('email', email)
       .single()
 
@@ -88,28 +95,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Please enter a valid name' }, { status: 400 })
   }
 
-  // Check duplicate email
+  // Resolve the tenant from the domain this signup came in on (signed
+  // x-tenant-id header set by middleware) — NOT "the first active tenant".
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) {
+    return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
+  }
+
+  // Duplicate email — scoped to this tenant (same email may refer for two brands)
   const { data: existing } = await supabaseAdmin
     .from('referrals')
     .select('id')
+    .eq('tenant_id', tenant.id)
     .ilike('email', email)
     .single()
 
   if (existing) {
     return NextResponse.json({ error: 'Email already registered' }, { status: 400 })
-  }
-
-  // We need a tenant_id — for now use the first active tenant
-  // In a real multi-tenant setup, this would come from the URL/slug
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('id')
-    .eq('status', 'active')
-    .limit(1)
-    .single()
-
-  if (!tenant) {
-    return NextResponse.json({ error: 'No active business found' }, { status: 500 })
   }
 
   const referralCode = generateRefCode(name)
