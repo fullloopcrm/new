@@ -13,7 +13,7 @@ const totalNeighborhoods = allNeighborhoods.length
 
 const areaFAQs = [
   { question: 'What areas does The Florida Maid serve?', answer: `We serve ${totalNeighborhoods}+ neighborhoods across Miami-Dade, Broward, Palm Beach, Tampa Bay, and Orlando. Same rates and same quality everywhere.` },
-  { question: 'Do you charge extra for certain neighborhoods?', answer: 'No. Our rates are the same regardless of neighborhood or area — $49/hr with your supplies, $65/hr when we bring everything. No travel fees, no surge pricing.' },
+  { question: 'Do you charge extra for certain neighborhoods?', answer: 'No. Our rates are the same regardless of neighborhood or area — $49/hr with your supplies, $59/hr when we bring everything. No travel fees, no surge pricing.' },
   { question: 'Are all services available in every area?', answer: 'Yes. Every service we offer — deep cleaning, regular cleaning, move-in/out, post-renovation, Airbnb, office, same-day — is available in all neighborhoods we serve.' },
   { question: 'Do you serve areas outside of these neighborhoods?', answer: 'We may. If you don\'t see your neighborhood listed, call or text (954) 710-3636 and we\'ll let you know. We\'re always expanding.' },
   { question: 'Do I get the same cleaner in my area?', answer: 'Yes. For recurring clients, we assign a dedicated cleaner who lives near your area so they can arrive consistently and on time.' },

@@ -83,7 +83,7 @@ export default function AboutPage() {
                   That approach has earned us a perfect 5.0-star rating on Google with 27 verified reviews, thousands of completed cleanings, and a client base that includes everyone from condos in Brickell to homes in Coral Springs to offices in Downtown Miami. Many of our clients have been with us for years — and they stay because we deliver the same quality every single visit.
                 </p>
                 <p>
-                  Today we serve {ALL_NEIGHBORHOODS.length}+ neighborhoods across Miami, Tampa, Orlando, Fort Lauderdale, and Jacksonville. Our team is bilingual (English and Spanish), background-checked, licensed, and insured. And our prices haven&apos;t changed — $49/hr with your supplies, $65/hr when we bring everything.
+                  Today we serve {ALL_NEIGHBORHOODS.length}+ neighborhoods across Miami, Tampa, Orlando, Fort Lauderdale, and Jacksonville. Our team is bilingual (English and Spanish), background-checked, licensed, and insured. And our prices haven&apos;t changed — $49/hr with your supplies, $59/hr when we bring everything.
                 </p>
               </div>
             </div>

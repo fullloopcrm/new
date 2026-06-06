@@ -298,7 +298,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       {
         heading: 'Deep Cleaning Pricing — What Affects the Cost?',
         body: [
-          'We charge by the hour — $49/hr with your supplies, $65/hr when we bring everything. The total cost depends on how long the job takes.',
+          'We charge by the hour — $49/hr with your supplies, $59/hr when we bring everything. The total cost depends on how long the job takes.',
           'Home size is the biggest factor. A condo takes 3-4 hours, a 4-bedroom house takes 5-8 hours.',
           'Current condition matters. A home that gets cleaned monthly will take less time than one that hasn\'t been touched in 6 months.',
           'Special requests like inside-cabinet cleaning, window washing, or lanai cleaning add time.',
@@ -306,17 +306,17 @@ const richContentMap: Record<string, ServiceRichContent> = {
         ],
       },
     ],
-    pricingNote: 'Most deep cleans cost between $196 and $390 total. A condo typically runs $196–$245 (4–5 hrs at $49/hr), while a 3-bedroom averages $320–$390 (5–6 hrs at $65/hr). Your first deep clean is always the most expensive — after that, recurring service at $49/hr keeps costs low.',
+    pricingNote: 'Most deep cleans cost between $196 and $390 total. A condo typically runs $196–$245 (4–5 hrs at $49/hr), while a 3-bedroom averages $320–$390 (5–6 hrs at $59/hr). Your first deep clean is always the most expensive — after that, recurring service at $49/hr keeps costs low.',
     faqs: [
       { question: 'What does a deep cleaning include that a regular cleaning doesn\'t?', answer: 'A deep clean includes everything in a regular clean plus inside appliances (oven, fridge, microwave), baseboard and trim scrubbing, window sill and track cleaning, behind and under furniture, light fixture and ceiling fan dusting, air vent cleaning, cabinet exteriors, and detailed tile and grout scrubbing. It\'s a complete reset for your home.' },
-      { question: 'How much does a deep cleaning cost in Florida?', answer: 'Deep cleaning costs $49–$65/hr depending on who provides supplies. A typical condo deep clean runs $196–$260 (4–5 hours). A 2-bedroom is usually $260–$390 (4–6 hours). A 3-bedroom can be $325–$520 (5–8 hours). We charge by the hour so you only pay for the time your space actually needs.' },
+      { question: 'How much does a deep cleaning cost in Florida?', answer: 'Deep cleaning costs $49–$59/hr depending on who provides supplies. A typical condo deep clean runs $196–$260 (4–5 hours). A 2-bedroom is usually $260–$390 (4–6 hours). A 3-bedroom can be $325–$520 (5–8 hours). We charge by the hour so you only pay for the time your space actually needs.' },
       { question: 'How long does a deep cleaning take?', answer: 'Condo: 3–4 hours. 2-bedroom: 4–6 hours. 3-bedroom+: 5–8 hours. Duration depends on home condition, size, and any special requests. First-time deep cleans take longer than subsequent ones.' },
       { question: 'Should I get a deep clean before starting weekly service?', answer: 'Yes, absolutely. We always recommend a deep clean first. It establishes a clean baseline so your recurring weekly or bi-weekly cleanings are faster and more effective. After the deep clean, maintenance cleanings typically take just 2–3 hours.' },
       { question: 'Do I need to be home during the deep cleaning?', answer: 'No. Many clients leave a key, provide a garage code, or arrange access through their building management. You\'re welcome to be home or out — whatever is most comfortable for you.' },
       { question: 'Can I request specific areas to focus on?', answer: 'Absolutely. If your kitchen needs the most attention, or you want extra time in the bathrooms, just let us know. We customize every deep clean based on your priorities.' },
       { question: 'How often should I get a deep cleaning?', answer: 'If you have recurring weekly or bi-weekly service, you may never need another deep clean. Without recurring service, we recommend a deep clean every 3–6 months to prevent buildup. Seasonal deep cleans before and after hurricane season are especially popular with Florida homeowners.' },
       { question: 'Is deep cleaning worth it for a small condo?', answer: 'Yes. Condos have compact kitchens and bathrooms that accumulate grease, soap scum, and dust quickly — especially in Florida\'s humidity. A 3–4 hour deep clean completely resets the space. Most condo deep cleans cost $147–$260 — less than a dinner out.' },
-      { question: 'What products do you use for deep cleaning?', answer: 'At $65/hr we bring professional-grade degreasers, bathroom cleaners, glass cleaner, microfiber systems, and a commercial vacuum. At $49/hr you provide your own products. We\'re happy to use eco-friendly or hypoallergenic products — just let us know.' },
+      { question: 'What products do you use for deep cleaning?', answer: 'At $59/hr we bring professional-grade degreasers, bathroom cleaners, glass cleaner, microfiber systems, and a commercial vacuum. At $49/hr you provide your own products. We\'re happy to use eco-friendly or hypoallergenic products — just let us know.' },
       { question: 'Do you deep clean inside kitchen cabinets?', answer: 'Cabinet exteriors are included in every deep clean. Interior cabinet cleaning is available as an add-on — just mention it when booking and we\'ll allow extra time for it.' },
     ],
   },
@@ -347,7 +347,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     },
     floridaTips: [
       { title: 'Weekly is the sweet spot for most Florida homes', detail: 'Florida homes accumulate dust, allergens, and humidity-related grime faster than homes in drier climates. Sand tracks in from outside, pollen is year-round, and AC systems circulate particles constantly. Weekly cleaning prevents buildup so every clean is fast and efficient.' },
-      { title: 'Provide your own supplies to save 25%', detail: 'At $49/hr vs $65/hr, providing your own vacuum, mop, and basic cleaning products saves you $32+ per 2-hour visit. Over a year of weekly cleanings, that\'s $1,600+ in savings.' },
+      { title: 'Provide your own supplies to save 25%', detail: 'At $49/hr vs $59/hr, providing your own vacuum, mop, and basic cleaning products saves you $32+ per 2-hour visit. Over a year of weekly cleanings, that\'s $1,600+ in savings.' },
       { title: 'Same cleaner means better results over time', detail: 'When the same person cleans your home every week, they learn the quirks — which faucet drips, where dust collects fastest, how you like your kitchen organized. Consistency compounds into better quality.' },
       { title: 'Start with a deep clean first', detail: 'We always recommend an initial deep clean before starting regular service. This establishes a clean baseline so your recurring cleanings are faster, cheaper, and more effective from day one.' },
     ],
@@ -363,7 +363,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       {
         heading: 'What Does Regular Cleaning Cost in Florida?',
         body: [
-          'Regular cleaning starts at $49/hr when you provide supplies or $65/hr when we bring everything. A typical 2-hour regular clean for a 2-bedroom costs just $98 with your supplies.',
+          'Regular cleaning starts at $49/hr when you provide supplies or $59/hr when we bring everything. A typical 2-hour regular clean for a 2-bedroom costs just $98 with your supplies.',
           'Weekly clients who provide supplies pay as little as $98/visit — that\'s $392/month for a consistently spotless home. Less than most gym memberships.',
           'Compare that to one-time deep cleans at $250–$400 each. Recurring regular service is the most cost-effective way to keep your Florida home clean.',
         ],
@@ -372,7 +372,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     pricingNote: 'Regular cleaning typically costs $98–$260 per visit. A weekly 2-hour clean at $49/hr is just $98/visit — the most affordable way to maintain a spotless Florida home.',
     faqs: [
       { question: 'What\'s included in a regular house cleaning?', answer: 'Full kitchen cleaning (counters, sink, stovetop, appliance exteriors), bathroom sanitization (toilet, tub, sink, mirror), dusting all surfaces, vacuuming and mopping all floors, trash and recycling removal, and bed making. We can customize the checklist based on your priorities.' },
-      { question: 'How much does regular house cleaning cost in Florida?', answer: 'Regular cleaning is $49/hr with your supplies or $65/hr when we bring everything. A typical 2-bedroom takes 2 hours ($98–$130). A 3-bedroom takes 2.5–3 hours ($122–$195). Weekly clients see the lowest per-visit costs.' },
+      { question: 'How much does regular house cleaning cost in Florida?', answer: 'Regular cleaning is $49/hr with your supplies or $59/hr when we bring everything. A typical 2-bedroom takes 2 hours ($98–$130). A 3-bedroom takes 2.5–3 hours ($122–$195). Weekly clients see the lowest per-visit costs.' },
       { question: 'Can I get the same cleaner every time?', answer: 'Yes — that\'s how we operate. For recurring clients, we assign the same cleaner to your home so they learn your space, your preferences, and your standards. Consistency is one of our biggest advantages.' },
       { question: 'How often should I schedule regular cleaning?', answer: 'Weekly is ideal for most Florida homes — humidity and dust accumulate faster here. Bi-weekly works well for singles or couples with low-traffic homes. Monthly is suitable for very tidy households that want occasional professional maintenance.' },
       { question: 'Do I need a deep clean before starting regular service?', answer: 'We strongly recommend it. A deep clean establishes a spotless baseline so your recurring regular cleanings are faster and more effective. Without it, the first few regular cleanings will take longer and cost more.' },
@@ -422,7 +422,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Weekly maid service typically costs $98–$195 per visit. Most 2-bedroom homes need just 2 hours ($98 at $49/hr) per weekly visit. 3-bedrooms average 2.5 hours ($122). The weekly consistency keeps each visit short and affordable.',
     faqs: [
-      { question: 'How much does weekly maid service cost in Florida?', answer: 'Weekly service is $49/hr with your supplies or $65/hr when we bring everything. Most 2-bedroom weekly cleans take 2 hours ($98–$130/visit). 3-bedrooms average 2.5 hours ($122–$162/visit). It\'s the most cost-effective way to maintain a spotless home.' },
+      { question: 'How much does weekly maid service cost in Florida?', answer: 'Weekly service is $49/hr with your supplies or $59/hr when we bring everything. Most 2-bedroom weekly cleans take 2 hours ($98–$130/visit). 3-bedrooms average 2.5 hours ($122–$162/visit). It\'s the most cost-effective way to maintain a spotless home.' },
       { question: 'Will I get the same cleaner every week?', answer: 'Yes. We specifically assign one cleaner to your home for all recurring visits. They learn your preferences, your space, and your standards. If your regular cleaner is unavailable, we\'ll notify you in advance and send a qualified replacement.' },
       { question: 'What day of the week can I schedule service?', answer: 'We offer Monday through Friday 8am–6pm and Saturday 9am–4pm. You choose your preferred day and time, and we keep that slot reserved for you every week.' },
       { question: 'What if I need to skip a week?', answer: 'We require 3 days notice to reschedule within the same week. If you need to cancel a service entirely, 7 days notice is required. Consistent scheduling protects our cleaners\' income and ensures availability for all clients.' },
@@ -479,7 +479,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Move-in/move-out cleaning typically costs $260–$520 depending on home size and condition. A 2-bedroom usually takes 4–5 hours, a 3-bedroom 5–6 hours, and a 4-bedroom 6–8 hours. The cost to clean is a fraction of the security deposit you\'re protecting.',
     faqs: [
-      { question: 'How much does move-in/move-out cleaning cost in Florida?', answer: 'Move cleaning is $49/hr with your supplies or $65/hr when we bring everything. A 2-bedroom typically costs $260–$325 (4–5 hours). A 3-bedroom runs $325–$390 (5–6 hours). A 4-bedroom+ is $390–$520 (6–8 hours). The exact cost depends on home condition.' },
+      { question: 'How much does move-in/move-out cleaning cost in Florida?', answer: 'Move cleaning is $49/hr with your supplies or $59/hr when we bring everything. A 2-bedroom typically costs $260–$325 (4–5 hours). A 3-bedroom runs $325–$390 (5–6 hours). A 4-bedroom+ is $390–$520 (6–8 hours). The exact cost depends on home condition.' },
       { question: 'Will move-out cleaning guarantee I get my deposit back?', answer: 'While we can\'t guarantee your landlord\'s decision, a professional move-out clean addresses every item landlords typically inspect. We clean inside appliances, cabinets, closets, baseboards, and all surfaces. Our clients overwhelmingly report getting their full deposits back.' },
       { question: 'Should I schedule the clean before or after moving furniture?', answer: 'After. An empty home is faster and cheaper to clean because we can access all floors, baseboards, walls, and corners without working around furniture. Schedule the clean after movers leave.' },
       { question: 'How far in advance should I book a move-out clean?', answer: 'Book at least 5–7 days in advance. Moving season (May–September) is our busiest time for this service, so earlier is better. We can sometimes accommodate last-minute requests but availability is limited.' },
@@ -540,7 +540,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Bi-weekly cleaning typically costs $120–$260 per visit. A 2-bedroom usually takes 2.5 hours ($122 at $49/hr). A 3-bedroom averages 3 hours ($147 at $49/hr). Over a year, that\'s roughly $3,200–$6,800 — about half the cost of weekly service.',
     faqs: [
-      { question: 'How much does bi-weekly cleaning cost in Florida?', answer: 'Bi-weekly cleaning is $49/hr with your supplies or $65/hr when we bring everything. A 2-bedroom typically costs $122–$162 per visit (2.5 hours). A 3-bedroom runs $147–$195 (3 hours). You pay for time worked — no flat-rate markups.' },
+      { question: 'How much does bi-weekly cleaning cost in Florida?', answer: 'Bi-weekly cleaning is $49/hr with your supplies or $59/hr when we bring everything. A 2-bedroom typically costs $122–$162 per visit (2.5 hours). A 3-bedroom runs $147–$195 (3 hours). You pay for time worked — no flat-rate markups.' },
       { question: 'Is bi-weekly enough for a 3-bedroom home?', answer: 'For 1–2 occupants who keep a reasonably tidy home, yes. If you have children, pets, or cook daily, weekly service may be a better fit. Many clients start bi-weekly and upgrade to weekly when they realize how much they enjoy a clean home.' },
       { question: 'Can I switch from bi-weekly to weekly later?', answer: 'Absolutely. Many clients start with bi-weekly and upgrade to weekly over time. We keep the same cleaner and simply adjust your schedule. Likewise, you can drop from weekly to bi-weekly if needed.' },
       { question: 'Do I get the same cleaner for bi-weekly service?', answer: 'Yes. All recurring clients — weekly, bi-weekly, or monthly — are assigned the same dedicated cleaner. They learn your home and your standards over time, which means better quality with every visit.' },
@@ -600,7 +600,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Monthly cleaning typically costs $147–$325 per visit. A 2-bedroom takes 3 hours ($147 at $49/hr). A 3-bedroom averages 3.5–4 hours ($171–$196). Over a year, that\'s roughly $1,764–$3,900 — the most budget-friendly recurring option.',
     faqs: [
-      { question: 'How much does monthly cleaning cost in Florida?', answer: 'Monthly cleaning is $49/hr with your supplies or $65/hr when we bring everything. A 2-bedroom typically costs $147–$195 (3–4 hours). A 3-bedroom runs $171–$260 (3.5–5 hours). Monthly cleans take longer than weekly because there\'s more buildup to address.' },
+      { question: 'How much does monthly cleaning cost in Florida?', answer: 'Monthly cleaning is $49/hr with your supplies or $59/hr when we bring everything. A 2-bedroom typically costs $147–$195 (3–4 hours). A 3-bedroom runs $171–$260 (3.5–5 hours). Monthly cleans take longer than weekly because there\'s more buildup to address.' },
       { question: 'Is monthly cleaning thorough enough?', answer: 'For people who maintain their home between visits, absolutely. Monthly cleaning goes deeper than a weekly maintenance clean — your cleaner has more time to address baseboards, window sills, cabinet fronts, ceiling fans, and other areas that weekly clients don\'t need. It\'s a hybrid between regular and deep cleaning.' },
       { question: 'Can I add extra tasks to my monthly cleaning?', answer: 'Yes. Monthly sessions are longer, which gives room for rotating deep tasks. Let us know if you want the fridge cleaned, baseboards scrubbed, or any other specific focus area for a particular visit.' },
       { question: 'Do I get the same cleaner each month?', answer: 'Yes. Like all our recurring services, monthly clients are assigned the same dedicated cleaner. They visit your home on the same day each month and learn your preferences over time.' },
@@ -667,9 +667,9 @@ const richContentMap: Record<string, ServiceRichContent> = {
         ],
       },
     ],
-    pricingNote: 'Post-construction cleanup typically costs $325–$650 depending on renovation scope and home size. A bathroom remodel cleanup runs $245–$325 (3–5 hrs). A kitchen remodel is $325–$455 (5–7 hrs). A full home gut renovation is $455–$650+ (7–10 hrs). This is a one-time cost to make your investment livable.',
+    pricingNote: 'Post-construction cleanup typically costs $325–$590 depending on renovation scope and home size. A bathroom remodel cleanup runs $245–$325 (3–5 hrs). A kitchen remodel is $325–$455 (5–7 hrs). A full home gut renovation is $455–$590+ (7–10 hrs). This is a one-time cost to make your investment livable.',
     faqs: [
-      { question: 'How much does post-construction cleaning cost in Florida?', answer: 'Post-construction cleaning is $65/hr (we always bring our own commercial equipment for this service). A bathroom remodel cleanup costs $245–$325 (3–5 hours). Kitchen remodel: $325–$455 (5–7 hours). Full renovation: $455–$650+ (7–10 hours). Cost depends on renovation scope and home condition.' },
+      { question: 'How much does post-construction cleaning cost in Florida?', answer: 'Post-construction cleaning is $59/hr (we always bring our own commercial equipment for this service). A bathroom remodel cleanup costs $245–$325 (3–5 hours). Kitchen remodel: $325–$455 (5–7 hours). Full renovation: $455–$590+ (7–10 hours). Cost depends on renovation scope and home condition.' },
       { question: 'How soon after construction can you clean?', answer: 'We recommend waiting 24–48 hours after construction ends for dust to settle. For major renovations, we may schedule a thorough first pass, then a detail follow-up 2–3 days later to catch resettled fine dust.' },
       { question: 'Do you remove paint splatter from floors?', answer: 'Yes. We use professional-grade paint removers that are safe for tile, terrazzo, hardwood, and LVP flooring. For large areas of paint splatter, we\'ll address it as part of the floor cleaning phase. We cannot remove paint that has bonded into unsealed surfaces.' },
       { question: 'Can you clean while construction is still ongoing?', answer: 'We recommend waiting until all construction is complete. Cleaning during an active renovation means dust and debris will immediately re-accumulate. If you need an interim cleaning (for example, between phases), we can do that — but expect to book a final clean after all work ends.' },
@@ -688,7 +688,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       subheading: 'Same-day cleaning is exactly what it sounds like — you call or text in the morning, and a professional cleaner is at your door by the afternoon.',
       body: [
         'Life happens. Unexpected guests, a landlord visit, a party you forgot about, or just waking up and deciding you can\'t stand the mess anymore. Same-day service gives you a professional cleaning with just a few hours\' notice.',
-        'Same-day cleanings cover the same scope as our regular cleaning service — full kitchen, bathrooms, surfaces, floors, and more. The difference is priority scheduling and the $100/hr rate that compensates our cleaner for rearranging their day.',
+        'Same-day cleanings cover the same scope as our regular cleaning service — full kitchen, bathrooms, surfaces, floors, and more. The difference is priority scheduling and the $89/hr rate that compensates our cleaner for rearranging their day.',
         'Availability depends on the day and time you contact us. Morning requests have the best availability for afternoon service. We\'ll be upfront about timing — if we can\'t get someone to you today, we\'ll offer the earliest available slot.',
       ],
     },
@@ -707,14 +707,14 @@ const richContentMap: Record<string, ServiceRichContent> = {
     floridaTips: [
       { title: 'Text us early for best availability', detail: 'Same-day requests sent before 10am have the best chance of afternoon availability. After noon, same-day availability drops significantly. Text (954) 710-3636 as early as possible for the best shot at a same-day slot.' },
       { title: 'Prioritize the rooms your guests will see', detail: 'If guests are arriving tonight, tell your cleaner to start with the bathroom and living areas — the spaces guests actually use. Kitchen next. Bedrooms last. This way, even if time runs short, the important rooms are spotless.' },
-      { title: 'Same-day is a premium service — plan ahead when possible', detail: 'At $100/hr, same-day service costs roughly double our regular rate. If you know you\'ll need cleaning this week, booking 2–3 days ahead at $49–$65/hr saves significant money. Same-day is for genuine emergencies.' },
+      { title: 'Same-day is a premium service — plan ahead when possible', detail: 'At $89/hr, same-day service costs roughly double our regular rate. If you know you\'ll need cleaning this week, booking 2–3 days ahead at $49–$59/hr saves significant money. Same-day is for genuine emergencies.' },
       { title: 'Keep a set of supplies ready', detail: 'Same-day cleaners may not have time to bring a full supply kit. Having a basic set at home — spray cleaner, paper towels, trash bags, a vacuum — ensures the cleaner can start immediately without supply delays.' },
     ],
     educationSections: [
       {
         heading: 'Same-Day vs. Regular — Why the Price Difference?',
         body: [
-          'Same-day cleaning is $100/hr compared to $49–$65/hr for scheduled service. The premium covers the operational reality of last-minute scheduling.',
+          'Same-day cleaning is $89/hr compared to $49–$59/hr for scheduled service. The premium covers the operational reality of last-minute scheduling.',
           'When you book same-day, we\'re rearranging a cleaner\'s existing schedule, handling logistics in real-time, and guaranteeing you a professional within hours. Our cleaners who take same-day jobs earn a premium for their flexibility.',
           'The quality of cleaning is identical. You\'re getting the same background-checked, insured, experienced cleaner doing the same thorough work. The only difference is the scheduling priority.',
           'If cost is a concern, consider booking 2–3 days in advance at our standard rate. The cleaning will be the same — you\'ll just save 50% or more.',
@@ -730,9 +730,9 @@ const richContentMap: Record<string, ServiceRichContent> = {
         ],
       },
     ],
-    pricingNote: 'Same-day cleaning is $100/hr flat. A focused 2-hour clean is $200. A thorough 3–4 hour home clean is $300–$400. For non-urgent needs, scheduling 2+ days ahead at $49–$65/hr saves 35–50%.',
+    pricingNote: 'Same-day cleaning is $89/hr flat. A focused 2-hour clean is $200. A thorough 3–4 hour home clean is $300–$400. For non-urgent needs, scheduling 2+ days ahead at $49–$59/hr saves 35–50%.',
     faqs: [
-      { question: 'How much does same-day cleaning cost in Florida?', answer: 'Same-day cleaning is $100/hr flat. A typical 2-hour focused clean costs $200. A thorough 3-hour home clean is $300. This premium rate compensates our cleaner for last-minute schedule changes. For non-urgent needs, scheduling in advance saves 35–50%.' },
+      { question: 'How much does same-day cleaning cost in Florida?', answer: 'Same-day cleaning is $89/hr flat. A typical 2-hour focused clean costs $200. A thorough 3-hour home clean is $300. This premium rate compensates our cleaner for last-minute schedule changes. For non-urgent needs, scheduling in advance saves 35–50%.' },
       { question: 'How quickly can you get a cleaner to my home?', answer: 'For morning requests (before 10am), we can typically have a cleaner at your door by early afternoon — within 3–5 hours. Afternoon requests are harder to accommodate same-day. We\'ll always give you an honest timeline when you reach out.' },
       { question: 'Is same-day cleaning the same quality as regular service?', answer: 'Identical. You\'re getting the same background-checked, insured, experienced cleaners doing the same thorough work. The only difference is the scheduling urgency and the premium rate that compensates for last-minute logistics.' },
       { question: 'What if no cleaner is available today?', answer: 'If we can\'t accommodate same-day, we\'ll offer the earliest available slot — often the next morning. We\'d rather be honest about availability than send someone who can\'t do the job properly.' },
@@ -786,7 +786,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
         heading: 'How to Price Your Airbnb Cleaning Fee',
         body: [
           'Most Florida Airbnb hosts charge a $75–$150 cleaning fee to guests, which covers (or partially covers) the turnover cost.',
-          'Our turnover service costs $49–$65/hr — a 2-bedroom turnover at 1.5–2 hours runs $75–$130. A 3-bedroom takes 2–2.5 hours at $98–$162.',
+          'Our turnover service costs $49–$59/hr — a 2-bedroom turnover at 1.5–2 hours runs $75–$130. A 3-bedroom takes 2–2.5 hours at $98–$162.',
           'Set your Airbnb cleaning fee to roughly match your actual cost. Guests expect to pay a cleaning fee — it\'s standard on the platform. Eating the cost to lower your nightly rate rarely improves bookings enough to justify it.',
           'For frequent turnovers (2+ per week), we offer scheduling consistency that ensures the same cleaner handles your unit every time. Consistency means faster turnovers and fewer mistakes.',
         ],
@@ -794,7 +794,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Airbnb turnover cleaning costs $75–$195 per session. A 1-bedroom condo turnover takes 1.5 hours ($75–$98). A 2-bedroom takes 1.5–2 hours ($75–$130). A 3-bedroom takes 2–3 hours ($98–$195). Most hosts pass this cost through as a guest cleaning fee.',
     faqs: [
-      { question: 'How much does Airbnb turnover cleaning cost?', answer: 'Turnover cleaning is $49/hr with supplies on-site or $65/hr when we bring everything. A 1-bedroom condo runs $75–$98 (1.5 hours). A 2-bedroom is $75–$130 (1.5–2 hours). A 3-bedroom is $98–$195 (2–3 hours). Most hosts set their Airbnb cleaning fee to match.' },
+      { question: 'How much does Airbnb turnover cleaning cost?', answer: 'Turnover cleaning is $49/hr with supplies on-site or $59/hr when we bring everything. A 1-bedroom condo runs $75–$98 (1.5 hours). A 2-bedroom is $75–$130 (1.5–2 hours). A 3-bedroom is $98–$195 (2–3 hours). Most hosts set their Airbnb cleaning fee to match.' },
       { question: 'Can you coordinate with my booking calendar?', answer: 'Yes. For regular hosts, we can sync with your booking schedule so turnovers are automatically scheduled between guests. You share your calendar, we handle the rest. No need to text us before every turnover.' },
       { question: 'What does the turnover include?', answer: 'Full clean of all rooms, complete linen and towel change (with your provided linens), amenity restocking check, trash and recycling removal, dishwasher run/unload, pool towel reset if applicable, and a final walkthrough to ensure photo-ready condition. We follow a standardized checklist customized to your listing.' },
       { question: 'Do you provide linens and toiletries?', answer: 'We clean with your linens and check your amenity stock. We don\'t provide linens or toiletries — but we can alert you when supplies are running low so you can restock. Many hosts keep backup sets at the property.' },
@@ -854,14 +854,14 @@ const richContentMap: Record<string, ServiceRichContent> = {
         ],
       },
     ],
-    pricingNote: 'Office cleaning costs $49–$65/hr depending on supply arrangement. A small office (under 1,000 sqft) takes 2 hours ($98–$130/visit). A mid-size office (1,000–2,500 sqft) takes 3–4 hours ($147–$260). Larger spaces are quoted based on scope. Weekly clients get the most value.',
+    pricingNote: 'Office cleaning costs $49–$59/hr depending on supply arrangement. A small office (under 1,000 sqft) takes 2 hours ($98–$130/visit). A mid-size office (1,000–2,500 sqft) takes 3–4 hours ($147–$260). Larger spaces are quoted based on scope. Weekly clients get the most value.',
     faqs: [
-      { question: 'How much does office cleaning cost in Florida?', answer: 'Office cleaning is $49/hr with your supplies or $65/hr when we bring everything. A small office (under 1,000 sqft) costs $98–$130 per visit. A mid-size office (1,000–2,500 sqft) runs $147–$260. Weekly service offers the best per-visit value.' },
+      { question: 'How much does office cleaning cost in Florida?', answer: 'Office cleaning is $49/hr with your supplies or $59/hr when we bring everything. A small office (under 1,000 sqft) costs $98–$130 per visit. A mid-size office (1,000–2,500 sqft) runs $147–$260. Weekly service offers the best per-visit value.' },
       { question: 'Can you clean outside of business hours?', answer: 'Yes — most of our office clients prefer after-hours cleaning between 6–9pm or early morning 6–8am. We work around your team\'s schedule to minimize disruption.' },
       { question: 'Do you clean medical or dental offices?', answer: 'Yes. We follow enhanced sanitization protocols for medical and dental practices including EPA-registered disinfectants, proper waste handling, and attention to patient-facing areas. Let us know your specific requirements when booking.' },
       { question: 'What\'s included in a standard office cleaning?', answer: 'Trash and recycling from all workstations, kitchen/break room cleaning, restroom sanitization, desk surface wiping (when cleared), floor vacuuming and mopping, and high-touch surface disinfection (door handles, switches, shared equipment).' },
       { question: 'Can we customize the cleaning scope?', answer: 'Absolutely. Every office has different priorities. If your kitchen needs daily attention but desks only need weekly wiping, we\'ll adjust. We build a custom checklist based on your space and team\'s needs.' },
-      { question: 'Do you provide cleaning supplies for offices?', answer: 'At $65/hr we bring all cleaning products and equipment. At $49/hr you provide supplies. For office clients, we recommend keeping a supply closet with basic products, trash bags, and paper goods — we\'ll handle the rest.' },
+      { question: 'Do you provide cleaning supplies for offices?', answer: 'At $59/hr we bring all cleaning products and equipment. At $49/hr you provide supplies. For office clients, we recommend keeping a supply closet with basic products, trash bags, and paper goods — we\'ll handle the rest.' },
     ],
   },
 }
@@ -939,13 +939,13 @@ export function commonServiceFAQs(service: Service): { question: string; answer:
     { question: 'What areas do you serve?', answer: 'We serve all of Florida\'s major metro areas — Miami, Fort Lauderdale, West Palm Beach, Tampa, Orlando, Jacksonville, Naples, and Sarasota, plus surrounding communities. Same rates everywhere — no travel surcharges regardless of location.' },
     { question: 'Do I pay before or after the cleaning?', answer: 'After. We never charge upfront or take deposits. You pay only after the cleaning is complete, before the cleaner leaves. We accept cash, Venmo, Zelle (hi@thefloridamaid.com), and credit card.' },
     { question: 'What if I\'m not satisfied with the cleaning?', answer: 'Let us know within 24 hours and we\'ll send a cleaner back to address any issues at no additional cost. We stand behind our work — your satisfaction is non-negotiable.' },
-    { question: 'Do you bring your own cleaning supplies?', answer: 'At $65/hr, yes — we bring professional-grade products, microfiber systems, and a commercial vacuum. At $49/hr, you provide your own supplies. Either way, we\'re happy to use specific products you prefer (eco-friendly, hypoallergenic, etc.).' },
+    { question: 'Do you bring your own cleaning supplies?', answer: 'At $59/hr, yes — we bring professional-grade products, microfiber systems, and a commercial vacuum. At $49/hr, you provide your own supplies. Either way, we\'re happy to use specific products you prefer (eco-friendly, hypoallergenic, etc.).' },
     { question: 'Can I request a specific cleaner?', answer: 'For recurring services, we automatically assign the same cleaner to your home every visit. For one-time bookings, we match you with the best available cleaner for your area and service type.' },
     { question: 'How far in advance do I need to book?', answer: 'We recommend booking 3–5 days ahead for the best availability. For same-day service, text us as early as possible — morning requests before 10am have the best chance of afternoon availability.' },
     { question: `Is ${service.name.toLowerCase()} available on weekends?`, answer: 'We offer service Monday through Friday 8am–6pm and Saturday 9am–4pm. Saturday slots fill up fast, so book early if you prefer weekend service. We do not offer Sunday service.' },
     { question: 'What payment methods do you accept?', answer: 'We accept cash, Venmo, Zelle (hi@thefloridamaid.com), and credit card (via Stripe). Payment is collected after the cleaning is complete, before the cleaner leaves. No deposits, no pre-authorization holds.' },
     { question: 'Are you licensed and insured?', answer: 'Yes. The Florida Maid is a fully licensed cleaning company with general liability insurance and bonding. Every cleaner is covered while working in your home. We can provide proof of insurance upon request.' },
-    { question: 'Do you offer eco-friendly or green cleaning?', answer: 'Yes. If you prefer eco-friendly, plant-based, or hypoallergenic products, just let us know when booking. At $65/hr we can bring green products; at $49/hr you provide your preferred products and we\'ll use them.' },
+    { question: 'Do you offer eco-friendly or green cleaning?', answer: 'Yes. If you prefer eco-friendly, plant-based, or hypoallergenic products, just let us know when booking. At $59/hr we can bring green products; at $49/hr you provide your preferred products and we\'ll use them.' },
     { question: `Can I combine ${service.name.toLowerCase()} with other services?`, answer: `Absolutely. Many clients combine services — for example, a deep clean followed by weekly maintenance, or a move-out clean with post-construction cleanup. Let us know what you need and we'll create a custom plan.` },
     { question: 'What if I need to cancel or reschedule?', answer: 'For one-time services, we have a no-cancellation policy once confirmed. For recurring services, we require 7 days notice to cancel and 3 days notice to reschedule within the same week. This protects our cleaners\' schedules.' },
     { question: 'Do you clean condos, houses, or both?', answer: 'Both. We clean condos, townhouses, single-family homes, pool homes, waterfront properties, and estates. The hourly rate is the same regardless of home type.' },

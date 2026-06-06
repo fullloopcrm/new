@@ -8,7 +8,7 @@ import CTABlock from '@/app/site/the-florida-maid/_components/marketing/CTABlock
 
 const url = 'https://www.thefloridamaid.com/updated-florida-maid-service-industry-pricing'
 const title = 'Florida Cleaning Pricing From $49/hr | Transparent Rates | The Florida Maid'
-const description = 'Transparent hourly cleaning rates across Florida. $49/hr your supplies, $65/hr we bring everything, $100/hr same-day. Over 25,000 homes served. 5.0★ rated, $1M insured. No hidden fees. (954) 710-3636'
+const description = 'Transparent hourly cleaning rates across Florida. $49/hr your supplies, $59/hr we bring everything, $89/hr same-day. Over 25,000 homes served. 5.0★ rated, $1M insured. No hidden fees. (954) 710-3636'
 
 export const metadata: Metadata = {
   title: { absolute: title },
@@ -20,11 +20,11 @@ export const metadata: Metadata = {
 }
 
 const pricingFaqs = [
-  { question: 'How much does house cleaning cost in Florida?', answer: 'Our rates are $49/hr when you provide supplies, $65/hr when we bring everything, and $100/hr for same-day emergency service. A typical Florida home cleaning costs $98–$390 depending on size and service type. We provide a custom quote based on your specific needs.' },
-  { question: 'Do you charge by the hour or by the job?', answer: 'We charge by the hour at a flat rate. $49/hr if you provide cleaning supplies, $65/hr if we bring our own professional-grade products and equipment. The total cost depends on how long your cleaning takes, which we estimate upfront based on your home size and service type.' },
+  { question: 'How much does house cleaning cost in Florida?', answer: 'Our rates are $49/hr when you provide supplies, $59/hr when we bring everything, and $89/hr for same-day emergency service. A typical Florida home cleaning costs $98–$390 depending on size and service type. We provide a custom quote based on your specific needs.' },
+  { question: 'Do you charge by the hour or by the job?', answer: 'We charge by the hour at a flat rate. $49/hr if you provide cleaning supplies, $59/hr if we bring our own professional-grade products and equipment. The total cost depends on how long your cleaning takes, which we estimate upfront based on your home size and service type.' },
   { question: 'Is there a minimum charge?', answer: 'Our minimum booking is 2 hours. For most studio and 1-bedroom regular cleanings, 2 hours is sufficient. Deep cleans and larger apartments typically require 3–6+ hours.' },
   { question: 'Do you charge extra for travel or different neighborhoods?', answer: 'No. Every neighborhood we serve — from Miami-Dade to Broward to Tampa Bay — gets the same flat hourly rate. No travel surcharges, no surge pricing, no zone fees.' },
-  { question: 'What\'s the difference between $49/hr and $65/hr?', answer: 'At $49/hr, you provide the cleaning supplies and equipment (vacuum, mop, products). At $65/hr, we bring everything — professional-grade products, microfiber systems, and a commercial vacuum. The cleaning quality and thoroughness is identical.' },
+  { question: 'What\'s the difference between $49/hr and $59/hr?', answer: 'At $49/hr, you provide the cleaning supplies and equipment (vacuum, mop, products). At $59/hr, we bring everything — professional-grade products, microfiber systems, and a commercial vacuum. The cleaning quality and thoroughness is identical.' },
   { question: 'How much does a deep cleaning cost?', answer: 'Deep cleaning typically costs $196–$390 for a standard Florida home. Studios run $196–$245, 1-bedrooms $245–$325, and 2-3 bedrooms $325–$390+. The exact price depends on square footage, condition, and whether you want us to bring supplies.' },
   { question: 'How much does move-in/move-out cleaning cost?', answer: 'Move-in/move-out cleaning runs $260–$520. These take 4–8 hours because we clean inside every cabinet, drawer, closet, and appliance. Empty apartments are easier to clean but require more detail work to be deposit-ready.' },
   { question: 'Do I pay before or after the cleaning?', answer: 'After. We never charge upfront or take deposits. You pay only after the cleaning is complete, before the cleaner leaves. We accept cash, Venmo, Zelle (hi@thefloridamaid.com), and credit card.' },
@@ -87,7 +87,7 @@ export default function PricingPage() {
               <div className="bg-[#34D399] rounded-2xl p-7 text-center relative">
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#CC6222] text-white text-[10px] font-bold tracking-widest uppercase px-4 py-1 rounded-full">Most Popular</span>
                 <p className="text-xs font-semibold text-[#CC6222]/50 tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
-                <p className="font-[family-name:var(--font-bebas)] text-6xl text-[#CC6222] tracking-wide leading-none">$65<span className="text-2xl text-[#CC6222]/40">/hr</span></p>
+                <p className="font-[family-name:var(--font-bebas)] text-6xl text-[#CC6222] tracking-wide leading-none">$59<span className="text-2xl text-[#CC6222]/40">/hr</span></p>
                 <div className="w-10 h-[2px] bg-[#CC6222]/20 mx-auto my-5" />
                 <ul className="space-y-2.5 text-left">
                   <li className="flex items-start gap-2.5"><span className="text-[#CC6222] mt-0.5 flex-shrink-0">&#10003;</span><span className="text-[#CC6222]/80 text-sm">Pro-grade cleaning products</span></li>
@@ -100,7 +100,7 @@ export default function PricingPage() {
               {/* Tier 3 */}
               <div className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-2xl p-7 text-center">
                 <p className="text-xs font-semibold text-[#34D399]/60 tracking-[0.2em] uppercase mb-3">Same-Day / Emergency</p>
-                <p className="font-[family-name:var(--font-bebas)] text-6xl text-white tracking-wide leading-none">$100<span className="text-2xl text-white/60">/hr</span></p>
+                <p className="font-[family-name:var(--font-bebas)] text-6xl text-white tracking-wide leading-none">$89<span className="text-2xl text-white/60">/hr</span></p>
                 <div className="w-10 h-[2px] bg-[#34D399]/30 mx-auto my-5" />
                 <ul className="space-y-2.5 text-left">
                   <li className="flex items-start gap-2.5"><span className="text-[#34D399] mt-0.5 flex-shrink-0">&#10003;</span><span className="text-white text-sm">Dispatched within hours</span></li>
@@ -186,7 +186,7 @@ export default function PricingPage() {
               { n: '01', t: 'Home Size', d: 'Number of bedrooms and bathrooms determines how long the cleaning takes. A studio takes ~2 hours, a 3-bedroom takes 4–6+.' },
               { n: '02', t: 'Service Type', d: 'Deep cleans and move-in/out take 2–3x longer than regular maintenance. More time = higher total, same hourly rate.' },
               { n: '03', t: 'Current Condition', d: 'A home that hasn\'t been cleaned in months needs more attention on the first visit. After that, recurring visits are faster.' },
-              { n: '04', t: 'Supply Choice', d: '$49/hr with your supplies or $65/hr when we bring professional-grade products and equipment. Same quality either way.' },
+              { n: '04', t: 'Supply Choice', d: '$49/hr with your supplies or $59/hr when we bring professional-grade products and equipment. Same quality either way.' },
             ].map(item => (
               <div key={item.n} className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-2xl p-7 text-center">
                 <span className="font-[family-name:var(--font-bebas)] text-4xl text-[#34D399]/30 leading-none">{item.n}</span>
@@ -209,10 +209,10 @@ export default function PricingPage() {
           <div>
             <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#CC6222] tracking-wide mb-2">Quick Cost Guide</h3>
             <p className="text-[#CC6222]/80 leading-relaxed mb-3">
-              <strong>Studio/1BR regular clean:</strong> $98–$195 &middot; <strong>2BR deep clean:</strong> $245–$390 &middot; <strong>3BR move-out:</strong> $390–$520 &middot; <strong>Post-reno:</strong> $325–$650
+              <strong>Studio/1BR regular clean:</strong> $98–$195 &middot; <strong>2BR deep clean:</strong> $245–$390 &middot; <strong>3BR move-out:</strong> $390–$520 &middot; <strong>Post-reno:</strong> $325–$590
             </p>
             <p className="text-[#CC6222]/60 text-sm">
-              These are estimates at $49/hr. Add ~30% for the $65/hr supplies-included option. Every quote is customized to your specific home.
+              These are estimates at $49/hr. Add ~30% for the $59/hr supplies-included option. Every quote is customized to your specific home.
             </p>
           </div>
         </div>

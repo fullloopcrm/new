@@ -6,8 +6,8 @@ import Breadcrumbs from '@/app/site/the-florida-maid/_components/marketing/Bread
 import CTABlock from '@/app/site/the-florida-maid/_components/marketing/CTABlock'
 
 const pricingFAQs = [
-  { question: 'How much does house cleaning cost in Florida?', answer: 'Our standard rate is $49/hr when you provide supplies, $65/hr when we bring everything, and $100/hr for same-day emergency service. A typical studio takes 2–3 hours. We provide free custom quotes based on your home size and cleaning needs.' },
-  { question: 'Do you charge a flat rate or hourly?', answer: 'We charge by the hour. The rate is the same regardless of service type or neighborhood — $49/hr with your supplies, $65/hr when we bring everything. No hidden fees, no surge pricing.' },
+  { question: 'How much does house cleaning cost in Florida?', answer: 'Our standard rate is $49/hr when you provide supplies, $59/hr when we bring everything, and $89/hr for same-day emergency service. A typical studio takes 2–3 hours. We provide free custom quotes based on your home size and cleaning needs.' },
+  { question: 'Do you charge a flat rate or hourly?', answer: 'We charge by the hour. The rate is the same regardless of service type or neighborhood — $49/hr with your supplies, $59/hr when we bring everything. No hidden fees, no surge pricing.' },
   { question: 'Is there a minimum charge?', answer: 'Our minimum is 2 hours per visit. Most apartments take 2–4 hours depending on size and condition.' },
   { question: 'Do I pay before or after the cleaning?', answer: 'You pay after the cleaning is complete, before the cleaner leaves. No deposits, no pre-charges, no money upfront.' },
   { question: 'What payment methods do you accept?', answer: 'We accept cash, credit card, debit card, Zelle (hi@thefloridamaid.com), Venmo, and Apple Pay. You choose what works best for you.' },
@@ -26,7 +26,7 @@ const serviceFAQs = [
 const schedulingFAQs = [
   { question: 'How do I book a cleaning?', answer: 'Text or call (954) 710-3636, or book online at thefloridamaid.com/book/new. We typically schedule within 24–48 hours. Same-day availability for urgent requests.' },
   { question: 'Can I get the same cleaner each time?', answer: 'Yes. For recurring clients, we assign the same dedicated cleaner to your home so they learn your preferences and layout. Consistency is one of the things our clients value most.' },
-  { question: 'Do you offer same-day cleaning?', answer: 'Yes. Call or text (954) 710-3636 and we\'ll dispatch a professional cleaner within hours. Same-day service is $100/hr.' },
+  { question: 'Do you offer same-day cleaning?', answer: 'Yes. Call or text (954) 710-3636 and we\'ll dispatch a professional cleaner within hours. Same-day service is $89/hr.' },
   { question: 'How do I reschedule or cancel?', answer: 'Text or call us at least 24 hours before your scheduled cleaning. We\'ll reschedule at no charge. Cancellations with less than 24 hours notice may incur a fee.' },
   { question: 'What hours do you operate?', answer: 'Office hours are Monday through Saturday 7am to 7pm. Sales and booking inquiries are available 24/7 — call or text (954) 710-3636 anytime.' },
 ]
@@ -35,7 +35,7 @@ const trustFAQs = [
   { question: 'Are your cleaners licensed and insured?', answer: 'Yes. All of our cleaners are fully licensed, insured, and background-checked. We carry general liability insurance and bonding for your complete protection and peace of mind.' },
   { question: 'Do I need to be home during the cleaning?', answer: 'No. Many of our clients provide a key, lockbox code, or garage code. If you prefer to be home, that\'s perfectly fine too.' },
   { question: 'What if I\'m not satisfied with the cleaning?', answer: 'We offer a satisfaction guarantee. If you\'re not happy with any part of the cleaning, contact us within 24 hours and we\'ll send a team back to address the issue at no extra charge.' },
-  { question: 'Do you bring your own supplies?', answer: 'It\'s your choice. At $49/hr you provide the supplies. At $65/hr we bring everything — professional-grade cleaning products and all equipment needed.' },
+  { question: 'Do you bring your own supplies?', answer: 'It\'s your choice. At $49/hr you provide the supplies. At $59/hr we bring everything — professional-grade cleaning products and all equipment needed.' },
   { question: 'Are there any contracts or commitments?', answer: 'No contracts. Stay because you\'re happy, not because you\'re locked in. Cancel recurring service anytime with 7 days notice.' },
   { question: 'What areas do you serve?', answer: 'We serve Miami, Fort Lauderdale, West Palm Beach, Tampa, Orlando, and Jacksonville. Same rates everywhere.' },
   { question: 'How long does a cleaning take?', answer: 'Regular cleaning: 2–4 hours. Deep cleaning: 2–4 hours. Move-in/out: 4–8 hours. Post-renovation: 5–10 hours. Time depends on home size and condition.' },
@@ -45,7 +45,7 @@ const allFAQs = [...pricingFAQs, ...serviceFAQs, ...schedulingFAQs, ...trustFAQs
 
 const pageUrl = 'https://www.thefloridamaid.com/florida-cleaning-service-frequently-asked-questions-in-2026'
 const pageTitle = 'Florida Cleaning Service FAQ — Pricing, Services & Scheduling | The Florida Maid'
-const pageDescription = 'Answers to 24 common questions about The Florida Maid — pricing ($49–$100/hr), what\'s included, scheduling, $1M insurance, service areas & more. 25,000+ homes served. (954) 710-3636'
+const pageDescription = 'Answers to 24 common questions about The Florida Maid — pricing ($49–$89/hr), what\'s included, scheduling, $1M insurance, service areas & more. 25,000+ homes served. (954) 710-3636'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -166,11 +166,11 @@ export default function FAQPage() {
               </div>
               <div className="bg-[#CC6222] rounded-xl p-5">
                 <p className="text-xs font-semibold text-[#34D399]/70 tracking-[0.15em] uppercase mb-1">We Bring Everything</p>
-                <p className="font-[family-name:var(--font-bebas)] text-4xl text-white tracking-wide">$65<span className="text-xl text-white/60">/hr</span></p>
+                <p className="font-[family-name:var(--font-bebas)] text-4xl text-white tracking-wide">$59<span className="text-xl text-white/60">/hr</span></p>
               </div>
               <div className="bg-white rounded-xl p-5">
                 <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-1">Same-Day</p>
-                <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#CC6222] tracking-wide">$100<span className="text-xl text-gray-300">/hr</span></p>
+                <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#CC6222] tracking-wide">$89<span className="text-xl text-gray-300">/hr</span></p>
               </div>
             </div>
             <Link href="/updated-florida-maid-service-industry-pricing" className="inline-block mt-6 text-[#CC6222] font-semibold underline underline-offset-4 hover:no-underline">

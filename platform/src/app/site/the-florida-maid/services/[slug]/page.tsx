@@ -105,13 +105,13 @@ export default async function ServicePage({ params }: Props) {
                     <p className="text-gray-500 text-xs mt-2">Your supplies</p>
                   </div>
                   <div className="flex-1 bg-[#CC6222] rounded-xl py-5 px-4 text-center">
-                    <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide leading-none">$65<span className="text-xl text-white/60">/hr</span></p>
+                    <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide leading-none">$59<span className="text-xl text-white/60">/hr</span></p>
                     <p className="text-[#34D399]/70 text-xs mt-2">We bring everything</p>
                   </div>
                 </div>
                 {service.slug === 'same-day-cleaning' && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-center">
-                    <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#CC6222] tracking-wide">$100<span className="text-sm text-gray-400">/hr</span></p>
+                    <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#CC6222] tracking-wide">$89<span className="text-sm text-gray-400">/hr</span></p>
                     <p className="text-amber-700 text-xs">Same-day dispatch</p>
                   </div>
                 )}

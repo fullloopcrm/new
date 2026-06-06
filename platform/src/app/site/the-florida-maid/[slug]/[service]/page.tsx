@@ -228,7 +228,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
           <div>
             <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#CC6222] tracking-wide mb-2">{service.name} Pricing in {neighborhood.name}</h3>
             <p className="text-[#CC6222]/80 leading-relaxed">
-              {service.name} in {neighborhood.name} typically costs {service.priceRange} and takes {service.duration}. We charge a flat hourly rate — $49/hr with your supplies or $65/hr when we bring everything. No travel fees, no surge pricing, no hidden costs. {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
+              {service.name} in {neighborhood.name} typically costs {service.priceRange} and takes {service.duration}. We charge a flat hourly rate — $49/hr with your supplies or $59/hr when we bring everything. No travel fees, no surge pricing, no hidden costs. {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
             </p>
             <Link href="/updated-florida-maid-service-industry-pricing" className="inline-block mt-3 text-[#CC6222] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
           </div>

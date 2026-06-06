@@ -113,7 +113,7 @@ export default async function SlugPage({ params }: Props) {
                       <p className="text-gray-500 text-xs mt-2">Your supplies</p>
                     </div>
                     <div className="flex-1 bg-[#CC6222] rounded-xl py-5 px-4 text-center">
-                      <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide leading-none">$65<span className="text-xl text-white/60">/hr</span></p>
+                      <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide leading-none">$59<span className="text-xl text-white/60">/hr</span></p>
                       <p className="text-[#34D399]/70 text-xs mt-2">We bring everything</p>
                     </div>
                   </div>
@@ -284,7 +284,7 @@ export default async function SlugPage({ params }: Props) {
                   </div>
                   <div className="hidden sm:block w-px h-6 bg-white/20" />
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-[family-name:var(--font-bebas)] text-3xl text-[#34D399] tracking-wide">$65</span>
+                    <span className="font-[family-name:var(--font-bebas)] text-3xl text-[#34D399] tracking-wide">$59</span>
                     <span className="text-white text-sm">/hr &middot; we bring everything</span>
                   </div>
                 </div>
@@ -411,7 +411,7 @@ export default async function SlugPage({ params }: Props) {
             <div>
               <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#CC6222] tracking-wide mb-2">{neighborhood.name} Cleaning Costs</h3>
               <p className="text-[#CC6222]/80 leading-relaxed">
-                House cleaning in {neighborhood.name} starts at $49/hr with your supplies or $65/hr when we bring everything. A typical {neighborhood.name} home cleaning runs $98–$260 depending on size and service type. Deep cleans, move-in/move-out, and post-renovation jobs take longer but use the same flat hourly rate. No travel fees, no surge pricing — {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
+                House cleaning in {neighborhood.name} starts at $49/hr with your supplies or $59/hr when we bring everything. A typical {neighborhood.name} home cleaning runs $98–$260 depending on size and service type. Deep cleans, move-in/move-out, and post-renovation jobs take longer but use the same flat hourly rate. No travel fees, no surge pricing — {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
               </p>
               <Link href="/updated-florida-maid-service-industry-pricing" className="inline-block mt-3 text-[#CC6222] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
             </div>

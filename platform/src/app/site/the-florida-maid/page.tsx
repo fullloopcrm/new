@@ -45,12 +45,12 @@ const testimonials = [
 
 const homepageFAQs = [
   // Pricing & Booking
-  { question: 'How much does house cleaning cost in Florida?', answer: 'Our house cleaning services start at $49/hour when you provide supplies, or $65/hour when we bring everything. Same-day and emergency service is $100/hour. Final cost depends on home size and service type.' },
+  { question: 'How much does house cleaning cost in Florida?', answer: 'Our house cleaning services start at $49/hour when you provide supplies, or $59/hour when we bring everything. Same-day and emergency service is $89/hour. Final cost depends on home size and service type.' },
   { question: 'Do you charge by the hour or a flat rate?', answer: 'We charge by the hour. This keeps pricing fair — you only pay for the time your space actually needs. No inflated flat-rate quotes.' },
   { question: 'Is there a minimum number of hours?', answer: 'We have a 2-hour minimum for most bookings. This ensures our cleaners have enough time to deliver a thorough, quality clean.' },
   { question: 'How do I book a cleaning?', answer: 'Text or call us at (954) 710-3636. We typically schedule within 24-48 hours, with same-day availability for urgent requests.' },
   { question: 'Can I book online?', answer: 'Yes! You can book directly through our website. Just click "Book Online" in the menu, or text us if you prefer a personal touch.' },
-  { question: 'Do you offer same-day cleaning?', answer: 'Yes. Same-day and emergency cleaning is available at $100/hour. We dispatch a professional cleaner to your door within hours.' },
+  { question: 'Do you offer same-day cleaning?', answer: 'Yes. Same-day and emergency cleaning is available at $89/hour. We dispatch a professional cleaner to your door within hours.' },
   { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Zelle (hi@thefloridamaid.com), Venmo, Apple Pay, and cash. You can also pay securely online through our payment portal.' },
   { question: 'Do I need to tip my cleaner?', answer: 'Tipping is never required but always appreciated. If you feel your cleaner did a great job, a tip is a wonderful way to show it.' },
 
@@ -65,10 +65,10 @@ const homepageFAQs = [
   { question: 'Can I customize what gets cleaned?', answer: 'Of course. Just let us know your priorities and we will tailor the cleaning to focus on what matters most to you.' },
 
   // Supplies & Equipment
-  { question: 'Do you bring your own cleaning supplies?', answer: 'We offer both options. At $49/hour, you provide supplies. At $65/hour (normally $75), we bring all professional-grade supplies and equipment.' },
+  { question: 'Do you bring your own cleaning supplies?', answer: 'We offer both options. At $49/hour, you provide supplies. At $59/hour (normally $75), we bring all professional-grade supplies and equipment.' },
   { question: 'What cleaning products do you use?', answer: 'We use professional-grade, effective cleaning products. If you have preferences for eco-friendly or specific brands, just let us know and we will accommodate.' },
   { question: 'Can I request eco-friendly or green products?', answer: 'Yes. We are happy to use eco-friendly, non-toxic, or hypoallergenic products. Just mention your preference when booking.' },
-  { question: 'Do I need to provide a vacuum or mop?', answer: 'If you choose our $49/hour rate, yes — you provide all supplies and equipment. At $65/hour, we bring everything including vacuums, mops, and all cleaning tools.' },
+  { question: 'Do I need to provide a vacuum or mop?', answer: 'If you choose our $49/hour rate, yes — you provide all supplies and equipment. At $59/hour, we bring everything including vacuums, mops, and all cleaning tools.' },
 
   // Trust & Safety
   { question: 'Are your cleaners background-checked and insured?', answer: 'Yes. Every cleaner on our team is fully background-checked, licensed, and insured. We carry general liability insurance and bonding for your complete peace of mind.' },
@@ -163,14 +163,14 @@ export default function HomePage() {
               <div className="absolute -top-3 left-6 bg-[#34D399] text-white text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
               <p className="text-xs font-semibold text-[#E8732A] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <div className="flex items-baseline gap-3">
-                <p className="font-[family-name:var(--font-bebas)] text-5xl text-black tracking-wide">$65<span className="text-2xl text-black/40">/hr</span></p>
+                <p className="font-[family-name:var(--font-bebas)] text-5xl text-black tracking-wide">$59<span className="text-2xl text-black/40">/hr</span></p>
                 <p className="text-black/30 line-through text-lg">$75</p>
               </div>
               <p className="text-black text-sm mt-3">We bring all supplies and professional-grade equipment. Just open the door.</p>
             </div>
             <div className="bg-white rounded-2xl p-8 shadow-lg">
               <p className="text-xs font-semibold text-[#E8732A] tracking-[0.2em] uppercase mb-3">Same-Day / Emergency</p>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl text-black tracking-wide">$100<span className="text-2xl text-black/40">/hr</span></p>
+              <p className="font-[family-name:var(--font-bebas)] text-5xl text-black tracking-wide">$89<span className="text-2xl text-black/40">/hr</span></p>
               <p className="text-black text-sm mt-3">Need it today? We dispatch a professional cleaner to your door within hours.</p>
             </div>
           </div>
@@ -328,7 +328,7 @@ export default function HomePage() {
               <div className="absolute -top-3.5 left-6 bg-[#34D399] text-white text-xs font-bold tracking-widest uppercase px-5 py-1.5 rounded-full">Most Popular</div>
               <p className="text-xs font-semibold text-white tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <div className="flex items-baseline gap-3 mb-1">
-                <p className="font-[family-name:var(--font-bebas)] text-6xl sm:text-7xl lg:text-8xl text-white tracking-wide leading-none">$65<span className="text-2xl sm:text-3xl text-white">/hr</span></p>
+                <p className="font-[family-name:var(--font-bebas)] text-6xl sm:text-7xl lg:text-8xl text-white tracking-wide leading-none">$59<span className="text-2xl sm:text-3xl text-white">/hr</span></p>
                 <span className="font-[family-name:var(--font-bebas)] text-3xl text-white line-through">$75</span>
               </div>
               <div className="w-10 h-[2px] bg-[#34D399] mt-4 mb-5" />
@@ -362,7 +362,7 @@ export default function HomePage() {
             {/* Tier 3 */}
             <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col">
               <p className="text-xs font-semibold text-black tracking-[0.2em] uppercase mb-3">Same-Day &amp; Emergency</p>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[#CC6222] tracking-wide leading-none mb-1">$100<span className="text-2xl sm:text-3xl text-black">/hr</span></p>
+              <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[#CC6222] tracking-wide leading-none mb-1">$89<span className="text-2xl sm:text-3xl text-black">/hr</span></p>
               <div className="w-10 h-[2px] bg-[#34D399] mt-4 mb-5" />
               <p className="text-black text-sm leading-relaxed mb-5">
                 Need a cleaner today? We dispatch a professional to your door within hours. Includes all supplies and equipment — <Link href="/services/same-day-cleaning-service-in-florida" className="text-[#CC6222] underline underline-offset-2">same-day cleaning</Link> when you need it most.
@@ -400,9 +400,9 @@ export default function HomePage() {
                 {[
                   { tip: 'Book recurring service for the best rate', detail: 'Weekly and bi-weekly clients at $49/hr save significantly over one-time deep cleans. A weekly 2-hour clean costs just $98/visit — less than most Florida dinner tabs.' },
                   { tip: 'First cleaning always takes longer', detail: 'Your initial deep clean may run 4–6 hours. After that, recurring maintenance cleanings are typically 2–3 hours because we\'re maintaining — not catching up.' },
-                  { tip: 'Provide your own supplies to save 25%', detail: 'The difference between $49/hr and $65/hr is who provides supplies. If you have a vacuum, mop, and basic products, you save $16/hr — that\'s $32+ per visit.' },
+                  { tip: 'Provide your own supplies to save 25%', detail: 'The difference between $49/hr and $59/hr is who provides supplies. If you have a vacuum, mop, and basic products, you save $16/hr — that\'s $32+ per visit.' },
                   { tip: 'Declutter before we arrive', detail: 'Our cleaners are most efficient when surfaces are accessible. Less time moving items means more time actually cleaning — better results, lower cost.' },
-                  { tip: 'Bundle services for new homes', detail: 'Moving in? Book a move-in deep clean at $65/hr, then transition to weekly or bi-weekly at $49/hr with your own supplies for ongoing maintenance.' },
+                  { tip: 'Bundle services for new homes', detail: 'Moving in? Book a move-in deep clean at $59/hr, then transition to weekly or bi-weekly at $49/hr with your own supplies for ongoing maintenance.' },
                 ].map(item => (
                   <li key={item.tip}>
                     <p className="text-black font-semibold text-sm mb-1">{item.tip}</p>
@@ -419,8 +419,8 @@ export default function HomePage() {
                   { factor: 'Home size', detail: 'A studio takes 2 hours. A 3-bedroom may take 5–6. We charge by the hour so you only pay for the time your space actually needs — no inflated flat rates.' },
                   { factor: 'Cleaning type', detail: 'A regular maintenance clean is faster than a deep clean. Deep cleans cover inside appliances, baseboards, window tracks, and behind furniture — expect 2x the time.' },
                   { factor: 'Condition of the space', detail: 'A well-maintained home that gets cleaned weekly takes less time than a first-time clean or post-construction job. Recurring clients see lower bills over time.' },
-                  { factor: 'Supplies', detail: 'At $49/hr you provide supplies. At $65/hr we bring commercial-grade vacuums, microfiber systems, and professional products. Both options include the same quality of work.' },
-                  { factor: 'Urgency', detail: 'Same-day and emergency service is $100/hr because we prioritize your booking and dispatch immediately. Plan ahead to save — most clients book 2–3 days in advance.' },
+                  { factor: 'Supplies', detail: 'At $49/hr you provide supplies. At $59/hr we bring commercial-grade vacuums, microfiber systems, and professional products. Both options include the same quality of work.' },
+                  { factor: 'Urgency', detail: 'Same-day and emergency service is $89/hr because we prioritize your booking and dispatch immediately. Plan ahead to save — most clients book 2–3 days in advance.' },
                 ].map(item => (
                   <li key={item.factor}>
                     <p className="text-black font-semibold text-sm mb-1">{item.factor}</p>
@@ -444,7 +444,7 @@ export default function HomePage() {
               </div>
               <div className="bg-[#F5FBF8] border border-[#34D399]/30 rounded-xl p-4">
                 <p className="text-xs text-[#34D399] font-semibold tracking-wide uppercase mb-1">The Florida Maid</p>
-                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#CC6222] tracking-wide">$49–$65/hr</p>
+                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#CC6222] tracking-wide">$49–$59/hr</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="text-xs text-black font-semibold tracking-wide uppercase mb-1">You Save</p>
