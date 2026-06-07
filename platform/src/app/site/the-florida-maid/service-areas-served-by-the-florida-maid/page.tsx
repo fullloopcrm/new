@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'The Florida Maid',
     locale: 'en_US',
-    images: [{ url: 'https://www.thefloridamaid.com/icon-512.png', width: 512, height: 512, alt: 'The Florida Maid' }],
+    images: [{ url: 'https://www.thefloridamaid.com/sites/the-florida-maid/icon-512.png', width: 512, height: 512, alt: 'The Florida Maid' }],
   },
   twitter: {
     card: 'summary',

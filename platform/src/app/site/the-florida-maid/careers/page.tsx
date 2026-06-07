@@ -7,7 +7,7 @@ import CTABlock from '@/app/site/the-florida-maid/_components/marketing/CTABlock
 
 const pageUrl = 'https://www.thefloridamaid.com/careers'
 const pageTitle = 'Careers at The Florida Maid — Now Hiring Cleaners & Operations Staff'
-const pageDescription = 'Join The Florida Maid team. Cleaners start at $30/hr with same-day pay via Zelle. Operations roles available. Apply online or text (954) 710-3636.'
+const pageDescription = 'Join The Florida Maid team. Cleaners start at $25/hr with same-day pay via Zelle. Operations roles available. Apply online or text (954) 710-3636.'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -32,7 +32,7 @@ const positions = [
   {
     title: 'House Cleaner / Maid',
     titleEs: 'Limpiador(a) / Mucama',
-    pay: 'Starting $30/hr',
+    pay: 'Starting $25/hr',
     payDetail: 'Paid via Zelle within 30 minutes of every job',
     description: 'Join our growing team of professional cleaners across Florida. Flexible schedule, same-day pay, 100% tips yours. Full-time and part-time positions available in South Florida, Tampa Bay, and Central Florida.',
     descriptionEs: 'Únete a nuestro equipo de limpiadores profesionales. Horario flexible, pago el mismo día, 100% de propinas.',

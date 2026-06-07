@@ -28,8 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const n = getNeighborhood(slug)
   if (!n) return {}
 
-  const title = `🧹 Cleaning Jobs in ${n.name} — Starting $30/hr + Bonuses | Trabajo de Limpieza`
-  const description = `💰 Now hiring cleaners in ${n.name}! Starting $30/hr + bonus programs. Zelle in <30 min. 100% tips. Open 24/7 🇺🇸🇪🇸 | Contratando en ${n.name} — desde $30/hr + bonos. (954) 710-3636`
+  const title = `🧹 Cleaning Jobs in ${n.name} — Starting $25/hr + Bonuses | Trabajo de Limpieza`
+  const description = `💰 Now hiring cleaners in ${n.name}! Starting $25/hr + bonus programs. Zelle in <30 min. 100% tips. Open 24/7 🇺🇸🇪🇸 | Contratando en ${n.name} — desde $25/hr + bonos. (954) 710-3636`
 
   return {
     title,
@@ -63,8 +63,8 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
   const challengeList = n.cleaning_challenges.slice(0, 3).join(', ')
   const zipSuffix = n.zip_codes[0] ? ` (${n.zip_codes[0]})` : ''
   const nearbyNames = nearby.map(nb => nb.name).slice(0, 3).join(', ')
-  const jobTitle = `House Cleaner for ${primaryHousing} in ${n.name} — $30/hr, Same-Day Pay`
-  const jobDescription = `The Florida Maid is hiring experienced house cleaners in ${n.name}, ${areaName}${zipSuffix}. You'll clean ${housingList} near ${landmarkList}. Cleaners working ${n.name} regularly handle ${challengeList}. Pay starts at $30/hr sent via Zelle within 30 minutes of every completed job, plus bonus programs for retention, client satisfaction, and verified five-star reviews — and 100% of tips are yours. Flexible schedule, 24/7. Full bilingual team portal (English/Spanish) with GPS directions, job details, client notes, and payment tracking.${nearbyNames ? ` Also hiring nearby in ${nearbyNames}.` : ''} Apply at thefloridamaid.com/apply or text (954) 710-3636.`
+  const jobTitle = `House Cleaner for ${primaryHousing} in ${n.name} — $25/hr, Same-Day Pay`
+  const jobDescription = `The Florida Maid is hiring experienced house cleaners in ${n.name}, ${areaName}${zipSuffix}. You'll clean ${housingList} near ${landmarkList}. Cleaners working ${n.name} regularly handle ${challengeList}. Pay starts at $25/hr sent via Zelle within 30 minutes of every completed job, plus bonus programs for retention, client satisfaction, and verified five-star reviews — and 100% of tips are yours. Flexible schedule, 24/7. Full bilingual team portal (English/Spanish) with GPS directions, job details, client notes, and payment tracking.${nearbyNames ? ` Also hiring nearby in ${nearbyNames}.` : ''} Apply at thefloridamaid.com/apply or text (954) 710-3636.`
 
   const jobSchema = {
     '@context': 'https://schema.org',
@@ -85,7 +85,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
       '@type': 'Organization',
       name: 'The Florida Maid',
       sameAs: 'https://www.thefloridamaid.com',
-      logo: 'https://www.thefloridamaid.com/icon-512.png',
+      logo: 'https://www.thefloridamaid.com/sites/the-florida-maid/icon-512.png',
     },
     jobLocation: {
       '@type': 'Place',
@@ -102,7 +102,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
     baseSalary: {
       '@type': 'MonetaryAmount',
       currency: 'USD',
-      value: { '@type': 'QuantitativeValue', value: 30, minValue: 30, maxValue: 75, unitText: 'HOUR' },
+      value: { '@type': 'QuantitativeValue', value: 25, minValue: 25, maxValue: 75, unitText: 'HOUR' },
     },
     applicantLocationRequirements: {
       '@type': 'State',
@@ -150,13 +150,13 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
             <p className="text-white/60 text-xs">Florida</p>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-3xl md:text-5xl lg:text-6xl text-white tracking-wide leading-[0.95] mb-6">
-            Cleaning Jobs in {n.name} — Starting $30/hr + Bonuses
+            Cleaning Jobs in {n.name} — Starting $25/hr + Bonuses
           </h1>
           <p className="text-white/60 text-lg max-w-2xl leading-relaxed mb-4">
-            We need experienced cleaners in {n.name}, {areaName}. You bring your skills and supplies — we bring steady clients, starting at $30/hr paid via Zelle within 30 minutes, bonus programs for top performers, and 100% of tips go directly to you.
+            We need experienced cleaners in {n.name}, {areaName}. You bring your skills and supplies — we bring steady clients, starting at $25/hr paid via Zelle within 30 minutes, bonus programs for top performers, and 100% of tips go directly to you.
           </p>
           <p className="text-white/60 text-lg max-w-2xl leading-relaxed mb-4">
-            Necesitamos limpiadores experimentados en {n.name}. Trae tus habilidades y suministros — nosotros traemos clientes estables, desde $30/hr por Zelle en menos de 30 minutos, programas de bonos, y el 100% de las propinas son tuyas.
+            Necesitamos limpiadores experimentados en {n.name}. Trae tus habilidades y suministros — nosotros traemos clientes estables, desde $25/hr por Zelle en menos de 30 minutos, programas de bonos, y el 100% de las propinas son tuyas.
           </p>
           <div className="flex flex-col sm:flex-row items-start gap-5 mt-8">
             <Link href="/apply" target="_blank" className="bg-[#34D399] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
@@ -174,7 +174,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
         <div className="max-w-5xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#CC6222] tracking-wide">$30/hr</p>
+              <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#CC6222] tracking-wide">$25/hr</p>
               <p className="text-[#CC6222]/60 text-xs font-medium">Every Job</p>
             </div>
             <div>
@@ -223,7 +223,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#CC6222] tracking-wide mb-4">What You Get</h2>
             <div className="space-y-3">
               {[
-                { icon: '💰', en: '$30/hr — paid via Zelle within 30 minutes of every completed job', es: '$30/hr — pagado por Zelle en menos de 30 minutos' },
+                { icon: '💰', en: '$25/hr — paid via Zelle within 30 minutes of every completed job', es: '$25/hr — pagado por Zelle en menos de 30 minutos' },
                 { icon: '💵', en: '100% of tips are yours — we never take a cut', es: '100% de las propinas son tuyas — nunca tomamos nada' },
                 { icon: '📱', en: 'Full team portal — track jobs, payments, GPS directions, client notes', es: 'Portal completo del equipo — trabajos, pagos, GPS, notas de clientes' },
                 { icon: '🗓️', en: 'Flexible schedule — you choose your days and hours', es: 'Horario flexible — tú eliges tus días y horas' },
@@ -302,22 +302,22 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
             <div>
               <p className="text-[#CC6222]/50 text-xs uppercase tracking-widest mb-1">Part-Time / Medio Tiempo</p>
-              <p className="font-bold text-[#CC6222] text-2xl">$375/week</p>
+              <p className="font-bold text-[#CC6222] text-2xl">$312/week</p>
               <p className="text-[#CC6222]/50 text-xs mt-1">5 jobs/week + tips / 5 trabajos/semana + propinas</p>
             </div>
             <div>
               <p className="text-[#CC6222]/50 text-xs uppercase tracking-widest mb-1">Regular</p>
-              <p className="font-bold text-[#CC6222] text-2xl">$750/week</p>
+              <p className="font-bold text-[#CC6222] text-2xl">$625/week</p>
               <p className="text-[#CC6222]/50 text-xs mt-1">10 jobs/week + tips / 10 trabajos/semana + propinas</p>
             </div>
             <div>
               <p className="text-[#CC6222]/50 text-xs uppercase tracking-widest mb-1">Full-Time / Tiempo Completo</p>
-              <p className="font-bold text-[#CC6222] text-2xl">$1,350–$1,500/week</p>
+              <p className="font-bold text-[#CC6222] text-2xl">$1,125–$1,250/week</p>
               <p className="text-[#CC6222]/50 text-xs mt-1">18–20 jobs/week + tips / 18–20 trabajos/semana + propinas</p>
             </div>
           </div>
-          <p className="text-center text-[#CC6222]/50 text-xs mt-4">Based on average 2.5 hour job at $30/hr. 100% of tips go to you.</p>
-          <p className="text-center text-[#CC6222]/30 text-xs italic mt-1">Basado en trabajo promedio de 2.5 horas a $30/hr. 100% de las propinas son tuyas.</p>
+          <p className="text-center text-[#CC6222]/50 text-xs mt-4">Based on average 2.5 hour job at $25/hr. 100% of tips go to you.</p>
+          <p className="text-center text-[#CC6222]/30 text-xs italic mt-1">Basado en trabajo promedio de 2.5 horas a $25/hr. 100% de las propinas son tuyas.</p>
         </section>
 
         {/* Apply CTA */}

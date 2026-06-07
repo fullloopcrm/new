@@ -29,12 +29,12 @@ const openings = [
 ]
 
 const careerFAQs = [
-  { question: 'How much do cleaners earn?', questionEs: '¿Cuánto ganan los limpiadores?', answer: 'Starting at $30 per hour for every job, paid via Zelle within 30 minutes. On top of that, our bonus programs reward retention, client satisfaction, and five-star reviews. Hit 25 verified five-star reviews and you unlock Tier 2 bonuses. Top performers earn well above the base rate.', answerEs: 'Desde $30 por hora por cada trabajo, pagado por Zelle en 30 minutos. Además, nuestros programas de bonos recompensan retención, satisfacción y reseñas de 5 estrellas.' },
+  { question: 'How much do cleaners earn?', questionEs: '¿Cuánto ganan los limpiadores?', answer: 'Starting at $25 per hour for every job, paid via Zelle within 30 minutes. On top of that, our bonus programs reward retention, client satisfaction, and five-star reviews. Hit 25 verified five-star reviews and you unlock Tier 2 bonuses. Top performers earn well above the base rate.', answerEs: 'Desde $25 por hora por cada trabajo, pagado por Zelle en 30 minutos. Además, nuestros programas de bonos recompensan retención, satisfacción y reseñas de 5 estrellas.' },
   { question: 'How do I get paid?', questionEs: '¿Cómo me pagan?', answer: 'You get paid via Zelle within 30 minutes of every completed job. Finish the job, get paid immediately. No weekly checks, no delays.', answerEs: 'Te pagan por Zelle en 30 minutos después de cada trabajo completado. Sin cheques semanales, sin demoras.' },
   { question: 'Do I need to bring my own supplies?', questionEs: '¿Necesito traer mis propios suministros?', answer: 'Yes. Our cleaners provide their own cleaning supplies and equipment. You choose the products you trust and work best with.', answerEs: 'Sí. Nuestros limpiadores proporcionan sus propios suministros y equipo. Tú eliges los productos que prefieres.' },
   { question: 'What experience do I need?', questionEs: '¿Qué experiencia necesito?', answer: 'We require at least 1 year of professional cleaning experience. You should be comfortable cleaning apartments, homes, and offices independently.', answerEs: 'Requerimos al menos 1 año de experiencia profesional en limpieza.' },
   { question: 'What kind of cleaning jobs will I do?', questionEs: '¿Qué tipo de trabajos haré?', answer: 'Regular home cleanings, deep cleans, move-in/move-out cleanings, post-renovation cleanup, Airbnb turnovers, and office cleaning. You\'ll get a variety of work.', answerEs: 'Limpieza regular de apartamentos, limpieza profunda, mudanzas, post-renovación, Airbnb y oficinas.' },
-  { question: 'How many hours can I work per week?', questionEs: '¿Cuántas horas puedo trabajar?', answer: 'That\'s up to you. Full-time cleaners take 18–20 jobs per week (average 2.5 hours each) and earn $1,350–$1,500+. Part-time cleaners pick up 5–10 jobs per week. You set your own availability.', answerEs: 'Depende de ti. Tiempo completo: 18–20 trabajos/semana = $1,350–$1,500+. Medio tiempo: 5–10 trabajos/semana.' },
+  { question: 'How many hours can I work per week?', questionEs: '¿Cuántas horas puedo trabajar?', answer: 'That\'s up to you. Full-time cleaners take 18–20 jobs per week (average 2.5 hours each) and earn $1,125–$1,250+. Part-time cleaners pick up 5–10 jobs per week. You set your own availability.', answerEs: 'Depende de ti. Tiempo completo: 18–20 trabajos/semana = $1,125–$1,250+. Medio tiempo: 5–10 trabajos/semana.' },
   { question: 'Is the schedule flexible?', questionEs: '¿Es flexible el horario?', answer: 'Yes. You set your own availability. We match you with jobs that fit your schedule. No forced hours or mandatory shifts.', answerEs: 'Sí. Tú defines tu disponibilidad. Te conectamos con trabajos que se ajusten a tu horario.' },
   { question: 'Do I need a car?', questionEs: '¿Necesito carro?', answer: 'Yes — a car is strongly preferred for all Florida service areas since jobs are spread across different neighborhoods. Reliable transportation is essential to arrive on time.', answerEs: 'Sí — se prefiere carro para todas las áreas de servicio en Florida ya que los trabajos están repartidos por diferentes vecindarios.' },
   { question: 'Do I need to pass a background check?', questionEs: '¿Necesito verificación de antecedentes?', answer: 'Yes. All cleaners must pass a background check before being assigned to any client. This protects both you and our clients.', answerEs: 'Sí. Todos los limpiadores deben pasar una verificación de antecedentes.' },
@@ -45,8 +45,8 @@ const careerFAQs = [
 export const revalidate = 259200
 
 const pageUrl = 'https://www.thefloridamaid.com/available-florida-maid-jobs'
-const pageTitle = 'Cleaning Jobs Florida — Starting $30/hr + Bonuses, Open 24/7 | Trabajo de Limpieza'
-const pageDescription = 'Hiring cleaners Florida! Starting $30/hr + bonus programs. Zelle in <30 min. 100% tips. Open 24/7. English & Spanish | Contratando — desde $30/hr + bonos, propinas 100% tuyas. (954) 710-3636'
+const pageTitle = 'Cleaning Jobs Florida — Starting $25/hr + Bonuses, Open 24/7 | Trabajo de Limpieza'
+const pageDescription = 'Hiring cleaners Florida! Starting $25/hr + bonus programs. Zelle in <30 min. 100% tips. Open 24/7. English & Spanish | Contratando — desde $25/hr + bonos, propinas 100% tuyas. (954) 710-3636'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'The Florida Maid',
     locale: 'en_US',
-    images: [{ url: 'https://www.thefloridamaid.com/icon-512.png', width: 512, height: 512, alt: 'The Florida Maid' }],
+    images: [{ url: 'https://www.thefloridamaid.com/sites/the-florida-maid/icon-512.png', width: 512, height: 512, alt: 'The Florida Maid' }],
   },
   twitter: {
     card: 'summary',
@@ -80,7 +80,7 @@ function jobPostingSchema(region: string, locations: string) {
     '@context': 'https://schema.org',
     '@type': 'JobPosting',
     title: `Professional House Cleaner — ${region}`,
-    description: `Now hiring experienced house cleaners in ${locations}. Starting at $30/hr paid via Zelle within 30 minutes of every completed job. Bonus programs available for retention, client satisfaction, and five-star reviews. Flexible schedule. Open 24/7. You provide your own cleaning supplies and equipment. Background check required. Apply at thefloridamaid.com/apply or text (954) 710-3636. Bilingual workplace (English/Spanish). 100% of tips are yours.`,
+    description: `Now hiring experienced house cleaners in ${locations}. Starting at $25/hr paid via Zelle within 30 minutes of every completed job. Bonus programs available for retention, client satisfaction, and five-star reviews. Flexible schedule. Open 24/7. You provide your own cleaning supplies and equipment. Background check required. Apply at thefloridamaid.com/apply or text (954) 710-3636. Bilingual workplace (English/Spanish). 100% of tips are yours.`,
     identifier: {
       '@type': 'PropertyValue',
       name: 'The Florida Maid',
@@ -95,7 +95,7 @@ function jobPostingSchema(region: string, locations: string) {
       '@type': 'Organization',
       name: 'The Florida Maid',
       sameAs: 'https://www.thefloridamaid.com',
-      logo: 'https://www.thefloridamaid.com/icon-512.png',
+      logo: 'https://www.thefloridamaid.com/sites/the-florida-maid/icon-512.png',
     },
     jobLocation: {
       '@type': 'Place',
@@ -113,8 +113,8 @@ function jobPostingSchema(region: string, locations: string) {
       currency: 'USD',
       value: {
         '@type': 'QuantitativeValue',
-        value: 30,
-        minValue: 30,
+        value: 25,
+        minValue: 25,
         maxValue: 75,
         unitText: 'HOUR',
       },
@@ -180,19 +180,19 @@ export default function CareersPage() {
             <p className="text-white/60 text-sm">Open 24/7</p>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">
-            Join The Florida Maid — Starting at $30/hr, Bonus Programs Available
+            Join The Florida Maid — Starting at $25/hr, Bonus Programs Available
           </h1>
           <p className="text-white text-lg max-w-2xl leading-relaxed mb-3">
-            We&apos;re hiring experienced cleaners across Florida — South Florida, Tampa Bay, and Central Florida. You bring your own supplies and equipment — we bring a steady stream of clients, a flexible schedule, and starting at $30/hr paid via Zelle within 30 minutes of every completed job. Bonus programs let top performers earn even more.
+            We&apos;re hiring experienced cleaners across Florida — South Florida, Tampa Bay, and Central Florida. You bring your own supplies and equipment — we bring a steady stream of clients, a flexible schedule, and starting at $25/hr paid via Zelle within 30 minutes of every completed job. Bonus programs let top performers earn even more.
           </p>
           <p className="text-white max-w-2xl leading-relaxed mb-4 italic">
-            Contratando limpiadores experimentados en todo Florida — Sur de Florida, Tampa Bay y Florida Central. Tú traes tus suministros — nosotros traemos clientes estables, horario flexible, y desde $30/hr pagado por Zelle en menos de 30 minutos. Programas de bonos disponibles.
+            Contratando limpiadores experimentados en todo Florida — Sur de Florida, Tampa Bay y Florida Central. Tú traes tus suministros — nosotros traemos clientes estables, horario flexible, y desde $25/hr pagado por Zelle en menos de 30 minutos. Programas de bonos disponibles.
           </p>
           <p className="text-white text-lg max-w-2xl leading-relaxed mb-3">
-            Full-time cleaners take 18–20 jobs per week and earn $1,350–$1,500+. Average job is 2.5 hours. No waiting for payday — you get paid the same day, every job.
+            Full-time cleaners take 18–20 jobs per week and earn $1,125–$1,250+. Average job is 2.5 hours. No waiting for payday — you get paid the same day, every job.
           </p>
           <p className="text-white max-w-2xl leading-relaxed mb-10 italic">
-            Limpiadores de tiempo completo toman 18–20 trabajos por semana y ganan $1,350–$1,500+. Sin esperar día de pago — te pagan el mismo día, cada trabajo.
+            Limpiadores de tiempo completo toman 18–20 trabajos por semana y ganan $1,125–$1,250+. Sin esperar día de pago — te pagan el mismo día, cada trabajo.
           </p>
           <div className="flex flex-col sm:flex-row items-start gap-5">
             <Link href="/apply" target="_blank" className="bg-[#34D399] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
@@ -210,7 +210,7 @@ export default function CareersPage() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 text-center">
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#CC6222] tracking-wide">$30+</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#CC6222] tracking-wide">$25+</p>
               <p className="text-[#CC6222]/60 text-sm font-medium">Starting Per Hour</p>
               <p className="text-[#CC6222]/40 text-xs italic">Desde por hora</p>
             </div>
@@ -244,8 +244,8 @@ export default function CareersPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Open Positions / Posiciones Abiertas</p>
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#CC6222] tracking-wide mb-3">Three Regions, Same Great Pay</p>
-          <p className="text-gray-500 max-w-2xl mb-2">We&apos;re actively hiring in all three regions. Each position is the same role — professional house cleaner — starting at $30/hr with same-day Zelle payment and bonus programs.</p>
-          <p className="text-gray-400 text-sm italic max-w-2xl mb-10">Estamos contratando activamente en las tres regiones. Cada puesto es el mismo rol — limpiador profesional — desde $30/hr con pago Zelle el mismo día y programas de bonos.</p>
+          <p className="text-gray-500 max-w-2xl mb-2">We&apos;re actively hiring in all three regions. Each position is the same role — professional house cleaner — starting at $25/hr with same-day Zelle payment and bonus programs.</p>
+          <p className="text-gray-400 text-sm italic max-w-2xl mb-10">Estamos contratando activamente en las tres regiones. Cada puesto es el mismo rol — limpiador profesional — desde $25/hr con pago Zelle el mismo día y programas de bonos.</p>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {openings.map(opening => {
@@ -259,7 +259,7 @@ export default function CareersPage() {
                   </div>
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <span className="text-[#CC6222] font-bold text-lg">Desde $30/hr</span>
+                      <span className="text-[#CC6222] font-bold text-lg">Desde $25/hr</span>
                       <span className="bg-[#34D399]/20 text-white text-xs font-semibold px-3 py-1 rounded-full">Pago el Mismo Día</span>
                     </div>
                     <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-2">All Neighborhoods / Todos los Vecindarios</p>
@@ -309,7 +309,7 @@ export default function CareersPage() {
               <p className="text-[#34D399] text-xs font-semibold tracking-[0.2em] uppercase mb-4">What You Get / Lo Que Recibes</p>
               <div className="space-y-5">
                 {[
-                  { label: 'Starting $30/hr + Bonuses', desc: 'Base rate plus performance bonus programs', es: 'Tarifa base más programas de bonos' },
+                  { label: 'Starting $25/hr + Bonuses', desc: 'Base rate plus performance bonus programs', es: 'Tarifa base más programas de bonos' },
                   { label: 'Paid in 30 Minutes', desc: 'Zelle payment after every completed job', es: 'Pago por Zelle después de cada trabajo' },
                   { label: 'Flexible Schedule', desc: 'Choose days and hours that work for you', es: 'Elige los días y horas que te convengan' },
                   { label: 'Steady Work', desc: 'Recurring clients mean reliable income', es: 'Clientes recurrentes = ingresos confiables' },
@@ -329,28 +329,28 @@ export default function CareersPage() {
             <div className="bg-[#34D399] rounded-2xl p-8">
               <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#CC6222] tracking-wide mb-1">Example Weekly Earnings</p>
               <p className="text-[#CC6222]/40 text-xs italic mb-2">Ganancias Semanales Ejemplo</p>
-              <p className="text-[#CC6222]/50 text-xs mb-3">Avg job: 2.5 hrs &times; $30/hr = $75/job</p>
+              <p className="text-[#CC6222]/50 text-xs mb-3">Avg job: 2.5 hrs &times; $25/hr = $62.50/job</p>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <div>
                     <span className="text-[#CC6222]/70 text-sm">5 jobs/week (part-time)</span>
                     <span className="text-[#CC6222]/40 text-xs italic block">5 trabajos/semana (medio tiempo)</span>
                   </div>
-                  <span className="font-bold text-[#CC6222]">$375/wk</span>
+                  <span className="font-bold text-[#CC6222]">$312/wk</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <div>
                     <span className="text-[#CC6222]/70 text-sm">10 jobs/week</span>
                     <span className="text-[#CC6222]/40 text-xs italic block">10 trabajos/semana</span>
                   </div>
-                  <span className="font-bold text-[#CC6222]">$750/wk</span>
+                  <span className="font-bold text-[#CC6222]">$625/wk</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-[#CC6222]/10 pt-3">
                   <div>
                     <span className="text-[#CC6222]/70 text-sm">18–20 jobs/week (full-time)</span>
                     <span className="text-[#CC6222]/40 text-xs italic block">18–20 trabajos/semana (tiempo completo)</span>
                   </div>
-                  <span className="font-bold text-[#CC6222] text-lg">$1,350–$1,500/wk</span>
+                  <span className="font-bold text-[#CC6222] text-lg">$1,125–$1,250/wk</span>
                 </div>
               </div>
             </div>
@@ -361,8 +361,8 @@ export default function CareersPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-[#34D399] tracking-[0.2em] uppercase mb-2">Earn More / Gana Más</p>
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#CC6222] tracking-wide mb-3">Bonus Programs — Reward Your Excellence</p>
-          <p className="text-gray-600 max-w-2xl mb-4">Starting at $30/hr is just the beginning. Our bonus programs reward cleaners who go above and beyond — retention, client satisfaction, and five-star reviews all earn you more money.</p>
-          <p className="text-gray-400 text-sm italic mb-10">Comenzando a $30/hr es solo el inicio. Nuestros programas de bonos recompensan a los limpiadores que van más allá — retención, satisfacción del cliente y reseñas de cinco estrellas te hacen ganar más dinero.</p>
+          <p className="text-gray-600 max-w-2xl mb-4">Starting at $25/hr is just the beginning. Our bonus programs reward cleaners who go above and beyond — retention, client satisfaction, and five-star reviews all earn you more money.</p>
+          <p className="text-gray-400 text-sm italic mb-10">Comenzando a $25/hr es solo el inicio. Nuestros programas de bonos recompensan a los limpiadores que van más allá — retención, satisfacción del cliente y reseñas de cinco estrellas te hacen ganar más dinero.</p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             <div className="border-2 border-[#34D399] rounded-2xl p-6">
@@ -436,7 +436,7 @@ export default function CareersPage() {
               { step: '1', title: 'Apply Online', desc: 'Fill out our application — takes 2 minutes. Tell us about your experience and preferred area.', es: 'Llena nuestra solicitud — toma 2 minutos. Cuéntanos tu experiencia y área preferida.' },
               { step: '2', title: 'Quick Interview', desc: 'We review your application within 24–48 hours and schedule a brief phone or text interview.', es: 'Revisamos tu solicitud en 24–48 horas y programamos una breve entrevista.' },
               { step: '3', title: 'Background Check', desc: 'Pass a standard background check. This protects you and our clients.', es: 'Pasa una verificación de antecedentes estándar. Esto te protege a ti y a nuestros clientes.' },
-              { step: '4', title: 'Start Working', desc: 'Get matched with clients in your area. Complete jobs, get paid $30/hr via Zelle within 30 minutes.', es: 'Te conectamos con clientes en tu área. Completa trabajos, cobra $30/hr por Zelle en 30 minutos.' },
+              { step: '4', title: 'Start Working', desc: 'Get matched with clients in your area. Complete jobs, get paid $25/hr via Zelle within 30 minutes.', es: 'Te conectamos con clientes en tu área. Completa trabajos, cobra $25/hr por Zelle en 30 minutos.' },
             ].map(item => (
               <div key={item.step}>
                 <div className="w-10 h-10 bg-[#34D399] text-white rounded-full flex items-center justify-center font-bold mb-4">{item.step}</div>
@@ -542,10 +542,10 @@ export default function CareersPage() {
         <section className="bg-[#34D399] rounded-2xl p-8 md:p-12 text-center mb-16">
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#CC6222] tracking-wide mb-2">Ready to Start Earning? / ¿Listo para Empezar a Ganar?</p>
           <p className="text-[#CC6222]/60 max-w-xl mx-auto mb-2">
-            Apply in 2 minutes. We review applications within 24–48 hours. Get working and get paid — starting $30/hr, same day, every job.
+            Apply in 2 minutes. We review applications within 24–48 hours. Get working and get paid — starting $25/hr, same day, every job.
           </p>
           <p className="text-[#CC6222]/40 text-sm italic max-w-xl mx-auto mb-8">
-            Aplica en 2 minutos. Revisamos solicitudes en 24–48 horas. Empieza a trabajar y cobra — desde $30/hr, el mismo día, cada trabajo.
+            Aplica en 2 minutos. Revisamos solicitudes en 24–48 horas. Empieza a trabajar y cobra — desde $25/hr, el mismo día, cada trabajo.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
             <Link href="/apply" target="_blank" className="bg-[#CC6222] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#CC6222]/90 transition-colors">
