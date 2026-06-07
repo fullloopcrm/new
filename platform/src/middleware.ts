@@ -218,7 +218,7 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // sitemap.ts at /site/<slug>/sitemap.xml that enumerates their full
   // route tree. All other tenants fall back to the generic 7-URL
   // /api/tenant-sitemap until they ship their own rich sitemap.
-  const TENANTS_WITH_RICH_SITEMAP = new Set(['the-nyc-exterminator'])
+  const TENANTS_WITH_RICH_SITEMAP = new Set(['the-nyc-exterminator', 'the-florida-maid'])
   if (pathname === '/sitemap.xml') {
     const url = req.nextUrl.clone()
     if (TENANTS_WITH_RICH_SITEMAP.has(tenantSlug)) {

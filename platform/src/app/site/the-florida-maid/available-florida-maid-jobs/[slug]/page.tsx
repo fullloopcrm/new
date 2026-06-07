@@ -53,11 +53,24 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
   const nearby = ALL_NEIGHBORHOODS.filter(nb => n.nearby.includes(nb.slug)).slice(0, 6)
   const sameArea = getNeighborhoodsByArea(n.area).filter(nb => nb.slug !== n.slug).slice(0, 12)
 
+  // Build a UNIQUE title + description per neighborhood from real local data.
+  // Identical postings across 579 pages caused Google for Jobs to dedupe them
+  // down to ~6 indexed. Pulling in housing types, landmarks, cleaning specifics,
+  // zip, and nearby areas makes every posting genuinely distinct.
+  const primaryHousing = n.housing_types[0] || 'homes'
+  const housingList = n.housing_types.slice(0, 3).join(', ')
+  const landmarkList = n.landmarks.slice(0, 2).join(' and ')
+  const challengeList = n.cleaning_challenges.slice(0, 3).join(', ')
+  const zipSuffix = n.zip_codes[0] ? ` (${n.zip_codes[0]})` : ''
+  const nearbyNames = nearby.map(nb => nb.name).slice(0, 3).join(', ')
+  const jobTitle = `House Cleaner for ${primaryHousing} in ${n.name} — $30/hr, Same-Day Pay`
+  const jobDescription = `The Florida Maid is hiring experienced house cleaners in ${n.name}, ${areaName}${zipSuffix}. You'll clean ${housingList} near ${landmarkList}. Cleaners working ${n.name} regularly handle ${challengeList}. Pay starts at $30/hr sent via Zelle within 30 minutes of every completed job, plus bonus programs for retention, client satisfaction, and verified five-star reviews — and 100% of tips are yours. Flexible schedule, 24/7. Full bilingual team portal (English/Spanish) with GPS directions, job details, client notes, and payment tracking.${nearbyNames ? ` Also hiring nearby in ${nearbyNames}.` : ''} Apply at thefloridamaid.com/apply or text (954) 710-3636.`
+
   const jobSchema = {
     '@context': 'https://schema.org',
     '@type': 'JobPosting',
-    title: `Professional House Cleaner — ${n.name}`,
-    description: `Now hiring experienced house cleaners in ${n.name}, ${areaName}. Starting at $30/hr paid via Zelle within 30 minutes of every completed job. Bonus programs for retention, client satisfaction, and five-star reviews. 100% of tips are yours. Flexible schedule 24/7. Full bilingual team portal (English/Spanish) with GPS, job details, and payment tracking. Apply at thefloridamaid.com/apply or text (954) 710-3636.`,
+    title: jobTitle,
+    description: jobDescription,
     identifier: {
       '@type': 'PropertyValue',
       name: 'The Florida Maid',

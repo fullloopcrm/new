@@ -17,37 +17,48 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     'platform-ten-psi.vercel.app',
   ])
 
-  const origin = MAIN_HOSTS.has(host)
+  const isMainHost = MAIN_HOSTS.has(host)
+  const origin = isMainHost
     ? 'https://homeservicesbusinesscrm.com'
     : `https://${host}`
+
+  // Private app surfaces — disallowed on every host (main + tenant).
+  const disallow = [
+    '/dashboard/',
+    '/admin/',
+    '/api/',
+    '/team/',
+    '/portal/',
+    '/sign-in/',
+    '/sign-up/',
+    '/onboarding/',
+    '/join/',
+    '/unsubscribe',
+    '/stripe-onboard/',
+  ]
+
+  // The 2026-05-03 teaser pivot killed these on the MARKETING site only
+  // (middleware returns 410 there). They are NOT killed on tenant domains —
+  // tenant sites have a live /apply hiring funnel, so blocking it on tenants
+  // would hide the cleaner-application page from Google. Only disallow on main.
+  if (isMainHost) {
+    disallow.push(
+      '/apply',
+      '/full-loop-crm-pricing',
+      '/full-loop-crm-frequently-asked-questions',
+      '/agreement',
+      '/waitlist',
+      '/partner-with-full-loop-crm',
+      '/focus-partner',
+    )
+  }
 
   return {
     rules: [
       {
         userAgent: '*',
         allow: '/',
-        disallow: [
-          '/dashboard/',
-          '/admin/',
-          '/api/',
-          '/team/',
-          '/portal/',
-          '/sign-in/',
-          '/sign-up/',
-          '/onboarding/',
-          '/join/',
-          '/unsubscribe',
-          '/stripe-onboard/',
-          // Killed in 2026-05-03 teaser pivot — middleware returns 410.
-          // Listed here as belt-and-suspenders so crawlers stop fetching them.
-          '/apply',
-          '/full-loop-crm-pricing',
-          '/full-loop-crm-frequently-asked-questions',
-          '/agreement',
-          '/waitlist',
-          '/partner-with-full-loop-crm',
-          '/focus-partner',
-        ],
+        disallow,
       },
     ],
     sitemap: `${origin}/sitemap.xml`,
