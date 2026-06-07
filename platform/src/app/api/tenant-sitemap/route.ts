@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { toSlug } from '@/lib/tenant-site'
+import { TENANT_SEO, type UrlSpec } from '@/lib/seo/tenant-seo'
 
 /**
  * Dynamic XML sitemap for a tenant site.
@@ -34,6 +35,22 @@ export async function GET(req: NextRequest) {
     ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`
     : tenant.website_url || `https://${tenant.slug}.homeservicesbusinesscrm.com`
 
+  // If this tenant is registered in the shared SEO engine, its descriptor owns
+  // the full code-defined URL set (statics + areas + neighborhoods + services +
+  // careers + job pages). This is the generalized path — it replaces the
+  // hand-maintained DB-derived list below for onboarded tenants.
+  const descriptor = TENANT_SEO[slug]
+  if (descriptor) {
+    const specs: UrlSpec[] = descriptor.buildUrls()
+    return new NextResponse(specsToXml(specs), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+      },
+    })
+  }
+
   // Fetch services
   const { data: services } = await supabaseAdmin
     .from('service_types')
@@ -59,7 +76,6 @@ export async function GET(req: NextRequest) {
     { path: '/reviews/submit', priority: '0.5', changefreq: 'monthly' },
     { path: '/portal/collect', priority: '0.7', changefreq: 'monthly' },
     { path: '/chat-with-selena', priority: '0.6', changefreq: 'monthly' },
-    { path: '/available-nyc-maid-jobs', priority: '0.7', changefreq: 'weekly' },
   ]
 
   for (const page of staticPages) {
@@ -123,6 +139,24 @@ ${urls
       'Cache-Control': 'public, max-age=3600, s-maxage=3600',
     },
   })
+}
+
+function specsToXml(specs: UrlSpec[]): string {
+  const today = new Date().toISOString().split('T')[0]
+  const body = specs
+    .map(
+      (u) => `  <url>
+    <loc>${escapeXml(u.loc)}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${u.changeFrequency}</changefreq>
+    <priority>${u.priority.toFixed(1)}</priority>
+  </url>`
+    )
+    .join('\n')
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${body}
+</urlset>`
 }
 
 function escapeXml(str: string): string {
