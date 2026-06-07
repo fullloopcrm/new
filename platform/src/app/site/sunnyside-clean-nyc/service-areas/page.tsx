@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Sunnyside Clean NYC',
     locale: 'en_US',
-    images: [{ url: 'https://www.cleaningservicesunnysideny.com/icon-512.png', width: 512, height: 512, alt: 'Sunnyside Clean NYC' }],
+    images: [{ url: 'https://www.cleaningservicesunnysideny.com/opengraph-image', width: 512, height: 512, alt: 'Sunnyside Clean NYC' }],
   },
   twitter: {
     card: 'summary',

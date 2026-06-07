@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     url: 'https://www.washandfoldnyc.com',
     images: [
       {
-        url: 'https://www.washandfoldnyc.com/icon-512.png',
+        url: 'https://www.washandfoldnyc.com/opengraph-image',
         width: 512,
         height: 512,
         alt: 'Wash and Fold NYC — NYC Laundry Service',
@@ -83,7 +83,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
-        <link rel="apple-touch-icon" href="/icon-512.png" />
+        <link rel="apple-touch-icon" href="/icon" />
       </head>
       <body>
         {children}
