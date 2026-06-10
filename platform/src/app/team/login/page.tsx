@@ -9,6 +9,7 @@ export default function TeamLoginPage() {
   const router = useRouter()
   const [pin, setPin] = useState('')
   const [slug, setSlug] = useState('')
+  const [needBusiness, setNeedBusiness] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -21,17 +22,22 @@ export default function TeamLoginPage() {
   }
 
   async function login() {
-    if (pin.length !== 4 || !slug) return
+    if (pin.length !== 4) return
+    if (needBusiness && !slug) return
     setLoading(true)
     setError('')
     try {
       const res = await fetch('/api/team-portal/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin, tenant_slug: slug }),
+        // On a tenant's own domain the server resolves the business from the
+        // host. Only send a slug if the host couldn't (main host fallback).
+        body: JSON.stringify({ pin, tenant_slug: slug || undefined }),
       })
       const data = await res.json()
       if (!res.ok) {
+        // 400 = server couldn't resolve a business from the host → ask for it.
+        if (res.status === 400) setNeedBusiness(true)
         setError(data.error || 'Login failed')
         setPin('')
         return
@@ -50,12 +56,14 @@ export default function TeamLoginPage() {
       <h1 className="text-xl font-bold text-slate-800 mb-2">{t('Team Login', 'Inicio de Sesión')}</h1>
       <p className="text-sm text-slate-400 mb-6">{t('Enter your 4-digit PIN', 'Ingresa tu PIN de 4 dígitos')}</p>
 
-      <input
-        placeholder={t('Business code', 'Código de negocio')}
-        value={slug}
-        onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-        className="w-64 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center mb-4"
-      />
+      {needBusiness && (
+        <input
+          placeholder={t('Business code', 'Código de negocio')}
+          value={slug}
+          onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+          className="w-64 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center mb-4"
+        />
+      )}
 
       <div className="flex gap-3 mb-6">
         {[0, 1, 2, 3].map((i) => (
@@ -86,7 +94,7 @@ export default function TeamLoginPage() {
 
       <button
         onClick={login}
-        disabled={pin.length !== 4 || !slug || loading}
+        disabled={pin.length !== 4 || (needBusiness && !slug) || loading}
         className="w-64 mt-6 bg-slate-800 text-white py-3 rounded-xl font-medium disabled:opacity-30"
       >
         {loading ? t('Logging in...', 'Entrando...') : t('Login', 'Entrar')}

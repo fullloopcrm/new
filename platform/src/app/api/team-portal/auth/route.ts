@@ -32,7 +32,12 @@ export function verifyToken(token: string): { id: string; tid: string } | null {
 }
 
 export async function POST(request: Request) {
-  const { pin, tenant_slug } = await request.json()
+  const body = await request.json().catch(() => ({}))
+  const pin = body.pin
+  // Prefer an explicit slug, but fall back to the middleware-injected tenant
+  // header (set on every tenant domain/subdomain). This lets a cleaner log in
+  // on their own site without typing a "business code".
+  const tenant_slug: string = body.tenant_slug || request.headers.get('x-tenant-slug') || ''
 
   if (!pin || !tenant_slug) {
     return NextResponse.json({ error: 'PIN and tenant required' }, { status: 400 })
