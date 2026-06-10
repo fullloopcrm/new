@@ -49,7 +49,10 @@ const nextConfig: NextConfig = {
       { source: '/book/collect', destination: '/portal/collect', permanent: true },
       { source: '/book/reschedule/:id', destination: '/portal/reschedule/:id', permanent: true },
       { source: '/book/dashboard', destination: '/portal', permanent: true },
-      { source: '/team/:token', destination: '/team/checkin/:token', permanent: true },
+      // Only match UUID check-in tokens so named portal routes (/team/login,
+      // /team/earnings, …) pass through to their real pages instead of being
+      // swallowed by this legacy check-in redirect.
+      { source: '/team/:token([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})', destination: '/team/checkin/:token', permanent: true },
       { source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator', permanent: true },
       // Waitlist-only era — partnership form route renamed, pricing page retired.
       { source: '/crm-partnership-request-form', destination: '/waitlist', permanent: true },

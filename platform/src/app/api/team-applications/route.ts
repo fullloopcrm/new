@@ -22,7 +22,7 @@ type ApprovedApplication = {
 async function provisionApprovedApplicant(tenantId: string, app: ApprovedApplication): Promise<void> {
   const { data: t } = await supabaseAdmin
     .from('tenants')
-    .select('name, primary_color, logo_url, resend_api_key, telnyx_phone, domain, slug')
+    .select('name, primary_color, logo_url, resend_api_key, phone, domain, slug')
     .eq('id', tenantId)
     .single()
   if (!t) return
@@ -86,7 +86,7 @@ async function provisionApprovedApplicant(tenantId: string, app: ApprovedApplica
       applicantName: app.name || '',
       pin,
       portalUrl,
-      supportPhone: t.telnyx_phone || undefined,
+      supportPhone: t.phone || undefined,
     })
     await sendEmail({
       to: app.email,

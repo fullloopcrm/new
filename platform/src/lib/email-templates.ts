@@ -470,12 +470,17 @@ export function teamApplicationApprovedEmail(data: TemplateData & {
   portalUrl: string
   supportPhone?: string
 }): string {
-  const firstName = (data.applicantName || '').split(' ')[0] || 'there'
+  const parts = (data.applicantName || '').trim().split(/\s+/)
+  const firstName = parts[0] && /^(the|a|an|el|la|los|las)$/i.test(parts[0])
+    ? (parts[1] || 'there')
+    : (parts[0] || 'there')
   const color = data.primaryColor || '#111827'
-  const phoneDigits = (data.supportPhone || '').replace(/[^\d+]/g, '')
+  const rawDigits = (data.supportPhone || '').replace(/\D/g, '')
+  const ten = rawDigits.length === 11 && rawDigits.startsWith('1') ? rawDigits.slice(1) : rawDigits
+  const phoneDisplay = ten.length === 10 ? `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}` : data.supportPhone
   const phoneLine = data.supportPhone
     ? `<p style="color:#6b7280;font-size:13px;line-height:1.6;margin:24px 0 0;">
-         Questions? / ¿Preguntas? Text <a href="sms:${phoneDigits}" style="color:${color};font-weight:600;">${data.supportPhone}</a>
+         Questions? / ¿Preguntas? Text <a href="sms:${ten || rawDigits}" style="color:${color};font-weight:600;">${phoneDisplay}</a>
        </p>`
     : ''
   return baseTemplate(`
