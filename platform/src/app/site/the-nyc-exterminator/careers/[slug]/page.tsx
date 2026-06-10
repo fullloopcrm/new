@@ -91,7 +91,7 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
     "@context": "https://schema.org",
     "@type": "JobPosting",
     title: `Pest Control Technician — ${neighborhood.name}`,
-    description: `Licensed pest control technician and exterminator position serving ${location}. Full-time, competitive pay, benefits included. Join ${SITE_NAME}.`,
+    description: `Licensed pest control technician / exterminator serving ${location}. Perform residential and commercial pest control throughout ${neighborhood.name} and nearby ${neighborhood.region} neighborhoods — inspections and EPA-approved treatments for cockroaches, bed bugs, mice, rats, ants, and termites common to ${neighborhood.name} properties. Full-time, $45,000–$85,000/yr, benefits, and NYS DEC certification training sponsorship. Join ${SITE_NAME}.`,
     datePosted,
     validThrough,
     employmentType: "FULL_TIME",
