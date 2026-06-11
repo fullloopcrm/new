@@ -916,7 +916,7 @@ export const discountAnnouncementSchema = {
   "@type": "SpecialAnnouncement",
   name: "Stretch Service Discounts & Savings",
   text: "Save on professional assisted stretch service: 10% off weekly programs ($89/session instead of $99), community discounts for seniors, veterans, NYPD/NYFD, and emergency services, plus 10% recurring referral rewards on every session your referrals book.",
-  datePosted: "2025-01-01",
+  datePosted: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
   url: `${SITE_URL}/discounts`,
   announcementLocation: {
     "@type": "City",
