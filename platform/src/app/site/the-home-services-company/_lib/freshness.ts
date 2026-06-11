@@ -15,20 +15,22 @@ function isoDateTime(date: Date): string {
 }
 
 /**
- * Returns a datePosted that always sits within the last 15 days.
+ * Returns a datePosted that always sits within the last 7 days.
  * Uses a deterministic offset based on the current calendar day so the
  * same page rendered twice on the same day returns the same value
- * (cache-friendly) while still refreshing every ~15 days in the aggregate.
+ * (cache-friendly) while still refreshing every ~7 days in the aggregate.
+ * The daily refresh-job-postings cron re-renders the page so Google for
+ * Jobs sees a date that is never older than 7 days.
  *
  * @param seed — optional string (e.g. city slug) to stagger dates across pages
  */
 export function getDatePosted(seed?: string): string {
   const now = new Date();
-  let offsetDays = now.getUTCDate() % 15;
+  let offsetDays = now.getUTCDate() % 7;
   if (seed) {
     let hash = 0;
     for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
-    offsetDays = ((offsetDays + Math.abs(hash)) % 15);
+    offsetDays = ((offsetDays + Math.abs(hash)) % 7);
   }
   const posted = new Date(now.getTime() - offsetDays * 24 * 60 * 60 * 1000);
   return isoDate(posted);

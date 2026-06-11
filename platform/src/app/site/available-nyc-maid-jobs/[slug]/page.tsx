@@ -15,12 +15,14 @@ export const revalidate = 1296000
 
 export async function generateStaticParams() { return [] }
 
-// Stable 15-day window: datePosted and validThrough only change when the 15-day
-// revalidation cron fires. Prevents Google Jobs from seeing drifting dates.
-const WINDOW_MS = 15 * 24 * 60 * 60 * 1000
+// Stable 7-day window: datePosted/validThrough only change when the window
+// rolls over, so Google Jobs sees a stable date that is never older than 7
+// days. The daily refresh-job-postings cron re-renders the page so the date
+// stays current.
+const WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 function jobDates() {
   const windowStart = Math.floor(Date.now() / WINDOW_MS) * WINDOW_MS
-  const datePosted = new Date(windowStart - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const datePosted = new Date(windowStart).toISOString().split('T')[0]
   const validThrough = new Date(windowStart + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   return { datePosted, validThrough }
 }

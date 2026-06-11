@@ -349,8 +349,10 @@ export function jobPostingSchema(locationName?: string, borough?: string) {
       ? `Mobile Stretch Therapist — ${locationName}, ${borough}`
       : "Mobile Stretch Therapist — New York City",
     description: "Part-time mobile stretch therapist position with Stretch NYC. Provide professional assisted stretch service to clients at their homes, offices, hotels, and public spaces across NYC. $50/hour starting pay. Flexible scheduling 7AM-10PM. Fast payment within 30 minutes of session completion.",
-    datePosted: "2025-01-01",
-    validThrough: "2027-12-31",
+    // Computed at render time; the refresh-job-postings cron re-renders
+    // daily so Google for Jobs always sees a recent datePosted (~2 days).
+    datePosted: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    validThrough: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     employmentType: "PART_TIME",
     hiringOrganization: {
       "@id": `${SITE_URL}/#organization`,
