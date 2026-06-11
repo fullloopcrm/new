@@ -28,16 +28,17 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
   { path: '/pricing', priority: 0.8, changeFrequency: 'monthly' },
   { path: '/quote-request', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/reviews', priority: 0.7, changeFrequency: 'weekly' },
+  { path: '/schedule-service', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/services', priority: 0.9, changeFrequency: 'weekly' },
 ]
 
-const CAREER_SLUGS = [
-  'lead-exterminator',
-  'pest-control-technician',
-  'wildlife-control-specialist',
-  'commercial-account-manager',
-  'customer-service-representative',
-]
+// Careers pages are one per neighborhood: /careers/{neighborhood}-exterminator-jobs
+// (matches the standalone site's 318 indexed careers URLs). These are NOT job
+// titles — the route's parseSlug() requires the -exterminator-jobs suffix, so
+// listing job titles here produced 404s AND omitted every real careers URL.
+const CAREER_SLUGS = (neighborhoodsData as { slug: string }[]).map(
+  (n) => `${n.slug}-exterminator-jobs`,
+)
 
 interface ServiceRow { slug: string }
 interface NeighborhoodRow { slug: string }
