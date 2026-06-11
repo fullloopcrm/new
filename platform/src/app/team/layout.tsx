@@ -98,6 +98,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
     { href: '/team/availability', icon: '◈', label: t('Schedule', 'Horario') },
     { href: '/team/jobs', icon: '!', label: t('Open', 'Abierto') },
     { href: '/team/connect', icon: '💬', label: t('Connect', 'Chat'), badge: connectUnread },
+    { href: '/team/messages', icon: '✉', label: t('Office', 'Oficina') },
   ]
 
   return (
