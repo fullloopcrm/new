@@ -21,18 +21,27 @@ async function submitLead(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  const service = (formData.get("service") as string) || "";
+  const date = (formData.get("date") as string) || "";
+  const userMessage = (formData.get("message") as string) || "";
+
+  // /api/contact is the tenant-aware lead endpoint (resolves the salon from
+  // the host, writes to clients + portal_leads, admin-only notification).
+  // Map borough→location and fold salon-specific fields into subject/message
+  // so nothing is lost.
   const data = {
     name: formData.get("name") as string,
     email: formData.get("email") as string,
     phone: formData.get("phone") as string,
-    service: formData.get("service") as string,
-    borough: formData.get("borough") as string,
-    date: formData.get("date") as string,
-    message: formData.get("message") as string,
+    location: (formData.get("borough") as string) || "",
+    subject: service ? `Mobile salon booking — ${service}` : "Mobile salon booking",
+    message: [date ? `Preferred date: ${date}` : "", userMessage]
+      .filter(Boolean)
+      .join("\n"),
   };
 
   try {
-    const res = await fetch("/api/leads", {
+    const res = await fetch("/api/contact", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
