@@ -16,9 +16,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { decryptSecret } from '@/lib/secret-crypto'
 
 function getStripe(key: string | null | undefined): Stripe {
-  const apiKey = key || process.env.STRIPE_SECRET_KEY
+  // Per-tenant keys are stored encrypted; decryptSecret() passes plaintext through.
+  const apiKey = key ? decryptSecret(key) : process.env.STRIPE_SECRET_KEY
   if (!apiKey) throw new Error('Stripe not configured')
   return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }

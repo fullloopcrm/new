@@ -18,6 +18,7 @@ import { supabaseAdmin } from './supabase'
 import { sendSMS } from './sms'
 import { smsAdmins } from './admin-contacts'
 import { notify } from './notify'
+import { decryptSecret } from './secret-crypto'
 import type { Tenant } from './tenant'
 
 type TenantPaymentFields = Pick<
@@ -46,7 +47,8 @@ export interface ProcessPaymentResult {
 const PARTIAL_THRESHOLD = 0.95
 
 function getStripe(apiKey: string | null | undefined): Stripe {
-  const key = apiKey || process.env.STRIPE_SECRET_KEY
+  // Per-tenant keys are stored encrypted; decryptSecret() passes plaintext through.
+  const key = apiKey ? decryptSecret(apiKey) : process.env.STRIPE_SECRET_KEY
   if (!key) throw new Error('Stripe not configured')
   return new Stripe(key, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }

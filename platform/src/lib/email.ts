@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { withRetry } from './retry'
+import { decryptSecret } from './secret-crypto'
 
 // Only create default client if a real key is configured
 const defaultResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'
@@ -19,9 +20,10 @@ export async function sendEmail({
   from?: string
   resendApiKey?: string | null
 }) {
-  // Determine which client to use — fail fast if no key available
+  // Determine which client to use — fail fast if no key available.
+  // Per-tenant keys are stored encrypted; decryptSecret() passes plaintext through.
   const client = resendApiKey
-    ? new Resend(resendApiKey)
+    ? new Resend(decryptSecret(resendApiKey))
     : defaultResend
 
   if (!client) {

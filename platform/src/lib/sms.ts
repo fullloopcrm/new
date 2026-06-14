@@ -1,6 +1,7 @@
 // Telnyx SMS via REST API (no SDK needed)
 
 import { withRetry } from './retry'
+import { decryptSecret } from './secret-crypto'
 
 export async function sendSMS({
   to,
@@ -13,6 +14,9 @@ export async function sendSMS({
   telnyxApiKey: string
   telnyxPhone: string
 }) {
+  // Per-tenant keys are stored encrypted at rest; decrypt at the send boundary.
+  // decryptSecret() passes plaintext/legacy values through unchanged.
+  const apiKey = decryptSecret(telnyxApiKey)
   return withRetry(async () => {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000) // 15s timeout
@@ -22,7 +26,7 @@ export async function sendSMS({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${telnyxApiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           from: telnyxPhone,

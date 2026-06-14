@@ -1,8 +1,10 @@
 import Stripe from 'stripe'
+import { decryptSecret } from './secret-crypto'
 
-// Platform Stripe instance (for managing connected accounts)
+// Platform Stripe instance (for managing connected accounts).
+// Per-tenant keys are stored encrypted; decryptSecret() passes plaintext through.
 export function getStripe(apiKey?: string): Stripe {
-  const key = apiKey || process.env.STRIPE_SECRET_KEY
+  const key = apiKey ? decryptSecret(apiKey) : process.env.STRIPE_SECRET_KEY
   if (!key) throw new Error('Stripe API key not configured')
   return new Stripe(key, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
