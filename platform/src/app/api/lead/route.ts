@@ -25,6 +25,26 @@ interface LeadBody {
   details?: string
   message?: string
   source?: string
+  [key: string]: unknown
+}
+
+// Standard fields handled explicitly; everything else a form sends
+// (service, address, city, budget, timeframe, etc.) is folded into notes
+// so no field is silently dropped.
+const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source'])
+
+function buildLeadNotes(body: LeadBody): string | null {
+  const lines: string[] = []
+  const base = (body.details || body.message || '').toString().trim()
+  for (const [k, v] of Object.entries(body)) {
+    if (STANDARD_KEYS.has(k)) continue
+    if (v === undefined || v === null || v === '') continue
+    const label = k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    lines.push(`${label}: ${String(v)}`)
+  }
+  const extra = lines.join('\n')
+  const combined = [extra, base].filter(Boolean).join('\n\n').trim()
+  return combined || null
 }
 
 export async function POST(request: NextRequest) {
@@ -44,7 +64,7 @@ export async function POST(request: NextRequest) {
     const name = body.name?.trim()
     const email = body.email?.trim().toLowerCase() || null
     const phoneRaw = body.phone?.trim() || ''
-    const notes = (body.details || body.message || '').trim() || null
+    const notes = buildLeadNotes(body)
 
     if (!name || (!email && !phoneRaw)) {
       return NextResponse.json({ error: 'Name and a phone or email are required.' }, { status: 400 })
