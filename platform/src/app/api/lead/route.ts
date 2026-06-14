@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     try {
       const adminUrl = `${tenantSiteUrl(tenant)}/admin/clients`
       const msg = adminNewClientEmail(
-        { name, phone: phone || '', email, notes: notes || undefined },
+        { name, phone: phone || '', email: email || undefined, notes: notes || undefined },
         {
           tenantName: tenant.name,
           primaryColor: tenant.primary_color || undefined,
