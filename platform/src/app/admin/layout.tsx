@@ -47,6 +47,7 @@ const navMain: Section[] = [
     { letter: 'E', label: 'Social', href: '/admin/social' },
     { letter: 'F', label: 'Email', href: '/admin/email' },
     { letter: 'G', label: 'SMS', href: '/admin/sms' },
+    { letter: 'H', label: 'ComHub', href: '/admin/comhub' },
   ]},
   { num: '05', label: 'Selena AI', href: '/admin/ai', fold: 'ai', subs: [] },
 ]
