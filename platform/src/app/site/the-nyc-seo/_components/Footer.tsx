@@ -111,7 +111,7 @@ export default function Footer() {
           <p className="text-[11px] text-zinc-600">
             Built and managed by{" "}
             <a
-              href="https://www.fullloopcrm.com/"
+              href="https://homeservicesbusinesscrm.com/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-zinc-500 hover:text-white"

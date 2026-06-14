@@ -124,7 +124,7 @@ export default function MarketingFooter() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 text-center">
           <p className="text-[11px] text-gray-500">
             Built and managed by{' '}
-            <a href="https://www.fullloopcrm.com/" target="_blank" rel="noopener noreferrer" className="text-[#7EC8E3]/70 hover:text-[#7EC8E3] font-semibold underline underline-offset-2 decoration-[#7EC8E3]/40">
+            <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-[#7EC8E3]/70 hover:text-[#7EC8E3] font-semibold underline underline-offset-2 decoration-[#7EC8E3]/40">
               Full Loop CRM
             </a>
           </p>

@@ -175,7 +175,7 @@ export default function Footer() {
           <p className="text-[11px] text-slate-500">
             Built and managed by{" "}
             <a
-              href="https://www.fullloopcrm.com/"
+              href="https://homeservicesbusinesscrm.com/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-slate-400 hover:text-white"
