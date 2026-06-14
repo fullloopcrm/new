@@ -22,8 +22,8 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
-  { name: "FAQ", url: "https://www.consortiumnyc.com/nyc-marketing-company-faqs" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "FAQ", url: "https://www.thenycmarketingcompany.com/nyc-marketing-company-faqs" },
 ];
 
 /* Plain-text versions for structured data (first 50 for schema — Google caps at ~100 anyway) */
@@ -47,7 +47,7 @@ export default function FAQPage() {
         data={webPageSchema(
           "100 Marketing FAQs for NYC Businesses | Consortium NYC (Now The NYC Marketing Company)",
           "100 answers to the most common questions about hiring a marketing company in NYC.",
-          "https://www.consortiumnyc.com/nyc-marketing-company-faqs",
+          "https://www.thenycmarketingcompany.com/nyc-marketing-company-faqs",
           breadcrumbs
         )}
       />

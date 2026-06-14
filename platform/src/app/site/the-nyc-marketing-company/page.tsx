@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   title: "NYC Marketing Company | SEO, Web Design & Branding | Consortium NYC (Now The NYC Marketing Company)",
   description:
     "Full-service NYC marketing company serving 100+ industries across NYC, Long Island, and Westchester. SEO from $950/mo, custom websites from $4,600. 25+ years experience. No contracts. Call/text (212) 202-9220.",
-  alternates: { canonical: "https://www.consortiumnyc.com" },
+  alternates: { canonical: "https://www.thenycmarketingcompany.com" },
 };
 
 // Home page sections
@@ -53,7 +53,7 @@ import BlogPreview from "@/app/site/the-nyc-marketing-company/_components/home/B
 import FinalCTA from "@/app/site/the-nyc-marketing-company/_components/home/FinalCTA";
 import ExitIntent from "@/app/site/the-nyc-marketing-company/_components/home/ExitIntent";
 
-const breadcrumbs = [{ name: "Home", url: "https://www.consortiumnyc.com" }];
+const breadcrumbs = [{ name: "Home", url: "https://www.thenycmarketingcompany.com" }];
 
 export default function Home() {
   return (
@@ -63,7 +63,7 @@ export default function Home() {
         data={webPageSchema(
           "NYC Marketing Company | Consortium NYC (Now The NYC Marketing Company)",
           "Full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for businesses in NYC, Long Island, and Westchester.",
-          "https://www.consortiumnyc.com",
+          "https://www.thenycmarketingcompany.com",
           breadcrumbs
         )}
       />

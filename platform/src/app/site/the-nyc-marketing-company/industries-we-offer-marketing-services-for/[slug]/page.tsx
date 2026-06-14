@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const ind = industries.find((i) => i.slug === slug);
   if (!ind) return {};
-  const canonical = `https://www.consortiumnyc.com/industries-we-offer-marketing-services-for/${ind.slug}`;
+  const canonical = `https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for/${ind.slug}`;
   return {
     title: `${ind.name} | SEO, Web Design & Digital Marketing`,
     description: `${ind.desc} Custom SEO, web design, branding, and AI automation for ${ind.badge.toLowerCase()} businesses in NYC, Long Island, and Westchester. SEO from $950/mo. Websites from $4,600. No contracts. Call ${PHONE}.`,
@@ -76,10 +76,10 @@ export default async function IndustryPage({ params }: Props) {
   if (!ind) notFound();
 
   const pageFaqs = getIndustryFaqs(ind.badge);
-  const canonical = `https://www.consortiumnyc.com/industries-we-offer-marketing-services-for/${ind.slug}`;
+  const canonical = `https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for/${ind.slug}`;
   const breadcrumbs = [
-    { name: "Home", url: "https://www.consortiumnyc.com" },
-    { name: "Industries", url: "https://www.consortiumnyc.com/industries-we-offer-marketing-services-for" },
+    { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+    { name: "Industries", url: "https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for" },
     { name: ind.name, url: canonical },
   ];
 

@@ -5,7 +5,7 @@ import Marketing101Client from "./Marketing101Client";
 
 const title = "Marketing 101: 101 Lessons From Startup to 25-Year Veteran | NYC Marketing Guide | Consortium NYC (Now The NYC Marketing Company)";
 const description = "101 marketing lessons every business owner needs — from day-one startup basics to advanced strategies used by 25-year veterans. SEO, web design, branding, local marketing, AI automation, and more for NYC businesses. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/nyc-marketing-101-guide";
+const url = "https://www.thenycmarketingcompany.com/nyc-marketing-101-guide";
 
 export const metadata: Metadata = {
   title,
@@ -40,8 +40,8 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
-  { name: "Marketing 101", url: "https://www.consortiumnyc.com/nyc-marketing-101-guide" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "Marketing 101", url: "https://www.thenycmarketingcompany.com/nyc-marketing-101-guide" },
 ];
 
 export default function Marketing101Page() {
@@ -51,7 +51,7 @@ export default function Marketing101Page() {
         data={webPageSchema(
           "Marketing 101: 101 Lessons From Startup to 25-Year Veteran | Consortium NYC (Now The NYC Marketing Company)",
           "101 marketing lessons every business owner needs — from startup basics to advanced strategies.",
-          "https://www.consortiumnyc.com/nyc-marketing-101-guide",
+          "https://www.thenycmarketingcompany.com/nyc-marketing-101-guide",
           breadcrumbs
         )}
       />

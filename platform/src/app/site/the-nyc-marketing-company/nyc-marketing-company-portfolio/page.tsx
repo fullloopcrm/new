@@ -7,7 +7,7 @@ import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-mark
 const title = "NYC Marketing Company Portfolio | Real SEO Results & Case Studies | Consortium NYC (Now The NYC Marketing Company)";
 const description =
   "See real SEO results, traffic growth, and revenue numbers from NYC businesses we've grown from zero. Visit their websites, Google them — every result is verifiable. No stock photos, no fake case studies. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/nyc-marketing-company-portfolio";
+const url = "https://www.thenycmarketingcompany.com/nyc-marketing-company-portfolio";
 
 export const metadata: Metadata = {
   title,
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
   { name: "Portfolio", url },
 ];
 

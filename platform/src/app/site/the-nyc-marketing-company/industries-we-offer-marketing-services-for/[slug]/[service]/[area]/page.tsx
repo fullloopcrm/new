@@ -36,7 +36,7 @@ export async function generateMetadata({
   const regionLabel = area.region === area.name ? area.name : area.region;
   const label = h1Label(ind.badge);
   const h1 = `${svc.name} for ${label} Businesses in ${area.name}`;
-  const canonical = `https://www.consortiumnyc.com/industries-we-offer-marketing-services-for/${ind.slug}/${svc.slug}/${area.slug}`;
+  const canonical = `https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for/${ind.slug}/${svc.slug}/${area.slug}`;
 
   return {
     title: `${h1} | ${regionLabel} Marketing Company`,
@@ -94,13 +94,13 @@ export default async function ServiceIndustryAreaPage({
   const label = h1Label(ind.badge);
   const h1 = `${svc.name} for ${label} Businesses in ${area.name}`;
   const pageFaqs = getFaqs(svc.name, label, area.name, area.region);
-  const pageUrl = `https://www.consortiumnyc.com/industries-we-offer-marketing-services-for/${ind.slug}/${svc.slug}/${area.slug}`;
+  const pageUrl = `https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for/${ind.slug}/${svc.slug}/${area.slug}`;
 
   const breadcrumbs = [
-    { name: "Home", url: "https://www.consortiumnyc.com" },
-    { name: "Industries", url: "https://www.consortiumnyc.com/industries-we-offer-marketing-services-for" },
-    { name: ind.badge, url: `https://www.consortiumnyc.com/industries-we-offer-marketing-services-for/${ind.slug}` },
-    { name: svc.name, url: `https://www.consortiumnyc.com/services/${svc.slug}` },
+    { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+    { name: "Industries", url: "https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for" },
+    { name: ind.badge, url: `https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for/${ind.slug}` },
+    { name: svc.name, url: `https://www.thenycmarketingcompany.com/services/${svc.slug}` },
     { name: area.name, url: pageUrl },
   ];
 

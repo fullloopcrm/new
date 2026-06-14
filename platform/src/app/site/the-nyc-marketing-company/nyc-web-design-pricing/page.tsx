@@ -6,7 +6,7 @@ import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb"
 
 const wdTitle = "NYC Web Design Pricing | Custom Websites from $4,600 | Consortium NYC (Now The NYC Marketing Company)";
 const wdDescription = "Transparent web design pricing for NYC businesses. Custom websites from $4,600, monthly SEO from $950/mo. No hidden fees, no contracts. Mobile-first, SEO-optimized sites that convert. Call/text (212) 202-9220.";
-const wdUrl = "https://www.consortiumnyc.com/nyc-web-design-pricing";
+const wdUrl = "https://www.thenycmarketingcompany.com/nyc-web-design-pricing";
 
 export const metadata: Metadata = {
   title: wdTitle,
@@ -90,13 +90,13 @@ export default function PricingPage() {
         data={webPageSchema(
           "Transparent Pricing | Consortium NYC (Now The NYC Marketing Company)",
           "Simple, transparent pricing for web design and SEO services. No hidden fees, no surprise invoices, no long-term contracts.",
-          "https://www.consortiumnyc.com/nyc-web-design-pricing"
+          "https://www.thenycmarketingcompany.com/nyc-web-design-pricing"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.consortiumnyc.com" },
-          { name: "Pricing", url: "https://www.consortiumnyc.com/nyc-web-design-pricing" },
+          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+          { name: "Pricing", url: "https://www.thenycmarketingcompany.com/nyc-web-design-pricing" },
         ])}
       />
       <JsonLd data={faqSchema(faqs)} />

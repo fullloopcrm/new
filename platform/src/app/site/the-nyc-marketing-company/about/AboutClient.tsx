@@ -95,13 +95,13 @@ export default function AboutPage() {
         data={webPageSchema(
           "About Consortium NYC (Now The NYC Marketing Company)",
           "Learn about Consortium NYC (Now The NYC Marketing Company), a data-driven NYC marketing company. We help businesses across NYC, Long Island, and Westchester grow with SEO, branding, web design, and automation.",
-          "https://www.consortiumnyc.com/about"
+          "https://www.thenycmarketingcompany.com/about"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.consortiumnyc.com" },
-          { name: "About", url: "https://www.consortiumnyc.com/about" },
+          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+          { name: "About", url: "https://www.thenycmarketingcompany.com/about" },
         ])}
       />
 

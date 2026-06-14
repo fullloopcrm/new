@@ -10,6 +10,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/api/"],
       },
     ],
-    sitemap: ["https://www.consortiumnyc.com/sitemap.xml"],
+    sitemap: ["https://www.thenycmarketingcompany.com/sitemap.xml"],
   };
 }

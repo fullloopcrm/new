@@ -6,7 +6,7 @@ import ServicesPage from "./ServicesClient";
 const title = "NYC Marketing Services | SEO, Web Design, Branding & More";
 const description =
   "Full-service marketing for NYC businesses. SEO from $950/mo, custom websites from $4,600, branding, AI automation, and Google Business Profile optimization. No contracts. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/services";
+const url = "https://www.thenycmarketingcompany.com/services";
 
 export const metadata: Metadata = {
   title,
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
   { name: "Services", url },
 ];
 

@@ -6,7 +6,7 @@ import ServicesListClient from "./ServicesListClient";
 const title = "NYC Marketing Company Services | SEO, Web Design, AI, Branding & More | Consortium NYC (Now The NYC Marketing Company)";
 const description =
   "Every marketing service your NYC business needs under one roof. SEO, custom web design, branding, AI automation, programmatic SEO, CRM development, and more. No contracts. Transparent pricing. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/nyc-marketing-company-services-list";
+const url = "https://www.thenycmarketingcompany.com/nyc-marketing-company-services-list";
 
 export const metadata: Metadata = {
   title,
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
   { name: "Services List", url },
 ];
 

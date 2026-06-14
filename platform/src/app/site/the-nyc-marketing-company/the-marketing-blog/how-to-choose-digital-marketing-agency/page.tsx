@@ -11,7 +11,7 @@ import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 const title = "How to Choose a Marketing Company (Without Getting Burned) | Consortium NYC (Now The NYC Marketing Company)";
 const description =
   "The exact questions to ask, red flags to watch for, and benchmarks to demand before hiring a marketing company. 25 years of industry insight — no sugarcoating. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/the-marketing-blog/how-to-choose-digital-marketing-agency";
+const url = "https://www.thenycmarketingcompany.com/the-marketing-blog/how-to-choose-digital-marketing-agency";
 
 export const metadata: Metadata = {
   title,
@@ -33,13 +33,13 @@ export const metadata: Metadata = {
     url,
     siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "article",
-    images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
+    images: [{ url: "https://www.thenycmarketingcompany.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
-    images: ["https://www.consortiumnyc.com/og-image.jpg"],
+    images: ["https://www.thenycmarketingcompany.com/og-image.jpg"],
   },
 };
 
@@ -57,8 +57,8 @@ export default function Post() {
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.consortiumnyc.com" },
-          { name: "Blog", url: "https://www.consortiumnyc.com/the-marketing-blog" },
+          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+          { name: "Blog", url: "https://www.thenycmarketingcompany.com/the-marketing-blog" },
           { name: "How to Choose a Marketing Company", url },
         ])}
       />

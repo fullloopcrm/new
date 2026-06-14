@@ -44,12 +44,12 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: `https://www.consortiumnyc.com/services/${slug}`,
+      canonical: `https://www.thenycmarketingcompany.com/services/${slug}`,
     },
     openGraph: {
       title,
       description,
-      url: `https://www.consortiumnyc.com/services/${slug}`,
+      url: `https://www.thenycmarketingcompany.com/services/${slug}`,
     },
   };
 }
@@ -114,15 +114,15 @@ export default async function ServicePage({
   const name = subService ? subService.name : category.name;
   const desc = subService ? subService.shortDesc : category.description;
   const serviceFaqs = getServiceFaqs(slug);
-  const pageUrl = `https://www.consortiumnyc.com/services/${slug}`;
+  const pageUrl = `https://www.thenycmarketingcompany.com/services/${slug}`;
   const breadcrumbs = [
-    { name: "Home", url: "https://www.consortiumnyc.com" },
-    { name: "Services", url: "https://www.consortiumnyc.com/nyc-marketing-company-services-list" },
+    { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+    { name: "Services", url: "https://www.thenycmarketingcompany.com/nyc-marketing-company-services-list" },
     ...(subService
       ? [
           {
             name: category.name,
-            url: `https://www.consortiumnyc.com/services/${category.slug}`,
+            url: `https://www.thenycmarketingcompany.com/services/${category.slug}`,
           },
           { name: subService.name, url: pageUrl },
         ]

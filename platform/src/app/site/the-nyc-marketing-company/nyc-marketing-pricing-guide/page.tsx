@@ -6,7 +6,7 @@ import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-mark
 
 const title = "NYC Marketing Company Pricing Guide | Honest Costs, No Hidden Fees | Consortium NYC (Now The NYC Marketing Company)";
 const description = "How much does a marketing company in NYC actually cost? Real pricing for SEO, web design, branding, and AI automation. Plus the mistakes 85% of business owners make that cost them thousands. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/nyc-marketing-pricing-guide";
+const url = "https://www.thenycmarketingcompany.com/nyc-marketing-pricing-guide";
 
 export const metadata: Metadata = {
   title,
@@ -126,7 +126,7 @@ const mistakes = [
 
 export default function PricingGuidePage() {
   const breadcrumbs = [
-    { name: "Home", url: "https://www.consortiumnyc.com" },
+    { name: "Home", url: "https://www.thenycmarketingcompany.com" },
     { name: "Pricing Guide", url },
   ];
 

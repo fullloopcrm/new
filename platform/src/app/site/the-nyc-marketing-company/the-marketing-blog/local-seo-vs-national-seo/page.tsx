@@ -11,7 +11,7 @@ import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 const title = "Local SEO vs National SEO: What Your NYC Business Actually Needs | Consortium NYC (Now The NYC Marketing Company)";
 const description =
   "Local SEO and national SEO require completely different strategies. Learn which approach drives the most revenue for your NYC business — or if you need both. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/the-marketing-blog/local-seo-vs-national-seo";
+const url = "https://www.thenycmarketingcompany.com/the-marketing-blog/local-seo-vs-national-seo";
 
 export const metadata: Metadata = {
   title,
@@ -33,13 +33,13 @@ export const metadata: Metadata = {
     url,
     siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "article",
-    images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
+    images: [{ url: "https://www.thenycmarketingcompany.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
-    images: ["https://www.consortiumnyc.com/og-image.jpg"],
+    images: ["https://www.thenycmarketingcompany.com/og-image.jpg"],
   },
 };
 
@@ -57,8 +57,8 @@ export default function Post() {
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.consortiumnyc.com" },
-          { name: "Blog", url: "https://www.consortiumnyc.com/the-marketing-blog" },
+          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+          { name: "Blog", url: "https://www.thenycmarketingcompany.com/the-marketing-blog" },
           { name: "Local SEO vs National SEO", url },
         ])}
       />

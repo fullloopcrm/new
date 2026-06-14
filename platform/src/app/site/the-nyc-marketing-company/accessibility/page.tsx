@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Accessibility Statement",
   description:
     "Accessibility Statement for Consortium NYC (Now The NYC Marketing Company). Our commitment to making our website accessible to all users. Call (212) 202-9220 with questions.",
-  alternates: { canonical: "https://www.consortiumnyc.com/accessibility" },
+  alternates: { canonical: "https://www.thenycmarketingcompany.com/accessibility" },
   robots: { index: true, follow: true },
 };
 
@@ -21,13 +21,13 @@ export default function AccessibilityPage() {
         data={webPageSchema(
           "Accessibility Statement",
           "Accessibility Statement for Consortium NYC (Now The NYC Marketing Company). Our commitment to digital accessibility for all users.",
-          "https://www.consortiumnyc.com/accessibility"
+          "https://www.thenycmarketingcompany.com/accessibility"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.consortiumnyc.com" },
-          { name: "Accessibility", url: "https://www.consortiumnyc.com/accessibility" },
+          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+          { name: "Accessibility", url: "https://www.thenycmarketingcompany.com/accessibility" },
         ])}
       />
 
@@ -93,7 +93,7 @@ export default function AccessibilityPage() {
                 We welcome your feedback on the accessibility of our website. If you encounter any barriers or have suggestions for improvement, please contact us:
               </p>
               <ul>
-                <li><strong>Email:</strong> <a href="mailto:hello@consortiumnyc.com">hello@consortiumnyc.com</a></li>
+                <li><strong>Email:</strong> <a href="mailto:hello@thenycmarketingcompany.com">hello@thenycmarketingcompany.com</a></li>
                 <li><strong>Phone:</strong> <a href="tel:+12122029220">(212) 202-9220</a></li>
                 <li><strong>Address:</strong> <BrandLink />, New York, NY 10001</li>
               </ul>

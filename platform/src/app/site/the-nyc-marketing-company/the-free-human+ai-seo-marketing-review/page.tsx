@@ -6,7 +6,7 @@ import FreeSEOAudit from "./FreeReviewClient";
 const title = "Free Human+AI SEO & Marketing Review | Consortium NYC (Now The NYC Marketing Company)";
 const description =
   "Get a free SEO and marketing review powered by human expertise and AI analysis. We audit your website, Google Business Profile, competitors, and local rankings — then deliver a custom action plan. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/the-free-human+ai-seo-marketing-review";
+const url = "https://www.thenycmarketingcompany.com/the-free-human+ai-seo-marketing-review";
 
 export const metadata: Metadata = {
   title,
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
   { name: "Free SEO & Marketing Review", url },
 ];
 

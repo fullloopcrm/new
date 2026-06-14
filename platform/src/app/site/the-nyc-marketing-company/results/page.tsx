@@ -8,7 +8,7 @@ import ResultsClient from "./ResultsClient";
 /* ------------------------------------------------------------------ */
 const title = "What's Working | Results & Case Studies | Consortium NYC (Now The NYC Marketing Company)";
 const description = "Real results for real NYC businesses. See how Consortium NYC (Now The NYC Marketing Company) helped local businesses go from invisible to page 1, generating dozens of leads per month with SEO and web design. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/results";
+const url = "https://www.thenycmarketingcompany.com/results";
 
 export const metadata: Metadata = {
   title,
@@ -49,13 +49,13 @@ export default function ResultsPage() {
         data={webPageSchema(
           "What's Working | Results & Case Studies",
           "Real results for real NYC businesses. See how Consortium NYC (Now The NYC Marketing Company) helped local businesses go from invisible to page 1.",
-          "https://www.consortiumnyc.com/results"
+          "https://www.thenycmarketingcompany.com/results"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.consortiumnyc.com" },
-          { name: "Results", url: "https://www.consortiumnyc.com/results" },
+          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+          { name: "Results", url: "https://www.thenycmarketingcompany.com/results" },
         ])}
       />
       <ResultsClient />

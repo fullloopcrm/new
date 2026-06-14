@@ -2,7 +2,7 @@
 import type { MetadataRoute } from "next";
 import { serviceCategories, areas, industries } from "@/app/site/the-nyc-marketing-company/_lib/siteData";
 
-const BASE = "https://www.consortiumnyc.com";
+const BASE = "https://www.thenycmarketingcompany.com";
 
 // Static, hand-maintained top-level routes.
 const STATIC_PATHS = [

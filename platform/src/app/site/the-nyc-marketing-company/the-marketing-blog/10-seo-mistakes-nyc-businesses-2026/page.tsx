@@ -11,7 +11,7 @@ import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 const title = "10 SEO Mistakes NYC Businesses Make in 2026 | Consortium NYC (Now The NYC Marketing Company)";
 const description =
   "The most common SEO mistakes we see NYC businesses making — and exactly how to fix them. From local citations to Core Web Vitals, stop leaving money on the table. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/the-marketing-blog/10-seo-mistakes-nyc-businesses-2026";
+const url = "https://www.thenycmarketingcompany.com/the-marketing-blog/10-seo-mistakes-nyc-businesses-2026";
 
 export const metadata: Metadata = {
   title,
@@ -33,13 +33,13 @@ export const metadata: Metadata = {
     url,
     siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "article",
-    images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
+    images: [{ url: "https://www.thenycmarketingcompany.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
-    images: ["https://www.consortiumnyc.com/og-image.jpg"],
+    images: ["https://www.thenycmarketingcompany.com/og-image.jpg"],
   },
 };
 
@@ -57,8 +57,8 @@ export default function Post() {
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.consortiumnyc.com" },
-          { name: "Blog", url: "https://www.consortiumnyc.com/the-marketing-blog" },
+          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+          { name: "Blog", url: "https://www.thenycmarketingcompany.com/the-marketing-blog" },
           { name: "10 SEO Mistakes NYC Businesses Make in 2026", url },
         ])}
       />

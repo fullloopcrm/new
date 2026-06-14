@@ -8,7 +8,7 @@ import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-mark
 const title = "NYC Marketing Blog | SEO, Web Design & Growth Strategies | Consortium NYC (Now The NYC Marketing Company)";
 const description =
   "Actionable digital marketing strategies, SEO tips, and growth tactics for NYC, Long Island, and Westchester businesses. No fluff — just what works. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/the-marketing-blog";
+const url = "https://www.thenycmarketingcompany.com/the-marketing-blog";
 
 export const metadata: Metadata = {
   title,
@@ -30,13 +30,13 @@ export const metadata: Metadata = {
     url,
     siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
-    images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
+    images: [{ url: "https://www.thenycmarketingcompany.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
-    images: ["https://www.consortiumnyc.com/og-image.jpg"],
+    images: ["https://www.thenycmarketingcompany.com/og-image.jpg"],
   },
 };
 
@@ -65,7 +65,7 @@ const posts = [
 ];
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
   { name: "Blog", url },
 ];
 

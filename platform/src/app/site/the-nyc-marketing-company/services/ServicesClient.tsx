@@ -59,13 +59,13 @@ export default function ServicesPage() {
         data={webPageSchema(
           "Our Services | Consortium NYC (Now The NYC Marketing Company)",
           "Explore our full suite of digital marketing services including SEO, web design, branding, digital strategy, business development, and automation for NYC businesses.",
-          "https://www.consortiumnyc.com/services"
+          "https://www.thenycmarketingcompany.com/services"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.consortiumnyc.com" },
-          { name: "Services", url: "https://www.consortiumnyc.com/services" },
+          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+          { name: "Services", url: "https://www.thenycmarketingcompany.com/services" },
         ])}
       />
 

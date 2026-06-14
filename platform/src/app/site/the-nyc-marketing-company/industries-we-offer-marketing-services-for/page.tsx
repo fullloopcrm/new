@@ -6,7 +6,7 @@ import IndustriesListClient from "./IndustriesListClient";
 const title = "Industries We Serve | NYC Marketing Company | Consortium NYC (Now The NYC Marketing Company)";
 const description =
   "Marketing services for 100+ industries across NYC, Long Island, and the tri-state area. Home services, law firms, restaurants, medical practices, contractors, and more. 25+ years of experience. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/industries-we-offer-marketing-services-for";
+const url = "https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for";
 
 export const metadata: Metadata = {
   title,
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
   { name: "Industries", url },
 ];
 

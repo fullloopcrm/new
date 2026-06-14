@@ -6,7 +6,7 @@ import MarketingChecklist from "./ChecklistClient";
 const title = "Master Marketing Checklist 2026 | SEO, Web Design & More";
 const description =
   "The complete marketing checklist for NYC businesses — SEO foundations, Google Business Profile, web design, content strategy, analytics, and more. Updated for 2026. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/master-marketing-checklist-last-updated-2026";
+const url = "https://www.thenycmarketingcompany.com/master-marketing-checklist-last-updated-2026";
 
 export const metadata: Metadata = {
   title,
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
   { name: "Marketing Checklist", url },
 ];
 

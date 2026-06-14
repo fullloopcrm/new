@@ -38,7 +38,7 @@ export async function generateMetadata({
     title: `${serviceName} in ${area.name} | ${regionLabel} Marketing Company | Consortium NYC (Now The NYC Marketing Company)`,
     description: `${serviceName} for ${area.name} businesses. Local SEO from $950/month, custom websites from $4,600. Data-driven ${serviceName.toLowerCase()} strategies tailored to the ${area.name} market. No contracts. Call/text (212) 202-9220.`,
     alternates: {
-      canonical: `https://www.consortiumnyc.com/services/${slug}/${area.slug}`,
+      canonical: `https://www.thenycmarketingcompany.com/services/${slug}/${area.slug}`,
     },
   };
 }
@@ -70,14 +70,14 @@ export default async function ServiceAreaPage({
   const service = { name: serviceName, slug: serviceSlug, description: serviceDesc, tagline: category.tagline, shortDesc: subService ? subService.shortDesc : category.shortDesc, icon: category.icon, features: category.features };
 
   const pageFaqs = getServiceAreaFaqs(serviceName, area.name, area.region);
-  const pageUrl = `https://www.consortiumnyc.com/services/${serviceSlug}/${area.slug}`;
+  const pageUrl = `https://www.thenycmarketingcompany.com/services/${serviceSlug}/${area.slug}`;
   const regionLabel = area.region === area.name ? area.name : area.region;
 
   const breadcrumbs = [
-    { name: "Home", url: "https://www.consortiumnyc.com" },
-    { name: "Services", url: "https://www.consortiumnyc.com/nyc-marketing-company-services-list" },
-    { name: category.name, url: `https://www.consortiumnyc.com/services/${category.slug}` },
-    ...(subService ? [{ name: subService.name, url: `https://www.consortiumnyc.com/services/${subService.slug}` }] : []),
+    { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+    { name: "Services", url: "https://www.thenycmarketingcompany.com/nyc-marketing-company-services-list" },
+    { name: category.name, url: `https://www.thenycmarketingcompany.com/services/${category.slug}` },
+    ...(subService ? [{ name: subService.name, url: `https://www.thenycmarketingcompany.com/services/${subService.slug}` }] : []),
     { name: area.name, url: pageUrl },
   ];
 

@@ -33,7 +33,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.consortiumnyc.com"),
+  metadataBase: new URL("https://www.thenycmarketingcompany.com"),
   title: {
     default: "Consortium NYC (Now The NYC Marketing Company) | NYC SEO, Branding & Web Design",
     template: "%s | Consortium NYC (Now The NYC Marketing Company)",
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://www.consortiumnyc.com",
+    url: "https://www.thenycmarketingcompany.com",
     siteName: "Consortium NYC (Now The NYC Marketing Company)",
     title: "Consortium NYC (Now The NYC Marketing Company) | NYC SEO, Branding & Web Design",
     description:
@@ -97,7 +97,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: "https://www.consortiumnyc.com",
+    canonical: "https://www.thenycmarketingcompany.com",
   },
   // verification: { google: "ADD_REAL_CODE_FROM_SEARCH_CONSOLE" },
 };

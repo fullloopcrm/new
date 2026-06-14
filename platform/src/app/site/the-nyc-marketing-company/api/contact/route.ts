@@ -167,7 +167,7 @@ function buildEmailHtml(
         <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">
           ${typeLabel[type] || "New Lead"}
         </h1>
-        <p style="margin:4px 0 0;color:#ccfbf1;font-size:14px;">consortiumnyc.com</p>
+        <p style="margin:4px 0 0;color:#ccfbf1;font-size:14px;">thenycmarketingcompany.com</p>
       </div>
       <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;padding:24px 32px;border-radius:0 0 12px 12px;">
         <table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.6;">

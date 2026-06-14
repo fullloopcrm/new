@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Terms of Service",
   description:
     "Terms of Service for Consortium NYC (Now The NYC Marketing Company). Read our terms governing the use of our website and digital marketing services. Call (212) 202-9220 with questions.",
-  alternates: { canonical: "https://www.consortiumnyc.com/terms" },
+  alternates: { canonical: "https://www.thenycmarketingcompany.com/terms" },
   robots: { index: true, follow: true },
 };
 
@@ -21,13 +21,13 @@ export default function TermsPage() {
         data={webPageSchema(
           "Terms of Service",
           "Terms of Service for Consortium NYC (Now The NYC Marketing Company). Terms governing use of our website and digital marketing services.",
-          "https://www.consortiumnyc.com/terms"
+          "https://www.thenycmarketingcompany.com/terms"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.consortiumnyc.com" },
-          { name: "Terms of Service", url: "https://www.consortiumnyc.com/terms" },
+          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+          { name: "Terms of Service", url: "https://www.thenycmarketingcompany.com/terms" },
         ])}
       />
 
@@ -40,7 +40,7 @@ export default function TermsPage() {
           <div className="mt-12 prose-legal">
             <Section title="1. Agreement to Terms">
               <p>
-                By accessing or using the website at <strong>consortiumnyc.com</strong> (the &quot;Site&quot;) or engaging any services provided by <BrandLink /> (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree, do not use the Site or our services.
+                By accessing or using the website at <strong>thenycmarketingcompany.com</strong> (the &quot;Site&quot;) or engaging any services provided by <BrandLink /> (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree, do not use the Site or our services.
               </p>
             </Section>
 
@@ -179,7 +179,7 @@ export default function TermsPage() {
             <Section title="17. Contact Us">
               <p>If you have questions about these Terms, contact us:</p>
               <ul>
-                <li><strong>Email:</strong> <a href="mailto:hello@consortiumnyc.com">hello@consortiumnyc.com</a></li>
+                <li><strong>Email:</strong> <a href="mailto:hello@thenycmarketingcompany.com">hello@thenycmarketingcompany.com</a></li>
                 <li><strong>Phone:</strong> <a href="tel:+12122029220">(212) 202-9220</a></li>
                 <li><strong>Address:</strong> <BrandLink />, New York, NY 10001</li>
               </ul>

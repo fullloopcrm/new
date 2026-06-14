@@ -9,7 +9,7 @@ import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 const title = "What's Working in Marketing Right Now | Consortium NYC (Now The NYC Marketing Company)";
 const description =
   "Real-time notes, updates, and observations from the team at Consortium NYC (Now The NYC Marketing Company). What's actually working in SEO, web design, and digital marketing — no fluff, no theory. Call/text (212) 202-9220.";
-const url = "https://www.consortiumnyc.com/whats-working-in-marketing";
+const url = "https://www.thenycmarketingcompany.com/whats-working-in-marketing";
 
 export const metadata: Metadata = {
   title,
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.consortiumnyc.com" },
+  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
   { name: "What's Working in Marketing", url },
 ];
 
