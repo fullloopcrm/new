@@ -30,6 +30,9 @@ type Business = {
   telnyx_voice_connection_id: string | null
   telnyx_telephony_credential_id: string | null
   telnyx_credential_connection_id: string | null
+  voice_ring_list: string | null
+  voicemail_prompt: string | null
+  missed_call_sms: string | null
   resend_api_key: string | null
   resend_domain: string | null
   email_from: string | null
@@ -100,6 +103,9 @@ export default function OnboardingWizardPage() {
   const [voiceConnId, setVoiceConnId] = useState('')
   const [telephonyCredId, setTelephonyCredId] = useState('')
   const [credConnId, setCredConnId] = useState('')
+  const [voiceRingList, setVoiceRingList] = useState('')
+  const [voicemailPrompt, setVoicemailPrompt] = useState('')
+  const [missedCallSms, setMissedCallSms] = useState('')
   const [resendKey, setResendKey] = useState('')
   const [resendDomain, setResendDomain] = useState('')
   const [emailFrom, setEmailFrom] = useState('')
@@ -138,6 +144,9 @@ export default function OnboardingWizardPage() {
         setVoiceConnId(b.telnyx_voice_connection_id || '')
         setTelephonyCredId(b.telnyx_telephony_credential_id || '')
         setCredConnId(b.telnyx_credential_connection_id || '')
+        setVoiceRingList(b.voice_ring_list || '')
+        setVoicemailPrompt(b.voicemail_prompt || '')
+        setMissedCallSms(b.missed_call_sms || '')
         setResendDomain(b.resend_domain || '')
         setEmailFrom(b.email_from || '')
         setOwnerEmail(b.owner_email || '')
@@ -224,6 +233,9 @@ export default function OnboardingWizardPage() {
       updates.telnyx_voice_connection_id = voiceConnId || null
       updates.telnyx_telephony_credential_id = telephonyCredId || null
       updates.telnyx_credential_connection_id = credConnId || null
+      updates.voice_ring_list = voiceRingList || null
+      updates.voicemail_prompt = voicemailPrompt || null
+      updates.missed_call_sms = missedCallSms || null
       if (resendKey) updates.resend_api_key = resendKey
       if (resendDomain) updates.resend_domain = resendDomain
       if (emailFrom) updates.email_from = emailFrom
@@ -445,6 +457,18 @@ export default function OnboardingWizardPage() {
               </Field>
               <Field label="Telephony credential ID">
                 <input value={telephonyCredId} onChange={e => setTelephonyCredId(e.target.value)} className="input" placeholder="Shared SIP credential ID" />
+              </Field>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">Inbound call handling (used once a number is connected; blank = platform defaults):</p>
+            <div className="grid md:grid-cols-3 gap-3">
+              <Field label="Ring list (comma-sep E.164)">
+                <input value={voiceRingList} onChange={e => setVoiceRingList(e.target.value)} className="input" placeholder="+12125551212,+19175550000" />
+              </Field>
+              <Field label="Voicemail prompt">
+                <input value={voicemailPrompt} onChange={e => setVoicemailPrompt(e.target.value)} className="input" placeholder="Hi, you've reached…" />
+              </Field>
+              <Field label="Missed-call SMS">
+                <input value={missedCallSms} onChange={e => setMissedCallSms(e.target.value)} className="input" placeholder="Sorry we missed your call…" />
               </Field>
             </div>
 
