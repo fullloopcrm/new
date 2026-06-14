@@ -214,7 +214,7 @@ export default function Process() {
 
               {/* CTA */}
               <Link
-                href="/contact"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="block w-full text-center px-6 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Start With a Real Conversation

@@ -2,12 +2,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Privacy Policy — learn how we collect, use, and protect your personal information. The best organic marketing company in NYC. Call/text 212.202.9220 with questions.",
-  alternates: { canonical: "https://www.thenycmarketingcompany.com/privacy-policy" },
+    "Privacy Policy for Consortium NYC (Now The NYC Marketing Company). Learn how we collect, use, and protect your personal information. Call (212) 202-9220 with questions.",
+  alternates: { canonical: "https://www.consortiumnyc.com/privacy-policy" },
   robots: { index: true, follow: true },
 };
 
@@ -19,14 +20,14 @@ export default function PrivacyPolicyPage() {
       <JsonLd
         data={webPageSchema(
           "Privacy Policy",
-          "Privacy Policy for The NYC Marketing Company. How we collect, use, and protect your personal information.",
-          "https://www.thenycmarketingcompany.com/privacy-policy"
+          "Privacy Policy for Consortium NYC (Now The NYC Marketing Company). How we collect, use, and protect your personal information.",
+          "https://www.consortiumnyc.com/privacy-policy"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
-          { name: "Privacy Policy", url: "https://www.thenycmarketingcompany.com/privacy-policy" },
+          { name: "Home", url: "https://www.consortiumnyc.com" },
+          { name: "Privacy Policy", url: "https://www.consortiumnyc.com/privacy-policy" },
         ])}
       />
 
@@ -39,7 +40,7 @@ export default function PrivacyPolicyPage() {
           <div className="mt-12 prose-legal">
             <Section title="1. Introduction">
               <p>
-                The NYC Marketing Company (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) respects your privacy and is committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website at <strong>thenycmarketingcompany.com</strong> (the &quot;Site&quot;) or engage our services.
+                <BrandLink /> (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) respects your privacy and is committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website at <strong>consortiumnyc.com</strong> (the &quot;Site&quot;) or engage our services.
               </p>
               <p>
                 By accessing or using the Site, you agree to this Privacy Policy. If you do not agree, please do not use the Site.
@@ -155,9 +156,9 @@ export default function PrivacyPolicyPage() {
             <Section title="12. Contact Us">
               <p>If you have questions about this Privacy Policy or wish to exercise your rights, contact us:</p>
               <ul>
-                <li><strong>Email:</strong> <a href="mailto:hi@thenycmarketingcompany.com">hi@thenycmarketingcompany.com</a></li>
+                <li><strong>Email:</strong> <a href="mailto:hello@consortiumnyc.com">hello@consortiumnyc.com</a></li>
                 <li><strong>Phone:</strong> <a href="tel:+12122029220">(212) 202-9220</a></li>
-                <li><strong>Address:</strong> The NYC Marketing Company, 150 W 47th St, New York, NY 10036</li>
+                <li><strong>Address:</strong> <BrandLink />, New York, NY 10001</li>
               </ul>
             </Section>
           </div>

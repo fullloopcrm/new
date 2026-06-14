@@ -6,11 +6,12 @@ import BlogSidebar from "@/app/site/the-nyc-marketing-company/_components/blog/B
 import BlogNav from "@/app/site/the-nyc-marketing-company/_components/blog/BlogNav";
 import ListenButton from "@/app/site/the-nyc-marketing-company/_components/blog/ListenButton";
 import { JsonLd, articleSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
-const title = "10 SEO Mistakes NYC Businesses Make in 2026";
+const title = "10 SEO Mistakes NYC Businesses Make in 2026 | Consortium NYC (Now The NYC Marketing Company)";
 const description =
-  "The most common SEO mistakes we see NYC businesses making — and exactly how to fix them. From local citations to Core Web Vitals, stop leaving money on the table. The best organic marketing company in NYC. Pricing starting at $100/hr. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/the-marketing-blog/10-seo-mistakes-nyc-businesses-2026";
+  "The most common SEO mistakes we see NYC businesses making — and exactly how to fix them. From local citations to Core Web Vitals, stop leaving money on the table. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/the-marketing-blog/10-seo-mistakes-nyc-businesses-2026";
 
 export const metadata: Metadata = {
   title,
@@ -30,13 +31,15 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "article",
+    images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["https://www.consortiumnyc.com/og-image.jpg"],
   },
 };
 
@@ -54,8 +57,8 @@ export default function Post() {
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
-          { name: "Blog", url: "https://www.thenycmarketingcompany.com/the-marketing-blog" },
+          { name: "Home", url: "https://www.consortiumnyc.com" },
+          { name: "Blog", url: "https://www.consortiumnyc.com/the-marketing-blog" },
           { name: "10 SEO Mistakes NYC Businesses Make in 2026", url },
         ])}
       />
@@ -68,7 +71,7 @@ export default function Post() {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 font-heading leading-tight max-w-3xl">
             10 SEO Mistakes NYC Businesses Make in 2026
           </h1>
-          <p className="text-white/50 text-sm">By The NYC Marketing Company</p>
+          <p className="text-white/50 text-sm">By <BrandLink /></p>
         </div>
       </section>
 
@@ -139,10 +142,10 @@ export default function Post() {
             <div className="mt-12 p-8 rounded-xl bg-teal-50 border border-teal-100">
               <p className="text-slate-900 font-bold text-lg mb-2 font-heading">How many of these apply to your business?</p>
               <p className="text-slate-600 text-sm mb-4">
-                Get a <Link href="/the-free-human+ai-seo-marketing-review" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">free SEO audit</Link> and we&apos;ll tell you exactly where you stand — no sales pitch, no obligation.
+                Get a <Link href="https://www.thenycmarketingcompany.com/contact" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">free SEO audit</Link> and we&apos;ll tell you exactly where you stand — no sales pitch, no obligation.
               </p>
               <Link
-                href="/the-free-human+ai-seo-marketing-review"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta"
               >
                 Get My Free Audit

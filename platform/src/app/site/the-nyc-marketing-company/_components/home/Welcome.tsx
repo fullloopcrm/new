@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
 export default function Welcome() {
   return (
@@ -15,7 +16,7 @@ export default function Welcome() {
           transition={{ duration: 0.5 }}
           className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta"
         >
-          Welcome to The NYC Marketing Company
+          Welcome to <BrandLink />
         </motion.p>
 
         <motion.h2
@@ -60,7 +61,7 @@ export default function Welcome() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/about"
+              href="/about-marketing-company-consortium-nyc"
               className="px-7 py-3.5 text-sm font-bold text-teal-600 rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors font-cta"
             >
               Learn More About Us

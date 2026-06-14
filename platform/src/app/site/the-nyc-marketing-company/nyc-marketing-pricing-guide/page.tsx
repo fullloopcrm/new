@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 
-const title = "NYC Marketing Pricing Guide | Honest Costs, No Hidden Fees";
-const description = "How much does a marketing company in NYC actually cost? The best organic marketing company in NYC. Real pricing for SEO, web design, branding, and AI automation starting at $100/hr. Plus the mistakes 85% of business owners make that cost them thousands. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/nyc-marketing-pricing-guide";
+const title = "NYC Marketing Company Pricing Guide | Honest Costs, No Hidden Fees | Consortium NYC (Now The NYC Marketing Company)";
+const description = "How much does a marketing company in NYC actually cost? Real pricing for SEO, web design, branding, and AI automation. Plus the mistakes 85% of business owners make that cost them thousands. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/nyc-marketing-pricing-guide";
 
 export const metadata: Metadata = {
   title,
@@ -26,13 +26,15 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company) Pricing Guide" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.jpg"],
   },
 };
 
@@ -124,7 +126,7 @@ const mistakes = [
 
 export default function PricingGuidePage() {
   const breadcrumbs = [
-    { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+    { name: "Home", url: "https://www.consortiumnyc.com" },
     { name: "Pricing Guide", url },
   ];
 
@@ -143,7 +145,7 @@ export default function PricingGuidePage() {
             <span className="text-teal-400">NYC Actually Cost?</span>
           </h1>
           <p className="text-white/70 text-lg max-w-2xl mx-auto">
-            Transparent pricing from a <Link href="/about" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">marketing company with 25 years of experience</Link>. No hidden fees. No surprise invoices. No contracts. Plus the real talk about pricing that nobody else will give you.
+            Transparent pricing from a <Link href="/about-digital-marketing-agency-consortium-nyc" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">marketing company with 25 years of experience</Link>. No hidden fees. No surprise invoices. No contracts. Plus the real talk about pricing that nobody else will give you.
           </p>
         </div>
       </section>
@@ -334,7 +336,7 @@ export default function PricingGuidePage() {
                 ))}
               </ul>
               <Link
-                href="/contact"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="block w-full text-center px-8 py-4 text-base font-bold text-teal-600 rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors font-cta"
               >
                 Start Your Project
@@ -364,7 +366,7 @@ export default function PricingGuidePage() {
                 ))}
               </ul>
               <Link
-                href="/contact"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="block w-full text-center px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Start Ranking
@@ -387,7 +389,7 @@ export default function PricingGuidePage() {
               Most popular for <Link href="/industries-we-offer-marketing-services-for/home-service-business-marketing" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">home service businesses</Link>, <Link href="/industries-we-offer-marketing-services-for/dental-practice-marketing" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">dental practices</Link>, <Link href="/industries-we-offer-marketing-services-for/personal-injury-law-firm-marketing" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">law firms</Link>, and <Link href="/industries-we-offer-marketing-services-for/restaurant-food-service-marketing" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">restaurants</Link> across <Link href="/services-areas-we-offer-marketing-services-in" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">all five boroughs</Link>.
             </p>
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-slate-900 rounded-lg bg-white hover:bg-slate-100 transition-colors font-cta"
             >
               Get the Bundle
@@ -507,11 +509,11 @@ export default function PricingGuidePage() {
             Not Sure What You Need?
           </h2>
           <p className="text-slate-600 text-base max-w-xl mx-auto mb-8">
-            Book a free strategy session. We&apos;ll look at your current setup, audit your competitors, and recommend exactly what will move the needle — whether you hire us or not. See <Link href="/nyc-marketing-company-portfolio" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">real results from real businesses</Link> or get a <Link href="/the-free-human+ai-seo-marketing-review" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">free SEO audit</Link> first.
+            Book a free strategy session. We&apos;ll look at your current setup, audit your competitors, and recommend exactly what will move the needle — whether you hire us or not. See <Link href="/nyc-marketing-company-portfolio" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">real results from real businesses</Link> or get a <Link href="https://www.thenycmarketingcompany.com/contact" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">free SEO audit</Link> first.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-10 py-5 text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
               Schedule a Free Strategy Session

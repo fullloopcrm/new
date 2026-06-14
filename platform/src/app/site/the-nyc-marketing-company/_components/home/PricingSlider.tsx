@@ -184,13 +184,13 @@ export default function PricingSlider() {
           {/* CTA */}
           <div className="mt-8 flex flex-col items-center gap-3">
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-10 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
               Get Started at ${tier.rate}/hr
             </Link>
             <Link
-              href="/nyc-marketing-pricing-guide"
+              href="https://www.thenycmarketingcompany.com/nyc-marketing-pricing-guide"
               className="text-teal-600 hover:text-teal-700 text-sm font-semibold underline underline-offset-2 decoration-teal-600/50 font-cta"
             >
               View Full Pricing Details

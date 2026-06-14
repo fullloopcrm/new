@@ -6,11 +6,12 @@ import BlogSidebar from "@/app/site/the-nyc-marketing-company/_components/blog/B
 import BlogNav from "@/app/site/the-nyc-marketing-company/_components/blog/BlogNav";
 import ListenButton from "@/app/site/the-nyc-marketing-company/_components/blog/ListenButton";
 import { JsonLd, articleSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
-const title = "Local SEO vs National SEO: What Your NYC Business Actually Needs";
+const title = "Local SEO vs National SEO: What Your NYC Business Actually Needs | Consortium NYC (Now The NYC Marketing Company)";
 const description =
-  "Local SEO and national SEO require completely different strategies. Learn which approach drives the most revenue for your NYC business — or if you need both. The best organic marketing company in NYC. Pricing starting at $100/hr. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/the-marketing-blog/local-seo-vs-national-seo";
+  "Local SEO and national SEO require completely different strategies. Learn which approach drives the most revenue for your NYC business — or if you need both. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/the-marketing-blog/local-seo-vs-national-seo";
 
 export const metadata: Metadata = {
   title,
@@ -30,13 +31,15 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "article",
+    images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["https://www.consortiumnyc.com/og-image.jpg"],
   },
 };
 
@@ -54,8 +57,8 @@ export default function Post() {
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
-          { name: "Blog", url: "https://www.thenycmarketingcompany.com/the-marketing-blog" },
+          { name: "Home", url: "https://www.consortiumnyc.com" },
+          { name: "Blog", url: "https://www.consortiumnyc.com/the-marketing-blog" },
           { name: "Local SEO vs National SEO", url },
         ])}
       />
@@ -68,7 +71,7 @@ export default function Post() {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 font-heading leading-tight max-w-3xl">
             Local SEO vs National SEO: What Your Business Actually Needs
           </h1>
-          <p className="text-white/50 text-sm">By The NYC Marketing Company</p>
+          <p className="text-white/50 text-sm">By <BrandLink /></p>
         </div>
       </section>
 
@@ -131,7 +134,7 @@ export default function Post() {
                 Schedule a free strategy session and we&apos;ll analyze your market, your competitors, and your opportunity — then tell you exactly what will move the needle fastest.
               </p>
               <Link
-                href="/contact"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta"
               >
                 Schedule a Free Strategy Session

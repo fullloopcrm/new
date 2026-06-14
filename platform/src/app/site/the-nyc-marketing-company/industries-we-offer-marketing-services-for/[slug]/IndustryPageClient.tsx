@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import type { ServiceCategory } from "@/app/site/the-nyc-marketing-company/_lib/siteData";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
 interface Industry { name: string; slug: string; badge: string; desc: string; }
 interface Area { name: string; slug: string; region: string; type: string; }
@@ -66,7 +67,7 @@ export default function IndustryPageClient({
               SEO from <span className="text-teal-400 font-bold">$950/mo</span> &middot; Websites from <span className="text-teal-400 font-bold">$4,600</span> &middot; AI Automation from <span className="text-teal-400 font-bold">$1,000/mo</span> &middot; <span className="text-teal-400 font-bold">No contracts</span>
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-4 mb-10">
-              <Link href="/contact" className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta">
+              <Link href="https://www.thenycmarketingcompany.com/contact" className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta">
                 Get a Free {badge} Strategy
               </Link>
               <a href={PHONE_HREF} className="inline-block px-8 py-4 text-base font-bold text-white/90 rounded-lg border border-white/20 hover:bg-white/10 transition-colors font-cta">
@@ -118,7 +119,7 @@ export default function IndustryPageClient({
                   The {lb} industry has changed. Ten years ago, word-of-mouth and a Yellow Pages ad were enough. Today, <strong>97% of consumers search online before making a purchasing decision</strong>, and if your {lb} business doesn&apos;t show up on the first page of Google, you&apos;re invisible to the customers who need you most. Your competitors are investing in <L href="/services/search-engine-optimization-seo-nyc">SEO</L>, <L href="/services/web-design-nyc">professional websites</L>, and <L href="/artificial-intelligence-marketing-services-offered">AI automation</L> — and they&apos;re capturing the leads that should be yours.
                 </p>
                 <p className="text-slate-600 leading-relaxed mb-6">
-                  At <L href="/">The NYC Marketing Company</L>, we specialize in marketing for {lb} businesses across <L href="/services-areas-we-offer-marketing-services-in">NYC, Long Island, Westchester, and Northern New Jersey</L>. We&apos;ve spent 25+ years studying how local customers find, evaluate, and choose {lb} companies. We know which keywords drive revenue, which content converts, and which strategies compound over time. This isn&apos;t theory — we&apos;ve generated over <strong>$15.2 million in attributable revenue</strong> for local businesses.
+                  At <L href="/">Consortium NYC (Now The NYC Marketing Company)</L>, we specialize in marketing for {lb} businesses across <L href="/services-areas-we-offer-marketing-services-in">NYC, Long Island, Westchester, and Northern New Jersey</L>. We&apos;ve spent 25+ years studying how local customers find, evaluate, and choose {lb} companies. We know which keywords drive revenue, which content converts, and which strategies compound over time. This isn&apos;t theory — we&apos;ve generated over <strong>$15.2 million in attributable revenue</strong> for local businesses.
                 </p>
                 <p className="text-slate-600 leading-relaxed mb-6">
                   The {lb} market is uniquely competitive. Customers searching for {lb} services often have <strong>urgent, high-intent needs</strong> — they need help now, not next week. That means the business that shows up first on Google captures the call, the appointment, and the revenue. Second place gets nothing. Our <L href="/services/search-engine-optimization-seo-nyc">SEO strategies</L> are built to win that first-position battle in every neighborhood you serve.
@@ -214,7 +215,7 @@ export default function IndustryPageClient({
                     ))}
                   </div>
                   <p className="text-[11px] text-slate-400 mb-4">NYC avg: <span className="line-through">$2K-$5K/mo</span> SEO &middot; <span className="line-through">$12K-$25K</span> websites</p>
-                  <Link href="/contact" className="block w-full text-center px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta">
+                  <Link href="https://www.thenycmarketingcompany.com/contact" className="block w-full text-center px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta">
                     Get {badge} Proposal
                   </Link>
                 </div>
@@ -307,7 +308,7 @@ export default function IndustryPageClient({
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} transition={{ duration: 0.5 }} className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white font-heading mb-4">
-              The NYC Marketing Company Guarantee
+<BrandLink /> Guarantee
             </h2>
             <p className="text-white/50 max-w-2xl mx-auto">
               We don&apos;t hide behind contracts. We earn your business every month.
@@ -431,7 +432,7 @@ export default function IndustryPageClient({
               { label: "Pricing Guide", href: "/nyc-marketing-pricing-guide" },
               { label: "Marketing 101", href: "/nyc-marketing-101-guide" },
               { label: "100 FAQs", href: "/nyc-marketing-company-faqs" },
-              { label: "Contact Us", href: "/contact" },
+              { label: "Contact Us", href: "/contact-nyc-marketing-company-consortium-nyc" },
             ].map((link) => (
               <Link key={link.href} href={link.href} className="rounded-xl bg-white/5 border border-white/10 hover:border-teal-500/30 px-4 py-3 text-white/60 hover:text-white transition-all text-center">
                 {link.label}
@@ -452,7 +453,7 @@ export default function IndustryPageClient({
               Free strategy session. We&apos;ll audit your current situation, analyze your competitors, and show you exactly how to capture more {lb} leads — whether you hire us or not.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/contact" className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta">
+              <Link href="https://www.thenycmarketingcompany.com/contact" className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta">
                 Get My Free {badge} Strategy
               </Link>
               <a href={PHONE_HREF} className="inline-block px-8 py-4 text-base font-bold text-white/90 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-colors font-cta">

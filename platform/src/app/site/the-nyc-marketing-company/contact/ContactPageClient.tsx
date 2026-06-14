@@ -4,7 +4,6 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { getTrackIds } from "@/app/site/the-nyc-marketing-company/_lib/track-ids";
 
 const PHONE = "(212) 202-9220";
 const PHONE_HREF = "tel:+12122029220";
@@ -85,13 +84,13 @@ export default function ContactPageClient() {
               {PHONE}
             </a>
             <a
-              href="mailto:hi@thenycmarketingcompany.com"
+              href="mailto:hello@consortiumnyc.com"
               className="flex items-center gap-2 text-slate-700 hover:text-teal-600 transition-colors font-medium"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
               </svg>
-              hi@thenycmarketingcompany.com
+              hello@consortiumnyc.com
             </a>
           </motion.div>
         </div>
@@ -180,8 +179,8 @@ export default function ContactPageClient() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
               }
               label="Email"
-              href="mailto:hi@thenycmarketingcompany.com"
-              value="hi@thenycmarketingcompany.com"
+              href="mailto:hello@consortiumnyc.com"
+              value="hello@consortiumnyc.com"
             />
             <ContactInfoCard
               icon={
@@ -191,7 +190,7 @@ export default function ContactPageClient() {
                 </>
               }
               label="Location"
-              value="150 W 47th St, New York, NY 10036"
+              value="New York, NY 10001"
             />
 
             {/* Office Hours */}
@@ -277,7 +276,7 @@ export default function ContactPageClient() {
               { label: "Industries", href: "/industries-we-offer-marketing-services-for" },
               { label: "Areas We Serve", href: "/services-areas-we-offer-marketing-services-in" },
               { label: "Pricing Guide", href: "/nyc-marketing-pricing-guide" },
-              { label: "Free SEO Audit", href: "/the-free-human+ai-seo-marketing-review" },
+              { label: "Free SEO Audit", href: "https://www.thenycmarketingcompany.com/contact" },
             ].map((link) => (
               <Link
                 key={link.href}
@@ -314,24 +313,11 @@ function StrategyForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: (
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
-    try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "strategy", ...form, ...getTrackIds() }),
-      });
-      if (res.ok) {
-        onSubmit();
-      }
-    } catch {
-      // Fallback: still show success for now
-      onSubmit();
-    } finally {
-      setSending(false);
-    }
+    // Forms route to Consortium NYC (Now The NYC Marketing Company)'s form.
+    window.location.href = "https://www.thenycmarketingcompany.com/contact";
   }
 
   if (submitted) return <SuccessMessage />;
@@ -428,24 +414,11 @@ function RFPForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: () => 
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
-    try {
-      const formData = new FormData();
-      formData.append("type", "rfp");
-      formData.append("data", JSON.stringify(form));
-      files.forEach((file) => formData.append("files", file));
-
-      await fetch("/api/contact", {
-        method: "POST",
-        body: formData,
-      });
-    } catch {
-      // noop
-    }
-    onSubmit();
-    setSending(false);
+    // Forms route to Consortium NYC (Now The NYC Marketing Company)'s form.
+    window.location.href = "https://www.thenycmarketingcompany.com/contact";
   }
 
   if (submitted) return <SuccessMessage isRFP />;

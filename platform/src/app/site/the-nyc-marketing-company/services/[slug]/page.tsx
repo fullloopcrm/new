@@ -18,9 +18,9 @@ import ServicePageClient from "./ServicePageClient";
 
 export const revalidate = false;
 
-export const dynamicParams = true
-
-export async function generateStaticParams() { return [] }
+export function generateStaticParams() {
+  return getAllServiceSlugs().map((slug) => ({ slug }));
+}
 
 export async function generateMetadata({
   params,
@@ -34,8 +34,8 @@ export async function generateMetadata({
   const { category, subService } = result;
   const name = subService ? subService.name : category.name;
   const desc = subService ? subService.shortDesc : category.description;
-  const fallbackDesc = `${desc} The best organic marketing company in NYC. Pricing starting at $100/hr. Call/text 212.202.9220.`;
-  const fallbackTitle = `NYC ${name} | SEO, Web Design & Marketing`;
+  const fallbackDesc = `${desc} Consortium NYC (Now The NYC Marketing Company). Call/text (212) 202-9220.`;
+  const fallbackTitle = `NYC ${name} | Consortium NYC (Now The NYC Marketing Company)`;
 
   const title = subService ? fallbackTitle : (category.metaTitle ?? fallbackTitle);
   const description = subService ? fallbackDesc : (category.metaDescription ?? fallbackDesc);
@@ -44,12 +44,12 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: `https://www.thenycmarketingcompany.com/services/${slug}`,
+      canonical: `https://www.consortiumnyc.com/services/${slug}`,
     },
     openGraph: {
       title,
       description,
-      url: `https://www.thenycmarketingcompany.com/services/${slug}`,
+      url: `https://www.consortiumnyc.com/services/${slug}`,
     },
   };
 }
@@ -71,7 +71,7 @@ function getServiceFaqs(slug: string) {
       { question: "Will my website be optimized for mobile devices?", answer: "Every website we build is mobile-first responsive. With over 60% of web traffic coming from mobile devices, this approach ensures your site delivers an excellent experience on every screen size." },
       { question: "Do I own my website?", answer: "Yes. You own 100% of the code, design, content, and domain. No proprietary platforms, no lock-in. If you ever leave, you take everything with you." },
     ],
-    "brand-strategy-identity-in-nyc": [
+    "branding-identity-services-nyc": [
       { question: "What is included in a branding package?", answer: "Brand strategy and positioning, logo design with multiple concepts and revisions, complete visual identity system, brand guidelines document, and brand voice and messaging framework." },
       { question: "How long does the branding process take?", answer: "A complete brand identity project typically takes 4-6 weeks including strategy, concept development, revisions, and final deliverables." },
       { question: "Do you offer rebranding services?", answer: "Yes. We help businesses that have outgrown their current brand. Our rebranding process starts with a comprehensive brand audit then builds a refreshed identity aligned with your goals." },
@@ -114,15 +114,15 @@ export default async function ServicePage({
   const name = subService ? subService.name : category.name;
   const desc = subService ? subService.shortDesc : category.description;
   const serviceFaqs = getServiceFaqs(slug);
-  const pageUrl = `https://www.thenycmarketingcompany.com/services/${slug}`;
+  const pageUrl = `https://www.consortiumnyc.com/services/${slug}`;
   const breadcrumbs = [
-    { name: "Home", url: "https://www.thenycmarketingcompany.com" },
-    { name: "Services", url: "https://www.thenycmarketingcompany.com/nyc-marketing-company-services-list" },
+    { name: "Home", url: "https://www.consortiumnyc.com" },
+    { name: "Services", url: "https://www.consortiumnyc.com/nyc-marketing-company-services-list" },
     ...(subService
       ? [
           {
             name: category.name,
-            url: `https://www.thenycmarketingcompany.com/services/${category.slug}`,
+            url: `https://www.consortiumnyc.com/services/${category.slug}`,
           },
           { name: subService.name, url: pageUrl },
         ]
@@ -132,7 +132,7 @@ export default async function ServicePage({
   return (
     <>
       <JsonLd data={serviceSchema(name, slug, desc)} />
-      <JsonLd data={webPageSchema(`${name} Services in NYC | The NYC Marketing Company`, desc, pageUrl, breadcrumbs)} />
+      <JsonLd data={webPageSchema(`${name} Services in NYC | Consortium NYC (Now The NYC Marketing Company)`, desc, pageUrl, breadcrumbs)} />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       {serviceFaqs.length > 0 && <JsonLd data={faqSchema(serviceFaqs)} />}
       <ServicePageClient

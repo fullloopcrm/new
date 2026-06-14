@@ -57,7 +57,7 @@ export default function Timeline() {
             <span className="text-teal-600">NYC Marketing Company</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            Complete transparency from day one. Here&apos;s exactly what to expect when you partner with a marketing company in New York City — from your first <Link href="/contact" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">free strategy session</Link> to total market domination.
+            Complete transparency from day one. Here&apos;s exactly what to expect when you partner with a marketing company in New York City — from your first <Link href="https://www.thenycmarketingcompany.com/contact" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">free strategy session</Link> to total market domination.
           </p>
         </motion.div>
 
@@ -135,7 +135,7 @@ export default function Timeline() {
             real strategy conversation.
           </p>
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
           >
             Book Your Free Strategy Call

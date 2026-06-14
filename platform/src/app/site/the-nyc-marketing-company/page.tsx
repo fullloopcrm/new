@@ -10,15 +10,14 @@ import {
 import { faqs } from "@/app/site/the-nyc-marketing-company/_lib/siteData";
 
 export const metadata: Metadata = {
-  title: "NYC Marketing Company | SEO, Web Design & Branding",
+  title: "NYC Marketing Company | SEO, Web Design & Branding | Consortium NYC (Now The NYC Marketing Company)",
   description:
-    "The best organic marketing company in NYC. Full-service marketing serving 100+ industries across NYC, Long Island, and Westchester. Pricing starting at $100/hr. 25+ years experience. No contracts. Call/text 212.202.9220.",
-  alternates: { canonical: "https://www.thenycmarketingcompany.com" },
+    "Full-service NYC marketing company serving 100+ industries across NYC, Long Island, and Westchester. SEO from $950/mo, custom websites from $4,600. 25+ years experience. No contracts. Call/text (212) 202-9220.",
+  alternates: { canonical: "https://www.consortiumnyc.com" },
 };
 
 // Home page sections
 import Hero from "@/app/site/the-nyc-marketing-company/_components/home/Hero";
-import RealTalk from "@/app/site/the-nyc-marketing-company/_components/home/RealTalk";
 import Welcome from "@/app/site/the-nyc-marketing-company/_components/home/Welcome";
 import TrustBar from "@/app/site/the-nyc-marketing-company/_components/home/TrustBar";
 import ResultsTicker from "@/app/site/the-nyc-marketing-company/_components/home/ResultsTicker";
@@ -54,7 +53,7 @@ import BlogPreview from "@/app/site/the-nyc-marketing-company/_components/home/B
 import FinalCTA from "@/app/site/the-nyc-marketing-company/_components/home/FinalCTA";
 import ExitIntent from "@/app/site/the-nyc-marketing-company/_components/home/ExitIntent";
 
-const breadcrumbs = [{ name: "Home", url: "https://www.thenycmarketingcompany.com" }];
+const breadcrumbs = [{ name: "Home", url: "https://www.consortiumnyc.com" }];
 
 export default function Home() {
   return (
@@ -62,9 +61,9 @@ export default function Home() {
       {/* Schema Markup */}
       <JsonLd
         data={webPageSchema(
-          "NYC Marketing Company | The NYC Marketing Company",
+          "NYC Marketing Company | Consortium NYC (Now The NYC Marketing Company)",
           "Full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for businesses in NYC, Long Island, and Westchester.",
-          "https://www.thenycmarketingcompany.com",
+          "https://www.consortiumnyc.com",
           breadcrumbs
         )}
       />
@@ -75,9 +74,6 @@ export default function Home() {
 
       {/* 1. Hero */}
       <Hero />
-
-      {/* 1a. Real Talk — first thing after hero */}
-      <RealTalk />
 
       {/* 1b. Quick marketing tips */}
       <QuickTips />

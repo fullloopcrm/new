@@ -12,7 +12,7 @@ const neighborhoods = [
     tagline: "The Heart of NYC Business",
     description:
       "From Wall Street to Midtown, we help Manhattan businesses dominate search and stand out in the most competitive market in the world.",
-    image: "/nyc-marketing-company-nyc.webp",
+    image: "/consortium-nyc-digital-marketing-agency-nyc.webp",
     href: "/services-areas-we-offer-marketing-services-in/manhattan-marketing-company",
   },
   {
@@ -20,7 +20,7 @@ const neighborhoods = [
     tagline: "NYC's Most Diverse Borough",
     description:
       "Over 800,000 small businesses call Queens home. We help them get found online and convert local customers every single day.",
-    image: "/nyc-marketing-company-queens.webp",
+    image: "/consortium-nyc-digital-marketing-agency-queens.webp",
     href: "/services-areas-we-offer-marketing-services-in/queens-marketing-company",
   },
   {
@@ -28,7 +28,7 @@ const neighborhoods = [
     tagline: "Where Culture Meets Commerce",
     description:
       "Brooklyn's small business scene is booming. We build brands and digital strategies that match the energy of this borough.",
-    image: "/nyc-marketing-company-brooklyn.webp",
+    image: "/consortium-nyc-digital-marketing-agency-brooklyn.webp",
     href: "/services-areas-we-offer-marketing-services-in/brooklyn-marketing-company",
   },
   {
@@ -36,7 +36,7 @@ const neighborhoods = [
     tagline: "Suburban Growth, Digital Edge",
     description:
       "Long Island businesses need local visibility that drives foot traffic and phone calls. We deliver SEO and web design that works.",
-    image: "/nyc-marketing-company-long-island.webp",
+    image: "/consortium-nyc-digital-marketing-agency-long-island.webp",
     href: "/services-areas-we-offer-marketing-services-in/long-island-marketing-company",
   },
   {
@@ -44,7 +44,7 @@ const neighborhoods = [
     tagline: "Small City, Big Opportunity",
     description:
       "Hoboken's tight-knit business community thrives on local reputation. We help you own the search results in Hudson County.",
-    image: "/nyc-marketing-company-hoboken.webp",
+    image: "/consortium-nyc-digital-marketing-agency-hoboken.webp",
     href: "/services-areas-we-offer-marketing-services-in/hoboken-marketing-company",
   },
 ];

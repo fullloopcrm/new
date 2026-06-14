@@ -92,7 +92,7 @@ export default function Competitors() {
             Stop Watching Your Competitors Win. Start Today.
           </p>
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
           >
             Claim Your Competitive Advantage Now

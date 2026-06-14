@@ -3,10 +3,10 @@ import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import ServiceAreasClient from "./ServiceAreasClient";
 
-const title = "Service Areas | NYC, Long Island, Westchester & NJ Marketing";
+const title = "Service Areas | NYC, Long Island, Westchester & NJ Marketing Company | Consortium NYC (Now The NYC Marketing Company)";
 const description =
-  "The best organic marketing company in NYC. Marketing services across 80+ neighborhoods in NYC, Long Island, Westchester, and New Jersey. SEO, web design, branding, AI automation, and more. Pricing starting at $100/hr. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/services-areas-we-offer-marketing-services-in";
+  "Marketing services across 80+ neighborhoods in NYC, Long Island, Westchester, and New Jersey. SEO, web design, branding, AI automation, and more for local businesses in the tri-state area. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in";
 
 export const metadata: Metadata = {
   title,
@@ -25,18 +25,20 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company)" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.jpg"],
   },
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "Home", url: "https://www.consortiumnyc.com" },
   { name: "Service Areas", url },
 ];
 

@@ -1,30 +1,31 @@
 // @ts-nocheck
 import Link from "next/link";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
 const services = [
-  { label: "SEO", slug: "search-engine-optimization-seo-nyc" },
-  { label: "Web Design", slug: "web-design-nyc" },
-  { label: "Branding", slug: "brand-strategy-identity-in-nyc" },
-  { label: "Digital Strategy", slug: "business-strategy-consulting-in-nyc" },
-  { label: "AI Automation", slug: "ai-automation-services-in-nyc" },
-  { label: "Email Marketing", slug: "email-marketing-automation-in-nyc" },
+  { label: "SEO", slug: "seo" },
+  { label: "Web Design", slug: "web-design" },
+  { label: "Branding", slug: "branding" },
+  { label: "Digital Strategy", slug: "digital-strategy" },
+  { label: "Business Development", slug: "business-development" },
+  { label: "Automation", slug: "automation" },
 ];
 
 const areas = [
-  { label: "Manhattan", slug: "manhattan-marketing-company" },
-  { label: "Brooklyn", slug: "brooklyn-marketing-company" },
-  { label: "Queens", slug: "queens-marketing-company" },
-  { label: "Bronx", slug: "bronx-marketing-company" },
-  { label: "Staten Island", slug: "staten-island-marketing-company" },
-  { label: "Long Island", slug: "long-island-marketing-company" },
-  { label: "Westchester", slug: "westchester-marketing-company" },
+  { label: "Manhattan", slug: "manhattan" },
+  { label: "Brooklyn", slug: "brooklyn" },
+  { label: "Queens", slug: "queens" },
+  { label: "Bronx", slug: "bronx" },
+  { label: "Staten Island", slug: "staten-island" },
+  { label: "Long Island", slug: "long-island" },
+  { label: "Westchester", slug: "westchester" },
 ];
 
 const socials = [
-  { label: "LinkedIn", href: "https://www.linkedin.com/company/thenycmarketingcompany" },
-  { label: "Instagram", href: "https://www.instagram.com/thenycmarketingcompany" },
-  { label: "Facebook", href: "https://www.facebook.com/thenycmarketingcompany" },
-  { label: "Twitter", href: "https://twitter.com/thenycmarketingco" },
+  { label: "LinkedIn", href: "https://linkedin.com" },
+  { label: "Instagram", href: "https://instagram.com" },
+  { label: "Facebook", href: "https://facebook.com" },
+  { label: "Twitter", href: "https://twitter.com" },
 ];
 
 export default function Footer() {
@@ -41,8 +42,11 @@ export default function Footer() {
           {/* Column 1: Company Info */}
           <div>
             <Link href="/" className="inline-flex items-center gap-0.5">
-              <span className="text-xl font-bold tracking-widest text-white leading-tight">
-                THE NYC<br />MARKETING CO
+              <span className="text-lg font-bold tracking-widest text-white leading-tight">
+                CONSORTIUM NYC<br />
+                <span className="text-xs font-semibold tracking-wide text-white/80">
+                  w/ THE NYC MARKETING CO
+                </span>
               </span>
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-slate-300">
@@ -111,10 +115,10 @@ export default function Footer() {
             <ul className="flex flex-col gap-3 text-sm text-slate-300">
               <li>
                 <a
-                  href="mailto:hi@thenycmarketingcompany.com"
+                  href="mailto:hello@consortiumnyc.com"
                   className="transition-colors hover:text-teal-400"
                 >
-                  hi@thenycmarketingcompany.com
+                  hello@consortiumnyc.com
                 </a>
               </li>
               <li>
@@ -126,11 +130,11 @@ export default function Footer() {
                 </a>
               </li>
               <li className="leading-relaxed">
-                150 W 47th St, New York, NY 10036
+                New York, NY
               </li>
             </ul>
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="mt-6 inline-block rounded-full bg-teal-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
             >
               Get in Touch
@@ -142,7 +146,7 @@ export default function Footer() {
         <div className="mt-14 rounded-lg bg-slate-800 px-6 py-4">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <p className="text-xs text-slate-400">
-              &copy; {year} The NYC Marketing Company. All rights reserved.
+              &copy; {year} <BrandLink />. All rights reserved.
             </p>
             <div className="flex flex-wrap justify-center gap-6">
               <Link

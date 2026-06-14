@@ -5,7 +5,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
-import { getTrackIds } from "@/app/site/the-nyc-marketing-company/_lib/track-ids";
 
 export default function FreeSEOAudit() {
   const [url, setUrl] = useState("");
@@ -13,18 +12,11 @@ export default function FreeSEOAudit() {
   const [name, setName] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "seo-audit", name, email, url, ...getTrackIds() }),
-      });
-    } catch {
-      // noop
-    }
-    setSubmitted(true);
+    // Forms route to Consortium NYC (Now The NYC Marketing Company)'s form.
+    window.location.href =
+      "https://www.thenycmarketingcompany.com/the-free-human%2Bai-seo-marketing-review";
   };
 
   return (
@@ -160,7 +152,7 @@ export default function FreeSEOAudit() {
             Schedule a free strategy session and we&apos;ll walk you through the audit results live, answer every question, and build a roadmap for your business.
           </p>
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
           >
             Schedule a Strategy Session

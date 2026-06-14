@@ -3,6 +3,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
 export default function FinalCTA() {
   return (
@@ -25,12 +26,12 @@ export default function FinalCTA() {
           </h2>
 
           <p className="text-white/80 text-lg sm:text-xl max-w-3xl mx-auto mb-10 leading-relaxed">
-            Over 10,000 businesses across New York City, Brooklyn, Queens, Long Island, and Westchester have trusted The NYC Marketing Company to grow their revenue through organic marketing. You&apos;re next.
+            Over 10,000 businesses across New York City, Brooklyn, Queens, Long Island, and Westchester have trusted <BrandLink /> to grow their revenue through organic marketing. You&apos;re next.
           </p>
 
           {/* Primary CTA */}
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-10 py-5 text-lg font-bold text-teal-600 rounded-xl bg-white hover:bg-teal-50 transition-colors shadow-lg font-cta"
           >
             Book Your Free Strategy Session

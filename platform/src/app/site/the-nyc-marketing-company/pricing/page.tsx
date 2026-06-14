@@ -7,9 +7,9 @@ import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb"
 /* ------------------------------------------------------------------ */
 /*  Metadata                                                           */
 /* ------------------------------------------------------------------ */
-const pTitle = "Transparent Pricing | SEO, Web Design & Marketing";
-const pDescription = "The best organic marketing company in NYC. Simple, transparent pricing starting at $100/hr. No hidden fees, no surprise invoices, no long-term contracts. Custom websites from $4,600. Monthly SEO from $950/mo. Call/text 212.202.9220.";
-const pUrl = "https://www.thenycmarketingcompany.com/pricing";
+const pTitle = "Transparent Pricing | Consortium NYC (Now The NYC Marketing Company)";
+const pDescription = "Simple, transparent pricing for web design and SEO services. No hidden fees, no surprise invoices, no long-term contracts. Custom websites from $4,600. Monthly SEO from $950/mo. Call/text (212) 202-9220.";
+const pUrl = "https://www.consortiumnyc.com/pricing";
 
 export const metadata: Metadata = {
   title: pTitle,
@@ -28,13 +28,15 @@ export const metadata: Metadata = {
     title: pTitle,
     description: pDescription,
     url: pUrl,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company) Pricing" }],
   },
   twitter: {
     card: "summary_large_image",
     title: pTitle,
     description: pDescription,
+    images: ["/og-image.jpg"],
   },
 };
 
@@ -141,15 +143,15 @@ export default function PricingPage() {
       {/* Schema */}
       <JsonLd
         data={webPageSchema(
-          "Transparent Pricing | The NYC Marketing Company",
+          "Transparent Pricing | Consortium NYC (Now The NYC Marketing Company)",
           "Simple, transparent pricing for web design and SEO services. No hidden fees, no surprise invoices, no long-term contracts. Call/text (212) 202-9220.",
-          "https://www.thenycmarketingcompany.com/pricing"
+          "https://www.consortiumnyc.com/pricing"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
-          { name: "Pricing", url: "https://www.thenycmarketingcompany.com/pricing" },
+          { name: "Home", url: "https://www.consortiumnyc.com" },
+          { name: "Pricing", url: "https://www.consortiumnyc.com/pricing" },
         ])}
       />
       <JsonLd data={faqSchema(faqs)} />
@@ -203,7 +205,7 @@ export default function PricingPage() {
               </ul>
 
               <Link
-                href="/contact"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="block w-full text-center px-8 py-4 text-base font-bold text-teal-600 rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors font-cta"
               >
                 Start Your Project
@@ -240,7 +242,7 @@ export default function PricingPage() {
               </ul>
 
               <Link
-                href="/contact"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="block w-full text-center px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Start Ranking
@@ -351,7 +353,7 @@ export default function PricingPage() {
           </p>
           <div className="mt-10">
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-10 py-5 text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
               Book Your Free Call

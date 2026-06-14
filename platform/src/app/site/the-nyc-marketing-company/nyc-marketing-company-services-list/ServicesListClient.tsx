@@ -130,7 +130,7 @@ export default function ServicesListClient() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
           >
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
             >
               Schedule a Free Strategy Session
@@ -288,7 +288,7 @@ export default function ServicesListClient() {
                           Learn More &rarr;
                         </Link>
                         <Link
-                          href="/nyc-marketing-pricing-guide"
+                          href="https://www.thenycmarketingcompany.com/nyc-marketing-pricing-guide"
                           className="text-slate-400 text-xs hover:text-slate-600 font-cta"
                         >
                           See Pricing
@@ -387,7 +387,7 @@ export default function ServicesListClient() {
 
           <div className="text-center">
             <Link
-              href="/nyc-marketing-pricing-guide"
+              href="https://www.thenycmarketingcompany.com/nyc-marketing-pricing-guide"
               className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white border-2 border-teal-600 hover:bg-teal-50 transition-colors shadow-lg font-cta"
             >
               See Full Pricing Guide &rarr;
@@ -524,7 +524,7 @@ export default function ServicesListClient() {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link
-                  href="/contact"
+                  href="https://www.thenycmarketingcompany.com/contact"
                   className="inline-block px-10 py-5 text-lg font-bold text-slate-900 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
                 >
                   Schedule a Free Strategy Session

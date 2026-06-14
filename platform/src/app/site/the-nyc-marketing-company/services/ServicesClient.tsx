@@ -57,15 +57,15 @@ export default function ServicesPage() {
       {/* Schema Markup */}
       <JsonLd
         data={webPageSchema(
-          "Our Services | The NYC Marketing Company",
+          "Our Services | Consortium NYC (Now The NYC Marketing Company)",
           "Explore our full suite of digital marketing services including SEO, web design, branding, digital strategy, business development, and automation for NYC businesses.",
-          "https://www.thenycmarketingcompany.com/services"
+          "https://www.consortiumnyc.com/services"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
-          { name: "Services", url: "https://www.thenycmarketingcompany.com/services" },
+          { name: "Home", url: "https://www.consortiumnyc.com" },
+          { name: "Services", url: "https://www.consortiumnyc.com/services" },
         ])}
       />
 
@@ -196,7 +196,7 @@ export default function ServicesPage() {
           </p>
           <div className="mt-10">
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-electric via-violet to-hot-pink px-10 py-5 text-lg font-semibold text-midnight transition-transform hover:scale-105"
             >
               Get Your Free Consultation

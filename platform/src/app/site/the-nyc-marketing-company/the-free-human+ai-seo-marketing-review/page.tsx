@@ -3,10 +3,10 @@ import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import FreeSEOAudit from "./FreeReviewClient";
 
-const title = "Free Human+AI SEO & Marketing Review";
+const title = "Free Human+AI SEO & Marketing Review | Consortium NYC (Now The NYC Marketing Company)";
 const description =
-  "Get a free SEO and marketing review powered by human expertise and AI analysis. We audit your website, Google Business Profile, competitors, and local rankings — then deliver a custom action plan. The best organic marketing company in NYC. Pricing starting at $100/hr. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/the-free-human+ai-seo-marketing-review";
+  "Get a free SEO and marketing review powered by human expertise and AI analysis. We audit your website, Google Business Profile, competitors, and local rankings — then deliver a custom action plan. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/the-free-human+ai-seo-marketing-review";
 
 export const metadata: Metadata = {
   title,
@@ -25,18 +25,20 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company)" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.jpg"],
   },
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "Home", url: "https://www.consortiumnyc.com" },
   { name: "Free SEO & Marketing Review", url },
 ];
 

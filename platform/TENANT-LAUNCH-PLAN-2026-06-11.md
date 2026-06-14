@@ -71,6 +71,26 @@ parity. **Phase A done 2026-06-11** (uncommitted at time of writing):
 - [ ] Seed owner/team member(s) + PIN; verify `/team/login`.
 - [ ] Full smoke test (8 gates). Capture the exact step list as the reusable runbook.
 
+## ⚠️ PROGRAM-CRITICAL FINDING (2026-06-11): the agent is cleaning-hardcoded
+
+The Yinez agent (`src/lib/yinez/core.ts`, ~2000 lines) is hardwired to nycmaid
+cleaning: static rates ($79/$59/$99hr), cleaner/bedroom/bathroom logic, a
+hardcoded (212) 202-8400 number, and NO per-industry branch. It is NOT
+tenant-abstracted.
+
+Impact on this program:
+- **Cleaning-adjacent tenants** (florida-maid, sunnyside, wash-and-fold) — the
+  cleaning agent mostly fits.
+- **Non-cleaning tenants** (exterminator, tow, salon, landscaping, junk, dumpster,
+  interior design, SEO, marketing, classifieds, loans…) — the agent is WRONG for
+  them. They cannot reach nycmaid-grade parity until the agent is abstracted
+  per-tenant (pricing/services/persona/phone/booking-model from tenant config) OR
+  given per-industry variants.
+
+This is the single biggest blocker to "all tenants matching the NYC Maid build."
+The exterminator currently has the agent INACTIVE (no web widget, no Telnyx), so
+it's an unbuilt gap, not a live bug. Decision pending (see below).
+
 ## PHASE C — Roll out remaining 18 non-NYC-Maid tenants
 
 Apply the locked checklist to each. Candidate order (cleaning-adjacent first, simplest sites):

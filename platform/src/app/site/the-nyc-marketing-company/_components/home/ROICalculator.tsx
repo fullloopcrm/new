@@ -150,7 +150,7 @@ export default function ROICalculator() {
 
           <div className="text-center">
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-10 py-4 rounded-full bg-teal-600 text-white font-bold text-lg hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
               Let&apos;s Make These Numbers Real — Book a Free Call

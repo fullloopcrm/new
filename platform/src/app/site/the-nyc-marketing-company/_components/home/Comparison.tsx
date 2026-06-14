@@ -3,6 +3,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
 type CellRating = "check" | "partial" | "x";
 
@@ -109,7 +110,7 @@ export default function Comparison() {
             <span className="text-teal-600">Marketing Company Over In-House or Freelancers</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            Compare the cost, expertise, and results of hiring a full-service marketing company in New York City versus building an in-house team or relying on freelancers. See why local businesses choose <Link href="/about" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">The NYC Marketing Company</Link>.
+            Compare the cost, expertise, and results of hiring a full-service marketing company in New York City versus building an in-house team or relying on freelancers. See why local businesses choose <Link href="/about-marketing-company-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Consortium NYC (Now The NYC Marketing Company)</Link>.
           </p>
         </motion.div>
 
@@ -123,7 +124,7 @@ export default function Comparison() {
             className="rounded-t-xl bg-teal-600 p-4 text-center"
           >
             <span className="text-white font-bold text-lg font-heading">
-              The NYC Marketing Company
+              <BrandLink />
             </span>
           </motion.div>
           <div className="bg-white rounded-t-xl p-4 text-center border border-slate-200">
@@ -192,7 +193,7 @@ export default function Comparison() {
             </span>
           </p>
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-10 py-4 rounded-full bg-teal-600 text-white font-bold text-lg hover:bg-teal-700 transition-colors shadow-lg font-cta"
           >
             Get Started Today

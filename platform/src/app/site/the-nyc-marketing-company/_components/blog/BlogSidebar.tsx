@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { blogPosts } from "@/app/site/the-nyc-marketing-company/_lib/blogData";
 
 const resources = [
-  { title: "Free SEO Audit", href: "/the-free-human+ai-seo-marketing-review" },
+  { title: "Free SEO Audit", href: "https://www.thenycmarketingcompany.com/contact" },
   { title: "Marketing Checklist", href: "/master-marketing-checklist-last-updated-2026" },
   { title: "ROI Calculator", href: "/annual-marketing-spend-roi-calculator" },
 ];

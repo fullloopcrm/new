@@ -2,12 +2,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
 export const metadata: Metadata = {
   title: "Accessibility Statement",
   description:
-    "Accessibility Statement — our commitment to making our website accessible to all users. The best organic marketing company in NYC. Call/text 212.202.9220 with questions.",
-  alternates: { canonical: "https://www.thenycmarketingcompany.com/accessibility" },
+    "Accessibility Statement for Consortium NYC (Now The NYC Marketing Company). Our commitment to making our website accessible to all users. Call (212) 202-9220 with questions.",
+  alternates: { canonical: "https://www.consortiumnyc.com/accessibility" },
   robots: { index: true, follow: true },
 };
 
@@ -19,14 +20,14 @@ export default function AccessibilityPage() {
       <JsonLd
         data={webPageSchema(
           "Accessibility Statement",
-          "Accessibility Statement for The NYC Marketing Company. Our commitment to digital accessibility for all users.",
-          "https://www.thenycmarketingcompany.com/accessibility"
+          "Accessibility Statement for Consortium NYC (Now The NYC Marketing Company). Our commitment to digital accessibility for all users.",
+          "https://www.consortiumnyc.com/accessibility"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
-          { name: "Accessibility", url: "https://www.thenycmarketingcompany.com/accessibility" },
+          { name: "Home", url: "https://www.consortiumnyc.com" },
+          { name: "Accessibility", url: "https://www.consortiumnyc.com/accessibility" },
         ])}
       />
 
@@ -39,7 +40,7 @@ export default function AccessibilityPage() {
           <div className="mt-12 prose-legal">
             <Section title="Our Commitment">
               <p>
-                The NYC Marketing Company is committed to ensuring that our website is accessible to all people, including individuals with disabilities. We strive to meet or exceed the requirements of the Web Content Accessibility Guidelines (WCAG) 2.1, Level AA.
+                <BrandLink /> is committed to ensuring that our website is accessible to all people, including individuals with disabilities. We strive to meet or exceed the requirements of the Web Content Accessibility Guidelines (WCAG) 2.1, Level AA.
               </p>
               <p>
                 Accessibility is an ongoing effort. We continually improve the user experience for everyone and apply the relevant accessibility standards to achieve this.
@@ -92,9 +93,9 @@ export default function AccessibilityPage() {
                 We welcome your feedback on the accessibility of our website. If you encounter any barriers or have suggestions for improvement, please contact us:
               </p>
               <ul>
-                <li><strong>Email:</strong> <a href="mailto:hi@thenycmarketingcompany.com">hi@thenycmarketingcompany.com</a></li>
+                <li><strong>Email:</strong> <a href="mailto:hello@consortiumnyc.com">hello@consortiumnyc.com</a></li>
                 <li><strong>Phone:</strong> <a href="tel:+12122029220">(212) 202-9220</a></li>
-                <li><strong>Address:</strong> The NYC Marketing Company, 150 W 47th St, New York, NY 10036</li>
+                <li><strong>Address:</strong> <BrandLink />, New York, NY 10001</li>
               </ul>
               <p>
                 We aim to respond to accessibility feedback within 2 business days and to resolve issues as quickly as possible.

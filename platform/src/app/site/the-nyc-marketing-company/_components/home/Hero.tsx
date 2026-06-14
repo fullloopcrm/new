@@ -13,7 +13,7 @@ const slides = [
     line1: "NYC Marketing Company",
     line2: "For the Businesses That Run This City",
     sub: "The most competitive market in the country. We make sure you win it.",
-    image: "/nyc-marketing-company-nyc.webp",
+    image: "/consortium-nyc-digital-marketing-agency-nyc.webp",
     href: "/services-areas-we-offer-marketing-services-in/manhattan-marketing-company",
   },
   {
@@ -21,8 +21,8 @@ const slides = [
     pre: "Your Local Queens Marketing Company",
     line1: "Queens Marketing Company",
     line2: "For the Borough That Works Harder Than Anyone",
-    sub: "Marketing built for Queens businesses. Sites that rank and convert.",
-    image: "/nyc-marketing-company-queens.webp",
+    sub: "The most diverse borough deserves marketing that actually gets it.",
+    image: "/consortium-nyc-digital-marketing-agency-queens.webp",
     href: "/services-areas-we-offer-marketing-services-in/queens-marketing-company",
   },
   {
@@ -31,7 +31,7 @@ const slides = [
     line1: "Brooklyn Marketing Company",
     line2: "For the Brands That Built This Borough",
     sub: "Brands as bold as the borough. Sites that rank and convert.",
-    image: "/nyc-marketing-company-brooklyn.webp",
+    image: "/consortium-nyc-digital-marketing-agency-brooklyn.webp",
     href: "/services-areas-we-offer-marketing-services-in/brooklyn-marketing-company",
   },
   {
@@ -40,7 +40,7 @@ const slides = [
     line1: "Long Island Marketing Company",
     line2: "For the Businesses Your Neighbors Trust",
     sub: "Local businesses that show up first win first. We get you there.",
-    image: "/nyc-marketing-company-long-island.webp",
+    image: "/consortium-nyc-digital-marketing-agency-long-island.webp",
     href: "/services-areas-we-offer-marketing-services-in/long-island-marketing-company",
   },
   {
@@ -49,7 +49,7 @@ const slides = [
     line1: "Hoboken Marketing Company",
     line2: "For the Mile Square City's Best Businesses",
     sub: "Small city reach with big city results. Right across the river.",
-    image: "/nyc-marketing-company-hoboken.webp",
+    image: "/consortium-nyc-digital-marketing-agency-hoboken.webp",
     href: "/services-areas-we-offer-marketing-services-in/hoboken-marketing-company",
   },
 ];
@@ -77,13 +77,13 @@ export default function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background image slider */}
-      <AnimatePresence mode="sync">
+      <AnimatePresence mode="popLayout">
         <motion.div
           key={current}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, scale: 1.05 }}
+          animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" as const }}
+          transition={{ duration: 1.2, ease: "easeOut" as const }}
           className="absolute inset-0"
         >
           <Image
@@ -101,16 +101,16 @@ export default function Hero() {
       <div className="absolute inset-0 bg-slate-900/80 z-[1]" />
 
       {/* Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-24 sm:pt-36 pb-16 sm:pb-20">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-36 pb-20">
         {/* Pre-headline — solid teal bar */}
-        <div className="relative h-10 flex items-center justify-center mb-2 sm:mb-4">
-          <AnimatePresence mode="wait">
+        <div className="relative h-10 flex items-center justify-center mb-4">
+          <AnimatePresence>
             <motion.div
               key={`pre-${current}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.8 }}
               className="absolute"
             >
               <span className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-[0.15em] uppercase px-5 py-2.5 font-cta">
@@ -120,32 +120,32 @@ export default function Hero() {
           </AnimatePresence>
         </div>
 
-        {/* Main headline */}
-        <div className="relative h-[160px] sm:h-[200px] md:h-[300px] lg:h-[350px] flex items-center justify-center mb-0 sm:mb-4">
-          <AnimatePresence mode="wait">
+        {/* Main headline — crossfade */}
+        <div className="relative h-[240px] sm:h-[260px] md:h-[300px] lg:h-[350px] flex items-center justify-center mb-4">
+          <AnimatePresence>
             <motion.h1
               key={`h1-${current}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.8 }}
               className="absolute w-full font-extrabold text-white leading-[1.1] font-heading"
             >
               <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl">{slide.line1}</span>
-              <span className="block text-xl sm:text-2xl md:text-3xl lg:text-4xl text-teal-400 mt-2 sm:mt-4">{slide.line2}</span>
+              <span className="block text-xl sm:text-2xl md:text-3xl lg:text-4xl text-teal-400 mt-4">{slide.line2}</span>
             </motion.h1>
           </AnimatePresence>
         </div>
 
-        {/* Sub copy */}
-        <div className="relative h-[50px] sm:h-[45px] flex items-start justify-center mb-4 sm:mb-10">
-          <AnimatePresence mode="wait">
+        {/* Sub copy — crossfade */}
+        <div className="relative h-[50px] sm:h-[45px] flex items-start justify-center mb-10">
+          <AnimatePresence>
             <motion.p
               key={`sub-${current}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.8 }}
               className="absolute w-full text-base sm:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed"
             >
               {slide.sub}
@@ -158,10 +158,10 @@ export default function Hero() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.45 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-4 mb-6 sm:mb-6"
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6"
         >
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
           >
             Schedule a Strategy Session
@@ -179,7 +179,7 @@ export default function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.6 }}
-          className="text-slate-200 text-sm sm:text-base mb-6 sm:mb-10 max-w-2xl mx-auto leading-relaxed"
+          className="text-slate-200 text-sm sm:text-base mb-10 max-w-2xl mx-auto leading-relaxed"
         >
           <strong className="text-white">10,000+ businesses</strong> over <strong className="text-white">25 years</strong> &mdash;{" "}
           <Link href="/nyc-marketing-company-services-list" className="text-teal-400 hover:text-teal-300 transition-colors underline underline-offset-2 decoration-teal-400/50">law firms</Link>,{" "}

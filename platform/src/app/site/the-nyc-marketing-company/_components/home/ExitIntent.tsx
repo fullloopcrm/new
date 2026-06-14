@@ -3,7 +3,6 @@
 
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
-import { getTrackIds } from "@/app/site/the-nyc-marketing-company/_lib/track-ids";
 
 export default function ExitIntent() {
   const [shown, setShown] = useState(false);
@@ -22,19 +21,10 @@ export default function ExitIntent() {
     setDismissed(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "exit-intent-audit", email, ...getTrackIds() }),
-      });
-    } catch {
-      // noop
-    }
-    setShown(false);
-    setDismissed(true);
+    // Forms route to Consortium NYC (Now The NYC Marketing Company)'s form.
+    window.location.href = "https://www.thenycmarketingcompany.com/contact";
   };
 
   return (

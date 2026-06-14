@@ -5,8 +5,8 @@ import MarketingChecklist from "./ChecklistClient";
 
 const title = "Master Marketing Checklist 2026 | SEO, Web Design & More";
 const description =
-  "The complete marketing checklist for NYC businesses — SEO foundations, Google Business Profile, web design, content strategy, analytics, and more. The best organic marketing company in NYC. Pricing starting at $100/hr. Updated for 2026. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/master-marketing-checklist-last-updated-2026";
+  "The complete marketing checklist for NYC businesses — SEO foundations, Google Business Profile, web design, content strategy, analytics, and more. Updated for 2026. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/master-marketing-checklist-last-updated-2026";
 
 export const metadata: Metadata = {
   title,
@@ -25,18 +25,20 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company)" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.jpg"],
   },
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "Home", url: "https://www.consortiumnyc.com" },
   { name: "Marketing Checklist", url },
 ];
 

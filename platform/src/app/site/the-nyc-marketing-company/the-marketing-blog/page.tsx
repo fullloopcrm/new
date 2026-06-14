@@ -5,10 +5,10 @@ import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb"
 import BlogSidebar from "@/app/site/the-nyc-marketing-company/_components/blog/BlogSidebar";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 
-const title = "NYC Marketing Blog | SEO, Web Design & Growth Strategies";
+const title = "NYC Marketing Blog | SEO, Web Design & Growth Strategies | Consortium NYC (Now The NYC Marketing Company)";
 const description =
-  "Actionable digital marketing strategies, SEO tips, and growth tactics for NYC, Long Island, and Westchester businesses. The best organic marketing company in NYC. Pricing starting at $100/hr. No fluff — just what works. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/the-marketing-blog";
+  "Actionable digital marketing strategies, SEO tips, and growth tactics for NYC, Long Island, and Westchester businesses. No fluff — just what works. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/the-marketing-blog";
 
 export const metadata: Metadata = {
   title,
@@ -28,13 +28,15 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["https://www.consortiumnyc.com/og-image.jpg"],
   },
 };
 
@@ -63,7 +65,7 @@ const posts = [
 ];
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "Home", url: "https://www.consortiumnyc.com" },
   { name: "Blog", url },
 ];
 

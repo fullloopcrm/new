@@ -6,9 +6,9 @@ import ResultsClient from "./ResultsClient";
 /* ------------------------------------------------------------------ */
 /*  Metadata                                                           */
 /* ------------------------------------------------------------------ */
-const title = "What's Working | Results & Case Studies";
-const description = "Real results for real NYC businesses. The best organic marketing company in NYC helped local businesses go from invisible to page 1, generating dozens of leads per month. Pricing starting at $100/hr. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/results";
+const title = "What's Working | Results & Case Studies | Consortium NYC (Now The NYC Marketing Company)";
+const description = "Real results for real NYC businesses. See how Consortium NYC (Now The NYC Marketing Company) helped local businesses go from invisible to page 1, generating dozens of leads per month with SEO and web design. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/results";
 
 export const metadata: Metadata = {
   title,
@@ -27,13 +27,15 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company) Results" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.jpg"],
   },
 };
 
@@ -46,14 +48,14 @@ export default function ResultsPage() {
       <JsonLd
         data={webPageSchema(
           "What's Working | Results & Case Studies",
-          "Real results for real NYC businesses. See how The NYC Marketing Company helped local businesses go from invisible to page 1.",
-          "https://www.thenycmarketingcompany.com/results"
+          "Real results for real NYC businesses. See how Consortium NYC (Now The NYC Marketing Company) helped local businesses go from invisible to page 1.",
+          "https://www.consortiumnyc.com/results"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
-          { name: "Results", url: "https://www.thenycmarketingcompany.com/results" },
+          { name: "Home", url: "https://www.consortiumnyc.com" },
+          { name: "Results", url: "https://www.consortiumnyc.com/results" },
         ])}
       />
       <ResultsClient />

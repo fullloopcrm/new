@@ -4,9 +4,9 @@ import Link from "next/link";
 import { JsonLd, webPageSchema, breadcrumbSchema, faqSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
 
-const wdTitle = "NYC Web Design Pricing | Custom Websites from $4,600";
-const wdDescription = "The best organic marketing company in NYC. Transparent web design pricing — custom websites from $4,600, monthly SEO from $950/mo. No hidden fees, no contracts. Mobile-first, SEO-optimized sites that convert. Pricing starting at $100/hr. Call/text 212.202.9220.";
-const wdUrl = "https://www.thenycmarketingcompany.com/nyc-web-design-pricing";
+const wdTitle = "NYC Web Design Pricing | Custom Websites from $4,600 | Consortium NYC (Now The NYC Marketing Company)";
+const wdDescription = "Transparent web design pricing for NYC businesses. Custom websites from $4,600, monthly SEO from $950/mo. No hidden fees, no contracts. Mobile-first, SEO-optimized sites that convert. Call/text (212) 202-9220.";
+const wdUrl = "https://www.consortiumnyc.com/nyc-web-design-pricing";
 
 export const metadata: Metadata = {
   title: wdTitle,
@@ -25,13 +25,15 @@ export const metadata: Metadata = {
     title: wdTitle,
     description: wdDescription,
     url: wdUrl,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company) Web Design Pricing" }],
   },
   twitter: {
     card: "summary_large_image",
     title: wdTitle,
     description: wdDescription,
+    images: ["/og-image.jpg"],
   },
 };
 
@@ -86,15 +88,15 @@ export default function PricingPage() {
     <>
       <JsonLd
         data={webPageSchema(
-          "Transparent Pricing | The NYC Marketing Company",
+          "Transparent Pricing | Consortium NYC (Now The NYC Marketing Company)",
           "Simple, transparent pricing for web design and SEO services. No hidden fees, no surprise invoices, no long-term contracts.",
-          "https://www.thenycmarketingcompany.com/nyc-web-design-pricing"
+          "https://www.consortiumnyc.com/nyc-web-design-pricing"
         )}
       />
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", url: "https://www.thenycmarketingcompany.com" },
-          { name: "Pricing", url: "https://www.thenycmarketingcompany.com/nyc-web-design-pricing" },
+          { name: "Home", url: "https://www.consortiumnyc.com" },
+          { name: "Pricing", url: "https://www.consortiumnyc.com/nyc-web-design-pricing" },
         ])}
       />
       <JsonLd data={faqSchema(faqs)} />
@@ -131,7 +133,7 @@ export default function PricingPage() {
                   <li key={feature} className="flex items-start gap-3 text-slate-700 text-sm"><Check /><span>{feature}</span></li>
                 ))}
               </ul>
-              <Link href="/contact" className="block w-full text-center px-8 py-4 text-base font-bold text-teal-600 rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors font-cta">
+              <Link href="https://www.thenycmarketingcompany.com/contact" className="block w-full text-center px-8 py-4 text-base font-bold text-teal-600 rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors font-cta">
                 Start Your Project
               </Link>
             </div>
@@ -151,7 +153,7 @@ export default function PricingPage() {
                   <li key={feature} className="flex items-start gap-3 text-slate-700 text-sm"><Check /><span>{feature}</span></li>
                 ))}
               </ul>
-              <Link href="/contact" className="block w-full text-center px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta">
+              <Link href="https://www.thenycmarketingcompany.com/contact" className="block w-full text-center px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta">
                 Start Ranking
               </Link>
             </div>
@@ -213,7 +215,7 @@ export default function PricingPage() {
             Book a free 30-minute call. We will look at your current setup, understand your goals, and recommend the right plan — no pressure, no obligation.
           </p>
           <div className="mt-10">
-            <Link href="/contact" className="inline-block px-10 py-5 text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta">
+            <Link href="https://www.thenycmarketingcompany.com/contact" className="inline-block px-10 py-5 text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta">
               Book Your Free Call
             </Link>
           </div>

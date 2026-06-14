@@ -4,6 +4,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { testimonials } from "@/app/site/the-nyc-marketing-company/_lib/siteData";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
 function Stars({ count }: { count: number }) {
   return (
@@ -39,7 +40,7 @@ export default function Testimonials() {
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 font-heading">
             What NYC &amp; Long Island Businesses{" "}
-            <span className="text-teal-400">Say About The NYC Marketing Company</span>
+            <span className="text-teal-400">Say About <BrandLink /></span>
           </h2>
 
           {/* Overall rating summary */}
@@ -119,7 +120,7 @@ export default function Testimonials() {
         >
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="https://g.page/r/thenycmarketingcompany/review"
+              href="https://g.page/r/consortiumnyc/review"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block px-8 py-4 text-base font-bold text-slate-900 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
@@ -127,7 +128,7 @@ export default function Testimonials() {
               Review Us on Google
             </a>
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
               Become Our Next Success Story

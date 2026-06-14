@@ -3,10 +3,10 @@ import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import ServicesListClient from "./ServicesListClient";
 
-const title = "NYC Marketing Services | SEO, Web Design, AI, Branding & More";
+const title = "NYC Marketing Company Services | SEO, Web Design, AI, Branding & More | Consortium NYC (Now The NYC Marketing Company)";
 const description =
-  "The best organic marketing company in NYC. Every marketing service your business needs under one roof — SEO, web design, branding, AI automation, programmatic SEO, CRM development, and more. Pricing starting at $100/hr. No contracts. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/nyc-marketing-company-services-list";
+  "Every marketing service your NYC business needs under one roof. SEO, custom web design, branding, AI automation, programmatic SEO, CRM development, and more. No contracts. Transparent pricing. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/nyc-marketing-company-services-list";
 
 export const metadata: Metadata = {
   title,
@@ -26,18 +26,20 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company)" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.jpg"],
   },
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "Home", url: "https://www.consortiumnyc.com" },
   { name: "Services List", url },
 ];
 

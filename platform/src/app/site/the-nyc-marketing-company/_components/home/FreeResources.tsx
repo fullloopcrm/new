@@ -10,7 +10,7 @@ const resources = [
     description:
       "Get a complete analysis of your website's SEO health — technical issues, keyword gaps, backlink profile, and competitor benchmarks. No strings attached. No sales pitch required.",
     cta: "Get It Free",
-    href: "/the-free-human+ai-seo-marketing-review",
+    href: "https://www.thenycmarketingcompany.com/contact",
   },
   {
     title: "2026 Digital Marketing Checklist",

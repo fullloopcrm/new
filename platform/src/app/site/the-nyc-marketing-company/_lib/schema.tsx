@@ -4,30 +4,30 @@
 export const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "@id": "https://www.thenycmarketingcompany.com/#organization",
-  name: "The NYC Marketing Company",
-  url: "https://www.thenycmarketingcompany.com",
+  "@id": "https://www.consortiumnyc.com/#organization",
+  name: "Consortium NYC (Now The NYC Marketing Company)",
+  url: "https://www.consortiumnyc.com",
   logo: {
     "@type": "ImageObject",
-    url: "https://www.thenycmarketingcompany.com/apple-icon.svg",
-    width: 180,
-    height: 180,
+    url: "https://www.consortiumnyc.com/logo.png",
+    width: 600,
+    height: 60,
   },
-  image: "https://www.thenycmarketingcompany.com/opengraph-image",
+  image: "https://www.consortiumnyc.com/og-image.jpg",
   description:
-    "The NYC Marketing Company is a full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for businesses across NYC, Long Island, and Westchester.",
+    "Consortium NYC (Now The NYC Marketing Company) is a full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for businesses across NYC, Long Island, and Westchester.",
   address: {
     "@type": "PostalAddress",
-    streetAddress: "150 W 47th St",
+    streetAddress: "New York",
     addressLocality: "New York",
     addressRegion: "NY",
-    postalCode: "10036",
+    postalCode: "10001",
     addressCountry: "US",
   },
   geo: {
     "@type": "GeoCoordinates",
-    latitude: 40.758,
-    longitude: -73.9855,
+    latitude: 40.7128,
+    longitude: -74.006,
   },
   contactPoint: {
     "@type": "ContactPoint",
@@ -37,12 +37,12 @@ export const organizationSchema = {
     availableLanguage: "English",
   },
   sameAs: [
-    "https://www.facebook.com/thenycmarketingcompany",
-    "https://www.instagram.com/thenycmarketingcompany",
-    "https://www.linkedin.com/company/thenycmarketingcompany",
-    "https://twitter.com/thenycmarketingco",
+    "https://www.facebook.com/consortiumnyc",
+    "https://www.instagram.com/consortiumnyc",
+    "https://www.linkedin.com/company/consortiumnyc",
+    "https://twitter.com/consortiumnyc",
   ],
-  foundingDate: "2001",
+  foundingDate: "2020",
   numberOfEmployees: {
     "@type": "QuantitativeValue",
     minValue: 2,
@@ -74,18 +74,18 @@ export const organizationSchema = {
 export const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "@id": "https://www.thenycmarketingcompany.com/#website",
-  url: "https://www.thenycmarketingcompany.com",
-  name: "The NYC Marketing Company",
+  "@id": "https://www.consortiumnyc.com/#website",
+  url: "https://www.consortiumnyc.com",
+  name: "Consortium NYC (Now The NYC Marketing Company)",
   description: "NYC Marketing Company | SEO, Branding, Web Design & Automation",
   publisher: {
-    "@id": "https://www.thenycmarketingcompany.com/#organization",
+    "@id": "https://www.consortiumnyc.com/#organization",
   },
   potentialAction: {
     "@type": "SearchAction",
     target: {
       "@type": "EntryPoint",
-      urlTemplate: "https://www.thenycmarketingcompany.com/search?q={search_term_string}",
+      urlTemplate: "https://www.consortiumnyc.com/search?q={search_term_string}",
     },
     "query-input": "required name=search_term_string",
   },
@@ -95,10 +95,10 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
   return {
     "@context": "https://schema.org",
     "@type": "ProfessionalService",
-    "@id": `https://www.thenycmarketingcompany.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}/#localbusiness`,
-    name: `The NYC Marketing Company - ${area} Digital Marketing`,
-    image: "https://www.thenycmarketingcompany.com/opengraph-image",
-    url: `https://www.thenycmarketingcompany.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}`,
+    "@id": `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}/#localbusiness`,
+    name: `Consortium NYC (Now The NYC Marketing Company) - ${area} Digital Marketing`,
+    image: "https://www.consortiumnyc.com/og-image.jpg",
+    url: `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}`,
     telephone: "+1-212-202-9220",
     priceRange: "$$",
     address: {
@@ -112,7 +112,7 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
       name: area,
     },
     parentOrganization: {
-      "@id": "https://www.thenycmarketingcompany.com/#organization",
+      "@id": "https://www.consortiumnyc.com/#organization",
     },
     hasOfferCatalog: {
       "@type": "OfferCatalog",
@@ -137,14 +137,14 @@ export function serviceSchema(
   const base: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Service",
-    "@id": `https://www.thenycmarketingcompany.com/services/${serviceSlug}/#service`,
+    "@id": `https://www.consortiumnyc.com/services/${serviceSlug}/#service`,
     name: serviceName,
     description,
     url: area
-      ? `https://www.thenycmarketingcompany.com/services/${serviceSlug}/${area.toLowerCase().replace(/\s+/g, "-")}`
-      : `https://www.thenycmarketingcompany.com/services/${serviceSlug}`,
+      ? `https://www.consortiumnyc.com/services/${serviceSlug}/${area.toLowerCase().replace(/\s+/g, "-")}`
+      : `https://www.consortiumnyc.com/services/${serviceSlug}`,
     provider: {
-      "@id": "https://www.thenycmarketingcompany.com/#organization",
+      "@id": "https://www.consortiumnyc.com/#organization",
     },
     serviceType: serviceName,
     areaServed: area
@@ -200,9 +200,9 @@ export function webPageSchema(
     url,
     name: title,
     description,
-    isPartOf: { "@id": "https://www.thenycmarketingcompany.com/#website" },
-    about: { "@id": "https://www.thenycmarketingcompany.com/#organization" },
-    datePublished: "2026-01-01",
+    isPartOf: { "@id": "https://www.consortiumnyc.com/#website" },
+    about: { "@id": "https://www.consortiumnyc.com/#organization" },
+    datePublished: "2024-01-01",
     dateModified: new Date().toISOString().split("T")[0],
     inLanguage: "en-US",
   };
@@ -228,14 +228,14 @@ export function articleSchema(
     headline: title,
     description,
     url,
-    image: image || "https://www.thenycmarketingcompany.com/opengraph-image",
+    image: image || "https://www.consortiumnyc.com/og-image.jpg",
     datePublished,
     dateModified,
     author: {
-      "@id": "https://www.thenycmarketingcompany.com/#organization",
+      "@id": "https://www.consortiumnyc.com/#organization",
     },
     publisher: {
-      "@id": "https://www.thenycmarketingcompany.com/#organization",
+      "@id": "https://www.consortiumnyc.com/#organization",
     },
     mainEntityOfPage: {
       "@type": "WebPage",
@@ -249,7 +249,7 @@ export function aggregateRatingSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "ProfessionalService",
-    name: "The NYC Marketing Company",
+    name: "Consortium NYC (Now The NYC Marketing Company)",
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: "4.9",

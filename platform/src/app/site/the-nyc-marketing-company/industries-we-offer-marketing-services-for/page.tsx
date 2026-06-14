@@ -3,10 +3,10 @@ import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import IndustriesListClient from "./IndustriesListClient";
 
-const title = "Industries We Serve | NYC Marketing for 100+ Industries";
+const title = "Industries We Serve | NYC Marketing Company | Consortium NYC (Now The NYC Marketing Company)";
 const description =
-  "The best organic marketing company in NYC. Marketing services for 100+ industries across NYC, Long Island, and the tri-state area. Home services, law firms, restaurants, medical practices, and more. Pricing starting at $100/hr. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for";
+  "Marketing services for 100+ industries across NYC, Long Island, and the tri-state area. Home services, law firms, restaurants, medical practices, contractors, and more. 25+ years of experience. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/industries-we-offer-marketing-services-for";
 
 export const metadata: Metadata = {
   title,
@@ -25,18 +25,20 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company)" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.jpg"],
   },
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "Home", url: "https://www.consortiumnyc.com" },
   { name: "Industries", url },
 ];
 

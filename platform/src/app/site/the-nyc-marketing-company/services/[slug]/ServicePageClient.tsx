@@ -167,7 +167,7 @@ export default function ServicePageClient({
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
           >
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
             >
               Get Started with {name}
@@ -491,7 +491,7 @@ export default function ServicePageClient({
                     </li>
                   </ul>
                   <Link
-                    href="/nyc-marketing-pricing-guide"
+                    href="https://www.thenycmarketingcompany.com/nyc-marketing-pricing-guide"
                     className="block mt-4 text-center text-teal-600 text-xs font-bold font-cta hover:underline"
                   >
                     See Full Pricing Guide &rarr;
@@ -500,7 +500,7 @@ export default function ServicePageClient({
 
                 {/* CTA */}
                 <Link
-                  href="/contact"
+                  href="https://www.thenycmarketingcompany.com/contact"
                   className="block w-full text-center px-6 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
                 >
                   Start With a Real Conversation
@@ -637,7 +637,7 @@ export default function ServicePageClient({
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link
-                  href="/contact"
+                  href="https://www.thenycmarketingcompany.com/contact"
                   className="inline-block px-10 py-5 text-lg font-bold text-slate-900 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
                 >
                   Schedule a Free Strategy Session

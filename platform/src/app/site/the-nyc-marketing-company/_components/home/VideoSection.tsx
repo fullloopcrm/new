@@ -75,7 +75,7 @@ export default function VideoSection() {
             monthly revenue. This is what a real digital strategy looks like.
           </p>
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-500 transition-colors font-cta"
           >
             Want This for Your Business?

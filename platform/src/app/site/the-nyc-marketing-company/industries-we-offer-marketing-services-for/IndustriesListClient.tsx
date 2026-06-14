@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion, useMotionValue, useTransform, animate, useInView } from "framer-motion";
 import { industries } from "@/app/site/the-nyc-marketing-company/_lib/siteData";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
 /* ── Animated counter ────────────────────────────────────────── */
 function CountUp({ value, prefix, suffix, inView }: { value: number; prefix?: string; suffix?: string; inView: boolean }) {
@@ -193,7 +194,7 @@ export default function IndustriesListClient() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
           >
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
             >
               Tell Us Your Industry
@@ -406,7 +407,7 @@ export default function IndustriesListClient() {
             className="text-center mb-14"
           >
             <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-              Why The NYC Marketing Company
+              Why <BrandLink />
             </p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4 font-heading">
               Why We Work Across{" "}
@@ -484,7 +485,7 @@ export default function IndustriesListClient() {
                   { text: "Programmatic SEO at Scale", href: "/services/programmatic-seo-services-in-nyc" },
                   { text: "Custom CRM Development", href: "/services/custom-crm-development-in-nyc" },
                   { text: "Micro Site EMD Strategy", href: "/services/micro-site-emd-strategy-in-nyc" },
-                  { text: "Branding & Identity", href: "/services/brand-strategy-identity-in-nyc" },
+                  { text: "Branding & Identity", href: "/services/branding-identity-services-nyc" },
                   { text: "Outsourced Marketing Manager", href: "/services/marketing-manager-consulting-in-nyc" },
                 ].map((item) => (
                   <li key={item.text} className="flex gap-2.5">
@@ -519,7 +520,7 @@ export default function IndustriesListClient() {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link
-                  href="/contact"
+                  href="https://www.thenycmarketingcompany.com/contact"
                   className="inline-block px-10 py-5 text-lg font-bold text-slate-900 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
                 >
                   Tell Us Your Industry

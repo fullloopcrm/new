@@ -7,7 +7,6 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import { JsonLd, organizationSchema, websiteSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import Navbar from "@/app/site/the-nyc-marketing-company/_components/Navbar";
 import Footer from "@/app/site/the-nyc-marketing-company/_components/Footer";
-import Analytics from "@/app/site/the-nyc-marketing-company/_components/Analytics";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -34,13 +33,13 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.thenycmarketingcompany.com"),
+  metadataBase: new URL("https://www.consortiumnyc.com"),
   title: {
-    default: "NYC Marketing Company | SEO, Web Design & Branding",
-    template: "%s",
+    default: "Consortium NYC (Now The NYC Marketing Company) | NYC SEO, Branding & Web Design",
+    template: "%s | Consortium NYC (Now The NYC Marketing Company)",
   },
   description:
-    "The best organic marketing company in NYC. SEO, branding, web design, business development, and automation for local businesses in NYC, Long Island, and Westchester. Pricing starting at $100/hr. Call/text 212.202.9220.",
+    "Consortium NYC (Now The NYC Marketing Company) is a full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for local businesses in NYC, Long Island, and Westchester. Call/text (212) 202-9220.",
   keywords: [
     "nyc marketing company",
     "seo agency new york",
@@ -53,9 +52,9 @@ export const metadata: Metadata = {
     "digital marketing long island",
     "web design westchester",
   ],
-  authors: [{ name: "The NYC Marketing Company" }],
-  creator: "The NYC Marketing Company",
-  publisher: "The NYC Marketing Company",
+  authors: [{ name: "Consortium NYC (Now The NYC Marketing Company)" }],
+  creator: "Consortium NYC (Now The NYC Marketing Company)",
+  publisher: "Consortium NYC (Now The NYC Marketing Company)",
   formatDetection: {
     email: false,
     address: false,
@@ -64,26 +63,27 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://www.thenycmarketingcompany.com",
-    siteName: "The NYC Marketing Company",
-    title: "NYC Marketing Company | SEO, Web Design & Branding",
+    url: "https://www.consortiumnyc.com",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
+    title: "Consortium NYC (Now The NYC Marketing Company) | NYC SEO, Branding & Web Design",
     description:
-      "The best organic marketing company in NYC. SEO, web design, branding, and automation for local businesses. Pricing starting at $100/hr. Call/text 212.202.9220.",
+      "Full-service NYC marketing company for local businesses in NYC, Long Island, and Westchester. SEO, web design, branding, and automation. Call/text (212) 202-9220.",
     images: [
       {
-        url: "https://www.thenycmarketingcompany.com/opengraph-image",
+        url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "The NYC Marketing Company - NYC Marketing Company",
+        alt: "Consortium NYC (Now The NYC Marketing Company)",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "NYC Marketing Company | The NYC Marketing Company",
+    title: "Consortium NYC (Now The NYC Marketing Company) | NYC SEO, Branding & Web Design",
     description:
       "Full-service NYC marketing company for local businesses. SEO, web design, branding, and automation. Call/text (212) 202-9220.",
-    creator: "@thenycmarketingco",
+    images: ["/og-image.jpg"],
+    creator: "@consortiumnyc",
   },
   robots: {
     index: true,
@@ -97,9 +97,9 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: "https://www.thenycmarketingcompany.com",
+    canonical: "https://www.consortiumnyc.com",
   },
-  verification: { google: "ASP01LqhFjYKzlnrerNtCOxLMxBRDqEHLccndDy8-QI" },
+  // verification: { google: "ADD_REAL_CODE_FROM_SEARCH_CONSOLE" },
 };
 
 export default function RootLayout({
@@ -118,7 +118,6 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <GoogleAnalytics gaId="G-QN1ZPCL4NS" />
-        <Analytics />
         <Navbar />
         <main>{children}</main>
         <Footer />

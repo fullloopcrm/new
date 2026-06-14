@@ -5,8 +5,8 @@ import ServicesPage from "./ServicesClient";
 
 const title = "NYC Marketing Services | SEO, Web Design, Branding & More";
 const description =
-  "The best organic marketing company in NYC. Full-service marketing — SEO from $950/mo, custom websites from $4,600, branding, AI automation, and Google Business Profile optimization. Pricing starting at $100/hr. No contracts. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/services";
+  "Full-service marketing for NYC businesses. SEO from $950/mo, custom websites from $4,600, branding, AI automation, and Google Business Profile optimization. No contracts. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/services";
 
 export const metadata: Metadata = {
   title,
@@ -25,18 +25,20 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company)" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.jpg"],
   },
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "Home", url: "https://www.consortiumnyc.com" },
   { name: "Services", url },
 ];
 

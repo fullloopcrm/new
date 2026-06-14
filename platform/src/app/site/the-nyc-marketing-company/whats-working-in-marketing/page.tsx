@@ -4,11 +4,12 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
+import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
-const title = "What's Working in Marketing Right Now | NYC SEO & Web Design";
+const title = "What's Working in Marketing Right Now | Consortium NYC (Now The NYC Marketing Company)";
 const description =
-  "Real-time notes, updates, and observations on what's actually working in SEO, web design, and digital marketing — no fluff, no theory. The best organic marketing company in NYC. Pricing starting at $100/hr. Call/text 212.202.9220.";
-const url = "https://www.thenycmarketingcompany.com/whats-working-in-marketing";
+  "Real-time notes, updates, and observations from the team at Consortium NYC (Now The NYC Marketing Company). What's actually working in SEO, web design, and digital marketing — no fluff, no theory. Call/text (212) 202-9220.";
+const url = "https://www.consortiumnyc.com/whats-working-in-marketing";
 
 export const metadata: Metadata = {
   title,
@@ -26,18 +27,20 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC (Now The NYC Marketing Company)",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company)" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.jpg"],
   },
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://www.thenycmarketingcompany.com" },
+  { name: "Home", url: "https://www.consortiumnyc.com" },
   { name: "What's Working in Marketing", url },
 ];
 
@@ -182,7 +185,7 @@ const updates = [
     content: (
       <>
         <p>
-          As of this week, The NYC Marketing Company has fully abandoned WordPress, Webflow, Squarespace, and every other CMS platform. Every client site — including this one — now runs on our custom stack:
+          As of this week, <BrandLink /> has fully abandoned WordPress, Webflow, Squarespace, and every other CMS platform. Every client site — including this one — now runs on our custom stack:
         </p>
         <ul>
           <li><strong>Next.js</strong> — React framework for server-rendered, SEO-optimized pages</li>
@@ -369,13 +372,13 @@ export default function WhatsWorking() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/contact"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Schedule a Free Strategy Session
               </Link>
               <Link
-                href="/the-free-human+ai-seo-marketing-review"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white border-2 border-teal-600 hover:bg-teal-50 transition-colors shadow-lg font-cta"
               >
                 Get a Free SEO Audit
