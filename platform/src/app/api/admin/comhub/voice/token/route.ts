@@ -2,24 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
-
-const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
-const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
-const TELNYX_TELEPHONY_CREDENTIAL_ID = (process.env.TELNYX_TELEPHONY_CREDENTIAL_ID || '').trim()
-const TELNYX_CREDENTIAL_CONNECTION_ID = (process.env.TELNYX_CREDENTIAL_CONNECTION_ID || '').trim()
+import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 
 // POST /api/admin/comhub/voice/token { session_id? }
 // Per-session Telnyx telephony credential + short-lived JWT for the browser
-// softphone WebRTC SDK.
+// softphone WebRTC SDK. Voice config is resolved per-tenant (own Telnyx account
+// when configured, else platform env fallback).
 export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
   const adminId = await getActiveAdminMemberId(tenantId)
 
-  if (!TELNYX_API_KEY) {
+  const cfg = await resolveTenantVoiceConfig(tenantId)
+
+  if (!cfg.apiKey) {
     return NextResponse.json(
-      { error: 'voice not configured', detail: 'TELNYX_API_KEY required.' },
+      { error: 'voice not configured', detail: 'Telnyx API key required (tenant or platform).' },
       { status: 503 },
     )
   }
@@ -33,15 +32,15 @@ export async function POST(req: NextRequest) {
   let credentialId = ''
   let sipUsername = ''
   let sipPassword = ''
-  if (TELNYX_CREDENTIAL_CONNECTION_ID) {
+  if (cfg.credentialConnectionId) {
     try {
       const createRes = await fetch('https://api.telnyx.com/v2/telephony_credentials', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${TELNYX_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: credentialName,
           tag,
-          connection_id: TELNYX_CREDENTIAL_CONNECTION_ID,
+          connection_id: cfg.credentialConnectionId,
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         }),
       })
@@ -58,11 +57,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!credentialId && TELNYX_TELEPHONY_CREDENTIAL_ID) {
-    credentialId = TELNYX_TELEPHONY_CREDENTIAL_ID
+  if (!credentialId && cfg.telephonyCredentialId) {
+    credentialId = cfg.telephonyCredentialId
     const credRes = await fetch(
       `https://api.telnyx.com/v2/telephony_credentials/${credentialId}`,
-      { headers: { Authorization: `Bearer ${TELNYX_API_KEY}` } },
+      { headers: { Authorization: `Bearer ${cfg.apiKey}` } },
     )
     if (credRes.ok) {
       const credData = (await credRes.json()) as { data?: { sip_username?: string } }
@@ -74,7 +73,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: 'voice not configured',
-        detail: 'No Telnyx telephony credential available. Set TELNYX_TELEPHONY_CREDENTIAL_ID or TELNYX_CREDENTIAL_CONNECTION_ID.',
+        detail: 'No Telnyx telephony credential available. Set the tenant voice fields or platform TELNYX_TELEPHONY_CREDENTIAL_ID / TELNYX_CREDENTIAL_CONNECTION_ID.',
       },
       { status: 503 },
     )
@@ -82,7 +81,7 @@ export async function POST(req: NextRequest) {
 
   const tokenRes = await fetch(
     `https://api.telnyx.com/v2/telephony_credentials/${credentialId}/token`,
-    { method: 'POST', headers: { Authorization: `Bearer ${TELNYX_API_KEY}`, 'Content-Type': 'application/json' } },
+    { method: 'POST', headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' } },
   )
   if (!tokenRes.ok) {
     const detail = await tokenRes.text().catch(() => '')
@@ -99,7 +98,7 @@ export async function POST(req: NextRequest) {
     session_id: sessionId,
     expires_in_seconds: 60 * 60,
     admin_id: adminId,
-    used_voice_connection_id: TELNYX_VOICE_CONNECTION_ID || null,
+    used_voice_connection_id: cfg.voiceConnectionId || null,
   })
 }
 
@@ -108,16 +107,19 @@ export async function DELETE(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
 
+  const tenantId = await getCurrentTenantId()
+  const cfg = await resolveTenantVoiceConfig(tenantId)
+
   const body = (await req.json().catch(() => ({}))) as { credential_id?: string } | null
   const credentialId = body?.credential_id || ''
-  if (!credentialId || credentialId === TELNYX_TELEPHONY_CREDENTIAL_ID) {
+  if (!credentialId || credentialId === cfg.telephonyCredentialId) {
     return NextResponse.json({ ok: true, note: 'shared credential, not deleted' })
   }
-  if (!TELNYX_API_KEY) return NextResponse.json({ ok: true })
+  if (!cfg.apiKey) return NextResponse.json({ ok: true })
   try {
     await fetch(`https://api.telnyx.com/v2/telephony_credentials/${credentialId}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${TELNYX_API_KEY}` },
+      headers: { Authorization: `Bearer ${cfg.apiKey}` },
     })
   } catch {
     // best-effort

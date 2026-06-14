@@ -2,25 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
-
-const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
-const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').trim()
+import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 
 type Action = 'hold' | 'unhold' | 'mute' | 'unmute' | 'hangup' | 'transfer_blind' | 'transfer_warm' | 'speak' | 'dtmf'
 const ACTIONS: Action[] = ['hold', 'unhold', 'mute', 'unmute', 'hangup', 'transfer_blind', 'transfer_warm', 'speak', 'dtmf']
 
 async function telnyxAction(
+  apiKey: string,
   callControlId: string,
   endpoint: string,
   body: Record<string, unknown> = {},
 ): Promise<{ ok: boolean; detail?: unknown }> {
-  if (!TELNYX_API_KEY) return { ok: false, detail: 'no telnyx api key' }
+  if (!apiKey) return { ok: false, detail: 'no telnyx api key' }
   try {
     const res = await fetch(
       `https://api.telnyx.com/v2/calls/${callControlId}/actions/${endpoint}`,
       {
         method: 'POST',
-        headers: { Authorization: `Bearer ${TELNYX_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       },
     )
@@ -41,6 +40,7 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const cfg = await resolveTenantVoiceConfig(tenantId)
 
   const body = (await req.json().catch(() => null)) as {
     active_call_id?: string
@@ -86,19 +86,19 @@ export async function POST(req: NextRequest) {
 
   switch (action) {
     case 'hold':
-      result = await telnyxAction(customerCallId, 'hold')
+      result = await telnyxAction(cfg.apiKey, customerCallId, 'hold')
       if (result.ok) dbUpdate.hold = true
       break
     case 'unhold':
-      result = await telnyxAction(customerCallId, 'unhold')
+      result = await telnyxAction(cfg.apiKey, customerCallId, 'unhold')
       if (result.ok) dbUpdate.hold = false
       break
     case 'mute':
-      result = await telnyxAction(customerCallId, 'mute')
+      result = await telnyxAction(cfg.apiKey, customerCallId, 'mute')
       if (result.ok) dbUpdate.muted = true
       break
     case 'unmute':
-      result = await telnyxAction(customerCallId, 'unmute')
+      result = await telnyxAction(cfg.apiKey, customerCallId, 'unmute')
       if (result.ok) dbUpdate.muted = false
       break
     case 'hangup': {
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
       if (looksLikeUUID) {
         result = { ok: true, detail: 'softphone-managed; db-only finalize' }
       } else {
-        result = await telnyxAction(customerCallId, 'hangup')
+        result = await telnyxAction(cfg.apiKey, customerCallId, 'hangup')
         if (!result.ok) result = { ok: true, detail: 'forced db-only finalize' }
       }
       if (activeCallRowId) {
@@ -121,26 +121,25 @@ export async function POST(req: NextRequest) {
     case 'transfer_blind': {
       const target = String(body.payload?.target || '').trim()
       if (!target) return NextResponse.json({ error: 'payload.target required' }, { status: 400 })
-      result = await telnyxAction(customerCallId, 'transfer', {
-        to: target, from: TELNYX_FROM_NUMBER, time_limit_secs: 60 * 60,
+      result = await telnyxAction(cfg.apiKey, customerCallId, 'transfer', {
+        to: target, from: cfg.fromNumber, time_limit_secs: 60 * 60,
       })
       break
     }
     case 'transfer_warm': {
       const target = String(body.payload?.target || '').trim()
       if (!target) return NextResponse.json({ error: 'payload.target required' }, { status: 400 })
-      const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
-      if (!TELNYX_VOICE_CONNECTION_ID) {
-        return NextResponse.json({ error: 'TELNYX_VOICE_CONNECTION_ID required' }, { status: 503 })
+      if (!cfg.voiceConnectionId) {
+        return NextResponse.json({ error: 'voice connection required (tenant or platform)' }, { status: 503 })
       }
-      await telnyxAction(customerCallId, 'hold')
+      await telnyxAction(cfg.apiKey, customerCallId, 'hold')
       const consultRes = await fetch('https://api.telnyx.com/v2/calls', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${TELNYX_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          connection_id: TELNYX_VOICE_CONNECTION_ID,
+          connection_id: cfg.voiceConnectionId,
           to: target,
-          from: TELNYX_FROM_NUMBER,
+          from: cfg.fromNumber,
           from_display_name: 'Comhub',
           custom_headers: [
             { name: 'X-Comhub-Leg', value: 'consult' },
@@ -160,7 +159,7 @@ export async function POST(req: NextRequest) {
     case 'speak': {
       const text = String(body.payload?.text || '').trim()
       if (!text) return NextResponse.json({ error: 'payload.text required' }, { status: 400 })
-      result = await telnyxAction(customerCallId, 'speak', {
+      result = await telnyxAction(cfg.apiKey, customerCallId, 'speak', {
         payload: text.slice(0, 1500),
         voice: String(body.payload?.voice || 'female'),
         language: String(body.payload?.language || 'en-US'),
@@ -170,7 +169,7 @@ export async function POST(req: NextRequest) {
     case 'dtmf': {
       const digits = String(body.payload?.digits || '').trim()
       if (!digits) return NextResponse.json({ error: 'payload.digits required' }, { status: 400 })
-      result = await telnyxAction(customerCallId, 'send_dtmf', { digits: digits.slice(0, 32) })
+      result = await telnyxAction(cfg.apiKey, customerCallId, 'send_dtmf', { digits: digits.slice(0, 32) })
       break
     }
     default:

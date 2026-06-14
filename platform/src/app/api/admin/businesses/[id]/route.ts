@@ -218,6 +218,7 @@ export async function PUT(
     // Integration fields
     'resend_api_key', 'resend_domain', 'email_from',
     'telnyx_api_key', 'telnyx_phone',
+    'telnyx_voice_connection_id', 'telnyx_telephony_credential_id', 'telnyx_credential_connection_id',
     'stripe_account_id', 'stripe_api_key',
     'imap_host', 'imap_port', 'imap_user', 'imap_pass',
     'zelle_email',

@@ -27,6 +27,9 @@ type Business = {
   stripe_account_id: string | null
   telnyx_api_key: string | null
   telnyx_phone: string | null
+  telnyx_voice_connection_id: string | null
+  telnyx_telephony_credential_id: string | null
+  telnyx_credential_connection_id: string | null
   resend_api_key: string | null
   resend_domain: string | null
   email_from: string | null
@@ -94,6 +97,9 @@ export default function OnboardingWizardPage() {
   const [stripeAcct, setStripeAcct] = useState('')
   const [telnyxKey, setTelnyxKey] = useState('')
   const [telnyxPhone, setTelnyxPhone] = useState('')
+  const [voiceConnId, setVoiceConnId] = useState('')
+  const [telephonyCredId, setTelephonyCredId] = useState('')
+  const [credConnId, setCredConnId] = useState('')
   const [resendKey, setResendKey] = useState('')
   const [resendDomain, setResendDomain] = useState('')
   const [emailFrom, setEmailFrom] = useState('')
@@ -129,6 +135,9 @@ export default function OnboardingWizardPage() {
         if (Array.isArray(cfg.service_areas)) setServiceAreasText((cfg.service_areas as string[]).join('\n'))
         setStripeAcct(b.stripe_account_id || '')
         setTelnyxPhone(b.telnyx_phone || '')
+        setVoiceConnId(b.telnyx_voice_connection_id || '')
+        setTelephonyCredId(b.telnyx_telephony_credential_id || '')
+        setCredConnId(b.telnyx_credential_connection_id || '')
         setResendDomain(b.resend_domain || '')
         setEmailFrom(b.email_from || '')
         setOwnerEmail(b.owner_email || '')
@@ -212,6 +221,9 @@ export default function OnboardingWizardPage() {
       if (stripeAcct) updates.stripe_account_id = stripeAcct
       if (telnyxKey) updates.telnyx_api_key = telnyxKey
       if (telnyxPhone) updates.telnyx_phone = telnyxPhone
+      updates.telnyx_voice_connection_id = voiceConnId || null
+      updates.telnyx_telephony_credential_id = telephonyCredId || null
+      updates.telnyx_credential_connection_id = credConnId || null
       if (resendKey) updates.resend_api_key = resendKey
       if (resendDomain) updates.resend_domain = resendDomain
       if (emailFrom) updates.email_from = emailFrom
@@ -419,6 +431,20 @@ export default function OnboardingWizardPage() {
               </Field>
               <Field label="Phone number (E.164)">
                 <input value={telnyxPhone} onChange={e => setTelnyxPhone(e.target.value)} className="input" placeholder="+12125551212" />
+              </Field>
+            </div>
+
+            <h3 className="font-semibold text-sm text-slate-900 mt-3">Telnyx Voice (ComHub softphone)</h3>
+            <p className="text-xs text-slate-500">Optional. Lets this tenant&apos;s softphone dial through its own Telnyx voice account. Leave blank to use the shared platform voice.</p>
+            <div className="grid md:grid-cols-3 gap-3">
+              <Field label="Voice connection ID">
+                <input value={voiceConnId} onChange={e => setVoiceConnId(e.target.value)} className="input" placeholder="Outbound voice app / connection ID" />
+              </Field>
+              <Field label="Credential connection ID">
+                <input value={credConnId} onChange={e => setCredConnId(e.target.value)} className="input" placeholder="Credential connection ID" />
+              </Field>
+              <Field label="Telephony credential ID">
+                <input value={telephonyCredId} onChange={e => setTelephonyCredId(e.target.value)} className="input" placeholder="Shared SIP credential ID" />
               </Field>
             </div>
 

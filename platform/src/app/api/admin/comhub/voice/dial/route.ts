@@ -2,24 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
-
-const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
-const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
-const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').trim()
+import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 
 // POST /api/admin/comhub/voice/dial
 //   { thread_id?, contact_id?, phone?, admin_phone }
 // Click-to-call: Telnyx rings admin_phone first; on answer the webhook
-// bridges to the customer.
+// bridges to the customer. Voice config resolved per-tenant (own Telnyx
+// account when configured, else platform env fallback).
 export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const cfg = await resolveTenantVoiceConfig(tenantId)
 
-  if (!TELNYX_API_KEY || !TELNYX_VOICE_CONNECTION_ID) {
+  if (!cfg.apiKey || !cfg.voiceConnectionId) {
     return NextResponse.json({
       error: 'voice not configured',
-      detail: 'TELNYX_VOICE_CONNECTION_ID env var required',
+      detail: 'Telnyx voice connection required (tenant or platform).',
     }, { status: 503 })
   }
 
@@ -79,11 +78,11 @@ export async function POST(req: NextRequest) {
 
   const res = await fetch('https://api.telnyx.com/v2/calls', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${TELNYX_API_KEY}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      connection_id: TELNYX_VOICE_CONNECTION_ID,
+      connection_id: cfg.voiceConnectionId,
       to: body.admin_phone,
-      from: TELNYX_FROM_NUMBER,
+      from: cfg.fromNumber,
       custom_headers: [
         { name: 'X-Comhub-Thread', value: threadId },
         { name: 'X-Comhub-Contact', value: contactId },
