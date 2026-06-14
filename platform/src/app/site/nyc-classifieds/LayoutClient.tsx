@@ -498,7 +498,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
               </span>
               <span style={{ color: '#4b5563', fontSize: '0.5625rem', marginTop: '2px' }}>
                 Built and managed by{' '}
-                <a href="https://www.fullloopcrm.com/" target="_blank" rel="noopener" style={{ color: '#6b7280', textDecoration: 'underline' }}>
+                <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener" style={{ color: '#6b7280', textDecoration: 'underline' }}>
                   Full Loop CRM
                 </a>
               </span>

@@ -906,7 +906,7 @@ export default function AISearchOptimizationPage() {
                 team builds custom chatbots and lead qualification agents. Our{" "}
                 <Link href="/services/ai-content-generation" className="text-[#5CB8FF] hover:text-[#8DD0FF]">AI content generation</Link>{" "}
                 capabilities create answer-ready content at scale. Our{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
                 tracks AI referral traffic alongside every other lead source. This end-to-end AI capability means your AI search optimization is not a siloed service — it is integrated into every aspect of your digital presence and lead pipeline.
               </p>
             </div>

@@ -151,7 +151,7 @@ const updates = [
           Early results: response times went from hours to seconds. Lead-to-appointment conversion jumped 40%. And business owners stopped losing after-hours leads to competitors who picked up the phone first.
         </p>
         <p>
-          Selena is the first product from our new platform, <a href="https://www.fullloopcrm.com/" target="_blank" rel="noopener noreferrer" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Full Loop CRM</a>. More on that below.
+          Selena is the first product from our new platform, <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Full Loop CRM</a>. More on that below.
         </p>
       </>
     ),
@@ -163,7 +163,7 @@ const updates = [
     content: (
       <>
         <p>
-          <a href="https://www.fullloopcrm.com/" target="_blank" rel="noopener noreferrer" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Full Loop CRM</a> is live. It&apos;s our own CRM platform built specifically for small businesses that are tired of paying $300/month for tools they use 10% of.
+          <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Full Loop CRM</a> is live. It&apos;s our own CRM platform built specifically for small businesses that are tired of paying $300/month for tools they use 10% of.
         </p>
         <p>
           Full Loop combines lead tracking, automated follow-up, AI-powered text bots (like Selena), appointment scheduling, review management, and reporting — all in one platform. Built on the same stack we use for everything: <strong>Next.js</strong>, <strong>Supabase</strong>, <strong>Resend</strong>, and <strong>Telnyx</strong>.

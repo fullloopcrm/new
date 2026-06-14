@@ -90,7 +90,7 @@ export default function FullLoopCRMPage() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Full Loop CRM",
-    url: "https://fullloopcrm.com",
+    url: "https://homeservicesbusinesscrm.com",
     telephone: PHONE,
     address: {
       "@type": "PostalAddress",
@@ -113,7 +113,7 @@ export default function FullLoopCRMPage() {
     name: "Full Loop CRM",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
-    url: "https://fullloopcrm.com",
+    url: "https://homeservicesbusinesscrm.com",
     description:
       "The first full-cycle CRM for home service businesses. Lead generation, AI sales, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
     offers: {

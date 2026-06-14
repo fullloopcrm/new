@@ -638,7 +638,7 @@ export default function AnalyticsReportingPage() {
             <div>
               <h3 className="text-xl font-semibold text-[#EFF70A]">Full Loop CRM</h3>
               <p className="mt-3 text-zinc-300 leading-relaxed">
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
                 is the unified dashboard that ties everything together. It integrates with GA4, Search Console, our call tracking system, and form submissions to provide a single source of truth for lead attribution and revenue tracking. Every lead that enters the system is tagged with its source — which keyword, which page, which search engine, which device — and tracked through the sales pipeline to closed deal. This is how we calculate true SEO ROI: not theoretical value based on traffic estimates, but actual revenue attributed to organic search performance. Full Loop CRM also powers the real-time dashboards our clients access directly.
               </p>
             </div>

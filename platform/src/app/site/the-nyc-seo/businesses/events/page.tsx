@@ -61,7 +61,7 @@ export default function EventsPage() {
       postalCode: "10036",
       addressCountry: "US",
     },
-    sameAs: ["https://www.consortiumnyc.com", "https://www.fullloopcrm.com"],
+    sameAs: ["https://www.consortiumnyc.com", "https://homeservicesbusinesscrm.com"],
     parentOrganization: {
       "@type": "Organization",
       name: "Consortium NYC",

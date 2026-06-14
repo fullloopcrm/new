@@ -118,7 +118,7 @@ export default function MarketingConsultingPage() {
       postalCode: "10036",
       addressCountry: "US",
     },
-    sameAs: ["https://www.consortiumnyc.com", "https://www.fullloopcrm.com"],
+    sameAs: ["https://www.consortiumnyc.com", "https://homeservicesbusinesscrm.com"],
     parentOrganization: {
       "@type": "Organization",
       name: "Consortium NYC",
@@ -904,7 +904,7 @@ export default function MarketingConsultingPage() {
             <div>
               <h3 className="text-xl font-semibold text-[#EFF70A]">We Built Our Own CRM</h3>
               <p className="mt-3 text-zinc-300 leading-relaxed">
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
                 is our proprietary customer relationship management platform built specifically for service businesses. It handles lead capture, automated follow-up, appointment scheduling, review generation, and revenue attribution — all in one platform. When our marketing strategy calls for lead nurturing, CRM implementation, or automation, we do not recommend a third-party tool and hope it works. We deploy our own platform and configure it specifically for your business, your sales process, and your customer journey. This level of integration between strategy and technology is something no pure-play consulting firm can match.
               </p>
             </div>

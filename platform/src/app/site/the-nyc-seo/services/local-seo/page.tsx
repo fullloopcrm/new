@@ -128,7 +128,7 @@ export default function LocalSEOServicesPage() {
       postalCode: "10036",
       addressCountry: "US",
     },
-    sameAs: ["https://www.consortiumnyc.com", "https://www.fullloopcrm.com"],
+    sameAs: ["https://www.consortiumnyc.com", "https://homeservicesbusinesscrm.com"],
     parentOrganization: {
       "@type": "Organization",
       name: "Consortium NYC",
@@ -861,7 +861,7 @@ export default function LocalSEOServicesPage() {
               <h3 className="text-xl font-semibold text-[#EFF70A]">Full Loop CRM Integration for Review Management</h3>
               <p className="mt-3 text-zinc-300 leading-relaxed">
                 We do not just tell you to &ldquo;get more reviews.&rdquo; We build automated systems that make it happen. Through our own{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
                 platform, we integrate review requests directly into your workflow — automated emails after job completion, SMS follow-ups, QR codes for in-person handoff. Every review request is timed, templated, and tracked. Businesses using our review systems see 5x to 10x increases in monthly review volume within 90 days. More reviews, higher ratings, better local rankings — the entire flywheel accelerates.
               </p>
             </div>

@@ -70,7 +70,7 @@ const faqs = [
   },
   {
     q: "What is Selenas and how does it relate to your AI agent work?",
-    a: "Selenas is the AI sales assistant built into Full Loop CRM — our proprietary CRM platform at fullloopcrm.com. Selenas handles approximately 80 percent of receptionist duties: answering questions, qualifying leads, booking appointments, sending follow-ups, and managing customer conversations via SMS, all 24/7 in both English and Spanish. We built Selenas ourselves, and the same team that built it builds custom AI agents for our clients. Selenas is a real-world, production-tested example of exactly what we deliver.",
+    a: "Selenas is the AI sales assistant built into Full Loop CRM — our proprietary CRM platform at homeservicesbusinesscrm.com. Selenas handles approximately 80 percent of receptionist duties: answering questions, qualifying leads, booking appointments, sending follow-ups, and managing customer conversations via SMS, all 24/7 in both English and Spanish. We built Selenas ourselves, and the same team that built it builds custom AI agents for our clients. Selenas is a real-world, production-tested example of exactly what we deliver.",
   },
   {
     q: "Do I need to change my existing website or CRM to use AI agents?",
@@ -123,7 +123,7 @@ export default function AIAgentDevelopmentPage() {
       addressCountry: "US",
     },
     email: "hi@consortiumnyc.com",
-    sameAs: ["https://www.consortiumnyc.com", "https://www.fullloopcrm.com"],
+    sameAs: ["https://www.consortiumnyc.com", "https://homeservicesbusinesscrm.com"],
     parentOrganization: {
       "@type": "Organization",
       name: "Consortium NYC",
@@ -388,7 +388,7 @@ export default function AIAgentDevelopmentPage() {
             </p>
             <p>
               This is not theoretical. We built Selenas &mdash; the AI sales assistant inside{" "}
-              <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+              <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
               &mdash; and it handles approximately 80 percent of receptionist duties for the businesses that use it. 24/7 bilingual SMS conversations, lead qualification, appointment booking, follow-ups. Selenas is production-tested, battle-hardened, and processing thousands of real conversations every month. The same team that built Selenas builds custom AI agents for our clients. We are not selling you an idea. We are deploying technology we have already proven works.
             </p>
           </div>
@@ -619,7 +619,7 @@ export default function AIAgentDevelopmentPage() {
           <div className="mt-8 space-y-6 text-zinc-300 leading-relaxed">
             <p>
               We do not just build AI agents for clients &mdash; we built one for ourselves. Selenas is the AI sales assistant embedded in{" "}
-              <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>, our proprietary customer relationship management platform. Selenas handles approximately 80 percent of receptionist duties for the businesses running on Full Loop &mdash; and it does it 24 hours a day, 7 days a week, in both English and Spanish.
+              <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>, our proprietary customer relationship management platform. Selenas handles approximately 80 percent of receptionist duties for the businesses running on Full Loop &mdash; and it does it 24 hours a day, 7 days a week, in both English and Spanish.
             </p>
             <p>
               Here is what Selenas does in production, right now, every single day: answers inbound SMS messages within seconds. Qualifies leads by asking about service needed, location, timeline, and budget. Books appointments directly into the business&apos;s calendar. Sends confirmation messages and day-of reminders. Follows up with leads who went cold. Handles rescheduling requests. Answers FAQs about pricing, service areas, and availability. Escalates complex or urgent conversations to the business owner or team lead. All of this happens automatically, around the clock, without a human touching it.
@@ -936,7 +936,7 @@ export default function AIAgentDevelopmentPage() {
               <h3 className="text-xl font-semibold text-[#EFF70A]">We Built Selenas &mdash; We Know What Works</h3>
               <p className="mt-3 text-zinc-300 leading-relaxed">
                 Most AI agent developers are building their first production system when they build yours. We already built ours. Selenas, the AI sales assistant inside{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>, processes thousands of real conversations every month. We know what conversation patterns convert. We know what escalation logic works. We know how to handle bilingual conversations at scale. We know what breaks under load and what does not. Every lesson we learned building and operating Selenas goes directly into the custom agents we build for you.
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>, processes thousands of real conversations every month. We know what conversation patterns convert. We know what escalation logic works. We know how to handle bilingual conversations at scale. We know what breaks under load and what does not. Every lesson we learned building and operating Selenas goes directly into the custom agents we build for you.
               </p>
             </div>
             <div>

@@ -215,7 +215,7 @@ export default function WhatsNew() {
           <p className="text-slate-500 text-xs mb-5 font-cta">
             Selena is a product of{" "}
             <a
-              href="https://fullloopcrm.com"
+              href="https://homeservicesbusinesscrm.com"
               target="_blank"
               rel="noopener noreferrer"
               className="text-teal-400 hover:text-teal-300 transition-colors underline underline-offset-2 decoration-teal-400/50"

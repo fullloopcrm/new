@@ -847,7 +847,7 @@ export default function GBPPage() {
               <h3 className="text-xl font-semibold text-[#EFF70A]">Full Loop CRM — Automated Review Collection That Actually Works</h3>
               <p className="mt-3 text-zinc-300 leading-relaxed">
                 Most agencies tell you to &ldquo;ask customers for reviews&rdquo; and leave it at that. We built something better.{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
                 automatically sends feedback requests after every service call. Happy customers get a direct link to leave a Google review. Unhappy customers get routed to a private feedback form so you can resolve issues before they go public. The system runs on autopilot — no manual follow-ups, no awkward conversations, no missed opportunities. Our clients see 3x to 5x increases in review volume within the first 90 days. More reviews means higher map pack rankings, more trust, and more calls. It is the single most impactful thing you can do for your GBP.
               </p>
             </div>

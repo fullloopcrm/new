@@ -842,7 +842,7 @@ export default function OnPageSEOServicesPage() {
             </div>
             <div>
               <h3 className="text-xl font-semibold text-[#EFF70A]">Proprietary Tools Built by{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>
               </h3>
               <p className="mt-3 text-zinc-300 leading-relaxed">
                 We do not just use off-the-shelf SEO tools. We build our own. Our proprietary on-page analysis tools — developed by our sister company Full Loop CRM — crawl your entire site, score every page against 47 on-page ranking factors, identify the highest-impact fixes, and generate optimization recommendations that our team implements immediately. This gives us a speed and precision advantage that agencies relying solely on third-party tools simply cannot match. Our tech stack — Next.js, Vercel, Supabase, Resend, and Telnyx — is built for performance at every layer.

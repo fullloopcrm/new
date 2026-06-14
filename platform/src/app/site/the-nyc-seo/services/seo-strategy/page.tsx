@@ -927,7 +927,7 @@ export default function SEOStrategyPage() {
                 Our strategies are designed for modern tech stacks — not WordPress templates with bloated plugins. We build on{" "}
                 <Link href="/services/web-design-development" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Next.js</Link>{" "}
                 deployed on Vercel, with{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
                 for lead management, Supabase for data infrastructure, Resend for transactional email, and Telnyx for voice and SMS. This modern stack means sub-1-second page loads, perfect Core Web Vitals, and the ability to scale to tens of thousands of pages without performance degradation. Our strategies leverage these technical capabilities in ways WordPress-based agencies simply cannot.
               </p>
             </div>

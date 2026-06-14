@@ -823,7 +823,7 @@ export default function MarketingManagerPage() {
                 <Link href="/services/seo" className="text-[#5CB8FF] hover:text-[#8DD0FF]">SEO</Link>? We do it in-house. Need a{" "}
                 <Link href="/services/web-design-development" className="text-[#5CB8FF] hover:text-[#8DD0FF]">new website</Link>? We build it on Next.js. Need a{" "}
                 <Link href="/services/fullloopcrm" className="text-[#5CB8FF] hover:text-[#8DD0FF]">CRM</Link>? We deploy{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>. Need an{" "}
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>. Need an{" "}
                 <Link href="/services/ai-agent-development" className="text-[#5CB8FF] hover:text-[#8DD0FF]">AI agent</Link>? We build it. One accountable partner for everything.
               </p>
             </div>
@@ -841,7 +841,7 @@ export default function MarketingManagerPage() {
                 We build on{" "}
                 <Link href="/services/web-design-development" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Next.js</Link>{" "}
                 and Vercel — not WordPress. We deploy on Supabase — not shared hosting. We send communications through Resend and Telnyx — not outdated email platforms. We use{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
                 — our own full-cycle CRM built specifically for service businesses, customizable for any industry. We optimize for{" "}
                 <Link href="/services/ai-search-optimization" className="text-[#5CB8FF] hover:text-[#8DD0FF]">AI search platforms</Link>{" "}
                 — not just Google. Your fractional marketing manager brings the most modern marketing infrastructure available, not the same tools every agency has been using since 2015.

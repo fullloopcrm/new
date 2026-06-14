@@ -76,7 +76,7 @@ const faqs = [
   },
   {
     q: "What is Full Loop CRM and how does it relate to SEO automation?",
-    a: "Full Loop CRM is a full automation CRM built by our team at Consortium NYC and available at fullloopcrm.com. It automates the entire customer lifecycle — from lead capture and qualification, to appointment booking, to follow-up sequences, to review requests and collection. It is customizable for any business type and integrates directly with your website and SEO systems. When someone finds your business through a programmatic page, Full Loop CRM captures that lead, routes it to the right person, automates follow-up, and after the job is complete, automatically requests a review. The review feeds back into your schema markup and local SEO. It is a closed loop — SEO generates the lead, CRM converts it, and the review makes your SEO stronger.",
+    a: "Full Loop CRM is a full automation CRM built by our team at Consortium NYC and available at homeservicesbusinesscrm.com. It automates the entire customer lifecycle — from lead capture and qualification, to appointment booking, to follow-up sequences, to review requests and collection. It is customizable for any business type and integrates directly with your website and SEO systems. When someone finds your business through a programmatic page, Full Loop CRM captures that lead, routes it to the right person, automates follow-up, and after the job is complete, automatically requests a review. The review feeds back into your schema markup and local SEO. It is a closed loop — SEO generates the lead, CRM converts it, and the review makes your SEO stronger.",
   },
   {
     q: "How long does it take to build a programmatic SEO system?",
@@ -109,7 +109,7 @@ export default function AutomationPage() {
       addressCountry: "US",
     },
     email: "hi@consortiumnyc.com",
-    sameAs: ["https://www.consortiumnyc.com", "https://www.fullloopcrm.com"],
+    sameAs: ["https://www.consortiumnyc.com", "https://homeservicesbusinesscrm.com"],
     parentOrganization: {
       "@type": "Organization",
       name: "Consortium NYC",
@@ -367,7 +367,7 @@ export default function AutomationPage() {
             </p>
             <p>
               And beyond the platform itself, we built{" "}
-              <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+              <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
               — a full automation CRM that closes the loop from lead generation to customer reviews. When a potential customer finds your business through one of your programmatic pages, Full Loop CRM captures that lead, routes it, automates follow-up sequences, handles appointment booking, and after the job is done, automatically requests and collects a review. That review feeds back into your{" "}
               <Link href="/services/google-business-profile" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Google Business Profile</Link>{" "}
               and your schema markup, making your SEO even stronger. It is a closed loop — automation from the first impression to the five-star review and back again.
@@ -716,9 +716,9 @@ export default function AutomationPage() {
               <h3 className="text-xl font-semibold text-[#EFF70A]">Full Loop CRM Integration</h3>
               <p className="mt-3 text-zinc-300 leading-relaxed">
                 SEO generates traffic. Traffic generates leads. But what happens to those leads after they fill out a form or make a call? Most businesses lose 30% to 50% of their leads to slow follow-up, missed calls, and inconsistent processes. That is why we built{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>{" "}
                 — a full automation CRM that closes the loop from lead generation to customer review. When a lead comes in through one of your programmatic pages, Full Loop CRM captures it instantly, routes it to the right team member, sends automated confirmation to the customer, triggers follow-up sequences if the lead goes cold, manages appointment scheduling, and after the service is completed, automatically sends review requests via email and SMS through Resend and Telnyx. The review gets posted to{" "}
-                <Link href="/services/google-business-profile" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Google Business Profile</Link>, and the data feeds back into your schema markup — your AggregateRating improves, your review count grows, and your SEO gets stronger. It is a genuinely closed loop: SEO generates the lead, CRM converts it, the review strengthens the SEO. Full Loop CRM is customizable for any business type and available at fullloopcrm.com.
+                <Link href="/services/google-business-profile" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Google Business Profile</Link>, and the data feeds back into your schema markup — your AggregateRating improves, your review count grows, and your SEO gets stronger. It is a genuinely closed loop: SEO generates the lead, CRM converts it, the review strengthens the SEO. Full Loop CRM is customizable for any business type and available at homeservicesbusinesscrm.com.
               </p>
             </div>
             <div>

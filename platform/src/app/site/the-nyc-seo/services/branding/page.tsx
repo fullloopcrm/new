@@ -1135,7 +1135,7 @@ export default function BrandingPage() {
                 Your brand deserves a website built to match it. We build on Next.js — deployed on Vercel, backed by Supabase, with{" "}
                 <Link href="/services/automation" className="text-[#5CB8FF] hover:text-[#8DD0FF]">automated workflows</Link>{" "}
                 powered by Resend and Telnyx, and CRM integration through{" "}
-                <a href="https://www.fullloopcrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>. This is not a WordPress theme with your logo swapped in. This is a custom-engineered platform where every pixel reflects your brand identity. Sub-1-second load times. Perfect Core Web Vitals. Complete control over every visual and structural element. Your brand is premium — your tech stack should be too.
+                <a href="https://homeservicesbusinesscrm.com" target="_blank" rel="noopener noreferrer" className="text-[#5CB8FF] hover:text-[#8DD0FF]">Full Loop CRM</a>. This is not a WordPress theme with your logo swapped in. This is a custom-engineered platform where every pixel reflects your brand identity. Sub-1-second load times. Perfect Core Web Vitals. Complete control over every visual and structural element. Your brand is premium — your tech stack should be too.
               </p>
             </div>
             <div>
