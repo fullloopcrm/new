@@ -16,8 +16,8 @@ export function getMoneyPageMeta(service: Service, neighborhood: Neighborhood) {
   const location = neighborhood.name === neighborhood.region
     ? neighborhood.name
     : `${neighborhood.name}, ${neighborhood.region}`;
-  const title = `${service.name} in ${neighborhood.name} | Licensed ${neighborhood.region} Exterminators`;
-  const description = `Professional ${service.name.toLowerCase()} in ${location}. ${service.priceRange}. Licensed & insured exterminators. Free inspection, upfront pricing, same-day service available. Serving ${neighborhood.name} and surrounding ${neighborhood.region} neighborhoods. Text 212-202-8545.`;
+  const title = `${service.name} in ${neighborhood.name} | Starting at $49 | Fully Inclusive NYC Pest Control`;
+  const description = `${service.name} in ${location} — starting at $49 (fully inclusive — no hidden fees). Labor, products, treatment, follow-up — all in the price. Pay only when the job is done. No contracts, no deposits, no catches. Licensed & insured. Free inspection. Text 212-202-8545.`;
 
   return {
     title,
@@ -27,8 +27,8 @@ export function getMoneyPageMeta(service: Service, neighborhood: Neighborhood) {
 }
 
 export function getServiceHubMeta(service: Service) {
-  const title = `${service.name} NYC | Licensed Exterminators | Pricing & Same-Day Service`;
-  const description = `Professional ${service.name.toLowerCase()} across NYC, NJ, Long Island & Westchester. ${service.priceRange}. Free inspection, upfront quotes, satisfaction guarantee. Licensed & insured exterminators with same-day availability. Text 212-202-8545.`;
+  const title = `${service.name} NYC | Starting at $49 | Fully Inclusive NYC Pest Control`;
+  const description = `${service.name} across NYC, NJ, Long Island & Westchester — starting at $49 (fully inclusive — no hidden fees). Pay only when the job is done. No contracts. No deposits. No catches. Labor, products, treatment, follow-up — all in the price. Licensed & insured. Text 212-202-8545.`;
 
   return {
     title,
@@ -38,8 +38,8 @@ export function getServiceHubMeta(service: Service) {
 }
 
 export function getNeighborhoodHubMeta(neighborhood: Neighborhood) {
-  const title = `Pest Control in ${neighborhood.name} | 30+ Services | ${neighborhood.region} Exterminators`;
-  const description = `Professional pest control and exterminator services in ${neighborhood.name}, ${neighborhood.region}. 30+ services including cockroach extermination, bed bug treatment, rat control, mouse removal, termite treatment & more. Free inspection, upfront pricing. Licensed & insured. Text 212-202-8545.`;
+  const title = `Pest Control in ${neighborhood.name} | Starting at $49 | Fully Inclusive`;
+  const description = `Pest control & exterminator services in ${neighborhood.name}, ${neighborhood.region} — starting at $49 (fully inclusive — no hidden fees). 30+ services. Pay only when the job is done. No contracts. No deposits. No catches. Free inspection. Text 212-202-8545.`;
 
   return {
     title,
@@ -161,7 +161,7 @@ export function getLocalBusinessSchemaGlobal() {
     telephone: PHONE,
     email: EMAIL,
     image: `${SITE_URL}/icon.svg`,
-    priceRange: "$125-$3,000",
+    priceRange: "Starting at $49 — fully inclusive",
     address: {
       "@type": "PostalAddress",
       streetAddress: ADDRESS.street,
