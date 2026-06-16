@@ -63,7 +63,7 @@ const PAYMENT_OPTIONS = [
 ]
 
 export default function SettingsPage() {
-  useEffect(() => { document.title = 'Settings | Wash and Fold NYC' }, [])
+  useEffect(() => { document.title = 'Settings | The NYC Wash and Fold Service Company' }, [])
 
   const [activeTab, setActiveTab] = useState<TabId>('business')
   const [settings, setSettings] = useState<Settings | null>(null)

@@ -6,8 +6,8 @@ import JsonLd from '@/app/site/wash-and-fold-nyc/_components/marketing/JsonLd'
 import Breadcrumbs from '@/app/site/wash-and-fold-nyc/_components/marketing/Breadcrumbs'
 
 export const metadata: Metadata = {
-  title: 'Terms & Conditions | Wash and Fold NYC',
-  description: 'Terms & conditions for Wash and Fold NYC — cancellation policy, payment terms, scheduling & service agreement. Cleaning from $3/lb. (917) 970-6002',
+  title: 'Terms & Conditions | The NYC Wash and Fold Service Company',
+  description: 'Terms & conditions for The NYC Wash and Fold Service Company — cancellation policy, payment terms, scheduling & service agreement. Cleaning from $3/lb. (917) 970-6002',
   alternates: { canonical: 'https://www.washandfoldnyc.com/terms-conditions' },
 }
 
@@ -22,7 +22,7 @@ export default function TermsPage() {
       <section className="bg-gradient-to-b from-[#1a3a5c] to-[#2B7BB0] py-16 md:py-20">
         <div className="max-w-5xl mx-auto px-4 text-center">
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide">Terms &amp; Conditions</h1>
-          <p className="text-sky-200/60 mt-3">Service agreement for Wash and Fold NYC</p>
+          <p className="text-sky-200/60 mt-3">Service agreement for The NYC Wash and Fold Service Company, a division of The NYC Maid</p>
         </div>
       </section>
 
@@ -35,7 +35,7 @@ export default function TermsPage() {
           <div>
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1a3a5c] tracking-wide mb-4">Service Agreement</h2>
             <p className="text-gray-600 leading-relaxed">
-              By booking a laundry service with Wash and Fold NYC, you agree to the following terms and conditions. We reserve the right to update these terms at any time. Continued use of our services constitutes acceptance of any changes.
+              By booking a laundry service with The NYC Wash and Fold Service Company, you agree to the following terms and conditions. We reserve the right to update these terms at any time. Continued use of our services constitutes acceptance of any changes.
             </p>
           </div>
 
@@ -118,7 +118,7 @@ export default function TermsPage() {
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1a3a5c] tracking-wide mb-4">Liability &amp; Insurance</h2>
             <ul className="space-y-2.5">
               {[
-                'Wash and Fold NYC carries full general liability insurance and bonding.',
+                'The NYC Wash and Fold Service Company carries full general liability insurance and bonding.',
                 'Any damage claims must be reported within 24 hours of service completion.',
                 'We are not responsible for pre-existing damage, normal wear and tear, or items left in accessible areas during cleaning.',
                 'Clients are responsible for securing valuables, fragile items, and personal belongings before the cleaning begins.',

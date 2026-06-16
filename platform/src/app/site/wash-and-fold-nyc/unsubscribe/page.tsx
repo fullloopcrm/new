@@ -43,7 +43,7 @@ function UnsubscribeContent() {
           <div className="text-4xl mb-4">✅</div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">You&apos;ve been unsubscribed</h1>
           <p className="text-gray-500 text-sm leading-relaxed">
-            You will no longer receive {channel === 'sms' ? 'text messages' : 'emails'} from Wash and Fold NYC,
+            You will no longer receive {channel === 'sms' ? 'text messages' : 'emails'} from The NYC Wash and Fold Service Company,
             including appointment reminders, schedule changes, and specials.
           </p>
           <p className="text-gray-400 text-xs mt-6">
@@ -76,7 +76,7 @@ function UnsubscribeContent() {
         <div className="text-4xl mb-4">⚠️</div>
         <h1 className="text-xl font-bold text-gray-900 mb-3">Unsubscribe from {channelLabel}?</h1>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 text-left">
-          <p className="text-amber-800 text-sm font-semibold mb-2">This will stop ALL {channel === 'sms' ? 'text messages' : 'emails'} from Wash and Fold NYC, including:</p>
+          <p className="text-amber-800 text-sm font-semibold mb-2">This will stop ALL {channel === 'sms' ? 'text messages' : 'emails'} from The NYC Wash and Fold Service Company, including:</p>
           <ul className="text-amber-700 text-sm space-y-1.5">
             <li className="flex items-start gap-2">
               <span className="text-amber-500 mt-0.5">•</span>

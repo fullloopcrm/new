@@ -6,8 +6,8 @@ import JsonLd from '@/app/site/wash-and-fold-nyc/_components/marketing/JsonLd'
 import Breadcrumbs from '@/app/site/wash-and-fold-nyc/_components/marketing/Breadcrumbs'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | Wash and Fold NYC',
-  description: 'Wash and Fold NYC privacy policy — how we protect your data. We never sell or share your information. NYC cleaning from $3/lb. (917) 970-6002',
+  title: 'Privacy Policy | The NYC Wash and Fold Service Company',
+  description: 'The NYC Wash and Fold Service Company privacy policy — how we protect your data. We never sell or share your information. NYC cleaning from $3/lb. (917) 970-6002',
   alternates: { canonical: 'https://www.washandfoldnyc.com/privacy-policy' },
 }
 
@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
       <section className="bg-gradient-to-b from-[#1a3a5c] to-[#2B7BB0] py-16 md:py-20">
         <div className="max-w-5xl mx-auto px-4 text-center">
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide">Privacy Policy</h1>
-          <p className="text-sky-200/60 mt-3">How we handle your information</p>
+          <p className="text-sky-200/60 mt-3">How The NYC Wash and Fold Service Company, a division of The NYC Maid, handles your information</p>
         </div>
       </section>
 

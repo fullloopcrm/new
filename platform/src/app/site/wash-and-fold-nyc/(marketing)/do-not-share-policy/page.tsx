@@ -6,8 +6,8 @@ import JsonLd from '@/app/site/wash-and-fold-nyc/_components/marketing/JsonLd'
 import Breadcrumbs from '@/app/site/wash-and-fold-nyc/_components/marketing/Breadcrumbs'
 
 export const metadata: Metadata = {
-  title: 'Do Not Share Policy | Wash and Fold NYC',
-  description: 'Wash and Fold NYC does not sell, share, or distribute your personal information. Your data stays with us. NYC cleaning from $3/lb. (917) 970-6002',
+  title: 'Do Not Share Policy | The NYC Wash and Fold Service Company',
+  description: 'The NYC Wash and Fold Service Company does not sell, share, or distribute your personal information. Your data stays with us. NYC cleaning from $3/lb. (917) 970-6002',
   alternates: { canonical: 'https://www.washandfoldnyc.com/do-not-share-policy' },
 }
 

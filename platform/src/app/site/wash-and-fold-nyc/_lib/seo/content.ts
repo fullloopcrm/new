@@ -22,7 +22,7 @@ function pick<T>(arr: T[], seed: string, offset = 0): T {
 
 export function homepageContent() {
   return {
-    title: 'NYC Wash & Fold Laundry Service — $3/lb, Free Pickup & Delivery | Wash and Fold NYC',
+    title: 'NYC Wash & Fold Laundry Service — $3/lb, Free Pickup & Delivery | The NYC Wash and Fold Service Company',
     metaDescription: 'NYC\'s top-rated laundry service. $3/lb wash & fold with free pickup and delivery across Manhattan, Brooklyn & Queens. Same-day rush +$20. $39 minimum. 5.0★ Google. (917) 970-6002',
     h1: 'NYC\'s #1 Laundry Service — $3/lb With Free Pickup & Delivery',
     subtitle: 'Professional wash and fold serving Manhattan, Brooklyn & Queens. $39 minimum order. Same-day rush +$20. 10% off weekly subscriptions.',
@@ -49,7 +49,7 @@ const areaIntros: Record<string, string[]> = {
 export function areaContent(area: Area) {
   const intros = areaIntros[area.slug] || areaIntros['manhattan']
   return {
-    title: `${area.name} Wash & Fold — $3/lb Laundry Service With Free Pickup | Wash and Fold NYC`,
+    title: `${area.name} Wash & Fold — $3/lb Laundry Service With Free Pickup | The NYC Wash and Fold Service Company`,
     metaDescription: `Professional wash and fold in ${area.name} — $3/lb, free pickup & delivery, 24-48hr turnaround. Serving every ${area.name} neighborhood. (917) 970-6002`,
     h1: `${area.name} Wash & Fold — $3/lb Laundry With Free Pickup`,
     intro: pick(intros, area.slug),
@@ -59,7 +59,7 @@ export function areaContent(area: Area) {
 // ============ NEIGHBORHOOD PAGES ============
 
 const introTemplates = [
-  (n: Neighborhood) => `Looking for a reliable laundry service in ${n.name}? Wash and Fold NYC has been trusted by ${n.name} residents for years, delivering spotless results in ${n.housing_types[0]}, ${n.housing_types[1]}, and more.`,
+  (n: Neighborhood) => `Looking for a reliable laundry service in ${n.name}? The NYC Wash and Fold Service Company has been trusted by ${n.name} residents for years, delivering spotless results in ${n.housing_types[0]}, ${n.housing_types[1]}, and more.`,
   (n: Neighborhood) => `${n.name} deserves a laundry team that understands its unique homes. From ${n.housing_types[0]} to ${n.housing_types[1]}, our laundry team handles every load with care.`,
   (n: Neighborhood) => `Your ${n.name} home should always feel fresh and welcoming. Our professional laundry team specializes in the ${n.housing_types[0]} and ${n.housing_types[1]} that make this neighborhood special.`,
   (n: Neighborhood) => `Residents of ${n.name} know their neighborhood is one of a kind — and their laundry service should be too. Near ${n.landmarks[0]}, we provide thorough, reliable cleaning tailored to local homes.`,
@@ -126,7 +126,7 @@ export function neighborhoodFunFacts(neighborhood: Neighborhood): { label: strin
 
 const serviceIntroTemplates = [
   (n: Neighborhood, s: Service) => `Need ${s.name.toLowerCase()} in ${n.name}? Our professional laundry team specializes in ${s.name.toLowerCase()} for ${n.housing_types[0]} and ${n.housing_types[1]} throughout the neighborhood.`,
-  (n: Neighborhood, s: Service) => `${n.name} residents trust Wash and Fold NYC for expert ${s.name.toLowerCase()}. We understand the unique ${n.cleaning_challenges[0]} and ${n.cleaning_challenges[1]} that come with cleaning homes in this area.`,
+  (n: Neighborhood, s: Service) => `${n.name} residents trust The NYC Wash and Fold Service Company for expert ${s.name.toLowerCase()}. We understand the unique ${n.cleaning_challenges[0]} and ${n.cleaning_challenges[1]} that come with cleaning homes in this area.`,
   (n: Neighborhood, s: Service) => `Our ${s.name.toLowerCase()} service in ${n.name} is tailored to the neighborhood's ${n.housing_types[0]} and ${n.housing_types[1]}. Near ${n.landmarks[0]}, we deliver exceptional results every time.`,
   (n: Neighborhood, s: Service) => `From ${n.cleaning_challenges[0]} to ${n.cleaning_challenges[1]}, our ${s.name.toLowerCase()} team in ${n.name} handles it all. Trusted by local residents for thorough, reliable service.`,
 ]
@@ -149,10 +149,10 @@ export function neighborhoodServiceContent(neighborhood: Neighborhood, service: 
 
   const processDetail = `Here is exactly what happens when you book ${service.name.toLowerCase()} in ${neighborhood.name}: You text or call (917) 970-6002 with your address and what you need. We confirm pricing and schedule a pickup time that works for you. Our driver arrives at your ${neighborhood.name} address — whether that is a ${neighborhood.housing_types[0]}, a ${neighborhood.housing_types[1]}, or any other building type in the area. Your laundry is taken to our partner facility, sorted by color and fabric type, pre-treated for stains, washed with premium detergent, dried on appropriate heat settings, hand-folded item by item, organized by garment type, and packaged in clean sealed bags. We deliver back to your door within ${service.duration}. You pay after delivery.`
 
-  const comparisonText = `Most ${neighborhood.name} residents have three options for laundry: do it themselves, go to a neighborhood laundromat, or use a service like Wash and Fold NYC. Doing it yourself means hauling bags, finding available machines, waiting through cycles, and spending your evening folding. A laundromat in ${neighborhood.name} costs $2.50 to $4.00 per load in machine fees alone — before detergent, your time, and the commute. With our ${service.name.toLowerCase()} service, you text a number, leave a bag at your door, and get it back clean and folded. At ${service.priceRange}, most ${neighborhood.name} residents find it costs about the same as the laundromat when you factor in time, supplies, and convenience — except you get your evenings and weekends back.`
+  const comparisonText = `Most ${neighborhood.name} residents have three options for laundry: do it themselves, go to a neighborhood laundromat, or use a service like The NYC Wash and Fold Service Company. Doing it yourself means hauling bags, finding available machines, waiting through cycles, and spending your evening folding. A laundromat in ${neighborhood.name} costs $2.50 to $4.00 per load in machine fees alone — before detergent, your time, and the commute. With our ${service.name.toLowerCase()} service, you text a number, leave a bag at your door, and get it back clean and folded. At ${service.priceRange}, most ${neighborhood.name} residents find it costs about the same as the laundromat when you factor in time, supplies, and convenience — except you get your evenings and weekends back.`
 
   return {
-    title: `${service.name} in ${neighborhood.name}, ${area.name} — ${service.priceRange} | Wash and Fold NYC`,
+    title: `${service.name} in ${neighborhood.name}, ${area.name} — ${service.priceRange} | The NYC Wash and Fold Service Company`,
     metaDescription: `${service.name} in ${neighborhood.name}, ${area.name}. ${service.priceRange}, free pickup & delivery. ${service.features.slice(0, 2).join(', ')} & more. 5.0★ Google. (917) 970-6002`,
     h1,
     intro,
@@ -178,7 +178,7 @@ export function neighborhoodServiceContent(neighborhood: Neighborhood, service: 
 
 export function serviceContent(service: Service) {
   return {
-    title: `${service.name} in NYC — ${service.priceRange}, Free Pickup & Delivery | Wash and Fold NYC`,
+    title: `${service.name} in NYC — ${service.priceRange}, Free Pickup & Delivery | The NYC Wash and Fold Service Company`,
     metaDescription: `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn & Queens. ${service.priceRange}, free pickup & delivery. ${service.features.slice(0, 2).join(', ')} & more. 5.0★ Google. (917) 970-6002`,
     h1: `NYC ${service.name} — ${service.priceRange} With Free Pickup & Delivery`,
     intro: service.description,
@@ -276,7 +276,7 @@ export function commonServiceFAQs(service: Service): { question: string; answer:
     { question: 'How far in advance do I need to schedule?', answer: 'Most pickups can be scheduled same-day or next-day. For same-day rush (+$20), schedule before 10am. For standard 24-48 hour turnaround, anytime works. Subscription customers have a standing weekly schedule.' },
     { question: `Is ${service.name.toLowerCase()} available on weekends?`, answer: 'We accept pickup and delivery requests seven days a week. Typical pickup windows are 7am to 9pm. Weekend slots are popular, so schedule early for Saturday or Sunday pickup.' },
     { question: 'What payment methods do you accept?', answer: 'Credit card, debit card, Zelle (hi@washandfoldnyc.com), Venmo, Apple Pay, and cash. Subscription customers can set up automatic billing. One-time orders are charged at delivery.' },
-    { question: 'Are you licensed and insured?', answer: 'Yes. Wash and Fold NYC is fully licensed, bonded, and insured with general liability coverage. We can provide proof of insurance upon request. Every team member is background-checked.' },
+    { question: 'Are you licensed and insured?', answer: 'Yes. The NYC Wash and Fold Service Company is fully licensed, bonded, and insured with general liability coverage. We can provide proof of insurance upon request. Every team member is background-checked.' },
     { question: 'Do you offer eco-friendly options?', answer: 'Yes. We offer fragrance-free, plant-based, and hypoallergenic detergent options at no extra cost. Just mention your preference when scheduling and we will use it on every order.' },
     { question: `Can I combine ${service.name.toLowerCase()} with other services?`, answer: `Yes. Many customers combine wash and fold with dry cleaning pickup, comforter cleaning, or commercial laundry for their business. Text us what you need and we will handle it all in one pickup.` },
     { question: 'What if I need to cancel?', answer: 'One-time orders can be cancelled before pickup with no charge. Subscription customers can pause, skip, or cancel anytime with no penalties. We do not lock you into contracts.' },

@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const n = ALL_NEIGHBORHOODS.find(nb => nb.slug === slug)
   if (!n) return {}
   return {
-    title: `Laundry Jobs in ${n.name} — Now Hiring | Wash and Fold NYC`,
+    title: `Laundry Jobs in ${n.name} — Now Hiring | The NYC Wash and Fold Service Company`,
     description: `Now hiring laundry pickup, processing & delivery workers in ${n.name}. $18-22/hr, flexible schedule, weekly pay. Apply today. (917) 970-6002.`,
     alternates: { canonical: `https://www.washandfoldnyc.com/careers/${slug}` },
   }
@@ -56,7 +56,7 @@ export default async function NeighborhoodCareerPage({ params }: Props) {
         <div className="max-w-4xl mx-auto px-4">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1a3a5c] tracking-wide mb-6">What the Job Involves</h2>
           <div className="space-y-4 text-gray-600 leading-relaxed">
-            <p>As a Wash and Fold NYC team member in {n.name}, you&apos;ll handle laundry pickups and deliveries in the {n.name} area and surrounding neighborhoods. You&apos;ll work with {n.housing_types.slice(0, 2).join(' and ')} near landmarks like {n.landmarks[0]} and {n.landmarks[1]}.</p>
+            <p>As a NYC Wash and Fold Service Company team member in {n.name}, you&apos;ll handle laundry pickups and deliveries in the {n.name} area and surrounding neighborhoods. You&apos;ll work with {n.housing_types.slice(0, 2).join(' and ')} near landmarks like {n.landmarks[0]} and {n.landmarks[1]}.</p>
             <p>Routes typically cover {n.name} and nearby areas including {n.nearby.slice(0, 3).join(', ')}. You set your own availability — morning routes, afternoon routes, or both.</p>
           </div>
 

@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Selena's check-in outreach
-// Warm, friendly, personal — Selena with Wash and Fold NYC checking in
+// Warm, friendly, personal — Selena with The NYC Wash and Fold Service Company checking in
 // No selling, no discounts, no "if you need anything" — just genuine warmth
 // Send on Saturdays at 10am ET (single-day moments send on the day)
 
@@ -22,7 +22,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: 'New Year',
     sendMonth: 0, sendDayStart: 5, sendDayEnd: 10,
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy new year — hope the holidays were amazing. Wishing you a great start to the year!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy new year — hope the holidays were amazing. Wishing you a great start to the year!",
     ],
   },
   // 2. First day of spring
@@ -31,7 +31,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: 'Spring check-in',
     sendMonth: 3, sendDayStart: 1, sendDayEnd: 5,  // April — first send for 2026 launch
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy first day of spring! Hope you're enjoying the warmer weather. Have a great day!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy first day of spring! Hope you're enjoying the warmer weather. Have a great day!",
     ],
   },
   // 3. National Puppy Day — Mar 23
@@ -41,7 +41,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     sendMonth: 2, sendDayStart: 23, sendDayEnd: 23,
     petOnly: 'dog',
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy National Puppy Day — hope {pet} is living the good life! Have a great day!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy National Puppy Day — hope {pet} is living the good life! Have a great day!",
     ],
   },
   // 4. National Pet Day — Apr 11
@@ -51,7 +51,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     sendMonth: 3, sendDayStart: 11, sendDayEnd: 11,
     petAny: true,
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy National Pet Day — hope {pet} is getting spoiled today! Have a great one!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy National Pet Day — hope {pet} is getting spoiled today! Have a great one!",
     ],
   },
   // 5. Memorial Day weekend
@@ -60,7 +60,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: 'Memorial Day',
     sendMonth: 4, sendDayStart: 24, sendDayEnd: 26,
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy Memorial Day weekend! Hope you get to relax and enjoy it. Take care!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy Memorial Day weekend! Hope you get to relax and enjoy it. Take care!",
     ],
   },
   // 6. First day of summer
@@ -69,7 +69,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: 'First day of summer',
     sendMonth: 5, sendDayStart: 20, sendDayEnd: 22,
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy first day of summer! Hope you have some fun plans. Enjoy the season!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy first day of summer! Hope you have some fun plans. Enjoy the season!",
     ],
   },
   // 7. July 4th
@@ -78,7 +78,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: 'July 4th',
     sendMonth: 6, sendDayStart: 3, sendDayEnd: 4,
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy 4th of July! Hope you have an amazing holiday!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy 4th of July! Hope you have an amazing holiday!",
     ],
   },
   // 8. International Cat Day — Aug 8
@@ -88,7 +88,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     sendMonth: 7, sendDayStart: 8, sendDayEnd: 8,
     petOnly: 'cat',
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy International Cat Day — hope {pet} is ruling the house as usual! Have a great day!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy International Cat Day — hope {pet} is ruling the house as usual! Have a great day!",
     ],
   },
   // 9. National Dog Day — Aug 26
@@ -98,7 +98,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     sendMonth: 7, sendDayStart: 26, sendDayEnd: 26,
     petOnly: 'dog',
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy National Dog Day — hope {pet} is getting extra belly rubs today! Have a great one!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy National Dog Day — hope {pet} is getting extra belly rubs today! Have a great one!",
     ],
   },
   // 10. Labor Day weekend
@@ -107,7 +107,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: 'Labor Day',
     sendMonth: 8, sendDayStart: 1, sendDayEnd: 3,
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy Labor Day weekend! Hope you enjoy the last bit of summer. Take care!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy Labor Day weekend! Hope you enjoy the last bit of summer. Take care!",
     ],
   },
   // 11. First day of fall
@@ -116,7 +116,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: 'First day of fall',
     sendMonth: 8, sendDayStart: 22, sendDayEnd: 24,
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy first day of fall! Hope you're doing great. Here's to a good season!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy first day of fall! Hope you're doing great. Here's to a good season!",
     ],
   },
   // 12. National Cat Day — Oct 29
@@ -126,7 +126,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     sendMonth: 9, sendDayStart: 29, sendDayEnd: 29,
     petOnly: 'cat',
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy National Cat Day — hope {pet} is getting spoiled today! Take care!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy National Cat Day — hope {pet} is getting spoiled today! Take care!",
     ],
   },
   // 13. Thanksgiving
@@ -135,7 +135,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: 'Thanksgiving',
     sendMonth: 10, sendDayStart: 26, sendDayEnd: 28,
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy Thanksgiving! Hope you're enjoying the day with people you love. Take care!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy Thanksgiving! Hope you're enjoying the day with people you love. Take care!",
     ],
   },
   // 14. Christmas
@@ -144,7 +144,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: 'Christmas',
     sendMonth: 11, sendDayStart: 24, sendDayEnd: 25,
     messages: [
-      "Hi {name}! Selena with Wash and Fold NYC. Merry Christmas! Wishing you a wonderful holiday. Take care!",
+      "Hi {name}! Selena with The NYC Wash and Fold Service Company. Merry Christmas! Wishing you a wonderful holiday. Take care!",
     ],
   },
   // 15. New Year's Eve
@@ -153,7 +153,7 @@ export const OUTREACH_MOMENTS: OutreachMoment[] = [
     name: "New Year's Eve",
     sendMonth: 11, sendDayStart: 31, sendDayEnd: 31,
     messages: [
-      "Hey {name}, it's Selena with Wash and Fold NYC! Happy New Year's Eve — wishing you an amazing year ahead!",
+      "Hey {name}, it's Selena with The NYC Wash and Fold Service Company! Happy New Year's Eve — wishing you an amazing year ahead!",
     ],
   },
 ]

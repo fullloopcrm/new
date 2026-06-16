@@ -4,11 +4,11 @@ import Link from 'next/link'
 import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABlock'
 
 export const metadata: Metadata = {
-  title: 'About Wash and Fold NYC — NYC Laundry Service Since 2024 | $3/lb, Free Pickup & Delivery',
-  description: 'Wash and Fold NYC is a professional laundry service across Manhattan, Brooklyn & Queens. $3/lb wash & fold with free pickup & delivery. 5.0★ Google, 16 reviews, zero complaints. (917) 970-6002.',
+  title: 'About The NYC Wash and Fold Service Company — NYC Laundry Service Since 2024 | $3/lb, Free Pickup & Delivery',
+  description: 'The NYC Wash and Fold Service Company is a professional laundry service across Manhattan, Brooklyn & Queens. $3/lb wash & fold with free pickup & delivery. 5.0★ Google, 16 reviews, zero complaints. (917) 970-6002.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/about' },
   openGraph: {
-    title: 'About Wash and Fold NYC — NYC Laundry Service',
+    title: 'About The NYC Wash and Fold Service Company — NYC Laundry Service',
     description: 'Professional wash & fold laundry service across Manhattan, Brooklyn & Queens. $3/lb, free pickup & delivery, 5.0★ Google.',
     url: 'https://www.washandfoldnyc.com/about',
   },
@@ -21,7 +21,7 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-xs font-semibold text-[#7EC8E3] tracking-[0.25em] uppercase mb-4">About Us</p>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl text-white tracking-wide mb-6">
-            About Wash and Fold NYC
+            About The NYC Wash and Fold Service Company
           </h1>
           <p className="text-sky-200/60 text-lg max-w-2xl mx-auto">
             Professional laundry service across Manhattan, Brooklyn & Queens. $3/lb with free pickup & delivery. 5.0★ Google rating. Zero negative reviews.
@@ -32,7 +32,7 @@ export default function AboutPage() {
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-gray-600 leading-relaxed space-y-6">
-            <p>Wash and Fold NYC is a professional laundry service built for how New Yorkers actually live. We pick up your dirty laundry from your door, wash and fold every item by hand, and deliver it back clean, fresh, and organized — all for $3 per pound with free pickup and delivery.</p>
+            <p>The NYC Wash and Fold Service Company, a division of The NYC Maid, is a professional laundry service built for how New Yorkers actually live. We pick up your dirty laundry from your door, wash and fold every item by hand, and deliver it back clean, fresh, and organized — all for $3 per pound with free pickup and delivery.</p>
             <p>We serve nearly 200 neighborhoods across <Link href="/boroughs/manhattan" className="text-[#4BA3D4] underline underline-offset-2">Manhattan</Link>, <Link href="/boroughs/brooklyn" className="text-[#4BA3D4] underline underline-offset-2">Brooklyn</Link>, and <Link href="/boroughs/queens" className="text-[#4BA3D4] underline underline-offset-2">Queens</Link>. Same rate everywhere — no zone fees, no distance surcharges, no surge pricing.</p>
             <p>Every order goes through the same 12-step process: intake, color sort, fabric sort, stain pre-treatment, wash with premium detergent, dry on appropriate heat, hand-fold every item, organize by garment type, package in clean bags, quality check, and delivery. Your laundry is never mixed with another customer&apos;s — every order is processed in its own separate batch from start to finish.</p>
           </div>
@@ -105,7 +105,7 @@ export default function AboutPage() {
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1a3a5c] tracking-wide mb-6">Company Details</h2>
           <div className="bg-[#F0F8FF] border border-[#4BA3D4]/10 rounded-2xl p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div><span className="text-gray-400">Legal Name:</span> <span className="text-[#1a3a5c] font-medium">Wash and Fold NYC Laundry Service LLC</span></div>
+              <div><span className="text-gray-400">Legal Name:</span> <span className="text-[#1a3a5c] font-medium">The NYC Wash and Fold Service Company Laundry Service LLC</span></div>
               <div><span className="text-gray-400">Founded:</span> <span className="text-[#1a3a5c] font-medium">2024</span></div>
               <div><span className="text-gray-400">Address:</span> <span className="text-[#1a3a5c] font-medium">150 W 47th St, New York, NY 10036</span></div>
               <div><span className="text-gray-400">Phone:</span> <a href="tel:9179706002" className="text-[#4BA3D4] font-medium">(917) 970-6002</a></div>

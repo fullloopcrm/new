@@ -7,8 +7,8 @@ import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABloc
 import FAQSection from '@/app/site/wash-and-fold-nyc/_components/marketing/FAQSection'
 
 export const metadata: Metadata = {
-  title: 'Laundromat Partnership Program — We Send Customers, You Wash | Wash and Fold NYC',
-  description: 'Partner with Wash and Fold NYC. We send customers to your laundromat, you process at $1-1.50/lb, we charge $3/lb and handle everything else. Apply today. (917) 970-6002.',
+  title: 'Laundromat Partnership Program — We Send Customers, You Wash | The NYC Wash and Fold Service Company',
+  description: 'Partner with The NYC Wash and Fold Service Company. We send customers to your laundromat, you process at $1-1.50/lb, we charge $3/lb and handle everything else. Apply today. (917) 970-6002.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/partners' },
 }
 

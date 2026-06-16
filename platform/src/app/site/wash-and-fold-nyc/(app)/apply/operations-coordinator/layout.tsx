@@ -2,16 +2,16 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Apply — Operations Admin (Part-Time) | Wash and Fold NYC',
+  title: 'Apply — Operations Admin (Part-Time) | The NYC Wash and Fold Service Company',
   description:
-    'Apply for the part-time Operations Admin position at Wash and Fold NYC. 10% per completed job, paid via Zelle. Averaged ~$40/hr last month. Own the calendar, cleaners, and collections.',
+    'Apply for the part-time Operations Admin position at The NYC Wash and Fold Service Company. 10% per completed job, paid via Zelle. Averaged ~$40/hr last month. Own the calendar, cleaners, and collections.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/apply/operations-coordinator' },
   openGraph: {
-    title: 'Apply — Operations Admin (Part-Time) | Wash and Fold NYC',
+    title: 'Apply — Operations Admin (Part-Time) | The NYC Wash and Fold Service Company',
     description:
       'Apply for the part-time Operations Admin role. 10% per job, averaged ~$40/hr last month. Paid per job via Zelle. Aiming for $8K/mo.',
     url: 'https://www.washandfoldnyc.com/apply/operations-coordinator',
-    siteName: 'Wash and Fold NYC',
+    siteName: 'The NYC Wash and Fold Service Company',
     locale: 'en_US',
   },
 }

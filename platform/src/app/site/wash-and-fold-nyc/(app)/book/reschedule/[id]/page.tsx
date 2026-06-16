@@ -9,7 +9,7 @@ interface TimeSlot {
 }
 
 export default function ReschedulePage() {
-  useEffect(() => { document.title = 'Reschedule | Wash and Fold NYC' }, []);
+  useEffect(() => { document.title = 'Reschedule | The NYC Wash and Fold Service Company' }, []);
   const router = useRouter()
   const params = useParams()
   const bookingId = params.id as string
@@ -110,7 +110,7 @@ export default function ReschedulePage() {
           <div className="flex items-center gap-4">
             <button onClick={() => router.back()} className="text-white">&larr;</button>
             <div>
-              <p className="text-sm opacity-80">Wash and Fold NYC</p>
+              <p className="text-sm opacity-80">The NYC Wash and Fold Service Company</p>
               <h1 className="text-xl font-semibold">Reschedule</h1>
             </div>
           </div>
@@ -141,7 +141,7 @@ export default function ReschedulePage() {
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="text-white">&larr;</button>
           <div>
-            <p className="text-sm opacity-80">Wash and Fold NYC</p>
+            <p className="text-sm opacity-80">The NYC Wash and Fold Service Company</p>
             <h1 className="text-xl font-semibold">Reschedule</h1>
           </div>
         </div>

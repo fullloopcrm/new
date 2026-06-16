@@ -30,7 +30,7 @@ interface Booking {
 }
 
 export default function TeamPortalPage() {
-  useEffect(() => { document.title = 'Team Portal | Wash and Fold NYC' }, []);
+  useEffect(() => { document.title = 'Team Portal | The NYC Wash and Fold Service Company' }, []);
   const params = useParams()
   const token = params.token as string
   const [booking, setBooking] = useState<Booking | null>(null)
@@ -160,7 +160,7 @@ export default function TeamPortalPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-[#1E2A4A] text-white p-4">
-        <p className="text-sm opacity-80">Wash and Fold NYC</p>
+        <p className="text-sm opacity-80">The NYC Wash and Fold Service Company</p>
         <h1 className="text-xl font-semibold">{booking.cleaners?.name || 'Team Member'}</h1>
       </div>
 

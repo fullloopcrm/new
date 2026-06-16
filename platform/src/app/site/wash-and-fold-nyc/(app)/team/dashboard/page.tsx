@@ -125,7 +125,7 @@ const HOURS = [
 ]
 
 export default function TeamDashboardPage() {
-  useEffect(() => { document.title = 'My Schedule | Wash and Fold NYC' }, []);
+  useEffect(() => { document.title = 'My Schedule | The NYC Wash and Fold Service Company' }, []);
   const [cleanerName, setCleanerName] = useState('')
   const [cleanerId, setCleanerId] = useState('')
   const [todayJobs, setTodayJobs] = useState<Booking[]>([])
@@ -439,7 +439,7 @@ export default function TeamDashboardPage() {
       <div className="bg-[#1E2A4A] text-white p-4">
         <div className="flex justify-between items-center">
           <div>
-            <p className="text-sm opacity-80">Wash and Fold NYC</p>
+            <p className="text-sm opacity-80">The NYC Wash and Fold Service Company</p>
             <h1 className="text-xl font-semibold">{cleanerName}</h1>
           </div>
           <div className="flex items-center gap-3">

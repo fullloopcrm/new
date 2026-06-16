@@ -63,7 +63,7 @@ const toEST = (ts: string) => {
 
 function BookingsPage() {
   const searchParams = useSearchParams()
-  useEffect(() => { document.title = 'Bookings | Wash and Fold NYC' }, []);
+  useEffect(() => { document.title = 'Bookings | The NYC Wash and Fold Service Company' }, []);
   const formatPhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
     if (cleaned.length <= 3) return cleaned

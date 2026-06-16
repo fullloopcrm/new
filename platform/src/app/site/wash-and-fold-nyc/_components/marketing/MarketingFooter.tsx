@@ -47,7 +47,8 @@ export default function MarketingFooter() {
   return (
     <footer className="bg-[#1a3a5c] text-gray-400 relative z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
-        <h2 className="font-[family-name:var(--font-bebas)] text-white text-3xl md:text-4xl tracking-wide text-center mb-2">Wash and Fold NYC</h2>
+        <h2 className="font-[family-name:var(--font-bebas)] text-white text-3xl md:text-4xl tracking-wide text-center mb-1">The NYC Wash and Fold Service Company</h2>
+        <p className="text-center text-gray-400 text-xs mb-2">a division of The NYC Maid</p>
         <p className="text-center text-[#7EC8E3] text-sm mb-2">$3/lb &middot; Free Pickup &middot; Manhattan &middot; Brooklyn &middot; Queens</p>
         <div className="w-16 h-[2px] bg-[#4BA3D4] mx-auto mb-12" />
       </div>
@@ -116,7 +117,7 @@ export default function MarketingFooter() {
             <Link href="/refund-policy" className="hover:text-gray-300 transition-colors">Refunds</Link>
             <Link href="/legal" className="hover:text-gray-300 transition-colors">Legal</Link>
           </div>
-          <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} Wash and Fold NYC &middot; <a href="tel:9179706002" className="text-[#7EC8E3]/70 hover:text-[#7EC8E3]">(917) 970-6002</a> &middot; NYC Web Design by{' '}<a href="https://www.consortiumnyc.com/" target="_blank" rel="noopener noreferrer" className="text-[#7EC8E3] font-semibold hover:text-white underline underline-offset-2 decoration-[#7EC8E3]/50">Consortium NYC</a></p>
+          <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} The NYC Wash and Fold Service Company &middot; <a href="tel:9179706002" className="text-[#7EC8E3]/70 hover:text-[#7EC8E3]">(917) 970-6002</a> &middot; NYC Web Design by{' '}<a href="https://www.consortiumnyc.com/" target="_blank" rel="noopener noreferrer" className="text-[#7EC8E3] font-semibold hover:text-white underline underline-offset-2 decoration-[#7EC8E3]/50">Consortium NYC</a></p>
         </div>
       </div>
 

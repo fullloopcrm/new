@@ -46,7 +46,7 @@ interface Client {
 type View = 'list' | 'create' | 'detail'
 
 export default function MarketingPage() {
-  useEffect(() => { document.title = 'Marketing | Wash and Fold NYC' }, [])
+  useEffect(() => { document.title = 'Marketing | The NYC Wash and Fold Service Company' }, [])
 
   const [view, setView] = useState<View>('list')
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
@@ -639,7 +639,7 @@ export default function MarketingPage() {
                   <div className="bg-white rounded-[1.5rem] overflow-hidden">
                     {/* Status bar */}
                     <div className="bg-gray-100 px-5 py-2 flex items-center justify-between">
-                      <span className="text-[10px] text-gray-500 font-medium">Wash and Fold NYC</span>
+                      <span className="text-[10px] text-gray-500 font-medium">The NYC Wash and Fold Service Company</span>
                       <span className="text-[10px] text-gray-400">(888) 316-4019</span>
                     </div>
                     {/* Message area */}
@@ -928,7 +928,7 @@ export default function MarketingPage() {
           <div className="mx-auto max-w-[320px] bg-gray-900 rounded-[2rem] p-3 shadow-lg">
             <div className="bg-white rounded-[1.5rem] overflow-hidden">
               <div className="bg-gray-100 px-5 py-2">
-                <span className="text-[10px] text-gray-500 font-medium">Wash and Fold NYC</span>
+                <span className="text-[10px] text-gray-500 font-medium">The NYC Wash and Fold Service Company</span>
               </div>
               <div className="px-4 py-5 min-h-[100px] bg-white flex flex-col justify-end">
                 {selectedCampaign.sms_body ? (
@@ -1017,7 +1017,7 @@ export default function MarketingPage() {
             <div className="mx-auto max-w-[320px] bg-gray-900 rounded-[2rem] p-3 shadow-lg">
               <div className="bg-white rounded-[1.5rem] overflow-hidden">
                 <div className="bg-gray-100 px-5 py-2 flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500 font-medium">Wash and Fold NYC</span>
+                  <span className="text-[10px] text-gray-500 font-medium">The NYC Wash and Fold Service Company</span>
                   <span className="text-[10px] text-gray-400">to {viewingRecipient.recipient}</span>
                 </div>
                 <div className="px-4 py-5 min-h-[180px] bg-white flex flex-col justify-end">

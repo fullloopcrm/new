@@ -27,7 +27,7 @@ export async function sendEmail(to: string, subject: string, html: string, attac
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const { data, error } = await resend.emails.send({
-        from: 'Wash and Fold NYC <hi@washandfoldnyc.com>',
+        from: 'The NYC Wash and Fold Service Company <hi@washandfoldnyc.com>',
         to,
         subject,
         html,

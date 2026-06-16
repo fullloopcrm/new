@@ -19,8 +19,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const n = ALL_NEIGHBORHOODS.find(nb => nb.slug === slug)
   if (!n) return {}
   return {
-    title: `Laundromat Partnership in ${n.name} | Wash and Fold NYC`,
-    description: `Partner with Wash and Fold NYC in ${n.name}. We send customers, you wash. $1-1.50/lb partner rate. Apply today. (917) 970-6002.`,
+    title: `Laundromat Partnership in ${n.name} | The NYC Wash and Fold Service Company`,
+    description: `Partner with The NYC Wash and Fold Service Company in ${n.name}. We send customers, you wash. $1-1.50/lb partner rate. Apply today. (917) 970-6002.`,
     alternates: { canonical: `https://www.washandfoldnyc.com/partners/${slug}` },
   }
 }

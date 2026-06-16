@@ -5,11 +5,11 @@ import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABloc
 import FAQSection from '@/app/site/wash-and-fold-nyc/_components/marketing/FAQSection'
 
 export const metadata: Metadata = {
-  title: 'Contact Wash and Fold NYC — (917) 970-6002 | Text, Call, or Email',
-  description: 'Contact Wash and Fold NYC for laundry pickup & delivery. Text or call (917) 970-6002. Email hi@washandfoldnyc.com. $3/lb wash & fold across Manhattan, Brooklyn & Queens.',
+  title: 'Contact The NYC Wash and Fold Service Company — (917) 970-6002 | Text, Call, or Email',
+  description: 'Contact The NYC Wash and Fold Service Company for laundry pickup & delivery. Text or call (917) 970-6002. Email hi@washandfoldnyc.com. $3/lb wash & fold across Manhattan, Brooklyn & Queens.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/contact' },
   openGraph: {
-    title: 'Contact Wash and Fold NYC — (917) 970-6002',
+    title: 'Contact The NYC Wash and Fold Service Company — (917) 970-6002',
     description: 'Text, call, or email us to schedule your first pickup. $3/lb wash & fold with free pickup & delivery across NYC.',
     url: 'https://www.washandfoldnyc.com/contact',
   },
@@ -31,7 +31,7 @@ export default function ContactPage() {
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-xs font-semibold text-[#7EC8E3] tracking-[0.25em] uppercase mb-4">Contact Us</p>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl text-white tracking-wide mb-6">
-            Contact Wash and Fold NYC
+            Contact The NYC Wash and Fold Service Company
           </h1>
           <p className="text-sky-200/60 text-lg max-w-2xl mx-auto mb-10">
             Text or call to schedule your first pickup. No app, no account, no forms — just a real person ready to help.
@@ -108,7 +108,7 @@ export default function ContactPage() {
         <div className="max-w-4xl mx-auto px-4">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1a3a5c] tracking-wide text-center mb-4">Location</h2>
           <div className="bg-[#F0F8FF] border border-[#4BA3D4]/10 rounded-2xl p-8 text-center">
-            <p className="font-semibold text-[#1a3a5c] text-lg">Wash and Fold NYC</p>
+            <p className="font-semibold text-[#1a3a5c] text-lg">The NYC Wash and Fold Service Company</p>
             <p className="text-gray-500 mt-1">150 W 47th St, New York, NY 10036</p>
             <p className="text-gray-500 text-sm mt-1">Midtown Manhattan</p>
             <p className="text-gray-400 text-xs mt-4">We are a pickup and delivery service — not a walk-in location. Text or call to schedule.</p>

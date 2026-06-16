@@ -67,7 +67,7 @@ interface Analytics {
 }
 
 export default function ReferralsPage() {
-  useEffect(() => { document.title = 'Referrals | Wash and Fold NYC' }, []);
+  useEffect(() => { document.title = 'Referrals | The NYC Wash and Fold Service Company' }, []);
   const [referrers, setReferrers] = useState<Referrer[]>([])
   const [commissions, setCommissions] = useState<Commission[]>([])
   const [analytics, setAnalytics] = useState<Analytics | null>(null)

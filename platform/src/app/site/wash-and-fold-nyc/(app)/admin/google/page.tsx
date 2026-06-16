@@ -22,7 +22,7 @@ interface Insights {
 }
 
 export default function GoogleProfilePage() {
-  useEffect(() => { document.title = 'Google Profile | Wash and Fold NYC' }, [])
+  useEffect(() => { document.title = 'Google Profile | The NYC Wash and Fold Service Company' }, [])
 
   const [connected, setConnected] = useState(false)
   const [loading, setLoading] = useState(true)

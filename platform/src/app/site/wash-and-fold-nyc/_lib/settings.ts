@@ -52,12 +52,12 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'updated_at'> = {
-  business_name: 'Wash and Fold NYC',
+  business_name: 'The NYC Wash and Fold Service Company',
   business_phone: '(917) 970-6002',
   business_email: 'hi@washandfoldnyc.com',
   business_website: 'https://www.washandfoldnyc.com',
   admin_email: 'hi@washandfoldnyc.com',
-  email_from_name: 'Wash and Fold NYC',
+  email_from_name: 'The NYC Wash and Fold Service Company',
   email_from_address: 'hi@washandfoldnyc.com',
   service_types: [
     { name: 'Standard Cleaning', default_hours: 2, active: true },

@@ -47,7 +47,7 @@ interface Referrer { id: string; name: string; ref_code: string; active: boolean
 
 function BookingsPage() {
   const searchParams = useSearchParams()
-  useEffect(() => { document.title = 'Bookings | The Wash and Fold NYC' }, []);
+  useEffect(() => { document.title = 'Bookings | The NYC Wash and Fold Service Company' }, []);
   const formatPhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
     if (cleaned.length <= 3) return cleaned

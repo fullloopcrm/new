@@ -40,7 +40,7 @@ interface ClientWithStats extends Client {
 }
 
 export default function ClientsPage() {
-  useEffect(() => { document.title = 'Clients | Wash and Fold NYC' }, []);
+  useEffect(() => { document.title = 'Clients | The NYC Wash and Fold Service Company' }, []);
   const [clients, setClients] = useState<ClientWithStats[]>([])
   const [referrers, setReferrers] = useState<Referrer[]>([])
   const [loading, setLoading] = useState(true)

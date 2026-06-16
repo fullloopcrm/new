@@ -7,8 +7,8 @@ import FAQSection from '@/app/site/wash-and-fold-nyc/_components/marketing/FAQSe
 import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABlock'
 
 export const metadata: Metadata = {
-  title: 'NYC Wash and Fold FAQ — Pricing, Pickup, Delivery, Subscriptions | Wash and Fold NYC',
-  description: 'Answers to every question about Wash and Fold NYC. $3/lb pricing, free pickup & delivery, subscription plans, turnaround times, service areas, payment methods, and more. (917) 970-6002.',
+  title: 'NYC Wash and Fold FAQ — Pricing, Pickup, Delivery, Subscriptions | The NYC Wash and Fold Service Company',
+  description: 'Answers to every question about The NYC Wash and Fold Service Company. $3/lb pricing, free pickup & delivery, subscription plans, turnaround times, service areas, payment methods, and more. (917) 970-6002.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/faq' },
   openGraph: {
     title: 'NYC Wash and Fold FAQ — Pricing, Delivery, Subscriptions',

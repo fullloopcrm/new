@@ -5,8 +5,8 @@ import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABloc
 import FAQSection from '@/app/site/wash-and-fold-nyc/_components/marketing/FAQSection'
 
 export const metadata: Metadata = {
-  title: 'NYC Wash and Fold Pricing — $3/lb, Free Pickup & Delivery | Wash and Fold NYC',
-  description: 'Complete pricing for Wash and Fold NYC. Wash & fold $3/lb, dry cleaning from $10/item, comforters from $35, commercial $1-$2/lb. Free pickup & delivery. Subscriptions save 10%. (917) 970-6002.',
+  title: 'NYC Wash and Fold Pricing — $3/lb, Free Pickup & Delivery | The NYC Wash and Fold Service Company',
+  description: 'Complete pricing for The NYC Wash and Fold Service Company. Wash & fold $3/lb, dry cleaning from $10/item, comforters from $35, commercial $1-$2/lb. Free pickup & delivery. Subscriptions save 10%. (917) 970-6002.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/pricing' },
   openGraph: {
     title: 'NYC Wash and Fold Pricing — $3/lb, Free Pickup & Delivery',

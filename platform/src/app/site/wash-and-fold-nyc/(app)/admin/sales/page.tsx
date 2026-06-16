@@ -41,7 +41,7 @@ const ACTIVITY_ICONS: Record<string, string> = {
 }
 
 export default function SalesPage() {
-  useEffect(() => { document.title = 'Sales | Wash and Fold NYC' }, [])
+  useEffect(() => { document.title = 'Sales | The NYC Wash and Fold Service Company' }, [])
 
   const [deals, setDeals] = useState<Deal[]>([])
   const [overdueCount, setOverdueCount] = useState(0)

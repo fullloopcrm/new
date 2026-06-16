@@ -4,11 +4,11 @@ import Link from 'next/link'
 import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABlock'
 
 export const metadata: Metadata = {
-  title: 'NYC Wash and Fold Reviews — 5.0★ Google Rating, 16 Reviews | Wash and Fold NYC',
-  description: 'Read real Google reviews from Wash and Fold NYC customers. 5.0★ rating with 16 five-star reviews. NYC wash & fold laundry service, $3/lb with free pickup & delivery. (917) 970-6002.',
+  title: 'NYC Wash and Fold Reviews — 5.0★ Google Rating, 16 Reviews | The NYC Wash and Fold Service Company',
+  description: 'Read real Google reviews from The NYC Wash and Fold Service Company customers. 5.0★ rating with 16 five-star reviews. NYC wash & fold laundry service, $3/lb with free pickup & delivery. (917) 970-6002.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/reviews' },
   openGraph: {
-    title: 'Wash and Fold NYC Reviews — 5.0★ Google Rating',
+    title: 'The NYC Wash and Fold Service Company Reviews — 5.0★ Google Rating',
     description: 'Real reviews from real NYC customers. 5.0★ Google rating, 16 five-star reviews. $3/lb wash & fold with free pickup & delivery.',
     url: 'https://www.washandfoldnyc.com/reviews',
   },
@@ -21,14 +21,14 @@ const reviews = [
   { text: 'I switched from my old laundromat and the difference is night and day. They actually separate colors, use quality detergent, and fold everything neatly. My shirts come back crisp, my towels are fluffy, and nothing has ever been damaged or lost. Worth every penny at three dollars a pound.', name: 'David Torres', location: 'Williamsburg, Brooklyn', date: 'February 2026', rating: 5 },
   { text: 'They picked up my laundry from my doorstep at 8am and had it back by the afternoon. Clean, fresh, and perfectly folded. This is how laundry should work in NYC. The driver was on time and texted me updates throughout.', name: 'Samantha Reeves', location: 'Chelsea, Manhattan', date: 'February 2026', rating: 5 },
   { text: 'Been using them weekly for three months now. Always on time, always consistent. My shirts are folded better than I could ever do myself. Great communication too — real humans, not bots.', name: 'Jason Park', location: 'Astoria, Queens', date: 'February 2026', rating: 5 },
-  { text: 'Moved to NYC from Austin and dreaded the laundromat situation. A friend recommended Wash and Fold NYC and I haven\'t looked back. Pickup, wash, fold, deliver — all handled. The weekly subscription saves me ten percent and I never think about laundry anymore.', name: 'Olivia Morales', location: 'Long Island City, Queens', date: 'February 2026', rating: 5 },
+  { text: 'Moved to NYC from Austin and dreaded the laundromat situation. A friend recommended The NYC Wash and Fold Service Company and I haven\'t looked back. Pickup, wash, fold, deliver — all handled. The weekly subscription saves me ten percent and I never think about laundry anymore.', name: 'Olivia Morales', location: 'Long Island City, Queens', date: 'February 2026', rating: 5 },
   { text: 'They handled my king-size comforter and a bag of regular laundry. Everything came back fresh and clean. The comforter was fluffy like new. Reasonable pricing too — forty-five dollars for a queen comforter is fair.', name: 'Andre Williams', location: 'Bed-Stuy, Brooklyn', date: 'January 2026', rating: 5 },
   { text: 'Super responsive over text. Scheduled a pickup in minutes and my laundry was done the same day. No missing socks, no shrinkage, no complaints. Five stars from me and my roommate.', name: 'Christine Liu', location: 'East Village, Manhattan', date: 'January 2026', rating: 5 },
   { text: 'I run an Airbnb in Brooklyn and they handle all my linens and towels between guests. Fast turnaround, always spotless, and they fold the towels exactly how I need them for photos. Before I found them I was doing six loads between every checkout and check-in.', name: 'Tyler Brooks', location: 'Park Slope, Brooklyn', date: 'January 2026', rating: 5 },
-  { text: 'Tried three different laundry services before finding Wash and Fold NYC. They\'re the only ones who consistently get it right — clean clothes, no damage, on time every single time. I have been a weekly subscriber for four months now.', name: 'Priya Nair', location: 'Murray Hill, Manhattan', date: 'January 2026', rating: 5 },
+  { text: 'Tried three different laundry services before finding The NYC Wash and Fold Service Company. They\'re the only ones who consistently get it right — clean clothes, no damage, on time every single time. I have been a weekly subscriber for four months now.', name: 'Priya Nair', location: 'Murray Hill, Manhattan', date: 'January 2026', rating: 5 },
   { text: 'The convenience factor alone is worth it. But on top of that, my clothes have never been cleaner. They even got a stain out of my favorite shirt that I thought was ruined. Genuinely impressed.', name: 'Michael Ortiz', location: 'Jackson Heights, Queens', date: 'December 2025', rating: 5 },
   { text: 'Affordable, reliable, and fast. I drop off on my way to work and pick up on my way home. My laundry is always ready when they say it will be. No surprises, no excuses.', name: 'Hannah Scott', location: 'Gramercy, Manhattan', date: 'December 2025', rating: 5 },
-  { text: 'As a busy nurse working 12-hour shifts, the last thing I want to do is laundry. Wash and Fold NYC handles everything for me. Scrubs, sheets, towels — all done. The weekly plan is a lifesaver.', name: 'Danielle Foster', location: 'Kips Bay, Manhattan', date: 'November 2025', rating: 5 },
+  { text: 'As a busy nurse working 12-hour shifts, the last thing I want to do is laundry. The NYC Wash and Fold Service Company handles everything for me. Scrubs, sheets, towels — all done. The weekly plan is a lifesaver.', name: 'Danielle Foster', location: 'Kips Bay, Manhattan', date: 'November 2025', rating: 5 },
   { text: 'Great service for families. We generate a LOT of laundry with two kids and they handle it all without breaking the bank. The per-pound pricing makes so much sense for us. They even sort by family member.', name: 'Kevin Walsh', location: 'Bay Ridge, Brooklyn', date: 'November 2025', rating: 5 },
   { text: 'I\'ve recommended them to everyone in my building. Professional, affordable, and the turnaround time is incredible. NYC laundry done right. Zero complaints after five months.', name: 'Sofia Martinez', location: 'Washington Heights, Manhattan', date: 'November 2025', rating: 5 },
 ]

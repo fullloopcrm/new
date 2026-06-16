@@ -83,7 +83,7 @@ interface AnalyticsData {
 }
 
 export default function AnalyticsPage() {
-  useEffect(() => { document.title = 'Analytics | Wash and Fold NYC' }, [])
+  useEffect(() => { document.title = 'Analytics | The NYC Wash and Fold Service Company' }, [])
 
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)

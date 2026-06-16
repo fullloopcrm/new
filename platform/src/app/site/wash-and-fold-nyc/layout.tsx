@@ -5,16 +5,16 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Wash and Fold NYC',
-    default: 'Wash and Fold NYC — NYC Laundry Service $3/lb | Free Pickup & Delivery',
+    template: '%s | The NYC Wash and Fold Service Company',
+    default: 'The NYC Wash and Fold Service Company — NYC Laundry Service $3/lb | Free Pickup & Delivery',
   },
   description: 'NYC wash and fold laundry service — $3/lb, $39 minimum, free pickup & delivery. Manhattan, Brooklyn & Queens. Same-day rush +$20. Dry cleaning, comforters, commercial. (917) 970-6002.',
   metadataBase: new URL('https://www.washandfoldnyc.com'),
   manifest: '/manifest.json',
-  applicationName: 'Wash and Fold NYC',
-  authors: [{ name: 'Wash and Fold NYC', url: 'https://www.washandfoldnyc.com' }],
-  creator: 'Wash and Fold NYC LLC',
-  publisher: 'Wash and Fold NYC',
+  applicationName: 'The NYC Wash and Fold Service Company',
+  authors: [{ name: 'The NYC Wash and Fold Service Company', url: 'https://www.washandfoldnyc.com' }],
+  creator: 'The NYC Wash and Fold Service Company LLC',
+  publisher: 'The NYC Wash and Fold Service Company',
   category: 'Laundry Service',
   classification: 'Laundry Service',
   referrer: 'origin-when-cross-origin',
@@ -27,8 +27,8 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    siteName: 'Wash and Fold NYC',
-    title: 'Wash and Fold NYC — NYC Laundry Service $3/lb | Free Pickup & Delivery',
+    siteName: 'The NYC Wash and Fold Service Company',
+    title: 'The NYC Wash and Fold Service Company — NYC Laundry Service $3/lb | Free Pickup & Delivery',
     description: 'NYC wash and fold laundry service — $3/lb, free pickup & delivery. Manhattan, Brooklyn & Queens. (917) 970-6002.',
     url: 'https://www.washandfoldnyc.com',
     images: [
@@ -36,13 +36,13 @@ export const metadata: Metadata = {
         url: 'https://www.washandfoldnyc.com/opengraph-image',
         width: 512,
         height: 512,
-        alt: 'Wash and Fold NYC — NYC Laundry Service',
+        alt: 'The NYC Wash and Fold Service Company — NYC Laundry Service',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Wash and Fold NYC — $3/lb Laundry Service | Free Pickup & Delivery',
+    title: 'The NYC Wash and Fold Service Company — $3/lb Laundry Service | Free Pickup & Delivery',
     description: 'NYC wash and fold laundry service. $3/lb, free pickup & delivery. Manhattan, Brooklyn & Queens. (917) 970-6002.',
   },
   robots: {
@@ -81,9 +81,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
-        <link rel="apple-touch-icon" href="/icon" />
+        <link rel="apple-touch-icon" href="/icon.svg" />
       </head>
       <body>
         {children}

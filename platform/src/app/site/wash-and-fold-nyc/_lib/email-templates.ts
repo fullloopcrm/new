@@ -23,7 +23,7 @@ export const emailWrapper = (content: string) => `
           <tr>
             <td bgcolor="#ffffff" style="background-color: #ffffff; border-radius: 12px; padding: 40px;">
               <div style="margin: 0 0 24px 0;">
-                <a href="https://www.washandfoldnyc.com"><img src="https://www.washandfoldnyc.com/logo.png" alt="Wash and Fold NYC" width="160" height="48" style="width: 160px; height: auto; display: block;" /></a>
+                <a href="https://www.washandfoldnyc.com"><img src="https://www.washandfoldnyc.com/logo.png" alt="The NYC Wash and Fold Service Company" width="160" height="48" style="width: 160px; height: auto; display: block;" /></a>
               </div>
               ${content}
             </td>
@@ -31,7 +31,8 @@ export const emailWrapper = (content: string) => `
           <tr>
             <td style="padding: 24px 0 0 0; text-align: left;">
               <p style="color: #999; font-size: 12px; margin: 0;">
-                Wash and Fold NYC · <a href="tel:9179706002" style="color: #999;">(917) 970-6002</a>
+                The NYC Wash and Fold Service Company · <a href="tel:9179706002" style="color: #999;">(917) 970-6002</a>
+                <br /><span style="color: #bbb; font-size: 11px;">a division of The NYC Maid</span>
               </p>
             </td>
           </tr>
@@ -104,7 +105,7 @@ export function clientBookingReceivedEmail(booking: any) {
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">We received your booking request!</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, thank you for choosing Wash and Fold NYC. We're reviewing your request and will confirm shortly.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, thank you for choosing The NYC Wash and Fold Service Company. We're reviewing your request and will confirm shortly.</p>
 
     ${infoTable(`
       ${infoRow('Date', date)}
@@ -500,7 +501,7 @@ export function referralWelcomeEmail(referrer: { name: string; ref_code: string;
   
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Welcome to the team, ${firstName}!</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">You're now part of Wash and Fold NYC referral program.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">You're now part of The NYC Wash and Fold Service Company referral program.</p>
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: left;">
       <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Your referral code</p>
@@ -527,7 +528,7 @@ export function referralWelcomeEmail(referrer: { name: string; ref_code: string;
     </p>
   `
 
-  return { subject: `Welcome to Wash and Fold NYC, ${firstName}!`, html: emailWrapper(content) }
+  return { subject: `Welcome to The NYC Wash and Fold Service Company, ${firstName}!`, html: emailWrapper(content) }
 }
 
 export function referralCommissionEmail(referrer: any, booking: any, commission: number) {
@@ -622,8 +623,8 @@ export function cleanerWelcomeEmail(cleaner: { name: string; pin: string; phone:
   const firstName = cleaner.name.split(' ')[0]
 
   const content = `
-    <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0;">Welcome to Wash and Fold NYC!</h1>
-    <p style="color: #666; font-size: 14px; margin: 4px 0 24px 0;">¡Bienvenido/a a Wash and Fold NYC!</p>
+    <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0;">Welcome to The NYC Wash and Fold Service Company!</h1>
+    <p style="color: #666; font-size: 14px; margin: 4px 0 24px 0;">¡Bienvenido/a a The NYC Wash and Fold Service Company!</p>
 
     <p style="color: #444; font-size: 15px; margin: 0 0 24px 0;">Hi ${firstName} / Hola ${firstName}</p>
 

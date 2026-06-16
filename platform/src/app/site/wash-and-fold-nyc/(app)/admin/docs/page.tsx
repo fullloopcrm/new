@@ -31,7 +31,7 @@ const Card = ({ title, children, accent }: { title: string, children: React.Reac
 )
 
 export default function DocsPage() {
-  useEffect(() => { document.title = 'Documentation | Wash and Fold NYC' }, [])
+  useEffect(() => { document.title = 'Documentation | The NYC Wash and Fold Service Company' }, [])
   const [s, setS] = useState('overview')
 
   const sections = [
@@ -80,7 +80,7 @@ export default function DocsPage() {
 
         {s === 'overview' && (
           <div>
-            <h1 className="text-3xl font-bold text-[#1E2A4A] mb-2">Wash and Fold NYC Platform</h1>
+            <h1 className="text-3xl font-bold text-[#1E2A4A] mb-2">The NYC Wash and Fold Service Company Platform</h1>
             <p className="text-gray-500 mb-6">Complete cleaning service management system</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">

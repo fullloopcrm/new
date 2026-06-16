@@ -47,7 +47,7 @@ const CLEANER_COLORS = [
 
 export default function CalendarPage() {
   const router = useRouter()
-  useEffect(() => { document.title = 'Calendar | Wash and Fold NYC' }, [])
+  useEffect(() => { document.title = 'Calendar | The NYC Wash and Fold Service Company' }, [])
   const [bookings, setBookings] = useState<BookingEvent[]>([])
   const [allBookings, setAllBookings] = useState<Booking[]>([])
   const [cleaners, setCleaners] = useState<Cleaner[]>([])

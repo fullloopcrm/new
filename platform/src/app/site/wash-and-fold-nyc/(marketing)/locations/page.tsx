@@ -8,13 +8,13 @@ import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABloc
 import FAQSection from '@/app/site/wash-and-fold-nyc/_components/marketing/FAQSection'
 
 export const metadata: Metadata = {
-  title: 'NYC Laundry Service Locations — Manhattan, Brooklyn & Queens | Wash and Fold NYC',
-  description: 'Wash and Fold NYC serves nearly 200 neighborhoods across Manhattan, Brooklyn & Queens. $3/lb, free pickup & delivery, same rate everywhere. Find your neighborhood. (917) 970-6002.',
+  title: 'NYC Laundry Service Locations — Manhattan, Brooklyn & Queens | The NYC Wash and Fold Service Company',
+  description: 'The NYC Wash and Fold Service Company serves nearly 200 neighborhoods across Manhattan, Brooklyn & Queens. $3/lb, free pickup & delivery, same rate everywhere. Find your neighborhood. (917) 970-6002.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/locations' },
 }
 
 const locationFAQs = [
-  { question: 'What areas does Wash and Fold NYC serve?', answer: 'We serve all of Manhattan, Brooklyn, and Queens — nearly two hundred neighborhoods in total. Every neighborhood gets the same three dollar per pound rate with free pickup and delivery. There are no distance surcharges, no zone fees, and no different pricing based on where you live. We cover the Upper East Side to Washington Heights, Williamsburg to Bay Ridge, and Astoria to Far Rockaway.' },
+  { question: 'What areas does The NYC Wash and Fold Service Company serve?', answer: 'We serve all of Manhattan, Brooklyn, and Queens — nearly two hundred neighborhoods in total. Every neighborhood gets the same three dollar per pound rate with free pickup and delivery. There are no distance surcharges, no zone fees, and no different pricing based on where you live. We cover the Upper East Side to Washington Heights, Williamsburg to Bay Ridge, and Astoria to Far Rockaway.' },
   { question: 'Is the price the same in every neighborhood?', answer: 'Yes. Three dollars per pound, thirty-nine dollar minimum, free pickup and delivery — the same in every neighborhood we serve. Whether you live in a luxury doorman building on Park Avenue or a walkup in Bushwick, the rate is identical. We do not charge more for farther locations or busier neighborhoods.' },
   { question: 'How do I know if you serve my building?', answer: 'If your building is in Manhattan, Brooklyn, or Queens, we almost certainly serve it. We pick up from doorman buildings, walkups, co-ops, condos, public housing, student dorms, and single-family homes. Text us your address and we will confirm immediately.' },
   { question: 'Do you serve the outer parts of Queens?', answer: 'Yes. We serve all of Queens including Flushing, Bayside, Jamaica, Richmond Hill, Ozone Park, Howard Beach, Far Rockaway, and every neighborhood in between. Same three dollar per pound rate with free pickup.' },

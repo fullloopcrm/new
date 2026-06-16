@@ -35,13 +35,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (area) {
     const content = areaContent(area)
     const url = `https://www.washandfoldnyc.com/${slug}`
-    const title = `${area.name} Laundry Service & Wash and Fold From $3/lb | Wash and Fold NYC`
+    const title = `${area.name} Laundry Service & Wash and Fold From $3/lb | The NYC Wash and Fold Service Company`
     const description = `Professional wash and fold in ${area.name} from $3/lb. Wash & fold, pickup & delivery, dry cleaning & more. Licensed, insured, 5.0★ Google. (917) 970-6002`
     return {
       title: { absolute: title },
       description,
       alternates: { canonical: url },
-      openGraph: { title, description, url, type: 'website', siteName: 'Wash and Fold NYC', locale: 'en_US' },
+      openGraph: { title, description, url, type: 'website', siteName: 'The NYC Wash and Fold Service Company', locale: 'en_US' },
       twitter: { card: 'summary_large_image', title, description },
       other: { 'geo.region': `US-${area.state}`, 'geo.placename': area.name, 'geo.position': `${area.lat};${area.lng}`, 'ICBM': `${area.lat}, ${area.lng}` },
     }
@@ -52,13 +52,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const neighborhoodArea = getArea(neighborhood.area)!
     const content = neighborhoodContent(neighborhood, neighborhoodArea)
     const url = `https://www.washandfoldnyc.com/${slug}`
-    const title = `${neighborhood.name} Laundry Service & Wash and Fold From $3/lb | Wash and Fold NYC`
+    const title = `${neighborhood.name} Laundry Service & Wash and Fold From $3/lb | The NYC Wash and Fold Service Company`
     const description = `Professional wash and fold in ${neighborhood.name}, ${neighborhoodArea.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $3/lb. 5.0★ Google. (917) 970-6002`
     return {
       title: { absolute: title },
       description,
       alternates: { canonical: url },
-      openGraph: { title, description, url, type: 'website', siteName: 'Wash and Fold NYC', locale: 'en_US' },
+      openGraph: { title, description, url, type: 'website', siteName: 'The NYC Wash and Fold Service Company', locale: 'en_US' },
       twitter: { card: 'summary_large_image', title, description },
       other: { 'geo.region': `US-${neighborhoodArea.state}`, 'geo.placename': neighborhood.name, 'geo.position': `${neighborhood.lat};${neighborhood.lng}`, 'ICBM': `${neighborhood.lat}, ${neighborhood.lng}` },
     }

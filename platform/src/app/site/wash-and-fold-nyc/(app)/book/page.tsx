@@ -12,7 +12,7 @@ function ClientPortalContent() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    document.title = 'Client Portal | Wash and Fold NYC'
+    document.title = 'Client Portal | The NYC Wash and Fold Service Company'
     const ref = searchParams.get('ref')
     if (ref) {
       router.replace('/book/new?ref=' + ref)

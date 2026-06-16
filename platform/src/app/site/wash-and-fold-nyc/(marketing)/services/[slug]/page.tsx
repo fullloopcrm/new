@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const service = getServiceByUrlSlug(slug)
   if (!service) return {}
   return {
-    title: `NYC ${service.name} — ${service.priceRange}, Free Pickup & Delivery | Wash and Fold NYC`,
+    title: `NYC ${service.name} — ${service.priceRange}, Free Pickup & Delivery | The NYC Wash and Fold Service Company`,
     description: `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn & Queens. ${service.priceRange}, free pickup & delivery. ${service.features.slice(0, 3).join(', ')} & more. (917) 970-6002.`,
     alternates: { canonical: `https://www.washandfoldnyc.com/services/${slug}` },
   }

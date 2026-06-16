@@ -7,8 +7,8 @@ import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABloc
 import FAQSection from '@/app/site/wash-and-fold-nyc/_components/marketing/FAQSection'
 
 export const metadata: Metadata = {
-  title: 'Laundry Jobs NYC — $18–22/hr, Flexible Schedule, Weekly Pay | Wash and Fold NYC',
-  description: 'Join the Wash and Fold NYC team. Now hiring pickup/delivery drivers, laundry attendants, and route managers across Manhattan, Brooklyn & Queens. $18-22/hr, weekly pay, flexible hours. (917) 970-6002.',
+  title: 'Laundry Jobs NYC — $18–22/hr, Flexible Schedule, Weekly Pay | The NYC Wash and Fold Service Company',
+  description: 'Join the NYC Wash and Fold Service Company team. Now hiring pickup/delivery drivers, laundry attendants, and route managers across Manhattan, Brooklyn & Queens. $18-22/hr, weekly pay, flexible hours. (917) 970-6002.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/careers' },
 }
 
@@ -64,7 +64,7 @@ export default function CareersPage() {
 
       <section className="py-20 bg-[#F0F8FF]">
         <div className="max-w-4xl mx-auto px-4">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1a3a5c] tracking-wide text-center mb-8">Why Work With Wash and Fold NYC</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1a3a5c] tracking-wide text-center mb-8">Why Work With The NYC Wash and Fold Service Company</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
               { t: 'Weekly Pay', d: 'Get paid every week via direct deposit or Zelle. No waiting two weeks or a month for a paycheck. Tips are one hundred percent yours — paid directly by customers and never deducted from your hourly rate.' },

@@ -33,14 +33,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const area = getArea(neighborhood.area)!
   const url = `https://www.washandfoldnyc.com/${slug}/${serviceSlug}`
-  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $3/lb | Wash and Fold NYC`
+  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $3/lb | The NYC Wash and Fold Service Company`
   const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Google. (917) 970-6002`
 
   return {
     title: { absolute: title },
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, type: 'website', siteName: 'Wash and Fold NYC', locale: 'en_US' },
+    openGraph: { title, description, url, type: 'website', siteName: 'The NYC Wash and Fold Service Company', locale: 'en_US' },
     twitter: { card: 'summary_large_image', title, description },
     other: { 'geo.region': `US-${area.state}`, 'geo.placename': neighborhood.name, 'geo.position': `${neighborhood.lat};${neighborhood.lng}`, 'ICBM': `${neighborhood.lat}, ${neighborhood.lng}` },
   }
@@ -431,7 +431,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
       {/* Trust Signals */}
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1a3a5c] tracking-wide text-center mb-8">Why {neighborhood.name} Residents Trust Wash and Fold NYC</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1a3a5c] tracking-wide text-center mb-8">Why {neighborhood.name} Residents Trust The NYC Wash and Fold Service Company</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {[
               { icon: '&#9733;', label: '5.0 Google Rating', detail: 'Zero negative reviews' },

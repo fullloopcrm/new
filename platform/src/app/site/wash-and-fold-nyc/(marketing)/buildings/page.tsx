@@ -5,14 +5,14 @@ import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABloc
 import FAQSection from '@/app/site/wash-and-fold-nyc/_components/marketing/FAQSection'
 
 export const metadata: Metadata = {
-  title: 'Building Laundry Packages — $3/lb, Lobby Pickup | Wash and Fold NYC',
+  title: 'Building Laundry Packages — $3/lb, Lobby Pickup | The NYC Wash and Fold Service Company',
   description: 'Laundry service for NYC buildings — luxury high-rises, doorman buildings, and student housing. $3/lb, free lobby pickup, volume discounts. (917) 970-6002.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/buildings' },
 }
 
 const buildingTypes = [
   { slug: 'luxury-buildings', name: 'Luxury & High-Rise Buildings', desc: 'White-glove laundry service with concierge coordination, lobby pickup, premium garment care, and dedicated account management. Volume discounts for buildings that sign up ten or more units. We integrate with your building existing concierge workflow so residents never have to leave their floor. This includes same-day dry cleaning pickup, comforter and bedding service, and the ability to schedule recurring weekly pickups through the front desk. Many luxury buildings in Manhattan and Brooklyn use our service as a building amenity — listed alongside gym access, rooftop access, and package handling.' },
-  { slug: 'doorman-buildings', name: 'Doorman Buildings', desc: 'Leave your bag with the doorman on your way out. We pick up during a scheduled window, process your laundry, and deliver it back to the front desk the next day. You get a text when it is ready. The doorman holds it until you pick up or can bring it to your unit. This is our most common building type — thousands of doorman buildings across Manhattan, Brooklyn, and Queens use this exact workflow. There is nothing for the building management to set up or maintain. Residents simply tell the doorman they are expecting a pickup from Wash and Fold NYC and we handle the rest.' },
+  { slug: 'doorman-buildings', name: 'Doorman Buildings', desc: 'Leave your bag with the doorman on your way out. We pick up during a scheduled window, process your laundry, and deliver it back to the front desk the next day. You get a text when it is ready. The doorman holds it until you pick up or can bring it to your unit. This is our most common building type — thousands of doorman buildings across Manhattan, Brooklyn, and Queens use this exact workflow. There is nothing for the building management to set up or maintain. Residents simply tell the doorman they are expecting a pickup from The NYC Wash and Fold Service Company and we handle the rest.' },
   { slug: 'student-housing', name: 'Student Housing & Dorms', desc: 'Affordable three dollar per pound service with flexible scheduling that works around class times, exam periods, and semester breaks. We pick up from dorm lobbies, mail rooms, or building entrances. Students skip the crowded basement laundry room entirely. End-of-semester deep clean packages are available for move-out. Parents can set up and pay for a subscription for their college student — we handle the pickup and delivery and send the parent a confirmation after each order. Popular with students at NYU, Columbia, The New School, Parsons, FIT, Baruch, Hunter, and Brooklyn College.' },
 ]
 

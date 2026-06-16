@@ -104,7 +104,7 @@ const HOURS = [
 ]
 
 export default function CleanersPage() {
-  useEffect(() => { document.title = 'Team | Wash and Fold NYC' }, []);
+  useEffect(() => { document.title = 'Team | The NYC Wash and Fold Service Company' }, []);
   const [activeTab, setActiveTab] = useState<'team' | 'applications' | 'ops-manager'>('team')
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
   const [applications, setApplications] = useState<Application[]>([])

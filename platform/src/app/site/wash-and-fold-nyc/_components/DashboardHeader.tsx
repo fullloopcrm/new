@@ -208,7 +208,7 @@ export default function DashboardHeader({ currentPage = 'dashboard' }: Dashboard
             </svg>
           </button>
           <Link href="/admin" className="text-xl font-bold text-[#1E2A4A]">
-            Wash and Fold NYC
+            The NYC Wash and Fold Service Company
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (

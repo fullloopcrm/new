@@ -6,7 +6,7 @@ import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABloc
 
 export const metadata: Metadata = {
   title: 'NYC Laundry Services — $3/lb Wash & Fold, Dry Cleaning, Pickup & Delivery',
-  description: 'All laundry services by Wash and Fold NYC. Wash & fold $3/lb, free pickup & delivery, dry cleaning, comforter cleaning, commercial laundry. Manhattan, Brooklyn & Queens. (917) 970-6002.',
+  description: 'All laundry services by The NYC Wash and Fold Service Company. Wash & fold $3/lb, free pickup & delivery, dry cleaning, comforter cleaning, commercial laundry. Manhattan, Brooklyn & Queens. (917) 970-6002.',
   alternates: { canonical: 'https://www.washandfoldnyc.com/services' },
 }
 

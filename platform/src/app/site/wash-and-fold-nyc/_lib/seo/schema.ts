@@ -6,8 +6,8 @@ import { SERVICES } from './services'
 import { AREAS } from './data/areas'
 
 const BUSINESS = {
-  name: 'Wash and Fold NYC',
-  legalName: 'Wash and Fold NYC Laundry Service LLC',
+  name: 'The NYC Wash and Fold Service Company',
+  legalName: 'The NYC Wash and Fold Service Company Laundry Service LLC',
   url: 'https://www.washandfoldnyc.com',
   phone: '+1-917-970-6002',
   phoneDisplay: '(917) 970-6002',
@@ -43,14 +43,14 @@ const GOOGLE_REVIEWS = [
   { text: 'I switched from my old laundromat and the difference is night and day. They actually separate colors, use quality detergent, and fold everything neatly. Worth every penny.', name: 'David Torres', location: 'New York', rating: 5, datePublished: '2026-02-25' },
   { text: 'They picked up my laundry from my doorstep at 8am and had it back by the afternoon. Clean, fresh, and perfectly folded. This is how laundry should work in NYC.', name: 'Samantha Reeves', location: 'New York', rating: 5, datePublished: '2026-02-20' },
   { text: 'Been using them weekly for three months now. Always on time, always consistent. My shirts are folded better than I could ever do myself. Great communication too.', name: 'Jason Park', location: 'New York', rating: 5, datePublished: '2026-02-14' },
-  { text: 'Moved to NYC and dreaded the laundromat situation. A friend recommended Wash and Fold NYC and I haven\'t looked back. Pickup, wash, fold, deliver — all handled.', name: 'Olivia Morales', location: 'New York', rating: 5, datePublished: '2026-02-08' },
+  { text: 'Moved to NYC and dreaded the laundromat situation. A friend recommended The NYC Wash and Fold Service Company and I haven\'t looked back. Pickup, wash, fold, deliver — all handled.', name: 'Olivia Morales', location: 'New York', rating: 5, datePublished: '2026-02-08' },
   { text: 'They handled my king-size comforter and a bag of regular laundry. Everything came back fresh and clean. The comforter was fluffy like new. Reasonable pricing too.', name: 'Andre Williams', location: 'New York', rating: 5, datePublished: '2026-01-30' },
   { text: 'Super responsive over text. Scheduled a pickup in minutes and my laundry was done the same day. No missing socks, no shrinkage, no complaints. Five stars.', name: 'Christine Liu', location: 'New York', rating: 5, datePublished: '2026-01-22' },
   { text: 'I run an Airbnb in Brooklyn and they handle all my linens and towels between guests. Fast turnaround, always spotless, and they fold the towels exactly how I need them.', name: 'Tyler Brooks', location: 'New York', rating: 5, datePublished: '2026-01-15' },
-  { text: 'Tried three different laundry services before finding Wash and Fold NYC. They\'re the only ones who consistently get it right — clean clothes, no damage, on time every single time.', name: 'Priya Nair', location: 'New York', rating: 5, datePublished: '2026-01-08' },
+  { text: 'Tried three different laundry services before finding The NYC Wash and Fold Service Company. They\'re the only ones who consistently get it right — clean clothes, no damage, on time every single time.', name: 'Priya Nair', location: 'New York', rating: 5, datePublished: '2026-01-08' },
   { text: 'The convenience factor alone is worth it. But on top of that, my clothes have never been cleaner. They even got a stain out of my favorite shirt that I thought was ruined.', name: 'Michael Ortiz', location: 'New York', rating: 5, datePublished: '2025-12-20' },
   { text: 'Affordable, reliable, and fast. I drop off on my way to work and pick up on my way home. My laundry is always ready when they say it will be. No surprises.', name: 'Hannah Scott', location: 'New York', rating: 5, datePublished: '2025-12-10' },
-  { text: 'As a busy nurse working 12-hour shifts, the last thing I want to do is laundry. Wash and Fold NYC handles everything for me. Scrubs, sheets, towels — all done.', name: 'Danielle Foster', location: 'New York', rating: 5, datePublished: '2025-11-28' },
+  { text: 'As a busy nurse working 12-hour shifts, the last thing I want to do is laundry. The NYC Wash and Fold Service Company handles everything for me. Scrubs, sheets, towels — all done.', name: 'Danielle Foster', location: 'New York', rating: 5, datePublished: '2025-11-28' },
   { text: 'Great service for families. We generate a LOT of laundry with two kids and they handle it all without breaking the bank. The per-pound pricing makes so much sense.', name: 'Kevin Walsh', location: 'New York', rating: 5, datePublished: '2025-11-15' },
   { text: 'I\'ve recommended them to everyone in my building. Professional, affordable, and the turnaround time is incredible. NYC laundry done right.', name: 'Sofia Martinez', location: 'New York', rating: 5, datePublished: '2025-11-01' },
 ]
@@ -79,7 +79,7 @@ const logoObj = {
   contentUrl: BUSINESS.logo,
   width: 512,
   height: 512,
-  caption: 'Wash and Fold NYC Logo',
+  caption: 'The NYC Wash and Fold Service Company Logo',
 }
 
 const aggregateRatingObj = {
@@ -615,7 +615,7 @@ export function howToBookSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'HowTo',
-    name: 'How to Book a Laundry Service with Wash and Fold NYC',
+    name: 'How to Book a Laundry Service with The NYC Wash and Fold Service Company',
     description: 'Book a professional laundry in just 3 simple steps.',
     totalTime: 'PT5M',
     estimatedCost: { '@type': 'MonetaryAmount', currency: 'USD', value: '49' },
@@ -654,7 +654,7 @@ export function serviceItemListSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'Laundry Services Offered by Wash and Fold NYC',
+    name: 'Laundry Services Offered by The NYC Wash and Fold Service Company',
     numberOfItems: SERVICES.length,
     itemListElement: SERVICES.map((s, i) => ({
       '@type': 'ListItem',
@@ -684,7 +684,7 @@ export function areaItemListSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'Service Areas Covered by Wash and Fold NYC',
+    name: 'Service Areas Covered by The NYC Wash and Fold Service Company',
     numberOfItems: AREAS.length,
     itemListElement: AREAS.map((a, i) => ({
       '@type': 'ListItem',
@@ -709,7 +709,7 @@ export function professionalServiceSchema(service: Service, neighborhood?: Neigh
   return {
     '@context': 'https://schema.org',
     '@type': 'ProfessionalService',
-    name: `${service.name}${neighborhood ? ` in ${neighborhood.name}` : ''} - Wash and Fold NYC`,
+    name: `${service.name}${neighborhood ? ` in ${neighborhood.name}` : ''} - The NYC Wash and Fold Service Company`,
     description: service.description,
     url: neighborhood ? `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}` : `${BUSINESS.url}/services/${service.urlSlug}`,
     telephone: BUSINESS.phone,
@@ -737,7 +737,7 @@ export function homepageSchemas() {
     webSiteSchema(),
     webPageSchema({
       url,
-      name: 'NYC Wash and Fold & Wash and Fold From $3/lb | 5-Star Rated | Wash and Fold NYC',
+      name: 'NYC Wash and Fold & Wash and Fold From $3/lb | 5-Star Rated | The NYC Wash and Fold Service Company',
       description: BUSINESS.description,
       type: 'WebPage',
       speakable: ['h1', '.hero-description'],
@@ -754,7 +754,7 @@ export function homepageSchemas() {
 
 export function areaPageSchemas(area: Area) {
   const url = `${BUSINESS.url}/${area.urlSlug}`
-  const title = `${area.name} Wash and Fold & Wash and Fold From $3/lb | Wash and Fold NYC`
+  const title = `${area.name} Wash and Fold & Wash and Fold From $3/lb | The NYC Wash and Fold Service Company`
   const description = `Professional wash and fold in ${area.name} from $3/lb. Wash and fold, pickup & delivery, dry laundry, comforter laundry. Licensed, insured, 5.0★ Google. ${BUSINESS.phoneDisplay}`
   return [
     organizationSchema(),
@@ -780,7 +780,7 @@ export function areaPageSchemas(area: Area) {
 
 export function neighborhoodPageSchemas(neighborhood: Neighborhood, area: Area) {
   const url = `${BUSINESS.url}/${neighborhood.urlSlug}`
-  const title = `${neighborhood.name} Wash and Fold & Wash and Fold From $3/lb | Wash and Fold NYC`
+  const title = `${neighborhood.name} Wash and Fold & Wash and Fold From $3/lb | The NYC Wash and Fold Service Company`
   const description = `Professional wash and fold in ${neighborhood.name}, ${area.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $3/lb. 5.0★ Google. ${BUSINESS.phoneDisplay}`
   return [
     organizationSchema(),
@@ -819,7 +819,7 @@ export function neighborhoodPageSchemas(neighborhood: Neighborhood, area: Area) 
 
 export function neighborhoodServicePageSchemas(neighborhood: Neighborhood, service: Service, area: Area) {
   const url = `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}`
-  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $3/lb | Wash and Fold NYC`
+  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $3/lb | The NYC Wash and Fold Service Company`
   const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Google. ${BUSINESS.phoneDisplay}`
   return [
     organizationSchema(),
@@ -850,7 +850,7 @@ export function neighborhoodServicePageSchemas(neighborhood: Neighborhood, servi
 
 export function servicePageSchemas(service: Service) {
   const url = `${BUSINESS.url}/services/${service.urlSlug}`
-  const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | 5-Star Rated | Wash and Fold NYC`
+  const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | 5-Star Rated | The NYC Wash and Fold Service Company`
   const desc = `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn & Queens. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Google. ${BUSINESS.phoneDisplay}`
   return [
     organizationSchema(),

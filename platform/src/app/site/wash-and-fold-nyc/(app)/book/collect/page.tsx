@@ -7,7 +7,7 @@ import { validateEmail } from '@/app/site/wash-and-fold-nyc/_lib/validate-email'
 import { useFormTracking } from '@/app/site/wash-and-fold-nyc/_lib/useFormTracking'
 
 function CollectFormContent() {
-  useEffect(() => { document.title = 'Complete Your Booking | Wash and Fold NYC' }, [])
+  useEffect(() => { document.title = 'Complete Your Booking | The NYC Wash and Fold Service Company' }, [])
   const searchParams = useSearchParams()
   const srcDomain = searchParams.get('src') || ''
   const convoId = searchParams.get('convo_id') || ''
@@ -94,7 +94,7 @@ function CollectFormContent() {
     return (
       <div className="min-h-screen bg-white flex flex-col">
         <div className="bg-[#1E2A4A] px-6 py-4">
-          <h1 className="text-white text-xl font-bold">Wash and Fold NYC</h1>
+          <h1 className="text-white text-xl font-bold">The NYC Wash and Fold Service Company</h1>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-sm">
@@ -114,7 +114,7 @@ function CollectFormContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-[#1E2A4A] px-6 py-4">
-        <h1 className="text-white text-xl font-bold">Wash and Fold NYC</h1>
+        <h1 className="text-white text-xl font-bold">The NYC Wash and Fold Service Company</h1>
         <p className="text-gray-400 text-sm">New Client Info</p>
       </div>
 
@@ -239,7 +239,7 @@ function CollectFormContent() {
           <div className="my-5 p-4 border border-gray-200 rounded-lg bg-gray-50">
             <label className="flex items-start gap-3 cursor-pointer text-[13px] leading-relaxed text-gray-600">
               <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
-              <span>By checking this box, I consent to receive transactional text messages from <strong>Wash and Fold NYC</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="https://www.washandfoldnyc.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href="https://www.washandfoldnyc.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a></span>
+              <span>By checking this box, I consent to receive transactional text messages from <strong>The NYC Wash and Fold Service Company</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="https://www.washandfoldnyc.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href="https://www.washandfoldnyc.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a></span>
             </label>
           </div>
 
