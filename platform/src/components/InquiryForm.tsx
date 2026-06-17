@@ -19,6 +19,7 @@ export function InquiryForm() {
       name: String(fd.get('name') || ''),
       company: String(fd.get('company') || ''),
       email: String(fd.get('email') || ''),
+      phone: String(fd.get('phone') || ''),
       role: String(fd.get('role') || ''),
       budget: String(fd.get('budget') || ''),
       message: String(fd.get('message') || ''),
@@ -68,6 +69,10 @@ export function InquiryForm() {
       <div>
         <label htmlFor="email" className={labelClass}>Email</label>
         <input id="email" name="email" type="email" required maxLength={200} className={inputClass} />
+      </div>
+      <div>
+        <label htmlFor="phone" className={labelClass}>Phone</label>
+        <input id="phone" name="phone" type="tel" required maxLength={40} autoComplete="tel" className={inputClass} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>

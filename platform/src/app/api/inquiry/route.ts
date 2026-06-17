@@ -19,6 +19,7 @@ interface InquiryBody {
   name?: unknown
   company?: unknown
   email?: unknown
+  phone?: unknown
   role?: unknown
   budget?: unknown
   message?: unknown
@@ -69,12 +70,13 @@ export async function POST(req: NextRequest) {
   const name = typeof body.name === 'string' ? body.name.trim() : ''
   const company = typeof body.company === 'string' ? body.company.trim() : ''
   const email = typeof body.email === 'string' ? body.email.trim() : ''
+  const phone = typeof body.phone === 'string' ? body.phone.trim().slice(0, 40) : ''
   const role = typeof body.role === 'string' ? (body.role.trim() as Role) : ('' as Role)
   const budget = typeof body.budget === 'string' ? (body.budget.trim() as Budget) : ('' as Budget)
   const message = typeof body.message === 'string' ? body.message.trim().slice(0, 2000) : ''
 
   // Validation
-  if (!name || !company || !email || !role || !budget || !message) {
+  if (!name || !company || !email || !phone || !role || !budget || !message) {
     return NextResponse.json({ error: 'missing_required_fields' }, { status: 400 })
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -98,6 +100,7 @@ export async function POST(req: NextRequest) {
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Name</td><td>${escapeHtml(name)}</td></tr>
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Company</td><td>${escapeHtml(company)}</td></tr>
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Email</td><td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
+      <tr><td style="padding: 4px 12px 4px 0; color: #666;">Phone</td><td><a href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a></td></tr>
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Role</td><td>${escapeHtml(role)}</td></tr>
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Budget / deal size</td><td>${escapeHtml(budget)}</td></tr>
     </table>

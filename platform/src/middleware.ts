@@ -89,6 +89,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin-auth(.*)',       // Admin PIN auth endpoint
   '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
   '/api/requests',            // Partnership form submissions
+  '/api/inquiry',             // Marketing-site contact form (homeservicesbusinesscrm.com/contact)
   '/api/feedback',            // Feedback form submissions
   '/api/contact',             // Tenant-aware contact form lead capture (tenant resolved from host)
   '/api/chat',                // Public web chat for tenant sites
