@@ -15,7 +15,7 @@ export const organizationSchema = {
   image: "https://homeservicesbusinesscrm.com/opengraph-image",
   description:
     "Full Loop CRM is the first full-cycle CRM for home service businesses — AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
-  email: "hello@homeservicesbusinesscrm.com",
+  email: "hi@fullloopcrm.com",
   address: {
     "@type": "PostalAddress",
     streetAddress: "150 W 47th St",

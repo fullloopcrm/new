@@ -171,7 +171,7 @@ export default function TermsPage() {
             Questions about these Terms? Contact us at:
           </p>
           <ul>
-            <li>Email: <a href="mailto:hello@homeservicesbusinesscrm.com">hello@homeservicesbusinesscrm.com</a></li>
+            <li>Email: <a href="mailto:hi@fullloopcrm.com">hi@fullloopcrm.com</a></li>
             <li>Phone: <a href="tel:+12122029220">(212) 202-9220</a></li>
             <li>Address: 150 W 47th St, New York, NY 10036</li>
           </ul>

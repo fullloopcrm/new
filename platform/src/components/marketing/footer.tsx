@@ -125,8 +125,8 @@ export default function Footer() {
             </h3>
             <ul className="flex flex-col gap-2.5 text-sm text-slate-300">
               <li>
-                <a href="mailto:hello@homeservicesbusinesscrm.com" className="transition-colors hover:text-green-400">
-                  hello@homeservicesbusinesscrm.com
+                <a href="mailto:hi@fullloopcrm.com" className="transition-colors hover:text-green-400">
+                  hi@fullloopcrm.com
                 </a>
               </li>
               <li>

@@ -108,7 +108,7 @@ export default function AccessibilityPage() {
             improvement, please contact us:
           </p>
           <ul>
-            <li>Email: <a href="mailto:hello@homeservicesbusinesscrm.com">hello@homeservicesbusinesscrm.com</a></li>
+            <li>Email: <a href="mailto:hi@fullloopcrm.com">hi@fullloopcrm.com</a></li>
             <li>Phone: <a href="tel:+12122029220">(212) 202-9220</a></li>
             <li>Text: <a href="sms:+12122029220">(212) 202-9220</a></li>
           </ul>
