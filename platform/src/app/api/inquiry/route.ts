@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
+import { supabaseAdmin } from '@/lib/supabase'
 
 // POST /api/inquiry — single contact form for the marketing teaser site.
 // Strategy pivot 2026-05-03: no longer selling territory licenses; this form
@@ -107,6 +108,25 @@ export async function POST(req: NextRequest) {
     <h3 style="margin-top: 24px;">Message</h3>
     <pre style="white-space: pre-wrap; font-family: -apple-system, sans-serif; line-height: 1.5;">${escapeHtml(message)}</pre>
   `
+
+  // Persist the lead first so it is never lost even if email/SMS delivery
+  // fails. Best-effort: a storage error must not break the user-facing form.
+  try {
+    const { error: insertErr } = await supabaseAdmin.from('inquiries').insert({
+      name,
+      company,
+      email,
+      phone,
+      role,
+      budget,
+      message,
+      is_fat_offer: isFatOffer,
+      source: 'marketing-contact',
+    })
+    if (insertErr) console.error('inquiry persist failed:', insertErr.message)
+  } catch (err) {
+    console.error('inquiry persist threw:', err)
+  }
 
   const adminEmail = process.env.ADMIN_EMAIL || ''
   const sends: Promise<unknown>[] = []
