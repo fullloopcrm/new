@@ -27,11 +27,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "The NYC Exterminator | NYC Pest Control & Extermination",
+    default: "The NYC Exterminator | Pest Control Starting at $49 | Fully Inclusive, No Hidden Fees",
     template: "%s | The NYC Exterminator",
   },
   description:
-    "Professional pest control and exterminator services across NYC, NJ, Long Island & Westchester. Pricing starting at $49. Licensed & insured. Same-day service. Text us at 212-202-8545!",
+    "Pest control starting at $49 (fully inclusive — no hidden fees). Labor, products, treatment, follow-up — all in the price. Pay only when the job is done. No contracts. No deposits. No catches. Licensed & insured. Text 212-202-8545!",
   metadataBase: new URL(SITE_URL),
   icons: {
     icon: "/icon.svg",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "The NYC Exterminator | NYC Pest Control",
     description:
-      "Professional pest control & exterminator services across NYC metro. Starting at $49. Licensed & insured. Text us at 212-202-8545!",
+      "Pest control starting at $49 (fully inclusive — no hidden fees). Pay only when the job is done. No contracts. Text 212-202-8545!",
   },
   robots: {
     index: true,

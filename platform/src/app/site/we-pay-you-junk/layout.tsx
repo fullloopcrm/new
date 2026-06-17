@@ -15,11 +15,11 @@ const SITE_URL = "https://www.wepayyoujunkremoval.com";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "We Pay You Junk Removal | Starting at $100/hr Nationwide | We Pay You For Your Stuff",
+    default: "We Pay You Junk Removal | $200/hr Fully Inclusive +$100/hr Per Extra Laborer Nationwide | We Pay You For Your Stuff",
     template: "%s | We Pay You Junk Removal",
   },
   description:
-    "America's only junk removal company that pays you. starting at $100/hr with dump fees included, 1 hour minimum. We credit you 50% (when applicable) of resale value (when applicable) on items worth something. 900+ cities across all 50 states. Same-day available 7AM-8PM.",
+    "America's only junk removal company that pays you. $200/hr (one team member, fully inclusive) +$100/hr per extra laborer with dump fees included, 1 hour minimum. We credit you 50% (when applicable) of resale value on items worth something. 900+ cities across all 50 states. Same-day available 7AM-8PM.",
   alternates: {
     canonical: "/",
   },
