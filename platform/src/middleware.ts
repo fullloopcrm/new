@@ -29,7 +29,6 @@ const KILLED_ROUTES = [
   '/full-loop-crm-frequently-asked-questions',
   '/agreement',
   '/waitlist',
-  '/partner-with-full-loop-crm',
   '/focus-partner',
   '/onboarding',
 ]
@@ -54,6 +53,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/full-loop-crm-service-features',
+  '/partner-with-full-loop-crm',
   '/businesses',
   '/full-loop-crm-service-business-industries',
   '/industry(.*)',

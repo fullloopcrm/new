@@ -48,7 +48,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       '/full-loop-crm-frequently-asked-questions',
       '/agreement',
       '/waitlist',
-      '/partner-with-full-loop-crm',
       '/focus-partner',
     )
   }
