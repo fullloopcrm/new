@@ -68,7 +68,7 @@ export async function POST(
     // determines the email half — fall back to the platform default when not set.
     const fromName = settings.campaign_sender_name || tenant.name || 'Full Loop'
     const fromEmail = tenant.email_from
-      || (tenant.resend_domain ? `noreply@${tenant.resend_domain}` : 'noreply@homeservicesbusinesscrm.com')
+      || (tenant.resend_domain ? `noreply@${tenant.resend_domain}` : 'noreply@fullloopcrm.com')
     const fromHeader = `${fromName} <${fromEmail}>`
 
     for (const client of clients) {

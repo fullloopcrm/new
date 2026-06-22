@@ -31,7 +31,7 @@ export async function sendEmail({
   }
 
   return withRetry(async () => {
-    const sender = from || 'Full Loop CRM <noreply@homeservicesbusinesscrm.com>'
+    const sender = from || 'Full Loop CRM <noreply@fullloopcrm.com>'
 
     // Trim recipients defensively — env vars and form input can carry stray
     // whitespace/newlines (e.g. ADMIN_NOTIFICATION_EMAIL="...\n"), which Resend
