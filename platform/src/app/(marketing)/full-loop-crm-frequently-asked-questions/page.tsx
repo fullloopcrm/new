@@ -399,7 +399,7 @@ export default function FAQPage() {
               href="tel:+18445667276"
               className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
             >
-              Call (844) 566-7276
+              Call 844.Loop.CRM
             </a>
           </div>
         </div>

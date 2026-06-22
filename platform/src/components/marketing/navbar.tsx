@@ -87,7 +87,7 @@ export default function Navbar() {
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
               </svg>
-              (844) 566-7276
+              844.Loop.CRM
             </a>
             <span className="text-white/30">|</span>
             <a href="sms:+18445667276" className="flex items-center gap-1.5 hover:text-white transition-colors">
@@ -390,8 +390,8 @@ export default function Navbar() {
                 </Link>
 
                 <div className="mt-6 flex flex-col gap-2 text-sm text-slate-500">
-                  <a href="sms:+18445667276" className="hover:text-green-600 transition-colors">Text Us: (844) 566-7276</a>
-                  <a href="tel:+18445667276" className="hover:text-green-600 transition-colors">Call Us: (844) 566-7276</a>
+                  <a href="sms:+18445667276" className="hover:text-green-600 transition-colors">Text Us: 844.Loop.CRM</a>
+                  <a href="tel:+18445667276" className="hover:text-green-600 transition-colors">Call Us: 844.Loop.CRM</a>
                   <a href="mailto:hi@fullloopcrm.com" className="hover:text-green-600 transition-colors">hi@fullloopcrm.com</a>
                 </div>
               </div>

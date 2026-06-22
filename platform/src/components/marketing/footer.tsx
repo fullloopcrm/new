@@ -131,7 +131,8 @@ export default function Footer() {
               </li>
               <li>
                 <a href="tel:+18445667276" className="transition-colors hover:text-green-400">
-                  (844) 566-7276
+                  <span className="block font-bold tracking-wide">844.Loop.CRM</span>
+                  <span className="block text-xs text-slate-400">(844) 566-7276</span>
                 </a>
               </li>
               <li>
