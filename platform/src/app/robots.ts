@@ -42,14 +42,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   // tenant sites have a live /apply hiring funnel, so blocking it on tenants
   // would hide the cleaner-application page from Google. Only disallow on main.
   if (isMainHost) {
-    disallow.push(
-      '/apply',
-      '/full-loop-crm-pricing',
-      '/full-loop-crm-frequently-asked-questions',
-      '/agreement',
-      '/waitlist',
-      '/focus-partner',
-    )
+    // /apply is tenant-scoped hiring on the main host — keep it out of the index.
+    disallow.push('/apply')
   }
 
   return {

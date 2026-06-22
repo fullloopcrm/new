@@ -1,130 +1,138 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   JsonLd,
   webPageSchema,
+  faqSchema,
   breadcrumbSchema,
-  organizationSchema,
+  localBusinessSchema,
+  softwareApplicationSchema,
 } from "@/lib/schema";
+import { faqs } from "@/lib/siteData";
 
-const URL = "https://homeservicesbusinesscrm.com";
+// Above the fold — static imports (no lazy loading)
+import Hero from "@/components/home/Hero";
+import FocusPartner from "@/components/home/FocusPartner";
+import QuickTips from "@/components/home/QuickTips";
+import Welcome from "@/components/home/Welcome";
+import ResultsTicker from "@/components/home/ResultsTicker";
 
-const breadcrumbs = [{ name: "Home", url: URL }];
+// Below the fold — lazy loaded
+const Testimonials = dynamic(() => import("@/components/home/Testimonials"));
+const TopServices = dynamic(() => import("@/components/home/TopServices"));
+const ServiceDeepDives = dynamic(() => import("@/components/home/ServiceDeepDives"));
+const Process = dynamic(() => import("@/components/home/Process"));
+const BeforeAfter = dynamic(() => import("@/components/home/BeforeAfter"));
+const Industries = dynamic(() => import("@/components/home/Industries"));
+const WhyNYC = dynamic(() => import("@/components/home/WhyNYC"));
+const Competitors = dynamic(() => import("@/components/home/Competitors"));
+const Comparison = dynamic(() => import("@/components/home/Comparison"));
+const SocialProof = dynamic(() => import("@/components/home/SocialProof"));
+const ROICalculator = dynamic(() => import("@/components/home/ROICalculator"));
+const TechStack = dynamic(() => import("@/components/home/TechStack"));
+const Guarantees = dynamic(() => import("@/components/home/Guarantees"));
+const WhatIsDigitalMarketing = dynamic(() => import("@/components/home/WhatIsDigitalMarketing"));
+const FreeResources = dynamic(() => import("@/components/home/FreeResources"));
+const ExpandedFAQ = dynamic(() => import("@/components/home/ExpandedFAQ"));
+const CaseStudies = dynamic(() => import("@/components/home/CaseStudies"));
+const BlogPreview = dynamic(() => import("@/components/home/BlogPreview"));
+const FinalCTA = dynamic(() => import("@/components/home/FinalCTA"));
+const ExitIntent = dynamic(() => import("@/components/home/ExitIntent"));
 
-export const metadata: Metadata = {
-  title: "Full Loop — The platform behind The NYC Maid",
-  description:
-    "An end-to-end operating system for vertical service businesses. Currently powering The NYC Maid. Inquire about the platform.",
-  alternates: { canonical: URL },
-  openGraph: {
-    title: "Full Loop — The platform behind The NYC Maid",
-    description: "An end-to-end operating system for vertical service businesses.",
-    url: URL,
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Full Loop — The platform behind The NYC Maid",
-    description: "An end-to-end operating system for vertical service businesses.",
-  },
-  robots: { index: true, follow: true },
-};
-
-const capabilities = [
-  "AI receptionist that books leads around the clock",
-  "End-to-end booking, dispatch, and field operations",
-  "Automated billing, payments, and tip handling",
-  "GPS-tracked job execution and team accountability",
-  "Multi-channel review capture and reputation",
-  "Programmatic SEO that compounds without ad spend",
-  "Bookkeeping, payroll, and 1099 workflow built in",
-  "Per-vertical sites that scale across cities",
-];
+const breadcrumbs = [{ name: "Home", url: "https://homeservicesbusinesscrm.com" }];
 
 export default function Home() {
   return (
     <>
+      {/* Schema Markup */}
       <JsonLd
         data={webPageSchema(
-          "Full Loop — The platform behind The NYC Maid",
-          "An end-to-end operating system for vertical service businesses.",
-          URL,
-          breadcrumbs,
+          "Full Loop CRM | The All-in-One Home Service CRM Platform",
+          "The first full-cycle CRM for home service businesses. AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting — one platform, zero integrations.",
+          "https://homeservicesbusinesscrm.com",
+          breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={organizationSchema} />
+      <JsonLd data={softwareApplicationSchema()} />
+      <JsonLd data={faqSchema(faqs.homepageAll)} />
+      <JsonLd data={localBusinessSchema("United States", "Country")} />
 
-      {/* Hero */}
-      <section className="bg-slate-900 min-h-[80vh] flex items-center px-6 py-24">
-        <div className="mx-auto max-w-4xl text-center">
-          <p className="font-mono text-xs tracking-[0.3em] uppercase text-teal-400 mb-6">
-            Operating Platform
-          </p>
-          <h1 className="text-4xl md:text-6xl font-extrabold text-white font-heading mb-6 leading-tight">
-            The platform behind{" "}
-            <Link
-              href="/case-study/the-nyc-maid"
-              className="text-teal-400 hover:text-teal-300 underline underline-offset-4 decoration-2"
-            >
-              The NYC Maid
-            </Link>
-            .
-          </h1>
-          <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-12 leading-relaxed">
-            An end-to-end operating system for vertical service businesses.
-            Currently building it out across more cities and trades — under one roof.
-          </p>
-          <Link
-            href="/contact"
-            className="inline-block rounded-md bg-white px-8 py-4 font-mono text-xs uppercase tracking-[0.25em] text-slate-900 transition-colors hover:bg-slate-100"
-          >
-            Inquire about the platform
-          </Link>
-        </div>
-      </section>
+      {/* Sticky bar removed — footer handles CTAs */}
 
-      {/* Capabilities */}
-      <section className="bg-slate-950 px-6 py-24">
-        <div className="mx-auto max-w-4xl">
-          <p className="font-mono text-xs tracking-[0.3em] uppercase text-teal-400 mb-6">
-            What it does
-          </p>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-white font-heading mb-12">
-            Eight functions, one system.
-          </h2>
-          <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-5">
-            {capabilities.map((c) => (
-              <li
-                key={c}
-                className="flex items-start gap-3 text-slate-200 text-base md:text-lg leading-relaxed"
-              >
-                <span className="text-teal-400 mt-1.5 flex-shrink-0" aria-hidden>
-                  ▸
-                </span>
-                <span>{c}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      {/* 1. Hero */}
+      <Hero />
 
-      {/* Posture */}
-      <section className="bg-slate-900 border-t border-slate-800 px-6 py-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-slate-400 text-base md:text-lg leading-relaxed mb-10">
-            We&apos;re not selling seats. The platform is being deployed across
-            our own portfolio of vertical brands, one city and trade at a time.
-            Acquisition, partnership, and press inquiries welcome.
-          </p>
-          <Link
-            href="/contact"
-            className="inline-block rounded-md border border-teal-500 px-8 py-3 font-mono text-xs uppercase tracking-[0.25em] text-teal-400 transition-colors hover:bg-teal-500 hover:text-slate-900"
-          >
-            Inquire
-          </Link>
-        </div>
-      </section>
+      {/* 1a. Focus Partner — The NYC Maid case study (live evidence) */}
+      <FocusPartner />
+
+      {/* 1b. Why we built this */}
+      <QuickTips />
+
+      {/* 2. Welcome / About */}
+      <Welcome />
+
+      {/* 3. Stats bar */}
+      <ResultsTicker />
+
+      {/* 6. Reviews from home service owners */}
+      <Testimonials />
+
+      {/* 7. Seven stages overview */}
+      <TopServices />
+
+      {/* 8. Feature deep dives — 7 stages */}
+      <ServiceDeepDives />
+
+      {/* 9. The Full Loop — 7-step process */}
+      <Process />
+
+      {/* 10. Yinez replaces your front office */}
+      <BeforeAfter />
+
+      {/* 11. 50+ industries */}
+      <Industries />
+
+      {/* 12. Founder story */}
+      <WhyNYC />
+
+      {/* 13. Autonomy — hands-free vs human */}
+      <Competitors />
+
+      {/* 14. Full Loop vs. others comparison */}
+      <Comparison />
+
+      {/* 15. Social proof */}
+      <SocialProof />
+
+      {/* 16. ROI calculator */}
+      <ROICalculator />
+
+      {/* 17. Tech stack */}
+      <TechStack />
+
+      {/* 18. Guarantees */}
+      <Guarantees />
+
+      {/* 19. What is a CRM */}
+      <WhatIsDigitalMarketing />
+
+      {/* 20. Free resources */}
+      <FreeResources />
+
+      {/* 21. FAQ — 25 questions */}
+      <ExpandedFAQ />
+
+      {/* 22. Case studies */}
+      <CaseStudies />
+
+      {/* 23. Blog preview */}
+      <BlogPreview />
+
+      {/* 24. Final CTA */}
+      <FinalCTA />
+
+      {/* 18. Exit intent popup */}
+      <ExitIntent />
     </>
   );
 }

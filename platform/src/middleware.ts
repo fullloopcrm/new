@@ -24,13 +24,9 @@ function isMainHost(hostname: string): boolean {
 // buyer/applicant funnel that no longer exists. Returning 410 (not 404)
 // tells Google to drop them from the index quickly.
 const KILLED_ROUTES = [
+  // /apply is tenant-scoped hiring, not part of the Full Loop buyer funnel —
+  // kept 410 on the main host only. The buyer funnel was restored 2026-06-22.
   '/apply',
-  '/full-loop-crm-pricing',
-  '/full-loop-crm-frequently-asked-questions',
-  '/agreement',
-  '/waitlist',
-  '/focus-partner',
-  '/onboarding',
 ]
 
 function isKilledRoute(pathname: string): boolean {
@@ -54,6 +50,11 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/full-loop-crm-service-features',
   '/partner-with-full-loop-crm',
+  '/full-loop-crm-pricing',
+  '/full-loop-crm-frequently-asked-questions',
+  '/agreement',
+  '/waitlist',
+  '/onboarding(.*)',
   '/businesses',
   '/full-loop-crm-service-business-industries',
   '/industry(.*)',
