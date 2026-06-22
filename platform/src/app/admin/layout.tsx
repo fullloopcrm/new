@@ -27,7 +27,8 @@ const navMain: Section[] = [
     { letter: 'B', label: 'Activate', href: '/admin/sales' },
     { letter: 'C', label: 'Billing', href: '/admin/billing' },
   ]},
-  { num: '03', label: 'Selena AI', href: '/admin/ai', fold: 'ai', subs: [] },
+  { num: '03', label: 'Inbox', href: '/admin/inbox', fold: 'inbox', subs: [] },
+  { num: '04', label: 'Selena AI', href: '/admin/ai', fold: 'ai', subs: [] },
 ]
 
 const navPlatform = [

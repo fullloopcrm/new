@@ -26,6 +26,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true })
     }
 
+    // Inbound email (Resend "Enable Receiving") → store for the admin inbox.
+    if (type === 'email.received') {
+      const d = data as unknown as Record<string, unknown>
+      const join = (v: unknown) =>
+        Array.isArray(v) ? v.map(String).join(', ') : typeof v === 'string' ? v : null
+      await supabaseAdmin.from('inbound_emails').insert({
+        resend_email_id: (d.email_id as string) || (d.id as string) || null,
+        from_address: join(d.from),
+        to_address: join(d.to),
+        subject: (d.subject as string) || null,
+        text_body: (d.text as string) || null,
+        html_body: (d.html as string) || null,
+        headers: (d.headers as object) ?? null,
+        raw: d,
+      })
+      return NextResponse.json({ ok: true })
+    }
+
     const emailId = data.email_id
     if (!emailId) {
       return NextResponse.json({ ok: true })
