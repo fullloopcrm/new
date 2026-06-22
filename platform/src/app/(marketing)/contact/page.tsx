@@ -4,7 +4,7 @@ import {
   webPageSchema,
   breadcrumbSchema,
 } from "@/lib/schema";
-import { InquiryForm } from "@/components/InquiryForm";
+import PartnerApplyForm from "@/components/PartnerApplyForm";
 
 const URL = "https://homeservicesbusinesscrm.com/contact";
 
@@ -52,15 +52,15 @@ export default function ContactPage() {
               Inquire
             </p>
             <h1 className="text-3xl md:text-4xl font-extrabold text-white font-heading mb-4">
-              One channel, by design.
+              Let&apos;s talk territory.
             </h1>
             <p className="text-slate-400 text-sm md:text-base max-w-md mx-auto">
-              Acquisition, partnership, or press — fill out the form. We respond to serious inquiries within a few business days.
+              Tell us about your business and your market. We check territory availability and respond within 24&ndash;48 hours.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 md:p-8">
-            <InquiryForm />
+          <div className="rounded-2xl border border-slate-800 bg-white p-6 md:p-8">
+            <PartnerApplyForm />
           </div>
         </div>
       </section>

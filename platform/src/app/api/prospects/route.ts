@@ -86,6 +86,28 @@ export async function POST(request: Request) {
       .single()
     if (error) throw error
 
+    // Fold qualify submissions into the single lead bucket (partner_requests)
+    // so they surface in the Leads pipeline. Best-effort — never block intake.
+    try {
+      await supabaseAdmin.from('partner_requests').insert({
+        business_name: cap(body.business_name) || 'Unknown',
+        contact_name: cap(body.owner_name) || 'Unknown',
+        email: cap(body.owner_email) || '',
+        phone: cap(body.owner_phone) || '',
+        service_category: cap(body.trade) || 'Other',
+        city: cap(body.primary_city) || 'N/A',
+        state: cap(body.primary_state) || 'NA',
+        years_in_business: String(body.years_in_business ?? 'N/A'),
+        team_size: String(body.team_size_wtwo ?? 'N/A'),
+        monthly_revenue: cap(body.annual_revenue_bracket) || 'N/A',
+        referral_source: 'Qualify form',
+        pitch: cap(body.top_pain_point) || 'Submitted via /qualify',
+        status: 'new',
+      })
+    } catch (foldErr) {
+      console.error('[prospects] fold to partner_requests failed (non-fatal):', foldErr)
+    }
+
     // Alert platform admin so new leads don't sit unreviewed. Best-effort:
     // any failure here must NOT surface to the public caller.
     try {

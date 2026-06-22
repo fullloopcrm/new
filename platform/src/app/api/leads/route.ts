@@ -32,6 +32,28 @@ export async function POST(request: Request) {
     console.error('Lead insert error:', error.message)
   }
 
+  // Fold onboarding leads into the single lead bucket (partner_requests) so
+  // they surface in the Leads pipeline. Best-effort — never block the request.
+  try {
+    await supabaseAdmin.from('partner_requests').insert({
+      business_name,
+      contact_name: name,
+      email: email.toLowerCase(),
+      phone: phone || '',
+      service_category: industry || 'Other',
+      city: 'N/A',
+      state: 'NA',
+      years_in_business: 'N/A',
+      team_size: 'N/A',
+      monthly_revenue: 'N/A',
+      referral_source: 'Onboarding',
+      pitch: message || 'Submitted via onboarding lead form',
+      status: 'new',
+    })
+  } catch (foldErr) {
+    console.error('[leads] fold to partner_requests failed (non-fatal):', foldErr)
+  }
+
   // Notify admin
   try {
     await sendEmail({
