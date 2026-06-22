@@ -27,10 +27,10 @@ export default function StickyBar() {
 
         <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-end">
           <a
-            href="tel:+12122029220"
+            href="tel:+18445667276"
             className="text-[#3A3A3A] hover:text-slate-900 text-sm sm:text-base font-medium transition-colors"
           >
-            (212) 202-9220
+            (844) 566-7276
           </a>
           <Link
             href="/contact"

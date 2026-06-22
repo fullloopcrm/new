@@ -119,7 +119,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "How do I apply to become a partner?",
-    answer: <span>Text us at (212) 202-9220, call us, or email hi@fullloopcrm.com. Tell us your trade and city. We&apos;ll check territory availability. Or <L href="/contact">submit a partnership request</L> online.</span>,
+    answer: <span>Text us at (844) 566-7276, call us, or email hi@fullloopcrm.com. Tell us your trade and city. We&apos;ll check territory availability. Or <L href="/contact">submit a partnership request</L> online.</span>,
   },
 ];
 
@@ -227,10 +227,10 @@ export default function ExpandedFAQ() {
               Apply for a Partnership
             </Link>
             <a
-              href="tel:+12122029220"
+              href="tel:+18445667276"
               className="inline-block px-8 py-4 text-base font-bold text-[#1F4D2C] rounded-lg bg-white border-2 border-[#1F4D2C] hover:bg-[#F4F4F1] transition-colors shadow-lg font-cta"
             >
-              Call (212) 202-9220
+              Call 844.Loop.CRM
             </a>
           </div>
         </motion.div>

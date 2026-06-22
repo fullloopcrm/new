@@ -36,13 +36,13 @@ export default function FinalCTA() {
               Check My Territory
             </Link>
             <a
-              href="tel:+12122029220"
+              href="tel:+18445667276"
               className="inline-block px-10 py-5 text-lg font-bold text-white rounded-xl bg-[#1F4D2C] hover:bg-teal-800 border border-white/20 transition-colors shadow-lg font-cta w-full sm:w-auto"
             >
-              Call (212) 202-9220
+              Call 844.Loop.CRM
             </a>
             <a
-              href="sms:+12122029220"
+              href="sms:+18445667276"
               className="inline-block px-10 py-5 text-lg font-bold text-white rounded-xl bg-[#1F4D2C] hover:bg-teal-800 border border-white/20 transition-colors shadow-lg font-cta w-full sm:w-auto"
             >
               Text Us
