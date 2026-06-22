@@ -96,6 +96,19 @@ export default function AdminLeadsPage() {
     await patchLead({ id: selected.id, status: stage, admin_notes: notes })
   }
 
+  async function deleteLead() {
+    if (!selected) return
+    if (!confirm(`Delete ${selected.business_name}? This permanently removes the lead and cannot be undone.`)) return
+    setSaving(true)
+    const res = await fetch(`/api/admin/requests?id=${selected.id}`, { method: 'DELETE' })
+    setSaving(false)
+    if (res.ok) {
+      setSelectedId(null)
+      setNotes('')
+      await fetchLeads()
+    }
+  }
+
   const filterButtons = ['all', ...LEAD_STAGES]
 
   return (
@@ -272,6 +285,17 @@ export default function AdminLeadsPage() {
                   </button>
                   {savedFlash && <span className="text-xs text-green-600">Saved</span>}
                 </div>
+              </div>
+
+              {/* Danger zone */}
+              <div className="mt-5 pt-4 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={deleteLead}
+                  disabled={saving}
+                  className="text-xs font-medium text-red-600 hover:text-white hover:bg-red-600 border border-red-200 hover:border-red-600 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Delete lead
+                </button>
               </div>
             </div>
           )}

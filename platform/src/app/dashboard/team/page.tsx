@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import './team.css'
+import TeamCoverageMap from '@/components/TeamCoverageMap'
+import { type ServiceArea, DEFAULT_SERVICE_AREA } from '@/lib/service-area'
 
 type Tab = 'team' | 'applications' | 'ops_admin' | 'performance' | 'payroll'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
@@ -79,6 +81,7 @@ export default function TeamPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [appsLoading, setAppsLoading] = useState(true)
+  const [serviceArea, setServiceArea] = useState<ServiceArea>(DEFAULT_SERVICE_AREA)
 
   useEffect(() => {
     setLoading(true)
@@ -90,6 +93,10 @@ export default function TeamPage() {
       setBookings((b?.bookings || []) as Booking[])
       setLoading(false)
     })
+    fetch('/api/service-area')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.serviceArea) setServiceArea(d.serviceArea as ServiceArea) })
+      .catch(() => {})
     loadApplications()
   }, [])
 
@@ -346,6 +353,8 @@ export default function TeamPage() {
 
       {tab === 'team' && (
         <>
+          <TeamCoverageMap serviceArea={serviceArea} />
+
           <div className="tm-section-head">
             <h2 className="tm-section-title">Team<em>.</em></h2>
             <span className="tm-section-meta">{enriched.length} {enriched.length === 1 ? 'member' : 'members'}</span>
