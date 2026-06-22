@@ -6,8 +6,8 @@ interface PartnerRequest {
   id: string
   business_name: string
   contact_name: string
-  contact_email: string
-  contact_phone: string
+  email: string
+  phone: string
   service_category: string
   city: string
   state: string
@@ -133,8 +133,8 @@ export default function RequestsPage() {
               {expanded === r.id && (
                 <div className="bg-slate-50 rounded-lg p-4 mb-2 mx-1">
                   <div className="grid grid-cols-2 gap-3 text-sm mb-3">
-                    <div><span className="text-slate-400">Email:</span> <span className="text-slate-700">{r.contact_email}</span></div>
-                    <div><span className="text-slate-400">Phone:</span> <span className="text-slate-700">{r.contact_phone}</span></div>
+                    <div><span className="text-slate-400">Email:</span> <span className="text-slate-700">{r.email}</span></div>
+                    <div><span className="text-slate-400">Phone:</span> <span className="text-slate-700">{r.phone}</span></div>
                     <div><span className="text-slate-400">Category:</span> <span className="text-slate-700 capitalize">{r.service_category?.replace(/_/g, ' ')}</span></div>
                     <div><span className="text-slate-400">Location:</span> <span className="text-slate-700">{r.city}, {r.state}</span></div>
                     {r.reviewed_at && <div><span className="text-slate-400">Reviewed:</span> <span className="text-slate-700">{new Date(r.reviewed_at).toLocaleString()}</span></div>}

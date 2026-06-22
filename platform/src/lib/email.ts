@@ -33,9 +33,16 @@ export async function sendEmail({
   return withRetry(async () => {
     const sender = from || 'Full Loop CRM <noreply@homeservicesbusinesscrm.com>'
 
+    // Trim recipients defensively — env vars and form input can carry stray
+    // whitespace/newlines (e.g. ADMIN_NOTIFICATION_EMAIL="...\n"), which Resend
+    // rejects as an invalid address and silently breaks notifications.
+    const recipients = (Array.isArray(to) ? to : [to])
+      .map((addr) => addr.trim())
+      .filter(Boolean)
+
     const { data, error } = await client.emails.send({
       from: sender,
-      to,
+      to: recipients,
       subject,
       html,
     })

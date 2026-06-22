@@ -128,6 +128,31 @@ export async function POST(req: NextRequest) {
     console.error('inquiry persist threw:', err)
   }
 
+  // Also surface every inquiry in the single admin screen (/admin/requests),
+  // which reads partner_requests. Map the contact-form shape onto the
+  // partner_requests columns; role -> service_category, budget -> revenue.
+  // Best-effort: a failure here must not break the user-facing form.
+  try {
+    const { error: prErr } = await supabaseAdmin.from('partner_requests').insert({
+      business_name: company,
+      contact_name: name,
+      email,
+      phone,
+      service_category: role || 'Inquiry',
+      city: 'N/A',
+      state: 'NA',
+      years_in_business: 'N/A',
+      team_size: 'N/A',
+      monthly_revenue: budget || 'N/A',
+      referral_source: 'Contact form',
+      pitch: message,
+      status: 'pending',
+    })
+    if (prErr) console.error('inquiry -> partner_requests persist failed:', prErr.message)
+  } catch (err) {
+    console.error('inquiry -> partner_requests persist threw:', err)
+  }
+
   const adminEmail = process.env.ADMIN_EMAIL || ''
   const sends: Promise<unknown>[] = []
   if (adminEmail) {

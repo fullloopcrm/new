@@ -6,6 +6,7 @@ import {
   breadcrumbSchema,
   localBusinessSchema,
 } from "@/lib/schema";
+import PartnerApplyForm from "@/components/PartnerApplyForm";
 
 const breadcrumbs = [
   { name: "Home", url: "https://homeservicesbusinesscrm.com" },
@@ -73,7 +74,7 @@ export default function PartnersPage() {
             $1,000 / user / month &middot; flat &middot; every feature included
           </p>
           <Link
-            href="/contact"
+            href="#apply"
             className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
           >
             Check Territory Availability
@@ -293,35 +294,28 @@ export default function PartnersPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="bg-slate-900 py-20 px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-bold text-white font-heading mb-4">
-            Lock In Your Territory Today
-          </h2>
-          <p className="text-slate-300 text-lg mb-10">
-            Submit a partnership request or reach out directly. We respond
-            within 24 hours.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/contact"
-              className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
-            >
-              Inquire
-            </Link>
+      {/* Application Form */}
+      <section id="apply" className="bg-slate-900 py-20 px-6 scroll-mt-20">
+        <div className="mx-auto max-w-2xl">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-white font-heading mb-4">
+              Lock In Your Territory Today
+            </h2>
+            <p className="text-slate-300 text-lg">
+              Submit your partnership request below. We check territory
+              availability and respond within 24&ndash;48 hours.
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-6 md:p-8 shadow-xl">
+            <PartnerApplyForm />
+          </div>
+
+          <p className="text-center text-slate-400 text-sm mt-8">
+            Prefer to talk? Call or text{" "}
             <a
               href="tel:+12122029220"
-              className="inline-block border-2 border-slate-500 hover:border-slate-300 text-slate-300 hover:text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
-            >
-              Call (212) 202-9220
-            </a>
-          </div>
-          <p className="text-slate-400 text-sm mt-6">
-            Or text us at{" "}
-            <a
-              href="sms:+12122029220"
-              className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200"
+              className="text-teal-400 hover:text-teal-300"
             >
               (212) 202-9220
             </a>
