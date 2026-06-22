@@ -182,7 +182,7 @@ export default function Hero() {
             Check My Territory →
           </Link>
           <a
-            href="tel:+12122029220"
+            href="tel:+18445667276"
             style={{
               fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
               fontSize: "13px",
@@ -197,7 +197,7 @@ export default function Hero() {
             }}
             className="inline-flex items-center justify-center font-cta"
           >
-            Call (212) 202-9220
+            Call 844.Loop.CRM
           </a>
           <span
             style={{
