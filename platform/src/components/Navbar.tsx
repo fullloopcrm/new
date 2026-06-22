@@ -10,15 +10,18 @@ import {
 } from "framer-motion";
 
 // 2026-05-03 teaser pivot: nav stripped down to public-safe pages only.
-// Pricing / Apply / Partners / Waitlist / FAQ are 410 Gone and removed.
+// Full funnel restored 2026-06-22 (un-410'd): Pricing / Partners / FAQ back in nav.
 const navLinks = [
   { label: "Capabilities", href: "/full-loop-crm-service-features" },
   { label: "Industries", href: "/full-loop-crm-service-business-industries" },
+  { label: "Pricing", href: "/full-loop-crm-pricing" },
+  { label: "Partners", href: "/partner-with-full-loop-crm" },
   { label: "Case Study", href: "/case-study/the-nyc-maid" },
 ];
 
 const moreLinks = [
   { label: "About", href: "/about-full-loop-crm" },
+  { label: "FAQ", href: "/full-loop-crm-frequently-asked-questions" },
   { label: "Notes", href: "/full-loop-crm-101-educational-tips" },
 ];
 
