@@ -109,8 +109,8 @@ export default function AccessibilityPage() {
           </p>
           <ul>
             <li>Email: <a href="mailto:hi@fullloopcrm.com">hi@fullloopcrm.com</a></li>
-            <li>Phone: <a href="tel:+12122029220">(212) 202-9220</a></li>
-            <li>Text: <a href="sms:+12122029220">(212) 202-9220</a></li>
+            <li>Phone: <a href="tel:+18445667276">(844) 566-7276</a></li>
+            <li>Text: <a href="sms:+18445667276">(844) 566-7276</a></li>
           </ul>
           <p>
             We aim to respond to accessibility feedback within 2 business

@@ -207,8 +207,8 @@ export default function FeedbackPage() {
             </div>
             <div>
               <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-4">Contact</h4>
-              <a href="sms:+12122029220" className="block text-sm py-1 hover:text-white transition-colors">Text Us: (212) 202-9220</a>
-              <a href="tel:+12122029220" className="block text-sm py-1 hover:text-white transition-colors">Call Us: (212) 202-9220</a>
+              <a href="sms:+18445667276" className="block text-sm py-1 hover:text-white transition-colors">Text Us: (844) 566-7276</a>
+              <a href="tel:+18445667276" className="block text-sm py-1 hover:text-white transition-colors">Call Us: (844) 566-7276</a>
               <a href="mailto:hi@fullloopcrm.com" className="block text-sm py-1 hover:text-white transition-colors">hi@fullloopcrm.com</a>
               <a href="https://maps.google.com/?q=150+W+47th+St+New+York+NY+10036" target="_blank" rel="noopener noreferrer" className="block text-sm py-1 mt-2 leading-relaxed hover:text-white transition-colors">150 W 47th St<br />New York, NY 10036</a>
             </div>

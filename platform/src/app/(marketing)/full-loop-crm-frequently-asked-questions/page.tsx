@@ -370,10 +370,10 @@ export default function FAQPage() {
           </p>
           <p className="text-slate-700 font-mono text-lg mb-8">
             <a
-              href="tel:+12122029220"
+              href="tel:+18445667276"
               className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
             >
-              (212) 202-9220
+              (844) 566-7276
             </a>
           </p>
         </div>
@@ -396,10 +396,10 @@ export default function FAQPage() {
               Inquire
             </Link>
             <a
-              href="tel:+12122029220"
+              href="tel:+18445667276"
               className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
             >
-              Call (212) 202-9220
+              Call (844) 566-7276
             </a>
           </div>
         </div>

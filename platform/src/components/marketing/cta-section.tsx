@@ -17,8 +17,8 @@ export default function CtaSection({
         <Link href="/contact" className="btn-white" style={{fontSize: '1.15rem', padding: '1rem 3rem'}}>Inquire</Link>
       </div>
       <div className="cta-buttons" style={{marginTop: '1rem', gap: '1rem'}}>
-        <a href="sms:+12122029220" className="btn-outline">Text Us</a>
-        <a href="tel:+12122029220" className="btn-outline">Call Us</a>
+        <a href="sms:+18445667276" className="btn-outline">Text Us</a>
+        <a href="tel:+18445667276" className="btn-outline">Call Us</a>
         <a href="mailto:hi@fullloopcrm.com" className="btn-outline">Email Us</a>
       </div>
     </section>

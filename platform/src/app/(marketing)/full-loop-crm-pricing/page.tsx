@@ -707,19 +707,19 @@ export default function PricingPage() {
               Inquire
             </Link>
             <a
-              href="tel:+12122029220"
+              href="tel:+18445667276"
               className="inline-block rounded-lg border border-slate-600 px-8 py-4 text-lg font-cta font-semibold text-white hover:border-slate-400 transition-colors"
             >
-              Call 212-202-9220
+              Call 844-566-7276
             </a>
           </div>
           <p className="mt-6 text-sm text-slate-400">
             Or text us anytime at{" "}
             <a
-              href="sms:+12122029220"
+              href="sms:+18445667276"
               className="text-teal-400 underline underline-offset-2 hover:text-teal-300"
             >
-              212-202-9220
+              844-566-7276
             </a>
           </p>
           <nav className="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-400">

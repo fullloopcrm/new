@@ -158,7 +158,7 @@ export default function PrivacyPolicyPage() {
           </p>
           <ul>
             <li>Email: <a href="mailto:hi@fullloopcrm.com">hi@fullloopcrm.com</a></li>
-            <li>Phone: <a href="tel:+12122029220">(212) 202-9220</a></li>
+            <li>Phone: <a href="tel:+18445667276">(844) 566-7276</a></li>
             <li>Address: 150 W 47th St, New York, NY 10036</li>
           </ul>
         </div>

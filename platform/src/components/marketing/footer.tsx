@@ -130,12 +130,12 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="tel:+12122029220" className="transition-colors hover:text-green-400">
-                  (212) 202-9220
+                <a href="tel:+18445667276" className="transition-colors hover:text-green-400">
+                  (844) 566-7276
                 </a>
               </li>
               <li>
-                <a href="sms:+12122029220" className="transition-colors hover:text-green-400">
+                <a href="sms:+18445667276" className="transition-colors hover:text-green-400">
                   Text Us
                 </a>
               </li>
@@ -201,7 +201,7 @@ export default function Footer() {
           </div>
           <div className="flex items-center gap-4">
             <a
-              href="tel:+12122029220"
+              href="tel:+18445667276"
               className="text-white text-sm font-medium underline underline-offset-2 hover:text-teal-100 font-cta"
             >
               Call Now

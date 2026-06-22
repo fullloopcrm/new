@@ -32,14 +32,14 @@ export const organizationSchema = {
   contactPoint: [
     {
       "@type": "ContactPoint",
-      telephone: "+1-212-202-9220",
+      telephone: "+1-844-566-7276",
       contactType: "sales",
       areaServed: "US",
       availableLanguage: ["English", "Spanish"],
     },
     {
       "@type": "ContactPoint",
-      telephone: "+1-212-202-9220",
+      telephone: "+1-844-566-7276",
       contactType: "customer support",
       areaServed: "US",
       availableLanguage: ["English", "Spanish"],

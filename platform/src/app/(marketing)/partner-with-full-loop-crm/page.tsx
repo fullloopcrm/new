@@ -314,10 +314,10 @@ export default function PartnersPage() {
           <p className="text-center text-slate-400 text-sm mt-8">
             Prefer to talk? Call or text{" "}
             <a
-              href="tel:+12122029220"
+              href="tel:+18445667276"
               className="text-teal-400 hover:text-teal-300"
             >
-              (212) 202-9220
+              (844) 566-7276
             </a>
           </p>
         </div>
