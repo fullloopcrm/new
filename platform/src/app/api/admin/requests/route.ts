@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
+import { LEAD_STAGES, normalizeStage, isLeadStage } from '@/lib/lead-stages'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -8,57 +9,41 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
-  const search = searchParams.get('search')
+  const search = (searchParams.get('search') || '').trim().toLowerCase()
 
-  let query = supabaseAdmin
+  // Fetch all rows, then normalize legacy statuses to pipeline stages and
+  // filter/search in memory. The dataset is platform-level (small), and
+  // legacy values (pending/approved/rejected) can't be matched by a raw
+  // .eq() against canonical stage names.
+  const { data, error } = await supabaseAdmin
     .from('partner_requests')
     .select('*')
     .order('created_at', { ascending: false })
-
-  if (status && status !== 'all') {
-    query = query.eq('status', status)
-  }
-
-  if (search) {
-    query = query.or(
-      `business_name.ilike.%${search}%,city.ilike.%${search}%,service_category.ilike.%${search}%`
-    )
-  }
-
-  const { data, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Compute counts
-  const all = data || []
-  const counts = {
-    total: all.length,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
+  const normalized = (data || []).map((r) => ({ ...r, status: normalizeStage(r.status) }))
+
+  // Counts by canonical stage (computed over the full set, before filtering).
+  const counts: Record<string, number> = { total: normalized.length }
+  for (const stage of LEAD_STAGES) {
+    counts[stage] = normalized.filter((r) => r.status === stage).length
   }
 
-  // If we filtered by status, we need separate count queries
+  let requests = normalized
   if (status && status !== 'all') {
-    const { data: allData } = await supabaseAdmin
-      .from('partner_requests')
-      .select('status')
-
-    if (allData) {
-      counts.total = allData.length
-      counts.pending = allData.filter((r) => r.status === 'pending').length
-      counts.approved = allData.filter((r) => r.status === 'approved').length
-      counts.rejected = allData.filter((r) => r.status === 'rejected').length
-    }
-  } else {
-    counts.pending = all.filter((r) => r.status === 'pending').length
-    counts.approved = all.filter((r) => r.status === 'approved').length
-    counts.rejected = all.filter((r) => r.status === 'rejected').length
+    requests = requests.filter((r) => r.status === status)
+  }
+  if (search) {
+    requests = requests.filter((r) =>
+      [r.business_name, r.contact_name, r.email, r.city, r.service_category]
+        .some((f) => typeof f === 'string' && f.toLowerCase().includes(search))
+    )
   }
 
-  return NextResponse.json({ requests: data, counts })
+  return NextResponse.json({ requests, counts })
 }
 
 export async function PATCH(request: NextRequest) {
@@ -69,18 +54,28 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const { id, status, admin_notes } = body
 
-    if (!id || !status) {
-      return NextResponse.json({ error: 'id and status are required' }, { status: 400 })
+    if (!id) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 })
     }
 
-    if (!['approved', 'rejected'].includes(status)) {
-      return NextResponse.json({ error: 'Status must be approved or rejected' }, { status: 400 })
+    if (status === undefined && admin_notes === undefined) {
+      return NextResponse.json({ error: 'Provide a status or admin_notes to update' }, { status: 400 })
     }
 
-    const updateData: Record<string, unknown> = {
-      status,
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: 'admin',
+    const updateData: Record<string, unknown> = {}
+
+    // Status is optional — notes can be saved on their own. Only stamp the
+    // review fields once the lead moves past the initial "new" stage.
+    if (status !== undefined) {
+      if (!isLeadStage(status)) {
+        return NextResponse.json(
+          { error: `Status must be one of: ${LEAD_STAGES.join(', ')}` },
+          { status: 400 }
+        )
+      }
+      updateData.status = status
+      updateData.reviewed_at = status === 'new' ? null : new Date().toISOString()
+      updateData.reviewed_by = status === 'new' ? null : 'admin'
     }
 
     if (admin_notes !== undefined) {

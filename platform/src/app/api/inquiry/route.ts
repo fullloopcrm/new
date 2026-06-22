@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       monthly_revenue: budget || 'N/A',
       referral_source: 'Contact form',
       pitch: message,
-      status: 'pending',
+      status: 'new',
     })
     if (prErr) console.error('inquiry -> partner_requests persist failed:', prErr.message)
   } catch (err) {

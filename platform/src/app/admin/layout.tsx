@@ -22,32 +22,12 @@ const navMain: Section[] = [
   { num: '01', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [
     { letter: 'A', label: 'Businesses', href: '/admin/businesses' },
   ]},
-  { num: '02', label: 'Sales', href: '/admin/sales', fold: 'sales', subs: [
+  { num: '02', label: 'Sales', href: '/admin/leads', fold: 'sales', subs: [
     { letter: 'A', label: 'Leads', href: '/admin/leads' },
     { letter: 'B', label: 'Activate', href: '/admin/sales' },
     { letter: 'C', label: 'Billing', href: '/admin/billing' },
   ]},
-  { num: '03', label: 'Live Dashboards', href: '/admin/bookings', fold: 'dash', subs: [
-    { letter: 'A', label: 'Bookings', href: '/admin/bookings' },
-    { letter: 'B', label: 'Calendar', href: '/admin/calendar' },
-    { letter: 'C', label: 'Clients', href: '/admin/clients' },
-    { letter: 'D', label: 'Finance', href: '/admin/finance' },
-    { letter: 'E', label: 'Team', href: '/admin/team' },
-    { letter: 'F', label: 'Analytics', href: '/admin/analytics' },
-    { letter: 'G', label: 'Notifications', href: '/admin/notifications' },
-    { letter: 'H', label: 'Feedback', href: '/admin/feedback' },
-  ]},
-  { num: '04', label: 'Marketing', href: '/admin/marketing', fold: 'marketing', subs: [
-    { letter: 'A', label: 'Marketing', href: '/admin/marketing' },
-    { letter: 'B', label: 'Websites', href: '/admin/websites' },
-    { letter: 'C', label: 'Referrals', href: '/admin/referrals' },
-    { letter: 'D', label: 'Google Profile', href: '/admin/google-profile' },
-    { letter: 'E', label: 'Social', href: '/admin/social' },
-    { letter: 'F', label: 'Email', href: '/admin/email' },
-    { letter: 'G', label: 'SMS', href: '/admin/sms' },
-    { letter: 'H', label: 'ComHub', href: '/admin/comhub' },
-  ]},
-  { num: '05', label: 'Selena AI', href: '/admin/ai', fold: 'ai', subs: [] },
+  { num: '03', label: 'Selena AI', href: '/admin/ai', fold: 'ai', subs: [] },
 ]
 
 const navPlatform = [

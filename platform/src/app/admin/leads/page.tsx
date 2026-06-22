@@ -1,332 +1,303 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import {
+  LEAD_STAGES,
+  PIPELINE_STAGES,
+  STAGE_LABELS,
+  type LeadStage,
+} from '@/lib/lead-stages'
 
-interface FeedItem {
+interface Lead {
   id: string
-  tenant_id: string
-  device: string
-  referrer: string | null
-  page_url: string
-  scroll_depth: number
-  time_on_page: number
-  active_time: number
-  cta_clicked: boolean
-  cta_type: string | null
-  utm_source: string | null
-  utm_medium: string | null
-  utm_campaign: string | null
+  business_name: string
+  contact_name: string
+  email: string
+  phone: string
+  service_category: string
+  city: string
+  state: string
+  monthly_revenue: string | null
+  referral_source: string | null
+  pitch: string | null
+  status: LeadStage
+  admin_notes: string | null
   created_at: string
+  reviewed_at: string | null
 }
 
-interface CtaDetail {
-  session_id: string
-  action: string
-  referrer: string | null
-  device: string
-  tenant_id: string
-  created_at: string
-}
+type Counts = Record<string, number>
 
-interface TenantRow {
-  id: string
-  name: string
-  visits: number
-  ctas: number
-}
-
-type DrilldownType =
-  | 'today' | 'week' | 'month' | 'year' | 'all'
-  | 'texts' | 'calls' | 'bookings'
-  | 'totalCtas' | 'conversionPct'
-
-const DASH_DEFAULT = {
-  today: 0, thisWeek: 0, thisMonth: 0, thisYear: 0, allTime: 0,
-  conversionPct: 0, totalTexts: 0, totalCalls: 0, totalBooks: 0, totalCtas: 0,
+const STAGE_BADGE: Record<LeadStage, string> = {
+  new: 'bg-blue-50 text-blue-700 border-blue-200',
+  contacted: 'bg-amber-50 text-amber-700 border-amber-200',
+  qualified: 'bg-violet-50 text-violet-700 border-violet-200',
+  sold: 'bg-teal-50 text-teal-700 border-teal-200',
+  onboarded: 'bg-green-50 text-green-700 border-green-200',
+  lost: 'bg-slate-100 text-slate-500 border-slate-200',
 }
 
 export default function AdminLeadsPage() {
-  const [dashboard, setDashboard] = useState(DASH_DEFAULT)
-  const [liveFeed, setLiveFeed] = useState<FeedItem[]>([])
-  const [ctaDetails, setCtaDetails] = useState<CtaDetail[]>([])
-  const [tenants, setTenants] = useState<TenantRow[]>([])
-  const [drilldown, setDrilldown] = useState<DrilldownType | null>(null)
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [counts, setCounts] = useState<Counts>({ total: 0 })
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [savedFlash, setSavedFlash] = useState(false)
 
-  useEffect(() => {
-    fetch('/api/admin/leads')
-      .then(r => r.json())
-      .then(d => {
-        setDashboard(d.dashboard || DASH_DEFAULT)
-        setLiveFeed(d.liveFeed || [])
-        setCtaDetails(d.ctaDetails || [])
-        setTenants(d.tenants || [])
-      })
-      .finally(() => setLoading(false))
-  }, [])
+  const fetchLeads = useCallback(async () => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (filter !== 'all') params.set('status', filter)
+    if (search) params.set('search', search)
+    const res = await fetch(`/api/admin/requests?${params}`)
+    if (res.ok) {
+      const data = await res.json()
+      setLeads(data.requests || [])
+      setCounts(data.counts || { total: 0 })
+    }
+    setLoading(false)
+  }, [filter, search])
 
-  const getDrilldownData = (): { label: string; kind: 'visitors' | 'cta'; data: any[] } | null => {
-    if (!drilldown) return null
+  useEffect(() => { fetchLeads() }, [fetchLeads])
 
-    const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-    const dayOfWeek = now.getDay() || 7
-    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek + 1).getTime()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-    const startOfYear = new Date(now.getFullYear(), 0, 1).getTime()
+  const selected = leads.find(l => l.id === selectedId) || null
 
-    switch (drilldown) {
-      case 'today':
-        return { label: 'Today', kind: 'visitors', data: liveFeed.filter(e => new Date(e.created_at).getTime() >= startOfToday) }
-      case 'week':
-        return { label: 'This Week', kind: 'visitors', data: liveFeed.filter(e => new Date(e.created_at).getTime() >= startOfWeek) }
-      case 'month':
-        return { label: 'This Month', kind: 'visitors', data: liveFeed.filter(e => new Date(e.created_at).getTime() >= startOfMonth) }
-      case 'year':
-        return { label: 'This Year', kind: 'visitors', data: liveFeed.filter(e => new Date(e.created_at).getTime() >= startOfYear) }
-      case 'all':
-        return { label: 'All Time', kind: 'visitors', data: liveFeed }
-      case 'texts':
-        return { label: 'Texts', kind: 'cta', data: ctaDetails.filter(c => c.action === 'text') }
-      case 'calls':
-        return { label: 'Calls', kind: 'cta', data: ctaDetails.filter(c => c.action === 'call') }
-      case 'bookings':
-        return { label: 'Bookings', kind: 'cta', data: ctaDetails.filter(c => c.action === 'book') }
-      case 'totalCtas':
-        return { label: 'Total CTAs', kind: 'cta', data: ctaDetails }
-      case 'conversionPct':
-        return { label: 'Conversion %', kind: 'cta', data: ctaDetails }
-      default:
-        return null
+  function selectLead(lead: Lead) {
+    setSelectedId(lead.id)
+    setNotes(lead.admin_notes || '')
+    setSavedFlash(false)
+  }
+
+  async function patchLead(body: Record<string, unknown>) {
+    setSaving(true)
+    const res = await fetch('/api/admin/requests', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    setSaving(false)
+    if (res.ok) {
+      setSavedFlash(true)
+      await fetchLeads()
     }
   }
 
-  if (loading) return <div className="text-center py-12 text-slate-500">Loading...</div>
+  async function saveNotes() {
+    if (!selected) return
+    await patchLead({ id: selected.id, admin_notes: notes })
+  }
 
-  const v = (n: number) => n > 0 ? n : '—'
-  const drill = getDrilldownData()
+  async function setStage(stage: LeadStage) {
+    if (!selected) return
+    await patchLead({ id: selected.id, status: stage, admin_notes: notes })
+  }
 
-  const row1Cards: { label: string; value: number; type: DrilldownType }[] = [
-    { label: 'Today', value: dashboard.today, type: 'today' },
-    { label: 'This Week', value: dashboard.thisWeek, type: 'week' },
-    { label: 'This Month', value: dashboard.thisMonth, type: 'month' },
-    { label: 'This Year', value: dashboard.thisYear, type: 'year' },
-    { label: 'All Time', value: dashboard.allTime, type: 'all' },
-  ]
-
-  const row2Cards: { label: string; value: string | number; type: DrilldownType }[] = [
-    { label: 'Conversion %', value: `${dashboard.conversionPct}%`, type: 'conversionPct' },
-    { label: 'Texts', value: dashboard.totalTexts, type: 'texts' },
-    { label: 'Calls', value: dashboard.totalCalls, type: 'calls' },
-    { label: 'Bookings', value: dashboard.totalBooks, type: 'bookings' },
-    { label: 'Total CTAs', value: dashboard.totalCtas, type: 'totalCtas' },
-  ]
+  const filterButtons = ['all', ...LEAD_STAGES]
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-slate-900 font-heading text-2xl font-bold">Leads</h1>
-        <p className="text-sm text-slate-500">Website visitor tracking across all businesses</p>
+      <div className="mb-5">
+        <h1 className="text-2xl font-heading font-bold text-slate-900">Leads</h1>
+        <p className="text-sm text-slate-500">Partner &amp; client pipeline — every inbound request, contact to onboarded</p>
       </div>
 
-      {/* Row 1 — Visitors */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-        {row1Cards.map(s => (
+      {/* Pipeline stat cards (click to filter) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
+        <StatCard label="Total" value={counts.total || 0} active={filter === 'all'} onClick={() => setFilter('all')} color="border-l-slate-400" />
+        {LEAD_STAGES.map(stage => (
+          <StatCard
+            key={stage}
+            label={STAGE_LABELS[stage]}
+            value={counts[stage] || 0}
+            active={filter === stage}
+            onClick={() => setFilter(stage)}
+            color={stage === 'lost' ? 'border-l-slate-300' : 'border-l-teal-500'}
+          />
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search business, contact, email, city..."
+          className="flex-1 min-w-[200px] border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-teal-600"
+        />
+        {filterButtons.map(f => (
           <button
-            key={s.label}
-            onClick={() => setDrilldown(s.type)}
-            className="border-b-2 border-slate-200 pb-3 text-center transition-all hover:border-teal-500 cursor-pointer"
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${filter === f ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
           >
-            <p className="text-2xl font-bold font-mono text-slate-900">{s.value.toLocaleString()}</p>
-            <p className="text-[10px] font-semibold tracking-widest text-slate-500 uppercase mt-1">{s.label}</p>
+            {f === 'all' ? 'All' : STAGE_LABELS[f as LeadStage]}
           </button>
         ))}
       </div>
 
-      {/* Row 2 — Conversions */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 border-b border-slate-200 pb-6">
-        {row2Cards.map(s => (
-          <button
-            key={s.label}
-            onClick={() => setDrilldown(s.type)}
-            className="border-b-2 border-slate-200 pb-3 text-center transition-all hover:border-teal-500 cursor-pointer"
-          >
-            <p className="text-2xl font-bold font-mono text-slate-900">{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</p>
-            <p className="text-[10px] font-semibold tracking-widest text-slate-500 uppercase mt-1">{s.label}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* Drill-down Modal */}
-      {drill && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center" onClick={() => setDrilldown(null)}>
-          <div className="absolute inset-0 bg-black/60" />
-          <div
-            className="relative bg-white w-full md:max-w-4xl md:rounded-xl rounded-t-xl shadow-2xl max-h-[85vh] flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest">{drill.label}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{drill.data.length} records</p>
-              </div>
-              <button onClick={() => setDrilldown(null)} className="text-slate-400 hover:text-slate-900 text-xl leading-none">&times;</button>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-auto flex-1 p-5">
-              {drill.data.length === 0 ? (
-                <p className="text-sm text-slate-500 py-4">No records.</p>
-              ) : drill.kind === 'visitors' ? (
-                <table className="w-full text-sm">
-                  <thead className="border-b border-slate-200 text-left text-[10px] font-semibold tracking-wider uppercase text-slate-500 whitespace-nowrap">
-                    <tr>
-                      <th className="px-3 py-2.5 w-10">#</th>
-                      <th className="px-3 py-2.5">Page</th>
-                      <th className="px-3 py-2.5">Source</th>
-                      <th className="px-3 py-2.5 text-center">Device</th>
-                      <th className="px-3 py-2.5 text-right">Scroll</th>
-                      <th className="px-3 py-2.5 text-right">Time</th>
-                      <th className="px-3 py-2.5 text-right">When</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {(drill.data as FeedItem[]).map((e, i) => (
-                      <tr key={e.id} className="hover:bg-slate-50 transition-colors whitespace-nowrap">
-                        <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
-                        <td className="px-3 py-2 text-slate-900 font-medium max-w-[200px] truncate">{e.page_url}</td>
-                        <td className="px-3 py-2 text-slate-500 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
-                        <td className="px-3 py-2 text-center text-slate-500">{e.device}</td>
-                        <td className="px-3 py-2 text-right text-slate-500">{e.scroll_depth > 0 ? `${e.scroll_depth}%` : '—'}</td>
-                        <td className="px-3 py-2 text-right text-slate-500">{e.time_on_page > 0 ? `${e.time_on_page}s` : '—'}</td>
-                        <td className="px-3 py-2 text-right text-slate-500">{timeAgo(e.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="border-b border-slate-200 text-left text-[10px] font-semibold tracking-wider uppercase text-slate-500 whitespace-nowrap">
-                    <tr>
-                      <th className="px-3 py-2.5 w-10">#</th>
-                      <th className="px-3 py-2.5">Action</th>
-                      <th className="px-3 py-2.5">Source</th>
-                      <th className="px-3 py-2.5 text-center">Device</th>
-                      <th className="px-3 py-2.5 text-right">When</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {(drill.data as CtaDetail[]).map((e, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors whitespace-nowrap">
-                        <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
-                        <td className="px-3 py-2 font-medium capitalize text-teal-600">{e.action}</td>
-                        <td className="px-3 py-2 text-slate-500 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
-                        <td className="px-3 py-2 text-center text-slate-500">{e.device}</td>
-                        <td className="px-3 py-2 text-right text-slate-500">{timeAgo(e.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Live Feed */}
-      <Section title={`Live Feed — ${liveFeed.length} Visitors`}>
-        {liveFeed.length === 0 ? (
-          <p className="text-sm text-slate-500 py-4">No visitors recorded yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 text-left text-[10px] font-semibold tracking-wider uppercase text-slate-500 whitespace-nowrap">
-                <tr>
-                  <th className="px-3 py-2.5 w-10">#</th>
-                  <th className="px-3 py-2.5">Page</th>
-                  <th className="px-3 py-2.5">Source</th>
-                  <th className="px-3 py-2.5 text-center">Device</th>
-                  <th className="px-3 py-2.5 text-center">CTA</th>
-                  <th className="px-3 py-2.5 text-right">Scroll</th>
-                  <th className="px-3 py-2.5 text-right">Time</th>
-                  <th className="px-3 py-2.5 text-right">When</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {liveFeed.map((e, i) => (
-                  <tr key={e.id} className="hover:bg-slate-50 transition-colors whitespace-nowrap">
-                    <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
-                    <td className="px-3 py-2 text-slate-900 font-medium max-w-[200px] truncate">{e.page_url}</td>
-                    <td className="px-3 py-2 text-slate-500 max-w-[200px] truncate">{e.referrer || 'Direct'}</td>
-                    <td className="px-3 py-2 text-center text-slate-500">{e.device}</td>
-                    <td className="px-3 py-2 text-center text-teal-600 font-medium">{e.cta_clicked ? (e.cta_type || 'Y') : '—'}</td>
-                    <td className="px-3 py-2 text-right text-slate-500">{e.scroll_depth > 0 ? `${e.scroll_depth}%` : '—'}</td>
-                    <td className="px-3 py-2 text-right text-slate-500">{e.time_on_page > 0 ? `${e.time_on_page}s` : '—'}</td>
-                    <td className="px-3 py-2 text-right text-slate-500">{timeAgo(e.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
-
-      {/* Tenant Breakdown */}
-      <div className="mt-6">
-        <Section title={`Businesses — ${tenants.length}`}>
-          {tenants.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4">No business data yet.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-5">
+        {/* LIST */}
+        <div className="border border-slate-100 rounded-xl overflow-hidden">
+          {loading ? (
+            <p className="text-slate-400 py-12 text-center text-sm">Loading...</p>
+          ) : leads.length === 0 ? (
+            <p className="text-slate-400 py-12 text-center text-sm">No leads found</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 text-left text-[10px] font-semibold tracking-wider uppercase text-slate-500 whitespace-nowrap">
-                  <tr>
-                    <th className="px-3 py-2.5 w-10">#</th>
-                    <th className="px-3 py-2.5">Business</th>
-                    <th className="px-3 py-2.5 text-center">Visits</th>
-                    <th className="px-3 py-2.5 text-center">CTAs</th>
-                    <th className="px-3 py-2.5 text-right">Conv %</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {tenants.map((t, i) => (
-                    <tr key={t.id} className="hover:bg-slate-50 transition-colors whitespace-nowrap">
-                      <td className="px-3 py-2 text-xs text-slate-500">{i + 1}</td>
-                      <td className="px-3 py-2 text-slate-900 font-medium">{t.name}</td>
-                      <td className="px-3 py-2 text-center text-slate-500">{v(t.visits)}</td>
-                      <td className="px-3 py-2 text-center text-teal-600 font-medium">{v(t.ctas)}</td>
-                      <td className="px-3 py-2 text-right text-slate-500">{t.visits > 0 ? `${((t.ctas / t.visits) * 100).toFixed(1)}%` : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="divide-y divide-slate-100 max-h-[70vh] overflow-y-auto">
+              {leads.map(l => (
+                <button
+                  key={l.id}
+                  onClick={() => selectLead(l)}
+                  className={`w-full text-left px-4 py-3 transition-colors ${selectedId === l.id ? 'bg-teal-50' : 'hover:bg-slate-50'}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-slate-900 truncate">{l.business_name}</p>
+                    <span className={`shrink-0 inline-block px-2 py-0.5 rounded text-[11px] font-medium border ${STAGE_BADGE[l.status]}`}>{STAGE_LABELS[l.status]}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    {l.contact_name} &middot; {l.service_category?.replace(/_/g, ' ')} &middot; {l.city}, {l.state}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{new Date(l.created_at).toLocaleDateString()}</p>
+                </button>
+              ))}
             </div>
           )}
-        </Section>
+        </div>
+
+        {/* DETAIL */}
+        <div className="border border-slate-100 rounded-xl p-5">
+          {!selected ? (
+            <p className="text-slate-400 py-12 text-center text-sm">Select a lead to view details</p>
+          ) : (
+            <div>
+              <div className="flex items-start justify-between gap-3 mb-4 pb-4 border-b border-slate-100">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-heading font-bold text-slate-900 truncate">{selected.business_name}</h2>
+                  <p className="text-sm text-slate-500">{selected.contact_name}</p>
+                </div>
+                <span className={`shrink-0 inline-block px-2.5 py-1 rounded text-xs font-medium border ${STAGE_BADGE[selected.status]}`}>
+                  {STAGE_LABELS[selected.status]}
+                </span>
+              </div>
+
+              {/* Pipeline stepper */}
+              <div className="mb-5">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">Pipeline stage</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PIPELINE_STAGES.map((stage, i) => {
+                    const isCurrent = selected.status === stage
+                    const currentIdx = PIPELINE_STAGES.indexOf(selected.status as LeadStage)
+                    const isDone = currentIdx > -1 && i < currentIdx
+                    return (
+                      <button
+                        key={stage}
+                        onClick={() => setStage(stage)}
+                        disabled={saving}
+                        className={`flex-1 min-w-[80px] px-2 py-2 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
+                          isCurrent
+                            ? 'bg-teal-600 text-white border-teal-600'
+                            : isDone
+                            ? 'bg-teal-50 text-teal-700 border-teal-200'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-teal-400'
+                        }`}
+                      >
+                        {STAGE_LABELS[stage]}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {selected.status !== 'lost' ? (
+                    <button
+                      onClick={() => setStage('lost')}
+                      disabled={saving}
+                      className="text-xs text-slate-500 hover:text-red-600 underline underline-offset-2 disabled:opacity-50"
+                    >
+                      Mark as Lost
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setStage('new')}
+                      disabled={saving}
+                      className="text-xs text-teal-600 hover:text-teal-700 underline underline-offset-2 disabled:opacity-50"
+                    >
+                      Reopen lead
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm mb-5">
+                <Field label="Email">
+                  {selected.email ? <a href={`mailto:${selected.email}`} className="text-teal-700 hover:underline break-all">{selected.email}</a> : <span className="text-slate-400">—</span>}
+                </Field>
+                <Field label="Phone">
+                  {selected.phone ? <a href={`tel:${selected.phone}`} className="text-teal-700 hover:underline">{selected.phone}</a> : <span className="text-slate-400">—</span>}
+                </Field>
+                <Field label="Category"><span className="capitalize">{selected.service_category?.replace(/_/g, ' ') || '—'}</span></Field>
+                <Field label="Location">{selected.city}, {selected.state}</Field>
+                <Field label="Monthly Revenue">{selected.monthly_revenue || '—'}</Field>
+                <Field label="Source">{selected.referral_source || '—'}</Field>
+                <Field label="Received">{new Date(selected.created_at).toLocaleString()}</Field>
+                <Field label="Last activity">{selected.reviewed_at ? new Date(selected.reviewed_at).toLocaleString() : '—'}</Field>
+              </dl>
+
+              {selected.pitch && (
+                <div className="mb-5">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Their message</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-lg p-3">{selected.pitch}</p>
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Sales notes</p>
+                <textarea
+                  value={notes}
+                  onChange={e => { setNotes(e.target.value); setSavedFlash(false) }}
+                  placeholder="Calls, follow-ups, objections, next steps..."
+                  rows={4}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-teal-600"
+                />
+                <div className="flex items-center gap-3 mt-2">
+                  <button
+                    onClick={saveNotes}
+                    disabled={saving}
+                    className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save notes'}
+                  </button>
+                  {savedFlash && <span className="text-xs text-green-600">Saved</span>}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function StatCard({ label, value, active, onClick, color }: { label: string; value: number; active: boolean; onClick: () => void; color: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-left border-l-4 ${color} pl-3 py-2 transition-colors ${active ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
+    >
+      <p className="text-[10px] text-slate-500 uppercase tracking-wide truncate">{label}</p>
+      <p className="text-xl font-bold font-mono text-slate-900">{value}</p>
+    </button>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="pb-3 mb-3 border-b border-slate-200">
-        <h3 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">{title}</h3>
-      </div>
-      <div>{children}</div>
+      <dt className="text-[10px] text-slate-400 uppercase tracking-wide">{label}</dt>
+      <dd className="text-slate-700 mt-0.5">{children}</dd>
     </div>
   )
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
 }

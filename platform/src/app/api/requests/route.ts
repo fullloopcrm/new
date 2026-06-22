@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         current_system: validated.current_system,
         referral_source: validated.referral_source,
         pitch: validated.pitch,
-        status: 'pending',
+        status: 'new',
       })
       .select('id')
       .single()
