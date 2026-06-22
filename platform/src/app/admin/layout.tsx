@@ -21,8 +21,6 @@ const navMain: Section[] = [
   { num: '00', label: 'Overview', href: '/admin', fold: 'overview', subs: [] },
   { num: '01', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [
     { letter: 'A', label: 'Businesses', href: '/admin/businesses' },
-    { letter: 'B', label: 'Requests', href: '/admin/requests' },
-    { letter: 'C', label: 'Prospects', href: '/admin/prospects' },
   ]},
   { num: '02', label: 'Sales', href: '/admin/sales', fold: 'sales', subs: [
     { letter: 'A', label: 'Leads', href: '/admin/leads' },
