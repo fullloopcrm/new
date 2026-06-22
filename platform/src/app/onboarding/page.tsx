@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ServiceAreaEditor from '@/components/ServiceAreaEditor'
+import type { ServiceArea } from '@/lib/service-area'
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -15,6 +17,7 @@ export default function OnboardingPage() {
     zip_code: '',
     team_size: 'solo',
   })
+  const [area, setArea] = useState<ServiceArea>({ scope: 'local', states: [], zones: [] })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,7 +27,7 @@ export default function OnboardingPage() {
     const res = await fetch('/api/tenants', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, serviceArea: area }),
     })
 
     const data = await res.json()
@@ -154,6 +157,11 @@ export default function OnboardingPage() {
                 <option value="16+">16+</option>
               </select>
             </div>
+          </div>
+
+          <div className="pt-2 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Service area</label>
+            <ServiceAreaEditor embedded value={area} onChange={setArea} />
           </div>
 
           <button

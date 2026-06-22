@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { parseServiceArea, withServiceArea } from '@/lib/service-area'
 
 export async function POST(request: Request) {
   const { userId } = await auth()
@@ -19,11 +20,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'You already belong to a business' }, { status: 400 })
   }
 
-  const { name, phone, email, industry, zip_code, team_size } = await request.json()
+  const { name, phone, email, industry, zip_code, team_size, serviceArea } = await request.json()
 
   if (!name) {
     return NextResponse.json({ error: 'Business name is required' }, { status: 400 })
   }
+
+  // Service area chosen during onboarding (local/national + states + zones).
+  const selenaConfig = serviceArea
+    ? withServiceArea(null, parseServiceArea(serviceArea))
+    : null
 
   // Derive timezone from zip code prefix
   const tz = zipToTimezone(zip_code || '')
@@ -57,6 +63,7 @@ export async function POST(request: Request) {
       zip_code: zip_code || null,
       team_size: team_size || 'solo',
       timezone: tz,
+      ...(selenaConfig ? { selena_config: selenaConfig } : {}),
     })
     .select()
     .single()

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { formatPhone } from '@/lib/phone'
 import { downloadCSV } from '@/lib/csv'
 import AddressAutocomplete from '@/components/address-autocomplete'
+import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 
 type Tenant = {
   id: string
@@ -75,7 +76,7 @@ type ServiceType = {
   active: boolean
 }
 
-const TABS = ['Business', 'Services', 'Scheduling', 'Referrals & Policies', 'Integrations', 'Branding', 'Notifications', 'Guidelines', 'Selena', 'Tools'] as const
+const TABS = ['Business', 'Service Area', 'Services', 'Scheduling', 'Referrals & Policies', 'Integrations', 'Branding', 'Notifications', 'Guidelines', 'Selena', 'Tools'] as const
 type Tab = typeof TABS[number]
 
 const PAYMENT_METHOD_OPTIONS = [
@@ -469,6 +470,16 @@ export default function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {tab === 'Service Area' && (
+        <div className="border border-slate-200 rounded-lg p-6 max-w-2xl">
+          <p className="text-xs text-slate-400 mb-4">
+            Sets your team-page coverage map. Local = one metro with zones; National = the states you serve.
+            The map shows where your team lives so you can see where to recruit.
+          </p>
+          <ServiceAreaEditor />
+        </div>
+      )}
 
       {tab === 'Business' && (
         <div className="border border-slate-200 rounded-lg p-6 space-y-4 max-w-2xl">
