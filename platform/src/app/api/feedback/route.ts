@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
     // Notify admin
     sendEmail({
-      to: 'jeff@consortiumnyc.com',
+      to: process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL || 'hi@fullloopcrm.com',
       subject: `[Feedback] ${cat.charAt(0).toUpperCase() + cat.slice(1)} — Anonymous`,
       html: `
         <div style="font-family: -apple-system, sans-serif; max-width: 500px;">

@@ -10,7 +10,7 @@ import ImpersonationBanner from './impersonation-banner'
 import DashboardShell from './dashboard-shell'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
-const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'jeff@consortiumnyc.com'
+const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
 
 export default async function DashboardLayout({
   children,

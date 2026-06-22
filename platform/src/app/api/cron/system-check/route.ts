@@ -11,7 +11,7 @@ type CheckResult = {
   detail: string
 }
 
-const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'jeff@consortiumnyc.com'
+const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
 
 /**
  * System check — runs every hour.
