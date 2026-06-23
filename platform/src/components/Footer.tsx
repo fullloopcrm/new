@@ -137,8 +137,7 @@ export default function Footer() {
           {/* Column 3: Inquire (phone + address removed in 2026-05-03 teaser pivot) */}
           <div>
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-teal-400">
-              Inquire
-            </h3>
+              Join the Waiting List            </h3>
             <ul className="flex flex-col gap-3 text-sm text-slate-300">
               <li className="leading-relaxed">
                 Acquisition, partnership, or press inquiries — use the contact form. We don&apos;t publish a phone line.

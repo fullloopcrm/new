@@ -172,8 +172,7 @@ export default function Navbar() {
                 className="inline-block bg-white px-5 py-2 text-[10.5px] uppercase tracking-[0.18em] font-mono transition-colors hover:bg-[#F4F4F1]"
                 style={{ color: "#1C1C1C", borderRadius: 4 }}
               >
-                Inquire
-              </motion.span>
+                Join the Waiting List              </motion.span>
             </Link>
           </div>
 
@@ -260,8 +259,7 @@ export default function Navbar() {
                   className="mt-6"
                 >
                   <span className="block rounded-lg bg-teal-600 px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-teal-700 font-cta">
-                    Inquire
-                  </span>
+                    Join the Waiting List                  </span>
                 </Link>
               </div>
             </motion.div>

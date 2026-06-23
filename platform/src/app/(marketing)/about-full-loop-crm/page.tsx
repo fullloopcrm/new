@@ -272,8 +272,7 @@ export default function AboutPage() {
               href="/contact"
               className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
-              Inquire
-            </Link>
+              Join the Waiting List            </Link>
             <Link
               href="/full-loop-crm-service-features"
               className="inline-block border-2 border-slate-500 hover:border-slate-300 text-slate-300 hover:text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"

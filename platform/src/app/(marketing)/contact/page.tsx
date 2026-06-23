@@ -49,8 +49,7 @@ export default function ContactPage() {
         <div className="mx-auto max-w-2xl">
           <div className="text-center mb-12">
             <p className="text-teal-400 font-mono text-xs tracking-widest uppercase mb-3">
-              Inquire
-            </p>
+              Join the Waiting List            </p>
             <h1 className="text-3xl md:text-4xl font-extrabold text-white font-heading mb-4">
               Let&apos;s talk territory.
             </h1>

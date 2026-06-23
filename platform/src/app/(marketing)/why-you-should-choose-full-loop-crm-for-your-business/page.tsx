@@ -195,8 +195,7 @@ export default function WhyFullLoopPage() {
               href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-3.5 text-sm font-semibold text-slate-900 shadow-lg hover:bg-teal-300 transition-colors"
             >
-              Inquire
-            </Link>
+              Join the Waiting List            </Link>
             <Link
               href="/full-loop-crm-service-features"
               className="font-cta inline-block rounded-lg border border-slate-600 px-8 py-3.5 text-sm font-semibold text-slate-300 hover:border-teal-400 hover:text-teal-400 transition-colors"
@@ -608,8 +607,7 @@ export default function WhyFullLoopPage() {
               href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg hover:bg-teal-700 transition-colors"
             >
-              Inquire
-            </Link>
+              Join the Waiting List            </Link>
             <Link
               href="/contact"
               className="font-cta inline-block rounded-lg border border-slate-300 px-8 py-3.5 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-600 transition-colors"

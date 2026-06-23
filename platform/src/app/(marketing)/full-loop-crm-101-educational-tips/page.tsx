@@ -478,8 +478,7 @@ export default function CRM101Page() {
               href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-4 text-lg font-bold text-slate-900 hover:bg-teal-300 transition-colors"
             >
-              Inquire
-            </Link>
+              Join the Waiting List            </Link>
             <Link
               href="/contact"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"

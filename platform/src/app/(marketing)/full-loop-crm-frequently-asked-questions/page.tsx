@@ -393,8 +393,7 @@ export default function FAQPage() {
               href="/contact"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Inquire
-            </Link>
+              Join the Waiting List            </Link>
             <a
               href="tel:+18445667276"
               className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"

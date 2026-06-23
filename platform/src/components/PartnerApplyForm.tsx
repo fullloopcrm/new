@@ -53,6 +53,32 @@ const REFERRAL_SOURCES = [
   "Other",
 ];
 
+// Qualifying / intent questions — captured into the request so we can prioritize
+const TIMELINES = [
+  "Ready now",
+  "Within 30 days",
+  "60–90 days",
+  "Just exploring",
+];
+
+const TEAM_SIZES = ["Just me", "2–5", "6–10", "11–25", "25+"];
+
+const CURRENT_CRM = [
+  "None / spreadsheets",
+  "Jobber",
+  "Housecall Pro",
+  "ServiceTitan",
+  "Other",
+];
+
+const BOTTLENECKS = [
+  "Getting leads",
+  "Scheduling / dispatch",
+  "Follow-up / closing sales",
+  "Reviews / reputation",
+  "Admin / bookkeeping",
+];
+
 type FormData = {
   full_name: string;
   business_name: string;
@@ -62,6 +88,10 @@ type FormData = {
   city: string;
   state: string;
   monthly_revenue: string;
+  team_size: string;
+  start_timeline: string;
+  current_crm: string;
+  biggest_bottleneck: string;
   referral_source: string;
   notes: string;
 };
@@ -75,9 +105,21 @@ const initialForm: FormData = {
   city: "",
   state: "",
   monthly_revenue: "",
+  team_size: "",
+  start_timeline: "",
+  current_crm: "",
+  biggest_bottleneck: "",
   referral_source: "",
   notes: "",
 };
+
+// Format as the user types → (XXX) XXX-XXXX, capped at 10 digits
+function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length < 4) return digits;
+  if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
 
 export default function PartnerApplyForm() {
   const [form, setForm] = useState<FormData>(initialForm);
@@ -89,7 +131,10 @@ export default function PartnerApplyForm() {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === "phone" ? formatPhone(value) : value,
+    }));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -109,10 +154,19 @@ export default function PartnerApplyForm() {
           city: form.city,
           state: form.state,
           years_in_business: "N/A",
-          team_size: "N/A",
+          team_size: form.team_size || "N/A",
           monthly_revenue: form.monthly_revenue,
           referral_source: form.referral_source,
-          pitch: form.notes || "No additional notes",
+          pitch:
+            [
+              form.notes,
+              form.start_timeline && `Timeline to start: ${form.start_timeline}`,
+              form.current_crm && `Current CRM: ${form.current_crm}`,
+              form.biggest_bottleneck &&
+                `Biggest bottleneck: ${form.biggest_bottleneck}`,
+            ]
+              .filter(Boolean)
+              .join("\n") || "No additional notes",
         }),
       });
       if (!res.ok) {
@@ -161,11 +215,12 @@ export default function PartnerApplyForm() {
           </svg>
         </div>
         <h3 className="text-2xl font-bold text-slate-900 font-heading mb-2">
-          Application Received
+          You&apos;re on the list
         </h3>
         <p className="text-slate-600">
-          We&apos;ll review your application and check territory availability.
-          Expect a response within 24&ndash;48 hours.
+          Thanks for requesting beta access. We review every request and reach
+          out as we open spots in your trade and market — usually within
+          24&ndash;48 hours.
         </p>
       </div>
     );
@@ -327,6 +382,101 @@ export default function PartnerApplyForm() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <label htmlFor="start_timeline" className={labelClass}>
+            How soon do you want to start? <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <select
+              id="start_timeline"
+              name="start_timeline"
+              required
+              value={form.start_timeline}
+              onChange={handleChange}
+              className={selectClass}
+            >
+              <option value="">Select timeline</option>
+              {TIMELINES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            {chevronIcon}
+          </div>
+        </div>
+        <div>
+          <label htmlFor="team_size" className={labelClass}>
+            Team size <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <select
+              id="team_size"
+              name="team_size"
+              required
+              value={form.team_size}
+              onChange={handleChange}
+              className={selectClass}
+            >
+              <option value="">Select size</option>
+              {TEAM_SIZES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            {chevronIcon}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="current_crm" className={labelClass}>
+          Do you currently use a CRM?
+        </label>
+        <div className="relative">
+          <select
+            id="current_crm"
+            name="current_crm"
+            value={form.current_crm}
+            onChange={handleChange}
+            className={selectClass}
+          >
+            <option value="">Select one</option>
+            {CURRENT_CRM.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          {chevronIcon}
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="biggest_bottleneck" className={labelClass}>
+          Your biggest bottleneck right now?
+        </label>
+        <div className="relative">
+          <select
+            id="biggest_bottleneck"
+            name="biggest_bottleneck"
+            value={form.biggest_bottleneck}
+            onChange={handleChange}
+            className={selectClass}
+          >
+            <option value="">Select one</option>
+            {BOTTLENECKS.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+          {chevronIcon}
+        </div>
+      </div>
+
       <div>
         <label htmlFor="referral_source" className={labelClass}>
           How did you hear about us?
@@ -377,7 +527,7 @@ export default function PartnerApplyForm() {
           disabled={submitting}
           className="w-full rounded-lg bg-teal-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-teal-700 transition-colors font-cta disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting ? "Submitting..." : "Submit Partnership Request"}
+          {submitting ? "Joining…" : "Join the Waiting List"}
         </button>
       </div>
     </form>
