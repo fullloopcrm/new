@@ -151,10 +151,10 @@ export default function FeaturesPage() {
               href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-4 text-lg font-bold text-slate-900 hover:bg-teal-300 transition-colors"
             >
-              Request Your Partnership
+              Join the Waiting List
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               View Pricing
@@ -252,9 +252,11 @@ export default function FeaturesPage() {
             AI Sales & Conversion
           </h2>
           <p className="text-lg text-slate-600 mb-10 max-w-3xl">
-            Meet our <strong>AI receptionist</strong> — your AI-powered SMS sales agent that responds to leads in
-            seconds, not hours. It qualifies prospects, answers questions, and books appointments
-            while you focus on running your business.
+            Meet your <strong>AI agent</strong> — not a chatbot, an autonomous operator. She works every
+            channel (SMS, web chat, and inbound email), responds in seconds, and books leads
+            end-to-end. Then she keeps going: she assigns crews, chases payments, handles refunds,
+            manages your pipeline, and briefs you every morning. She remembers every client — and she
+            writes and refines her own procedures over time, so the longer she runs, the sharper she gets.
           </p>
 
           <div className="grid gap-8 sm:grid-cols-2">
@@ -274,7 +276,7 @@ export default function FeaturesPage() {
                 24/7 Bilingual Coverage
               </h3>
               <p className="text-slate-600">
-                the AI operates around the clock in both English and Spanish. Leads that come in at
+                She operates around the clock in both English and Spanish. Leads that come in at
                 11 PM on a Sunday get the same fast, professional response as those arriving at
                 10 AM on a Tuesday. No missed opportunities, no language barriers.
               </p>
@@ -284,7 +286,7 @@ export default function FeaturesPage() {
                 State Machine Booking Flow
               </h3>
               <p className="text-slate-600">
-                the AI doesn&apos;t wing it — she follows a deterministic 10-field booking checklist
+                She doesn&apos;t wing it — she follows a deterministic 10-field booking checklist
                 (service type, bedrooms, bathrooms, rate, day, time, name, phone, address, email).
                 She collects one field at a time, never re-asks for info she already has, and
                 handles numbered SMS replies so clients can book with just &quot;1&quot;, &quot;2&quot;, &quot;3&quot;.
@@ -295,7 +297,7 @@ export default function FeaturesPage() {
                 Returning Client Recognition
               </h3>
               <p className="text-slate-600">
-                When a returning client texts in, the AI pulls their full profile — name, address,
+                When a returning client texts in, she pulls their full profile — name, address,
                 previous bookings, preferred cleaner, last rate, and conversation history. She greets
                 them by name and skips questions she already knows the answers to, making rebooking
                 feel effortless.
@@ -306,7 +308,7 @@ export default function FeaturesPage() {
                 Web Chat + SMS — Same AI
               </h3>
               <p className="text-slate-600">
-                the AI works on your website too — not just SMS. Website visitors can chat with
+                She works on your website too — not just SMS. Website visitors can chat with
                 the AI directly, choose &quot;new client&quot; or &quot;returning client,&quot; and book without
                 ever making a phone call. Returning clients enter their phone number and the AI
                 pulls up their full history instantly.
@@ -318,7 +320,7 @@ export default function FeaturesPage() {
               </h3>
               <p className="text-slate-600">
                 When a client is upset, reports damage, or has a request outside normal flow,
-                the AI doesn&apos;t guess — she escalates to a human with full conversation context.
+                she doesn&apos;t guess — she escalates to a human with full conversation context.
                 You get an instant notification with the transcript so you can jump in informed,
                 not cold.
               </p>
@@ -673,7 +675,7 @@ export default function FeaturesPage() {
                 AI Escalation to Phone
               </h3>
               <p className="text-slate-600">
-                When the AI detects frustration or a complex issue, she escalates the conversation
+                When she detects frustration or a complex issue, she escalates the conversation
                 from SMS to a phone call recommendation — connecting the client with a human before
                 a negative review is posted. Prevention over damage control.
               </p>
@@ -880,10 +882,10 @@ export default function FeaturesPage() {
               href="/contact"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-4 text-lg font-bold text-slate-900 hover:bg-teal-300 transition-colors"
             >
-              Request Your Partnership
+              Join the Waiting List
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               View Pricing
