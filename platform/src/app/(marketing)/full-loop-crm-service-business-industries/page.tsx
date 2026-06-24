@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { industries as comboIndustries, generateIndustrySlug } from "@/lib/marketing/combos";
 import {
   JsonLd,
   webPageSchema,
@@ -176,10 +177,11 @@ export default function IndustriesPage() {
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {industries.map((industry) => (
-              <div
-                key={industry.name}
-                className="border border-slate-200 rounded-lg p-5 hover:border-teal-400 hover:shadow-md transition-all"
+            {comboIndustries.map((industry) => (
+              <Link
+                key={industry.slug}
+                href={`/industry/${generateIndustrySlug(industry)}`}
+                className="block border border-slate-200 rounded-lg p-5 hover:border-teal-400 hover:shadow-md transition-all"
               >
                 <h3 className="text-base font-bold text-slate-900 font-heading mb-1">
                   {industry.name}
@@ -187,7 +189,7 @@ export default function IndustriesPage() {
                 <p className="text-sm text-slate-500 leading-snug">
                   {industry.description}
                 </p>
-              </div>
+              </Link>
             ))}
           </div>
 

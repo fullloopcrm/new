@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import { JsonLd, organizationSchema, websiteSchema } from '@/lib/schema'
@@ -36,8 +37,10 @@ export default function MarketingLayout({
       >
         Skip to main content
       </a>
-      <div
+      <Link
+        href="/contact"
         style={{
+          display: 'block',
           background: '#E8DCC4',
           color: '#1C1C1C',
           fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
@@ -47,10 +50,13 @@ export default function MarketingLayout({
           textAlign: 'center',
           padding: '8px 12px',
           borderBottom: '1px solid #C8C5BC',
+          textDecoration: 'none',
         }}
+        className="hover:opacity-90 transition-opacity"
       >
-        Notice <span style={{ color: '#A8A8A4' }}>·</span> we are currently in beta <span style={{ color: '#A8A8A4' }}>|</span> testing the platform
-      </div>
+        Now in private beta <span style={{ color: '#A8A8A4' }}>·</span> Free live beta testing{' '}
+        <span style={{ color: '#1F4D2C', fontWeight: 600 }}>— request access &rarr;</span>
+      </Link>
       <Navbar />
       <main id="main-content">{children}</main>
       <Footer />
