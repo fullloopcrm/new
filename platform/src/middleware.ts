@@ -8,6 +8,8 @@ import { signTenantHeader } from '@/lib/tenant-header-sig'
 const MAIN_HOSTS = new Set([
   'homeservicesbusinesscrm.com',
   'www.homeservicesbusinesscrm.com',
+  'fullloopcrm.com',
+  'www.fullloopcrm.com',
   'localhost',
   '127.0.0.1',
   'platform-ten-psi.vercel.app',
@@ -35,8 +37,10 @@ function isKilledRoute(pathname: string): boolean {
 
 function extractSubdomain(hostname: string): string | null {
   const host = hostname.split(':')[0]
-  // Match *.homeservicesbusinesscrm.com
-  const match = host.match(/^([a-z0-9-]+)\.homeservicesbusinesscrm\.com$/)
+  // Match *.homeservicesbusinesscrm.com or *.fullloopcrm.com (carrying/holding
+  // domain — tenants are served at <slug>.fullloopcrm.com until their real
+  // custom domain is pointed at the platform).
+  const match = host.match(/^([a-z0-9-]+)\.(?:homeservicesbusinesscrm|fullloopcrm)\.com$/)
   if (match && match[1] !== 'www') {
     return match[1]
   }
