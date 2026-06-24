@@ -411,9 +411,10 @@ export default function PartnershipForm() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full rounded-lg bg-teal-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-teal-700 transition-colors font-cta disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: "#1C1C1C", color: "#F4F4F1" }}
+                  className="w-full rounded-lg px-8 py-3.5 text-base font-semibold transition-opacity hover:opacity-90 font-cta disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? "Submitting..." : "Submit Partnership Request"}
+                  {submitting ? "Joining…" : "Join the Waiting List"}
                 </button>
               </div>
             </form>
