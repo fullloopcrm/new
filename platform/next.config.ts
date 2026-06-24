@@ -54,9 +54,9 @@ const nextConfig: NextConfig = {
       // swallowed by this legacy check-in redirect.
       { source: '/team/:token([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})', destination: '/team/checkin/:token', permanent: true },
       { source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator', permanent: true },
-      // Waitlist-only era — partnership form route renamed, pricing page retired.
+      // Waitlist-only era — partnership form route renamed.
       { source: '/crm-partnership-request-form', destination: '/waitlist', permanent: true },
-      { source: '/full-loop-crm-pricing', destination: '/waitlist', permanent: true },
+      // 2026-06-23: pricing page restored at /full-loop-crm-pricing (redirect removed).
       // Clean marketing URLs are handled via afterFiles rewrites above
       // (they run after middleware injects /site prefix for tenant domains).
     ]
