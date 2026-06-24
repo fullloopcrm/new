@@ -293,7 +293,7 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // at /site/<slug>/ — the onboarding script writes there. Tenants without a
   // subtree fall back to the legacy shared /site/* tree (FullLoop was built from
   // nycmaid's site, which lives at the /site root and has no /site/nycmaid dir).
-  const ROOT_SITE_TENANTS = new Set(['nycmaid'])
+  const ROOT_SITE_TENANTS = new Set<string>([])
   const siteBase = ROOT_SITE_TENANTS.has(tenantSlug) ? '/site' : `/site/${tenantSlug}`
   const sitePathname = pathname === '/' ? siteBase : `${siteBase}${pathname}`
 
