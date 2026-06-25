@@ -70,10 +70,10 @@ export default function Hero() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6"
         >
           <Link
-            href="/contact"
+            href="/waitlist"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-green-600 hover:bg-green-700 transition-colors shadow-lg shadow-green-600/25 font-cta"
           >
-            Inquire
+            Apply for Your Territory
           </Link>
           <Link
             href="/contact"

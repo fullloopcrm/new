@@ -51,7 +51,7 @@ export default function ROICalculator() {
           <p className="text-[#3A3A3A] text-lg max-w-3xl mx-auto mb-3">
             Websites are not included in the{" "}
             <Link
-              href="/contact"
+              href="/waitlist"
               className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]"
             >
               platform license
@@ -179,7 +179,7 @@ export default function ROICalculator() {
         >
           <div className="flex flex-wrap justify-center gap-4">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-white font-bold text-lg hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               Request Your Website Network

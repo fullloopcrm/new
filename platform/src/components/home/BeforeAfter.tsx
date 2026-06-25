@@ -148,7 +148,7 @@ export default function BeforeAfter() {
         >
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               See Pricing

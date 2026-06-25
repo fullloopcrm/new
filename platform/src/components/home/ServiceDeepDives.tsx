@@ -156,7 +156,7 @@ const stages: Stage[] = [
         earnings visibility give your field team everything they need &mdash;
         and give you full operational control. See all{" "}
         <L href="/full-loop-crm-service-features">field service management features</L> or compare{" "}
-        <L href="/contact">plans</L>.
+        <L href="/waitlist">plans</L>.
       </span>
     ),
     features: [
@@ -203,7 +203,7 @@ const stages: Stage[] = [
         categorization, and tax-ready 1099 reports mean your{" "}
         <L href="/full-loop-crm-service-features">home service CRM</L> doubles as your back office.
         See{" "}
-        <L href="/contact">pricing</L> or learn{" "}
+        <L href="/waitlist">pricing</L> or learn{" "}
         <L href="/why-you-should-choose-full-loop-crm-for-your-business">why Full Loop</L> replaces 5+ tools.
       </span>
     ),
@@ -276,7 +276,7 @@ const stages: Stage[] = [
         <L href="/why-you-should-choose-full-loop-crm-for-your-business">Full Loop CRM</L> closes the loop and starts
         it again. See{" "}
         <L href="/full-loop-crm-service-features">all retargeting features</L> or check{" "}
-        <L href="/contact">pricing</L>.
+        <L href="/waitlist">pricing</L>.
       </span>
     ),
     features: [
@@ -328,7 +328,7 @@ export default function ServiceDeepDives() {
             fills your pipeline. AI sales close the deal. Scheduling and field
             ops execute flawlessly. Payments flow automatically. Reviews build
             your reputation. Retargeting brings clients back. See{" "}
-            <L href="/contact">transparent pricing</L> or start with{" "}
+            <L href="/waitlist">transparent pricing</L> or start with{" "}
             <L href="/full-loop-crm-101-educational-tips">CRM 101</L>.
           </p>
         </motion.div>

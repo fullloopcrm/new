@@ -155,7 +155,7 @@ export default function SocialProof() {
               See All Features
             </Link>
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block px-8 py-3 rounded-full border-2 border-[#1F4D2C] text-[#1F4D2C] font-bold text-lg hover:bg-[#F4F4F1] transition-colors font-cta"
             >
               View Pricing

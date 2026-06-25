@@ -33,10 +33,10 @@ export default function StickyBar() {
             (844) 566-7276
           </a>
           <Link
-            href="/contact"
+            href="/waitlist"
             className="inline-block px-6 py-2.5 text-sm font-bold text-[#1C1C1C] rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors whitespace-nowrap font-cta"
           >
-            Inquire
+            Apply Now
           </Link>
         </div>
       </div>

@@ -87,7 +87,7 @@ export default function Navbar() {
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
               </svg>
-              844.Loop.CRM
+              (844) 566-7276
             </a>
             <span className="text-white/30">|</span>
             <a href="sms:+18445667276" className="flex items-center gap-1.5 hover:text-white transition-colors">
@@ -111,7 +111,7 @@ export default function Navbar() {
           <div className="flex items-center gap-4 text-xs text-white/70">
             <Link href="/sign-in" className="hover:text-white transition-colors font-medium">Client Access</Link>
             <span className="text-white/30">|</span>
-            <Link href="/contact" className="hover:text-white transition-colors font-medium">Inquire</Link>
+            <Link href="/waitlist" className="hover:text-white transition-colors font-medium">Apply Now</Link>
             <span className="text-white/30">|</span>
             <Link href="/feedback" className="hover:text-white transition-colors font-medium">Feedback</Link>
           </div>
@@ -183,7 +183,7 @@ export default function Navbar() {
             </div>
 
             <Link
-              href="/contact"
+              href="/waitlist"
               className="text-[15px] font-medium tracking-wide text-white/90 transition-colors hover:text-white font-cta whitespace-nowrap"
             >
               Pricing
@@ -203,13 +203,13 @@ export default function Navbar() {
 
           {/* CTA — right */}
           <div className="hidden lg:flex justify-end">
-            <Link href="/contact">
+            <Link href="/waitlist">
               <motion.span
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.97 }}
                 className="inline-block rounded-lg bg-white px-4 py-2 text-[15px] font-semibold text-green-700 transition-colors hover:bg-green-50 font-cta"
               >
-                Inquire
+                Apply Now
               </motion.span>
             </Link>
           </div>
@@ -354,7 +354,7 @@ export default function Navbar() {
                     >
                       <div className="ml-4 flex flex-col gap-0.5 border-l-2 border-green-200 pl-3">
                         <Link href="/about-full-loop-crm" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:text-green-600">About</Link>
-                        <Link href="/contact" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:text-green-600">FAQ</Link>
+                        <Link href="/full-loop-crm-frequently-asked-questions" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:text-green-600">FAQ</Link>
                         <Link href="/contact" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:text-green-600">Contact</Link>
                         <Link href="/feedback" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:text-green-600">Feedback</Link>
                       </div>
@@ -363,7 +363,7 @@ export default function Navbar() {
                 </AnimatePresence>
 
                 <Link
-                  href="/contact"
+                  href="/waitlist"
                   onClick={() => setMobileOpen(false)}
                   className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
                 >
@@ -380,19 +380,19 @@ export default function Navbar() {
                 </Link>
 
                 <Link
-                  href="/contact"
+                  href="/waitlist"
                   onClick={() => setMobileOpen(false)}
                   className="mt-6"
                 >
                   <span className="block rounded-lg bg-green-600 px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-green-700 font-cta">
-                    Inquire
+                    Apply Now
                   </span>
                 </Link>
 
                 <div className="mt-6 flex flex-col gap-2 text-sm text-slate-500">
-                  <a href="sms:+18445667276" className="hover:text-green-600 transition-colors">Text Us: 844.Loop.CRM</a>
-                  <a href="tel:+18445667276" className="hover:text-green-600 transition-colors">Call Us: 844.Loop.CRM</a>
-                  <a href="mailto:hi@fullloopcrm.com" className="hover:text-green-600 transition-colors">hi@fullloopcrm.com</a>
+                  <a href="sms:+18445667276" className="hover:text-green-600 transition-colors">Text Us: (844) 566-7276</a>
+                  <a href="tel:+18445667276" className="hover:text-green-600 transition-colors">Call Us: (844) 566-7276</a>
+                  <a href="mailto:hello@homeservicesbusinesscrm.com" className="hover:text-green-600 transition-colors">hello@homeservicesbusinesscrm.com</a>
                 </div>
               </div>
             </motion.div>
@@ -508,7 +508,7 @@ function SolutionsPanel() {
         <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-green-400 mb-3 font-cta">Exclusive Territories</span>
         <h3 className="text-xl font-extrabold text-white mb-3 font-heading">One partner per trade, per metro.</h3>
         <p className="text-sm text-white/70 leading-relaxed mb-4">Full Loop CRM only accepts one business per industry per metro area. Your leads are yours alone — no shared leads, no bidding wars.</p>
-        <Link href="/contact" className="text-sm font-semibold text-green-400 hover:text-green-300 transition-colors font-cta">
+        <Link href="/waitlist" className="text-sm font-semibold text-green-400 hover:text-green-300 transition-colors font-cta">
           Check availability &rarr;
         </Link>
       </div>
@@ -532,7 +532,7 @@ function ResourcesPanel() {
           SUPPORT
         </div>
         <div className="flex flex-col gap-0.5">
-          <MegaItem href="/contact" icon="&#9673;" title="FAQ" desc="Common questions answered" />
+          <MegaItem href="/full-loop-crm-frequently-asked-questions" icon="&#9673;" title="FAQ" desc="Common questions answered" />
           <MegaItem href="/agreement" icon="&#9673;" title="Agreement" desc="Plain language partnership terms" />
           <MegaItem href="/feedback" icon="&#9673;" title="Feedback" desc="Help us improve Full Loop CRM" />
         </div>

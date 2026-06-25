@@ -1,18 +1,19 @@
 import Link from "next/link";
 
-// 2026-05-03 teaser pivot: footer trimmed of every dead lead-gen link.
-// Waitlist / Partners / FAQ / Agreement all 410 Gone now.
 const platform = [
-  { label: "Capabilities", href: "/full-loop-crm-service-features" },
+  { label: "Features", href: "/full-loop-crm-service-features" },
+  { label: "AI Sales", href: "/full-loop-crm-service-features" },
+  { label: "Join Waitlist", href: "/waitlist" },
   { label: "Industries", href: "/full-loop-crm-service-business-industries" },
-  { label: "Case Study", href: "/case-study/the-nyc-maid" },
-  { label: "Notes", href: "/full-loop-crm-101-educational-tips" },
+  { label: "CRM 101", href: "/full-loop-crm-101-educational-tips" },
 ];
 
 const company = [
   { label: "About", href: "/about-full-loop-crm" },
-  { label: "Why this exists", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
-  { label: "Inquire", href: "/contact" },
+  { label: "Why Full Loop", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
+  { label: "Partners", href: "/partner-with-full-loop-crm" },
+  { label: "FAQ", href: "/full-loop-crm-frequently-asked-questions" },
+  { label: "See Transparent Terms", href: "/agreement" },
 ];
 
 const topLocations = [
@@ -134,22 +135,38 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 3: Inquire (phone + address removed in 2026-05-03 teaser pivot) */}
+          {/* Column 3: Contact */}
           <div>
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-teal-400">
-              Inquire
+              Contact
             </h3>
             <ul className="flex flex-col gap-3 text-sm text-slate-300">
-              <li className="leading-relaxed">
-                Acquisition, partnership, or press inquiries — use the contact form. We don&apos;t publish a phone line.
+              <li>
+                <a
+                  href="sms:+12122029220"
+                  className="transition-colors hover:text-teal-400"
+                >
+                  Text Us: (212) 202-9220
+                </a>
               </li>
               <li>
-                <Link
-                  href="/contact"
-                  className="inline-block rounded bg-teal-600 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white transition-colors hover:bg-teal-500"
+                <a
+                  href="tel:+12122029220"
+                  className="transition-colors hover:text-teal-400"
                 >
-                  Open contact form →
-                </Link>
+                  Call Us: (212) 202-9220
+                </a>
+              </li>
+              <li>
+                <a
+                  href="mailto:hello@homeservicesbusinesscrm.com"
+                  className="transition-colors hover:text-teal-400"
+                >
+                  hello@homeservicesbusinesscrm.com
+                </a>
+              </li>
+              <li className="leading-relaxed">
+                150 W 47th St, New York, NY 10036
               </li>
             </ul>
           </div>

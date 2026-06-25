@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 const platform = [
   { label: 'Features', href: '/full-loop-crm-service-features' },
-  { label: 'Inquire', href: '/contact' },
+  { label: 'Pricing', href: '/waitlist' },
   { label: 'Industries', href: '/full-loop-crm-service-business-industries' },
   { label: 'Why Full Loop?', href: '/why-you-should-choose-full-loop-crm-for-your-business' },
   { label: 'CRM 101', href: '/full-loop-crm-101-educational-tips' },
@@ -12,7 +12,7 @@ const platform = [
 const company = [
   { label: 'About', href: '/about-full-loop-crm' },
   { label: 'Partners', href: '/partner-with-full-loop-crm' },
-  { label: 'Inquire', href: '/contact' },
+  { label: 'Apply for Partnership', href: '/waitlist' },
   { label: 'Feedback', href: '/feedback' },
 ]
 
@@ -125,18 +125,17 @@ export default function Footer() {
             </h3>
             <ul className="flex flex-col gap-2.5 text-sm text-slate-300">
               <li>
-                <a href="mailto:hi@fullloopcrm.com" className="transition-colors hover:text-green-400">
-                  hi@fullloopcrm.com
+                <a href="mailto:hello@homeservicesbusinesscrm.com" className="transition-colors hover:text-green-400">
+                  hello@homeservicesbusinesscrm.com
                 </a>
               </li>
               <li>
-                <a href="tel:+18445667276" className="transition-colors hover:text-green-400">
-                  <span className="block font-bold tracking-wide">844.Loop.CRM</span>
-                  <span className="block text-xs text-slate-400">(844) 566-7276</span>
+                <a href="tel:+12122029220" className="transition-colors hover:text-green-400">
+                  (212) 202-9220
                 </a>
               </li>
               <li>
-                <a href="sms:+18445667276" className="transition-colors hover:text-green-400">
+                <a href="sms:+12122029220" className="transition-colors hover:text-green-400">
                   Text Us
                 </a>
               </li>
@@ -202,16 +201,16 @@ export default function Footer() {
           </div>
           <div className="flex items-center gap-4">
             <a
-              href="tel:+18445667276"
+              href="tel:+12122029220"
               className="text-white text-sm font-medium underline underline-offset-2 hover:text-teal-100 font-cta"
             >
               Call Now
             </a>
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block rounded-lg bg-white px-6 py-2.5 text-sm font-bold text-teal-700 hover:bg-teal-50 transition-colors font-cta whitespace-nowrap"
             >
-              Inquire
+              Apply for Partnership
             </Link>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const trustBadges = [
-  { label: "One Trade Per City — Exclusive", href: "/contact" },
+  { label: "One Trade Per City — Exclusive", href: "/waitlist" },
   { label: "50+ Service Industries", href: "/full-loop-crm-service-business-industries" },
   { label: "All-in-One Full-Cycle CRM", href: "/full-loop-crm-service-features" },
   { label: "AI-Powered Automation", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
@@ -165,7 +165,7 @@ export default function Hero() {
         {/* CTAs — ink, masthead-style, no glow */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-10">
           <Link
-            href="/contact"
+            href="/waitlist"
             className="inline-flex items-center justify-center font-cta"
             style={{
               fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
@@ -197,7 +197,7 @@ export default function Hero() {
             }}
             className="inline-flex items-center justify-center font-cta"
           >
-            Call 844.Loop.CRM
+            Call (844) 566-7276
           </a>
           <span
             style={{

@@ -172,7 +172,7 @@ export default function Competitors() {
             .
           </p>
           <Link
-            href="/contact"
+            href="/waitlist"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
           >
             Request a Partnership

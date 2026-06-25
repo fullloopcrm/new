@@ -93,7 +93,7 @@ export default function BlogPreview() {
                 &ldquo;{review.quote}&rdquo;
               </p>
               <Link
-                href="/contact"
+                href="/waitlist"
                 className="inline-flex items-center gap-2 text-[#1F4D2C] text-sm font-semibold hover:underline font-cta"
               >
                 See Pricing

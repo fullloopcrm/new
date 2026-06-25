@@ -30,7 +30,7 @@ export default function FinalCTA() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block px-10 py-5 text-lg font-bold text-[#1F4D2C] rounded-xl bg-white hover:bg-[#F4F4F1] transition-colors shadow-lg font-cta w-full sm:w-auto"
             >
               Check My Territory
@@ -39,7 +39,7 @@ export default function FinalCTA() {
               href="tel:+18445667276"
               className="inline-block px-10 py-5 text-lg font-bold text-white rounded-xl bg-[#1F4D2C] hover:bg-teal-800 border border-white/20 transition-colors shadow-lg font-cta w-full sm:w-auto"
             >
-              Call 844.Loop.CRM
+              Call (844) 566-7276
             </a>
             <a
               href="sms:+18445667276"
@@ -51,7 +51,7 @@ export default function FinalCTA() {
 
           {/* Footer note */}
           <p className="text-[#1C1C1C] text-sm max-w-2xl mx-auto leading-relaxed">
-            We&apos;re looking for business owners committed to organic local growth who value real consulting guidance built on 20+ years of home service experience. Learn more <Link href="/about-full-loop-crm" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">about our team</Link>, explore our <Link href="/contact" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">pricing</Link>, or read our <Link href="/contact" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">FAQ</Link>.
+            We&apos;re looking for business owners committed to organic local growth who value real consulting guidance built on 20+ years of home service experience. Learn more <Link href="/about-full-loop-crm" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">about our team</Link>, explore our <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">pricing</Link>, or read our <Link href="/full-loop-crm-frequently-asked-questions" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">FAQ</Link>.
           </p>
         </motion.div>
       </div>

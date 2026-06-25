@@ -17,7 +17,7 @@ const included = [
   { label: "Command Center Dashboard", href: null },
   { label: "Team & Client Portals", href: null },
   { label: "Finance & P&L Tracking", href: null },
-  { label: "Exclusive Territory Lock", href: "/contact" },
+  { label: "Exclusive Territory Lock", href: "/waitlist" },
   { label: "100% Autonomous Mode", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
 ];
 
@@ -50,7 +50,7 @@ export default function PricingSlider() {
             <Link href="/full-loop-crm-101-educational-tips" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">home service CRM</Link>{" "}
             platform. Add a seat, your invoice goes up. Remove a seat, it goes
             down. View the full{" "}
-            <Link href="/contact" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">pricing guide</Link>.
+            <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">pricing guide</Link>.
           </p>
         </motion.div>
 
@@ -153,7 +153,7 @@ export default function PricingSlider() {
           {/* CTA */}
           <div className="mt-8 flex flex-col items-center gap-3">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block px-10 py-4 text-base font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
             >
               Get Started
@@ -293,7 +293,7 @@ export default function PricingSlider() {
           className="text-center mt-8"
         >
           <Link
-            href="/contact"
+            href="/waitlist"
             className="text-[#1F4D2C] hover:text-[#1F4D2C] text-sm font-semibold underline underline-offset-2 decoration-teal-600/50 font-cta"
           >
             View Full Pricing &amp; Ownership Details

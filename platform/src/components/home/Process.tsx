@@ -229,7 +229,7 @@ export default function Process() {
 
               {/* CTA */}
               <Link
-                href="/contact"
+                href="/waitlist"
                 className="block w-full text-center px-6 py-4 text-base font-bold text-white rounded-lg bg-[#1F4D2C] hover:bg-[#1F4D2C] transition-colors shadow-lg font-cta"
               >
                 Check Territory Availability

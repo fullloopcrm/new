@@ -17,7 +17,7 @@ const resources = [
     description:
       "You're ready for an exclusive territory lock — one partner per trade per metro. Your leads, your domains, your market. No shared leads, no bidding wars, no competition from within the platform.",
     cta: "View Pricing",
-    href: "/contact",
+    href: "/waitlist",
     letter: "M",
   },
   {
@@ -128,7 +128,7 @@ export default function FreeResources() {
           className="text-center mt-10"
         >
           <Link
-            href="/contact"
+            href="/waitlist"
             className="inline-block px-10 py-4 rounded-full bg-[#1F4D2C] text-white font-bold text-lg hover:bg-[#1F4D2C] transition-colors duration-300 font-cta"
           >
             Apply for Partnership
