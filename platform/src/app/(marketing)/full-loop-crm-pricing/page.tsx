@@ -14,12 +14,12 @@ import {
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
   title:
-    "$1,000 per user / month | Full Loop CRM — One Trade Per City",
+    "$1,000/admin + $100/team member | Full Loop CRM — One Trade Per City",
   description:
-    "Flat $1,000 per user / month. Every feature included. One operator per trade per city holds the license. AI sales (Yinez), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO. The category doesn't have a comparison.",
+    "$1,000/mo per admin + $100/mo per field team member. $25,000 one-time setup. Every feature included. One operator per trade per city holds the license. AI sales (Yinez), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO. The category doesn't have a comparison.",
   keywords: [
     "Full Loop CRM pricing",
-    "home service CRM per user pricing",
+    "home service CRM per admin pricing",
     "exclusive territory CRM",
     "one trade per city CRM",
     "all-in-one home service platform",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
   openGraph: {
-    title: "$1,000 per user / month — One Trade Per City",
+    title: "$1,000/admin + $100/team member — One Trade Per City",
     description:
       "Flat per-user pricing. Every feature, every tier. Exclusive territory in your city. The first full-cycle CRM with an AI receptionist that books while you sleep.",
     url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "$1,000 per user / month — One Trade Per City",
+    title: "$1,000/admin + $100/team member — One Trade Per City",
     description:
       "One operator per trade per city. Flat per-user pricing, every feature included. Claim the license before a competitor does.",
   },
@@ -50,16 +50,17 @@ const breadcrumbs = [
   { name: "Pricing", url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
 ];
 
-const PRICE_PER_USER = 1000;
-const SETUP_FEE = 999;
+const PRICE_PER_USER = 1000; // admin / office seat
+const PRICE_PER_TEAM = 100;  // field team-member seat
+const SETUP_FEE = 25000;
 
 const seatExamples = [
-  { label: "Solo operator", users: 1 },
-  { label: "Small crew", users: 3 },
-  { label: "Standard team", users: 5 },
-  { label: "Mid-size", users: 10 },
-  { label: "Multi-crew", users: 25 },
-  { label: "Scale", users: 50 },
+  { label: "Solo operator", admins: 1, team: 0 },
+  { label: "Small crew", admins: 1, team: 3 },
+  { label: "Standard team", admins: 1, team: 5 },
+  { label: "Mid-size", admins: 1, team: 10 },
+  { label: "Multi-crew", admins: 2, team: 25 },
+  { label: "Scale", admins: 3, team: 50 },
 ];
 
 const includedFeatures = [
@@ -77,14 +78,14 @@ const includedFeatures = [
   "Slack-style 'Connect' channels — your team, each client, each crew member",
   "Hiring pages with Google Jobs schema — applications flow into your admin queue",
   "Per-tenant SEO management (sitemap, IndexNow, JSON-LD, OG images)",
-  "White-glove onboarding ($999 one-time setup — we do the entire build)",
+  "White-glove onboarding ($25,000 one-time setup — we do the entire build)",
 ];
 
 const pricingFaqs = [
   {
-    question: "Why $1,000 per user?",
+    question: "Why $1,000 per admin + $100 per team member?",
     answer:
-      "Because nothing else in this category exists. You're not buying a CRM — you're buying an AI receptionist that books leads at 11pm, an automated bookkeeping engine, a GPS field operations platform, an e-signature workflow, a route optimizer, a multi-channel review machine, and a per-tenant SEO website network. Yinez alone replaces a $300–$400/mo answering service. Each user seat unlocks the GPS team portal, video walkthroughs, payroll line, and earnings tracker — every seat is worth more than $1,000 of operational lift per month.",
+      "The $1,000 admin seat is where the platform lives — the AI receptionist that books leads at 11pm, the automated bookkeeping engine, the CRM, dispatch, e-signature, route optimizer, review machine, and per-tenant SEO website network. Yinez alone replaces a $300–$400/mo answering service. Field team members don't need all that — they need the GPS portal, video walkthroughs, and earnings tracker, so they're just $100/mo each. You only pay the big number once (per admin), and add your whole crew for $100 a head.",
   },
   {
     question: "Is there a contract?",
@@ -104,7 +105,7 @@ const pricingFaqs = [
   {
     question: "What's the setup fee?",
     answer:
-      "$999 one-time. This covers white-glove onboarding: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas and pricing, and test everything end-to-end before you go live. You don't lift a finger.",
+      "$25,000 one-time. This covers white-glove onboarding: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas and pricing, integrate payments and your phone/email, and test everything end-to-end before you go live. You don't lift a finger — you get a fully operational business platform on day one.",
   },
   {
     question: "Do I own my client data?",
@@ -114,7 +115,7 @@ const pricingFaqs = [
   {
     question: "What happens when I add a new team member?",
     answer:
-      "Add them in your Team page and the next month's invoice picks up the additional seat. No tier upgrades, no renegotiation, no feature gates. Remove a seat the same way and your invoice drops the next cycle.",
+      "Add them in your Team page and the next month's invoice picks up the additional $100 team-member seat. No tier upgrades, no renegotiation, no feature gates. Remove a seat the same way and your invoice drops the next cycle.",
   },
 ];
 
@@ -128,7 +129,7 @@ export default function PricingPage() {
       <JsonLd
         data={webPageSchema(
           "Pricing | Full Loop CRM",
-          "Flat $1,000 per user / month. Every feature included. One operator per trade per city. The category doesn't have a comparison.",
+          "$1,000/mo per admin + $100/mo per field team member. $25,000 one-time setup. Every feature included. One operator per trade per city. The category doesn't have a comparison.",
           "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
           breadcrumbs
         )}
@@ -145,14 +146,15 @@ export default function PricingPage() {
             One Trade. One City. One License.
           </p>
           <h1 className="text-4xl font-extrabold font-heading text-white sm:text-5xl lg:text-6xl">
-            $1,000 per user.{" "}
-            <span className="text-yellow-300">Every feature. No tiers.</span>
+            $1,000 per admin.{" "}
+            <span className="text-yellow-300">+ $100 per team member.</span>
           </h1>
           <p className="mt-6 text-lg text-slate-300 sm:text-xl max-w-2xl mx-auto">
-            Flat per-user pricing. The whole platform from day one — Yinez AI,
-            full CRM, GPS field operations, bookkeeping, e-signature, routes,
-            reviews, referrals, and your custom site network. Add a seat, your
-            invoice goes up. Remove a seat, it goes down.
+            One simple model: $1,000/mo per admin seat (the operator running the
+            business) and just $100/mo per field team member. The whole platform
+            from day one — Yinez AI, full CRM, GPS field operations, bookkeeping,
+            e-signature, routes, reviews, referrals, and your custom site network.
+            Add a crew member, it&apos;s $100. No tiers, no feature gates.
           </p>
           <p className="mt-4 text-sm font-mono text-teal-400 tracking-wide">
             No contracts. Month to month. But once a territory is claimed it&apos;s off the board.
@@ -165,26 +167,33 @@ export default function PricingPage() {
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-10">
             <p className="text-sm font-mono uppercase tracking-widest text-teal-600 mb-2">
-              $999 one-time setup &middot; All features included
+              $25,000 one-time setup &middot; All features included
             </p>
             <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
-              One Price. Every Seat.
+              Two Seats. Every Feature.
             </h2>
           </div>
 
           {/* Headline price */}
           <div className="mx-auto max-w-md rounded-2xl border-2 border-teal-600 bg-white p-10 shadow-xl text-center">
             <p className="text-sm font-mono uppercase tracking-widest text-teal-600 mb-2">
-              Per user / per month
+              Per admin / per month
             </p>
             <p className="flex items-baseline justify-center gap-1">
               <span className="text-6xl font-extrabold font-heading text-slate-900">
                 ${PRICE_PER_USER.toLocaleString()}
               </span>
-              <span className="text-xl text-slate-500">/user/mo</span>
+              <span className="text-xl text-slate-500">/admin/mo</span>
+            </p>
+            <p className="mt-3 flex items-baseline justify-center gap-1">
+              <span className="text-2xl font-bold font-heading text-teal-700">
+                + ${PRICE_PER_TEAM}
+              </span>
+              <span className="text-sm text-slate-500">per team member / mo</span>
             </p>
             <p className="mt-3 text-sm text-slate-500">
-              Every feature, every seat, every tenant. No gates, no upgrades.
+              Every feature included. Admins run the business; field team members
+              get the GPS portal. No gates, no upgrades.
             </p>
             <Link
               href="/contact"
@@ -204,19 +213,21 @@ export default function PricingPage() {
                 <thead>
                   <tr className="bg-slate-50 text-left">
                     <th className="px-5 py-3 font-semibold text-slate-700">Team</th>
-                    <th className="px-5 py-3 font-semibold text-slate-700 text-right">Users</th>
+                    <th className="px-5 py-3 font-semibold text-slate-700 text-right">Admins</th>
+                    <th className="px-5 py-3 font-semibold text-slate-700 text-right">Team members</th>
                     <th className="px-5 py-3 font-semibold text-slate-700 text-right">Per month</th>
                     <th className="px-5 py-3 font-semibold text-slate-700 text-right">Per year</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {seatExamples.map(({ label, users }) => {
-                    const monthly = users * PRICE_PER_USER;
+                  {seatExamples.map(({ label, admins, team }) => {
+                    const monthly = admins * PRICE_PER_USER + team * PRICE_PER_TEAM;
                     const yearly = monthly * 12;
                     return (
-                      <tr key={users}>
+                      <tr key={label}>
                         <td className="px-5 py-3 text-slate-700 font-medium">{label}</td>
-                        <td className="px-5 py-3 text-right font-mono text-slate-500">{users}</td>
+                        <td className="px-5 py-3 text-right font-mono text-slate-500">{admins}</td>
+                        <td className="px-5 py-3 text-right font-mono text-slate-500">{team}</td>
                         <td className="px-5 py-3 text-right font-mono text-slate-900">${monthly.toLocaleString()}</td>
                         <td className="px-5 py-3 text-right font-mono text-slate-500">${yearly.toLocaleString()}</td>
                       </tr>
@@ -226,12 +237,12 @@ export default function PricingPage() {
               </table>
             </div>
             <p className="mt-4 text-center text-xs text-slate-500">
-              50+ users? <Link href="/contact" className="text-teal-600 underline underline-offset-2">Talk to us</Link> — same flat rate, custom onboarding for multi-location operations.
+              50+ team members? <Link href="/contact" className="text-teal-600 underline underline-offset-2">Talk to us</Link> — same rates, custom onboarding for multi-location operations.
             </p>
           </div>
 
           <p className="mt-10 text-center text-sm text-slate-500">
-            No contracts. Month to month. Cancel anytime. ${SETUP_FEE} one-time setup.
+            No contracts. Month to month. Cancel anytime. ${SETUP_FEE.toLocaleString()} one-time setup.
           </p>
           <p className="mt-3 text-center">
             <Link href="/agreement" className="text-teal-600 underline underline-offset-2 hover:text-teal-700 text-sm font-medium">
@@ -491,7 +502,7 @@ export default function PricingPage() {
               The Math
             </p>
             <h2 className="text-3xl font-extrabold font-heading text-white sm:text-4xl">
-              Why $1,000 Per User
+              Why It&apos;s Priced This Way
             </h2>
             <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
               No other CRM in this category exists. Jobber, Housecall Pro,
@@ -519,7 +530,7 @@ export default function PricingPage() {
 
             <div className="rounded-xl border border-slate-700 bg-slate-800 p-8">
               <p className="text-sm font-mono uppercase tracking-widest text-teal-400 mb-3">
-                What each user seat unlocks
+                What each $100 field seat unlocks
               </p>
               <ul className="space-y-3 text-slate-300 text-sm">
                 <li>📍 GPS-verified field portal (528ft validation)</li>
@@ -545,7 +556,7 @@ export default function PricingPage() {
               Yinez + the website + GPS + bookkeeping + e-sign + routes + reviews + referrals + Google + social — in one platform, with exclusive territory — doesn&apos;t exist anywhere else, at any price.
             </p>
             <p className="mt-4 text-yellow-300 font-cta uppercase tracking-widest text-sm">
-              $1,000 per user is the floor.
+              $1,000 per admin + $100 per head is the floor.
             </p>
           </div>
         </div>
@@ -559,7 +570,7 @@ export default function PricingPage() {
               The Receipt
             </p>
             <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
-              Why $1,000 Per User Is Cheap
+              Why This Is Cheap
             </h2>
             <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
               Build this stack à la carte and you spend more in software alone
@@ -599,8 +610,8 @@ export default function PricingPage() {
                   <td className="px-5 py-3 text-right font-mono font-bold text-red-600">~$7,400+/mo</td>
                 </tr>
                 <tr className="bg-teal-50">
-                  <td className="px-5 py-3 font-bold text-teal-700">Full Loop CRM — 5 users, all of it included</td>
-                  <td className="px-5 py-3 text-right font-mono font-bold text-teal-700">$5,000/mo</td>
+                  <td className="px-5 py-3 font-bold text-teal-700">Full Loop CRM — 1 admin + 5 field, all of it included</td>
+                  <td className="px-5 py-3 text-right font-mono font-bold text-teal-700">$1,500/mo</td>
                 </tr>
               </tfoot>
             </table>
@@ -697,7 +708,7 @@ export default function PricingPage() {
           <p className="mt-4 text-lg text-slate-300 max-w-xl mx-auto">
             One trade per city. Once a territory is claimed, it&apos;s off the
             board — but every operator who claims one runs the same complete
-            platform from day one. ${PRICE_PER_USER.toLocaleString()} per user, every feature included.
+            platform from day one. ${PRICE_PER_USER.toLocaleString()} per admin + ${PRICE_PER_TEAM} per team member, every feature included.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link

@@ -113,7 +113,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "Are there any setup fees?",
         answer:
-          "There is a one-time onboarding fee that covers white-glove setup: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas, and test everything end-to-end before you go live. The exact amount is shared with waitlist members at invitation.",
+          "Yes — a $25,000 one-time setup & onboarding fee. It covers white-glove setup: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas, integrate payments and your phone/email, and test everything end-to-end before you go live. After that it's $1,000/mo per admin + $100/mo per field team member.",
       },
       {
         question: "What are microsites?",

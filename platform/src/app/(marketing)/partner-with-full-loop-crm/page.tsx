@@ -71,7 +71,7 @@ export default function PartnersPage() {
             claimed, it is permanently off the market for that trade.
           </p>
           <p className="font-mono text-sm text-teal-400 mb-10 tracking-wide">
-            $1,000 / user / month &middot; flat &middot; every feature included
+            $1,000 / admin / month + $100 / team member &middot; every feature included
           </p>
           <Link
             href="#apply"

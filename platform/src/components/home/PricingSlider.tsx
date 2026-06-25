@@ -41,15 +41,14 @@ export default function PricingSlider() {
             Home Service CRM Pricing
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 font-heading">
-            $1,000 per user.{" "}
-            <span className="text-[#1F4D2C]">Every feature.</span>
+            $1,000 per admin.{" "}
+            <span className="text-[#1F4D2C]">+ $100 per team member.</span>
           </h2>
           <p className="mt-4 text-[#3A3A3A] text-lg max-w-2xl mx-auto">
-            No tiers. No feature gates. No revenue caps. Flat per-user pricing
-            for the full{" "}
+            No tiers. No feature gates. No revenue caps. $1,000/mo per admin seat
+            plus just $100/mo per field team member for the full{" "}
             <Link href="/full-loop-crm-101-educational-tips" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">home service CRM</Link>{" "}
-            platform. Add a seat, your invoice goes up. Remove a seat, it goes
-            down. View the full{" "}
+            platform. Add a crew member for $100. View the full{" "}
             <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">pricing guide</Link>.
           </p>
         </motion.div>
@@ -62,19 +61,22 @@ export default function PricingSlider() {
           transition={{ duration: 0.5, delay: 0.15 }}
           className="mb-8"
         >
-          <p className="text-center text-sm text-[#6F6F6B] mb-6 font-cta">$999 one-time setup &mdash; flat per-user thereafter</p>
+          <p className="text-center text-sm text-[#6F6F6B] mb-6 font-cta">$25,000 one-time setup &mdash; $1,000/admin + $100/team member thereafter</p>
 
           {/* Single price card */}
           <div className="mx-auto max-w-md rounded-2xl border-2 border-[#1F4D2C] bg-white shadow-lg p-8 text-center mb-8">
             <p className="text-sm font-semibold text-[#1F4D2C] uppercase tracking-wider font-cta mb-2">
-              Per user / per month
+              Per admin / per month
             </p>
             <div className="text-5xl sm:text-6xl font-extrabold text-slate-900 font-mono">
               $1,000
-              <span className="text-xl text-[#6F6F6B] font-medium">/user/mo</span>
+              <span className="text-xl text-[#6F6F6B] font-medium">/admin/mo</span>
             </div>
+            <p className="text-2xl font-bold text-[#1F4D2C] font-mono mt-2">
+              + $100<span className="text-base text-[#6F6F6B] font-medium"> /team member/mo</span>
+            </p>
             <p className="text-[#6F6F6B] text-sm mt-3">
-              Every feature. Every seat. No upgrades, no add-on shelf, no caps.
+              Every feature included. Admins run the business; field team members get the GPS portal.
             </p>
           </div>
 

@@ -79,7 +79,8 @@ export default function TermsPage() {
             geographic city. Partnership terms include:
           </p>
           <ul>
-            <li>Monthly fee of $1,000 per user, billed monthly (flat per-seat, no tiers)</li>
+            <li>Monthly fee of $1,000 per admin + $100 per team member, billed monthly (no tiers)</li>
+            <li>One-time setup &amp; onboarding fee of $25,000</li>
             <li>90-day minimum commitment</li>
             <li>Month-to-month after the initial 90 days</li>
             <li>30-day written notice required for cancellation</li>

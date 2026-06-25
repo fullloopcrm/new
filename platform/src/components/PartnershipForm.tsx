@@ -539,11 +539,11 @@ export default function PartnershipForm() {
               Plans Starting At
             </p>
             <p className="text-4xl font-extrabold text-white font-heading mb-1">
-              $199
-              <span className="text-lg font-normal text-slate-400">/mo</span>
+              $1,000
+              <span className="text-lg font-normal text-slate-400">/admin/mo</span>
             </p>
             <p className="text-sm text-slate-400 mb-6">
-              All features included. $999 setup. No contracts.
+              + $100/mo per team member. All features included. $25,000 setup. No contracts.
             </p>
             <ul className="space-y-2 text-sm text-slate-300 text-left">
               {[
