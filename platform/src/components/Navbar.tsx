@@ -13,6 +13,7 @@ const navLinks = [
   { label: "Features", href: "/full-loop-crm-service-features" },
   { label: "Why Full Loop", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
   { label: "Industries", href: "/full-loop-crm-service-business-industries" },
+  { label: "Pricing", href: "/full-loop-crm-pricing" },
 ];
 
 const moreLinks = [
@@ -20,6 +21,8 @@ const moreLinks = [
   { label: "FAQ", href: "/full-loop-crm-frequently-asked-questions" },
   { label: "Partners", href: "/partner-with-full-loop-crm" },
   { label: "CRM 101", href: "/full-loop-crm-101-educational-tips" },
+  { label: "Blog", href: "/home-service-business-blog" },
+  { label: "Contact", href: "/contact" },
 ];
 
 export default function Navbar() {

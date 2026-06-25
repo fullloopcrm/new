@@ -183,7 +183,7 @@ export default function Navbar() {
             </div>
 
             <Link
-              href="/waitlist"
+              href="/full-loop-crm-pricing"
               className="text-[15px] font-medium tracking-wide text-white/90 transition-colors hover:text-white font-cta whitespace-nowrap"
             >
               Pricing
@@ -363,7 +363,7 @@ export default function Navbar() {
                 </AnimatePresence>
 
                 <Link
-                  href="/waitlist"
+                  href="/full-loop-crm-pricing"
                   onClick={() => setMobileOpen(false)}
                   className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
                 >
