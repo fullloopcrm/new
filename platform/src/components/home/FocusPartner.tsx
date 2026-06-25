@@ -98,25 +98,8 @@ const trajectory = [
   { month: "Apr '26", value: 222, sub: "107 bookings · so far" },
 ];
 
-const liveMetrics = [
-  { value: "$221,988", label: "Lifetime Revenue", sub: "84 days · $0 ad spend" },
-  { value: "1,240", label: "Bookings", sub: "270 historical · 970 forward recurring" },
-  { value: "23,078", label: "Lead Clicks", sub: "tracked across 98 EMD domains" },
-  { value: "4,934", label: "SMS Messages", sub: "Yinez across 881 conversations" },
-  { value: "50/50", label: "5★ Reviews", sub: "every review is 5-star · 100%" },
-  { value: "85%", label: "Recurring Share", sub: "1,053 of 1,240 bookings" },
-  { value: "99.4%", label: "Auto-Paid Crew", sub: "168/169 Stripe Connect payouts" },
-  { value: "0", label: "Front Desk", sub: "Yinez answers everything" },
-];
-
-const cumulativeStats = [
-  { value: "$221,988", label: "Lifetime revenue" },
-  { value: "$17,842", label: "Cleaner pay (auto)" },
-  { value: "1,240", label: "Bookings" },
-  { value: "458", label: "Source-attributed" },
-  { value: "5,998", label: "Notifications fired" },
-  { value: "5.00★", label: "Reviews 50/50" },
-];
+// liveMetrics + cumulativeStats are built inside the component so the review
+// figures can be driven from the live NYC Maid feed (the rest stay historical).
 
 const leadFunnel = [
   { stage: "Visits", value: 11333, sub: "page views across 98 domains", pct: 100 },
@@ -364,6 +347,31 @@ export default function FocusPartner({ live }: { live?: CaseStudyStats | null })
   const domainMax = topDomains[0].count || 1;
   const cleanerMax = cleanerRanking[0].count;
 
+  // Review figures pulled from the live feed when available; everything else is historical.
+  const reviewMetric = live
+    ? { value: live.reviews.toLocaleString(), label: "Reviews", sub: live.avgRating != null ? `${live.avgRating.toFixed(1)}★ average · live` : "live feed" }
+    : { value: "50/50", label: "5★ Reviews", sub: "every review is 5-star" };
+
+  const liveMetrics = [
+    { value: "$221,988", label: "Lifetime Revenue", sub: "84 days · $0 ad spend" },
+    { value: "1,240", label: "Bookings", sub: "270 historical · 970 forward recurring" },
+    { value: "23,078", label: "Lead Clicks", sub: "tracked across 98 EMD domains" },
+    { value: "4,934", label: "SMS Messages", sub: "Yinez across 881 conversations" },
+    reviewMetric,
+    { value: "85%", label: "Recurring Share", sub: "1,053 of 1,240 bookings" },
+    { value: "99.4%", label: "Auto-Paid Crew", sub: "168/169 Stripe Connect payouts" },
+    { value: "0", label: "Front Desk", sub: "Yinez answers everything" },
+  ];
+
+  const cumulativeStats = [
+    { value: "$221,988", label: "Lifetime revenue" },
+    { value: "$17,842", label: "Cleaner pay (auto)" },
+    { value: "1,240", label: "Bookings" },
+    { value: "458", label: "Source-attributed" },
+    { value: "5,998", label: "Notifications fired" },
+    { value: live && live.avgRating != null ? `${live.avgRating.toFixed(1)}★` : "5.00★", label: live ? `${live.reviews.toLocaleString()} reviews` : "Reviews 50/50" },
+  ];
+
   return (
     <section className="bg-[#F4F4F1] py-20 sm:py-28 px-6 sm:px-8 lg:px-12">
       <div className="mx-auto max-w-7xl">
@@ -385,7 +393,7 @@ export default function FocusPartner({ live }: { live?: CaseStudyStats | null })
             <strong className="text-[#1C1C1C]">The NYC Maid</strong> wasn&apos;t a customer. It was the test bed. Every feature you see — Yinez AI (the only CRM AI that handles SMS + web + email), GPS field operations, Stripe Connect crew auto-payouts, Zelle/Venmo IMAP parsing, 98 SEO domains, the recurring engine, 100% closed-loop attribution — was built, broken, fixed, and shipped while running real bookings for real clients.
           </p>
           <p className="mt-6 text-base text-[#6F6F6B] max-w-2xl mx-auto">
-            Today <strong className="text-[#1C1C1C]">The NYC Maid</strong> runs itself. <strong className="text-[#1C1C1C]">$221,988 revenue · 1,240 bookings · 23,078 lead clicks · 4,934 Yinez messages · 5,998 notifications · 50/50 5-star reviews.</strong> Every number on this page is pulled from the production database <em>right now</em>.
+            Today <strong className="text-[#1C1C1C]">The NYC Maid</strong> runs itself. <strong className="text-[#1C1C1C]">$221,988 lifetime revenue · 1,240 bookings · 23,078 lead clicks · 4,934 Yinez messages · 5,998 notifications.</strong> The live counters below pull straight from the production database and refresh <em>every hour</em>.
           </p>
         </motion.div>
 
