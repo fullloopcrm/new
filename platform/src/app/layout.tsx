@@ -22,21 +22,21 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://homeservicesbusinesscrm.com'),
-  title: 'Full Loop CRM | The First Full-Cycle CRM for Home Service Businesses',
-  description: 'Full Loop CRM is the first full-cycle CRM for home service businesses — organic lead generation, AI sales chatbot, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.',
-  keywords: 'home service CRM, cleaning business CRM, full cycle CRM, lead generation CRM, AI sales chatbot, field service management, booking software for cleaners, maid service software',
+  title: 'Home Service Business CRM That Runs Itself | Full Loop CRM',
+  description: 'The home service business CRM proven by a real, live business — not a demo. See live results, transparent flat pricing, and an AI that books jobs while you sleep. Lead generation to repeat customers, one platform.',
+  keywords: 'home service business crm, home service crm, crm for home service business, cleaning business CRM, field service CRM, AI sales chatbot, lead generation CRM, booking software for cleaners, maid service software',
   authors: [{ name: 'Full Loop CRM' }],
   openGraph: {
-    title: 'Full Loop CRM — The First Full-Cycle CRM for Home Service Businesses',
-    description: 'From lead generation to 5-star reviews. The only CRM that closes the entire business loop for home service companies.',
+    title: 'Home Service Business CRM That Runs Itself | Full Loop CRM',
+    description: 'The home service business CRM proven by a real business — live results, transparent pricing, and AI sales that books jobs while you sleep. Lead gen to 5-star reviews, one platform.',
     type: 'website',
     url: 'https://homeservicesbusinesscrm.com',
     siteName: 'Full Loop CRM',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Full Loop CRM — Lead Gen to Reviews in One Platform',
-    description: 'The first CRM that takes home service businesses from organic lead generation through AI sales, scheduling, operations, payments, reviews, and retargeting.',
+    title: 'Home Service Business CRM That Runs Itself | Full Loop',
+    description: 'The home service business CRM proven by a real, live business — AI sales, scheduling, GPS ops, payments, reviews, and retargeting in one platform.',
   },
   icons: {
     icon: '/icon.svg',
