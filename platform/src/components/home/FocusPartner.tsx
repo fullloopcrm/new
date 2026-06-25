@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { type CaseStudyStats, formatGeneratedAt } from "@/lib/caseStudyStats";
 import { motion } from "framer-motion";
 
 /* ------------------------------------------------------------------ */
@@ -357,7 +358,7 @@ const financialReality = [
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function FocusPartner() {
+export default function FocusPartner({ live }: { live?: CaseStudyStats | null }) {
   const trajectoryMax = Math.max(...trajectory.map((t) => t.value));
   const refMax = referrerSources[0].count;
   const domainMax = topDomains[0].count || 1;
@@ -387,6 +388,44 @@ export default function FocusPartner() {
             Today <strong className="text-[#1C1C1C]">The NYC Maid</strong> runs itself. <strong className="text-[#1C1C1C]">$221,988 revenue · 1,240 bookings · 23,078 lead clicks · 4,934 Yinez messages · 5,998 notifications · 50/50 5-star reviews.</strong> Every number on this page is pulled from the production database <em>right now</em>.
           </p>
         </motion.div>
+
+        {/* ─────── 1b. LIVE STATS · auto-updated hourly from The NYC Maid ─────── */}
+        {live && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.08 }}
+            className="mb-20"
+          >
+            <div className="rounded-2xl border-2 border-[#1F4D2C] bg-white p-8 sm:p-10">
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#1F4D2C] opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#1F4D2C]" />
+                </span>
+                <p className="font-mono text-xs tracking-[0.25em] uppercase text-[#1F4D2C]">
+                  Live · The NYC Maid · updates hourly
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
+                {[
+                  { value: live.clients.toLocaleString(), label: "Clients" },
+                  { value: live.bookingsCompleted.toLocaleString(), label: "Bookings completed" },
+                  { value: live.conversations.toLocaleString(), label: "AI conversations" },
+                  { value: live.reviews.toLocaleString(), label: "Reviews" },
+                  { value: live.avgRating != null ? `${live.avgRating.toFixed(1)}★` : "—", label: "Avg rating" },
+                  { value: live.revenueRangeYtd, label: "Revenue YTD" },
+                ].map((s) => (
+                  <div key={s.label} className="text-center">
+                    <p className="font-heading text-2xl sm:text-3xl font-extrabold text-[#1C1C1C]">{s.value}</p>
+                    <p className="mt-1 text-xs text-[#6F6F6B] leading-tight">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-6 text-center text-xs text-[#6F6F6B]">
+                Pulled live from The NYC Maid&apos;s production system · as of {formatGeneratedAt(live.generatedAt)}
+              </p>
+            </div>
+          </motion.div>
+        )}
 
         {/* ─────── 2. ORIGIN TIMELINE ─────── */}
         <motion.div

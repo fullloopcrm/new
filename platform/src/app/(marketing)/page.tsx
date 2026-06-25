@@ -8,6 +8,7 @@ import {
   softwareApplicationSchema,
 } from "@/lib/schema";
 import { faqs } from "@/lib/siteData";
+import { getCaseStudyStats } from "@/lib/caseStudyStats";
 
 // Above the fold — static imports (no lazy loading)
 import Hero from "@/components/home/Hero";
@@ -40,7 +41,9 @@ const ExitIntent = dynamic(() => import("@/components/home/ExitIntent"));
 
 const breadcrumbs = [{ name: "Home", url: "https://homeservicesbusinesscrm.com" }];
 
-export default function Home() {
+export default async function Home() {
+  // Live case-study stats pulled from The NYC Maid (ISR-cached 1h). Null on failure → static fallback.
+  const liveStats = await getCaseStudyStats();
   return (
     <>
       {/* Schema Markup */}
@@ -63,7 +66,7 @@ export default function Home() {
       <Hero />
 
       {/* 1a. Focus Partner — The NYC Maid case study (live evidence) */}
-      <FocusPartner />
+      <FocusPartner live={liveStats} />
 
       {/* 1b. Why we built this */}
       <QuickTips />
