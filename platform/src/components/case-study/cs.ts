@@ -93,7 +93,10 @@ export const codeToken: React.CSSProperties = {
   color: C.good,
   padding: "1px 6px",
   borderRadius: "3px",
-  whiteSpace: "nowrap",
+  // Long inline commit strings must wrap on narrow screens — nowrap here was
+  // overflowing the mobile viewport and widening the whole page.
+  overflowWrap: "break-word",
+  wordBreak: "break-word",
 };
 
 // A green inline link.
