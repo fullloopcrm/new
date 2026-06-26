@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, team_member_id, team_members(pay_rate)')
+    .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, team_member_id, referrer_id, client_id, clients(name), team_members(pay_rate)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
@@ -73,6 +73,49 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Referral commission — if this booking came through an affiliate referrer,
+  // ledger their cut on completion. Idempotent via UNIQUE(booking_id); a no-op
+  // when there's no referrer. (Referrer-notification email not ported — flagged.)
+  if (booking.referrer_id && updatedPriceCents && updatedPriceCents > 0) {
+    const { data: ref } = await supabaseAdmin
+      .from('referrers')
+      .select('id, commission_rate, total_earned')
+      .eq('id', booking.referrer_id as string)
+      .eq('tenant_id', auth.tid)
+      .single()
+    if (ref) {
+      const rate = Number(ref.commission_rate) || 0.10
+      const commissionCents = Math.round(updatedPriceCents * rate)
+      const clientName = (booking.clients as unknown as { name?: string } | null)?.name || null
+      const { error: commErr } = await supabaseAdmin.from('referral_commissions').insert({
+        tenant_id: auth.tid,
+        booking_id: booking.id,
+        referrer_id: ref.id,
+        client_name: clientName,
+        gross_amount_cents: updatedPriceCents,
+        commission_rate: rate,
+        commission_cents: commissionCents,
+        status: 'pending',
+      })
+      // commErr is expected (and ignored) when a commission already exists for
+      // this booking — the UNIQUE(booking_id) constraint makes re-checkout safe.
+      if (!commErr) {
+        await supabaseAdmin
+          .from('referrers')
+          .update({ total_earned: (ref.total_earned || 0) + commissionCents })
+          .eq('id', ref.id)
+          .then(() => {}, () => {})
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: auth.tid,
+          type: 'referral_converted',
+          title: 'Referral commission',
+          message: `Referrer earned $${(commissionCents / 100).toFixed(2)} on ${clientName || 'a'} booking`,
+          recipient_type: 'admin',
+        }).then(() => {}, () => {})
+      }
+    }
   }
 
   return NextResponse.json({
