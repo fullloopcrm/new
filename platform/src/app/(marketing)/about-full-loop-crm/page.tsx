@@ -15,7 +15,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "About Full Loop CRM | Built by Home Service Operators",
   description:
-    "Full Loop CRM was built by a home service business owner with 20+ years in the field. One platform that handles the full cycle — leads to rebooking. Web design by Consortium NYC, SEO by The NYC SEO.",
+    "Full Loop CRM was built by a home service business owner with 20+ years in the field. One platform that handles the full cycle — leads to rebooking. Web design by The NYC Marketing Company, SEO by The NYC SEO.",
   keywords: [
     "about full loop CRM",
     "home service CRM founder",
@@ -211,12 +211,12 @@ export default function AboutPage() {
             <p>
               Full Loop CRM is engineered and maintained by{" "}
               <a
-                href="https://consortiumnyc.com"
+                href="https://www.thenycmarketingcompany.com/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
               >
-                Consortium NYC
+                The NYC Marketing Company
               </a>
               , a New York-based web design and digital marketing studio
               specializing in high-performance applications for service
