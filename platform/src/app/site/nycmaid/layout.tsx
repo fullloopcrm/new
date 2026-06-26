@@ -7,6 +7,17 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 import MarketingNav from '@/app/site/nycmaid/_components/MarketingNav'
 import MarketingFooter from '@/app/site/nycmaid/_components/MarketingFooter'
 
+// Fallback title for tenant pages that set no metadata of their own — namely the
+// 'use client' booking/apply/feedback/referral pages, which would otherwise
+// inherit the platform root layout's "Full Loop CRM" title. Server-rendered
+// marketing pages set their own title and are unaffected (no template here, so
+// their existing titles are not wrapped/doubled).
+export const metadata = {
+  title: {
+    default: 'The NYC Maid — Professional Cleaning Services in NYC From $59/hr',
+  },
+}
+
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`${bebasNeue.variable} ${inter.variable} font-[family-name:var(--font-inter)]`}>

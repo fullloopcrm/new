@@ -5,8 +5,6 @@ import Link from 'next/link'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { formatPhone } from '@/lib/format'
-import MarketingNav from '@/app/site/nycmaid/_components/MarketingNav'
-import MarketingFooter from '@/app/site/nycmaid/_components/MarketingFooter'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
@@ -349,7 +347,6 @@ function BookFormContent() {
   if (done) {
     return (
       <>
-        <MarketingNav />
       <div className="min-h-screen bg-gradient-to-b from-[#1E2A4A] to-[#243352] flex items-center justify-center px-4 py-16">
         <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">✓</div>
@@ -366,14 +363,12 @@ function BookFormContent() {
           <Link href="/" className="inline-block bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90">Back home</Link>
         </div>
       </div>
-        <MarketingFooter />
       </>
     )
   }
 
   return (
     <>
-      <MarketingNav />
     <div className="min-h-screen bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-10 md:py-16 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
@@ -798,7 +793,6 @@ function BookFormContent() {
       </div>
     )}
 
-      <MarketingFooter />
     </>
   )
 }
