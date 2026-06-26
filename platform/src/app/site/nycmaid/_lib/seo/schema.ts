@@ -19,7 +19,7 @@ const BUSINESS = {
   reviewCount: '43',
   foundingDate: '2018',
   currenciesAccepted: 'USD',
-  paymentAccepted: 'Cash, Credit Card, Debit Card, Zelle (pay@thenycmaid.com), Venmo, Apple Pay',
+  paymentAccepted: 'Cash, Credit Card, Debit Card, Apple Pay, Cash App',
   description: 'Professional house cleaning services across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester County, and Northern New Jersey. Deep cleaning, regular apartment cleaning, move-in/move-out, post-construction cleanup, weekly maid service, same-day cleaning, Airbnb turnover, and office cleaning. Licensed, insured, and background-checked cleaners. Serving the NYC metro since 2018.',
   slogan: "New York City's Most Trusted Cleaning Service",
   knowsLanguage: ['en', 'es'],

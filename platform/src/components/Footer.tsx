@@ -32,7 +32,7 @@ const topLocations = [
   { label: "Nashville, TN", href: "/location/home-service-crm-in-nashville" },
   { label: "Charlotte, NC", href: "/location/home-service-crm-in-charlotte" },
   { label: "Seattle, WA", href: "/location/home-service-crm-in-seattle" },
-  { label: "All 400 Locations", href: "/full-loop-crm-service-business-industries" },
+  { label: "All 400+ Locations", href: "/home-service-crm-locations" },
 ];
 
 const topIndustries = [

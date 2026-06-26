@@ -53,7 +53,7 @@ const homepageFAQs = [
   { question: 'Is there a minimum number of hours?', answer: 'Yes — a 2-hour minimum on all bookings, first-time cleanings included. Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts; a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).' },
   { question: 'How do I book a cleaning?', answer: 'Text (212) 202-8400. We typically schedule within 24-48 hours, with same-day availability for urgent requests.' },
   { question: 'Do you offer same-day cleaning?', answer: 'Yes. Same-day and emergency cleaning is available at $89/hour. We dispatch a professional cleaner to your door within hours.' },
-  { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Zelle (pay@thenycmaid.com), Venmo, Apple Pay, and cash. You can also pay securely online through our payment portal.' },
+  { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Apple Pay, and Cash App through our secure online payment link, plus cash. You can also pay securely online through our payment portal.' },
   { question: 'Do I need to tip my cleaner?', answer: 'Tipping is never required but always appreciated. If you feel your cleaner did a great job, a tip is a wonderful way to show it.' },
 
   // Services
@@ -683,7 +683,7 @@ export default function HomePage() {
                 {[
                   'Payment is requested when the cleaning is nearly complete',
                   'You see the results before you pay',
-                  'Accepted methods: Zelle (pay@thenycmaid.com) or Apple Pay',
+                  'Accepted methods: credit/debit card, Apple Pay, or Cash App',
                   'No processing fees, no delays, no chargebacks',
                   'Cleaner remains on site until payment is completed',
                 ].map(item => (

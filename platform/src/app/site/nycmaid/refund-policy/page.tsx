@@ -71,7 +71,7 @@ export default function RefundPolicyPage() {
               Payment is collected approximately 30 minutes before the cleaner finishes. If not received, the cleaner will wait and the time is billable. Time is billed in 30-minute increments. We accept:
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {['Zelle', 'Apple Pay', 'Venmo', 'Credit Card', 'Debit Card', 'Cash'].map(method => (
+              {['Credit Card', 'Debit Card', 'Apple Pay', 'Cash App', 'Cash'].map(method => (
                 <div key={method} className="bg-gray-50 rounded-lg p-3 text-center">
                   <span className="text-gray-700 text-sm font-medium">{method}</span>
                 </div>

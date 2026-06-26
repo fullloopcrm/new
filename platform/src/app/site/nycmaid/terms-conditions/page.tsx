@@ -94,7 +94,7 @@ export default function TermsPage() {
                   'We do not collect any money upfront. There are no deposits, no pre-authorizations, and no advance charges.',
                   'Payment is collected approximately 30 minutes before the cleaner finishes. If payment is not received, the cleaner will wait until it is — and the wait time is billable.',
                   'Time is billed in 30-minute increments. Once 10 minutes into the next half hour has passed, it counts as a full 30 billable minutes. We do not bill by the minute or quarter hour.',
-                  'Accepted payment methods: Zelle (pay@thenycmaid.com), Apple Pay, Venmo, credit/debit card, and cash.',
+                  'Accepted payment methods: credit/debit card, Apple Pay, and Cash App through our secure online payment link, plus cash.',
                   'Pricing is hourly and transparent. The rate you are quoted is the rate you pay. No hidden fees, no surcharges.',
                   'If a cleaning runs longer than expected, we will communicate with you before continuing and adjusting the final amount.',
                 ].map(item => (

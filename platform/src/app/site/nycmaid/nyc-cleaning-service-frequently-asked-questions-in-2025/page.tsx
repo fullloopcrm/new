@@ -11,7 +11,7 @@ const pricingFAQs = [
   { question: 'Is there a minimum charge?', answer: 'Our minimum is 2 hours per visit (first-time cleanings included). Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts — a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr). Most apartments take 2–4 hours depending on size and condition.' },
   { question: 'Do I pay before or after the cleaning?', answer: 'Payment is collected about 30 minutes before the cleaner finishes. If payment is not received by then, the cleaner will wait until it is — and the wait time is billable. No deposits, no pre-charges, no money upfront.' },
   { question: 'How is time calculated?', answer: 'We bill in 30-minute increments — not by the minute or quarter hour. Once 10 minutes into the next half hour has passed, it counts as a full 30 billable minutes. For example, 2 hours and 10 minutes would be billed as 2.5 hours.' },
-  { question: 'What payment methods do you accept?', answer: 'We accept cash, credit card, debit card, Zelle (pay@thenycmaid.com), Venmo, and Apple Pay. You choose what works best for you.' },
+  { question: 'What payment methods do you accept?', answer: 'We accept credit card, debit card, Apple Pay, and Cash App through our secure online payment link, plus cash. You choose what works best for you.' },
   { question: 'Do you offer discounts for recurring cleanings?', answer: 'Yes — discounts depend on the rate tier. $69/hr (we supply): save 20% weekly or 10% biweekly/monthly. $59/hr (you supply): save 10% weekly or 5% biweekly/monthly. On top of that, well-maintained recurring homes clean faster — so most recurring clients save further on shorter visits.' },
 ]
 

@@ -38,7 +38,7 @@ export default function PrivacyPolicyPage() {
               {[
                 { label: 'Contact Information', detail: 'Your name, phone number, email address, and home address — provided when you book a cleaning or request a quote.' },
                 { label: 'Service Details', detail: 'Information about your home (size, condition, access instructions) and any special cleaning requests or preferences.' },
-                { label: 'Payment Information', detail: 'Payment is collected in person upon completion of service via Zelle (pay@thenycmaid.com), Apple Pay, Venmo, credit card, or cash. We do not store payment card details on our servers.' },
+                { label: 'Payment Information', detail: 'Payment is collected upon completion of service via our secure payment link (Apple Pay, card, or Cash App) or cash. We do not store payment card details on our servers.' },
                 { label: 'Usage Data', detail: 'We collect anonymized data about how you interact with our website — pages visited, buttons clicked, and features used. This helps us improve the user experience and make our site more useful for you.' },
               ].map(item => (
                 <li key={item.label} className="bg-gray-50 rounded-xl p-5">

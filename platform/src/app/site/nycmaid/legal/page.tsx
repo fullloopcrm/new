@@ -50,7 +50,7 @@ export default function LegalPage() {
               'We never sell, share, or distribute your personal information',
               'First-time and one-time bookings cannot be cancelled or rescheduled once confirmed',
               'Recurring services require 7 days notice to reschedule — cancellations only if discontinuing service entirely with 7 days notice',
-              'Payment is due before the cleaner leaves — Zelle (pay@thenycmaid.com), Apple Pay, Venmo, card, or cash',
+              'Payment is due before the cleaner leaves — credit/debit card, Apple Pay, Cash App, or cash',
               'We collect anonymized usage data to improve our website — never tied to your identity',
               'Not happy? Contact us within 24 hours and we\'ll send someone back at no charge',
             ].map(item => (

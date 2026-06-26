@@ -65,6 +65,7 @@ const isPublicRoute = createRouteMatcher([
   '/(.*)-business-crm',
   '/crm-for-(.*)',
   '/locations(.*)',
+  '/home-service-crm-locations',
   '/services(.*)',
   '/about-full-loop-crm',
   '/contact',
