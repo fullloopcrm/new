@@ -17,7 +17,7 @@ export function smsBookingReceived(booking: any): string {
   const maxLine = booking.max_hours ? ` (max ${booking.max_hours} hours, capped per your request)` : ''
   const teamLine = (booking.team_size || 1) > 1 ? ` for our team of ${booking.team_size} cleaners` : ''
   const tapLink = booking.client_confirm_token ? `\n\nTap to confirm: https://www.thenycmaid.com/c/${booking.client_confirm_token}` : ''
-  return `The NYC Maid: We received your booking request — please review and reply CONFIRM (or use the link below) to lock it in.\n\nTo recap: we are scheduling you${teamLine} for ${date} @ ${time} (allow for up to 60 additional minutes due to traffic) at the rate of $${rate}/hr${maxLine} paid via Zelle or CC (+4%) 30 minutes before service completion. You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)${tapLink}\n\nQuestions? (646) 490-0130${STOP_TEXT}`
+  return `The NYC Maid: We received your booking request — please review and reply CONFIRM (or use the link below) to lock it in.\n\nTo recap: we are scheduling you${teamLine} for ${date} @ ${time} (allow for up to 60 additional minutes due to traffic) at the rate of $${rate}/hr${maxLine} paid via a secure Stripe link (card, Apple Pay, or Cash App) 30 minutes before service completion. You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)${tapLink}\n\nQuestions? (646) 490-0130${STOP_TEXT}`
 }
 
 // Sent when the client already confirmed the recap on the form (no SMS CONFIRM
@@ -78,7 +78,7 @@ export function smsBookingConfirmation(booking: any): string {
   const cleanerLine = teamSize > 1
     ? `with a team of ${teamSize} cleaners (${cleanerName} leading)`
     : `with ${cleanerName}`
-  return `The NYC Maid: Confirmed — ${date} at ${time} ${cleanerLine}.\n\nPayment: Zelle (hi@thenycmaid.com) or Apple Pay, collected 30 min before end. If payment is not received, the cleaner will wait and the time is billable. Time billed in 30-min increments.\n\n${cancelPolicy} We hold your spot without payment upfront, turning away other clients — late changes affect our team members who depend on this income.\n\nPortal: thenycmaid.com/book${STOP_TEXT}`
+  return `The NYC Maid: Confirmed — ${date} at ${time} ${cleanerLine}.\n\nPayment: secure Stripe link (card, Apple Pay, or Cash App), collected 30 min before end. If payment is not received, the cleaner will wait and the time is billable. Time billed in 30-min increments.\n\n${cancelPolicy} We hold your spot without payment upfront, turning away other clients — late changes affect our team members who depend on this income.\n\nPortal: thenycmaid.com/book${STOP_TEXT}`
 }
 
 export function smsReminder(booking: any, timeframe: string): string {
@@ -222,12 +222,12 @@ export function smsUrgentBroadcast(booking: any): string {
 
 export function smsPaymentDue(clientName: string, amount: string): string {
   const firstName = clientName?.split(' ')[0] || 'there'
-  return `The NYC Maid: Hi ${firstName}, your cleaning is wrapping up soon! Payment of $${amount} is due via Zelle (hi@thenycmaid.com) or Apple Pay (2120292200). Our team can't leave until payment is processed — thank you!${STOP_TEXT}`
+  return `The NYC Maid: Hi ${firstName}, your cleaning is wrapping up soon! Payment of $${amount} is due via the secure Stripe link we text you (card, Apple Pay, or Cash App). Our team can't leave until payment is processed — thank you!${STOP_TEXT}`
 }
 
 export function smsPaymentDueES(clientName: string, amount: string): string {
   const firstName = clientName?.split(' ')[0] || ''
-  return `The NYC Maid: Hola ${firstName}, tu limpieza está por terminar. El pago de $${amount} se puede hacer por Zelle (hi@thenycmaid.com) o Apple Pay (2120292200). Nuestro equipo no puede irse hasta que se procese el pago — ¡gracias!${STOP_TEXT_ES}`
+  return `The NYC Maid: Hola ${firstName}, tu limpieza está por terminar. El pago de $${amount} se puede hacer con el enlace seguro de Stripe que te enviamos (tarjeta, Apple Pay o Cash App). Nuestro equipo no puede irse hasta que se procese el pago — ¡gracias!${STOP_TEXT_ES}`
 }
 
 // ============================================
@@ -235,7 +235,7 @@ export function smsPaymentDueES(clientName: string, amount: string): string {
 // ============================================
 
 export function smsPaymentDueAdmin(clientName: string, cleanerName: string, amount: string): string {
-  return `The NYC Maid: 30 min left — ${clientName} with ${cleanerName}. Collect $${amount} via Zelle/Apple Pay`
+  return `The NYC Maid: 30 min left — ${clientName} with ${cleanerName}. Collect $${amount} via Stripe link`
 }
 
 export function smsNewClient(name: string): string {

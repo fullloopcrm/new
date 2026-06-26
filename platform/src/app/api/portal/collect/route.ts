@@ -256,19 +256,17 @@ export async function POST(request: NextRequest) {
             : null
           const prefTime = convo.preferred_time || null
           const rate = convo.hourly_rate ? `$${convo.hourly_rate}/hr` : null
-          const zelleEmail = tenant.zelle_email || tenant.email || ''
-
           let recapMsg: string
           if (prefDate && address) {
             const parts = [`We're scheduling you for ${prefDate}`]
             parts.push(`at ${address}`)
             if (prefTime) parts.push(`at ${prefTime}`)
             parts.push(`We always allow for an additional 30 minutes due to traffic.`)
-            if (rate) parts.push(`Billed at the rate of ${rate} in 30-minute increments, paid via Zelle (${zelleEmail}) or Apple Pay 30 minutes before completion.`)
-            else parts.push(`Paid via Zelle (${zelleEmail}) or Apple Pay 30 minutes before completion. Time billed in 30-minute increments.`)
+            if (rate) parts.push(`Billed at the rate of ${rate} in 30-minute increments, paid via a secure Stripe link (card, Apple Pay, or Cash App) 30 minutes before completion.`)
+            else parts.push(`Paid via a secure Stripe link (card, Apple Pay, or Cash App) 30 minutes before completion. Time billed in 30-minute increments.`)
             recapMsg = `Ok ${firstName}, got your info ty! 😊 Let's recap:\n\n${parts.join('. ').replace(/\.\./g, '.')}\n\nPlease confirm all is correct — we have a no-cancellation policy for first-time and one-time services 😊`
           } else if (prefDate) {
-            recapMsg = `Ok ${firstName}, got your info ty! 😊 We have you down for ${prefDate}${prefTime ? ' at ' + prefTime : ''}${rate ? ', ' + rate : ''}. Paid via Zelle (${zelleEmail}) or Apple Pay ~30 min before completion. No-cancellation policy for first-time services 😊`
+            recapMsg = `Ok ${firstName}, got your info ty! 😊 We have you down for ${prefDate}${prefTime ? ' at ' + prefTime : ''}${rate ? ', ' + rate : ''}. Paid via a secure Stripe link (card, Apple Pay, or Cash App) ~30 min before completion. No-cancellation policy for first-time services 😊`
           } else {
             recapMsg = `Ok ${firstName}, got your info ty! 😊 I'll send you confirmation with all the details shortly. No-cancellation policy for first-time services 😊`
           }

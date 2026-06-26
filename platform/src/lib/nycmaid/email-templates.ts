@@ -125,7 +125,7 @@ export function clientBookingReceivedEmail(booking: any) {
 
     <div style="background: #fef9c3; border: 1px solid #fde047; border-radius: 8px; padding: 16px; margin: 24px 0 0 0;">
       <p style="margin: 0; color: #1a1a1a; font-size: 14px; line-height: 1.7;">
-        <strong>To recap:</strong> we are scheduling you for ${date} @ ${startTime} (allow for up to 60 additional minutes due to traffic) at the rate of $${rate}/hr${booking.max_hours ? ` (max ${booking.max_hours} hours, capped per your request)` : ''} paid via Zelle or CC (+4%) 30 minutes before service completion. You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)
+        <strong>To recap:</strong> we are scheduling you for ${date} @ ${startTime} (allow for up to 60 additional minutes due to traffic) at the rate of $${rate}/hr${booking.max_hours ? ` (max ${booking.max_hours} hours, capped per your request)` : ''} paid via a secure Stripe link (card, Apple Pay, or Cash App) 30 minutes before service completion. You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)
       </p>
     </div>
 
@@ -279,7 +279,7 @@ export function clientConfirmationEmail(booking: any) {
 
     <h2 style="font-size: 18px; font-weight: 600; color: #000; margin: 0 0 16px 0;">Payment</h2>
     <p style="color: #333; font-size: 14px; line-height: 1.7; margin: 0 0 8px 0;">
-      About 30 minutes before wrapping up, we'll reach out to collect payment via <strong>Zelle (hi@thenycmaid.com) or Apple Pay</strong>. Payment must be received before the cleaner finishes — if not, the cleaner will wait and the wait time is billable. Time is billed in <strong>30-minute increments</strong> (once 10 minutes into the next half hour has passed, it counts as a full 30 billable minutes).
+      About 30 minutes before wrapping up, we'll reach out to collect payment via <strong>a secure Stripe link (card, Apple Pay, or Cash App)</strong>. Payment must be received before the cleaner finishes — if not, the cleaner will wait and the wait time is billable. Time is billed in <strong>30-minute increments</strong> (once 10 minutes into the next half hour has passed, it counts as a full 30 billable minutes).
     </p>
 
     ${divider()}
@@ -452,8 +452,7 @@ export function clientPaymentDueEmail(booking: any, amount: string) {
     <h2 style="font-size: 18px; font-weight: 600; color: #000; margin: 0 0 16px 0;">Payment methods</h2>
 
     ${infoTable(`
-      ${infoRow('Zelle', '<a href="mailto:hi@thenycmaid.com" style="color: #0066cc;">hi@thenycmaid.com</a>')}
-      ${infoRow('Apple Pay', '<a href="tel:2120292200" style="color: #0066cc;">(212) 029-2200</a>')}
+      ${infoRow('Stripe', 'Secure link sent by text — pay by card, Apple Pay, or Cash App')}
     `)}
 
     ${noteBox('<strong>Important:</strong> Our team cannot leave until payment has been processed. Thank you for your prompt payment!', 'warning')}
