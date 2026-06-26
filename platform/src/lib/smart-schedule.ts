@@ -66,12 +66,13 @@ export async function scoreTeamForBooking(opts: {
   clientAddress: string
   clientId?: string
   excludeBookingId?: string
+  jobCoords?: { lat: number; lng: number } // pre-resolved job coords — skips geocoding (suggestBookingSlots geocodes once, not per candidate time)
 }): Promise<TeamMemberScore[]> {
   const { tenantId, date, startTime, durationHours, clientAddress, clientId, excludeBookingId } = opts
 
-  // Geocode the job address — prefer cached client coords. Also pull preferred
-  // team-member id for the +200 score bonus.
-  let jobCoords: { lat: number; lng: number } | null = null
+  // Geocode the job address — prefer caller-provided coords, then cached client
+  // coords. Also pull preferred team-member id for the +200 score bonus.
+  let jobCoords: { lat: number; lng: number } | null = opts.jobCoords || null
   let preferredMemberId: string | null = null
   if (clientId) {
     const { data: client } = await supabaseAdmin
@@ -80,7 +81,7 @@ export async function scoreTeamForBooking(opts: {
       .eq('id', clientId)
       .eq('tenant_id', tenantId)
       .single()
-    if (client?.latitude && client?.longitude) {
+    if (!jobCoords && client?.latitude && client?.longitude) {
       jobCoords = { lat: Number(client.latitude), lng: Number(client.longitude) }
     }
     preferredMemberId = (client?.preferred_team_member_id as string | null) || null
@@ -416,4 +417,141 @@ export function pickBestTeam(scores: TeamMemberScore[], teamSize: number): {
     extras: team.slice(1),
     short: Math.max(0, want - team.length),
   }
+}
+
+// ── Alternate-time suggestions ──────────────────────────────────────────────
+// Ported from NYC Maid (src/lib/smart-schedule.ts suggestBookingSlots, 2026-06-25),
+// adapted to FullLoop's tenant-scoped team_members model. The client_properties
+// branch is intentionally dropped — that table isn't ported to FL yet.
+
+export interface SlotSuggestion {
+  time24: string            // "12:30" — feed straight back into a booking
+  label: string             // "12:30 PM" — display
+  cleanerId: string
+  cleanerName: string
+  score: number             // the top member's score for this slot
+  reason: string            // human reason, clustering-aware
+  travelFromPrevMin?: number
+  teamShort?: number        // unfilled team slots (teamSize > 1 only); 0 = fully staffed
+}
+
+const SUGGEST_BUSINESS_START_MIN = 8 * 60   // 8:00 AM — earliest start
+const SUGGEST_LAST_START_MIN = 16 * 60      // 4:00 PM — latest start
+const SUGGEST_BUSINESS_END_MIN = 19 * 60    // service must finish by 7:00 PM
+const SUGGEST_STEP_MIN = 30                 // 30-min granularity → allows 12:30
+const PREFERRED_POCKET_MIN = [8 * 60, 12 * 60, 16 * 60] // 8am / 12pm / 4pm
+
+/**
+ * Suggest the best alternate start times for a job, ranked smart-cluster first.
+ *
+ * Reuses the proven scoreTeamForBooking per candidate time (run in parallel) —
+ * so the matching rules never drift from the single-time path. The job address
+ * is geocoded ONCE here and passed through, so we don't hit the geocoder per slot.
+ *
+ * @returns up to `limit` suggestions, each pairing a workable time with the best
+ *          team member for it. Empty array = nothing works that day.
+ */
+export async function suggestBookingSlots(opts: {
+  tenantId: string
+  date: string
+  durationHours: number
+  clientAddress: string
+  clientId?: string
+  teamSize?: number
+  requestedTime?: string   // "HH:MM" — excluded from results (we want ALTERNATIVES to it)
+  excludeBookingId?: string
+  limit?: number           // default 3
+  stepMin?: number         // candidate-time granularity; default 30. Public form passes 60 (hourly picker).
+}): Promise<SlotSuggestion[]> {
+  const { tenantId, date, durationHours, clientAddress, clientId, requestedTime, excludeBookingId } = opts
+  const teamSize = Math.max(1, Math.floor(opts.teamSize || 1))
+  const limit = Math.max(1, opts.limit || 3)
+  const stepMin = opts.stepMin && opts.stepMin > 0 ? opts.stepMin : SUGGEST_STEP_MIN
+  const durationMin = Math.round(durationHours * 60)
+
+  // Geocode the job once; every candidate-time scoring reuses these coords.
+  let jobCoords: { lat: number; lng: number } | undefined
+  if (clientId && !clientAddress) {
+    const { data: client } = await supabaseAdmin
+      .from('clients').select('latitude, longitude').eq('id', clientId).eq('tenant_id', tenantId).single()
+    if (client?.latitude && client?.longitude) jobCoords = { lat: Number(client.latitude), lng: Number(client.longitude) }
+  }
+  if (!jobCoords && clientAddress) {
+    const geo = await geocodeAddress(clientAddress)
+    if (geo) jobCoords = geo
+  }
+
+  // Build candidate start times: every step from 8:00 to the last start that
+  // still finishes by 7pm (capped at 4pm). Skip the requested time itself.
+  const reqMin = requestedTime ? hhmmToMin(requestedTime) : null
+  const lastStart = Math.min(SUGGEST_LAST_START_MIN, SUGGEST_BUSINESS_END_MIN - durationMin)
+  const candidates: number[] = []
+  for (let m = SUGGEST_BUSINESS_START_MIN; m <= lastStart; m += stepMin) {
+    if (reqMin != null && m === reqMin) continue
+    candidates.push(m)
+  }
+
+  // Score every candidate time in parallel. Each call reuses the proven scorer.
+  const scored = await Promise.all(candidates.map(async (startMin) => {
+    const scores = await scoreTeamForBooking({
+      tenantId,
+      date,
+      startTime: minToHHMM(startMin),
+      durationHours,
+      clientAddress,
+      clientId,
+      excludeBookingId,
+      jobCoords,
+    })
+    const team = pickBestTeam(scores, teamSize)
+    return { startMin, top: team.lead, teamShort: team.short }
+  }))
+
+  // Keep only times that actually have an available top member.
+  const usable = scored.filter((s): s is { startMin: number; top: TeamMemberScore; teamShort: number } => !!s.top)
+
+  // Rank "smart-cluster first": the member's slot score already encodes clustering
+  // + zone + preferred + proximity. Add a preferred-pocket nudge and a mild
+  // closeness-to-requested-time nudge so ties break sensibly.
+  const ranked = usable.map(({ startMin, top, teamShort }) => {
+    let rank = top.score
+    if (PREFERRED_POCKET_MIN.includes(startMin)) rank += 15
+    if (reqMin != null) rank += Math.max(0, 12 - Math.abs(startMin - reqMin) / 30 * 2)
+    return { startMin, top, teamShort, rank }
+  }).sort((a, b) => b.rank - a.rank)
+
+  return ranked.slice(0, limit).map(({ startMin, top, teamShort }) => ({
+    time24: minToHHMM(startMin),
+    label: formatTime(startMin),
+    cleanerId: top.id,
+    cleanerName: top.name,
+    score: Math.round(top.score),
+    reason: buildSuggestionReason(top),
+    travelFromPrevMin: top.travel_from_prev_min,
+    teamShort: teamSize > 1 ? teamShort : undefined,
+  }))
+}
+
+// Craft the "why this slot" line, leaning into the clustering win when there is
+// one ("Victor's nearby, 8 min from his noon job") since that's the whole point.
+function buildSuggestionReason(c: TeamMemberScore): string {
+  const first = c.name.split(' ')[0]
+  if (c.travel_from_prev_min != null && c.prev_job_label) {
+    return `${first} is nearby — ${c.travel_from_prev_min} min from their ${c.prev_job_label} job`
+  }
+  if (c.is_preferred) return `${first} is the client's preferred team member`
+  if (c.zone_match) return `${first} works this area`
+  if (c.distance_miles != null && c.distance_miles < 2) return `${first} is close by`
+  return `${first} is available`
+}
+
+function hhmmToMin(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+function minToHHMM(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }

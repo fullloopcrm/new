@@ -19,8 +19,19 @@ export function formatLocalDate(dateStr: string, options?: Intl.DateTimeFormatOp
  */
 export function parseTimestamp(ts: string | null | undefined): Date | null {
   if (!ts) return null
-  if (ts.endsWith('Z') || ts.includes('+') || ts.match(/\d{2}:\d{2}$/)) return new Date(ts)
-  return new Date(ts + 'Z')
+  // Normalize the Postgres " " date/time separator to ISO "T".
+  let s = ts.replace(' ', 'T')
+  // Normalize a bare 2-digit tz offset ("+00") to "+00:00" — JS Date can't parse "+00".
+  if (/[+-]\d{2}$/.test(s)) s += ':00'
+  // Only parse directly when there is a REAL timezone marker: a trailing Z or a
+  // signed offset (+HH:MM / -HH:MM). The old check matched any "HH:MM" tail, so
+  // naive timestamps like "2026-06-25 11:30:00" were treated as already-zoned and
+  // parsed in the SERVER's local time (ET on Vercel) instead of UTC — turning a
+  // 4-hour job into 0.5hr. Supabase stores UTC, so naive values get a 'Z'.
+  if (s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) {
+    return new Date(s)
+  }
+  return new Date(s + 'Z')
 }
 
 /**

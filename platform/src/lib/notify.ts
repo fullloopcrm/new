@@ -49,6 +49,7 @@ export type NotificationType =
   | 'daily_digest'
   | 'booking_received'
   | 'new_lead'
+  | 'waitlist'
   | 'selena_error'
   | 'escalation'
   | 'video_uploaded'

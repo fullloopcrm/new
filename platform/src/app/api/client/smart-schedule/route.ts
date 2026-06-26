@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { scoreCleanersForBooking, suggestBookingSlots } from '@/lib/nycmaid/smart-schedule'
+import { scoreTeamForBooking, suggestBookingSlots } from '@/lib/smart-schedule'
 import { supabaseAdmin } from '@/lib/supabase'
 
 const rl = new Map<string, { count: number; resetAt: number }>()
@@ -31,7 +31,6 @@ export async function GET(request: Request) {
   const duration = searchParams.get('duration')
   let clientAddress = searchParams.get('address')
   const clientId = searchParams.get('client_id')
-  const hourlyRate = searchParams.get('hourly_rate')
   let tenantId: string | null = null
   let preferredCleanerId: string | null = null
 
@@ -70,13 +69,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ cleaners })
   }
 
-  const scores = await scoreCleanersForBooking({
+  const scores = await scoreTeamForBooking({
+    tenantId,
     date,
     startTime,
     durationHours: duration ? parseFloat(duration) : 2,
     clientAddress,
     clientId: clientId || undefined,
-    hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
   })
 
   const sanitized = scores
@@ -97,11 +96,11 @@ export async function GET(request: Request) {
   let suggestions = null
   if (searchParams.get('suggest') === '1' && sanitized.length === 0) {
     const raw = await suggestBookingSlots({
+      tenantId,
       date,
       durationHours: duration ? parseFloat(duration) : 2,
       clientAddress,
       clientId: clientId || undefined,
-      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
       requestedTime: startTime,
       stepMin: 60, // public picker only offers on-the-hour slots
     })
