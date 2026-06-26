@@ -124,12 +124,12 @@ export default function Footer() {
               ))}
               <li>
                 <a
-                  href="https://consortiumnyc.com"
+                  href="https://www.thenycmarketingcompany.com/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className={linkClass}
                 >
-                  Built by Consortium NYC
+                  Created by The NYC Marketing Company
                 </a>
               </li>
             </ul>
@@ -241,12 +241,12 @@ export default function Footer() {
             </p>
             <div className="flex flex-wrap justify-center gap-6">
               <a
-                href="https://consortiumnyc.com"
+                href="https://www.thenycmarketingcompany.com/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-slate-400 transition-colors hover:text-white"
               >
-                Built by Consortium NYC
+                Created by The NYC Marketing Company
               </a>
             </div>
           </div>
