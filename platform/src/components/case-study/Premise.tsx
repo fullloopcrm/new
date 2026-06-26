@@ -9,8 +9,9 @@ export default function Premise() {
       <Column className="py-20 sm:py-28">
         <ChapterHead
           part="Part I"
-          title="The Premise"
-          standfirst={<>Every CRM promises it can run your business. Almost none of them have ever run one. We decided the only honest way to sell that promise was to keep it ourselves — in public, with real customers, real money, and a real crew.</>}
+          kicker="Built to be its own case study"
+          title="The Premise: A Business Built to Be Its Own Case Study"
+          standfirst={<>Every CRM promises it can run your business. Almost none of them have ever run one. So instead of writing a case study, we started a real business to be one — the first company we know of founded for the sole purpose of being its own proof, in public, with real customers, real money, and a real crew.</>}
         />
 
         <P>The software industry has a tell. When a company sells you a tool to run your operation, the proof it offers is almost always borrowed: a customer logo it didn&apos;t earn, a testimonial it lightly edited, a &ldquo;47% productivity increase&rdquo; with no denominator. The vendor has never actually stood in your shoes. It has never had to make payroll with its own product, never watched its own revenue depend on whether the booking flow works at 11pm on a Saturday. It is selling a map of a country it has never visited.</P>

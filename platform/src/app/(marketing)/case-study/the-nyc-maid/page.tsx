@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { JsonLd, webPageSchema, breadcrumbSchema, articleSchema } from "@/lib/schema";
+import { JsonLd, webPageSchema, breadcrumbSchema, articleSchema, faqSchema, itemListSchema } from "@/lib/schema";
 import { getCaseStudyStats } from "@/lib/caseStudyStats";
+import { CHAPTERS } from "@/components/case-study/cs";
+import { objectionFaqs } from "@/components/case-study/Objections";
 import Reviews from "@/components/home/Reviews";
 import ReadingNav from "@/components/case-study/ReadingNav";
 import Hero from "@/components/case-study/Hero";
@@ -32,27 +34,28 @@ const breadcrumbs = [
   { name: "Case Study — The NYC Maid", url: PAGE_URL },
 ];
 
-const TITLE = "The NYC Maid Case Study: A Business Built to Be the Proof — Run Almost Autonomously on Full Loop CRM";
+const TITLE = "The First Business Built to Be Its Own Case Study — The NYC Maid, Run Almost Autonomously on Full Loop CRM";
 const DESC =
-  "We didn't write a case study — we built a real NYC cleaning company to be one. The NYC Maid: 700+ clients in under six months on $0 of ads, run by one person about an hour a day, rendered from the real build record. Verify every claim yourself.";
+  "The NYC Maid is the first real business started for the sole purpose of being its own case study: a New York City cleaning company built on Full Loop CRM and run almost autonomously — 700+ clients in under six months on $0 of ads, by one person about an hour a day. Rendered live from the build record. Verify every claim yourself.";
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESC,
   keywords: [
+    "business built to be its own case study",
+    "business started as a case study",
+    "first live case study business",
+    "a business built to be the proof",
+    "verifiable case study",
     "Full Loop CRM case study",
     "autonomous home service business",
-    "AI-run cleaning business",
-    "organic lead generation case study",
-    "home service CRM results",
     "The NYC Maid",
-    "AI front office",
   ],
   alternates: { canonical: PAGE_URL },
   openGraph: {
-    title: "The NYC Maid Case Study | A Business Built to Be the Proof",
+    title: "The First Business Built to Be Its Own Case Study | The NYC Maid",
     description:
-      "A real NYC cleaning company, built to run on Full Loop CRM until it ran itself. 700+ clients, $0 ads, one person ~an hour a day. Rendered from the real build record.",
+      "The first real business started just to be its own case study — a NYC cleaning company built on Full Loop CRM and run almost autonomously. 700+ clients, $0 ads, one person ~an hour a day. Rendered live from the build record.",
     url: PAGE_URL,
     type: "article",
     publishedTime: "2026-02-01T00:00:00Z",
@@ -60,8 +63,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "The NYC Maid Case Study | A Business Built to Be the Proof",
-    description: "700+ clients in under six months on $0 of ads. Run by one person, ~an hour a day. Verify it yourself.",
+    title: "The First Business Built to Be Its Own Case Study | The NYC Maid",
+    description: "A real company started solely to be its own case study: 700+ clients in under six months on $0 of ads, run almost autonomously. Verify it yourself.",
   },
 };
 
@@ -73,6 +76,13 @@ export default async function TheNYCMaidCaseStudy() {
       <JsonLd data={webPageSchema(TITLE, DESC, PAGE_URL, breadcrumbs)} />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd data={articleSchema(TITLE, DESC, PAGE_URL, "2026-02-01T00:00:00Z", "2026-06-26T00:00:00Z")} />
+      <JsonLd data={faqSchema(objectionFaqs)} />
+      <JsonLd
+        data={itemListSchema(
+          "The NYC Maid Case Study — Contents",
+          CHAPTERS.map((c) => ({ name: c.title, url: `${PAGE_URL}#${c.id}` }))
+        )}
+      />
 
       <ReadingNav />
 

@@ -1,7 +1,7 @@
 // Part IX — The Industry, Rewritten. The macro thesis: what an autonomous
 // operating model does to home services as a whole.
 import { Band, Column, ChapterHead, P, H3, Quote, Callout } from "./Primitives";
-import { C } from "./cs";
+import { C, csLink } from "./cs";
 
 export default function Industry() {
   return (
@@ -13,7 +13,7 @@ export default function Industry() {
           standfirst={<>Step back from the one business. If a single operator can run a five-hundred-client company in an hour a day on zero ad spend, that isn&apos;t just a good outcome for one founder — it changes the math for an entire industry. Here is what we think it does to home services.</>}
         />
 
-        <P>Home services is a vast, fragmented economy — millions of small operators in cleaning, towing, pest control, landscaping, HVAC, plumbing, and the rest. It has stayed fragmented for a structural reason: the business doesn&apos;t scale with the owner. Growth means hiring office staff, and office staff means overhead, management, and thinner margins, so most operators top out at the size one person can personally hold in their head. The ceiling isn&apos;t demand. It&apos;s operational gravity. What The NYC Maid demonstrates is that the gravity can be lifted by software — and that changes several things at once.</P>
+        <P>Home services is a vast, fragmented economy — millions of small operators in <a href="/full-loop-crm-service-business-industries" style={csLink}>cleaning, towing, pest control, landscaping</a>, HVAC, plumbing, and the rest. It has stayed fragmented for a structural reason: the business doesn&apos;t scale with the owner. Growth means hiring office staff, and office staff means overhead, management, and thinner margins, so most operators top out at the size one person can personally hold in their head. The ceiling isn&apos;t demand. It&apos;s operational gravity. What The NYC Maid demonstrates is that the gravity can be lifted by software — and that changes several things at once.</P>
 
         <P>To see the scale of what shifts, hold the size of the category in mind. Home services in the United States is a multi-hundred-billion-dollar economy made of millions of tiny operators — most with a handful of employees, many with none. It is one of the last large sectors where the dominant operating model is still a person with a phone. That fragmentation has been remarkably durable precisely because the thing that would consolidate it — operational leverage — has never been available to the small operator. Software sold to this market has mostly been a nicer calendar. What changes the math isn&apos;t a better calendar; it&apos;s removing the owner from the operation entirely. When that becomes possible and cheap, several pillars of the industry&apos;s structure stop being load-bearing at once.</P>
 

@@ -1,6 +1,6 @@
 // Part X — What This Proves. The synthesis.
 import { Band, Column, ChapterHead, P, Quote } from "./Primitives";
-import { C, codeToken } from "./cs";
+import { C, codeToken, csLink } from "./cs";
 
 export default function Proves() {
   return (
@@ -8,6 +8,7 @@ export default function Proves() {
       <Column className="py-20 sm:py-28">
         <ChapterHead
           part="Part X"
+          kicker="The proof, on the record"
           title="What This Proves"
           standfirst={<>Strip away the systems, the commit counts, and the roadmap, and the case study reduces to a single claim — one we set out to make undeniable rather than persuasive.</>}
         />
@@ -28,7 +29,7 @@ export default function Proves() {
 
         <P>There&apos;s a deeper reason we built it this way, beyond honesty in marketing. Building the business taught us things no amount of designing-in-the-abstract could have. The billing rule that drifted, the payment email that couldn&apos;t be trusted, the AI that needed three months of hard rules, the GPS check-in that failed in a basement — every one of those is a lesson that only a real customer and real money could teach, and every one is now baked into the platform an operator inherits. A case study written about a hypothetical business would have none of that scar tissue. This one is made of it.</P>
 
-        <P>The next operator to run on this machine starts where The NYC Maid is now — not at Day Zero, but at the far end of five months of proven build history, with the hard problems already solved. The only open question left is whose business it runs next.</P>
+        <P>The next operator to run on this machine starts where The NYC Maid is now — not at Day Zero, but at the far end of five months of proven build history, with the hard problems already solved. The only open question left is <a href="/partner-with-full-loop-crm" style={csLink}>whose business it runs next</a>.</P>
       </Column>
     </Band>
   );

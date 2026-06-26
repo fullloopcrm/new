@@ -19,8 +19,9 @@ export default function Hero({ generatedAt, clients }: { generatedAt: string | n
         <p className="mt-9 max-w-3xl" style={{ fontFamily: "var(--body, system-ui, sans-serif)", fontSize: "clamp(18px, 1.6vw, 22px)", lineHeight: 1.6, color: "#D8D8D2" }}>
           Most software companies prove their product with a slide deck and a borrowed logo. Full
           Loop did something no one else has on record: we <strong style={{ color: C.cream }}>founded a real
-          New York City cleaning company</strong> — The NYC Maid — for the sole purpose of running it on
-          the platform until it ran itself. Then we left the build record open for anyone to read.
+          New York City cleaning company</strong> — The NYC Maid — for the sole purpose of being its own case
+          study, then ran it on the platform until it ran itself. As far as we can find, it&apos;s the first
+          business built that way. Then we left the build record open for anyone to read.
         </p>
 
         <p className="mt-6 max-w-3xl" style={{ fontFamily: display, fontStyle: "italic", fontWeight: 500, fontSize: "clamp(19px, 1.7vw, 26px)", lineHeight: 1.34, color: "#6FB58A" }}>

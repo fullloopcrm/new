@@ -32,11 +32,14 @@ export function Column({ children, wide = false, className = "" }: { children: R
 
 /** Chapter opener: part label + big title + optional standfirst. */
 export function ChapterHead({
-  part, title, standfirst, dark = false,
-}: { part: string; title: string; standfirst?: React.ReactNode; dark?: boolean }) {
+  part, title, standfirst, kicker, dark = false,
+}: { part: string; title: string; standfirst?: React.ReactNode; kicker?: string; dark?: boolean }) {
   return (
     <header className="pb-10">
-      <span style={{ ...partLabel, color: dark ? "#6FB58A" : C.good }}>{part}</span>
+      {kicker && (
+        <div style={{ fontFamily: mono, fontSize: "10px", letterSpacing: "0.18em", textTransform: "uppercase", color: dark ? C.ink : C.good, background: dark ? "#6FB58A" : "rgba(31,77,44,0.08)", display: "inline-block", padding: "4px 9px", borderRadius: "2px", marginBottom: "12px" }}>{kicker}</div>
+      )}
+      <span style={{ ...partLabel, color: dark ? "#6FB58A" : C.good }} className={kicker ? "block" : undefined}>{part}</span>
       <h2 style={{ ...chapterTitle, color: dark ? C.cream : C.ink }} className="mt-4">{title}</h2>
       {standfirst && (
         <p className="mt-6" style={{ ...leadIn, color: dark ? "#E7E7E2" : C.ink }}>{standfirst}</p>
