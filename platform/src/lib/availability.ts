@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { isHoliday } from '@/lib/holidays'
+import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 
 export interface AvailabilitySlot {
   time: string
@@ -21,7 +22,7 @@ export interface TeamMemberAvailability {
 
 const BUSINESS_START = 9
 const BUSINESS_END = 17
-const BUFFER_MINUTES = 90
+const BUFFER_MINUTES = 60 // travel buffer between jobs — aligned with smart-schedule + schedule-monitor
 
 const TIME_LABELS: Record<number, string> = {
   9: '9:00 AM', 10: '10:00 AM', 11: '11:00 AM', 12: '12:00 PM',
@@ -39,25 +40,15 @@ const DAY_SHORT: Record<number, string> = {
   0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat'
 }
 
-// Parse availability from team member notes JSON
-function parseAvailability(notes: string | null): { working_days: number[]; blocked_dates: string[] } {
-  const defaults = { working_days: [1, 2, 3, 4, 5], blocked_dates: [] as string[] }
-  if (!notes) return defaults
-  try {
-    const parsed = JSON.parse(notes)
-    if (parsed.availability) return parsed.availability
-  } catch { /* not JSON */ }
-  return defaults
-}
-
 /**
- * Get team members available on a given day for a tenant.
- * Filters by working_days and blocked_dates.
+ * Get team members available on a given day for a tenant. Canonical model:
+ * working_days/schedule columns via worksScheduledDay (handles both historical
+ * formats; no/all-off days = unavailable) + unavailable_dates one-off days off.
+ * Replaces the old team_members.notes JSON + fake Mon–Fri default, so this agrees
+ * with the smart-schedule scorer instead of drifting from it.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getTeamForDay(tenantId: string, date: string): Promise<any[]> {
-  const dayIndex = new Date(date + 'T12:00:00').getDay()
-
   const { data: allMembers } = await supabaseAdmin
     .from('team_members')
     .select('*')
@@ -67,9 +58,8 @@ async function getTeamForDay(tenantId: string, date: string): Promise<any[]> {
   if (!allMembers || allMembers.length === 0) return []
 
   return allMembers.filter(m => {
-    const avail = parseAvailability(m.notes)
-    if (avail.blocked_dates.includes(date)) return false
-    return avail.working_days.includes(dayIndex)
+    if ((m.unavailable_dates as string[] | null)?.includes(date)) return false
+    return worksScheduledDay(m.working_days, m.schedule, date)
   })
 }
 
@@ -162,6 +152,9 @@ export async function checkAvailability(
     const slotEndMin = slotStartMin + durationMin
 
     const hasAvailableMember = team.some(member => {
+      // Honor the member's working HOURS for the day before checking conflicts —
+      // mirrors the scorer so shown slots match what assignment will allow.
+      if (!slotWithinHours(member.schedule, date, slotStartMin, slotEndMin)) return false
       const result = hasConflict(member.id, slotStartMin, slotEndMin, existingBookings)
       return !result.conflict
     })
@@ -188,20 +181,18 @@ export async function checkMemberDayOff(
 
   const { data: member } = await supabaseAdmin
     .from('team_members')
-    .select('name, notes')
+    .select('name, working_days, schedule, unavailable_dates')
     .eq('id', memberId)
     .eq('tenant_id', tenantId)
     .single()
 
   if (!member) return { unavailable: false }
 
-  const avail = parseAvailability(member.notes)
-
-  if (avail.blocked_dates.includes(date)) {
+  if ((member.unavailable_dates as string[] | null)?.includes(date)) {
     return { unavailable: true, reason: `${member.name} has requested ${date} off. Cannot assign.`, memberName: member.name }
   }
 
-  if (!avail.working_days.includes(dayIndex)) {
+  if (!worksScheduledDay(member.working_days, member.schedule, date)) {
     return { unavailable: true, reason: `${member.name} does not work on ${dayName}s.`, memberName: member.name }
   }
 
