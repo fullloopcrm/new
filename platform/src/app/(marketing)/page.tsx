@@ -7,7 +7,7 @@ import {
   localBusinessSchema,
   softwareApplicationSchema,
 } from "@/lib/schema";
-import { faqs } from "@/lib/siteData";
+import { faqs, testimonials } from "@/lib/siteData";
 import { getCaseStudyStats } from "@/lib/caseStudyStats";
 
 // Above the fold — static imports (no lazy loading)
@@ -56,7 +56,13 @@ export default async function Home() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={softwareApplicationSchema()} />
+      <JsonLd
+        data={softwareApplicationSchema(
+          "1000",
+          "USD",
+          testimonials.map((t) => ({ name: t.name, text: t.text, rating: t.rating }))
+        )}
+      />
       <JsonLd data={faqSchema(faqs.homepageAll)} />
       <JsonLd data={localBusinessSchema("United States", "Country")} />
 

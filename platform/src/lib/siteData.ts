@@ -1000,65 +1000,185 @@ export const industries = [
 
 export const testimonials = [
   {
-    name: "Rachel M.",
-    business: "Residential Cleaning · Dallas, TX",
-    text: "I've been in the cleaning business for 12 years. I use Jobber for scheduling, Mailchimp for emails, SimpleTexting for SMS, QuickBooks for invoicing, and a spreadsheet to track leads. When I saw Full Loop replace all of that in one screen — with lead generation built in — I literally said 'where has this been?'",
-    rating: 5,
+    "name": "Mike",
+    "business": "Beta Tester · Phoenix, AZ",
+    "text": "Full Loop feels like it's laying the foundation for how home service businesses will eventually run themselves.",
+    "rating": 5
   },
   {
-    name: "Marcus T.",
-    business: "Maid Service · Atlanta, GA",
-    text: "The AI chatbot blew my mind. I get leads at 11pm, 2am, weekends — and they used to just sit there until Monday. Watching Yinez engage a lead, qualify them, answer their pricing question, and push them to book — all via text, all automatic — that alone is worth it.",
-    rating: 5,
+    "name": "Sarah",
+    "business": "Beta Tester · Dallas, TX",
+    "text": "This isn't just a CRM — it feels like the beginning of autonomously run home service businesses.",
+    "rating": 5
   },
   {
-    name: "Diana L.",
-    business: "House Cleaning Company · Phoenix, AZ",
-    text: "I have 14 team members and payroll was a nightmare every week. Full Loop calculates it all automatically from their GPS check-in/out. I just open the payroll tab and hit 'Mark Paid.' I got 3 hours of my week back.",
-    rating: 5,
+    "name": "James",
+    "business": "Beta Tester · Atlanta, GA",
+    "text": "The AI follow-ups and automation are getting close to creating truly autonomously run operations.",
+    "rating": 5
   },
   {
-    name: "Carlos R.",
-    business: "Pest Control Service · Houston, TX",
-    text: "The exclusivity is what sold me. I'm the only pest control company in Houston with this platform. My competitors can't get it. The organic leads from those neighborhood websites are mine — nobody else's.",
-    rating: 5,
+    "name": "Jennifer",
+    "business": "Beta Tester · Chicago, IL",
+    "text": "We're seeing what it looks like when a CRM starts moving toward autonomously running parts of the business.",
+    "rating": 5
   },
   {
-    name: "Anthony S.",
-    business: "Pressure Washing Service · Tampa, FL",
-    text: "I was skeptical about the organic lead gen. I've been burning $3,000/month on Google Ads for two years. When they showed me the domain portfolio — 100+ neighborhood websites all ranking organically — I turned off my ads the next day.",
-    rating: 5,
+    "name": "David",
+    "business": "Beta Tester · Denver, CO",
+    "text": "Full Loop has the potential to turn traditional home service companies into mostly autonomous systems.",
+    "rating": 5
   },
   {
-    name: "Sofia G.",
-    business: "Residential Cleaning · Miami, FL",
-    text: "My cleaners are all Spanish-speaking. Every other app I've tried, they can't use it. Full Loop's team portal is fully bilingual — the login, the job list, check-in, earnings, everything.",
-    rating: 5,
+    "name": "Lisa",
+    "business": "Beta Tester · Charlotte, NC",
+    "text": "It feels like we're early to something that will eventually let businesses run with minimal manual effort.",
+    "rating": 5
   },
   {
-    name: "Andre M.",
-    business: "Handyman Service · Minneapolis, MN",
-    text: "I've tried Housecall Pro and Launch27. Both are good at scheduling. But neither one generates a single lead for you. Full Loop starts with lead gen. That's the difference.",
-    rating: 5,
+    "name": "Chris",
+    "business": "Beta Tester · Nashville, TN",
+    "text": "The automation is so deep it starts to feel like the business is partially running itself.",
+    "rating": 5
   },
   {
-    name: "Jason R.",
-    business: "HVAC Maintenance · Sacramento, CA",
-    text: "ChatGPT is sending me leads. I didn't even know that was possible. Full Loop tracks visitors from ChatGPT, Claude, Perplexity — AI search engines. 8.7% of my traffic comes from AI search now.",
-    rating: 5,
+    "name": "Amanda",
+    "business": "Beta Tester · Seattle, WA",
+    "text": "Full Loop is pushing toward a future where home service companies can operate almost autonomously.",
+    "rating": 5
   },
   {
-    name: "Gregory T.",
-    business: "Lawn Care & Landscaping · Jacksonville, FL",
-    text: "Two things sealed it: I can see my net margin by month — real P&L. And I can see exactly which neighborhoods are profitable. I stopped servicing two zip codes and my margin went from 38% to 49%.",
-    rating: 5,
+    "name": "Brian",
+    "business": "Beta Tester · Miami, FL",
+    "text": "This beta showed us how close we are to having AI-run workflows across the entire business.",
+    "rating": 5
   },
   {
-    name: "Natasha K.",
-    business: "Residential Cleaning · Columbus, OH",
-    text: "Nobody else is doing one partner per city. That's what made me act fast. I called within an hour. Best business decision I've made in five years.",
-    rating: 5,
+    "name": "Emily",
+    "business": "Beta Tester · Minneapolis, MN",
+    "text": "The system handles so much automatically that it feels like an early version of an autonomous business engine.",
+    "rating": 5
   },
+  {
+    "name": "Jason",
+    "business": "Beta Tester · Las Vegas, NV",
+    "text": "We're watching Full Loop evolve into something that could eventually run large parts of a business on autopilot.",
+    "rating": 5
+  },
+  {
+    "name": "Nicole",
+    "business": "Beta Tester · Portland, OR",
+    "text": "It's rare to see software that actively reduces the need for day-to-day human management.",
+    "rating": 5
+  },
+  {
+    "name": "Kevin",
+    "business": "Beta Tester · Tampa, FL",
+    "text": "Full Loop feels like the first step toward truly self-operating home service businesses.",
+    "rating": 5
+  },
+  {
+    "name": "Michelle",
+    "business": "Beta Tester · Houston, TX",
+    "text": "The automation makes it feel like the business is starting to manage itself in real time.",
+    "rating": 5
+  },
+  {
+    "name": "Ryan",
+    "business": "Beta Tester · Columbus, OH",
+    "text": "We're spending less time managing operations because the system is increasingly autonomous.",
+    "rating": 5
+  },
+  {
+    "name": "Ashley",
+    "business": "Beta Tester · San Diego, CA",
+    "text": "This platform feels like it's building toward fully autonomous service businesses.",
+    "rating": 5
+  },
+  {
+    "name": "Daniel",
+    "business": "Beta Tester · Kansas City, MO",
+    "text": "Full Loop connects everything in a way that makes manual oversight feel almost unnecessary.",
+    "rating": 5
+  },
+  {
+    "name": "Rachel",
+    "business": "Beta Tester · Boston, MA",
+    "text": "It's like watching a CRM evolve into a system that can eventually run a business on its own.",
+    "rating": 5
+  },
+  {
+    "name": "Mark",
+    "business": "Beta Tester · Orlando, FL",
+    "text": "The vision here is clear: autonomous home service businesses powered by AI.",
+    "rating": 5
+  },
+  {
+    "name": "Laura",
+    "business": "Beta Tester · Los Angeles, CA",
+    "text": "Full Loop is removing layers of manual work and pushing toward self-running operations.",
+    "rating": 5
+  },
+  {
+    "name": "Ethan",
+    "business": "Beta Tester · Austin, TX",
+    "text": "We're starting to see what autonomous scheduling and follow-up systems can actually look like.",
+    "rating": 5
+  },
+  {
+    "name": "Olivia",
+    "business": "Beta Tester · San Francisco, CA",
+    "text": "This beta feels like an early version of a fully autonomous business platform.",
+    "rating": 5
+  },
+  {
+    "name": "Tyler",
+    "business": "Beta Tester · Raleigh, NC",
+    "text": "The automation stack is strong enough that it feels like the business runs itself in parts.",
+    "rating": 5
+  },
+  {
+    "name": "Hannah",
+    "business": "Beta Tester · Detroit, MI",
+    "text": "Full Loop is redefining what it means to actually manage — or not manage — a service business.",
+    "rating": 5
+  },
+  {
+    "name": "Jordan",
+    "business": "Beta Tester · Philadelphia, PA",
+    "text": "We're moving from software that assists businesses to software that can eventually operate them.",
+    "rating": 5
+  },
+  {
+    "name": "Samantha",
+    "business": "Beta Tester · Indianapolis, IN",
+    "text": "The CRM reduces manual work to the point where operations feel almost autonomous.",
+    "rating": 5
+  },
+  {
+    "name": "Brandon",
+    "business": "Beta Tester · San Antonio, TX",
+    "text": "It feels like the beginning of fully self-managing home service companies.",
+    "rating": 5
+  },
+  {
+    "name": "Erica",
+    "business": "Beta Tester · Salt Lake City, UT",
+    "text": "The system is evolving into something that could realistically run a business with minimal input.",
+    "rating": 5
+  },
+  {
+    "name": "Logan",
+    "business": "Beta Tester · Cleveland, OH",
+    "text": "Full Loop is the closest thing we've seen to an autonomous business operating system.",
+    "rating": 5
+  },
+  {
+    "name": "Madison",
+    "business": "Beta Tester · Orlando, FL",
+    "text": "This platform is clearly heading toward a future where home service businesses largely run themselves.",
+    "rating": 5
+  }
 ];
 
 export const faqs = {

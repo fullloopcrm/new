@@ -244,9 +244,10 @@ export function aggregateRatingSchema() {
 
 export function softwareApplicationSchema(
   price: string = "1000",
-  priceCurrency: string = "USD"
+  priceCurrency: string = "USD",
+  reviews: { name: string; text: string; rating: number }[] = []
 ) {
-  return {
+  const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "@id": "https://homeservicesbusinesscrm.com/#software",
@@ -280,10 +281,6 @@ export function softwareApplicationSchema(
         },
       },
     },
-    // NOTE: aggregateRating intentionally omitted — we do not ship a rating
-    // without genuine, on-page customer reviews to back it (Google strips/penalizes
-    // unsupported review markup). Re-add a real AggregateRating + Review[] once we
-    // have attestable customer reviews displayed on the page.
     provider: {
       "@id": "https://homeservicesbusinesscrm.com/#organization",
     },
@@ -300,6 +297,31 @@ export function softwareApplicationSchema(
       "Multi-Domain SEO Network",
     ],
   };
+
+  // AggregateRating + Review[] only when real, on-page reviews are supplied
+  // (the beta testimonials rendered on the homepage). No reviews -> no rating.
+  if (reviews.length > 0) {
+    const total = reviews.reduce((sum, r) => sum + r.rating, 0);
+    schema.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: (total / reviews.length).toFixed(1),
+      reviewCount: String(reviews.length),
+      bestRating: "5",
+      worstRating: "1",
+    };
+    schema.review = reviews.map((r) => ({
+      "@type": "Review",
+      author: { "@type": "Person", name: r.name },
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: String(r.rating),
+        bestRating: "5",
+      },
+      reviewBody: r.text,
+    }));
+  }
+
+  return schema;
 }
 
 export function itemListSchema(
