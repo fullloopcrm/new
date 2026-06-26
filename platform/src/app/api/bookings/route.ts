@@ -5,10 +5,18 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { checkMemberDayOff } from '@/lib/availability'
+import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
+import { timestampToMin } from '@/lib/cleaner-availability'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
 import { smsBookingConfirmation, smsJobAssignment } from '@/lib/sms-templates'
 import { getSettings } from '@/lib/settings'
+
+function formatMin(min: number): string {
+  const h = Math.floor(min / 60), m = min % 60
+  const ampm = h >= 12 ? 'PM' : 'AM', hr = h % 12 || 12
+  return m > 0 ? `${hr}:${String(m).padStart(2, '0')} ${ampm}` : `${hr} ${ampm}`
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -120,6 +128,52 @@ export async function POST(request: Request) {
             end: c.end_time,
           }))
         }, { status: 409 })
+      }
+    }
+
+    // Working-hours + daily max-jobs enforcement at assignment — mirrors the
+    // smart-schedule scorer so a manual/agent pick can't violate what suggestions
+    // enforce. (force bypasses, like the day-off + conflict guards above.)
+    if (validated.team_member_id && validated.start_time && !body.force) {
+      const bookingDate = (validated.start_time as string).split('T')[0]
+      const { data: member } = await supabaseAdmin
+        .from('team_members')
+        .select('name, schedule, max_jobs_per_day')
+        .eq('id', validated.team_member_id as string)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (member) {
+        const startMin = timestampToMin(validated.start_time as string)
+        const endMin = validated.end_time
+          ? Math.max(startMin + 30, timestampToMin(validated.end_time as string))
+          : startMin + 180
+        // Working hours for the day (schedule with no hours set imposes no limit).
+        if (!slotWithinHours(member.schedule as Record<string, unknown> | null, bookingDate, startMin, endMin)) {
+          const w = hoursWindowForDate(member.schedule as Record<string, unknown> | null, bookingDate)
+          return NextResponse.json({
+            error: w
+              ? `${member.name} works ${formatMin(w.start)}–${formatMin(w.end)} that day — this slot is outside their hours.`
+              : `${member.name} is not available at that time.`,
+            unavailable: true, reason: 'outside_hours',
+          }, { status: 409 })
+        }
+        // Daily job cap.
+        if (member.max_jobs_per_day) {
+          const { count } = await supabaseAdmin
+            .from('bookings')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId)
+            .eq('team_member_id', validated.team_member_id)
+            .gte('start_time', bookingDate + 'T00:00:00')
+            .lte('start_time', bookingDate + 'T23:59:59')
+            .not('status', 'in', '("cancelled","no_show")')
+          if ((count || 0) >= Number(member.max_jobs_per_day)) {
+            return NextResponse.json({
+              error: `${member.name} is already at their ${member.max_jobs_per_day}-job limit for ${bookingDate}.`,
+              unavailable: true, reason: 'max_jobs',
+            }, { status: 409 })
+          }
+        }
       }
     }
 
