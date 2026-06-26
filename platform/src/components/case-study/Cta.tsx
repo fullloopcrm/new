@@ -14,13 +14,13 @@ export default function Cta() {
         </p>
 
         <div className="mt-11 flex flex-wrap justify-center gap-4">
-          <a href="/#lead-form" className="inline-flex items-center justify-center transition-transform hover:-translate-y-0.5"
+          <Link href="/partner-with-full-loop-crm" className="inline-flex items-center justify-center transition-transform hover:-translate-y-0.5"
             style={{ fontFamily: mono, fontSize: "15px", letterSpacing: "0.1em", textTransform: "uppercase", color: C.ink, background: "#6FB58A", padding: "18px 34px", borderRadius: "2px", fontWeight: 700 }}>
-            I Want This — Submit Application →
-          </a>
-          <Link href="/full-loop-crm-service-features" className="inline-flex items-center justify-center transition-transform hover:-translate-y-0.5"
+            Apply to Partner →
+          </Link>
+          <Link href="/partner-with-full-loop-crm" className="inline-flex items-center justify-center transition-transform hover:-translate-y-0.5"
             style={{ fontFamily: mono, fontSize: "15px", letterSpacing: "0.1em", textTransform: "uppercase", color: C.cream, border: "1px solid #3A3A3A", padding: "18px 34px", borderRadius: "2px" }}>
-            See how the platform works →
+            Become the Operator in Your Market →
           </Link>
         </div>
 
