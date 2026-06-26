@@ -245,7 +245,8 @@ export function aggregateRatingSchema() {
 export function softwareApplicationSchema(
   price: string = "1000",
   priceCurrency: string = "USD",
-  reviews: { name: string; text: string; rating: number }[] = []
+  reviews: { name: string; text: string; rating: number }[] = [],
+  ratingCount?: number
 ) {
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -305,6 +306,7 @@ export function softwareApplicationSchema(
     schema.aggregateRating = {
       "@type": "AggregateRating",
       ratingValue: (total / reviews.length).toFixed(1),
+      ratingCount: String(ratingCount ?? reviews.length),
       reviewCount: String(reviews.length),
       bestRating: "5",
       worstRating: "1",

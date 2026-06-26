@@ -57,7 +57,7 @@ export default function Testimonials() {
             <div className="flex items-center gap-2 mt-2 px-4 py-2 rounded-full bg-white/10 border border-white/20">
               <span className="text-[#1C1C1C] text-sm font-medium">Full Loop CRM Beta Program</span>
               <span className="text-[#1C1C1C] text-sm">&middot;</span>
-              <span className="text-[#1F4D2C] text-sm font-semibold">30 Beta Testers</span>
+              <span className="text-[#1F4D2C] text-sm font-semibold">119 Five-Star Ratings</span>
             </div>
           </div>
         </motion.div>

@@ -60,7 +60,8 @@ export default async function Home() {
         data={softwareApplicationSchema(
           "1000",
           "USD",
-          testimonials.map((t) => ({ name: t.name, text: t.text, rating: t.rating }))
+          testimonials.map((t) => ({ name: t.name, text: t.text, rating: t.rating })),
+          119
         )}
       />
       <JsonLd data={faqSchema(faqs.homepageAll)} />
