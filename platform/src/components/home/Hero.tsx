@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const trustBadges = [
-  { label: "One Trade Per City — Exclusive", href: "/waitlist" },
+  { label: "One Trade Per City — Exclusive", href: "#lead-form" },
   { label: "50+ Service Industries", href: "/full-loop-crm-service-business-industries" },
   { label: "All-in-One Full-Cycle CRM", href: "/full-loop-crm-service-features" },
   { label: "AI-Powered Automation", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
@@ -130,6 +130,38 @@ export default function Hero() {
           </strong>
         </p>
 
+        {/* Autonomy proof line */}
+        <p
+          className="max-w-3xl mb-10"
+          style={{
+            fontFamily: "var(--display, 'Fraunces', serif)",
+            fontStyle: "italic",
+            fontWeight: 500,
+            fontSize: "clamp(18px, 1.7vw, 24px)",
+            lineHeight: 1.35,
+            letterSpacing: "-0.01em",
+            color: C.ink,
+          }}
+        >
+          Proof: we built a real cleaning company on it — The NYC Maid —{" "}
+          <span style={{ color: C.good }}>700+ clients in under six months on $0 of ads or paid leads</span>,
+          now run by one person about an hour a day. No office, no managers, nobody
+          collecting payment, nobody chasing reviews.
+        </p>
+
+        {/* Includes / coming soon */}
+        <div
+          className="mb-10 flex flex-col gap-2"
+          style={{ fontFamily: "var(--mono, 'JetBrains Mono', monospace)", fontSize: "11px", letterSpacing: "0.06em" }}
+        >
+          <span style={{ color: C.graphite }}>
+            <span style={{ color: C.good }}>INCLUDES</span> &middot; AI lead gen &middot; AI sales &middot; scheduling &middot; dispatch &middot; payments &middot; payouts &middot; reviews &middot; retargeting
+          </span>
+          <span style={{ color: C.muted }}>
+            <span style={{ color: C.muted2 }}>COMING SOON</span> &middot; automated HR &middot; automated booking &middot; automated accounting &middot; and more
+          </span>
+        </div>
+
         {/* Access strip */}
         <div
           className="flex items-baseline flex-wrap gap-x-6 gap-y-2 mb-10 pb-8"
@@ -144,9 +176,9 @@ export default function Hero() {
               letterSpacing: "-0.02em",
             }}
           >
-            Invite-only
+            Now accepting
             <span style={{ fontSize: "0.45em", color: C.muted, marginLeft: "0.5em", letterSpacing: "0" }}>
-              waitlist
+              applications
             </span>
           </span>
           <span
@@ -164,23 +196,24 @@ export default function Hero() {
 
         {/* CTAs — ink, masthead-style, no glow */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-10">
-          <Link
-            href="/waitlist"
-            className="inline-flex items-center justify-center font-cta"
+          <a
+            href="#lead-form"
+            className="inline-flex items-center justify-center font-cta transition-transform hover:-translate-y-0.5"
             style={{
               fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
-              fontSize: "13px",
-              letterSpacing: "0.14em",
+              fontSize: "15px",
+              letterSpacing: "0.1em",
               textTransform: "uppercase",
-              padding: "16px 28px",
-              background: C.ink,
+              padding: "20px 34px",
+              background: C.good,
               color: C.cream,
               borderRadius: "2px",
-              fontWeight: 500,
+              fontWeight: 700,
+              boxShadow: "0 2px 0 rgba(0,0,0,0.18)",
             }}
           >
-            Check My Territory →
-          </Link>
+            I Want This — Submit Application →
+          </a>
           <a
             href="tel:+18445667276"
             style={{
@@ -195,9 +228,10 @@ export default function Hero() {
               borderRadius: "2px",
               fontWeight: 500,
             }}
-            className="inline-flex items-center justify-center font-cta"
+            className="inline-flex flex-col items-center justify-center font-cta leading-tight"
           >
-            Call (844) 566-7276
+            <span>Call 844-LOOP-CRM</span>
+            <span style={{ fontSize: "10px", letterSpacing: "0.1em", color: C.muted, marginTop: "2px" }}>(844) 566-7276</span>
           </a>
           <span
             style={{

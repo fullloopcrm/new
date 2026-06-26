@@ -1,442 +1,290 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  JsonLd,
-  webPageSchema,
-  breadcrumbSchema,
-  articleSchema,
-} from "@/lib/schema";
+import { JsonLd, webPageSchema, breadcrumbSchema, articleSchema } from "@/lib/schema";
+import { C, display, mono, proseStyle, barLabel, h2Style } from "@/components/home/editorial";
+import SectionHead from "@/components/home/SectionHead";
+import Reviews from "@/components/home/Reviews";
+import { getCaseStudyStats, formatGeneratedAt } from "@/lib/caseStudyStats";
 
-const BASE = "https://homeservicesbusinesscrm.com";
-const PAGE_URL = `${BASE}/case-study/the-nyc-maid`;
-
+const PAGE_URL = "https://homeservicesbusinesscrm.com/case-study/the-nyc-maid";
 const breadcrumbs = [
-  { name: "Home", url: BASE },
-  { name: "Case Studies", url: `${BASE}/case-study` },
-  { name: "The NYC Maid", url: PAGE_URL },
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Case Study — The NYC Maid", url: PAGE_URL },
 ];
 
 export const metadata: Metadata = {
-  title:
-    "The NYC Maid Case Study | 298 Clients in 7 Weeks | Full Loop CRM",
+  title: "The NYC Maid Case Study: A Home Service Business Run Almost Autonomously on Full Loop CRM",
   description:
-    "How The NYC Maid went from zero to 298 clients, 1,169 bookings, and $18,574 in revenue in just 7 weeks using Full Loop CRM. Real numbers, real business, no ad spend.",
+    "How The NYC Maid grew to 700+ clients in under six months on $0 of ads — and now runs almost autonomously: one person, about an hour a day, 4.9★ across 70 Google reviews. The live proof behind Full Loop CRM.",
   keywords: [
     "Full Loop CRM case study",
     "home service CRM results",
-    "cleaning business CRM",
+    "autonomous home service business",
+    "AI-run cleaning business",
+    "organic lead generation case study",
     "The NYC Maid",
-    "CRM for cleaning companies",
-    "organic lead generation results",
-    "AI receptionist case study",
-    "service business growth",
   ],
   alternates: { canonical: PAGE_URL },
   openGraph: {
-    title: "The NYC Maid Case Study | 298 Clients in 7 Weeks",
+    title: "The NYC Maid Case Study | Run Almost Autonomously on Full Loop CRM",
     description:
-      "Real numbers from our first partner. 298 clients, 1,169 bookings, $18,574 revenue, zero ad spend. Here's exactly how it happened.",
+      "700+ clients in under six months on $0 of ads. Run by one person, about an hour a day. The live business behind Full Loop CRM.",
     url: PAGE_URL,
     type: "article",
-    publishedTime: "2026-03-25T00:00:00Z",
+    publishedTime: "2026-02-01T00:00:00Z",
   },
   twitter: {
     card: "summary_large_image",
-    title: "The NYC Maid Case Study | 298 Clients in 7 Weeks",
-    description:
-      "Real numbers from our first partner. 298 clients, 1,169 bookings, $18,574 revenue, zero ad spend.",
+    title: "The NYC Maid Case Study | Run Almost Autonomously on Full Loop CRM",
+    description: "700+ clients in under six months on $0 of ads. Run by one person, about an hour a day.",
   },
 };
 
-const stats = [
-  { value: "298", label: "Clients" },
-  { value: "1,169", label: "Bookings" },
-  { value: "$18,574", label: "Revenue" },
-  { value: "9", label: "Team Members" },
-  { value: "64", label: "AI Conversations" },
-  { value: "2,590", label: "Pages Indexed" },
-  { value: "148K", label: "Google Impressions" },
-  { value: "4.9", label: "Stars (45 Reviews)" },
-  { value: "80+", label: "EMD Domains" },
+const link = { color: C.good, textDecoration: "underline", textUnderlineOffset: "2px" };
+const subhead: React.CSSProperties = {
+  fontFamily: display, fontWeight: 500, fontSize: "clamp(20px, 2vw, 27px)",
+  letterSpacing: "-0.015em", lineHeight: 1.15, color: C.ink, marginTop: "8px", marginBottom: "2px",
+};
+
+const stages: { num: string; title: string; body: string }[] = [
+  { num: "01", title: "Lead generation — organic, multi-domain SEO", body: "A network of organic, SEO-optimized sites ranks for real NYC cleaning searches and feeds every inquiry into the pipeline. No ad budget, no purchased leads — a UTM audit shows zero paid sources. Every one of the 700+ clients was earned organically." },
+  { num: "02", title: "AI sales — Yinez answers and books, 24/7", body: "One AI agent works SMS, web chat, and email with full memory, qualifying leads, quoting from real pricing, and booking jobs at any hour — in English and Spanish. It only ever speaks from live data, never invents a quote or a time, and escalates the genuine edge cases." },
+  { num: "03", title: "Booking & recurring revenue", body: "Jobs land on the calendar automatically with the right cleaner, price, and cadence. Recurring clients rebook themselves; one-time jobs get nudged toward standing appointments — the engine behind a predictable, growing book of business." },
+  { num: "04", title: "Dispatch & GPS field operations", body: "Cleaners work from a bilingual mobile portal with routes, job details, and GPS-verified check-in/out — so billing and payroll reflect what actually happened, and the owner isn't the dispatcher fielding 'where do I go next?' all morning." },
+  { num: "05", title: "Payments & auto payouts", body: "Payment is collected automatically and reconciled. More than 99% of cleaner payouts run through Stripe Connect the moment a job closes — the right amount, to the right person, with no Friday check-cutting." },
+  { num: "06", title: "Reviews & local SEO", body: "Completed, paid jobs trigger a review request at the right moment; new reviews sync nightly. The result is a 4.9★ rating across 70 Google reviews that feeds local rankings — which generate the next organic lead." },
+  { num: "07", title: "Retention & retargeting", body: "Automated rebooking, seasonal touches, and win-back campaigns keep customers in the loop. Acquisition stays at $0 while lifetime value climbs — the machine feeds itself." },
 ];
 
-const forecast = [
-  { month: "Feb 2026", bookings: "36", revenue: "~$4,500", projected: false },
-  { month: "Mar 2026", bookings: "80+", revenue: "~$10,000", projected: false },
-  { month: "Apr 2026", bookings: "120+", revenue: "~$15,000", projected: true },
-  { month: "Jun 2026", bookings: "200+", revenue: "~$25,000", projected: true },
-  { month: "Dec 2026", bookings: "400+", revenue: "~$50,000", projected: true },
+const milestones: { when: string; title: string; body: string }[] = [
+  { when: "Feb 2026 · Day 0", title: "A business built to prove a point", body: "The NYC Maid launches on Full Loop CRM — a real New York cleaning company created for the sole purpose of proving the platform could run a business. $0 ad budget from day one." },
+  { when: "First weeks", title: "Organic lead engine switches on", body: "A multi-domain SEO network starts ranking for real NYC cleaning searches. The first leads arrive — every one organic, none purchased." },
+  { when: "Early on", title: "The AI takes the front office", body: "Yinez, the AI agent, begins handling SMS, web chat, and email — qualifying leads, quoting from real pricing, and booking jobs 24/7 in English and Spanish." },
+  { when: "Scaling", title: "Payments and payouts go hands-off", body: "Stripe Connect crew payouts pass 99% automatic on job completion. Collections and check-cutting stop being anyone's job." },
+  { when: "Ongoing", title: "Reputation compounds", body: "Automated review requests build a 4.9★ rating across 70 Google reviews — feeding local rankings that generate the next organic lead." },
+  { when: "Under 6 months", title: "700+ clients, $0 spent on ads", body: "The client base passes 700 in under six months, entirely through organic search — no ads, no purchased leads." },
+  { when: "Now", title: "Management goes autonomous", body: "The business runs on about one hour a day from one person. No admins, no managers overseeing the crew, nobody collecting payment, nobody chasing reviews." },
+  { when: "Next", title: "Rolling out to operators", body: "The proven system is being extended to home service operators — one trade per city — with The NYC Maid moving fully into the Full Loop platform." },
 ];
 
-export default function TheNYCMaidCaseStudy() {
+export default async function TheNYCMaidCaseStudy() {
+  const live = await getCaseStudyStats();
+  const numbers = [
+    { v: live ? live.clients.toLocaleString() : "685", l: "Clients", s: "in the live system" },
+    { v: live ? live.bookingsCompleted.toLocaleString() : "451", l: "Jobs completed", s: "marked done & paid" },
+    { v: live ? live.revenueRangeYtd : "$100k–$110k", l: "Revenue", s: "since launch (Feb 2026)" },
+    { v: "4.9★", l: "Google rating", s: "across 70 reviews" },
+    { v: live ? live.teamSize.toLocaleString() : "11", l: "Active cleaners", s: "on the platform" },
+    { v: live ? live.conversations.toLocaleString() : "1,626", l: "AI conversations", s: "handled by Yinez" },
+  ];
+  const autonomy = [
+    { v: "1", l: "person managing it" },
+    { v: "~1 hr", l: "per day, total" },
+    { v: "~40", l: "services a week & growing" },
+    { v: "$0", l: "spent on ads or leads" },
+  ];
+
   return (
     <>
-      {/* Schema Markup */}
-      <JsonLd
-        data={webPageSchema(
-          "The NYC Maid Case Study | Full Loop CRM",
-          "How The NYC Maid went from zero to 298 clients, 1,169 bookings, and $18,574 in revenue in 7 weeks using Full Loop CRM.",
-          PAGE_URL,
-          breadcrumbs
-        )}
-      />
+      <JsonLd data={webPageSchema(metadata.title as string, metadata.description as string, PAGE_URL, breadcrumbs)} />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd
-        data={articleSchema(
-          "The NYC Maid Case Study: 298 Clients in 7 Weeks with Full Loop CRM",
-          "How The NYC Maid went from zero to 298 clients, 1,169 bookings, and $18,574 in revenue in just 7 weeks. Real numbers, real business, zero ad spend.",
-          PAGE_URL,
-          "2026-03-25T00:00:00Z",
-          "2026-03-25T00:00:00Z"
-        )}
-      />
+      <JsonLd data={articleSchema(metadata.title as string, metadata.description as string, PAGE_URL, "2026-02-01T00:00:00Z", "2026-06-26T00:00:00Z")} />
 
-      {/* ───────────────────────── HERO ───────────────────────── */}
-      <section className="bg-slate-900 py-24 px-6">
-        <div className="mx-auto max-w-4xl text-center">
-          <p className="text-teal-400 font-mono text-sm tracking-widest uppercase mb-4">
-            Our Focus Partner
-          </p>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white font-heading leading-tight mb-6">
-            The NYC Maid wasn&apos;t a customer.
-            <br />
-            It was the test bed.
+      {/* Hero */}
+      <section style={{ background: C.ink, color: C.cream }}>
+        <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 pt-16 pb-20">
+          <span style={{ ...barLabel, color: "#6FB58A", borderBottom: `1px solid ${C.cream}` }}>Live case study · The NYC Maid</span>
+          <h1 style={{ ...h2Style, color: C.cream, fontSize: "clamp(40px, 6vw, 84px)" }} className="mt-6 max-w-4xl">
+            The first home service business to run autonomously.
           </h1>
-          <p className="text-slate-300 text-lg md:text-xl max-w-2xl mx-auto mb-8">
-            Full Loop CRM was built by running a live home-cleaning company in
-            New York City. Average ticket grew from $165 to $245 in under 6
-            months. Today every feature you license runs The NYC Maid hands-off.
-            Real numbers below.
+          <p className="mt-8 max-w-3xl" style={{ ...proseStyle, color: "#D8D8D2", fontSize: "clamp(17px, 1.5vw, 21px)" }}>
+            Full Loop didn&apos;t test on a spreadsheet. We built a real NYC cleaning company &mdash; The
+            NYC Maid &mdash; and ran it on the platform until it ran itself. <strong style={{ color: C.cream }}>700+
+            clients in under six months on $0 of ads</strong>, now managed by one person about an hour a
+            day. No office, no managers, nobody collecting payment, nobody chasing reviews.
           </p>
-          <p className="text-slate-500 text-sm font-mono">
-            Live as of April 27, 2026
+          <p className="mt-5 max-w-3xl" style={{ fontFamily: display, fontStyle: "italic", fontWeight: 500, fontSize: "clamp(17px, 1.5vw, 22px)", lineHeight: 1.4, color: "#6FB58A" }}>
+            It may be the first company ever created for the sole purpose of proving a platform
+            could run a business &mdash; a live proof of concept, with the back end on display.
           </p>
+          <a href="/#lead-form" className="inline-flex items-center justify-center mt-10 transition-transform hover:-translate-y-0.5"
+            style={{ fontFamily: mono, fontSize: "15px", letterSpacing: "0.1em", textTransform: "uppercase", color: C.ink, background: "#6FB58A", padding: "18px 32px", borderRadius: "2px", fontWeight: 700 }}>
+            I Want This — Submit Application →
+          </a>
         </div>
       </section>
 
-      {/* ───────────────────── THE NUMBERS ────────────────────── */}
-      <section className="py-20 px-6 bg-white">
-        <div className="mx-auto max-w-5xl">
-          <h2 className="text-3xl font-bold text-slate-900 font-heading mb-4 text-center">
-            The Numbers
-          </h2>
-          <p className="text-slate-500 text-center mb-12 text-lg">
-            7 weeks. One platform. Zero ad spend.
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="border border-slate-200 rounded-xl p-6 text-center hover:border-teal-300 transition-colors"
-              >
-                <p className="text-3xl md:text-4xl font-extrabold text-teal-600 font-heading">
-                  {stat.value}
-                </p>
-                <p className="text-slate-600 mt-2 text-sm font-medium uppercase tracking-wide">
-                  {stat.label}
-                </p>
+      {/* The numbers — live */}
+      <section style={{ background: C.cream, color: C.ink }} className="border-t">
+        <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+          <SectionHead label="Live results & proof" heading="The NYC Maid By the Numbers: Real, Live Results From a Business Run on Full Loop CRM"
+            description={<>These update from the live production system; the rating is the company&apos;s real public Google score. No marketing slides.</>} />
+          {live && (
+            <div className="mt-6 inline-flex items-center gap-2" style={{ fontFamily: mono, fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: C.good }}>
+              <span className="animate-pulse" style={{ width: 8, height: 8, borderRadius: 9999, background: C.good, display: "inline-block" }} />
+              Live from The NYC Maid · updated {formatGeneratedAt(live.generatedAt)}
+            </div>
+          )}
+          <div className="mt-8 grid grid-cols-2 md:grid-cols-3" style={{ border: `1px solid ${C.line}` }}>
+            {numbers.map((s, i) => (
+              <div key={s.l} className="px-5 py-8" style={{ borderRight: i % 3 !== 2 ? `1px solid ${C.line}` : "none", borderTop: i >= 3 ? `1px solid ${C.line}` : "none" }}>
+                <div style={{ fontFamily: display, fontWeight: 500, fontSize: "clamp(30px, 3.4vw, 46px)", letterSpacing: "-0.025em", color: C.ink, fontVariantNumeric: "tabular-nums" }}>{s.v}</div>
+                <div style={{ fontFamily: mono, fontSize: "10px", letterSpacing: "0.16em", textTransform: "uppercase", color: C.good, marginTop: "10px" }}>{s.l}</div>
+                <div style={{ fontFamily: mono, fontSize: "11px", color: C.muted, marginTop: "4px" }}>{s.s}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─────────────────── GROWTH TRAJECTORY ───────────────── */}
-      <section className="py-20 px-6 bg-slate-50">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold text-slate-900 font-heading mb-8">
-            Growth Trajectory
-          </h2>
-          <div className="space-y-6 text-slate-700 text-lg leading-relaxed">
-            <div className="border-l-4 border-teal-500 pl-6">
-              <p className="font-bold text-slate-900">
-                February (Month 1):
-              </p>
-              <p>36 bookings. Getting the foundation set. Building the SEO pipeline.</p>
-            </div>
-            <div className="border-l-4 border-teal-500 pl-6">
-              <p className="font-bold text-slate-900">
-                March (Month 2):
-              </p>
-              <p>
-                80+ bookings and climbing. More than double month one.
-              </p>
-            </div>
-            <div className="border-l-4 border-teal-500 pl-6">
-              <p className="font-bold text-slate-900">
-                April (Month 3, projected):
-              </p>
-              <p>
-                Heading toward 120+ bookings/month.
-              </p>
-            </div>
-            <p>
-              Revenue trajectory: $18K in 7 weeks. On pace for $8&ndash;10K/month
-              recurring.
-            </p>
-            <blockquote className="bg-slate-900 text-white rounded-xl p-6 text-xl font-heading">
-              &ldquo;Month 2 more than doubled month 1. That&apos;s what
-              compounding SEO looks like.&rdquo;
-            </blockquote>
+      {/* Autonomy */}
+      <section style={{ background: C.ink, color: C.cream }}>
+        <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+          <SectionHead dark label="How it's run" heading="Run by One Person, About an Hour a Day: What Management-Level Autonomy Actually Looks Like"
+            description={<>No admins. No managers overseeing the crew. Nobody collecting payments. Nobody chasing reviews. The office work runs itself.</>} />
+          <div className="mt-12 grid grid-cols-2 sm:grid-cols-4" style={{ border: "1px solid #2E2E2E" }}>
+            {autonomy.map((s, i) => (
+              <div key={s.l} className="px-5 py-7" style={{ borderRight: i < 3 ? "1px solid #2E2E2E" : "none" }}>
+                <div style={{ fontFamily: display, fontWeight: 500, fontSize: "clamp(28px, 3.2vw, 40px)", letterSpacing: "-0.025em", color: "#6FB58A", fontVariantNumeric: "tabular-nums" }}>{s.v}</div>
+                <div style={{ fontFamily: mono, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: C.muted2, marginTop: "8px", lineHeight: 1.4 }}>{s.l}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ─────────────────── REVENUE FORECAST ────────────────── */}
-      <section className="py-20 px-6 bg-white">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold text-slate-900 font-heading mb-8 text-center">
-            Revenue Forecast
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b-2 border-slate-200">
-                  <th className="py-3 pr-4 text-sm font-bold text-slate-500 uppercase tracking-wide">
-                    Month
-                  </th>
-                  <th className="py-3 pr-4 text-sm font-bold text-slate-500 uppercase tracking-wide">
-                    Bookings
-                  </th>
-                  <th className="py-3 text-sm font-bold text-slate-500 uppercase tracking-wide">
-                    Revenue (est)
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {forecast.map((row) => (
-                  <tr
-                    key={row.month}
-                    className="border-b border-slate-100"
-                  >
-                    <td className="py-4 pr-4 font-medium text-slate-900">
-                      {row.month}
-                      {row.projected && (
-                        <span className="ml-2 text-xs text-teal-600 font-mono">
-                          projected
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 pr-4 text-slate-700 font-bold">
-                      {row.bookings}
-                    </td>
-                    <td className="py-4 text-teal-600 font-bold">
-                      {row.revenue}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Vertical timeline */}
+      <section style={{ background: C.cream, color: C.ink }} className="border-t">
+        <div className="w-full max-w-4xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+          <SectionHead label="Milestones" heading="The NYC Maid Timeline: From Proof-of-Concept Launch to an Autonomously Run Business"
+            description={<>Every milestone, from a company built to prove the platform to a business that now runs itself.</>} />
+          <ol className="mt-14" style={{ borderLeft: `2px solid ${C.line}`, marginLeft: "8px" }}>
+            {milestones.map((m) => (
+              <li key={m.title} className="relative pl-8 sm:pl-10 pb-12 last:pb-0">
+                <span aria-hidden style={{ position: "absolute", left: "-9px", top: "4px", width: 16, height: 16, borderRadius: 9999, background: C.good, border: `3px solid ${C.cream}` }} />
+                <div style={{ fontFamily: mono, fontSize: "10px", letterSpacing: "0.16em", textTransform: "uppercase", color: C.good }}>{m.when}</div>
+                <h3 style={{ fontFamily: display, fontWeight: 500, fontSize: "clamp(20px, 2vw, 27px)", letterSpacing: "-0.015em", color: C.ink, marginTop: "6px" }}>{m.title}</h3>
+                <p style={proseStyle} className="mt-2 max-w-2xl">{m.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* How the loop ran */}
+      <section style={{ background: C.canvas, color: C.ink }} className="border-t">
+        <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+          <SectionHead label="How the loop ran" heading="The Seven Stages of Full Loop CRM, As They Actually Ran The NYC Maid"
+            description={<>Every stage of the loop &mdash; from organic lead generation to automatic crew payouts &mdash; running on one platform, in production.</>} />
+          <div className="mt-14 space-y-10">
+            {stages.map((s) => (
+              <div key={s.num} className="grid grid-cols-1 sm:grid-cols-[70px_1fr] gap-3 sm:gap-8 pb-10" style={{ borderBottom: `1px solid ${C.lineSoft}` }}>
+                <div style={{ fontFamily: mono, fontSize: "13px", letterSpacing: "0.12em", color: C.good, paddingTop: "6px" }}>{s.num}</div>
+                <div>
+                  <h2 style={subhead}>{s.title}</h2>
+                  <p style={proseStyle} className="max-w-2xl mt-2">{s.body}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ──────────────────── SEO RESULTS ─────────────────────── */}
-      <section className="py-20 px-6 bg-slate-50">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold text-slate-900 font-heading mb-8">
-            SEO Results
-          </h2>
-          <div className="space-y-6 text-slate-700 text-lg leading-relaxed">
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>2,590 pages indexed</strong> by Google in weeks, not
-                  months.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>148,000 impressions</strong> in 16 months &mdash;
-                  hockey stick growth after Next.js site launch.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>696 clicks</strong> from organic search.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>80+ exact match domains</strong> ranking across Google.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  Multiple <strong>page 1 positions</strong> for competitive NYC
-                  cleaning keywords.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>3 domains on page 1</strong> for single searches
-                  &mdash; for example, search &ldquo;hell&apos;s kitchen maid
-                  service&rdquo; and you&apos;ll find us occupying multiple
-                  organic positions.
-                </span>
-              </li>
-            </ul>
-            <blockquote className="bg-slate-900 text-white rounded-xl p-6 text-xl font-heading">
-              &ldquo;No ad spend. Zero. Every single lead is organic.&rdquo;
-            </blockquote>
+      {/* Financials */}
+      <section style={{ background: C.cream, color: C.ink }} className="border-t">
+        <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+          <SectionHead label="The financials" heading="The Economics of an Autonomously Run Home Service Business"
+            description={<>Revenue earned entirely through organic search, with the cost lines most operators carry &mdash; ads, office staff, collections &mdash; stripped out by automation.</>} />
+          <div className="mt-12 grid grid-cols-2 md:grid-cols-4" style={{ border: `1px solid ${C.line}` }}>
+            {[
+              { v: live ? live.revenueRangeYtd : "$100k–$110k", l: "Revenue since Feb 2026" },
+              { v: "$0", l: "Spent on ads or leads" },
+              { v: "99%+", l: "Crew payouts automated" },
+              { v: "$0", l: "Admin / manager payroll" },
+            ].map((s, i) => (
+              <div key={s.l} className="px-5 py-7" style={{ borderRight: i < 3 ? `1px solid ${C.line}` : "none" }}>
+                <div style={{ fontFamily: display, fontWeight: 500, fontSize: "clamp(26px, 3vw, 40px)", letterSpacing: "-0.025em", color: C.ink }}>{s.v}</div>
+                <div style={{ fontFamily: mono, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: C.good, marginTop: "8px", lineHeight: 1.4 }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 max-w-3xl space-y-5" style={proseStyle}>
+            <p>Most home service companies bleed margin in three places: paying for leads, paying office staff to chase the work, and losing money to slow or missed collections. The NYC Maid runs with none of that. Every client was earned through{" "}
+              <Link href="/full-loop-crm-service-features" style={link}>organic lead generation</Link> &mdash; a verified $0 on ads or purchased leads. The back office that would normally be a payroll line is software. And payment plus crew payouts run automatically, so cash moves the moment a job closes.</p>
+            <p>The result is a cost structure a traditional operator can&apos;t match: revenue scales with jobs, while the overhead that usually scales alongside it simply doesn&apos;t.</p>
           </div>
         </div>
       </section>
 
-      {/* ──────────────────── SELENA AI ────────────────────────── */}
-      <section className="py-20 px-6 bg-white">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold text-slate-900 font-heading mb-8">
-            Our AI receptionist
+      {/* Clients & growth */}
+      <section style={{ background: C.canvas, color: C.ink }} className="border-t">
+        <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+          <SectionHead label="Clients & growth" heading="From Zero to 700+ Clients in Under Six Months — Every One Earned Organically"
+            description={<>No ad budget, no purchased leads, no cold outreach &mdash; a client base built entirely on organic search and an AI that never lets an inquiry go cold.</>} />
+          <div className="mt-12 grid grid-cols-2 md:grid-cols-4" style={{ border: `1px solid ${C.line}` }}>
+            {[
+              { v: live ? live.clients.toLocaleString() : "685", l: "Clients in the system" },
+              { v: "<6 mo", l: "From launch to 700+" },
+              { v: "100%", l: "Organic acquisition" },
+              { v: "4.9★", l: "70 Google reviews" },
+            ].map((s, i) => (
+              <div key={s.l} className="px-5 py-7" style={{ borderRight: i < 3 ? `1px solid ${C.line}` : "none" }}>
+                <div style={{ fontFamily: display, fontWeight: 500, fontSize: "clamp(26px, 3vw, 40px)", letterSpacing: "-0.025em", color: C.ink }}>{s.v}</div>
+                <div style={{ fontFamily: mono, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: C.good, marginTop: "8px", lineHeight: 1.4 }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 max-w-3xl space-y-5" style={proseStyle}>
+            <p>Growth came from the loop, not a budget. Organic pages rank for the searches NYC homeowners actually make; the AI agent answers and books every inquiry within seconds, day or night, in English and Spanish; and the review flywheel keeps local rankings climbing &mdash; which brings the next wave of leads. The model is built to compound: recurring clients rebook themselves, and one-time jobs get nudged toward standing appointments.</p>
+            <p>That&apos;s how a brand-new company crossed 700 clients in under six months without spending a dollar to acquire them.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Team & operations */}
+      <section style={{ background: C.cream, color: C.ink }} className="border-t">
+        <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+          <SectionHead label="Team & operations" heading="How a Lean Crew Runs 40+ Jobs a Week With One Hour of Management a Day"
+            description={<>A bilingual field team, GPS-verified operations, and automatic payouts &mdash; coordinated by software, not a back office.</>} />
+          <div className="mt-12 grid grid-cols-2 md:grid-cols-4" style={{ border: `1px solid ${C.line}` }}>
+            {[
+              { v: live ? live.teamSize.toLocaleString() : "11", l: "Active cleaners" },
+              { v: "~40", l: "Services a week & growing" },
+              { v: "1", l: "Person managing it" },
+              { v: "EN / ES", l: "Bilingual portal" },
+            ].map((s, i) => (
+              <div key={s.l} className="px-5 py-7" style={{ borderRight: i < 3 ? `1px solid ${C.line}` : "none" }}>
+                <div style={{ fontFamily: display, fontWeight: 500, fontSize: "clamp(26px, 3vw, 40px)", letterSpacing: "-0.025em", color: C.ink }}>{s.v}</div>
+                <div style={{ fontFamily: mono, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: C.good, marginTop: "8px", lineHeight: 1.4 }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 max-w-3xl space-y-5" style={proseStyle}>
+            <p>The crew works from a bilingual mobile portal: each cleaner sees their route, job details, and customer notes, checks in and out with GPS verification, and sends completion photos back automatically. Dispatch and routing are handled by the platform, not a dispatcher. When a job closes, payout runs through Stripe Connect &mdash; over 99% automatic &mdash; so cleaners are paid fast and correctly, which is one of the biggest reasons crews stay.</p>
+            <p>Everything that would normally require a manager, a dispatcher, a bookkeeper, and a customer-service rep is handled by the system. What&apos;s left for a human is about an hour a day of judgment calls.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Real reviews */}
+      <Reviews />
+
+      {/* Closing CTA */}
+      <section style={{ background: C.ink, color: C.cream }} className="border-t">
+        <div className="w-full max-w-4xl mx-auto px-6 sm:px-8 lg:px-12 py-24 text-center">
+          <h2 style={{ ...h2Style, color: C.cream }} className="max-w-3xl mx-auto">
+            Want the machine that runs The NYC Maid working in your market?
           </h2>
-          <p className="text-slate-500 text-lg mb-8">
-            Your 24/7 AI receptionist. Built into the platform.
+          <p className="mt-6 max-w-2xl mx-auto" style={{ ...proseStyle, color: "#D8D8D2" }}>
+            One operator per trade per city. If yours is still open, the next step is a short application.
           </p>
-          <div className="space-y-6 text-slate-700 text-lg leading-relaxed">
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>64 conversations</strong> handled by AI &mdash; no
-                  human intervention needed.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  Books appointments <strong>end-to-end</strong> via SMS and web
-                  chat.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>Bilingual EN/ES</strong> &mdash; handles
-                  Spanish-speaking clients automatically.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  Recognizes <strong>returning clients</strong> by phone number.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  Escalates complex issues to the owner with a{" "}
-                  <strong>full transcript</strong>.
-                </span>
-              </li>
-            </ul>
-            <blockquote className="bg-slate-900 text-white rounded-xl p-6 text-xl font-heading">
-              &ldquo;The AI responded to a lead at 11pm on a Sunday. That lead
-              booked a $260 cleaning.&rdquo;
-            </blockquote>
-          </div>
-        </div>
-      </section>
-
-      {/* ────────────────── TEAM OPERATIONS ───────────────────── */}
-      <section className="py-20 px-6 bg-slate-50">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold text-slate-900 font-heading mb-8">
-            Team Operations
-          </h2>
-          <div className="space-y-6 text-slate-700 text-lg leading-relaxed">
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>9 team members</strong> using the mobile portal daily.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>GPS-verified</strong> check-in/check-out on every job.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>Before/after video walkthroughs</strong> on every job.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>30-minute payment heads up</strong> via SMS before the
-                  crew finishes.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>Bilingual team portal</strong> (EN/ES).
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-teal-500 font-bold mt-1">&#9654;</span>
-                <span>
-                  <strong>Earnings tracking</strong> &mdash; weekly, monthly,
-                  yearly.
-                </span>
-              </li>
-            </ul>
-            <blockquote className="bg-slate-900 text-white rounded-xl p-6 text-xl font-heading">
-              &ldquo;No app download. No training manual. They opened a link
-              and started using it.&rdquo;
-            </blockquote>
-          </div>
-        </div>
-      </section>
-
-      {/* ──────────────── WHAT THIS MEANS FOR YOU ─────────────── */}
-      <section className="py-20 px-6 bg-white">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold text-slate-900 font-heading mb-8">
-            What This Means For You
-          </h2>
-          <div className="space-y-6 text-slate-700 text-lg leading-relaxed">
-            <p>
-              The NYC Maid is not a tech company. It&apos;s a cleaning business
-              run by a guy who&apos;s been in home services for 25 years.
-            </p>
-            <p>
-              Everything you see here &mdash; the website, the AI, the CRM, the
-              team portal &mdash; is the exact same platform you get when you
-              sign up.
-            </p>
-            <p className="text-slate-900 font-bold text-xl">
-              We didn&apos;t build a demo. We built our own business on it. If
-              it&apos;s good enough for us, it&apos;s good enough for you.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ───────────────────────── CTA ────────────────────────── */}
-      <section className="bg-slate-900 py-20 px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white font-heading mb-4">
-            One vertical. One city. Real numbers.
-          </h2>
-          <p className="text-slate-300 text-lg mb-10">
-            We&apos;re building the same playbook out across more cities and trades — under one roof.
-          </p>
-          <div className="flex justify-center">
-            <Link
-              href="/waitlist"
-              className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
-            >
-              Inquire about the platform
+          <a href="/#lead-form" className="inline-flex items-center justify-center mt-10 transition-transform hover:-translate-y-0.5"
+            style={{ fontFamily: mono, fontSize: "15px", letterSpacing: "0.1em", textTransform: "uppercase", color: C.ink, background: "#6FB58A", padding: "18px 32px", borderRadius: "2px", fontWeight: 700 }}>
+            I Want This — Submit Application →
+          </a>
+          <div className="mt-8">
+            <Link href="/full-loop-crm-service-features" style={{ ...link, color: "#6FB58A", fontFamily: mono, fontSize: "12px", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              See how the platform works →
             </Link>
           </div>
         </div>

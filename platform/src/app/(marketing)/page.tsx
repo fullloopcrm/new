@@ -1,148 +1,211 @@
-import dynamic from "next/dynamic";
+import type { Metadata } from "next";
 import {
   JsonLd,
+  organizationSchema,
+  websiteSchema,
   webPageSchema,
   faqSchema,
   breadcrumbSchema,
   localBusinessSchema,
   softwareApplicationSchema,
+  serviceSchema,
+  itemListSchema,
+  howToSchema,
 } from "@/lib/schema";
-import { faqs, testimonials } from "@/lib/siteData";
-import { getCaseStudyStats } from "@/lib/caseStudyStats";
+import { industries, generateIndustrySlug } from "@/lib/marketing/combos";
 
-// Above the fold — static imports (no lazy loading)
+export const metadata: Metadata = {
+  title: "Home Service Business CRM | Full Loop — AI Lead Gen, Sales & Scheduling",
+  description:
+    "Full Loop is the first full-cycle home service CRM: AI lead generation, AI sales, scheduling, GPS field operations, payments, reviews, and retargeting in one platform — proven by a real company it runs almost autonomously. One operator per trade per city.",
+  keywords: [
+    "home service business CRM",
+    "home service CRM",
+    "home service CRM software",
+    "full-cycle home service CRM",
+    "AI sales agent for home services",
+    "field service management software",
+    "home service business automation",
+  ],
+  alternates: { canonical: "https://homeservicesbusinesscrm.com" },
+  openGraph: {
+    title: "Home Service Business CRM That Runs Itself | Full Loop CRM",
+    description:
+      "The first full-cycle home service CRM — AI lead gen, sales, scheduling, payments, and reviews in one platform. Proven by a real cleaning company run by one person, ~1 hour a day. One operator per trade per city.",
+    url: "https://homeservicesbusinesscrm.com",
+    siteName: "Full Loop CRM",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Home Service Business CRM That Runs Itself | Full Loop CRM",
+    description:
+      "The first full-cycle home service CRM — AI lead gen, sales, scheduling, payments, reviews. Proven by a real business run almost autonomously.",
+  },
+};
+
+// Rebuilt homepage — editorial cream/ink SEO hub. Each section: long-tail
+// heading → bold description → keyword-rich content with inner links → "learn
+// more" to its full page. The NYC Maid case study lives on
+// /case-study/the-nyc-maid (homepage only teases it). Order per spec:
+// Hero → About → Case study teaser → Features → Testimonials → Industries → FAQ
+// → Thank you (lead form) → inner-link matrix.
 import Hero from "@/components/home/Hero";
-import FocusPartner from "@/components/home/FocusPartner";
-import QuickTips from "@/components/home/QuickTips";
-import Welcome from "@/components/home/Welcome";
-import ResultsTicker from "@/components/home/ResultsTicker";
+import About from "@/components/home/About";
+import QuoteBand from "@/components/home/QuoteBand";
+import CaseStudyTeaser from "@/components/home/CaseStudyTeaser";
+import Features from "@/components/home/Features";
+import AIAgent from "@/components/home/AIAgent";
+import WhyFullLoop from "@/components/home/WhyFullLoop";
+import AutomationScope from "@/components/home/AutomationScope";
+import Automations from "@/components/home/Automations";
+import ProblemsSolved from "@/components/home/ProblemsSolved";
+import PricingModel from "@/components/home/PricingModel";
+import ProofStats from "@/components/home/ProofStats";
+import Reviews from "@/components/home/Reviews";
+import IndustriesWeServe from "@/components/home/IndustriesWeServe";
+import WhoItsFor from "@/components/home/WhoItsFor";
+import LocalLeadGen from "@/components/home/LocalLeadGen";
+import HowToSwitch from "@/components/home/HowToSwitch";
+import HomeFAQ, { homeFaqForSchema } from "@/components/home/HomeFAQ";
+import ThankYou from "@/components/home/ThankYou";
+import InnerLinks from "@/components/home/InnerLinks";
 
-// Below the fold — lazy loaded
-const Testimonials = dynamic(() => import("@/components/home/Testimonials"));
-const TopServices = dynamic(() => import("@/components/home/TopServices"));
-const ServiceDeepDives = dynamic(() => import("@/components/home/ServiceDeepDives"));
-const Process = dynamic(() => import("@/components/home/Process"));
-const BeforeAfter = dynamic(() => import("@/components/home/BeforeAfter"));
-const Industries = dynamic(() => import("@/components/home/Industries"));
-const WhyNYC = dynamic(() => import("@/components/home/WhyNYC"));
-const Competitors = dynamic(() => import("@/components/home/Competitors"));
-const Comparison = dynamic(() => import("@/components/home/Comparison"));
-const SocialProof = dynamic(() => import("@/components/home/SocialProof"));
-const ROICalculator = dynamic(() => import("@/components/home/ROICalculator"));
-const TechStack = dynamic(() => import("@/components/home/TechStack"));
-const Guarantees = dynamic(() => import("@/components/home/Guarantees"));
-const WhatIsDigitalMarketing = dynamic(() => import("@/components/home/WhatIsDigitalMarketing"));
-const FreeResources = dynamic(() => import("@/components/home/FreeResources"));
-const ExpandedFAQ = dynamic(() => import("@/components/home/ExpandedFAQ"));
-const CaseStudies = dynamic(() => import("@/components/home/CaseStudies"));
-const BlogPreview = dynamic(() => import("@/components/home/BlogPreview"));
-const FinalCTA = dynamic(() => import("@/components/home/FinalCTA"));
-const ExitIntent = dynamic(() => import("@/components/home/ExitIntent"));
+const SITE = "https://homeservicesbusinesscrm.com";
+const breadcrumbs = [{ name: "Home", url: SITE }];
 
-const breadcrumbs = [{ name: "Home", url: "https://homeservicesbusinesscrm.com" }];
+const industryListItems = industries.map((i) => ({
+  name: `${i.name} CRM`,
+  url: `${SITE}/industry/${generateIndustrySlug(i)}`,
+  description: i.description,
+}));
 
-export default async function Home() {
-  // Live case-study stats pulled from The NYC Maid (ISR-cached 1h). Null on failure → static fallback.
-  const liveStats = await getCaseStudyStats();
+const loopSteps = [
+  { name: "Lead generation", text: "Organic SEO sites and landing pages generate leads you own — no paid ads, no resold leads." },
+  { name: "AI sales & follow-up", text: "An AI sales agent answers, qualifies, quotes, and books every inquiry instantly, 24/7." },
+  { name: "Booking & scheduling", text: "Jobs land on the calendar automatically with the right crew, price, and recurring cadence." },
+  { name: "Dispatch & GPS field ops", text: "Crews work from a bilingual mobile portal with GPS-verified check-in and check-out." },
+  { name: "Payments & payouts", text: "Payment is collected automatically and crew payouts run via Stripe Connect on job completion." },
+  { name: "Reviews & local SEO", text: "Completed jobs trigger review requests that feed local search rankings and the next lead." },
+  { name: "Retention & retargeting", text: "Automated rebooking and win-back campaigns turn one-time jobs into recurring revenue." },
+];
+
+export default function Home() {
   return (
     <>
-      {/* Schema Markup */}
+      {/* Full structured data */}
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={websiteSchema} />
       <JsonLd
         data={webPageSchema(
           "Full Loop CRM | The All-in-One Home Service CRM Platform",
           "The first full-cycle CRM for home service businesses. AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting — one platform, zero integrations.",
-          "https://homeservicesbusinesscrm.com",
+          SITE,
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
+      <JsonLd data={softwareApplicationSchema("1000", "USD")} />
       <JsonLd
-        data={softwareApplicationSchema(
-          "1000",
-          "USD",
-          testimonials.map((t) => ({ name: t.name, text: t.text, rating: t.rating })),
-          119
+        data={serviceSchema(
+          "Home Service CRM Software",
+          "full-loop-crm-service-features",
+          "Full-cycle home service CRM that generates leads, closes them with AI, books and dispatches jobs, collects payment, earns reviews, and retargets customers — one operator per trade per city.",
+          "United States"
         )}
       />
-      <JsonLd data={faqSchema(faqs.homepageAll)} />
+      <JsonLd
+        data={howToSchema(
+          "How the Full Loop runs a home service business end to end",
+          "The seven stages Full Loop CRM automates, from lead generation to repeat bookings.",
+          loopSteps
+        )}
+      />
+      <JsonLd data={itemListSchema("Home Service Industries Served by Full Loop CRM", industryListItems)} />
+      <JsonLd data={faqSchema(homeFaqForSchema)} />
       <JsonLd data={localBusinessSchema("United States", "Country")} />
-
-      {/* Sticky bar removed — footer handles CTAs */}
 
       {/* 1. Hero */}
       <Hero />
 
-      {/* 1a. Focus Partner — The NYC Maid case study (live evidence) */}
-      <FocusPartner live={liveStats} />
+      {/* 2. About */}
+      <About />
 
-      {/* 1b. Why we built this */}
-      <QuickTips />
+      {/* Quote band */}
+      <QuoteBand
+        dark
+        quote={
+          <>
+            The first home service business to run itself &mdash; one person, about an hour a
+            day. Now the platform that runs it is yours.
+          </>
+        }
+        sub="The first full-cycle home service CRM"
+      />
 
-      {/* 2. Welcome / About */}
-      <Welcome />
+      {/* 3. NYC Maid case study (teaser → full page) */}
+      <CaseStudyTeaser />
 
-      {/* 3. Stats bar */}
-      <ResultsTicker />
+      {/* 4. Features — the seven stages */}
+      <Features />
 
-      {/* 6. Reviews from home service owners */}
-      <Testimonials />
+      {/* 4a. The AI agent */}
+      <AIAgent />
 
-      {/* 7. Seven stages overview */}
-      <TopServices />
+      {/* Quote band */}
+      <QuoteBand
+        quote={<>Seven stages. One platform. Zero people doing the busywork.</>}
+        sub="Automated lead generation, sales, scheduling & payments"
+      />
 
-      {/* 8. Feature deep dives — 7 stages */}
-      <ServiceDeepDives />
+      {/* 4b. Why operators switch — comparison */}
+      <WhyFullLoop />
 
-      {/* 9. The Full Loop — 7-step process */}
-      <Process />
+      {/* 4c. Automation scope — what's automated vs. what you control */}
+      <AutomationScope />
 
-      {/* 10. Yinez replaces your front office */}
-      <BeforeAfter />
+      {/* 4c-ii. The always-on automation jobs */}
+      <Automations />
 
-      {/* 11. 50+ industries */}
-      <Industries />
+      {/* 4d. Problems it solves */}
+      <ProblemsSolved />
 
-      {/* 12. Founder story */}
-      <WhyNYC />
+      {/* 4e. Pricing model */}
+      <PricingModel />
 
-      {/* 13. Autonomy — hands-free vs human */}
-      <Competitors />
+      {/* 5. Real proof — live NYC Maid numbers */}
+      <ProofStats />
 
-      {/* 14. Full Loop vs. others comparison */}
-      <Comparison />
+      {/* 5b. Real customer reviews — live from The NYC Maid */}
+      <Reviews />
 
-      {/* 15. Social proof */}
-      <SocialProof />
+      {/* 6. Industries we work with */}
+      <IndustriesWeServe />
 
-      {/* 16. ROI calculator */}
-      <ROICalculator />
+      {/* 6a. Who it's for — solo to multi-truck */}
+      <WhoItsFor />
 
-      {/* 17. Tech stack */}
-      <TechStack />
+      {/* 6b. Local lead generation by city */}
+      <LocalLeadGen />
 
-      {/* 18. Guarantees */}
-      <Guarantees />
+      {/* 7. FAQ */}
+      <HomeFAQ />
 
-      {/* 19. What is a CRM */}
-      <WhatIsDigitalMarketing />
+      {/* 7b. How to switch — onboarding */}
+      <HowToSwitch />
 
-      {/* 20. Free resources */}
-      <FreeResources />
+      {/* Quote band */}
+      <QuoteBand
+        dark
+        quote={<>You own the business. The platform runs it.</>}
+        sub="Territory-exclusive home service business software"
+      />
 
-      {/* 21. FAQ — 25 questions */}
-      <ExpandedFAQ />
+      {/* 8. Thank you + lead form (#lead-form) */}
+      <ThankYou />
 
-      {/* 22. Case studies */}
-      <CaseStudies />
-
-      {/* 23. Blog preview */}
-      <BlogPreview />
-
-      {/* 24. Final CTA */}
-      <FinalCTA />
-
-      {/* 18. Exit intent popup */}
-      <ExitIntent />
+      {/* 100+ inner links */}
+      <InnerLinks />
     </>
   );
 }
