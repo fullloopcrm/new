@@ -45,7 +45,9 @@ const nextConfig: NextConfig = {
       },
       // Legacy nycmaid URLs → fullloop equivalents (preserve email links,
       // GBP links, and existing backlinks after cutover).
-      { source: '/book/new', destination: '/portal/book', permanent: true },
+      // NOTE: /book/new is the PUBLIC self-book lead form (served from the
+      // tenant site), NOT the client portal — so it must NOT redirect to
+      // /portal/book (which is auth-gated and bounces new leads to login).
       { source: '/book/collect', destination: '/portal/collect', permanent: true },
       { source: '/book/reschedule/:id', destination: '/portal/reschedule/:id', permanent: true },
       { source: '/book/dashboard', destination: '/portal', permanent: true },
