@@ -567,14 +567,13 @@ export default function TeamHomePage() {
 
     setSendingHeadsUp(job.id)
     try {
-      const res = await fetch('/api/notifications', {
+      // Fires the real 30-min alert: admin heads-up SMS + client pay-now text
+      // with the tenant Stripe link, cleaner-pay calc, and undelivered escalation.
+      // (Was POSTing /api/notifications, which only inserted a row.)
+      const res = await fetch('/api/team-portal/15min-alert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({
-          type: '15min_warning',
-          booking_id: job.id,
-          message: `15-min heads up for ${job.clients?.name || 'client'} — ${hoursWorked.toFixed(1)} hrs, ~$${estimated}`,
-        }),
+        body: JSON.stringify({ bookingId: job.id }),
       })
       if (res.ok) {
         alert(t('Heads up sent!', 'Aviso enviado!'))

@@ -7,6 +7,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { smsAdmins } from '@/lib/admin-contacts'
+import { cleanerPaidHours } from '@/lib/billing-hours'
 import { TIER_PRICES } from '@/lib/tier-prices'
 import Stripe from 'stripe'
 
@@ -37,9 +39,27 @@ export async function POST(request: Request) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
-      const bookingId = session.metadata?.booking_id
-      const tenantId = session.metadata?.tenant_id
+      let bookingId = session.metadata?.booking_id
+      let tenantId = session.metadata?.tenant_id
       const invoiceId = session.metadata?.invoice_id
+
+      // Static pay-link path (NYC Maid parity): the link appends
+      // ?client_reference_id=<bookingId> with no metadata. If it matches a real
+      // booking, resolve booking + tenant here so it routes to the booking-payment
+      // path below, not the Full Loop signup path. Strictly additive — a prospect's
+      // client_reference_id won't match a booking id, so signups are unaffected.
+      if (!bookingId && session.client_reference_id) {
+        const { data: refBooking } = await supabaseAdmin
+          .from('bookings')
+          .select('id, tenant_id')
+          .eq('id', session.client_reference_id)
+          .maybeSingle()
+        if (refBooking) {
+          bookingId = refBooking.id
+          tenantId = tenantId || refBooking.tenant_id
+        }
+      }
+
       // Prospect identifier comes from:
       //   (a) metadata.prospect_id — when session was created via our admin
       //       approve flow (checkout session includes metadata we set).
@@ -224,7 +244,7 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, actual_hours, price, team_members(name, phone, stripe_account_id, preferred_language), clients(name, phone), tenants(name, telnyx_api_key, telnyx_phone)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone), tenants(name, telnyx_api_key, telnyx_phone)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()
@@ -304,7 +324,15 @@ export async function POST(request: Request) {
       let payoutSent = false
       if (tm?.stripe_account_id && booking.team_member_id) {
         try {
-          const cleanerCents = expectedCents + tipCents // 100% of base + tip
+          // Cleaner is paid THEIR rate × hours (NYC Maid parity) — NOT the
+          // client's total. Prefer the breakdown stored at closeout/recap
+          // (booking.team_member_pay, cents); else compute cleaner-grace hours ×
+          // pay_rate. Tip passes through 100% on top.
+          const storedPay = (booking as { team_member_pay?: number | null }).team_member_pay
+          const cleanerRate = (tm as { pay_rate?: number | null })?.pay_rate || (booking as { pay_rate?: number | null }).pay_rate || 25
+          const cleanerHours = Math.max(0.5, cleanerPaidHours((hours || 0) * 60))
+          const cleanerBaseCents = storedPay && storedPay > 0 ? storedPay : Math.round(cleanerHours * cleanerRate * 100)
+          const cleanerCents = cleanerBaseCents + tipCents
           const transfer = await stripe.transfers.create({
             amount: cleanerCents,
             currency: 'usd',
@@ -348,9 +376,11 @@ export async function POST(request: Request) {
         const tipNote = tipCents > 0
           ? (isEs ? `\n\n¡Propina de $${(tipCents / 100).toFixed(0)}! 💰` : `\n\nClient tipped $${(tipCents / 100).toFixed(0)}! 💰`)
           : ''
+        // NYC Maid rule: the cleaner is NOT shown the client's total/details —
+        // only that payment landed (+ their own tip). No client charge amount.
         const body = isEs
-          ? `Pago recibido de ${client?.name || 'cliente'}: $${(amountCents / 100).toFixed(0)} ${payoutSent ? '— enviado a tu cuenta.' : ''}${tipNote}`
-          : `Payment received from ${client?.name || 'client'}: $${(amountCents / 100).toFixed(0)} ${payoutSent ? '— sent to your account.' : ''}${tipNote}`
+          ? `Pago recibido del trabajo de ${client?.name || 'cliente'}.${payoutSent ? ' Enviado a tu cuenta.' : ''}${tipNote}`
+          : `Payment received for ${client?.name || 'client'}'s job.${payoutSent ? ' Sent to your account.' : ''}${tipNote}`
         sendSMS({
           to: tm.phone,
           body,
@@ -369,6 +399,16 @@ export async function POST(request: Request) {
           telnyxApiKey: tenant.telnyx_api_key,
           telnyxPhone: tenant.telnyx_phone,
         }).catch(err => console.error('[stripe] client SMS failed:', err))
+      }
+
+      // 6b. Admin "payment CONFIRMED" SMS (NYC Maid parity — was missing; only
+      // the in-app notification fired, so the owner never got a text). Admin DOES
+      // see the total (unlike the cleaner).
+      {
+        const tipNote = tipCents > 0 ? ` (tip $${(tipCents / 100).toFixed(0)})` : ''
+        const payoutNote = payoutSent ? ' Cleaner paid out.' : ''
+        const adminMsg = `Stripe payment CONFIRMED — ${client?.name || 'Client'} paid $${(amountCents / 100).toFixed(2)}.${tipNote}${payoutNote} Client + cleaner notified.`
+        await smsAdmins(tenantId, adminMsg).catch(err => console.error('[stripe] admin payment SMS failed:', err))
       }
 
       // 7. In-app notification

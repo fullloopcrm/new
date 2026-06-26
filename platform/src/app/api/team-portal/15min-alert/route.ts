@@ -1,37 +1,51 @@
 /**
- * 15-min payment alert — ported from nycmaid (2026-04-19), tenant-aware.
+ * 30-min payment alert — ported faithfully from NYC Maid's team/30min-alert
+ * (src/app/api/team/30min-alert/route.ts), tenant-adapted for FullLoop.
  *
- * Differences from the prior fullloop version:
- *   - 30-min idempotency window (don't re-fire if already sent <30 min ago)
- *   - Calculates from REAL check-in time when present (not just booked duration)
- *   - Sends a CLIENT pay-now SMS with a payment link
- *   - Triggers email-monitor immediately + again at 5 min to catch incoming Zelle
- *   - Opens admin_tasks row if both client SMS and email fail
+ * Field mapping vs nycmaid:
+ *   cleaners(name, hourly_rate) -> team_members(name, pay_rate)
+ *   booking.cleaner_pay_rate    -> booking.pay_rate
+ *   smsAdmins(msg)              -> smsAdmins(tenantId, msg)   (tenant-aware)
+ *   hardcoded Stripe PAY_LINK   -> tenant.stripe_pay_link     (per-tenant)
+ *
+ * Intentionally NOT ported: the IMAP email-monitor trigger — retired in nycmaid
+ * 2026-06-25 (client payments are Stripe-only; the webhook is the confirm path).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
-import { parseTimestamp } from '@/lib/dates'
+import { smsAdmins } from '@/lib/admin-contacts'
+import { parseTimestamp, formatET } from '@/lib/dates'
+import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
+import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
+
+export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   try {
-    const { bookingId } = await req.json()
+    const { bookingId, force } = await req.json()
     if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, tenant_id, start_time, end_time, check_in_time, service_type, hourly_rate, pay_rate, fifteen_min_alert_time, payment_status, clients(id, name, phone, email), team_members(id, name, pay_rate, phone)')
+      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email), team_members(name, pay_rate)')
       .eq('id', bookingId)
       .single()
 
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
-    // Idempotency — skip if alert was sent in the last 30 min
-    if (booking.fifteen_min_alert_time) {
-      const last = new Date(booking.fifteen_min_alert_time).getTime()
-      if (Date.now() - last < 30 * 60 * 1000) {
-        return NextResponse.json({ success: true, skipped: 'recent alert exists' })
+    // Idempotency — if alert already fired in last 30 min and force not set, skip
+    if (booking.fifteen_min_alert_time && !force) {
+      const alertedAt = new Date(booking.fifteen_min_alert_time as string)
+      const minsSince = (Date.now() - alertedAt.getTime()) / 60000
+      if (minsSince < 30) {
+        return NextResponse.json({
+          success: true,
+          alreadySent: true,
+          alertedAt: booking.fifteen_min_alert_time,
+          minutesAgo: Math.round(minsSince),
+          message: `Alert already sent ${Math.round(minsSince)} min ago — skipping duplicate`,
+        })
       }
     }
 
@@ -40,135 +54,172 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, skipped: 'already paid' })
     }
 
-    const tenantId = booking.tenant_id
+    const tenantId = booking.tenant_id as string
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, phone, owner_phone, telnyx_api_key, telnyx_phone, payment_methods, zelle_email')
+      .select('name, telnyx_api_key, telnyx_phone, stripe_pay_link')
       .eq('id', tenantId)
       .single()
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
-    if (!tenant.telnyx_api_key || !tenant.telnyx_phone) {
-      return NextResponse.json({ error: 'SMS not configured for tenant' }, { status: 400 })
-    }
 
-    // Real-time hours: use check_in_time if present
-    const start = parseTimestamp(booking.start_time) || new Date(booking.start_time)
-    const end = parseTimestamp(booking.end_time) || new Date(booking.end_time)
-    const checkIn = booking.check_in_time ? new Date(booking.check_in_time) : null
+    const now = new Date()
 
-    let estimatedHours: number
-    if (checkIn) {
-      const elapsedHours = (Date.now() - checkIn.getTime()) / (1000 * 60 * 60)
-      estimatedHours = Math.max(0.5, Math.round(elapsedHours * 2) / 2)
-    } else {
-      const rawHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
-      estimatedHours = Math.max(0.5, Math.round(rawHours * 2) / 2)
-    }
+    // Calculate ACTUAL hours worked: check_in_time → check_out_time if set,
+    // else check_in_time → now. The check_out_time fallback handles the case
+    // where this alert fires AFTER the cleaner has checked out (race / late
+    // cron) — without it, we extrapolate past the real end and overcharge.
+    const workStart = parseTimestamp(booking.check_in_time as string) || parseTimestamp(booking.start_time as string) || now
+    const workEnd = parseTimestamp(booking.check_out_time as string) || now
+    const rawMinutes = Math.max(0, (workEnd.getTime() - workStart.getTime()) / (1000 * 60))
+    const actualHours = Math.max(0.5, Math.round(rawMinutes / 30) * 0.5)
 
-    const clientRate = booking.hourly_rate || 65
-    const clientOwes = Math.round(estimatedHours * clientRate)
+    // Estimated total = if checkout already happened, bill actual minutes
+    // (no +30 buffer); else project + 30 min for wrap-up.
+    const hasCheckedOut = !!parseTimestamp(booking.check_out_time as string)
+    const projectedMinutes = hasCheckedOut ? rawMinutes : rawMinutes + 30
+    // Client billed hours round up past 10 min; cleaner paid hours past 15 min.
+    let estimatedTotalHours = Math.max(0.5, clientBilledHours(projectedMinutes))
+    let cleanerEstHours = Math.max(0.5, cleanerPaidHours(projectedMinutes))
 
-    const teamMember = booking.team_members as unknown as { id: string; name: string; pay_rate: number | null; phone: string | null } | null
+    // Honor client-approved max hours cap if set on the booking.
+    const maxHours = typeof booking.max_hours === 'number' && booking.max_hours > 0 ? Number(booking.max_hours) : null
+    const cappedByMax = maxHours !== null && estimatedTotalHours > maxHours
+    if (cappedByMax) estimatedTotalHours = maxHours as number
+    if (maxHours !== null && cleanerEstHours > maxHours) cleanerEstHours = maxHours
+
+    const clientRate = booking.hourly_rate || 69
+    const teamSizeForBilling = Math.max(1, (booking.team_size as number) || 1)
+    // Bill in real cents (e.g. 3.5hr × $75 = $262.50, not $263).
+    const grossOwed = (Math.round(estimatedTotalHours * clientRate * teamSizeForBilling * 100) / 100).toFixed(2)
+
+    // $10 self-booking discount applies at billing for self-booked jobs.
+    // Flag is in booking.notes; set by /api/client/book at booking time.
+    const SELF_BOOKING_DISCOUNT = 10
+    const isSelfBooked = typeof booking.notes === 'string' && /self-booking discount/i.test(booking.notes)
+    const selfBookingDiscount = isSelfBooked ? SELF_BOOKING_DISCOUNT : 0
+    const clientOwes = Math.max(0, Number(grossOwed) - selfBookingDiscount).toFixed(2)
+
+    const teamMember = booking.team_members as unknown as { name: string; pay_rate: number | null } | null
     const cleanerRate = teamMember?.pay_rate || booking.pay_rate || 25
-    const cleanerOwed = Math.round(estimatedHours * cleanerRate)
+    const cleanerOwed = (Math.round(cleanerEstHours * cleanerRate * 100) / 100).toFixed(2)
 
-    const client = booking.clients as unknown as { id: string; name: string; phone: string | null; email: string | null } | null
+    const client = booking.clients as unknown as { name: string; phone: string; email: string } | null
     const clientName = client?.name || 'Client'
+    const clientPhone = client?.phone || ''
+    const clientEmail = client?.email || ''
+    const clientId = booking.client_id as string | null
     const cleanerName = teamMember?.name || 'Unassigned'
+    const serviceLabel = booking.service_type === 'regular' ? 'Standard' : booking.service_type === 'deep' ? 'Deep' : booking.service_type === 'move_in_out' ? 'Move-in/out' : booking.service_type || 'Cleaning'
 
-    // Record alert timestamp BEFORE sending so concurrent retries see it
+    const checkedInAt = formatET(workStart, { hour: 'numeric', minute: '2-digit', hour12: true })
+
+    const smsLines = [
+      `30-MIN HEADS UP`,
+      `${clientName} — ${serviceLabel}`,
+      `Cleaner: ${cleanerName}`,
+      `Checked in: ${checkedInAt} (${actualHours}hrs so far)`,
+      maxHours !== null ? `Est. total: ${estimatedTotalHours}hrs${cappedByMax ? ` (capped at client max ${maxHours}hr)` : ` of max ${maxHours}hr`}` : `Est. total: ${estimatedTotalHours}hrs`,
+      ``,
+      selfBookingDiscount > 0
+        ? `Collect $${clientOwes} (${estimatedTotalHours}hrs × $${clientRate}/hr${teamSizeForBilling > 1 ? ` × ${teamSizeForBilling} cleaners` : ''} = $${grossOwed}, less $${selfBookingDiscount} self-booking)`
+        : `Collect $${clientOwes} (${estimatedTotalHours}hrs × $${clientRate}/hr${teamSizeForBilling > 1 ? ` × ${teamSizeForBilling} cleaners` : ''})`,
+      `Pay ${cleanerName}: $${cleanerOwed} (${cleanerEstHours}hrs × $${cleanerRate}/hr)`,
+    ]
+
+    if (clientPhone) {
+      smsLines.push(``, `Client #: ${clientPhone}`)
+    }
+
+    const smsMessage = smsLines.join('\n')
+
+    // Record the 30-min alert timestamp on the booking
     await supabaseAdmin
       .from('bookings')
-      .update({ fifteen_min_alert_time: new Date().toISOString() })
+      .update({ fifteen_min_alert_time: now.toISOString() })
       .eq('id', bookingId)
 
-    let clientSmsSent = false
-    let adminSmsSent = false
+    // --- Notify admin FIRST, then text the client. No client email. ---
+    const firstName = clientName.split(' ')[0]
 
-    // 1. CLIENT pay-now SMS
-    if (client?.phone) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || ''
-      const payLink = baseUrl ? `${baseUrl}/pay/${bookingId}` : ''
-      const methods = (tenant.payment_methods || ['card']).join(', ')
-      const zelleLine = tenant.zelle_email ? `\nZelle: ${tenant.zelle_email}` : ''
-      const linkLine = payLink ? `\nPay: ${payLink}` : ''
+    await smsAdmins(tenantId, smsMessage).catch(err => console.error('30min admin SMS failed:', err))
 
-      const clientMsg = `Hi ${clientName.split(' ')[0]} — your service is ~15 min from complete. Total: $${clientOwes} (${estimatedHours} hrs @ $${clientRate}/hr).\nMethods: ${methods}${zelleLine}${linkLine}\nWe bill in 30-min increments. 😊 — ${tenant.name || ''}`
-
-      try {
-        await sendSMS({
-          to: client.phone,
-          body: clientMsg,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
-        })
-        clientSmsSent = true
-      } catch (err) {
-        console.error('[15min] client SMS failed:', err)
-      }
-    }
-
-    // 2. ADMIN heads-up SMS (bilingual)
-    const adminPhone = tenant.owner_phone || tenant.phone
-    if (adminPhone) {
-      const adminMsg = `15-MIN HEADS UP / AVISO DE 15 MIN\n${clientName} — ${booking.service_type || 'Service'}\nPro: ${cleanerName}\nClient owes: $${clientOwes} (${estimatedHours}h × $${clientRate})\nPro pay: $${cleanerOwed} (${estimatedHours}h × $${cleanerRate})`
-      try {
-        await sendSMS({
-          to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`,
-          body: adminMsg,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
-        })
-        adminSmsSent = true
-      } catch (err) {
-        console.error('[15min] admin SMS failed:', err)
-      }
-    }
-
-    // 3. In-app notification
     await notify({
       tenantId,
-      type: 'booking_reminder' as never,
-      title: '15-Min Heads Up',
-      message: `${clientName} — ${booking.service_type || 'service'} — $${clientOwes} due`,
+      type: '15min_warning' as never,
+      title: '30-Min Heads Up',
+      message: smsMessage,
       bookingId,
     }).catch(() => {})
 
-    // 4. If client SMS failed AND we have admin contact, open a high-priority task
-    if (!clientSmsSent && client?.phone) {
-      await supabaseAdmin.from('admin_tasks').insert({
-        tenant_id: tenantId,
-        type: 'payment_alert_failed',
-        priority: 'high',
-        title: `Couldn't reach ${clientName} for payment`,
-        description: `15-min alert SMS failed for booking ${bookingId}. Reach out manually.`,
-        related_type: 'booking',
-        related_id: bookingId,
-      })
+    // Client SMS — balance + Stripe pay link sent UP FRONT in the 30-min text.
+    // The rating ask rides along; a 1-5 reply routes through the pre_payment_rating
+    // flow. Pay link is the tenant's own Stripe link + client_reference_id so the
+    // Stripe webhook ties the payment back to this booking.
+    const payLink = tenant.stripe_pay_link
+      ? `${tenant.stripe_pay_link}${tenant.stripe_pay_link.includes('?') ? '&' : '?'}client_reference_id=${bookingId}`
+      : ''
+    const payLines = payLink
+      ? [
+          ``,
+          `Pay here: ${payLink}`,
+          `Please pay through this link only — credit/debit card, Cash App, or Apple Pay. We appreciate you!`,
+        ]
+      : []
+    const clientSmsText = [
+      `Hi ${firstName}! ${cleanerName} is finishing up your clean now 😊`,
+      `Your total: $${clientOwes} (${estimatedTotalHours}hrs × $${clientRate}/hr${teamSizeForBilling > 1 ? ` × ${teamSizeForBilling} cleaners` : ''})`,
+      ...payLines,
+      ``,
+      `Payment is due ~30 min before completion. Reply "paid" once sent.`,
+      ``,
+      `And how'd we do? Reply 1-5 (5 = spotless)!`,
+    ].join('\n')
+    const clientSmsType = 'pre_payment_rating'
+
+    const confirmedVia: string[] = []
+    let smsAttempts = 0
+    if (clientId) {
+      for (let i = 0; i < 2; i++) {
+        smsAttempts++
+        const smsResult = await sendClientSMS(clientId, clientSmsText, {
+          smsType: clientSmsType,
+          bookingId,
+        }).catch(err => { console.error(`Client 30min SMS attempt ${i + 1} failed:`, err); return { sent: 0, skipped: 0 } })
+        if (smsResult?.sent && smsResult.sent > 0) { confirmedVia.push('SMS'); break }
+        if (i === 0) await new Promise(r => setTimeout(r, 60_000))
+      }
     }
 
-    // 5. Trigger email monitor immediately + again in 5 min to catch incoming Zelle
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
-    if (baseUrl && process.env.CRON_SECRET) {
-      fetch(`${baseUrl}/api/email/monitor`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
-      }).catch(() => {})
-      setTimeout(() => {
-        fetch(`${baseUrl}/api/email/monitor`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
-        }).catch(() => {})
-      }, 5 * 60 * 1000)
+    // Second admin ping with delivery confirmation
+    const confirmLine = confirmedVia.length > 0
+      ? `✓ Payment request SENT to ${firstName} via SMS${smsAttempts > 1 ? ` (took ${smsAttempts} attempts)` : ''}`
+      : `✗ URGENT: could not reach ${firstName} — CALL ${clientPhone || 'no phone on file'} manually`
+    await smsAdmins(tenantId, confirmLine).catch(err => console.error('30min admin confirm SMS failed:', err))
+
+    // Escalate if client SMS failed entirely
+    if (confirmedVia.length === 0 && clientId) {
+      await supabaseAdmin.from('admin_tasks').insert({
+        tenant_id: tenantId,
+        type: 'payment_request_undelivered',
+        priority: 'high',
+        title: `CALL ${clientName} manually — $${clientOwes} payment request undelivered`,
+        description: `SMS failed for booking ${bookingId}. Phone: ${clientPhone || 'none'}. Email on file: ${clientEmail || 'none'}. Cleaner is ~30 min from done.`,
+        related_type: 'booking',
+        related_id: bookingId,
+      }).then(() => {}, () => {})
     }
+
+    // (nycmaid runs an email-monitor poll here; retired — Stripe-only, webhook confirms)
 
     return NextResponse.json({
       success: true,
-      clientSmsSent,
-      adminSmsSent,
+      smsSent: true,
+      clientNotified: confirmedVia.length > 0,
+      confirmedVia,
+      actualHours,
+      estimatedTotalHours,
       clientOwes,
       cleanerOwed,
-      estimatedHours,
     })
   } catch (err) {
     console.error('[15min-alert]', err)

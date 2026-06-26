@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { scoreCleanersForBooking } from '@/lib/nycmaid/smart-schedule'
+import { scoreCleanersForBooking, suggestBookingSlots } from '@/lib/nycmaid/smart-schedule'
 import { supabaseAdmin } from '@/lib/supabase'
 
 const rl = new Map<string, { count: number; resetAt: number }>()
@@ -89,5 +89,29 @@ export async function GET(request: Request) {
       reason: s.is_preferred ? 'Your preferred cleaner' : s.zone_match ? 'Works in your area' : 'Available',
     }))
 
-  return NextResponse.json({ cleaners: sanitized })
+  // Alternate-time suggestions for the public booking form: when the picked time
+  // has no available cleaner, offer other times that work. Computed only on
+  // request (suggest=1) since it scans the whole day.
+  // PRIVACY: the raw reason can name ANOTHER client ("8 min from their 12 PM
+  // Sarah J job"). We expose only time + cleaner FIRST name + a generic reason.
+  let suggestions = null
+  if (searchParams.get('suggest') === '1' && sanitized.length === 0) {
+    const raw = await suggestBookingSlots({
+      date,
+      durationHours: duration ? parseFloat(duration) : 2,
+      clientAddress,
+      clientId: clientId || undefined,
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
+      requestedTime: startTime,
+      stepMin: 60, // public picker only offers on-the-hour slots
+    })
+    suggestions = raw.map(s => ({
+      time24: s.time24,
+      label: s.label,
+      cleaner: s.cleanerName.split(' ')[0],
+      reason: s.travelFromPrevMin != null ? 'A cleaner is already in your area then' : 'Open with a great cleaner',
+    }))
+  }
+
+  return NextResponse.json({ cleaners: sanitized, suggestions })
 }
