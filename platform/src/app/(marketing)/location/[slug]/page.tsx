@@ -9,6 +9,8 @@ import {
 } from "@/lib/schema";
 import { industries, metros, generateLocationSlug, generateComboSlug, findMetroByPageSlug } from "@/lib/marketing/combos";
 import type { ComboMetro } from "@/lib/marketing/combos";
+import { getCaseStudyStats } from "@/lib/caseStudyStats";
+import LiveProofBand from "@/components/LiveProofBand";
 
 // ---------------------------------------------------------------------------
 // Static params — generates all 400+ location pages at build time
@@ -159,6 +161,7 @@ export default async function LocationPage({
   if (!metro) notFound();
 
   const pageUrl = `https://homeservicesbusinesscrm.com/location/${slug}`;
+  const live = await getCaseStudyStats();
 
   const breadcrumbs = [
     { name: "Home", url: "https://homeservicesbusinesscrm.com" },
@@ -224,6 +227,8 @@ export default async function LocationPage({
           </div>
         </div>
       </section>
+
+      <LiveProofBand live={live} />
 
       {/* ----------------------------------------------------------------- */}
       {/* 2. Pain Points */}

@@ -12,6 +12,8 @@ import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
 import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
 import { faqs as globalFaqs } from "@/lib/marketing/faqs";
+import { getCaseStudyStats } from "@/lib/caseStudyStats";
+import LiveProofBand from "@/components/LiveProofBand";
 
 // ---------------------------------------------------------------------------
 // Static params — generates all 51 industry pages at build time
@@ -103,6 +105,7 @@ export default async function IndustryPage({
 
   const pageUrl = `https://homeservicesbusinesscrm.com/industry/${slug}`;
   const trade = industry.name.toLowerCase();
+  const live = await getCaseStudyStats();
 
   // Find deep page content via slug mapping
   const contentSlug = getIndustryContentSlug(industry.slug);
@@ -218,6 +221,8 @@ export default async function IndustryPage({
           </div>
         </div>
       </section>
+
+      <LiveProofBand live={live} />
 
       {/* ================================================================= */}
       {/* 2. INDUSTRY OVERVIEW                                              */}
