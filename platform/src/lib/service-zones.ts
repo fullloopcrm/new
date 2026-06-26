@@ -1,3 +1,6 @@
+// Service zones — ported 1:1 from NYC Maid (src/lib/service-zones.ts). Pure
+// logic (no schema deps). NYC-area zones; addresses outside the area resolve to
+// null (no zone → not gated), so this is safe for non-NYC tenants too.
 export const SERVICE_ZONES = [
   { id: 'manhattan_downtown', label: 'Manhattan — Downtown (below 34th)', labelES: 'Manhattan — Centro (debajo de 34th)', car_required: false },
   { id: 'manhattan_midtown', label: 'Manhattan — Midtown (34th to 90th)', labelES: 'Manhattan — Midtown (34th a 90th)', car_required: false },
@@ -7,7 +10,9 @@ export const SERVICE_ZONES = [
   { id: 'bronx', label: 'Bronx', labelES: 'Bronx', car_required: false },
   { id: 'staten_island', label: 'Staten Island', labelES: 'Staten Island', car_required: true },
   { id: 'long_island', label: 'Long Island', labelES: 'Long Island', car_required: true },
+  { id: 'westchester', label: 'Westchester County', labelES: 'Condado de Westchester', car_required: true },
   { id: 'nj_hudson', label: 'NJ — Hoboken / Jersey City / Weehawken', labelES: 'NJ — Hoboken / Jersey City / Weehawken', car_required: false },
+  { id: 'nj_other', label: 'NJ — Other (no PATH/ferry)', labelES: 'NJ — Otro', car_required: true },
 ] as const
 
 export type ServiceZoneId = typeof SERVICE_ZONES[number]['id']
@@ -16,17 +21,23 @@ export type ServiceZoneId = typeof SERVICE_ZONES[number]['id']
 export function guessZoneFromAddress(address: string): ServiceZoneId | null {
   const a = address.toLowerCase()
 
-  // NJ
-  if (a.includes('hoboken') || a.includes('jersey city') || a.includes('weehawken')) return 'nj_hudson'
+  // NJ — Bergen County / inland (car required)
+  if (a.includes('fort lee') || a.includes('palisades park') || a.includes('leonia') || a.includes('fairview') || a.includes('cliffside park') || a.includes('ridgefield') || a.includes('englewood') || a.includes('tenafly') || a.includes('alpine') || a.includes('cresskill') || a.includes('closter') || a.includes('demarest') || a.includes('teaneck') || a.includes('bergenfield') || a.includes('secaucus')) return 'nj_other'
 
-  // Long Island
-  if (a.includes('long island') || a.includes('nassau') || a.includes('suffolk') || a.includes(', li ')) return 'long_island'
+  // NJ — Hudson waterfront (PATH/ferry, no car needed)
+  if (a.includes('hoboken') || a.includes('jersey city') || a.includes('weehawken') || a.includes('union city') || a.includes('west new york') || a.includes('guttenberg') || a.includes('north bergen') || a.includes('edgewater') || a.includes('bayonne')) return 'nj_hudson'
+
+  // Long Island (Nassau/Suffolk only — NOT Long Island City which is Queens)
+  if ((a.includes('long island') && !a.includes('long island city') && !a.includes('lic')) || a.includes('nassau') || a.includes('suffolk') || a.includes(', li ')) return 'long_island'
 
   // Staten Island
-  if (a.includes('staten island') || /\b1030[1-4]\b/.test(a)) return 'staten_island'
+  if (a.includes('staten island') || /\b1030[1-9]\b/.test(a) || /\b1031[0-4]\b/.test(a)) return 'staten_island'
+
+  // Westchester County (must come before Bronx to catch "Bronxville")
+  if (a.includes('yonkers') || a.includes('mount vernon') || a.includes('new rochelle') || a.includes('white plains') || a.includes('scarsdale') || a.includes('bronxville') || a.includes('westchester') || a.includes('mamaroneck') || a.includes('larchmont') || a.includes('tarrytown') || a.includes('sleepy hollow') || a.includes('hastings-on-hudson') || a.includes('dobbs ferry') || a.includes('irvington') || a.includes('chappaqua') || a.includes('katonah') || a.includes('armonk') || a.includes('pleasantville') || a.includes('peekskill') || a.includes('ossining') || a.includes('hartsdale') || a.includes('rye brook') || a.includes('port chester') || a.includes('eastchester') || a.includes('tuckahoe') || a.includes('pelham manor') || /\b10[5-8]\d{2}\b/.test(a)) return 'westchester'
 
   // Bronx
-  if (a.includes('bronx') || /\b104[0-7]\d\b/.test(a)) return 'bronx'
+  if (a.includes('bronx') || /\b104[5-7]\d\b/.test(a)) return 'bronx'
 
   // Queens
   if (a.includes('queens') || a.includes('flushing') || a.includes('astoria') || a.includes('long island city') || a.includes('lic') || a.includes('rego park') || a.includes('jackson heights') || a.includes('woodhaven') || a.includes('elmhurst') || a.includes('middle village') || a.includes('forest hills') || a.includes('jamaica') || a.includes('ridgewood') || /\b11[1-4]\d{2}\b/.test(a)) return 'queens'

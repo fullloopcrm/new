@@ -19,6 +19,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { geocodeAddress, calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
+import { worksScheduledDay, slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
 
 export interface TeamMemberScore {
   id: string
@@ -66,9 +67,12 @@ export async function scoreTeamForBooking(opts: {
   clientAddress: string
   clientId?: string
   excludeBookingId?: string
+  hourlyRate?: number // cleaning labor-only rule: <=60 = labor-only job
   jobCoords?: { lat: number; lng: number } // pre-resolved job coords — skips geocoding (suggestBookingSlots geocodes once, not per candidate time)
 }): Promise<TeamMemberScore[]> {
-  const { tenantId, date, startTime, durationHours, clientAddress, clientId, excludeBookingId } = opts
+  const { tenantId, date, startTime, durationHours, clientAddress, clientId, excludeBookingId, hourlyRate } = opts
+  // If booking is labor-only ($59), labor_only members are fine. If supplies ($69+), they can't do it.
+  const bookingIsLaborOnly = hourlyRate != null && hourlyRate <= 60
 
   // Geocode the job address — prefer caller-provided coords, then cached client
   // coords. Also pull preferred team-member id for the +200 score bonus.
@@ -104,7 +108,7 @@ export async function scoreTeamForBooking(opts: {
   // Active team members for this tenant. Schema uses `status`, not `active` boolean.
   const { data: allMembers } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, address, home_latitude, home_longitude, home_by_time, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, status')
+    .select('id, name, address, home_latitude, home_longitude, home_by_time, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, labor_only, status')
     .eq('tenant_id', tenantId)
     .neq('status', 'inactive')
 
@@ -147,24 +151,38 @@ export async function scoreTeamForBooking(opts: {
   for (const member of allMembers || []) {
     const isPreferred = member.id === preferredMemberId
 
-    // Day-of-week availability
+    // Day-of-week availability — canonical resolver (handles numeric + name formats;
+    // no/all-off days = NOT available). See day-availability.worksScheduledDay.
     const worksToday = (() => {
       if ((member.unavailable_dates as string[] | null)?.includes(date)) return false
-      const wd = member.working_days as string[] | null
-      if (wd && wd.length > 0) return wd.includes(dayOfWeek)
-      const sched = member.schedule as Record<string, unknown> | null
-      if (sched && Object.keys(sched).length > 0) return sched[dayOfWeek] != null
-      return true
+      return worksScheduledDay(member.working_days as string[] | null, member.schedule as Record<string, unknown> | null, date)
     })()
 
     if (!worksToday) {
       scores.push({
         id: member.id, name: member.name, score: -1, available: false,
         conflict: 'Not scheduled to work',
-        home_by: (member.home_by_time as string) || '18:00',
+        home_by: (member.home_by_time as string) || 'No limit',
         zone_match: false, has_car: Boolean(member.has_car),
         is_preferred: isPreferred,
         day_jobs: [], reason: 'off',
+      })
+      continue
+    }
+
+    // Honor working HOURS, not just the day. A member who works 8–5 must not be
+    // suggested for a slot starting before or ending after those hours. Mirrors
+    // booking-creation enforcement so suggestions and booking agree.
+    if (!slotWithinHours(member.schedule as Record<string, unknown> | null, date, slotStartMin, slotEndMin)) {
+      const w = hoursWindowForDate(member.schedule as Record<string, unknown> | null, date)
+      const hoursLabel = w ? `Works ${formatTime(w.start)}–${formatTime(w.end)}` : 'Outside working hours'
+      scores.push({
+        id: member.id, name: member.name, score: -1, available: false,
+        conflict: hoursLabel,
+        home_by: (member.home_by_time as string) || 'No limit',
+        zone_match: false, has_car: Boolean(member.has_car),
+        is_preferred: isPreferred,
+        day_jobs: [], reason: 'outside_hours',
       })
       continue
     }
@@ -208,10 +226,38 @@ export async function scoreTeamForBooking(opts: {
       scores.push({
         id: member.id, name: member.name, score: -1, available: false,
         conflict: conflictReason,
-        home_by: (member.home_by_time as string) || '18:00',
+        home_by: (member.home_by_time as string) || 'No limit',
         zone_match: false, has_car: Boolean(member.has_car),
         is_preferred: isPreferred,
         day_jobs: dayJobs, reason: 'conflict',
+      })
+      continue
+    }
+
+    // Hard zone rule: a member only services their own zones. Job in a known zone
+    // they don't cover → NOT eligible (hard block, not a scoring penalty). Members
+    // with no zones configured aren't gated.
+    const hardJobZone = guessZoneFromAddress(clientAddress)
+    const memberZonesHard = (member.service_zones as string[] | null) || []
+    if (hardJobZone && memberZonesHard.length > 0 && !memberZonesHard.includes(hardJobZone)) {
+      scores.push({
+        id: member.id, name: member.name, score: -1, available: false,
+        conflict: `Outside service zone (${hardJobZone.replace(/_/g, ' ')})`,
+        home_by: (member.home_by_time as string) || 'No limit',
+        zone_match: false, has_car: Boolean(member.has_car),
+        is_preferred: isPreferred, day_jobs: dayJobs, reason: 'out_of_zone',
+      })
+      continue
+    }
+    // Hard car rule: car-required zones (Staten Island, Long Island, Westchester,
+    // NJ-other) aren't reachable without a vehicle → NOT eligible.
+    if (hardJobZone && zoneRequiresCar(hardJobZone) && !Boolean(member.has_car)) {
+      scores.push({
+        id: member.id, name: member.name, score: -1, available: false,
+        conflict: `Needs a car (${hardJobZone.replace(/_/g, ' ')})`,
+        home_by: (member.home_by_time as string) || 'No limit',
+        zone_match: false, has_car: false,
+        is_preferred: isPreferred, day_jobs: dayJobs, reason: 'needs_car',
       })
       continue
     }
@@ -223,14 +269,19 @@ export async function scoreTeamForBooking(opts: {
     // this tech before; barring conflict/zone/car blockers, they win.
     if (isPreferred) score += 200
 
-    // 0b. Zone match (next strongest)
-    const jobZone = guessZoneFromAddress(clientAddress)
+    // 0b. Zone match (next strongest). Out-of-zone + car-required are already
+    // hard-blocked above, so here it's purely a positive/negative score signal.
+    const jobZone = hardJobZone
     const memberZones = (member.service_zones as string[] | null) || []
     const zoneMatch = jobZone ? memberZones.includes(jobZone) : false
     const hasCar = Boolean(member.has_car)
     if (zoneMatch) score += 50
     if (!zoneMatch && memberZones.length > 0) score -= 30
-    if (jobZone && zoneRequiresCar(jobZone) && !hasCar) score -= 80
+
+    // Supplies vs labor-only: a supply job ($69/hr+) can't go to a labor-only
+    // member. (nycmaid cleaning rule.)
+    const isLaborOnly = Boolean((member as { labor_only?: boolean | null }).labor_only)
+    if (!bookingIsLaborOnly && isLaborOnly) score -= 100
 
     // 1. Distance to member's home (proximity baseline)
     let distMiles: number | undefined
@@ -311,13 +362,15 @@ export async function scoreTeamForBooking(opts: {
       }
     }
 
-    // 4. Home-by-time check using the actual last job of the day
-    const homeBy = (member.home_by_time as string) || '18:00'
-    const [hbH, hbM] = homeBy.split(':').map(Number)
+    // 4. Can they get home on time? Only enforced when a home-by is actually set.
+    // Null/empty = "No limit" (no pickup constraint) → no penalty, no flag.
+    const hasHomeBy = !!member.home_by_time
+    const homeBy = (member.home_by_time as string) || ''
+    const [hbH, hbM] = ((member.home_by_time as string) || '18:00').split(':').map(Number)
     const homeByMin = hbH * 60 + hbM
     let travelToHome: number | undefined
     let canMakeHome = true
-    if (jobCoords) {
+    if (jobCoords && hasHomeBy) {
       let homeCoords: { lat: number; lng: number } | null =
         member.home_latitude && member.home_longitude
           ? { lat: Number(member.home_latitude), lng: Number(member.home_longitude) }
@@ -366,7 +419,7 @@ export async function scoreTeamForBooking(opts: {
       travel_to_home_min: travelToHome,
       prev_job_label: prevJobLabel,
       next_job_label: nextJobLabel,
-      home_by: homeBy,
+      home_by: hasHomeBy ? homeBy : 'No limit',
       can_make_home: canMakeHome,
       zone_match: zoneMatch,
       has_car: hasCar,
@@ -457,13 +510,14 @@ export async function suggestBookingSlots(opts: {
   durationHours: number
   clientAddress: string
   clientId?: string
+  hourlyRate?: number
   teamSize?: number
   requestedTime?: string   // "HH:MM" — excluded from results (we want ALTERNATIVES to it)
   excludeBookingId?: string
   limit?: number           // default 3
   stepMin?: number         // candidate-time granularity; default 30. Public form passes 60 (hourly picker).
 }): Promise<SlotSuggestion[]> {
-  const { tenantId, date, durationHours, clientAddress, clientId, requestedTime, excludeBookingId } = opts
+  const { tenantId, date, durationHours, clientAddress, clientId, hourlyRate, requestedTime, excludeBookingId } = opts
   const teamSize = Math.max(1, Math.floor(opts.teamSize || 1))
   const limit = Math.max(1, opts.limit || 3)
   const stepMin = opts.stepMin && opts.stepMin > 0 ? opts.stepMin : SUGGEST_STEP_MIN
@@ -500,6 +554,7 @@ export async function suggestBookingSlots(opts: {
       durationHours,
       clientAddress,
       clientId,
+      hourlyRate,
       excludeBookingId,
       jobCoords,
     })

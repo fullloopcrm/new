@@ -18,6 +18,7 @@ export async function GET(request: Request) {
   const clientAddress = searchParams.get('address')
   const clientId = searchParams.get('client_id')
   const excludeBookingId = searchParams.get('exclude_booking')
+  const hourlyRate = searchParams.get('hourly_rate')
   const teamSizeRaw = searchParams.get('team_size')
   const teamSize = teamSizeRaw ? Math.max(1, Math.min(8, parseInt(teamSizeRaw, 10) || 1)) : 1
 
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
   }
 
   const durationHours = duration ? parseFloat(duration) : 2
+  const rate = hourlyRate ? parseFloat(hourlyRate) : undefined
 
   const scores = await scoreTeamForBooking({
     tenantId: ctx.tenantId,
@@ -35,6 +37,7 @@ export async function GET(request: Request) {
     clientAddress,
     clientId: clientId || undefined,
     excludeBookingId: excludeBookingId || undefined,
+    hourlyRate: rate,
   })
 
   // For team_size > 1 also return the suggested team picks (lead + extras).
@@ -52,6 +55,7 @@ export async function GET(request: Request) {
       durationHours,
       clientAddress,
       clientId: clientId || undefined,
+      hourlyRate: rate,
       teamSize,
       requestedTime: startTime,
       excludeBookingId: excludeBookingId || undefined,

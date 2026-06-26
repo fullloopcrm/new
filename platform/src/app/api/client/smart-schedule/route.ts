@@ -31,6 +31,7 @@ export async function GET(request: Request) {
   const duration = searchParams.get('duration')
   let clientAddress = searchParams.get('address')
   const clientId = searchParams.get('client_id')
+  const hourlyRate = searchParams.get('hourly_rate')
   let tenantId: string | null = null
   let preferredCleanerId: string | null = null
 
@@ -76,6 +77,7 @@ export async function GET(request: Request) {
     durationHours: duration ? parseFloat(duration) : 2,
     clientAddress,
     clientId: clientId || undefined,
+    hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
   })
 
   const sanitized = scores
@@ -101,6 +103,7 @@ export async function GET(request: Request) {
       durationHours: duration ? parseFloat(duration) : 2,
       clientAddress,
       clientId: clientId || undefined,
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
       requestedTime: startTime,
       stepMin: 60, // public picker only offers on-the-hour slots
     })
