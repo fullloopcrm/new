@@ -2,34 +2,39 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { industries as allIndustries, generateIndustrySlug } from "@/lib/marketing/combos";
 
-const industries: { name: string; slug: string; desc: string }[] = [
-  { name: "Cleaning Services", slug: "cleaning-services", desc: "Manage recurring clients, dispatch crews, and fill every open slot with AI-driven lead generation." },
-  { name: "Carpet Cleaning", slug: "carpet-cleaning", desc: "Book more jobs, route technicians efficiently, and automate follow-ups for repeat carpet cleaning service." },
-  { name: "Window Cleaning", slug: "window-cleaning", desc: "Schedule recurring routes, convert online leads instantly, and manage seasonal demand spikes." },
-  { name: "Pressure Washing", slug: "pressure-washing", desc: "Fill your calendar, track jobs with GPS, and build a steady pipeline of residential and commercial clients." },
-  { name: "Landscaping", slug: "landscaping", desc: "Manage seasonal crews, upsell design services, and keep every property on a recurring maintenance schedule." },
-  { name: "Lawn Care", slug: "lawn-care", desc: "Automate route scheduling, client communication, and rebooking so you spend more time on the route." },
-  { name: "Handyman Services", slug: "handyman-services", desc: "Quote on-site, track multiple trades, and convert one-time repairs into recurring maintenance plans." },
-  { name: "Pest Control", slug: "pest-control", desc: "Automate quarterly treatments, route technicians by zone, and capture emergency leads 24/7 with AI." },
-  { name: "HVAC", slug: "hvac", desc: "Schedule seasonal tune-ups, dispatch emergency calls, and track parts inventory across your fleet." },
-  { name: "Plumbing", slug: "plumbing", desc: "Capture emergency leads instantly, dispatch the nearest plumber, and automate follow-up for maintenance plans." },
-  { name: "Electrical", slug: "electrical", desc: "Manage permits, schedule inspections, and convert one-time calls into ongoing commercial contracts." },
-  { name: "Painting", slug: "painting", desc: "Generate painting estimates, schedule multi-day jobs, and build a referral pipeline that fills your calendar." },
-  { name: "Junk Removal", slug: "junk-removal", desc: "Book same-day pickups, optimize truck routes, and automate pricing based on volume and distance." },
-  { name: "Pool Cleaning", slug: "pool-cleaning", desc: "Manage recurring pool routes, track chemical logs, and automate seasonal opening and closing schedules." },
-  { name: "Roofing", slug: "roofing", desc: "Capture storm-damage leads, manage multi-week projects, and track crew hours with GPS verification." },
-  { name: "Gutter Cleaning", slug: "gutter-cleaning", desc: "Schedule seasonal cleanings, send automated reminders, and build recurring revenue from annual contracts." },
-  { name: "Appliance Repair", slug: "appliance-repair", desc: "Dispatch repair techs by specialty, track parts orders, and follow up automatically for warranty renewals." },
-  { name: "Locksmith", slug: "locksmith", desc: "Capture emergency calls 24/7 with AI, dispatch the nearest tech, and invoice on-site instantly." },
-  { name: "Moving Services", slug: "moving-services", desc: "Quote based on home size, schedule crews and trucks, and collect deposits with automated payment reminders." },
-  { name: "Tree Service", slug: "tree-service", desc: "Generate leads for removals and trimming, schedule large crew jobs, and track equipment across sites." },
-  { name: "Garage Door Repair", slug: "garage-door-repair", desc: "Capture emergency leads instantly, dispatch techs with parts inventory, and automate warranty follow-ups." },
-  { name: "Flooring", slug: "flooring", desc: "Manage multi-day installations, schedule material deliveries, and convert estimates into booked jobs faster." },
-  { name: "Fencing", slug: "fencing", desc: "Quote by linear foot, schedule installation crews, and build a pipeline from neighborhood referrals." },
-  { name: "Concrete & Masonry", slug: "concrete-and-masonry", desc: "Manage large project timelines, track crew hours with GPS, and automate progress updates to clients." },
-  { name: "Home Inspection", slug: "home-inspection", desc: "Book inspections from realtor referrals, deliver reports automatically, and build recurring revenue from annual plans." },
+// Curated flagship trades for the homepage. Each slug MUST exist in combos so
+// every link resolves to a real /industry page (no drift, no 404s). The full
+// list lives on /full-loop-crm-service-business-industries.
+const FEATURED: { slug: string; desc: string }[] = [
+  { slug: "cleaning-services", desc: "Manage recurring clients, dispatch crews, and fill every open slot with AI-driven lead generation." },
+  { slug: "carpet-cleaning", desc: "Book more jobs, route technicians efficiently, and automate follow-ups for repeat carpet cleaning service." },
+  { slug: "window-cleaning", desc: "Schedule recurring routes, convert online leads instantly, and manage seasonal demand spikes." },
+  { slug: "pressure-washing", desc: "Fill your calendar, track jobs with GPS, and build a steady pipeline of residential and commercial clients." },
+  { slug: "landscaping", desc: "Manage seasonal crews, upsell design services, and keep every property on a recurring maintenance schedule." },
+  { slug: "lawn-care", desc: "Automate route scheduling, client communication, and rebooking so you spend more time on the route." },
+  { slug: "handyman-services", desc: "Quote on-site, track multiple trades, and convert one-time repairs into recurring maintenance plans." },
+  { slug: "pest-control", desc: "Automate quarterly treatments, route technicians by zone, and capture emergency leads 24/7 with AI." },
+  { slug: "hvac", desc: "Schedule seasonal tune-ups, dispatch emergency calls, and track parts inventory across your fleet." },
+  { slug: "plumbing", desc: "Capture emergency leads instantly, dispatch the nearest plumber, and automate follow-up for maintenance plans." },
+  { slug: "electrical", desc: "Manage permits, schedule inspections, and convert one-time calls into ongoing commercial contracts." },
+  { slug: "painting", desc: "Generate painting estimates, schedule multi-day jobs, and build a referral pipeline that fills your calendar." },
+  { slug: "junk-removal", desc: "Book same-day pickups, optimize truck routes, and automate pricing based on volume and distance." },
+  { slug: "roofing", desc: "Capture storm-damage leads, manage multi-week projects, and track crew hours with GPS verification." },
+  { slug: "pool-cleaning", desc: "Manage recurring pool routes, track chemical logs, and automate seasonal opening and closing schedules." },
 ];
+
+const industries = FEATURED.map((f) => {
+  const data = allIndustries.find((i) => i.slug === f.slug);
+  if (!data) return null;
+  return {
+    name: data.name,
+    slug: data.slug,
+    desc: f.desc,
+    href: `/industry/${generateIndustrySlug(data)}`,
+  };
+}).filter((x): x is { name: string; slug: string; desc: string; href: string } => x !== null);
 
 export default function Industries() {
   return (
@@ -81,7 +86,7 @@ export default function Industries() {
               transition={{ duration: 0.4, delay: (i % 10) * 0.05 }}
             >
               <Link
-                href={`/industry/crm-for-${ind.slug.replace(/-services$/, "-service").replace(/-s$/, "")}-businesses`}
+                href={ind.href}
                 className="group block rounded-xl bg-white border border-slate-200 hover:border-[#1F4D2C] p-5 h-full transition-all shadow-sm hover:shadow-md"
               >
                 <h3 className="text-sm font-bold text-slate-900 group-hover:text-[#1F4D2C] transition-colors font-heading mb-2">
