@@ -397,7 +397,14 @@ export default async function IndustryPage({
             competes with you in your market.
           </p>
           <p className="text-slate-700 mb-6 max-w-xl mx-auto">
-            Full Loop CRM replaces 9+ separate tools — lead generation,
+            Full Loop CRM is the{" "}
+            <Link
+              href="/"
+              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+            >
+              home service business CRM
+            </Link>{" "}
+            that replaces 9+ separate tools — lead generation,
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
             platform. The license includes your exclusive territory,

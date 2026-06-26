@@ -207,9 +207,15 @@ export default async function LocationPage({
             </span>
           </h1>
           <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-6">
-            The only full-cycle, AI-managed CRM for home service businesses in{" "}
-            {metro.city}. One partner per trade — is your industry still
-            available?
+            The only full-cycle, AI-managed{" "}
+            <Link
+              href="/"
+              className="text-teal-300 underline underline-offset-2 hover:text-teal-200"
+            >
+              home service CRM
+            </Link>{" "}
+            for businesses in {metro.city}. One partner per trade — is your
+            industry still available?
           </p>
           <p className="text-base text-teal-300 max-w-2xl mx-auto mb-6 font-cta">
             Live-proven: The NYC Maid runs ~200 services a month on Full Loop — one person, under an hour a day.
