@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { trackError } from '@/lib/error-tracking'
 import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
+import { worksScheduledDay } from '@/lib/day-availability'
 
 export const maxDuration = 300
 
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
 
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, clients(id, name, address), team_members(id, name, working_days, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
+        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, clients(id, name, address), team_members(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
         .eq('tenant_id', tenantId)
         .gte('start_time', todayStr + 'T00:00:00')
         .lte('start_time', toDateStr(endDate) + 'T23:59:59')
@@ -128,7 +129,14 @@ export async function GET(request: Request) {
           // Day off
           if (member.unavailable_dates?.includes(date)) {
             issues.push({ type: 'day_off', severity: 'critical', message: `${member.name} marked unavailable on ${date} but booked for ${client?.name}`, booking_ids: [b.id], team_member_id: b.team_member_id, tenant_id: tenantId, date })
-          } else if (member.working_days?.length > 0 && !member.working_days.includes(dayOfWeek)) {
+          } else if (
+            // Only flag when availability IS configured but this date isn't in it —
+            // don't flag members who simply haven't set a schedule yet. Canonical
+            // resolver handles numeric ("0") + name ("Sun") formats, so numeric-format
+            // members are no longer falsely flagged "doesn't work".
+            ((member.working_days?.length || 0) > 0 || (member.schedule && Object.keys(member.schedule).length > 0)) &&
+            !worksScheduledDay(member.working_days, member.schedule, date)
+          ) {
             issues.push({ type: 'day_off', severity: 'critical', message: `${member.name} doesn't work ${dayOfWeek}s — booked for ${client?.name} on ${date}`, booking_ids: [b.id], team_member_id: b.team_member_id, tenant_id: tenantId, date })
           }
 
