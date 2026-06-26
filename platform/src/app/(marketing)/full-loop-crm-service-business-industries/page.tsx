@@ -7,6 +7,10 @@ import {
   localBusinessSchema,
   itemListSchema,
 } from "@/lib/schema";
+import {
+  industries,
+  generateIndustrySlug,
+} from "@/lib/marketing/combos";
 
 export const metadata: Metadata = {
   title:
@@ -48,59 +52,6 @@ const breadcrumbs = [
   { name: "Industries", url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries" },
 ];
 
-const industries: { name: string; description: string }[] = [
-  { name: "Cleaning Services", description: "Residential and commercial cleaning operations with recurring schedules." },
-  { name: "Carpet Cleaning", description: "Deep cleaning, stain removal, and carpet restoration services." },
-  { name: "Window Cleaning", description: "Interior and exterior window washing for homes and buildings." },
-  { name: "Pressure Washing", description: "High-pressure surface cleaning for driveways, decks, and exteriors." },
-  { name: "Landscaping", description: "Full-service landscape design, installation, and maintenance." },
-  { name: "Lawn Care", description: "Mowing, fertilization, aeration, and seasonal lawn programs." },
-  { name: "Tree Service", description: "Tree trimming, removal, stump grinding, and emergency response." },
-  { name: "Handyman Services", description: "General repairs, installations, and small project work." },
-  { name: "Pest Control", description: "Residential and commercial extermination and prevention programs." },
-  { name: "HVAC", description: "Heating, ventilation, and air conditioning install and repair." },
-  { name: "Plumbing", description: "Pipe repair, fixture installation, drain clearing, and water heaters." },
-  { name: "Electrical", description: "Wiring, panel upgrades, lighting, and electrical troubleshooting." },
-  { name: "Painting (Interior/Exterior)", description: "Surface prep, priming, and professional paint application." },
-  { name: "Junk Removal", description: "Hauling away furniture, debris, and unwanted items." },
-  { name: "Pool Cleaning & Maintenance", description: "Chemical balancing, filter service, and seasonal pool care." },
-  { name: "Roofing", description: "Roof repair, replacement, inspection, and storm damage restoration." },
-  { name: "Garage Door Repair", description: "Spring replacement, opener repair, and new door installation." },
-  { name: "Appliance Repair", description: "Diagnosing and fixing washers, dryers, refrigerators, and more." },
-  { name: "Locksmith", description: "Lock installation, rekeying, and emergency lockout services." },
-  { name: "Flooring Installation", description: "Hardwood, tile, laminate, and vinyl floor installation." },
-  { name: "Fencing", description: "Wood, vinyl, chain-link, and ornamental fence installation." },
-  { name: "Gutter Cleaning", description: "Gutter debris removal, flushing, and guard installation." },
-  { name: "Chimney Sweep", description: "Chimney cleaning, inspection, and cap installation." },
-  { name: "Drywall Repair", description: "Patching holes, water damage repair, and texture matching." },
-  { name: "Concrete & Masonry", description: "Foundations, patios, walkways, and brick or block work." },
-  { name: "Deck Building", description: "Custom deck design, construction, and refinishing." },
-  { name: "Home Inspection", description: "Pre-purchase, pre-listing, and annual home inspections." },
-  { name: "Mold Remediation", description: "Mold testing, containment, removal, and prevention." },
-  { name: "Water Damage Restoration", description: "Water extraction, drying, and structural repair after floods." },
-  { name: "Fire Damage Restoration", description: "Smoke cleanup, structural repair, and content restoration." },
-  { name: "Septic Services", description: "Septic pumping, inspection, and system maintenance." },
-  { name: "Irrigation", description: "Sprinkler system design, installation, and seasonal service." },
-  { name: "Snow Removal", description: "Plowing, salting, and sidewalk clearing for winter storms." },
-  { name: "Power Washing", description: "Commercial-grade surface cleaning for buildings and hardscapes." },
-  { name: "House Cleaning", description: "Recurring residential cleaning with customized checklists." },
-  { name: "Move-In/Move-Out Cleaning", description: "Deep cleaning for rental turnovers and real estate closings." },
-  { name: "Post-Construction Cleaning", description: "Dust removal, debris hauling, and final polish after builds." },
-  { name: "Air Duct Cleaning", description: "HVAC duct sanitization to improve indoor air quality." },
-  { name: "Dryer Vent Cleaning", description: "Lint removal and vent inspection to prevent fire hazards." },
-  { name: "Solar Panel Cleaning", description: "Debris and residue removal to maximize solar efficiency." },
-  { name: "Upholstery Cleaning", description: "Deep cleaning for sofas, chairs, and fabric surfaces." },
-  { name: "Pet Waste Removal", description: "Scheduled yard cleanup and sanitation for pet owners." },
-  { name: "Mobile Car Detailing", description: "On-site interior and exterior vehicle cleaning and detailing." },
-  { name: "Mobile Pet Grooming", description: "Door-to-door bathing, trimming, and pet care services." },
-  { name: "Mobile Salon Services", description: "Hair, nails, and beauty services delivered to client locations." },
-  { name: "Hauling Services", description: "Material transport, dump runs, and large-item pickup." },
-  { name: "Demolition", description: "Interior and exterior tear-down and site prep services." },
-  { name: "Paving", description: "Asphalt and concrete driveway, lot, and road paving." },
-  { name: "Stucco Repair", description: "Crack patching, re-coating, and exterior stucco restoration." },
-  { name: "Siding Installation", description: "Vinyl, fiber cement, and wood siding install and replacement." },
-  { name: "Insulation", description: "Spray foam, blown-in, and batt insulation for energy efficiency." },
-];
 
 const steps = [
   {
@@ -143,7 +94,7 @@ export default function IndustriesPage() {
           "Home Service Industries Supported by Full Loop CRM",
           industries.map((ind) => ({
             name: ind.name,
-            url: `https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries`,
+            url: `https://homeservicesbusinesscrm.com/industry/${generateIndustrySlug(ind)}`,
             description: ind.description,
           }))
         )}
@@ -177,9 +128,10 @@ export default function IndustriesPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {industries.map((industry) => (
-              <div
+              <Link
                 key={industry.name}
-                className="border border-slate-200 rounded-lg p-5 hover:border-teal-400 hover:shadow-md transition-all"
+                href={`/industry/${generateIndustrySlug(industry)}`}
+                className="block border border-slate-200 rounded-lg p-5 hover:border-teal-400 hover:shadow-md transition-all"
               >
                 <h3 className="text-base font-bold text-slate-900 font-heading mb-1">
                   {industry.name}
@@ -187,7 +139,7 @@ export default function IndustriesPage() {
                 <p className="text-sm text-slate-500 leading-snug">
                   {industry.description}
                 </p>
-              </div>
+              </Link>
             ))}
           </div>
 
