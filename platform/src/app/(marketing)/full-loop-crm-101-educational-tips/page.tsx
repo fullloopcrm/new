@@ -321,7 +321,7 @@ export default function CRM101Page() {
               See How Full Loop CRM Works
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-frequently-asked-questions"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               Read the FAQ
@@ -475,13 +475,13 @@ export default function CRM101Page() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-4 text-lg font-bold text-slate-900 hover:bg-teal-300 transition-colors"
             >
               Inquire
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               View Pricing

@@ -192,7 +192,7 @@ export default function WhyFullLoopPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-3.5 text-sm font-semibold text-slate-900 shadow-lg hover:bg-teal-300 transition-colors"
             >
               Inquire
@@ -513,7 +513,7 @@ export default function WhyFullLoopPage() {
 
           <p className="text-center mt-8 text-slate-500 text-sm">
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-teal-600 font-semibold underline underline-offset-2 hover:text-teal-700"
             >
               See Full Loop pricing details&nbsp;&rarr;
@@ -605,13 +605,13 @@ export default function WhyFullLoopPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="font-cta inline-block rounded-lg bg-teal-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg hover:bg-teal-700 transition-colors"
             >
               Inquire
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="font-cta inline-block rounded-lg border border-slate-300 px-8 py-3.5 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-600 transition-colors"
             >
               View Pricing

@@ -433,7 +433,7 @@ export default function TheNYCMaidCaseStudy() {
           </p>
           <div className="flex justify-center">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
               Inquire about the platform

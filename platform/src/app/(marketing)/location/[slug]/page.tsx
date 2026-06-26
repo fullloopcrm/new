@@ -218,7 +218,7 @@ export default async function LocationPage({
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
               Inquire about the platform
@@ -319,7 +319,7 @@ export default async function LocationPage({
             Joining the waitlist isn&apos;t a guarantee. We open one slot per trade per city.
           </p>
           <Link
-            href="/contact"
+            href="/waitlist"
             className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
           >
             Inquire
@@ -371,7 +371,7 @@ export default async function LocationPage({
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
               Inquire
@@ -413,7 +413,7 @@ export default async function LocationPage({
               All Features
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               Pricing
@@ -437,7 +437,7 @@ export default async function LocationPage({
               CRM 101
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-frequently-asked-questions"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               FAQ

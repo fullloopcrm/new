@@ -269,7 +269,7 @@ export default function AboutPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
               Inquire
@@ -281,7 +281,7 @@ export default function AboutPage() {
               Explore Features
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="inline-block border-2 border-slate-500 hover:border-slate-300 text-slate-300 hover:text-white font-cta font-bold px-8 py-4 rounded-lg text-lg transition-colors"
             >
               View Pricing

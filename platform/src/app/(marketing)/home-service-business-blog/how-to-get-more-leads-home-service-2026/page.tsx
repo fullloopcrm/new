@@ -593,7 +593,7 @@ export default function LeadsPillarPage() {
             . For the platform that runs the full loop, see the{" "}
             <Link href="/full-loop-crm-service-features">feature list</Link>.
             Pricing lives at{" "}
-            <Link href="/contact">full pricing</Link>. For
+            <Link href="/full-loop-crm-pricing">full pricing</Link>. For
             which trades this fits, see{" "}
             <Link href="/full-loop-crm-service-business-industries">
               industries served
@@ -607,7 +607,7 @@ export default function LeadsPillarPage() {
               why Full Loop CRM
             </Link>{" "}
             and the{" "}
-            <Link href="/contact">
+            <Link href="/full-loop-crm-frequently-asked-questions">
               platform FAQ
             </Link>
             .
@@ -663,7 +663,7 @@ export default function LeadsPillarPage() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100"
             >
               Apply for your territory
@@ -675,7 +675,7 @@ export default function LeadsPillarPage() {
               See the platform
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="rounded-lg border border-slate-700 bg-slate-800 px-5 py-3 text-sm font-medium text-white hover:bg-slate-700"
             >
               Pricing

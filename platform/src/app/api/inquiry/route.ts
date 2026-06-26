@@ -76,34 +76,34 @@ export async function POST(req: NextRequest) {
   const budget = typeof body.budget === 'string' ? (body.budget.trim() as Budget) : ('' as Budget)
   const message = typeof body.message === 'string' ? body.message.trim().slice(0, 2000) : ''
 
-  // Validation
-  if (!name || !company || !email || !phone || !role || !budget || !message) {
+  // Validation — the public contact form only collects name/phone/email/message.
+  // company/role/budget are optional (kept for the legacy acquisition flow).
+  if (!name || !email || !phone || !message) {
     return NextResponse.json({ error: 'missing_required_fields' }, { status: 400 })
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: 'invalid_email' }, { status: 400 })
   }
-  if (!ROLES.includes(role)) {
-    return NextResponse.json({ error: 'invalid_role' }, { status: 400 })
-  }
-  if (!BUDGETS.includes(budget)) {
-    return NextResponse.json({ error: 'invalid_budget' }, { status: 400 })
-  }
+  // Only validate role/budget when supplied; ignore invalid values rather than reject.
+  const validRole = ROLES.includes(role) ? role : ('' as Role)
+  const validBudget = BUDGETS.includes(budget) ? budget : ('' as Budget)
 
-  const isFatOffer = role === 'Acquirer' && (budget === '$1M–$10M' || budget === '$10M+')
+  const isFatOffer = validRole === 'Acquirer' && (validBudget === '$1M–$10M' || validBudget === '$10M+')
   const subject = isFatOffer
-    ? `🚨 ACQUISITION INQUIRY — ${company} (${budget})`
-    : `Inquiry — ${role} — ${company}`
+    ? `🚨 ACQUISITION INQUIRY — ${company || name} (${validBudget})`
+    : validRole
+      ? `Inquiry — ${validRole} — ${company || name}`
+      : `Contact form — ${name}`
 
   const html = `
     <h2>${escapeHtml(subject)}</h2>
     <table style="font-family: monospace; border-collapse: collapse;">
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Name</td><td>${escapeHtml(name)}</td></tr>
-      <tr><td style="padding: 4px 12px 4px 0; color: #666;">Company</td><td>${escapeHtml(company)}</td></tr>
+      ${company ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">Company</td><td>${escapeHtml(company)}</td></tr>` : ''}
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Email</td><td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Phone</td><td><a href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a></td></tr>
-      <tr><td style="padding: 4px 12px 4px 0; color: #666;">Role</td><td>${escapeHtml(role)}</td></tr>
-      <tr><td style="padding: 4px 12px 4px 0; color: #666;">Budget / deal size</td><td>${escapeHtml(budget)}</td></tr>
+      ${validRole ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">Role</td><td>${escapeHtml(validRole)}</td></tr>` : ''}
+      ${validBudget ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">Budget / deal size</td><td>${escapeHtml(validBudget)}</td></tr>` : ''}
     </table>
     <h3 style="margin-top: 24px;">Message</h3>
     <pre style="white-space: pre-wrap; font-family: -apple-system, sans-serif; line-height: 1.5;">${escapeHtml(message)}</pre>
@@ -117,8 +117,8 @@ export async function POST(req: NextRequest) {
       company,
       email,
       phone,
-      role,
-      budget,
+      role: validRole,
+      budget: validBudget,
       message,
       is_fat_offer: isFatOffer,
       source: 'marketing-contact',
@@ -134,16 +134,16 @@ export async function POST(req: NextRequest) {
   // Best-effort: a failure here must not break the user-facing form.
   try {
     const { error: prErr } = await supabaseAdmin.from('partner_requests').insert({
-      business_name: company,
+      business_name: company || name,
       contact_name: name,
       email,
       phone,
-      service_category: role || 'Inquiry',
+      service_category: validRole || 'Inquiry',
       city: 'N/A',
       state: 'NA',
       years_in_business: 'N/A',
       team_size: 'N/A',
-      monthly_revenue: budget || 'N/A',
+      monthly_revenue: validBudget || 'N/A',
       referral_source: 'Contact form',
       pitch: message,
       status: 'new',
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (isFatOffer) {
-    const smsText = `🚨 Acquirer inquiry — ${company} (${budget}) from ${name} <${email}>. Check email for the full message.`
+    const smsText = `🚨 Acquirer inquiry — ${company || name} (${validBudget}) from ${name} <${email}>. Check email for the full message.`
     sends.push(sendOwnerSms(smsText).catch(err => console.error('inquiry SMS failed:', err)))
   }
 

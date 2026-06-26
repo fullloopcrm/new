@@ -602,7 +602,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
               industries served
             </Link>
             . For pricing,{" "}
-            <Link href="/contact">full pricing is here</Link>.
+            <Link href="/full-loop-crm-pricing">full pricing is here</Link>.
             If you want the philosophy before the product, the{" "}
             <Link href="/full-loop-crm-101-educational-tips">
               101 CRM educational tips
@@ -616,7 +616,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
               why Full Loop CRM
             </Link>{" "}
             page does the side-by-side. Objections get answered in the{" "}
-            <Link href="/contact">
+            <Link href="/full-loop-crm-frequently-asked-questions">
               platform FAQ
             </Link>
             . For the editorial home of this series, the{" "}
@@ -627,7 +627,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
           </p>
           <p>
             And when you&apos;re ready to run the loop in your own business,{" "}
-            <Link href="/contact">
+            <Link href="/waitlist">
               apply for your territory
             </Link>{" "}
             — the platform powers our own portfolio of vertical brands.
@@ -676,7 +676,7 @@ export default function AutonomousHomeServiceBusiness2026Page() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100"
             >
               Apply for your territory

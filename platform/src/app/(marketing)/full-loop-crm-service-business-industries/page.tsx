@@ -200,7 +200,7 @@ export default function IndustriesPage() {
               </span>
             </p>
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
             >
               Request Your Territory
@@ -246,7 +246,7 @@ export default function IndustriesPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
               Inquire
@@ -258,7 +258,7 @@ export default function IndustriesPage() {
               See All Features
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
             >
               View Pricing

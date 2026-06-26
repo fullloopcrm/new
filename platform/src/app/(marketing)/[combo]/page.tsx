@@ -841,7 +841,7 @@ export default async function ComboPage({
               All Features
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               Pricing
@@ -859,7 +859,7 @@ export default async function ComboPage({
               Industries We Serve
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-frequently-asked-questions"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
             >
               FAQ

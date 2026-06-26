@@ -705,7 +705,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
             </li>
             <li>
               Check{" "}
-              <Link href="/contact">pricing</Link> to confirm the
+              <Link href="/full-loop-crm-pricing">pricing</Link> to confirm the
               software cost fits your revenue stage.
             </li>
             <li>
@@ -722,7 +722,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
                 101 educational tips
               </Link>{" "}
               and the{" "}
-              <Link href="/contact">
+              <Link href="/full-loop-crm-frequently-asked-questions">
                 platform FAQ
               </Link>{" "}
               cover every objection we&apos;ve heard.
@@ -731,7 +731,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
               Learn who we are in{" "}
               <Link href="/about-full-loop-crm">about Full Loop CRM</Link>, or
               if you&apos;re ready,{" "}
-              <Link href="/contact">
+              <Link href="/waitlist">
                 apply for your territory
               </Link>{" "}
               — the platform powers our own portfolio of vertical brands.
@@ -803,7 +803,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100"
             >
               Apply for your territory
@@ -815,7 +815,7 @@ export default function HomeServiceBusinessWithoutOverheadPage() {
               See the platform
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="rounded-lg border border-slate-700 bg-slate-800 px-5 py-3 text-sm font-medium text-white hover:bg-slate-700"
             >
               Pricing

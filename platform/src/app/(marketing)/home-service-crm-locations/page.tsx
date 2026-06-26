@@ -138,7 +138,7 @@ export default function LocationsHubPage() {
             Browse 50+ Trades
           </Link>
           <Link
-            href="/contact"
+            href="/waitlist"
             className="inline-block rounded-lg border border-slate-300 px-6 py-3 text-sm font-cta font-semibold text-slate-700 hover:bg-white transition-colors"
           >
             Check Your Territory

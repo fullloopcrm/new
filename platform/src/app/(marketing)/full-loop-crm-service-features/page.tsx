@@ -148,13 +148,13 @@ export default function FeaturesPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-4 text-lg font-bold text-slate-900 hover:bg-teal-300 transition-colors"
             >
               Request Your Partnership
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               View Pricing
@@ -608,7 +608,7 @@ export default function FeaturesPage() {
                 Loop&apos;s finance dashboard gives you the financial clarity most service business
                 owners never had — without hiring a bookkeeper. Compare with{" "}
                 <Link
-                  href="/contact"
+                  href="/full-loop-crm-pricing"
                   className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
                 >
                   our pricing plans
@@ -854,7 +854,7 @@ export default function FeaturesPage() {
           <p className="mt-8 text-center text-slate-600">
             See the full cost comparison on our{" "}
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
             >
               pricing page
@@ -877,13 +877,13 @@ export default function FeaturesPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <Link
-              href="/contact"
+              href="/waitlist"
               className="font-cta inline-block rounded-lg bg-teal-400 px-8 py-4 text-lg font-bold text-slate-900 hover:bg-teal-300 transition-colors"
             >
               Request Your Partnership
             </Link>
             <Link
-              href="/contact"
+              href="/full-loop-crm-pricing"
               className="text-yellow-300 underline underline-offset-2 hover:text-yellow-200 font-cta text-lg"
             >
               View Pricing
