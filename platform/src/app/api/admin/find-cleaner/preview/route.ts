@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { guessZoneFromAddress } from '@/lib/service-zones'
-import { worksOnDay } from '@/lib/nycmaid/day-availability'
+import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 
 // HARD-CODED test mode. Flip to false ONLY after the broadcast pipeline is
 // verified end-to-end with a single test team member. Mass-SMS guard
@@ -17,6 +17,7 @@ type CleanerRow = {
   name: string
   phone: string | null
   working_days: string[] | null
+  schedule: Record<string, unknown> | null
   unavailable_dates: string[] | null
   service_zones: string[] | null
   has_car: boolean | null
@@ -83,13 +84,15 @@ export async function POST(request: Request) {
   const jobEnd = new Date(jobStart.getTime() + duration_hours * 3600 * 1000)
   const windowStart = new Date(jobStart.getTime() - BUFFER_HOURS * 3600 * 1000)
   const windowEnd = new Date(jobEnd.getTime() + BUFFER_HOURS * 3600 * 1000)
+  const slotStartMin = sh * 60 + sm
+  const slotEndMin = slotStartMin + duration_hours * 60
 
   const targetZone = job_address ? guessZoneFromAddress(job_address) : null
   const dow = dayOfWeekShort(job_date)
 
   const { data: cleaners, error: cErr } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, phone, working_days, unavailable_dates, service_zones, has_car, max_jobs_per_day, hourly_rate, preferred_language')
+    .select('id, name, phone, working_days, schedule, unavailable_dates, service_zones, has_car, max_jobs_per_day, hourly_rate, preferred_language')
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
@@ -119,8 +122,19 @@ export async function POST(request: Request) {
     if (c.unavailable_dates?.includes(job_date)) {
       reasons.push('Marked unavailable that day')
     }
-    if (worksOnDay(c.working_days, job_date) === false) {
+    // Canonical resolver — considers working_days AND schedule (both formats).
+    // Guarded: only exclude when availability IS configured but this day isn't in
+    // it, so members who haven't set a schedule stay dispatchable.
+    if (
+      ((c.working_days?.length || 0) > 0 || (c.schedule && Object.keys(c.schedule).length > 0)) &&
+      !worksScheduledDay(c.working_days, c.schedule, job_date)
+    ) {
       reasons.push(`Doesn't work ${dow}`)
+    }
+    // Working hours: a member with set hours that don't fit this slot is excluded;
+    // no hours set imposes no constraint.
+    if (!slotWithinHours(c.schedule, job_date, slotStartMin, slotEndMin)) {
+      reasons.push('Outside working hours')
     }
     if (!c.phone) {
       reasons.push('No phone on file')
