@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import { JsonLd, organizationSchema, websiteSchema } from '@/lib/schema'
@@ -39,6 +40,18 @@ export default function MarketingLayout({
       <Navbar />
       <main id="main-content">{children}</main>
       <Footer />
+      {/* Tawk.to live chat — marketing site only (not tenant /site pages or the app). */}
+      <Script id="tawk-to" strategy="afterInteractive">
+        {`var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6823effa7c5b09190cd447fe/1ir662r4n';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();`}
+      </Script>
     </div>
   )
 }
