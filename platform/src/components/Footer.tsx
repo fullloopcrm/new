@@ -143,18 +143,26 @@ export default function Footer() {
             <ul className="flex flex-col gap-3 text-sm text-slate-300">
               <li>
                 <a
-                  href="sms:+12122029220"
+                  href="sms:+18445667276"
                   className="transition-colors hover:text-teal-400"
                 >
-                  Text Us: (212) 202-9220
+                  Text Us: 1-844-LOOP-CRM
                 </a>
               </li>
               <li>
                 <a
-                  href="tel:+12122029220"
+                  href="tel:+18445667276"
                   className="transition-colors hover:text-teal-400"
                 >
-                  Call Us: (212) 202-9220
+                  Call Us: 1-844-LOOP-CRM
+                </a>
+              </li>
+              <li>
+                <a
+                  href="tel:+18445667276"
+                  className="transition-colors hover:text-teal-400"
+                >
+                  (844) 566-7276
                 </a>
               </li>
               <li>

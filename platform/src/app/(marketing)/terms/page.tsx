@@ -173,7 +173,7 @@ export default function TermsPage() {
           </p>
           <ul>
             <li>Email: <a href="mailto:hi@fullloopcrm.com">hi@fullloopcrm.com</a></li>
-            <li>Phone: <a href="tel:+18445667276">(844) 566-7276</a></li>
+            <li>Phone: <a href="tel:+18445667276">1-844-LOOP-CRM</a> <a href="tel:+18445667276">(844) 566-7276</a></li>
             <li>Address: 150 W 47th St, New York, NY 10036</li>
           </ul>
         </div>

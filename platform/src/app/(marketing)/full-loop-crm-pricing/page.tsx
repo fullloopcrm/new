@@ -719,9 +719,10 @@ export default function PricingPage() {
             </Link>
             <a
               href="tel:+18445667276"
-              className="inline-block rounded-lg border border-slate-600 px-8 py-4 text-lg font-cta font-semibold text-white hover:border-slate-400 transition-colors"
+              className="inline-flex flex-col items-center rounded-lg border border-slate-600 px-8 py-4 font-cta font-semibold text-white hover:border-slate-400 transition-colors"
             >
-              Call 844-566-7276
+              <span className="text-lg">Call 1-844-LOOP-CRM</span>
+              <span className="text-sm text-slate-300">(844) 566-7276</span>
             </a>
           </div>
           <p className="mt-6 text-sm text-slate-400">
@@ -730,7 +731,13 @@ export default function PricingPage() {
               href="sms:+18445667276"
               className="text-teal-400 underline underline-offset-2 hover:text-teal-300"
             >
-              844-566-7276
+              1-844-LOOP-CRM
+            </a>{" "}
+            <a
+              href="sms:+18445667276"
+              className="text-teal-400 underline underline-offset-2 hover:text-teal-300"
+            >
+              (844) 566-7276
             </a>
           </p>
           <nav className="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-400">

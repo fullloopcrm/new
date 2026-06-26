@@ -265,8 +265,9 @@ export default function Navbar() {
                 </Link>
 
                 <div className="mt-4 flex flex-col gap-2 text-sm text-slate-500">
-                  <a href="sms:+12122029220" className="hover:text-teal-600 transition-colors">Text Us: (212) 202-9220</a>
-                  <a href="tel:+12122029220" className="hover:text-teal-600 transition-colors">Call Us: (212) 202-9220</a>
+                  <a href="sms:+18445667276" className="hover:text-teal-600 transition-colors">Text Us: 1-844-LOOP-CRM</a>
+                  <a href="tel:+18445667276" className="hover:text-teal-600 transition-colors">Call Us: 1-844-LOOP-CRM</a>
+                  <a href="tel:+18445667276" className="hover:text-teal-600 transition-colors">(844) 566-7276</a>
                 </div>
               </div>
             </motion.div>

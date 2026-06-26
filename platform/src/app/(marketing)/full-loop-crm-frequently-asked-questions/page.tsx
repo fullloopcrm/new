@@ -373,6 +373,13 @@ export default function FAQPage() {
               href="tel:+18445667276"
               className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
             >
+              1-844-LOOP-CRM
+            </a>
+            <br />
+            <a
+              href="tel:+18445667276"
+              className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+            >
               (844) 566-7276
             </a>
           </p>
@@ -397,9 +404,10 @@ export default function FAQPage() {
             </Link>
             <a
               href="tel:+18445667276"
-              className="text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
+              className="flex flex-col text-teal-400 underline underline-offset-2 hover:text-teal-300 font-cta"
             >
-              Call 844.Loop.CRM
+              <span>Call 1-844-LOOP-CRM</span>
+              <span>(844) 566-7276</span>
             </a>
           </div>
         </div>

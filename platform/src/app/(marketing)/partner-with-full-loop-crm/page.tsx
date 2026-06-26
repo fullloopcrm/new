@@ -317,6 +317,12 @@ export default function PartnersPage() {
               href="tel:+18445667276"
               className="text-teal-400 hover:text-teal-300"
             >
+              1-844-LOOP-CRM
+            </a>{" "}
+            <a
+              href="tel:+18445667276"
+              className="text-teal-400 hover:text-teal-300"
+            >
               (844) 566-7276
             </a>
           </p>
