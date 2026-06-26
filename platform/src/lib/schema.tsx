@@ -243,7 +243,7 @@ export function aggregateRatingSchema() {
 }
 
 export function softwareApplicationSchema(
-  price: string = "2500",
+  price: string = "1000",
   priceCurrency: string = "USD"
 ) {
   return {
@@ -252,7 +252,7 @@ export function softwareApplicationSchema(
     "@id": "https://homeservicesbusinesscrm.com/#software",
     name: "Full Loop CRM",
     description:
-      "The first full-cycle CRM for home service businesses — AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
+      "The only full-cycle CRM for home service businesses proven by a real business it built and operates ~99% via AI — The NYC Maid. AI lead generation, AI sales over SMS/web/email, scheduling, GPS field operations, payments, bookkeeping, reviews, and retargeting in one platform. $1,000/mo per admin + $100/mo per team member, $25,000 one-time setup.",
     url: "https://homeservicesbusinesscrm.com",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
@@ -280,13 +280,10 @@ export function softwareApplicationSchema(
         },
       },
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: "47",
-      bestRating: "5",
-      worstRating: "1",
-    },
+    // NOTE: aggregateRating intentionally omitted — we do not ship a rating
+    // without genuine, on-page customer reviews to back it (Google strips/penalizes
+    // unsupported review markup). Re-add a real AggregateRating + Review[] once we
+    // have attestable customer reviews displayed on the page.
     provider: {
       "@id": "https://homeservicesbusinesscrm.com/#organization",
     },

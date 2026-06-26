@@ -69,7 +69,7 @@ export async function generateMetadata({
   if (!metro) return {};
 
   const title = `Best Home Service CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
-  const description = `The best CRM for home service businesses in ${metro.city}, ${metro.stateAbbr}. AI-powered lead generation, sales automation, scheduling, GPS dispatch, invoicing, reviews & retargeting — one partner per trade.`;
+  const description = `The full-cycle, AI-managed home service CRM in ${metro.city}, ${metro.stateAbbr} — runs an automated business. Live-proven by The NYC Maid: ~200 services/month, one person, under an hour a day. One partner per trade.`;
   const url = `https://homeservicesbusinesscrm.com/location/${slug}`;
 
   return {
@@ -204,9 +204,12 @@ export default async function LocationPage({
             </span>
           </h1>
           <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-6">
-            The only full-cycle CRM for home service businesses in{" "}
+            The only full-cycle, AI-managed CRM for home service businesses in{" "}
             {metro.city}. One partner per trade — is your industry still
             available?
+          </p>
+          <p className="text-base text-teal-300 max-w-2xl mx-auto mb-6 font-cta">
+            Live-proven: The NYC Maid runs ~200 services a month on Full Loop — one person, under an hour a day.
           </p>
           <p className="font-mono text-sm text-teal-400 mb-8 tracking-wide">
           </p>

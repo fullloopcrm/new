@@ -41,7 +41,7 @@ export async function generateMetadata({
 
   const trade = industry.name.toLowerCase();
   const title = `Best CRM for ${industry.name} Businesses | Full Loop CRM`;
-  const description = `The best CRM built for ${trade} businesses. AI-powered lead generation, automated sales, smart scheduling, GPS dispatch, invoicing, review management & retargeting in one platform.`;
+  const description = `The full-cycle, AI-managed CRM for ${trade} businesses — runs an automated business. Live-proven by The NYC Maid: ~200 services/month, one person, under an hour a day. AI lead gen, sales, scheduling, GPS dispatch, invoicing & reviews in one platform.`;
   const url = `https://homeservicesbusinesscrm.com/industry/${slug}`;
 
   return {
@@ -178,6 +178,9 @@ export default async function IndustryPage({
           </h1>
           <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-4">
             {industry.description}
+          </p>
+          <p className="text-base text-teal-300 max-w-2xl mx-auto mb-4 font-cta">
+            Live-proven: The NYC Maid runs ~200 services a month on Full Loop — one person, under an hour a day.
           </p>
           {richData && (
             <p className="text-base text-slate-400 max-w-2xl mx-auto mb-8">
