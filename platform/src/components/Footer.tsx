@@ -88,8 +88,15 @@ export default function Footer() {
               </span>
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-slate-300">
-              The first full-cycle CRM for home service businesses. From lead
-              generation to five-star reviews &mdash; one platform, zero gaps.
+              Full Loop CRM is the{" "}
+              <Link
+                href="/"
+                className="text-teal-400 underline underline-offset-2 hover:text-teal-300"
+              >
+                home service business CRM
+              </Link>{" "}
+              that runs the full cycle &mdash; from lead generation to five-star
+              reviews, one platform, zero gaps.
             </p>
           </div>
 
