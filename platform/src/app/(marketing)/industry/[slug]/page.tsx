@@ -7,7 +7,7 @@ import {
   breadcrumbSchema,
   localBusinessSchema,
 } from "@/lib/schema";
-import { industries as comboIndustries, metros, generateIndustrySlug, findIndustryByPageSlug } from "@/lib/marketing/combos";
+import { industries as comboIndustries, metros, generateIndustrySlug, generateComboSlug, findIndustryByPageSlug } from "@/lib/marketing/combos";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
 import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
@@ -584,7 +584,7 @@ export default async function IndustryPage({
             {topMetros.map((metro) => (
               <Link
                 key={metro.slug}
-                href={`/${industry.slug}-crm-${metro.slug}`}
+                href={`/${generateComboSlug(industry, metro)}`}
                 className="text-sm text-teal-700 hover:text-teal-900 hover:bg-teal-50 rounded px-3 py-2 transition-colors border border-slate-200 bg-white text-center"
               >
                 {metro.city}, {metro.stateAbbr}

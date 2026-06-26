@@ -345,7 +345,7 @@ export default async function LocationPage({
             {industries.map((industry) => (
               <Link
                 key={industry.slug}
-                href={`/${industry.slug}-crm-${metro.slug}`}
+                href={`/${generateComboSlug(industry, metro)}`}
                 className="block bg-white border border-slate-200 rounded-lg px-4 py-3 text-sm text-teal-700 hover:border-teal-400 hover:text-teal-900 hover:shadow-sm transition-all font-medium"
               >
                 {industry.name}

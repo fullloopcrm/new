@@ -12,6 +12,7 @@ import {
   industries,
   metros,
   generateIndustrySlug,
+  generateComboSlug,
 } from "@/lib/marketing/combos";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
@@ -112,7 +113,7 @@ function getRelatedCombos(
     for (const m of sameTrade) {
       links.push({
         label: `Best ${ind.name} CRM in ${m.city}, ${m.stateAbbr}`,
-        href: `/${ind.slug}-crm-${m.slug}`,
+        href: `/${generateComboSlug(ind, m)}`,
       });
     }
   }
@@ -125,7 +126,7 @@ function getRelatedCombos(
     for (const i of otherTrades) {
       links.push({
         label: `Best ${i.name} CRM in ${met.city}, ${met.stateAbbr}`,
-        href: `/${i.slug}-crm-${met.slug}`,
+        href: `/${generateComboSlug(i, met)}`,
       });
     }
   }
@@ -795,7 +796,7 @@ export default async function ComboPage({
                 {sameStateMetros.map((m) => (
                   <Link
                     key={m.slug}
-                    href={`/${industry.slug}-crm-${m.slug}`}
+                    href={`/${generateComboSlug(industry, m)}`}
                     className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
                   >
                     Best {industry.name} CRM in {m.city}, {m.stateAbbr}
