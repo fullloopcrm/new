@@ -74,9 +74,13 @@ export default function Footer() {
         </div>
         <div className="mt-3 text-center">
           <p className="text-[11px] text-white/30">
-            Built and managed by{" "}
+            Home Services CRM Provided By{" "}
             <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white">
               Full Loop CRM
+            </a>
+            {" | "}
+            <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white">
+              Learn More
             </a>
           </p>
         </div>

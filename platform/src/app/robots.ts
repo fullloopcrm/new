@@ -32,10 +32,22 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     '/sign-in/',
     '/sign-up/',
     '/onboarding/',
-    '/join/',
     '/unsubscribe',
     '/stripe-onboard/',
   ]
+
+  // /join is invite-acceptance (private) on most hosts, so it's blocked by
+  // default. But on a few tenant sites /join/* is the PUBLIC hiring funnel
+  // (job pages with JobPosting structured data) that was crawlable on the
+  // pre-cutover standalone site — keep those crawlable so the DNS flip
+  // doesn't drop their indexed job pages.
+  const JOIN_CRAWLABLE_HOSTS = new Set([
+    'thenycmobilesalon.com',
+    'www.thenycmobilesalon.com',
+  ])
+  if (!JOIN_CRAWLABLE_HOSTS.has(host)) {
+    disallow.push('/join/')
+  }
 
   // The 2026-05-03 teaser pivot killed these on the MARKETING site only
   // (middleware returns 410 there). They are NOT killed on tenant domains —
