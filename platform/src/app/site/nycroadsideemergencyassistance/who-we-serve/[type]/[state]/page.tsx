@@ -1,0 +1,204 @@
+// @ts-nocheck
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/nycroadsideemergencyassistance/_data/content";
+import { CUSTOMER_TYPES } from "@/app/site/nycroadsideemergencyassistance/_data/customer-types";
+import { SERVICES } from "@/app/site/nycroadsideemergencyassistance/_data/services";
+import { STATES, getStateBySlug } from "@/app/site/nycroadsideemergencyassistance/_data/cities";
+import { getOfficeByState } from "@/app/site/nycroadsideemergencyassistance/_data/offices";
+import { OfficeBlock } from "@/app/site/nycroadsideemergencyassistance/_components/OfficeBlock";
+import { CtaButtons } from "@/app/site/nycroadsideemergencyassistance/_components/CtaButtons";
+import { customerStateContent } from "@/app/site/nycroadsideemergencyassistance/_data/customer-content";
+import { JsonLd, breadcrumbSchema, serviceSchema, localBusinessSchemaPerOffice } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
+
+function isServiceSlug(slug: string) {
+  return SERVICES.some((s) => s.slug === slug);
+}
+
+export function generateStaticParams() {
+  const params: { type: string; state: string }[] = [];
+  for (const ct of CUSTOMER_TYPES) {
+    // State pages
+    for (const s of STATES) {
+      params.push({ type: ct.slug, state: s.slug });
+    }
+    // Service pages (type + service)
+    for (const svc of SERVICES) {
+      params.push({ type: ct.slug, state: svc.slug });
+    }
+  }
+  return params;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ type: string; state: string }> }): Promise<Metadata> {
+  const { type, state: stateOrService } = await params;
+  const ct = CUSTOMER_TYPES.find((c) => c.slug === type);
+  if (!ct) return {};
+
+  if (isServiceSlug(stateOrService)) {
+    const svc = SERVICES.find((s) => s.slug === stateOrService)!;
+    return {
+      title: `${svc.title} for ${ct.name} NYC — $149/hr, $25 Off Online, No Catches.`,
+      description: `${svc.title} for ${ct.name.toLowerCase()} in NYC at one rate: $149/hour, $25 off online ($124 first hour). No NYC surcharge, no after-hours markup. 24/7 dispatch, all 5 boroughs. ${svc.description}`,
+      alternates: { canonical: `/who-we-serve/${type}/${stateOrService}` },
+    };
+  }
+
+  const state = getStateBySlug(stateOrService);
+  if (!state) return {};
+  return {
+    title: `${ct.name} Tow in ${state.name}, NYC — $149/hr, $25 Off Online, No Catches.`,
+    description: `${ct.name} tow truck and roadside service across ${state.cities.length} ${state.name} neighborhoods at one rate: $149/hour, $25 off online ($124 first hour). No NYC surcharge, no after-hours markup. 24/7 dispatch. ${ct.description}`,
+    alternates: { canonical: `/who-we-serve/${type}/${stateOrService}` },
+  };
+}
+
+export default async function TypeStatePage({ params }: { params: Promise<{ type: string; state: string }> }) {
+  const { type, state: stateOrService } = await params;
+  const ct = CUSTOMER_TYPES.find((c) => c.slug === type);
+  if (!ct) notFound();
+
+  // ===== SERVICE PAGE (type + service) =====
+  if (isServiceSlug(stateOrService)) {
+    const svc = SERVICES.find((s) => s.slug === stateOrService)!;
+    return (
+      <>
+        <JsonLd
+          schema={[
+            breadcrumbSchema([
+              { name: "Home", url: "/" },
+              { name: ct.name, url: `/who-we-serve/${type}` },
+              { name: svc.title, url: `/who-we-serve/${type}/${stateOrService}` },
+            ]),
+            serviceSchema(svc, { url: `/who-we-serve/${type}/${stateOrService}` }),
+          ]}
+        />
+        <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
+          <div className="absolute inset-0 grid-bg opacity-30" />
+          <div className="relative mx-auto max-w-5xl px-6 text-center">
+            <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-teal-200 font-cta">{svc.title} for {ct.name}</p>
+          <div className="mb-6 inline-flex flex-col items-center gap-1 rounded-2xl bg-yellow-400/15 px-6 py-4 ring-2 ring-yellow-300/50">
+            <span className="text-3xl font-extrabold text-yellow-300 sm:text-4xl">$149 / hour</span>
+            <span className="text-base font-bold text-yellow-200">No catches. Only hourly tow in NYC.</span>
+            <span className="rounded-full bg-yellow-400 px-3 py-0.5 text-xs font-extrabold uppercase tracking-widest text-slate-900">Book online · Save $25</span>
+          </div>
+            <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl font-heading">
+              <span className="gradient-text">{svc.title}</span> for {ct.name} in NYC — 24/7 Dispatch, All Boroughs
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">{svc.description}</p>
+            <CtaButtons variant="dark" />
+          </div>
+        </section>
+        <section className="bg-section-white py-16">
+          <div className="mx-auto max-w-5xl px-6">
+            <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">How {svc.title} Works for {ct.name}</p>
+            <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">{svc.title} — Tailored for {ct.name}</h2>
+            <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">
+              See <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">pricing</Link>, browse <Link href={`/who-we-serve/${type}`} className="text-teal-700 font-semibold hover:underline">all services for {ct.shortName.toLowerCase()}</Link>, or <Link href="/book-towing-service-today" className="text-teal-700 font-semibold hover:underline">book now</Link>.
+            </p>
+            <div className="mx-auto mt-8 max-w-3xl space-y-5 text-center text-base leading-relaxed text-slate-700">
+              <p>{svc.longDescription}</p>
+              <p>For {ct.name.toLowerCase()}, {svc.title.toLowerCase()} addresses specific needs: {ct.painPoints.slice(0, 3).join(", ")}. Our crew understands these challenges and delivers accordingly — with the same flat-rate pricing quoted before dispatch, 24/7 operation, and 20–40 minute typical arrival.</p>
+            </div>
+          </div>
+        </section>
+        <section className="bg-section-teal py-16">
+          <div className="mx-auto max-w-5xl px-6">
+            <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">More Services for {ct.name}</p>
+            <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">Other Services {ct.name} Use</h2>
+            <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {SERVICES.filter((s) => s.slug !== svc.slug).slice(0, 6).map((s) => (
+                <Link key={s.slug} href={`/services/${s.slug}`} className="group rounded-xl border border-slate-200 bg-white p-5 transition-all hover:border-teal-400 hover:shadow-md">
+                  <h3 className="text-sm font-bold text-slate-900 font-heading group-hover:text-teal-700">{s.title}</h3>
+                  <p className="mt-1 text-xs text-slate-500">{s.subtitle}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+        <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 py-16">
+          <div className="absolute inset-0 grid-bg opacity-30" />
+          <div className="relative mx-auto max-w-5xl px-6 text-center">
+            <h2 className="mt-3 text-center text-3xl font-bold text-white sm:text-4xl font-heading">Book {svc.title} for {ct.name}</h2>
+            <CtaButtons variant="dark" />
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  // ===== STATE PAGE (type + state) =====
+  const state = getStateBySlug(stateOrService);
+  if (!state) notFound();
+  const office = getOfficeByState(stateOrService);
+
+  const stateSchemas: Array<Record<string, unknown>> = [
+    breadcrumbSchema([
+      { name: "Home", url: "/" },
+      { name: ct.name, url: `/who-we-serve/${type}` },
+      { name: state.name, url: `/who-we-serve/${type}/${stateOrService}` },
+    ]),
+  ];
+  if (office) stateSchemas.push(localBusinessSchemaPerOffice(office));
+
+  return (
+    <>
+      <JsonLd schema={stateSchemas} />
+      <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
+        <div className="absolute inset-0 grid-bg opacity-30" />
+        <div className="relative mx-auto max-w-5xl px-6 text-center">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-teal-200 font-cta">{ct.name} Towing & Roadside in {state.abbreviation}</p>
+          <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl font-heading">
+            {ct.name} Tow Truck Service in <span className="gradient-text">{state.name}</span>, NYC — 24/7 Dispatch
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
+            {ct.description} Serving {state.cities.length} neighborhoods across {state.abbreviation}.
+          </p>
+          <CtaButtons variant="dark" />
+        </div>
+      </section>
+
+      <section className="bg-section-white py-16">
+        <div className="mx-auto max-w-5xl px-6">
+          <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">How We Help {ct.name} in {state.name}</p>
+          <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">{ct.name} Towing & Roadside in {state.name}</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">
+            {state.cities.length} neighborhoods, same <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">pricing</Link>, local crews. Browse <Link href={`/who-we-serve/${type}`} className="text-teal-700 font-semibold hover:underline">all {ct.shortName.toLowerCase()} services</Link> or <Link href="/book-towing-service-today" className="text-teal-700 font-semibold hover:underline">book now</Link>.
+          </p>
+          <div className="mx-auto mt-8 max-w-3xl space-y-5 text-center text-base leading-relaxed text-slate-700">
+            {customerStateContent(ct, state.name, state.abbreviation, state.cities.length).map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-section-teal py-16">
+        <div className="mx-auto max-w-5xl px-6">
+          <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">{ct.name} Towing & Roadside Cities in {state.abbreviation}</p>
+          <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">{state.cities.length} Cities in {state.name}</h2>
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {state.cities.map((city) => (
+              <Link key={city.slug} href={`/who-we-serve/${type}/${stateOrService}/${city.slug}`}
+                className="group rounded-xl border border-slate-200 bg-white p-3 text-center transition-all hover:border-teal-400 hover:shadow-md">
+                <p className="font-bold text-slate-900 text-sm group-hover:text-teal-700">{city.name}</p>
+                <p className="mt-0.5 text-xs text-teal-600">{ct.shortName}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {office && <OfficeBlock office={office} />}
+
+      <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 py-16">
+        <div className="absolute inset-0 grid-bg opacity-30" />
+        <div className="relative mx-auto max-w-5xl px-6 text-center">
+          <h2 className="mt-3 text-center text-3xl font-bold text-white sm:text-4xl font-heading">Book {ct.name} Towing & Roadside in {state.name}</h2>
+          <CtaButtons variant="dark" />
+        </div>
+      </section>
+    </>
+  );
+}
