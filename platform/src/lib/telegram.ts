@@ -31,6 +31,24 @@ export async function sendTelegram(chatId: number | string, text: string, botTok
   }
 }
 
+// Register a bot's webhook with Telegram so inbound updates hit our route.
+// Called when a tenant saves/updates its bot token in setup — makes the bot
+// live without any manual curl. Pass the RAW (unencrypted) token.
+export async function registerTelegramWebhook(botToken: string, webhookUrl: string): Promise<TelegramSendResult> {
+  const token = botToken.trim()
+  if (!token) return { ok: false, status: 0, body: 'no bot token' }
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message', 'channel_post'] }),
+    })
+    return { ok: r.ok, status: r.status, body: await r.text() }
+  } catch (err) {
+    return { ok: false, status: 0, body: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 export async function notifyOwnerOnTelegram(text: string): Promise<TelegramSendResult | null> {
   const target = NOTIFY_CHAT_ID || OWNER_CHAT_ID
   if (!target) return null

@@ -54,15 +54,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
 
   const botToken = decryptSecret(tenant.telegram_bot_token)
 
-  let body: { message?: { chat?: { id?: number | string }; text?: string } } = {}
+  type TgPost = { chat?: { id?: number | string }; text?: string }
+  let body: { message?: TgPost; channel_post?: TgPost } = {}
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ ok: true, parse: 'failed' })
   }
 
-  const chatId = body.message?.chat?.id
-  const text = body.message?.text
+  // Groups/DMs deliver `message`; channels deliver `channel_post`.
+  const post = body.message || body.channel_post
+  const chatId = post?.chat?.id
+  const text = post?.text
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
 
   // Auth: the update must come from this tenant's registered owner chat.

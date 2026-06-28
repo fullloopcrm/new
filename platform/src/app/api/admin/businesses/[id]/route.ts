@@ -251,6 +251,13 @@ export async function PUT(
     updates.setup_progress = { ...(current?.setup_progress || {}), ...body.setup_progress }
   }
 
+  // Capture the RAW telegram bot token before encryption — needed to register
+  // the webhook with Telegram so the new bot goes live on save.
+  const rawTelegramToken =
+    typeof body.telegram_bot_token === 'string' && body.telegram_bot_token.trim() && !isEncrypted(body.telegram_bot_token)
+      ? body.telegram_bot_token.trim()
+      : null
+
   // Encrypt vendor secrets at rest — skip if empty (treat as unchanged) or
   // already encrypted (idempotent on re-save).
   for (const field of ENCRYPTED_FIELDS) {
@@ -279,6 +286,19 @@ export async function PUT(
     clearSelenaConfigCache(id)
   }
 
+  // When a Telegram bot token is saved, auto-register its webhook so the bot
+  // goes live without any manual step. URL is derived from the request origin.
+  let telegramWebhook: { ok: boolean; status: number; body: string } | undefined
+  if (rawTelegramToken) {
+    const { data: t } = await supabaseAdmin.from('tenants').select('slug').eq('id', id).single()
+    if (t?.slug) {
+      const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
+      const origin = host ? `https://${host}` : new URL(request.url).origin
+      const { registerTelegramWebhook } = await import('@/lib/telegram')
+      telegramWebhook = await registerTelegramWebhook(rawTelegramToken, `${origin}/api/webhooks/telegram/${t.slug}`)
+    }
+  }
+
   // Log security events
   if (updates.status) {
     await logSecurityEvent({
@@ -288,7 +308,7 @@ export async function PUT(
     })
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, telegramWebhook })
 }
 
 export async function DELETE(
