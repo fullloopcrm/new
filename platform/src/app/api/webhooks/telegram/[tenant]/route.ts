@@ -1,0 +1,143 @@
+// Per-tenant Telegram webhook. Each tenant runs its OWN bot (token stored on
+// tenants.telegram_bot_token, encrypted). Telegram is registered to hit this
+// URL with the tenant slug in the path, so inbound updates route to the right
+// tenant — and the agent identifies as that tenant's agent_name (Jefe by
+// default, Yinez for nycmaid).
+//
+// The platform owner bot (Jeff's) keeps using the global /api/webhooks/telegram
+// route. This route is for tenant-owned bots.
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
+import { askYinez } from '@/lib/yinez/agent'
+import { sendTelegram } from '@/lib/telegram'
+import { decryptSecret } from '@/lib/secret-crypto'
+
+export const maxDuration = 60
+
+async function logEvent(tenantId: string, type: string, title: string, message: string) {
+  await supabaseAdmin
+    .from('notifications')
+    .insert({ tenant_id: tenantId, type, title, message: message.slice(0, 4000) })
+    .then(() => {}, () => {})
+}
+
+// Tenant owners aren't in OWNER_PHONES, but reaching this bot from the tenant's
+// registered owner chat IS the auth. Pass the platform owner phone so the agent
+// unlocks owner tools (gating is phone-based via isOwner()).
+function ownerPhone(): string {
+  const list = (process.env.OWNER_PHONES || '').split(',').map((s) => s.trim()).filter(Boolean)
+  return list[0] || '+12122029220'
+}
+
+interface TenantBot {
+  id: string
+  slug: string
+  telegram_bot_token: string | null
+  telegram_chat_id: string | null
+}
+
+async function loadTenantBot(slug: string): Promise<TenantBot | null> {
+  const { data } = await supabaseAdmin
+    .from('tenants')
+    .select('id, slug, telegram_bot_token, telegram_chat_id')
+    .eq('slug', slug)
+    .single()
+  return (data as TenantBot | null) || null
+}
+
+export async function POST(req: Request, { params }: { params: Promise<{ tenant: string }> }) {
+  const { tenant: slug } = await params
+
+  const tenant = await loadTenantBot(slug)
+  if (!tenant) return NextResponse.json({ ok: true, skip: 'unknown_tenant' })
+  if (!tenant.telegram_bot_token) return NextResponse.json({ ok: true, skip: 'no_bot_token' })
+
+  const botToken = decryptSecret(tenant.telegram_bot_token)
+
+  let body: { message?: { chat?: { id?: number | string }; text?: string } } = {}
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ ok: true, parse: 'failed' })
+  }
+
+  const chatId = body.message?.chat?.id
+  const text = body.message?.text
+  if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
+
+  // Auth: the update must come from this tenant's registered owner chat.
+  if (tenant.telegram_chat_id && String(chatId) !== String(tenant.telegram_chat_id)) {
+    await sendTelegram(chatId, 'This bot is private.', botToken)
+    return NextResponse.json({ ok: true, private: true })
+  }
+
+  // Tenant-scoped owner conversation, keyed by tenant + chat so it never
+  // collides with other tenants or the global owner bot.
+  const syntheticPhone = `tg-${tenant.id}-${chatId}`
+  let convoId: string
+  try {
+    const { data: openConvo } = await supabaseAdmin
+      .from('sms_conversations')
+      .select('id')
+      .eq('state', 'telegram-owner')
+      .eq('phone', syntheticPhone)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (openConvo && openConvo.length > 0) {
+      convoId = openConvo[0].id
+    } else {
+      const { data: newConvo, error: convoErr } = await supabaseAdmin
+        .from('sms_conversations')
+        .insert({
+          tenant_id: tenant.id,
+          phone: syntheticPhone,
+          state: 'telegram-owner',
+          booking_checklist: { channel: 'telegram', chat_id: String(chatId), tenant_slug: tenant.slug },
+        })
+        .select('id')
+        .single()
+      if (convoErr || !newConvo) {
+        await logEvent(tenant.id, 'telegram_error', 'Convo create failed', JSON.stringify(convoErr))
+        await sendTelegram(chatId, `[telegram setup error] ${convoErr?.message || 'convo create failed'}`, botToken)
+        return NextResponse.json({ ok: true, error: 'convo_create_failed' })
+      }
+      convoId = newConvo.id
+    }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    await logEvent(tenant.id, 'telegram_error', 'Convo lookup threw', errMsg)
+    await sendTelegram(chatId, `[telegram setup error] ${errMsg}`, botToken)
+    return NextResponse.json({ ok: true, error: 'convo_lookup_threw' })
+  }
+
+  await supabaseAdmin
+    .from('sms_conversation_messages')
+    .insert({ conversation_id: convoId, direction: 'inbound', message: text })
+    .then(() => {}, () => {})
+
+  let reply = ''
+  try {
+    const result = await askYinez('telegram', text, convoId, ownerPhone())
+    reply = result.text || ''
+    if (!reply) {
+      await logEvent(tenant.id, 'telegram_error', 'Agent returned empty', JSON.stringify({ toolsCalled: result.toolsCalled }))
+      reply = '[agent returned empty reply]'
+    }
+  } catch (err) {
+    const errMsg = err instanceof Error ? `${err.message}\n${err.stack?.slice(0, 1200) || ''}` : String(err)
+    await logEvent(tenant.id, 'telegram_error', 'Agent threw', errMsg)
+    reply = `[agent error] ${errMsg.slice(0, 400)}`
+  }
+
+  await supabaseAdmin
+    .from('sms_conversation_messages')
+    .insert({ conversation_id: convoId, direction: 'outbound', message: reply })
+    .then(() => {}, () => {})
+
+  const send = await sendTelegram(chatId, reply, botToken)
+  if (!send.ok) {
+    await logEvent(tenant.id, 'telegram_error', 'sendTelegram failed', `${send.status}: ${send.body.slice(0, 400)}`)
+  }
+  return NextResponse.json({ ok: true, send_ok: send.ok })
+}
