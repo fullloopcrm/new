@@ -13,10 +13,13 @@ export interface TelegramSendResult {
   body: string
 }
 
-export async function sendTelegram(chatId: number | string, text: string): Promise<TelegramSendResult> {
-  if (!BOT_TOKEN) return { ok: false, status: 0, body: 'TELEGRAM_BOT_TOKEN not set' }
+// botToken overrides the global env token — used by the per-tenant webhook so
+// each tenant replies from its own bot. Falls back to the platform bot.
+export async function sendTelegram(chatId: number | string, text: string, botToken?: string): Promise<TelegramSendResult> {
+  const token = (botToken || BOT_TOKEN).trim()
+  if (!token) return { ok: false, status: 0, body: 'no telegram bot token (tenant or env)' }
   try {
-    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId, text }),

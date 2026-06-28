@@ -36,6 +36,8 @@ type Business = {
   resend_api_key: string | null
   resend_domain: string | null
   email_from: string | null
+  telegram_bot_token: string | null
+  telegram_chat_id: string | null
   anthropic_api_key: string | null
   selena_config: Record<string, unknown> | null
   setup_progress: Record<string, boolean>
@@ -109,6 +111,8 @@ export default function OnboardingWizardPage() {
   const [resendKey, setResendKey] = useState('')
   const [resendDomain, setResendDomain] = useState('')
   const [emailFrom, setEmailFrom] = useState('')
+  const [telegramBotToken, setTelegramBotToken] = useState('')
+  const [telegramChatId, setTelegramChatId] = useState('')
 
   // Team step (link out)
   // Verify step
@@ -149,6 +153,7 @@ export default function OnboardingWizardPage() {
         setMissedCallSms(b.missed_call_sms || '')
         setResendDomain(b.resend_domain || '')
         setEmailFrom(b.email_from || '')
+        setTelegramChatId(b.telegram_chat_id || '')
         setOwnerEmail(b.owner_email || '')
         setOwnerName(b.owner_name || '')
         setLoading(false)
@@ -239,6 +244,8 @@ export default function OnboardingWizardPage() {
       if (resendKey) updates.resend_api_key = resendKey
       if (resendDomain) updates.resend_domain = resendDomain
       if (emailFrom) updates.email_from = emailFrom
+      if (telegramBotToken) updates.telegram_bot_token = telegramBotToken
+      updates.telegram_chat_id = telegramChatId || null
       await patchBusiness(updates, 'integrations')
       setMsg('Saved')
       if (next) setStep('team')
@@ -482,6 +489,16 @@ export default function OnboardingWizardPage() {
               </Field>
               <Field label="From address">
                 <input value={emailFrom} onChange={e => setEmailFrom(e.target.value)} className="input" placeholder="hello@mycompany.com" />
+              </Field>
+            </div>
+
+            <h3 className="font-semibold text-sm text-slate-900 mt-3">Telegram (owner bot)</h3>
+            <div className="grid md:grid-cols-2 gap-3">
+              <Field label={`Bot token${biz.telegram_bot_token ? ' (saved)' : ''}`}>
+                <input type="password" value={telegramBotToken} onChange={e => setTelegramBotToken(e.target.value)} className="input" placeholder={biz.telegram_bot_token ? '●●●●●●●●' : '123456:ABC-DEF...'} />
+              </Field>
+              <Field label="Owner chat ID">
+                <input value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} className="input" placeholder="numeric chat id" />
               </Field>
             </div>
 

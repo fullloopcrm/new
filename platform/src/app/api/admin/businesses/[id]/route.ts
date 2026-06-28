@@ -12,6 +12,7 @@ const ENCRYPTED_FIELDS = [
   'imap_pass',
   'anthropic_api_key',
   'indexnow_key',
+  'telegram_bot_token',
 ] as const
 
 export async function GET(
@@ -217,6 +218,7 @@ export async function PUT(
     'website_published', 'website_content', 'setup_progress',
     // Integration fields
     'resend_api_key', 'resend_domain', 'email_from',
+    'telegram_bot_token', 'telegram_chat_id',
     'telnyx_api_key', 'telnyx_phone',
     'telnyx_voice_connection_id', 'telnyx_telephony_credential_id', 'telnyx_credential_connection_id',
     'voice_ring_list', 'voicemail_prompt', 'missed_call_sms',
