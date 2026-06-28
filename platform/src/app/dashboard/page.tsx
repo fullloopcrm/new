@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import { getCurrentTenant } from '@/lib/tenant'
+import { supabaseAdmin } from '@/lib/supabase'
 
 // The Loop — pixel-faithful build of platform/docs/design/the-loop-frame.html.
-// Mock numbers for now so the visual lands exactly. Aggregator endpoints
-// (one per stat) replace the mocks in a follow-up; the layout/styling does
-// not need to change when real data arrives.
+// Stats are real, tenant-scoped aggregates (empty tenants render 0). No mock
+// data. Unsourced stats (payouts table, Selena conv %, pages-live) are omitted
+// rather than fabricated.
 
 type StatTag =
   | { kind: 'plain'; text: string }
@@ -89,87 +90,94 @@ const strong = (s: React.ReactNode) => (
   <strong style={{ color: 'var(--color-loop-ink)', fontWeight: 500 }}>{s}</strong>
 )
 
-const SALES_STATS: Stat[] = [
-  {
-    label: 'Revenue · Apr',
-    tag: { kind: 'up', text: '+18%' },
-    value: <>{dollar}14,364</>,
-    sub: <>{strong('70')} jobs · YTD {strong('$37,949')}</>,
-  },
-  {
-    label: 'Outstanding',
-    tag: { kind: 'warn', text: '3 due' },
-    value: <>{dollar}675</>,
-    sub: <>Oldest {strong('17h')} · Mo Reisman</>,
-  },
-  {
-    label: 'Pipeline · 2026',
-    tag: { kind: 'plain', text: '362 booked' },
-    value: <>{dollar}77K</>,
-    sub: <>{strong('$39K')} forward booked</>,
-  },
-  {
-    label: 'New Clients · Apr',
-    tag: { kind: 'up', text: '+41%' },
-    value: '130',
-    sub: <>Roster {strong('444')} · best month</>,
-  },
-  {
-    label: 'Payouts Due',
-    tag: { kind: 'warn', text: '2 cleaners' },
-    value: <>{dollar}239</>,
-    sub: <>Karina {strong('$93')} · Gloria {strong('$146')}</>,
-  },
-]
-
 const small = (s: React.ReactNode) => (
   <span style={{ fontSize: '22px', color: 'var(--color-loop-muted)', fontWeight: 400 }}>{s}</span>
 )
 
-const OPS_STATS: Stat[] = [
-  {
-    label: "Today's Jobs",
-    tag: { kind: 'live', text: '1 active' },
-    value: <>1{small(' / 1')}</>,
-    sub: <>Maria H. · {strong('2.5h')} in</>,
-  },
-  {
-    label: 'Team On-Duty',
-    tag: { kind: 'plain', text: '2/4' },
-    value: <>2{small(' working')}</>,
-    sub: 'Maria, Gloria · 2 off',
-  },
-  {
-    label: 'Selena · Live',
-    tag: { kind: 'live', text: '2 active' },
-    value: <>87{small('% conv')}</>,
-    sub: 'Cristina A. · Leo G.',
-  },
-  {
-    label: 'This Week',
-    tag: { kind: 'plain', text: '11 jobs' },
-    value: <>{dollar}2,275</>,
-    sub: <>Next: Mon 8a · Coby Berliner</>,
-  },
-  {
-    label: 'At-Risk Clients',
-    tag: { kind: 'warn', text: '8' },
-    value: '8',
-    sub: <>No booking {strong('45+ days')}</>,
-  },
-]
+const money = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 0 })
 
-const LEADS_STATS: Stat[] = [
-  { label: 'Today', tag: { kind: 'plain', text: 'organic' }, value: '7', sub: '4 chat · 3 form' },
-  { label: 'Week', tag: { kind: 'up', text: '+22%' }, value: '38', sub: 'vs 31 last wk' },
-  { label: 'Awaiting You', tag: { kind: 'warn', text: '3' }, value: '3', sub: 'Selena escalated' },
-]
+// Real per-tenant aggregates. Every number is a tenant-scoped query; an empty
+// tenant returns 0 across the board. Returns the four stat rows the page renders.
+async function loadDashboardStats(tenantId: string): Promise<{
+  sales: Stat[]; ops: Stat[]; leads: Stat[]; apps: Stat[]
+}> {
+  const now = new Date()
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
+  const startOfWeek = new Date(startOfDay); startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
+  const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
+  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
+  const fortyFiveAgo = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000)
+  const iso = (d: Date) => d.toISOString()
+  const sumPrice = (rows: { price: number | null }[] | null) =>
+    (rows || []).reduce((s, r) => s + (r.price || 0), 0)
+  const t = <T,>(q: T): T => q
 
-const APPS_STATS: Stat[] = [
-  { label: 'New', tag: { kind: 'warn', text: '5 unread' }, value: '12', sub: 'last 7 days' },
-  { label: 'In Review', tag: { kind: 'plain', text: 'trial' }, value: '3', sub: 'paid trial scheduled' },
-  { label: 'Pages Live', tag: { kind: 'plain', text: '281' }, value: '281', sub: 'neighborhood hiring' },
-]
+  const [
+    monthPaid, weekPaid, ytdPaid, outstanding, pipeline,
+    newClients, roster, todayLive, teamActive,
+    leadsToday, leadsWeek, appsNew, recentBookingClientIds,
+  ] = await Promise.all([
+    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', iso(startOfMonth)).lte('start_time', iso(endOfMonth))),
+    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', iso(startOfWeek)).lt('start_time', iso(endOfWeek))),
+    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', iso(startOfYear)).lte('start_time', iso(endOfYear))),
+    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).eq('status', 'completed').eq('payment_status', 'pending')),
+    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).in('status', ['confirmed', 'scheduled', 'in_progress']).gte('start_time', iso(startOfDay)).lte('start_time', iso(endOfYear))),
+    t(supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', iso(startOfMonth))),
+    t(supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId)),
+    t(supabaseAdmin.from('bookings').select('id, status', { count: 'exact' }).eq('tenant_id', tenantId).gte('start_time', iso(startOfDay)).lt('start_time', iso(endOfDay)).in('status', ['confirmed', 'scheduled', 'in_progress', 'completed'])),
+    t(supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'active')),
+    t(supabaseAdmin.from('leads').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', iso(startOfDay))),
+    t(supabaseAdmin.from('leads').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', iso(startOfWeek))),
+    t(supabaseAdmin.from('cleaner_applications').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'pending')),
+    t(supabaseAdmin.from('bookings').select('client_id').eq('tenant_id', tenantId).gte('start_time', iso(fortyFiveAgo))),
+  ])
+
+  const monthRev = sumPrice(monthPaid.data as { price: number | null }[] | null)
+  const monthJobs = (monthPaid.data as unknown[] | null)?.length || 0
+  const weekRev = sumPrice(weekPaid.data as { price: number | null }[] | null)
+  const weekJobs = (weekPaid.data as unknown[] | null)?.length || 0
+  const ytdRev = sumPrice(ytdPaid.data as { price: number | null }[] | null)
+  const outRows = outstanding.data as { price: number | null }[] | null
+  const outRev = sumPrice(outRows)
+  const outCount = outRows?.length || 0
+  const pipelineRev = sumPrice(pipeline.data as { price: number | null }[] | null)
+  const pipelineCount = (pipeline.data as unknown[] | null)?.length || 0
+  const rosterTotal = roster.count || 0
+  const todayRows = (todayLive.data as { status: string }[] | null) || []
+  const todayActive = todayRows.filter(r => r.status === 'in_progress').length
+  const todayTotal = todayLive.count || todayRows.length
+
+  // At-risk: clients with no booking in the last 45 days.
+  const activeClientIds = new Set((recentBookingClientIds.data as { client_id: string | null }[] | null || []).map(r => r.client_id).filter(Boolean))
+  const atRisk = Math.max(0, rosterTotal - activeClientIds.size)
+
+  const monthLabel = now.toLocaleDateString('en-US', { month: 'short' })
+
+  const sales: Stat[] = [
+    { label: `Revenue · ${monthLabel}`, tag: { kind: 'plain', text: `${monthJobs} jobs` }, value: <>{dollar}{money(monthRev)}</>, sub: <>YTD {strong(`$${money(ytdRev)}`)}</> },
+    { label: 'Outstanding', tag: outCount ? { kind: 'warn', text: `${outCount} due` } : undefined, value: <>{dollar}{money(outRev)}</>, sub: <>{strong(String(outCount))} unpaid</> },
+    { label: 'Pipeline', tag: { kind: 'plain', text: `${pipelineCount} booked` }, value: <>{dollar}{money(pipelineRev)}</>, sub: <>forward booked</> },
+    { label: `New Clients · ${monthLabel}`, value: String(newClients.count || 0), sub: <>Roster {strong(String(rosterTotal))}</> },
+  ]
+  const ops: Stat[] = [
+    { label: "Today's Jobs", tag: todayActive ? { kind: 'live', text: `${todayActive} active` } : undefined, value: <>{todayActive}{small(` / ${todayTotal}`)}</> },
+    { label: 'Team Active', value: <>{teamActive.count || 0}{small(' members')}</> },
+    { label: 'This Week', tag: { kind: 'plain', text: `${weekJobs} jobs` }, value: <>{dollar}{money(weekRev)}</> },
+    { label: 'At-Risk Clients', tag: atRisk ? { kind: 'warn', text: String(atRisk) } : undefined, value: String(atRisk), sub: <>No booking {strong('45+ days')}</> },
+  ]
+  const leads: Stat[] = [
+    { label: 'Today', value: String(leadsToday.count || 0) },
+    { label: 'Week', value: String(leadsWeek.count || 0) },
+  ]
+  const apps: Stat[] = [
+    { label: 'New', tag: (appsNew.count || 0) ? { kind: 'warn', text: 'pending' } : undefined, value: String(appsNew.count || 0), sub: 'awaiting review' },
+  ]
+  return { sales, ops, leads, apps }
+}
 
 const ACTION_CARDS = [
   { num: '01', title: 'New Client', desc: 'Add a client manually or import', href: '/dashboard/clients?new=1' },
@@ -186,20 +194,22 @@ export default async function DashboardPage() {
   const tenant = await getCurrentTenant()
   if (!tenant) return null
 
+  const { sales, ops, leads, apps } = await loadDashboardStats(tenant.id)
+
   return (
     <>
       {/* SALES BAR */}
       <BarLabel>Sales</BarLabel>
-      <div className="grid pb-6 mb-6" style={{ gridTemplateColumns: 'repeat(5, 1fr)', borderBottom: '1px solid var(--color-loop-line)' }}>
-        {SALES_STATS.map((s, i) => (
+      <div className="grid pb-6 mb-6" style={{ gridTemplateColumns: `repeat(${sales.length}, 1fr)`, borderBottom: '1px solid var(--color-loop-line)' }}>
+        {sales.map((s, i) => (
           <StatCell key={i} s={s} />
         ))}
       </div>
 
       {/* OPERATIONS BAR */}
       <BarLabel>Operations</BarLabel>
-      <div className="grid pb-6 mb-6" style={{ gridTemplateColumns: 'repeat(5, 1fr)', borderBottom: '1px solid var(--color-loop-line)' }}>
-        {OPS_STATS.map((s, i) => (
+      <div className="grid pb-6 mb-6" style={{ gridTemplateColumns: `repeat(${ops.length}, 1fr)`, borderBottom: '1px solid var(--color-loop-line)' }}>
+        {ops.map((s, i) => (
           <StatCell key={i} s={s} />
         ))}
       </div>
@@ -208,8 +218,8 @@ export default async function DashboardPage() {
       <div className="grid pb-7 mb-8" style={{ gridTemplateColumns: '1fr 1px 1fr', gap: '28px', borderBottom: '1px solid var(--color-loop-line)' }}>
         <div className="flex flex-col">
           <BarLabel split>New Leads</BarLabel>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-            {LEADS_STATS.map((s, i) => (
+          <div className="grid" style={{ gridTemplateColumns: `repeat(${Math.max(leads.length, 1)}, 1fr)` }}>
+            {leads.map((s, i) => (
               <StatCell key={i} s={s} />
             ))}
           </div>
@@ -217,8 +227,8 @@ export default async function DashboardPage() {
         <div style={{ background: 'var(--color-loop-line)', width: '1px' }} />
         <div className="flex flex-col">
           <BarLabel split>Job Applications</BarLabel>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-            {APPS_STATS.map((s, i) => (
+          <div className="grid" style={{ gridTemplateColumns: `repeat(${Math.max(apps.length, 1)}, 1fr)` }}>
+            {apps.map((s, i) => (
               <StatCell key={i} s={s} />
             ))}
           </div>
