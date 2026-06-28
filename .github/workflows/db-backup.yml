@@ -1,10 +1,10 @@
 name: Nightly DB Backup (offsite to R2)
 
 # Full-platform Postgres backup for FullLoop. This dumps the ENTIRE Supabase
-# database (every tenant's rows + the tenants config) and pushes it OFF Supabase
-# to Cloudflare R2 — a different provider, so the backup survives a Supabase
-# loss/suspension/compromise. This is the "FL first" layer; per-tenant granular
-# exports run separately in the app cron.
+# database (every tenant's rows + the tenants config) and stores it as a GitHub
+# artifact — GitHub is a different provider than Supabase, so the backup survives
+# a Supabase loss/suspension/compromise. This is the "FL first" layer; per-tenant
+# granular exports run separately in the app cron.
 #
 # Why a GitHub Action and not a Vercel cron: pg_dump needs a real Postgres
 # client binary and minutes of runtime — neither exists in a serverless function.
@@ -12,13 +12,11 @@ name: Nightly DB Backup (offsite to R2)
 # SECRETS REQUIRED (add in repo Settings → Secrets and variables → Actions):
 #   SUPABASE_DB_URL        postgres://postgres:<db-password>@db.<ref>.supabase.co:5432/postgres
 #                          (Supabase dashboard → Project Settings → Database → Connection string → URI)
-#   R2_ENDPOINT            https://<account-id>.r2.cloudflarestorage.com
-#   R2_BUCKET              e.g. fullloop-backups
-#   R2_ACCESS_KEY_ID       Cloudflare R2 API token access key
-#   R2_SECRET_ACCESS_KEY   Cloudflare R2 API token secret
 #   (optional) TELEGRAM_BOT_TOKEN + TELEGRAM_NOTIFY_CHAT_ID  — failure ping
 #
 # No secret values live in this file. They stay in GitHub's encrypted store.
+# Retention: artifacts keep 90 days (GitHub limit). Supabase PITR is the primary
+# fast-recovery layer; add R2/S3 later for long-term retention (dump step unchanged).
 
 on:
   schedule:
@@ -61,19 +59,13 @@ jobs:
             exit 1
           fi
 
-      - name: Upload to Cloudflare R2 (offsite, different provider)
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-        run: |
-          set -euo pipefail
-          aws s3 cp "fullloop-$STAMP.dump" \
-            "s3://$R2_BUCKET/full-db/fullloop-$STAMP.dump" \
-            --endpoint-url "$R2_ENDPOINT"
-          echo "Uploaded full-db/fullloop-$STAMP.dump to R2."
+      - name: Upload dump as GitHub artifact (offsite — different provider than Supabase)
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullloop-db-${{ env.STAMP }}
+          path: fullloop-${{ env.STAMP }}.dump
+          retention-days: 90
+          if-no-files-found: error
 
       - name: Alert on failure (Telegram)
         if: failure() && env.TG_TOKEN != ''
