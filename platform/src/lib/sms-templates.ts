@@ -16,7 +16,7 @@ export function smsBookingReceived(bizName: string, booking: { start_time: strin
   return `${bizName}: We received your booking request for ${date} at ${time}. We'll confirm with details shortly.${STOP_TEXT}`
 }
 
-export function smsBookingConfirmation(bizName: string, booking: { start_time: string; team_members?: { name: string } | null }, portalUrl?: string): string {
+export function smsBookingConfirmation(bizName: string, booking: { start_time: string; team_members?: { name?: string | null } | null }, portalUrl?: string): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const memberName = booking.team_members?.name?.split(' ')[0] || 'Your pro'
@@ -24,7 +24,7 @@ export function smsBookingConfirmation(bizName: string, booking: { start_time: s
   return `${bizName}: Confirmed — ${date} at ${time} with ${memberName}. Payment collected at end of service.${link}${STOP_TEXT}`
 }
 
-export function smsReminder(bizName: string, booking: { start_time: string; team_members?: { name: string } | null }, timeframe: string): string {
+export function smsReminder(bizName: string, booking: { start_time: string; team_members?: { name?: string | null } | null }, timeframe: string): string {
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const memberName = booking.team_members?.name?.split(' ')[0] || 'Your pro'
   if (timeframe === 'in 2 hours') {
@@ -104,7 +104,7 @@ export function smsLateCheckInTeam(bizName: string, booking: { start_time: strin
   return `${bizName}: You're late for your ${time} job (${clientName}). Please check in ASAP.${link}\n---\n${bizName}: Estas tarde para tu trabajo de las ${time} (${clientName}). Registrate ahora.${link}${STOP_TEXT}`
 }
 
-export function smsLateCheckInAdmin(bizName: string, booking: { start_time: string; clients?: { name: string } | null; team_members?: { name: string } | null }): string {
+export function smsLateCheckInAdmin(bizName: string, booking: { start_time: string; clients?: { name: string } | null; team_members?: { name?: string | null } | null }): string {
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const memberName = booking.team_members?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
@@ -117,7 +117,7 @@ export function smsLateCheckOutTeam(bizName: string, booking: { clients?: { name
   return `${bizName}: Please check out for your ${clientName} job. 15-min alert was sent 30+ min ago.${link}\n---\n${bizName}: Por favor registrate de salida para tu trabajo con ${clientName}. Salir ahora.${link}${STOP_TEXT}`
 }
 
-export function smsLateCheckOutAdmin(bizName: string, booking: { clients?: { name: string } | null; team_members?: { name: string } | null }): string {
+export function smsLateCheckOutAdmin(bizName: string, booking: { clients?: { name: string } | null; team_members?: { name?: string | null } | null }): string {
   const memberName = booking.team_members?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
   return `${bizName}: Late check-out — ${memberName} hasn't checked out for ${clientName}. 30+ min since 15-min alert.`
@@ -157,14 +157,14 @@ export function smsBookingReceivedES(bizName: string, booking: { start_time: str
   return `${bizName}: Recibimos su solicitud de cita para ${date} a las ${time}. Confirmaremos con detalles pronto.${STOP_TEXT_ES}`
 }
 
-export function smsBookingConfirmationES(bizName: string, booking: { start_time: string; team_members?: { name: string } | null }): string {
+export function smsBookingConfirmationES(bizName: string, booking: { start_time: string; team_members?: { name?: string | null } | null }): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const memberName = booking.team_members?.name?.split(' ')[0] || 'Su profesional'
   return `${bizName}: Su cita esta confirmada para ${date} a las ${time} con ${memberName}.${STOP_TEXT_ES}`
 }
 
-export function smsReminderES(bizName: string, booking: { start_time: string; team_members?: { name: string } | null }, timeframe: string): string {
+export function smsReminderES(bizName: string, booking: { start_time: string; team_members?: { name?: string | null } | null }, timeframe: string): string {
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const memberName = booking.team_members?.name?.split(' ')[0] || 'Su profesional'
   const tfMap: Record<string, string> = { 'tomorrow': 'manana', 'in 2 hours': 'en 2 horas', 'in 3 days': 'en 3 dias' }
