@@ -1,4 +1,4 @@
-name: Nightly DB Backup (offsite to R2)
+name: Nightly DB Backup (offsite GitHub artifact)
 
 # Full-platform Postgres backup for FullLoop. This dumps the ENTIRE Supabase
 # database (every tenant's rows + the tenants config) and stores it as a GitHub
