@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
-import { clientConfirmationEmail } from '@/lib/nycmaid/email-templates'
-import { smsBookingConfirmation } from '@/lib/nycmaid/sms-templates'
+import { confirmationEmailFor } from '@/lib/messaging/client-email'
+import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -170,9 +170,9 @@ export async function POST(request: Request) {
   const first = bookings?.[0]
   if (first && first.status !== 'pending') {
     try {
-      const email = clientConfirmationEmail(first)
+      const email = await confirmationEmailFor(tenantId, first)
       await sendClientEmail(client_id, email.subject, email.html)
-      sendClientSMS(client_id, smsBookingConfirmation(first), {
+      sendClientSMS(client_id, (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first), {
         smsType: 'confirmation',
         bookingId: first.id,
       }).catch((err: unknown) => console.error('Recurring confirmation SMS error:', err))

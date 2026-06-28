@@ -2,6 +2,8 @@
 // CLEAN EMAIL TEMPLATES - GOOGLE/APPLE STYLE
 // ============================================
 
+import { clientArrivalWindow } from '../time-window'
+
 export const emailWrapper = (content: string) => `
 <!DOCTYPE html>
 <html>
@@ -106,26 +108,31 @@ const noteBox = (content: string, type: 'info' | 'warning' | 'success' = 'info')
 
 export function clientBookingReceivedEmail(booking: any) {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
-  const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const startTime = clientArrivalWindow(booking.start_time)
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
-  const rate = booking.hourly_rate || 79
+  const rate = booking.hourly_rate || 69
 
   const content = `
-    <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">We received your booking request!</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, please review the recap below and reply <strong>CONFIRM</strong> by text to lock in your booking.</p>
+    <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Booking request received — pending owner review</h1>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, this is <strong>not finalized yet</strong>. The owner reviews + confirms within the hour. Until you get a second email/text from us locking in the date, time, and cleaner, please don't plan around this slot.</p>
 
     ${infoTable(`
       ${infoRow('Date', date)}
-      ${infoRow('Time', startTime)}
+      ${infoRow('Arrival window', startTime)}
       ${infoRow('Service', booking.service_type || 'Standard Cleaning')}
       ${infoRow('Rate', `$${rate}/hr`)}
       ${booking.max_hours ? infoRow('Max hours', `${booking.max_hours} hrs (capped per your request)`) : ''}
-      ${infoRow('Status', '<strong style="color: #f59e0b;">Awaiting your confirmation</strong>')}
+      ${infoRow('Status', '<strong style="color: #f59e0b;">PENDING — awaiting owner confirmation</strong>')}
     `)}
 
     <div style="background: #fef9c3; border: 1px solid #fde047; border-radius: 8px; padding: 16px; margin: 24px 0 0 0;">
       <p style="margin: 0; color: #1a1a1a; font-size: 14px; line-height: 1.7;">
-        <strong>To recap:</strong> we are scheduling you for ${date} @ ${startTime} (allow for up to 60 additional minutes due to traffic) at the rate of $${rate}/hr${booking.max_hours ? ` (max ${booking.max_hours} hours, capped per your request)` : ''} paid via a secure Stripe link (card, Apple Pay, or Cash App) 30 minutes before service completion. You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)
+        <strong>To recap:</strong> we are scheduling you for ${date} @ ${startTime} (2-hour arrival window) at the rate of $${rate}/hr${booking.max_hours ? ` (max ${booking.max_hours} hours, capped per your request)` : ''} paid via the secure payment link we text you (Apple Pay, card, or Cash App) 30 minutes before service completion. You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)
+      </p>
+      <p style="margin: 12px 0 0 0; color: #1a1a1a; font-size: 13px; line-height: 1.7;">
+        ${(booking.team_size || 1) > 1
+          ? '<strong>Booking policy:</strong> This is a 2+ cleaner booking, which requires 48 hours notice, carries a <strong>4-hour minimum</strong>, and receives no discounts. A multi-cleaner booking made with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).'
+          : '<strong>Booking policy:</strong> A <strong>2-hour minimum</strong> applies to all bookings (first-time cleanings included).'}
       </p>
     </div>
 
@@ -216,11 +223,11 @@ export function clientReviewRequestEmail(booking: any) {
 
 export function clientConfirmationEmail(booking: any) {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
-  const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const startTime = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name || 'Your cleaner'
   const cleanerFirst = (booking.cleaners?.name || 'Your cleaner').split(' ')[0]
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
-  const hourlyRate = booking.hourly_rate || 79
+  const hourlyRate = booking.hourly_rate || 69
   const isRecurring = booking.recurring_type ? true : false
 
   // Use the exact booked duration (start → end). 30-min increments are common,
@@ -260,7 +267,7 @@ export function clientConfirmationEmail(booking: any) {
 
     ${infoTable(`
       ${infoRow('Date', date)}
-      ${infoRow('Time', startTime)}
+      ${infoRow('Arrival window', startTime)}
       ${infoRow('Address', booking.clients?.address || 'On file')}
       ${infoRow('Service', booking.service_type)}
       ${infoRow('Cleaner', cleanerName)}
@@ -272,14 +279,14 @@ export function clientConfirmationEmail(booking: any) {
 
     <h2 style="font-size: 18px; font-weight: 600; color: #000; margin: 0 0 16px 0;">What to expect</h2>
     <p style="color: #333; font-size: 14px; line-height: 1.7; margin: 0 0 16px 0;">
-      ${cleanerFirst} is usually right on time, but we allow up to 30 minutes for traffic and delays. Once ${cleanerFirst} arrives, they'll provide a thorough, quality service. If you forgot to mention something, just let ${cleanerFirst} know — that's the best part about our hourly pricing model.
+      ${cleanerFirst} will arrive within your 2-hour arrival window shown above. Once ${cleanerFirst} arrives, they'll provide a thorough, quality service. If you forgot to mention something, just let ${cleanerFirst} know — that's the best part about our hourly pricing model.
     </p>
 
     ${divider()}
 
     <h2 style="font-size: 18px; font-weight: 600; color: #000; margin: 0 0 16px 0;">Payment</h2>
     <p style="color: #333; font-size: 14px; line-height: 1.7; margin: 0 0 8px 0;">
-      About 30 minutes before wrapping up, we'll reach out to collect payment via <strong>a secure Stripe link (card, Apple Pay, or Cash App)</strong>. Payment must be received before the cleaner finishes — if not, the cleaner will wait and the wait time is billable. Time is billed in <strong>30-minute increments</strong> (once 10 minutes into the next half hour has passed, it counts as a full 30 billable minutes).
+      About 30 minutes before wrapping up, we'll reach out to collect payment via <strong>our secure payment link (Apple Pay, card, or Cash App)</strong>. Payment must be received before the cleaner finishes — if not, the cleaner will wait and the wait time is billable. Time is billed in <strong>30-minute increments</strong> (once 10 minutes into the next half hour has passed, it counts as a full 30 billable minutes).
     </p>
 
     ${divider()}
@@ -296,7 +303,7 @@ export function clientConfirmationEmail(booking: any) {
 
     ${hourlyRate === 49 ? noteBox('<strong>Supplies needed:</strong> Please have cleaning supplies ready — all-purpose cleaner, vacuum, mop, cloths, and trash bags.', 'warning') : noteBox('<strong>All supplies included!</strong> ' + cleanerFirst + ' will bring everything needed — no need to prepare anything.', 'success')}
 
-    ${noteBox(`<strong>Tipping:</strong> Tips are always appreciated but never required. 100% of all tips included with Apple Pay and Zelle (hi@thenycmaid.com) go directly to your cleaner.`, 'info')}
+    ${noteBox(`<strong>Tipping:</strong> Tips are always appreciated but never required. 100% of all tips go directly to your cleaner.`, 'info')}
 
     ${noteBox(`<strong>Cancellation &amp; Reschedule Policy:</strong> ${isRecurring
       ? 'Recurring (weekly, bi-weekly, monthly) services require <strong>7 days notice</strong> to reschedule. Cancellations are not permitted on recurring services unless the service is being discontinued entirely with 7 days notice.'

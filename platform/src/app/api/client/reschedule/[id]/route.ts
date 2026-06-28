@@ -4,7 +4,8 @@ import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
 import { notifyTeamMember } from '@/lib/notify-team-member'
-import { smsReschedule, smsJobRescheduled } from '@/lib/sms-templates'
+import { smsJobRescheduled } from '@/lib/sms-templates'
+import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 
@@ -89,7 +90,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (updated.clients?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
       await sendSMS({
         to: updated.clients.phone,
-        body: smsReschedule(tenant.name, updated),
+        body: clientSmsTemplates(tenant).reschedule(updated),
         telnyxApiKey: tenant.telnyx_api_key,
         telnyxPhone: tenant.telnyx_phone,
       }).catch(() => {})

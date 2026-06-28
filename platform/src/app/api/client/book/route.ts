@@ -8,9 +8,9 @@ import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
 import {
   adminNewBookingRequestEmail,
   referralSignupNotifyEmail,
-  clientBookingReceivedEmail,
 } from '@/lib/email-templates'
-import { smsBookingReceived } from '@/lib/sms-templates'
+import { bookingReceivedEmail } from '@/lib/messaging/client-email'
+import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { autoAttributeBooking } from '@/lib/attribution'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
@@ -285,15 +285,10 @@ export async function POST(request: Request) {
         }
 
         if (data.clients?.email && tenant.resend_api_key) {
-          const html = clientBookingReceivedEmail({
-            ...td,
-            clientName: data.clients.name,
-            dateTime: `${bookingDate} ${(body.time as string) || ''}`,
-            serviceName: data.service_type,
-          })
+          const { subject, html } = bookingReceivedEmail(tenant, data)
           await sendEmail({
             to: data.clients.email,
-            subject: `Booking received — ${tenant.name}`,
+            subject,
             html,
             resendApiKey: tenant.resend_api_key,
             from: tenant.email_from || undefined,
@@ -309,7 +304,7 @@ export async function POST(request: Request) {
         if (data.clients?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           await sendSMS({
             to: data.clients.phone,
-            body: smsBookingReceived(tenant.name, data),
+            body: clientSmsTemplates(tenant).bookingReceived(data),
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
           })

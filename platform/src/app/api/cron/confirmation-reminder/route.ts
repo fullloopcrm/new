@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
-import { smsConfirmationReminder } from '@/lib/nycmaid/sms-templates'
+import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
 
 // Runs every 5 min. Finds bookings still status='pending' (client hasn't replied
@@ -29,6 +29,7 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    const clientSms = await clientSmsTemplatesFor(tenantId)
 
     const { data: pending, error } = await supabaseAdmin
       .from('bookings')
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
 
       if ((count || 0) > 0) continue
 
-      await sendClientSMS(booking.client_id, smsConfirmationReminder(booking), {
+      await sendClientSMS(booking.client_id, clientSms.confirmationReminder(booking), {
         smsType: 'confirmation_reminder',
         bookingId: booking.id,
       })

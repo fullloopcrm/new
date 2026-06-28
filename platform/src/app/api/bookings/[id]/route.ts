@@ -6,7 +6,8 @@ import { pick } from '@/lib/validate'
 import { checkMemberDayOff } from '@/lib/availability'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
-import { smsBookingConfirmation, smsJobAssignment, smsCancellation, smsReschedule } from '@/lib/sms-templates'
+import { smsJobAssignment } from '@/lib/sms-templates'
+import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 
 export async function GET(
   _request: Request,
@@ -127,7 +128,7 @@ export async function PUT(
         if (data.clients?.phone && hasSMS) {
           sendSMS({
             to: data.clients.phone,
-            body: smsBookingConfirmation(bizName, { start_time: data.start_time, team_members: data.team_members }),
+            body: (await clientSmsTemplatesFor(tenant.tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
             telnyxApiKey: tenantData!.telnyx_api_key,
             telnyxPhone: tenantData!.telnyx_phone,
           }).catch(err => console.error('Confirm SMS error:', err))
@@ -148,7 +149,7 @@ export async function PUT(
       if (timeChanged && data.clients?.phone && hasSMS) {
         sendSMS({
           to: data.clients.phone,
-          body: smsReschedule(bizName, { start_time: data.start_time }),
+          body: (await clientSmsTemplatesFor(tenant.tenantId)).reschedule({ start_time: data.start_time }),
           telnyxApiKey: tenantData!.telnyx_api_key,
           telnyxPhone: tenantData!.telnyx_phone,
         }).catch(err => console.error('Reschedule SMS error:', err))
@@ -226,7 +227,7 @@ export async function DELETE(
         if (booking.clients?.phone && hasSMS) {
           sendSMS({
             to: booking.clients.phone,
-            body: smsCancellation(bizName, { start_time: booking.start_time }),
+            body: (await clientSmsTemplatesFor(tenant.tenantId)).cancellation({ start_time: booking.start_time }),
             telnyxApiKey: tenantData!.telnyx_api_key,
             telnyxPhone: tenantData!.telnyx_phone,
           }).catch(err => console.error('Cancellation SMS error:', err))

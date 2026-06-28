@@ -4,7 +4,8 @@ import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
-import { smsBookingConfirmation, smsJobAssignment } from '@/lib/sms-templates'
+import { smsJobAssignment } from '@/lib/sms-templates'
+import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 
 /**
  * POST /api/bookings/batch
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
       if (client?.phone && telnyxApiKey && telnyxPhone) {
         sendSMS({
           to: client.phone,
-          body: smsBookingConfirmation(bizName, first),
+          body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first),
           telnyxApiKey,
           telnyxPhone,
         }).catch(err => console.error('[batch] client SMS error:', err))

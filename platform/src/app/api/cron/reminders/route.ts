@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { smsReminder } from '@/lib/sms-templates'
+import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { sendSMS } from '@/lib/sms'
 import type {
   BookingWithClientAndTeam,
@@ -37,6 +37,7 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    const clientSms = await clientSmsTemplatesFor(tenantId)
 
     try {
       // ============================================
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
             // Client SMS reminder
             if (client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
               const smsData = { start_time: booking.start_time, team_members: booking.team_members }
-              const smsBody = smsReminder(tenant.name, smsData, label)
+              const smsBody = clientSms.reminder(smsData, label)
               try {
                 await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
                 sent++

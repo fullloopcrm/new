@@ -9,7 +9,8 @@ import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
 import { timestampToMin } from '@/lib/cleaner-availability'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
-import { smsBookingConfirmation, smsJobAssignment } from '@/lib/sms-templates'
+import { smsJobAssignment } from '@/lib/sms-templates'
+import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { getSettings } from '@/lib/settings'
 
 function formatMin(min: number): string {
@@ -236,7 +237,7 @@ export async function POST(request: Request) {
       if (data.clients?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
         sendSMS({
           to: data.clients.phone,
-          body: smsBookingConfirmation(bizName, { start_time: data.start_time, team_members: data.team_members }),
+          body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
           telnyxApiKey: tenantData.telnyx_api_key,
           telnyxPhone: tenantData.telnyx_phone,
         }).catch(err => console.error('Client confirmation SMS error:', err))

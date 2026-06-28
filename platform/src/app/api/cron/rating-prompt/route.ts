@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
-import { smsRatingQ1 } from '@/lib/nycmaid/sms-templates'
+import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
 
 // Runs every 5 min. Sends ONE SMS — Q1 only — 30+ min after the cleaner
@@ -31,6 +31,7 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    const clientSms = await clientSmsTemplatesFor(tenantId)
 
     const { data: due, error } = await supabaseAdmin
       .from('bookings')
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
 
     for (const booking of dueList.slice(0, CAP)) {
       if (!booking.client_id) continue
-      await sendClientSMS(booking.client_id, smsRatingQ1(), {
+      await sendClientSMS(booking.client_id, clientSms.ratingQ1(), {
         smsType: 'rating_prompt',
         bookingId: booking.id,
       })
