@@ -7,6 +7,11 @@ export const maxDuration = 60
 
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim()
 const OWNER_CHAT_ID = (process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
+// Platform owner bot operates in nycmaid context (resolveTenantForConversation
+// falls back to this when tenant_id is null). sms_conversations.tenant_id is
+// NOT NULL since the tenant-isolation migration, so the owner convo must carry
+// it explicitly — use the same sentinel the agent already falls back to.
+const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
 // Additional admins allowed to message the bot (comma-separated chat IDs).
 // Owner is always allowed; this is for additional staff (e.g. Ruth as ops admin).
 const EXTRA_CHAT_IDS = (process.env.TELEGRAM_EXTRA_CHAT_IDS || '')
@@ -85,6 +90,7 @@ export async function POST(req: Request) {
       const { data: newConvo, error: convoErr } = await supabaseAdmin
         .from('sms_conversations')
         .insert({
+          tenant_id: NYCMAID_TENANT_ID,
           phone: syntheticPhone,
           state: 'telegram-owner',
           booking_checklist: { channel: 'telegram', chat_id: String(chatId), real_phone: realPhone },
