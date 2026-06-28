@@ -14,11 +14,12 @@ import type { BookingLike } from './sms-cleaning'
 import * as generic from '../sms-templates'
 import { supabaseAdmin } from '../supabase'
 
-// Tenants whose clients should receive the cleaning/maid-brand copy.
-const CLEANING_SLUGS = new Set<string>(['nycmaid', 'the-florida-maid'])
-
+// Config-driven (not hardcoded slugs): any tenant whose industry is "cleaning"
+// gets the maid-brand copy, in its OWN brand. Keeps the platform even — a new
+// cleaning tenant works with zero code change.
 type TenantLike = {
   slug?: string | null
+  industry?: string | null
   name?: string | null
   phone?: string | null
   website_url?: string | null
@@ -44,11 +45,11 @@ export type ClientSmsTemplates = {
 }
 
 export function isCleaningTenant(tenant: TenantLike): boolean {
-  return !!tenant.slug && CLEANING_SLUGS.has(tenant.slug)
+  return (tenant.industry || '').toLowerCase() === 'cleaning'
 }
 
 // Brand fields the resolver needs; selected when a route only has a tenant id.
-const BRAND_COLUMNS = 'slug, name, phone, website_url, domain, domain_name, google_place_id'
+const BRAND_COLUMNS = 'slug, industry, name, phone, website_url, domain, domain_name, google_place_id'
 
 /**
  * Load a tenant's brand row by id and return its client SMS templates. Use from
