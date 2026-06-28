@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { protectAdminAPI } from '@/lib/nycmaid/auth'
+import { getCurrentTenant } from '@/lib/tenant'
 import { normalizePhone } from '@/lib/nycmaid/client-contacts'
 
 const ALLOWED = ['name', 'role', 'phone', 'email', 'is_primary', 'receives_sms', 'receives_email']
@@ -8,6 +9,12 @@ const ALLOWED = ['name', 'role', 'phone', 'email', 'is_primary', 'receives_sms',
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string; contactId: string }> }) {
   const authError = await protectAdminAPI()
   if (authError) return authError
+
+  // Tenant isolation: a global admin_session must only mutate its own tenant's
+  // contacts. Scope every write by tenant_id (resolved from signed header) so
+  // a forged client/contact id from another tenant can't be edited or deleted.
+  const tenant = await getCurrentTenant()
+  if (!tenant) return NextResponse.json({ error: 'No tenant context' }, { status: 403 })
 
   try {
     const { id, contactId } = await params
@@ -38,7 +45,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     if (update.is_primary === true) {
-      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('client_id', id).eq('is_primary', true).neq('id', contactId)
+      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('tenant_id', tenant.id).eq('client_id', id).eq('is_primary', true).neq('id', contactId)
     }
 
     if (Object.keys(update).length === 0) {
@@ -48,6 +55,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { data, error } = await supabaseAdmin
       .from('client_contacts')
       .update(update)
+      .eq('tenant_id', tenant.id)
       .eq('id', contactId)
       .eq('client_id', id)
       .select()
@@ -65,10 +73,14 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const authError = await protectAdminAPI()
   if (authError) return authError
 
+  const tenant = await getCurrentTenant()
+  if (!tenant) return NextResponse.json({ error: 'No tenant context' }, { status: 403 })
+
   const { id, contactId } = await params
   const { error } = await supabaseAdmin
     .from('client_contacts')
     .delete()
+    .eq('tenant_id', tenant.id)
     .eq('id', contactId)
     .eq('client_id', id)
 

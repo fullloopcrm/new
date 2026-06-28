@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { protectAdminAPI } from '@/lib/nycmaid/auth'
+import { getCurrentTenant } from '@/lib/tenant'
 import { askYinez } from '@/lib/yinez/agent'
 
 export const maxDuration = 60
@@ -14,6 +15,12 @@ function getOwnerPhone(): string {
 export async function POST(req: NextRequest) {
   const authError = await protectAdminAPI()
   if (authError) return authError
+
+  // Tenant isolation: scope the admin-chat conversation to the caller's tenant
+  // (resolved from signed header) so one tenant's owner-chat can't read or
+  // collide with another's.
+  const tenant = await getCurrentTenant()
+  if (!tenant) return NextResponse.json({ error: 'No tenant context' }, { status: 403 })
 
   let body: { message?: string; sessionId?: string | null }
   try {
@@ -38,6 +45,7 @@ export async function POST(req: NextRequest) {
     const { data: existing } = await supabaseAdmin
       .from('sms_conversations')
       .select('id')
+      .eq('tenant_id', tenant.id)
       .eq('phone', normalizedPhone)
       .eq('state', 'admin-dashboard')
       .is('completed_at', null)
@@ -50,6 +58,7 @@ export async function POST(req: NextRequest) {
       const { data: convo, error } = await supabaseAdmin
         .from('sms_conversations')
         .insert({
+          tenant_id: tenant.id,
           phone: normalizedPhone,
           state: 'admin-dashboard',
           booking_checklist: { channel: 'admin-dashboard', phone: ownerPhone },
