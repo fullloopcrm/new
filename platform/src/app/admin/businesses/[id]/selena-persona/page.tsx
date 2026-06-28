@@ -75,6 +75,7 @@ export default function SelenaPersonaPage() {
   const params = useParams()
   const id = params.id as string
   const [p, setP] = useState<Persona>(EMPTY)
+  const [agentName, setAgentName] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -86,6 +87,7 @@ export default function SelenaPersonaPage() {
       const data = await res.json()
       const sc = (data.business?.selena_config || {}) as Partial<Persona>
       setP({ ...EMPTY, ...sc, custom_fields: sc.custom_fields || [] })
+      setAgentName((data.business?.agent_name as string) || 'Jefe')
     }
     setLoading(false)
   }, [id])
@@ -97,7 +99,7 @@ export default function SelenaPersonaPage() {
     const res = await fetch(`/api/admin/businesses/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selena_config: p }),
+      body: JSON.stringify({ selena_config: p, agent_name: agentName.trim() || 'Jefe' }),
     })
     setSaving(false)
     if (res.ok) {
@@ -127,6 +129,7 @@ export default function SelenaPersonaPage() {
 
       {/* ── Identity & Voice ── */}
       <Section title="Identity & Voice">
+        <TextField label="Agent name (what the AI calls itself — SMS, web, Telegram, email)" value={agentName} onChange={setAgentName} placeholder="Jefe" />
         <LargeField label="Business description (1-2 sentences)" value={p.business_description} onChange={v => setP({ ...p, business_description: v })} rows={3} placeholder="Who you are, what you do, for whom." />
         <LargeField label="Business story (origin, why you started)" value={p.business_story} onChange={v => setP({ ...p, business_story: v })} rows={6} placeholder="Builds trust with skeptical buyers. 1 paragraph max." />
         <ListField label="Opening lines (rotate)" values={p.opening_lines} onAdd={() => addArr('opening_lines', '')} onRemove={i => removeArr('opening_lines', i)} onChange={(i, v) => updateArr('opening_lines', i, v)} placeholder='e.g. "Hi! How can we help?"' />

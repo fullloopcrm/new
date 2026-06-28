@@ -228,6 +228,9 @@ export async function PUT(
     // Business info
     'phone', 'email', 'website_url', 'address', 'tagline',
     'business_hours', 'logo_url', 'primary_color', 'secondary_color',
+    // Agent identity — single source of truth for the AI's name across SMS
+    // (Selena) and web/Telegram/admin/email (Yinez). Default 'Jefe'.
+    'agent_name',
     // Selena persona (full config blob)
     'selena_config',
   ]

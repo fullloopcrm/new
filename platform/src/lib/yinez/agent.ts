@@ -457,7 +457,7 @@ async function buildBrandOverride(tenantId: string): Promise<string> {
 
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, domain, phone, email, industry, address, tagline, website_url, primary_color')
+    .select('id, name, slug, domain, phone, email, industry, address, tagline, website_url, primary_color, agent_name')
     .eq('id', tenantId)
     .single()
 
@@ -469,6 +469,10 @@ async function buildBrandOverride(tenantId: string): Promise<string> {
   const domain = tenant.domain || tenant.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || '<not configured>'
   const portal = `${tenant.website_url || `https://${tenant.domain || ''}`}/portal`
   const industry = tenant.industry || 'home services'
+  // FullLoop platform default agent is "Jefe"; each tenant may override via
+  // tenants.agent_name. The template prompt below names the agent "Yinez" 40+
+  // times (nycmaid's persona) — substitute the tenant's agent name everywhere.
+  const agentName = tenant.agent_name || 'Jefe'
 
   return `=== BRAND OVERRIDE — READ FIRST, APPLY THROUGHOUT ===
 
@@ -476,7 +480,14 @@ You are working for ${tenant.name} — NOT The NYC Maid. The system prompt below
 was originally written for The NYC Maid and contains hardcoded references that
 must be SUBSTITUTED with the values below for every interaction.
 
+Your name is ${agentName}. The template prompt below calls the agent "Yinez"
+everywhere — that is The NYC Maid's persona, NOT yours. Whenever the prompt says
+"Yinez" (introductions, "I'm Yinez", "me llamo Yinez", "are you a bot" answer,
+every example), use "${agentName}" instead. Introduce yourself as ${agentName}.
+You are NOT Yinez and you never call yourself Yinez.
+
 Substitution table (apply mentally on every reference):
+  Agent name        "Yinez"                  →  "${agentName}"
   Company name      "The NYC Maid"          →  "${tenant.name}"
   Phone             "(212) 202-8400"         →  "${phone}"
   Domain            "thenycmaid.com"         →  "${domain}"
@@ -611,7 +622,7 @@ async function applyBrandRewrite(text: string, tenantId: string): Promise<string
   try {
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, domain, phone, email, website_url')
+      .select('name, domain, phone, email, website_url, agent_name')
       .eq('id', tenantId)
       .single()
     if (!tenant) return text
@@ -623,6 +634,10 @@ async function applyBrandRewrite(text: string, tenantId: string): Promise<string
     // any (212) 202-XXXX nycmaid line → tenant phone
     if (tenant.phone) out = out.replace(/\(?212\)?[\s.\-]*202[\s.\-]*\d{4}/g, tenant.phone)
     if (tenant.name) out = out.replace(/\bThe NYC Maid\b/g, tenant.name).replace(/\bNYC Maid\b/g, tenant.name)
+    // Agent name: deterministic core.ts strings ("I'm Yinez…") bypass the LLM
+    // brand override. Rewrite the persona name to the tenant's agent (Jefe by
+    // default). nycmaid early-returns above, so its "Yinez" is never touched.
+    out = out.replace(/\bYinez\b/g, tenant.agent_name || 'Jefe')
     return out
   } catch {
     return text

@@ -345,7 +345,7 @@ async function buildSystemPrompt(tenantId: string, config: SelenaConfig): Promis
   // Fetch tenant industry + service types so Selena is INDUSTRY-LOCKED and can't
   // drift into generic cleaning vocabulary for HVAC/plumbing/pest/etc tenants.
   const [{ data: tenantRow }, { data: serviceRows }] = await Promise.all([
-    supabaseAdmin.from('tenants').select('name, industry').eq('id', tenantId).single(),
+    supabaseAdmin.from('tenants').select('name, industry, agent_name').eq('id', tenantId).single(),
     supabaseAdmin.from('service_types').select('name').eq('tenant_id', tenantId).eq('active', true),
   ])
   const industry = (tenantRow?.industry as string | null)?.replace(/_/g, ' ') || 'service'
@@ -358,8 +358,9 @@ async function buildSystemPrompt(tenantId: string, config: SelenaConfig): Promis
   const startH = s.business_hours_start || 9
   const endH = s.business_hours_end || 17
 
-  // AI name — config overrides default
-  const aiName = config.ai_name || 'Selena'
+  // AI name — explicit selena_config.ai_name wins; otherwise fall back to the
+  // tenant's agent_name column (FullLoop default 'Jefe', nycmaid set to 'Yinez').
+  const aiName = config.ai_name || (tenantRow as { agent_name?: string } | null)?.agent_name || 'Jefe'
 
   // Personality tone
   const toneMap: Record<string, string> = {
