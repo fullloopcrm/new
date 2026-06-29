@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { getCurrentTenant } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 
+// Tenant-scoped live aggregates — never statically cache or share across tenants.
+export const dynamic = 'force-dynamic'
+
 // The Loop — pixel-faithful build of platform/docs/design/the-loop-frame.html.
 // Stats are real, tenant-scoped aggregates (empty tenants render 0). No mock
 // data. Unsourced stats (payouts table, Selena conv %, pages-live) are omitted
@@ -112,8 +115,9 @@ async function loadDashboardStats(tenantId: string): Promise<{
   const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
   const fortyFiveAgo = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000)
   const iso = (d: Date) => d.toISOString()
+  // bookings.price is stored in CENTS (per nycmaid convention). Convert to dollars for display.
   const sumPrice = (rows: { price: number | null }[] | null) =>
-    (rows || []).reduce((s, r) => s + (r.price || 0), 0)
+    (rows || []).reduce((s, r) => s + (r.price || 0), 0) / 100
   const t = <T,>(q: T): T => q
 
   const [
