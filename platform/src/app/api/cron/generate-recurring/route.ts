@@ -118,11 +118,30 @@ export async function GET(request: Request) {
       return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
     }
 
+    // Per-occurrence exceptions (skip / move / reassign). Empty table → no effect.
+    const { data: exRows } = await supabaseAdmin
+      .from('recurring_exceptions')
+      .select('occurrence_date, type, new_start_time, new_team_member_id')
+      .eq('tenant_id', schedule.tenant_id)
+      .eq('schedule_id', schedule.id)
+    const exMap = new Map<string, { type: string; new_start_time: string | null; new_team_member_id: string | null }>(
+      (exRows || []).map((e) => [String(e.occurrence_date), e as { type: string; new_start_time: string | null; new_team_member_id: string | null }])
+    )
+
     const bookings: Record<string, unknown>[] = []
     for (const d of dates) {
-      const endTime = new Date(d)
-      endTime.setHours(endTime.getHours() + durH)
       const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+      const ex = exMap.get(dateStr)
+      if (ex?.type === 'skip') continue // occurrence cancelled — don't materialize it
+
+      // 'move' shifts this occurrence's start; keep the same calendar date.
+      const occ = new Date(d)
+      if (ex?.type === 'move' && ex.new_start_time) {
+        const [mh, mm] = String(ex.new_start_time).split(':').map(Number)
+        occ.setHours(mh || 0, mm || 0, 0, 0)
+      }
+      const endTime = new Date(occ)
+      endTime.setHours(endTime.getHours() + durH)
 
       let assignedId: string | null
       let unassignedNote: string | null = null
@@ -131,7 +150,7 @@ export async function GET(request: Request) {
         const scores = await scoreTeamForBooking({
           tenantId: schedule.tenant_id,
           date: dateStr,
-          startTime: startHHMM(),
+          startTime: ex?.type === 'move' && ex.new_start_time ? String(ex.new_start_time).slice(0, 5) : startHHMM(),
           durationHours: durH,
           clientAddress: jobAddr?.address || '',
           clientId: schedule.client_id,
@@ -154,6 +173,12 @@ export async function GET(request: Request) {
         }
       }
 
+      // 'reassign' exception pins a specific member for this date, overriding both paths.
+      if (ex?.type === 'reassign') {
+        assignedId = ex.new_team_member_id ?? null
+        unassignedNote = null
+      }
+
       bookings.push({
         tenant_id: schedule.tenant_id,
         client_id: schedule.client_id,
@@ -162,7 +187,7 @@ export async function GET(request: Request) {
         service_type_id: schedule.service_type_id,
         service_type: serviceType,
         schedule_id: schedule.id,
-        start_time: d.toISOString(),
+        start_time: occ.toISOString(),
         end_time: endTime.toISOString(),
         status: 'scheduled',
         hourly_rate: schedule.hourly_rate,
