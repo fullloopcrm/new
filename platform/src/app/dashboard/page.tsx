@@ -2,268 +2,231 @@ import Link from 'next/link'
 import { getCurrentTenant } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 
-// Tenant-scoped live aggregates — never statically cache or share across tenants.
+// The Loop — global tenant dashboard, ported to match nycmaid's V1 Loop.
+// Server-rendered, tenant-scoped. bookings.price is stored in CENTS.
+// Sections: Revenue ladder, Jobs ladder, Jobs-by-month, KPIs, Today/Tomorrow.
+// (Schedule-Issues triage + live Map land in a follow-on increment.)
 export const dynamic = 'force-dynamic'
 
-// The Loop — pixel-faithful build of platform/docs/design/the-loop-frame.html.
-// Stats are real, tenant-scoped aggregates (empty tenants render 0). No mock
-// data. Unsourced stats (payouts table, Selena conv %, pages-live) are omitted
-// rather than fabricated.
-
-type StatTag =
-  | { kind: 'plain'; text: string }
-  | { kind: 'up'; text: string }
-  | { kind: 'warn'; text: string }
-  | { kind: 'live'; text: string }
-
-type Stat = {
-  label: string
-  tag?: StatTag
-  value: React.ReactNode
-  sub?: React.ReactNode
-  href?: string
+const V = {
+  line: 'var(--color-loop-line)', canvas: 'var(--color-loop-canvas)', ink: 'var(--color-loop-ink)',
+  muted: 'var(--color-loop-muted)', muted2: 'var(--color-loop-muted-2)',
+  good: 'var(--color-loop-good)', warn: 'var(--color-loop-warn)',
+  display: 'var(--display)', mono: 'var(--mono)',
 }
 
-function StatCell({ s }: { s: Stat }) {
-  const inner = (
-    <div className="px-7 first:pl-0 last:pr-0 last:border-r-0 cursor-pointer" style={{ borderRight: '1px solid var(--color-loop-line)' }}>
-      <div className="flex items-center justify-between mb-3" style={{ fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--color-loop-muted)', fontWeight: 600, lineHeight: 1.3 }}>
-        <span>{s.label}</span>
-        {s.tag && <Tag t={s.tag} />}
-      </div>
-      <div style={{ fontFamily: 'var(--display)', fontSize: '38px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: 'var(--color-loop-ink)', fontFeatureSettings: '"tnum","lnum"' }}>
-        {s.value}
-      </div>
-      {s.sub && (
-        <div className="mt-2" style={{ fontSize: '11.5px', color: 'var(--color-loop-muted)', lineHeight: 1.4 }}>
-          {s.sub}
-        </div>
-      )}
-    </div>
-  )
-  return s.href ? <Link href={s.href}>{inner}</Link> : inner
+const formatMoney = (cents: number) =>
+  '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')
+const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+
+type Booking = {
+  id: string
+  start_time: string
+  price: number | null
+  status: string
+  payment_status: string | null
+  service_type: string | null
+  schedule_id: string | null
+  team_member_id: string | null
+  clients: { name: string | null } | null
+  team_members: { name: string | null } | null
 }
 
-function Tag({ t }: { t: StatTag }) {
-  if (t.kind === 'up') {
-    return <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--color-loop-good)', fontWeight: 500 }}>↗ {t.text}</span>
+// Paginated fetch — FL caps PostgREST at 1000 rows/req; the year has ~1.8k bookings.
+async function fetchYearBookings(tenantId: string, startISO: string, endISO: string): Promise<Booking[]> {
+  const out: Booking[] = []
+  const page = 1000
+  for (let from = 0; ; from += page) {
+    const { data, error } = await supabaseAdmin
+      .from('bookings')
+      .select('id,start_time,price,status,payment_status,service_type,schedule_id,team_member_id,clients(name),team_members(name)')
+      .eq('tenant_id', tenantId)
+      .gte('start_time', startISO)
+      .lte('start_time', endISO)
+      .order('start_time', { ascending: true })
+      .range(from, from + page - 1)
+    if (error || !data || data.length === 0) break
+    out.push(...(data as unknown as Booking[]))
+    if (data.length < page) break
   }
-  if (t.kind === 'warn') {
-    return <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--color-loop-warn)', fontWeight: 500 }}>{t.text}</span>
-  }
-  if (t.kind === 'live') {
-    return (
-      <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--color-loop-good)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--color-loop-good)', animation: 'loop-pulse 2s infinite' }} />
-        {t.text}
-      </span>
-    )
-  }
-  return <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--color-loop-muted-2)' }}>{t.text}</span>
+  return out
 }
 
-function BarLabel({ children, split }: { children: React.ReactNode; split?: boolean }) {
-  return (
-    <div
-      className="inline-block mb-3"
-      style={{
-        fontFamily: 'var(--mono)',
-        fontSize: '10px',
-        textTransform: 'uppercase',
-        letterSpacing: '0.18em',
-        color: 'var(--color-loop-ink)',
-        fontWeight: 600,
-        paddingBottom: split ? 0 : '6px',
-        borderBottom: split ? 'none' : '1px solid var(--color-loop-ink)',
-        minWidth: '100px',
-      }}
-    >
-      {children}
-      {split && (
-        <span style={{ display: 'block', width: '80px', height: '1px', background: 'var(--color-loop-ink)', marginTop: '4px' }} />
-      )}
-    </div>
-  )
-}
-
-const dollar = (
-  <span style={{ fontSize: '19px', color: 'var(--color-loop-muted)', fontWeight: 400, verticalAlign: 'top', marginRight: '1px' }}>$</span>
-)
-const strong = (s: React.ReactNode) => (
-  <strong style={{ color: 'var(--color-loop-ink)', fontWeight: 500 }}>{s}</strong>
-)
-
-const small = (s: React.ReactNode) => (
-  <span style={{ fontSize: '22px', color: 'var(--color-loop-muted)', fontWeight: 400 }}>{s}</span>
-)
-
-const money = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 0 })
-
-// Real per-tenant aggregates. Every number is a tenant-scoped query; an empty
-// tenant returns 0 across the board. Returns the four stat rows the page renders.
-async function loadDashboardStats(tenantId: string): Promise<{
-  sales: Stat[]; ops: Stat[]; leads: Stat[]; apps: Stat[]
-}> {
-  const now = new Date()
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
-  const startOfWeek = new Date(startOfDay); startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
-  const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000)
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-  const startOfYear = new Date(now.getFullYear(), 0, 1)
-  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
-  const fortyFiveAgo = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000)
-  const iso = (d: Date) => d.toISOString()
-  // bookings.price is stored in CENTS (per nycmaid convention). Convert to dollars for display.
-  const sumPrice = (rows: { price: number | null }[] | null) =>
-    (rows || []).reduce((s, r) => s + (r.price || 0), 0) / 100
-  const t = <T,>(q: T): T => q
-
-  const [
-    monthPaid, weekPaid, ytdPaid, outstanding, pipeline,
-    newClients, roster, todayLive, teamActive,
-    leadsToday, leadsWeek, appsNew, recentBookingClientIds,
-  ] = await Promise.all([
-    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', iso(startOfMonth)).lte('start_time', iso(endOfMonth))),
-    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', iso(startOfWeek)).lt('start_time', iso(endOfWeek))),
-    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).eq('status', 'completed').eq('payment_status', 'paid').gte('start_time', iso(startOfYear)).lte('start_time', iso(endOfYear))),
-    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).eq('status', 'completed').eq('payment_status', 'pending')),
-    t(supabaseAdmin.from('bookings').select('price').eq('tenant_id', tenantId).in('status', ['confirmed', 'scheduled', 'in_progress']).gte('start_time', iso(startOfDay)).lte('start_time', iso(endOfYear))),
-    t(supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', iso(startOfMonth))),
-    t(supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId)),
-    t(supabaseAdmin.from('bookings').select('id, status', { count: 'exact' }).eq('tenant_id', tenantId).gte('start_time', iso(startOfDay)).lt('start_time', iso(endOfDay)).in('status', ['confirmed', 'scheduled', 'in_progress', 'completed'])),
-    t(supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'active')),
-    t(supabaseAdmin.from('leads').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', iso(startOfDay))),
-    t(supabaseAdmin.from('leads').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', iso(startOfWeek))),
-    t(supabaseAdmin.from('cleaner_applications').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'pending')),
-    t(supabaseAdmin.from('bookings').select('client_id').eq('tenant_id', tenantId).gte('start_time', iso(fortyFiveAgo))),
-  ])
-
-  const monthRev = sumPrice(monthPaid.data as { price: number | null }[] | null)
-  const monthJobs = (monthPaid.data as unknown[] | null)?.length || 0
-  const weekRev = sumPrice(weekPaid.data as { price: number | null }[] | null)
-  const weekJobs = (weekPaid.data as unknown[] | null)?.length || 0
-  const ytdRev = sumPrice(ytdPaid.data as { price: number | null }[] | null)
-  const outRows = outstanding.data as { price: number | null }[] | null
-  const outRev = sumPrice(outRows)
-  const outCount = outRows?.length || 0
-  const pipelineRev = sumPrice(pipeline.data as { price: number | null }[] | null)
-  const pipelineCount = (pipeline.data as unknown[] | null)?.length || 0
-  const rosterTotal = roster.count || 0
-  const todayRows = (todayLive.data as { status: string }[] | null) || []
-  const todayActive = todayRows.filter(r => r.status === 'in_progress').length
-  const todayTotal = todayLive.count || todayRows.length
-
-  // At-risk: clients with no booking in the last 45 days.
-  const activeClientIds = new Set((recentBookingClientIds.data as { client_id: string | null }[] | null || []).map(r => r.client_id).filter(Boolean))
-  const atRisk = Math.max(0, rosterTotal - activeClientIds.size)
-
-  const monthLabel = now.toLocaleDateString('en-US', { month: 'short' })
-
-  const sales: Stat[] = [
-    { label: `Revenue · ${monthLabel}`, tag: { kind: 'plain', text: `${monthJobs} jobs` }, value: <>{dollar}{money(monthRev)}</>, sub: <>YTD {strong(`$${money(ytdRev)}`)}</> },
-    { label: 'Outstanding', tag: outCount ? { kind: 'warn', text: `${outCount} due` } : undefined, value: <>{dollar}{money(outRev)}</>, sub: <>{strong(String(outCount))} unpaid</> },
-    { label: 'Pipeline', tag: { kind: 'plain', text: `${pipelineCount} booked` }, value: <>{dollar}{money(pipelineRev)}</>, sub: <>forward booked</> },
-    { label: `New Clients · ${monthLabel}`, value: String(newClients.count || 0), sub: <>Roster {strong(String(rosterTotal))}</> },
-  ]
-  const ops: Stat[] = [
-    { label: "Today's Jobs", tag: todayActive ? { kind: 'live', text: `${todayActive} active` } : undefined, value: <>{todayActive}{small(` / ${todayTotal}`)}</> },
-    { label: 'Team Active', value: <>{teamActive.count || 0}{small(' members')}</> },
-    { label: 'This Week', tag: { kind: 'plain', text: `${weekJobs} jobs` }, value: <>{dollar}{money(weekRev)}</> },
-    { label: 'At-Risk Clients', tag: atRisk ? { kind: 'warn', text: String(atRisk) } : undefined, value: String(atRisk), sub: <>No booking {strong('45+ days')}</> },
-  ]
-  const leads: Stat[] = [
-    { label: 'Today', value: String(leadsToday.count || 0) },
-    { label: 'Week', value: String(leadsWeek.count || 0) },
-  ]
-  const apps: Stat[] = [
-    { label: 'New', tag: (appsNew.count || 0) ? { kind: 'warn', text: 'pending' } : undefined, value: String(appsNew.count || 0), sub: 'awaiting review' },
-  ]
-  return { sales, ops, leads, apps }
-}
-
-const ACTION_CARDS = [
-  { num: '01', title: 'New Client', desc: 'Add a client manually or import', href: '/dashboard/clients?new=1' },
-  { num: '02', title: 'New Booking', desc: 'Schedule a job for an existing client', href: '/dashboard/bookings?new=1' },
-  { num: '03', title: 'New Lead', desc: 'Log an inbound inquiry', href: '/dashboard/leads?new=1' },
-  { num: '04', title: 'New Quote', desc: 'Send a price estimate', href: '/dashboard/sales?new=quote' },
-  { num: '05', title: 'Add Team Member', desc: 'Onboard a new cleaner', href: '/dashboard/team?new=1' },
-  { num: '06', title: 'Send Campaign', desc: 'Email or SMS blast to clients', href: '/dashboard/campaigns?new=1' },
-  { num: '07', title: 'Request Review', desc: 'Send review link to a client', href: '/dashboard/reviews?new=1' },
-  { num: '08', title: 'Block Time', desc: 'Mark unavailable on the calendar', href: '/dashboard/calendar?block=1' },
-]
+const COLLECTED = (j: Booking) => j.status === 'completed' && j.payment_status === 'paid'
+const SCHEDULED = (j: Booking) => ['pending', 'scheduled', 'confirmed', 'completed', 'in_progress'].includes(j.status)
+const sum = (jobs: Booking[]) => jobs.reduce((s, j) => s + (j.price || 0), 0)
+const inRange = (j: Booking, a: Date, b: Date) => { const d = new Date(j.start_time); return d >= a && d <= b }
 
 export default async function DashboardPage() {
   const tenant = await getCurrentTenant()
   if (!tenant) return null
 
-  const { sales, ops, leads, apps } = await loadDashboardStats(tenant.id)
+  const now = new Date()
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const endOfDay = new Date(startOfDay.getTime() + 86400000)
+  const startOfWeek = new Date(startOfDay); startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
+  const endOfWeek = new Date(startOfWeek.getTime() + 7 * 86400000)
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
+  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
+  const monthShort = now.toLocaleDateString('en-US', { month: 'short' })
+  const yearStr = String(now.getFullYear())
+
+  const [allJobs, rosterRes, newClientsRes] = await Promise.all([
+    fetchYearBookings(tenant.id, startOfYear.toISOString(), endOfYear.toISOString()),
+    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
+    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('created_at', startOfMonth.toISOString()),
+  ])
+  const roster = rosterRes.count || 0
+  const newThisMonth = newClientsRes.count || 0
+
+  const collected = (a: Date, b: Date) => allJobs.filter(j => COLLECTED(j) && inRange(j, a, b))
+  const scheduled = (a: Date, b: Date) => allJobs.filter(j => SCHEDULED(j) && inRange(j, a, b))
+  const collectedToday = collected(startOfDay, endOfDay)
+  const collectedWeek = collected(startOfWeek, endOfWeek)
+  const collectedMonth = collected(startOfMonth, endOfMonth)
+  const collectedYear = collected(startOfYear, endOfYear)
+
+  const all2026 = allJobs.filter(j => ['completed', 'scheduled', 'confirmed', 'in_progress'].includes(j.status))
+  const scheduled2026Total = sum(all2026)
+  const scheduledWeek = scheduled(startOfWeek, endOfWeek)
+  const scheduledMonth = scheduled(startOfMonth, endOfMonth)
+
+  // Remaining (booked, future months through year-end)
+  const startNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const remaining = allJobs.filter(j => ['scheduled', 'confirmed'].includes(j.status) && inRange(j, startNextMonth, endOfYear))
+
+  // AR aging on completed-but-unpaid
+  const toCollect = allJobs.filter(j => j.status === 'completed' && j.payment_status === 'pending')
+  const ageDays = (j: Booking) => Math.floor((now.getTime() - new Date(j.start_time).getTime()) / 86400000)
+  const ar30 = sum(toCollect.filter(j => ageDays(j) <= 30))
+  const ar60 = sum(toCollect.filter(j => { const a = ageDays(j); return a > 30 && a <= 60 }))
+  const ar90 = sum(toCollect.filter(j => ageDays(j) > 60))
+
+  const recurringJobs = all2026.filter(j => j.schedule_id != null)
+  const recurringPct = scheduled2026Total > 0 ? Math.round((sum(recurringJobs) / scheduled2026Total) * 100) : 0
+  const avgJobValue = collectedMonth.length > 0 ? Math.round(sum(collectedMonth) / collectedMonth.length) : 0
+
+  const revenueLadder = [
+    { label: 'Today', val: sum(collectedToday), jobs: collectedToday.length, emphasize: false },
+    { label: 'Week', val: sum(collectedWeek), jobs: collectedWeek.length, emphasize: false },
+    { label: monthShort, val: sum(collectedMonth), jobs: collectedMonth.length, emphasize: false },
+    { label: `${yearStr} · Actual`, val: sum(collectedYear), jobs: collectedYear.length, emphasize: true },
+    { label: `${yearStr} · Projected`, val: scheduled2026Total, jobs: all2026.length, emphasize: true },
+  ]
+  const volumeLadder = [
+    { label: 'Jobs · Week', val: scheduledWeek.length, sub: formatMoney(sum(scheduledWeek)) },
+    { label: `Jobs · ${monthShort}`, val: scheduledMonth.length, sub: formatMoney(sum(scheduledMonth)) },
+    { label: 'Jobs · YTD', val: all2026.length, sub: formatMoney(scheduled2026Total) },
+    { label: 'Remaining', val: remaining.length, sub: formatMoney(sum(remaining)) },
+  ]
+  const monthsByYear = Array.from({ length: 12 }, (_, monthIdx) => {
+    const mStart = new Date(now.getFullYear(), monthIdx, 1)
+    const mEnd = new Date(now.getFullYear(), monthIdx + 1, 0, 23, 59, 59)
+    const jobs = allJobs.filter(j => ['completed', 'scheduled', 'confirmed', 'in_progress'].includes(j.status) && inRange(j, mStart, mEnd))
+    return {
+      label: mStart.toLocaleDateString('en-US', { month: 'short' }),
+      count: jobs.length, revenue: sum(jobs),
+      isCurrent: monthIdx === now.getMonth(), isFuture: monthIdx > now.getMonth(),
+    }
+  })
+  const kpis = [
+    { label: 'AR Outstanding', val: formatMoney(sum(toCollect)), sub: `${toCollect.length} jobs · ${formatMoney(ar30)} 0-30 · ${formatMoney(ar60)} 31-60 · ${formatMoney(ar90)} 60+` },
+    { label: `New Clients · ${monthShort}`, val: String(newThisMonth), sub: `Roster ${roster}` },
+    { label: 'Recurring %', val: `${recurringPct}%`, sub: `${recurringJobs.length} of ${all2026.length} jobs` },
+    { label: 'Avg Job Value', val: formatMoney(avgJobValue), sub: `${collectedMonth.length} paid · ${monthShort}` },
+  ]
+
+  const todayJobs = allJobs.filter(j => inRange(j, startOfDay, endOfDay)).sort((a, b) => a.start_time.localeCompare(b.start_time))
+  const tomorrowStart = new Date(startOfDay.getTime() + 86400000)
+  const tomorrowEnd = new Date(startOfDay.getTime() + 2 * 86400000)
+  const tomorrowJobs = allJobs.filter(j => { const d = new Date(j.start_time); return d >= tomorrowStart && d < tomorrowEnd }).sort((a, b) => a.start_time.localeCompare(b.start_time))
+
+  const Bar = ({ children }: { children: React.ReactNode }) => (
+    <div className="inline-block mb-3" style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.ink, fontWeight: 600, paddingBottom: '6px', borderBottom: `1px solid ${V.ink}`, minWidth: '100px' }}>
+      {children}
+    </div>
+  )
 
   return (
     <>
-      {/* SALES BAR */}
-      <BarLabel>Sales</BarLabel>
-      <div className="grid pb-6 mb-6" style={{ gridTemplateColumns: `repeat(${sales.length}, 1fr)`, borderBottom: '1px solid var(--color-loop-line)' }}>
-        {sales.map((s, i) => (
-          <StatCell key={i} s={s} />
+      {/* REVENUE LADDER */}
+      <Bar>Revenue</Bar>
+      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(5, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+        {revenueLadder.map((c, i, arr) => (
+          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: c.emphasize ? '#FBFBF6' : V.canvas }}>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
+            <div style={{ fontFamily: V.display, fontSize: c.emphasize ? '32px' : '26px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{formatMoney(c.val)}</div>
+            <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>{c.jobs} jobs</div>
+          </div>
         ))}
       </div>
 
-      {/* OPERATIONS BAR */}
-      <BarLabel>Operations</BarLabel>
-      <div className="grid pb-6 mb-6" style={{ gridTemplateColumns: `repeat(${ops.length}, 1fr)`, borderBottom: '1px solid var(--color-loop-line)' }}>
-        {ops.map((s, i) => (
-          <StatCell key={i} s={s} />
+      {/* JOBS LADDER */}
+      <Bar>Jobs</Bar>
+      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(4, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+        {volumeLadder.map((c, i, arr) => (
+          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
+            <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{c.val}</div>
+            <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>{c.sub}</div>
+          </div>
         ))}
       </div>
 
-      {/* PIPELINE BAR — split into Leads + Applications */}
-      <div className="grid pb-7 mb-8" style={{ gridTemplateColumns: '1fr 1px 1fr', gap: '28px', borderBottom: '1px solid var(--color-loop-line)' }}>
-        <div className="flex flex-col">
-          <BarLabel split>New Leads</BarLabel>
-          <div className="grid" style={{ gridTemplateColumns: `repeat(${Math.max(leads.length, 1)}, 1fr)` }}>
-            {leads.map((s, i) => (
-              <StatCell key={i} s={s} />
-            ))}
+      {/* JOBS BY MONTH */}
+      <Bar>{`Jobs · ${yearStr} by Month`}</Bar>
+      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(12, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+        {monthsByYear.map((m, i, arr) => (
+          <div key={m.label} className="px-3 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: m.isCurrent ? '#FBFBF6' : (m.isFuture ? 'transparent' : V.canvas) }}>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.14em', color: m.isCurrent ? V.ink : V.muted, fontWeight: 600, marginBottom: 6 }}>{m.label}</div>
+            <div style={{ fontFamily: V.display, fontSize: '22px', fontWeight: 500, color: m.count === 0 ? V.muted2 : V.ink, lineHeight: 1, fontFeatureSettings: '"tnum","lnum"' }}>{m.count}</div>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.muted, marginTop: 4 }}>{m.revenue > 0 ? formatMoney(m.revenue) : '—'}</div>
           </div>
-        </div>
-        <div style={{ background: 'var(--color-loop-line)', width: '1px' }} />
-        <div className="flex flex-col">
-          <BarLabel split>Job Applications</BarLabel>
-          <div className="grid" style={{ gridTemplateColumns: `repeat(${Math.max(apps.length, 1)}, 1fr)` }}>
-            {apps.map((s, i) => (
-              <StatCell key={i} s={s} />
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* ACTION CARDS */}
-      <div className="grid overflow-hidden rounded" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', background: 'var(--color-loop-line)', border: '1px solid var(--color-loop-line)' }}>
-        {ACTION_CARDS.map((c) => (
-          <Link
-            key={c.num}
-            href={c.href}
-            className="relative cursor-pointer transition-colors hover:bg-[#FBFBF8] group"
-            style={{ background: 'var(--color-loop-canvas)', padding: '24px 26px', minHeight: '130px', display: 'flex', flexDirection: 'column' }}
-          >
-            <span
-              className="absolute opacity-0 group-hover:opacity-100 transition-all"
-              style={{ top: '22px', right: '22px', fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)', fontSize: '14px' }}
-            >
-              →
-            </span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', color: 'var(--color-loop-muted-2)', letterSpacing: '0.1em', marginBottom: '14px', fontWeight: 500 }}>
-              {c.num}
-            </span>
-            <div style={{ fontFamily: 'var(--display)', fontSize: '22px', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.1, color: 'var(--color-loop-ink)', marginBottom: '6px' }}>
-              {c.title}
+      {/* KPIs */}
+      <Bar>KPIs</Bar>
+      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(4, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+        {kpis.map((k, i, arr) => (
+          <div key={k.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{k.label}</div>
+            <div style={{ fontFamily: V.display, fontSize: '24px', fontWeight: 500, color: V.ink }}>{k.val}</div>
+            <div style={{ fontFamily: V.mono, fontSize: '10px', color: V.muted, marginTop: 4 }}>{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* TODAY / TOMORROW */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {[{ label: 'Today · Schedule', jobs: todayJobs, empty: 'No jobs today', showStatus: true },
+          { label: 'Tomorrow · Schedule', jobs: tomorrowJobs, empty: 'No jobs tomorrow', showStatus: false }].map(col => (
+          <div key={col.label}>
+            <Bar>{col.label}</Bar>
+            <div style={{ background: V.canvas, border: `1px solid ${V.line}` }}>
+              {col.jobs.length === 0 ? (
+                <p className="p-4" style={{ color: V.muted }}>{col.empty}</p>
+              ) : col.jobs.map((job, i, arr) => (
+                <Link key={job.id} href={`/dashboard/bookings?edit=${job.id}`} className="flex items-start gap-3 p-3" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+                  <span style={{ width: 4, alignSelf: 'stretch', background: V.muted2, borderRadius: 2, flexShrink: 0 }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate" style={{ color: V.ink }}>{job.clients?.name || 'No client'}</p>
+                    <p className="text-sm truncate" style={{ color: V.muted }}>{job.service_type || 'Job'} · {job.team_members?.name || 'Unassigned'}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p style={{ fontFamily: V.mono, fontSize: '12px', color: V.ink }}>{formatTime(job.start_time)}</p>
+                    {col.showStatus && (
+                      <span style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.1em', color: job.status === 'completed' ? V.good : job.status === 'in_progress' ? V.warn : V.muted }}>
+                        {job.status === 'in_progress' ? 'live' : job.status}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              ))}
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--color-loop-muted)', lineHeight: 1.4 }}>
-              {c.desc}
-            </div>
-          </Link>
+          </div>
         ))}
       </div>
     </>
