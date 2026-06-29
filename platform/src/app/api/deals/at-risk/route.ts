@@ -54,7 +54,7 @@ export async function GET() {
       .from('deals')
       .select('client_id')
       .eq('tenant_id', tenantId)
-      .eq('stage', 'active')
+      .eq('status', 'active')
 
     const onSalesBoard = new Set(((activeDeals as Array<{ client_id: string }> | null) || []).map(d => d.client_id))
     const now = new Date()

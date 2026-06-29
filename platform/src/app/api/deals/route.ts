@@ -12,7 +12,7 @@ export async function GET() {
       .from('deals')
       .select('*, clients(id, name, email, phone, address, status, created_at)')
       .eq('tenant_id', tenantId)
-      .eq('stage', 'active')
+      .eq('status', 'active')
       .order('follow_up_at', { ascending: true, nullsFirst: false })
       .limit(500)
     if (error) throw error

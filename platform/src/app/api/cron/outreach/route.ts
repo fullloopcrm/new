@@ -99,7 +99,7 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
     .from('deals')
     .select('client_id')
     .eq('tenant_id', tenant.id)
-    .eq('stage', 'active')
+    .eq('status', 'active')
   const dealIds = new Set(((deals as Array<{ client_id: string }> | null) || []).map(d => d.client_id))
 
   const eligible = clients.filter(c =>
