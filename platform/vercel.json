@@ -28,6 +28,7 @@
     { "path": "/api/cron/phone-fixup",           "schedule": "0 13 * * *" },
     { "path": "/api/cron/refresh-job-postings",  "schedule": "0 3 * * *" },
     { "path": "/api/cron/comhub-email",          "schedule": "*/2 * * * *" },
-    { "path": "/api/cron/anthropic-health",      "schedule": "*/15 * * * *" }
+    { "path": "/api/cron/anthropic-health",      "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/jefe-heartbeat",        "schedule": "*/30 * * * *" }
   ]
 }
