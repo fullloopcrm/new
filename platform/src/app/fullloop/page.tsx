@@ -55,6 +55,18 @@ export default function FullLoopLoginPage() {
           <p className="text-sm font-body text-slate-400 mt-1">Enter your PIN to sign in</p>
         </div>
 
+        <input
+          autoFocus
+          type="password"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          onKeyDown={(e) => { if (e.key === 'Enter') login() }}
+          placeholder="Type your PIN"
+          className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-center text-xl font-mono tracking-widest placeholder:text-slate-500 placeholder:tracking-normal placeholder:text-base focus:outline-none focus:border-teal-500"
+        />
+
         <div className="flex justify-center gap-3 mb-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg font-mono font-bold transition-colors ${
