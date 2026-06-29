@@ -1,12 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 type Entry = {
   id: string
   title: string
   body: string
+  type?: string
+  priority?: string
   created_at: string
+}
+
+function postedAt(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' · ' +
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
 export default function ChangelogPage() {
@@ -28,14 +38,16 @@ export default function ChangelogPage() {
 
       <div className="max-w-2xl space-y-6">
         {entries.map((e) => (
-          <div key={e.id} className="border border-slate-200 rounded-lg p-6">
+          <Link key={e.id} href={`/dashboard/changelog/${e.id}`} className="block border border-slate-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
             <div className="flex items-center gap-3 mb-3">
-              <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium">NEW</span>
-              <span className="text-xs text-slate-400">{new Date(e.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+              <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium">
+                {e.priority === 'urgent' ? 'IMPORTANT' : e.type === 'maintenance' ? 'MAINTENANCE' : 'NEW'}
+              </span>
+              <span className="text-xs text-slate-400">{postedAt(e.created_at)}</span>
             </div>
             <h3 className="font-semibold text-slate-900 mb-2">{e.title}</h3>
-            <p className="text-sm text-slate-400 whitespace-pre-wrap leading-relaxed">{e.body}</p>
-          </div>
+            <p className="text-sm text-slate-400 whitespace-pre-wrap leading-relaxed line-clamp-3">{e.body}</p>
+          </Link>
         ))}
         {entries.length === 0 && (
           <div className="border border-slate-200 rounded-lg p-8 text-center text-slate-400">

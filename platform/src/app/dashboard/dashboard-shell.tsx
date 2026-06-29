@@ -7,6 +7,7 @@ import { UserButton } from '@clerk/nextjs'
 import ToastProvider from './toast-provider'
 import AutoPageSettings from './auto-page-settings'
 import SelenaBar from './selena-bar'
+import AnnouncementBanner from './announcement-banner'
 
 type SidebarCounts = {
   clients: number
@@ -423,6 +424,9 @@ export default function DashboardShell({
               {meta}
             </span>
           </div>
+
+          {/* PERSISTENT PLATFORM-UPDATES BANNER */}
+          <AnnouncementBanner />
 
           {/* MASTHEAD */}
           <div className="flex items-start justify-between pb-[22px] mb-8" style={{ borderBottom: '1px solid var(--color-loop-ink)' }}>

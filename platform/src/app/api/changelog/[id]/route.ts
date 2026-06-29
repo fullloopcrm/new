@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
-export async function GET() {
+// Single published update — backs the /dashboard/changelog/[id] detail page
+// (the "what's coming" page each banner notice links to).
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await getTenantForRequest() // auth check
   } catch (err) {
@@ -10,14 +12,14 @@ export async function GET() {
     throw err
   }
 
-  // Unified updates feed: every published platform_announcement (any type) is an
-  // "update", newest first. Powers the persistent banner + the all-updates page.
-  const { data: entries } = await supabaseAdmin
+  const { id } = await params
+  const { data: entry } = await supabaseAdmin
     .from('platform_announcements')
     .select('id, title, body, type, priority, created_at')
+    .eq('id', id)
     .eq('published', true)
-    .order('created_at', { ascending: false })
-    .limit(50)
+    .maybeSingle()
 
-  return NextResponse.json({ entries: entries || [] })
+  if (!entry) return NextResponse.json({ error: 'Update not found' }, { status: 404 })
+  return NextResponse.json({ entry })
 }
