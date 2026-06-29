@@ -1,187 +1,207 @@
-import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
-import AdminTodoList from './AdminTodoList'
+import { getPlatformHealth } from '@/lib/jefe/health'
+
+// Platform-operator dashboard. This is what Jefe watches: tenant health,
+// provisioning gaps, comms/cron/error signals, and (soon) tenant comms.
+// NOT a build checklist and NOT tenant ops.
+
+export const dynamic = 'force-dynamic'
+
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return 'never'
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
+
+const GAP_LABEL: Record<string, string> = { sms: 'Text', email: 'Email', payments: 'Charge' }
 
 export default async function AdminOverviewPage() {
-  const now = new Date()
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const h = await getPlatformHealth()
 
-  const [
-    { count: totalTenants },
-    { count: activeTenants },
-    { count: newThisWeek },
-    { count: totalBookings },
-    { count: totalClients },
-    { count: totalTeamMembers },
-    { data: recentTenants },
-    { data: recentAnnouncements },
-    { data: revenueData },
-    { count: pendingRequests },
-    { data: recentRequests },
-  ] = await Promise.all([
-    supabaseAdmin.from('tenants').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('tenants').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-    supabaseAdmin.from('tenants').select('id', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
-    supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('tenants').select('id, name, industry, status, plan, created_at, last_active_at').order('created_at', { ascending: false }).limit(8),
-    supabaseAdmin.from('platform_announcements').select('id, title, type, published, created_at').order('created_at', { ascending: false }).limit(5),
-    supabaseAdmin.from('bookings').select('final_price').in('status', ['paid', 'completed']).gte('created_at', monthAgo.toISOString()),
-    supabaseAdmin.from('partner_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabaseAdmin.from('partner_requests').select('id, business_name, service_category, city, state, created_at').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
-  ])
-
-  const monthlyRevenue = (revenueData || []).reduce((sum, b) => sum + (b.final_price || 0), 0)
-
-  const fmt = (cents: number) => '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })
-
-  function timeAgo(dateStr: string | null): string {
-    if (!dateStr) return 'Never'
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 60) return `${mins}m ago`
-    const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours}h ago`
-    const days = Math.floor(hours / 24)
-    return `${days}d ago`
-  }
+  const stats = [
+    { label: 'Tenants', value: h.provisioning.tenants_total, accent: 'border-l-slate-400' },
+    { label: 'New · 7d', value: h.lifecycle.new_7d, accent: 'border-l-teal-500' },
+    { label: 'Issues · 24h', value: h.stability.issues_24h, accent: h.stability.issues_24h > 0 ? 'border-l-amber-500' : 'border-l-slate-300' },
+    { label: 'Comms · 24h', value: `${h.comms.success_rate}%`, accent: h.comms.success_rate < 95 ? 'border-l-red-500' : 'border-l-green-500' },
+    { label: 'Stuck Pay', value: h.payments.stuck_unpaid_24h, accent: h.payments.stuck_unpaid_24h > 0 ? 'border-l-amber-500' : 'border-l-slate-300' },
+    { label: 'Errors · 24h', value: h.errors.last_24h, accent: h.errors.last_24h > 0 ? 'border-l-red-500' : 'border-l-slate-300' },
+  ]
 
   return (
     <div>
+      {/* HEADER */}
       <div className="mb-8">
         <h1 style={{ fontFamily: 'var(--display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
           Platform<em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
         </h1>
-        <p className="mt-2" style={{ fontSize: '13px', color: 'var(--color-loop-muted)' }}>All businesses across Full Loop CRM</p>
+        <p className="mt-2" style={{ fontSize: '13px', color: 'var(--color-loop-muted)' }}>
+          Live health across every tenant on Full Loop &mdash; what Jefe watches.
+        </p>
       </div>
 
-      {/* BUILD TO-DO */}
-      <AdminTodoList />
-
-      {/* STAT CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      {/* REVENUE ROW — placeholder until seat-based billing ($1k/admin + $100/team + setup) is wired. */}
+      <div className="grid grid-cols-3 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-900 px-5 py-4">
         {[
-          { label: 'Total Businesses', value: totalTenants || 0, color: 'border-l-gray-500' },
-          { label: 'Active', value: activeTenants || 0, color: 'border-l-green-500' },
-          { label: 'New This Week', value: newThisWeek || 0, color: 'border-l-teal-500' },
-          { label: '30-Day Revenue', value: fmt(monthlyRevenue), color: 'border-l-purple-500' },
-          { label: 'Pending Requests', value: pendingRequests || 0, color: 'border-l-yellow-500' },
-        ].map((s) => (
-          <div key={s.label} className={`border-l-4 ${s.color} pl-4 py-3`}>
+          { label: 'MRR', value: '$0' },
+          { label: 'ARR', value: '$0' },
+          { label: 'Setup Collected', value: '$0' },
+        ].map((r) => (
+          <div key={r.label}>
+            <p className="text-[10px] uppercase tracking-wide text-white/40">{r.label}</p>
+            <p className="text-3xl font-bold font-mono mt-1 text-white">{r.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* STAT STRIP */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-8">
+        {stats.map((s) => (
+          <div key={s.label} className={`border-l-4 ${s.accent} pl-4 py-3`}>
             <p className="text-[11px] text-slate-500 uppercase tracking-wide">{s.label}</p>
             <p className="text-2xl font-bold font-mono mt-1 text-slate-900">{s.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 mb-6 border-b border-slate-200 pb-6">
-        {[
-          { label: 'Bookings', value: totalBookings || 0, href: '/admin/analytics' },
-          { label: 'Clients', value: totalClients || 0 },
-          { label: 'Team Members', value: totalTeamMembers || 0 },
-        ].map((s) => (
-          <div key={s.label} className="py-3">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[11px] text-slate-500 uppercase tracking-wide">{s.label}</p>
-              {s.href && <Link href={s.href} className="text-[10px] text-teal-600 hover:text-teal-700">View</Link>}
-            </div>
-            <p className="text-xl font-bold font-mono text-slate-900">{s.value}</p>
+      {/* TENANT COMMUNICATION — placeholder (system not built yet) */}
+      <div className="mb-8 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Tenant Communication</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Broadcast and 1:1 messaging to tenant operators. Not built yet &mdash; coming.
+            </p>
           </div>
-        ))}
+          <span className="px-2.5 py-1 rounded text-[10px] font-medium bg-slate-200 text-slate-500 uppercase tracking-wide">Coming</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* RECENT SIGNUPS */}
-        <div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-8">
+        {/* TENANTS NEEDING ATTENTION */}
+        <section>
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
-            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Recent Signups</h2>
-            <Link href="/admin/businesses" className="text-xs text-teal-600 hover:text-teal-700">View All</Link>
+            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Tenants Needing Attention</h2>
+            <Link href="/admin/businesses" className="text-xs text-teal-600 hover:text-teal-700">All tenants</Link>
           </div>
           <div className="divide-y divide-slate-200">
-            {(recentTenants || []).map((t) => (
-              <Link key={t.id} href={`/admin/businesses/${t.id}`}
-                className="flex items-center justify-between py-3 hover:bg-slate-50 transition-colors">
-                <div>
-                  <p className="text-sm font-medium text-slate-900">{t.name}</p>
-                  <p className="text-xs text-slate-500 capitalize">{t.industry?.replace(/_/g, ' ')}</p>
+            {h.tenants_with_issues.slice(0, 8).map((t) => (
+              <Link
+                key={t.tenant_id}
+                href={`/admin/businesses/${t.tenant_id}`}
+                className="flex items-start justify-between py-3 hover:bg-slate-50 transition-colors"
+              >
+                <div className="min-w-0 pr-3">
+                  <p className="text-sm font-medium text-slate-900">{t.tenant_name}</p>
+                  <p className="text-xs text-slate-500 truncate">{t.latest}</p>
                 </div>
-                <div className="text-right">
-                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${
-                    t.status === 'active' ? 'bg-green-50 text-green-600 border border-green-200' :
-                    t.status === 'setup' ? 'bg-teal-50 text-teal-600 border border-teal-200' :
-                    'bg-slate-200 text-slate-400'
-                  }`}>
-                    {t.status}
+                <div className="text-right shrink-0">
+                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-600 border border-amber-200">
+                    {t.total} {t.total === 1 ? 'issue' : 'issues'}
                   </span>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{timeAgo(t.last_active_at)}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">{timeAgo(t.latest_at)}</p>
                 </div>
               </Link>
             ))}
-            {(!recentTenants || recentTenants.length === 0) && (
-              <div className="py-8 text-center text-slate-500 text-sm">No businesses yet</div>
+            {h.tenants_with_issues.length === 0 && (
+              <div className="py-8 text-center text-slate-500 text-sm">No tenants with open issues</div>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* RECENT ANNOUNCEMENTS */}
-        <div>
+        {/* PROVISIONING GAPS */}
+        <section>
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
-            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Recent Announcements</h2>
-            <Link href="/admin/announcements" className="text-xs text-teal-600 hover:text-teal-700">Manage</Link>
+            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Can&rsquo;t Operate Yet</h2>
+            <span className="text-xs text-slate-400">
+              {h.provisioning.fully_unprovisioned} fully blocked
+            </span>
           </div>
           <div className="divide-y divide-slate-200">
-            {(recentAnnouncements || []).map((a) => (
-              <div key={a.id} className="flex items-center justify-between py-3">
-                <div>
-                  <p className="text-sm font-medium text-slate-900">{a.title}</p>
-                  <p className="text-xs text-slate-500 capitalize">{a.type}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${a.published ? 'bg-green-400' : 'bg-slate-200'}`} />
-                  <span className="text-xs text-slate-500">{new Date(a.created_at).toLocaleDateString()}</span>
+            {h.provisioning.by_gap.slice(0, 8).map((g) => (
+              <div key={g.tenant_name} className="flex items-center justify-between py-3">
+                <p className="text-sm font-medium text-slate-900">{g.tenant_name}</p>
+                <div className="flex gap-1.5">
+                  {g.missing.map((m) => (
+                    <span key={m} className="px-2 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-600 border border-red-200">
+                      No {GAP_LABEL[m] ?? m}
+                    </span>
+                  ))}
                 </div>
               </div>
             ))}
-            {(!recentAnnouncements || recentAnnouncements.length === 0) && (
-              <div className="py-8 text-center text-slate-500 text-sm">No announcements yet</div>
+            {h.provisioning.by_gap.length === 0 && (
+              <div className="py-8 text-center text-slate-500 text-sm">Every tenant can text, email &amp; charge</div>
             )}
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* RECENT REQUESTS */}
-      <div className="border-l-4 border-l-yellow-500 pl-4">
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Recent Requests</h2>
-            {(pendingRequests || 0) > 0 && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-yellow-50 text-yellow-600 border border-yellow-200">
-                {pendingRequests} pending
-              </span>
-            )}
+        {/* PLATFORM SIGNALS */}
+        <section>
+          <div className="pb-3 mb-3 border-b border-slate-200">
+            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Platform Signals</h2>
           </div>
-          <Link href="/admin/requests" className="text-xs text-teal-600 hover:text-teal-700">View All</Link>
-        </div>
-        <div className="divide-y divide-slate-200">
-          {(recentRequests || []).map((r) => (
-            <Link key={r.id} href="/admin/requests"
-              className="flex items-center justify-between py-3 hover:bg-slate-50 transition-colors">
-              <div>
-                <p className="text-sm font-medium text-slate-900">{r.business_name}</p>
-                <p className="text-xs text-slate-500 capitalize">{r.service_category?.replace(/_/g, ' ')}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-slate-500">{r.city}, {r.state}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{timeAgo(r.created_at)}</p>
-              </div>
-            </Link>
-          ))}
-          {(!recentRequests || recentRequests.length === 0) && (
-            <div className="py-8 text-center text-slate-500 text-sm">No pending requests</div>
+          <dl className="space-y-2.5 text-sm">
+            <div className="flex items-center justify-between">
+              <dt className="text-slate-600">Silent crons</dt>
+              <dd className={`font-mono ${h.crons.silent.length > 0 ? 'text-red-600 font-semibold' : 'text-slate-400'}`}>
+                {h.crons.silent.length === 0 ? 'all firing' : h.crons.silent.map((c) => c.name).join(', ')}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-slate-600">Comms failed · 24h</dt>
+              <dd className={`font-mono ${h.comms.failed_24h > 0 ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>{h.comms.failed_24h}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-slate-600">Errors · 1h / 24h / 7d</dt>
+              <dd className="font-mono text-slate-700">{h.errors.last_1h} / {h.errors.last_24h} / {h.errors.last_7d}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-slate-600">Security events · 24h</dt>
+              <dd className="font-mono text-slate-700">{h.security.events_24h}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-slate-600">New inquiries · 7d</dt>
+              <dd className="font-mono text-slate-700">{h.sales.inquiries_new_7d}</dd>
+            </div>
+          </dl>
+        </section>
+
+        {/* QUIET / STUCK */}
+        <section>
+          <div className="pb-3 mb-3 border-b border-slate-200">
+            <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider">Stuck Payments &amp; Quiet Tenants</h2>
+          </div>
+          {h.payments.by_tenant.length > 0 ? (
+            <div className="divide-y divide-slate-200 mb-4">
+              {h.payments.by_tenant.slice(0, 5).map((p) => (
+                <div key={p.tenant_name} className="flex items-center justify-between py-2.5">
+                  <p className="text-sm text-slate-900">{p.tenant_name}</p>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-600 border border-amber-200">
+                    {p.count} unpaid &gt;24h
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500 mb-4">No payments stuck over 24h.</p>
           )}
-        </div>
+          {h.lifecycle.inactive.length > 0 && (
+            <>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wide mb-1.5">Gone quiet</p>
+              <div className="flex flex-wrap gap-1.5">
+                {h.lifecycle.inactive.slice(0, 8).map((t) => (
+                  <span key={t.tenant_name} className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                    {t.tenant_name} · {timeAgo(t.last_active)}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
       </div>
     </div>
   )
