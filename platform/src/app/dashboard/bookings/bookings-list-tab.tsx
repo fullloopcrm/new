@@ -97,74 +97,14 @@ export default function BookingsListTab() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  // New Booking modal state
-  const [showNew, setShowNew] = useState(false)
-  const [clients, setClients] = useState<{ id: string; name: string }[]>([])
-  const [team, setTeam] = useState<{ id: string; name: string }[]>([])
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState('')
-  const [nb, setNb] = useState({ client_id: '', date: '', time: '09:00', duration: 3, team_member_id: '', notes: '' })
-
-  function loadBookings() {
+  useEffect(() => {
     setLoading(true)
     fetch('/api/bookings?limit=200')
       .then((r) => r.json())
       .then((d) => setBookings((d?.bookings || []) as Booking[]))
       .catch(() => setBookings([]))
       .finally(() => setLoading(false))
-  }
-
-  useEffect(() => { loadBookings() }, [])
-
-  // Lazy-load clients + team the first time the modal opens. Both endpoints are
-  // tenant-scoped server-side, so this works for every tenant unchanged.
-  function openNewBooking() {
-    setFormError('')
-    setShowNew(true)
-    if (clients.length === 0) {
-      fetch('/api/clients?limit=500')
-        .then((r) => r.json())
-        .then((d) => setClients((d?.clients || []) as { id: string; name: string }[]))
-        .catch(() => {})
-    }
-    if (team.length === 0) {
-      fetch('/api/team')
-        .then((r) => r.json())
-        .then((d) => setTeam((d?.team || []) as { id: string; name: string }[]))
-        .catch(() => {})
-    }
-  }
-
-  async function submitNewBooking() {
-    setFormError('')
-    if (!nb.client_id) { setFormError('Pick a client.'); return }
-    if (!nb.date) { setFormError('Pick a date.'); return }
-    setSaving(true)
-    try {
-      const start = new Date(`${nb.date}T${nb.time}:00`)
-      const end = new Date(start.getTime() + Math.max(1, nb.duration) * 3600000)
-      const res = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: nb.client_id,
-          start_time: start.toISOString(),
-          end_time: end.toISOString(),
-          team_member_id: nb.team_member_id || undefined,
-          notes: nb.notes || undefined,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { setFormError(data?.error || 'Could not create booking.'); setSaving(false); return }
-      setShowNew(false)
-      setNb({ client_id: '', date: '', time: '09:00', duration: 3, team_member_id: '', notes: '' })
-      loadBookings()
-    } catch {
-      setFormError('Network error. Try again.')
-    } finally {
-      setSaving(false)
-    }
-  }
+  }, [])
 
   const counts = useMemo(() => {
     const c: Record<StatusKey, number> = { all: bookings.length, pending: 0, scheduled: 0, in_progress: 0, completed: 0, cancelled: 0 }
@@ -241,7 +181,7 @@ export default function BookingsListTab() {
           <button className="bk-btn bk-btn-ghost" type="button">Filters</button>
           <button className="bk-btn bk-btn-ghost" type="button">Waitlist</button>
           <button className="bk-btn bk-btn-ghost" type="button">Close Out</button>
-          <button className="bk-btn bk-btn-primary" type="button" onClick={openNewBooking}>+ New Booking</button>
+          <button className="bk-btn bk-btn-primary" type="button">+ New Booking</button>
         </div>
       </div>
 
@@ -385,73 +325,6 @@ export default function BookingsListTab() {
           )
         })}
       </div>
-
-      {showNew && (
-        <div
-          onClick={() => !saving && setShowNew(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1E2A4A' }}>New Booking</h2>
-              <button type="button" onClick={() => setShowNew(false)} style={{ fontSize: 20, color: '#94a3b8', lineHeight: 1 }}>×</button>
-            </div>
-
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Client *</label>
-            <select
-              value={nb.client_id}
-              onChange={(e) => setNb((p) => ({ ...p, client_id: e.target.value }))}
-              style={{ width: '100%', padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8, marginBottom: 12, fontSize: 14 }}
-            >
-              <option value="">{clients.length ? 'Select a client…' : 'Loading clients…'}</option>
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-
-            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Date *</label>
-                <input type="date" value={nb.date} onChange={(e) => setNb((p) => ({ ...p, date: e.target.value }))} style={{ width: '100%', padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 14 }} />
-              </div>
-              <div style={{ width: 110 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Time</label>
-                <input type="time" value={nb.time} onChange={(e) => setNb((p) => ({ ...p, time: e.target.value }))} style={{ width: '100%', padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 14 }} />
-              </div>
-              <div style={{ width: 80 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Hours</label>
-                <input type="number" min={1} max={12} value={nb.duration} onChange={(e) => setNb((p) => ({ ...p, duration: Number(e.target.value) }))} style={{ width: '100%', padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 14 }} />
-              </div>
-            </div>
-
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Team member (optional)</label>
-            <select
-              value={nb.team_member_id}
-              onChange={(e) => setNb((p) => ({ ...p, team_member_id: e.target.value }))}
-              style={{ width: '100%', padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8, marginBottom: 12, fontSize: 14 }}
-            >
-              <option value="">Unassigned</option>
-              {team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Notes (optional)</label>
-            <textarea
-              value={nb.notes}
-              onChange={(e) => setNb((p) => ({ ...p, notes: e.target.value }))}
-              rows={2}
-              style={{ width: '100%', padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8, marginBottom: 12, fontSize: 14, resize: 'vertical' }}
-            />
-
-            {formError && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{formError}</p>}
-
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setShowNew(false)} disabled={saving} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 600, fontSize: 14 }}>Cancel</button>
-              <button type="button" onClick={submitNewBooking} disabled={saving} style={{ padding: '9px 18px', borderRadius: 8, background: '#1E2A4A', color: '#fff', fontWeight: 700, fontSize: 14, opacity: saving ? 0.6 : 1 }}>{saving ? 'Creating…' : 'Create Booking'}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
