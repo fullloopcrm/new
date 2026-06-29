@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
-import { notifyTenantOwner } from '@/lib/jefe/actions'
 
 interface MsgRow {
   id: string
@@ -103,24 +102,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'tenant_id and body required' }, { status: 400 })
   }
 
-  // Resolve slug so we can reuse Jefe's owner-send (picks the tenant's own channel).
-  const { data: tenant } = await supabaseAdmin.from('tenants').select('slug, name').eq('id', tenant_id).limit(1).single()
+  const { data: tenant } = await supabaseAdmin.from('tenants').select('name').eq('id', tenant_id).limit(1).single()
   if (!tenant) return NextResponse.json({ error: 'tenant not found' }, { status: 404 })
 
-  const result = await notifyTenantOwner(tenant.slug || tenant.name, body, true)
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error || result.reason || 'send failed', detail: result }, { status: 502 })
-  }
+  // Level 1 is IN-PLATFORM ONLY — no SMS/email. Sending = storing a row the
+  // owner reads in their dashboard. channel 'platform', sender_role keeps it
+  // bot-ready (a future Jefe turn would post with sender_role 'jefe').
+  const { data: inserted, error } = await supabaseAdmin
+    .from('tenant_owner_messages')
+    .insert({
+      tenant_id,
+      direction: 'out', // out = from platform/admin → owner
+      channel: 'platform',
+      body,
+      sender: 'jeff',
+      sender_role: 'admin',
+      read_at: new Date().toISOString(), // admin's own message is "read" on the admin side
+    })
+    .select('id, direction, channel, body, sender, sender_role, created_at')
+    .single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Record the outbound turn in the thread.
-  await supabaseAdmin.from('tenant_owner_messages').insert({
-    tenant_id,
-    direction: 'out',
-    channel: result.channel,
-    body,
-    sender: 'jeff',
-    read_at: new Date().toISOString(),
-  })
-
-  return NextResponse.json({ ok: true, channel: result.channel, to: result.to })
+  return NextResponse.json({ ok: true, message: inserted })
 }

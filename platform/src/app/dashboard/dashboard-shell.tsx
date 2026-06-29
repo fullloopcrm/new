@@ -73,6 +73,7 @@ const navMain: Array<{
     { letter: 'G', label: 'Analytics', href: '/dashboard/analytics' },
     { letter: 'H', label: 'Map', href: '/dashboard/map' },
   ]},
+  { num: '08', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
 ]
 
 // Routes that conceptually fold under each top-level section. Used to
@@ -90,6 +91,7 @@ const foldMap: Record<string, string[]> = {
     '/dashboard/social', '/dashboard/google', '/dashboard/websites',
     '/dashboard/analytics', '/dashboard/map',
   ],
+  messages: ['/dashboard/messages'],
 }
 
 const navPlatform = [
