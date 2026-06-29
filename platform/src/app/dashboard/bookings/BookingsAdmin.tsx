@@ -818,22 +818,17 @@ function BookingsPage() {
       const patternChanged = recurringType !== oldRecurringType
 
       if (patternChanged && editingBooking.schedule_id && form.repeat_enabled) {
-        // Pattern changed: delete all future bookings and regenerate with correct dates
-        const futureBookings = bookings.filter(b =>
-          b.schedule_id === editingBooking.schedule_id &&
-          b.status === 'scheduled' &&
-          b.start_time >= editingBooking.start_time
-        )
-
-        // Delete all future bookings in this series
-        for (const booking of futureBookings) {
-          await fetch('/api/bookings/' + booking.id, { method: 'DELETE' })
-        }
-
-        // Update the schedule record with new pattern
+        // Pattern changed: one atomic server call replaces the old N+N
+        // delete-each / create-each loop (rule update + cancel-future +
+        // regenerate, all server-side). Only future scheduled/pending bookings
+        // from this booking forward are touched.
         const startDateObj = new Date(form.start_date + 'T12:00:00')
-        await fetch('/api/admin/recurring-schedules/' + editingBooking.schedule_id, {
-          method: 'PUT',
+        const newDates = generateRecurringDates(
+          form.start_date, true, form.repeat_type,
+          form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval
+        )
+        const res = await fetch('/api/admin/recurring-schedules/' + editingBooking.schedule_id + '/regenerate', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recurring_type: recurringType,
@@ -842,43 +837,19 @@ function BookingsPage() {
             duration_hours: form.hours,
             hourly_rate: form.hourly_rate,
             cleaner_id: form.cleaner_id,
+            service_type: form.service_type,
+            price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
+            status: 'scheduled',
             notes: form.notes || null,
+            dates: newDates,
+            from_date: editingBooking.start_time,
           })
         })
-
-        // Generate new dates using the correct pattern
-        const newDates = generateRecurringDates(
-          form.start_date, true, form.repeat_type,
-          form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval
-        )
-
-        // Create bookings on the correct dates
-        for (let i = 0; i < newDates.length; i++) {
-          const date = newDates[i]
-          const res = await fetch('/api/bookings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              client_id: editingBooking.client_id,
-              cleaner_id: form.cleaner_id,
-              start_time: buildNaiveTime(date, form.start_time),
-              end_time: buildNaiveTime(date, form.start_time, form.hours),
-              service_type: form.service_type,
-              price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
-              hourly_rate: form.hourly_rate,
-              recurring_type: recurringType,
-              notes: form.notes || null,
-              status: 'scheduled',
-              schedule_id: editingBooking.schedule_id,
-              skip_email: i > 0,
-            })
-          })
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: 'Unknown error' }))
-            alert(`Failed to create booking ${i + 1}/${newDates.length}: ${err.error || res.statusText}`)
-            setSaving(false)
-            return
-          }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+          alert(`Failed to update recurring series: ${err.error || res.statusText}`)
+          setSaving(false)
+          return
         }
       } else {
         // Pattern unchanged: shift times/update fields on existing bookings
