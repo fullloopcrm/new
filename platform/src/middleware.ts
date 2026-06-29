@@ -311,8 +311,8 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // /site/<slug> subtree. nycmaid keeps its own bespoke site (the live primary).
   const BESPOKE_SITE_TENANTS = new Set<string>([
     'consortium-nyc', 'debt-service-ratio-loan', 'fla-dumpster-rentals', 'landscaping-in-nyc',
-    'nyc-classifieds', 'nyc-mobile-salon', 'nyc-tow', 'nycmaid', 'nycroadsideemergencyassistance',
-    'stretch-ny', 'stretch-service',
+    'nyc-mobile-salon', 'nyc-tow', 'nycmaid', 'nycroadsideemergencyassistance',
+    'stretch-ny', 'stretch-service', 'sunnyside-clean-nyc', 'the-florida-maid',
     'the-home-services-company', 'the-nyc-exterminator', 'the-nyc-interior-designer',
     'the-nyc-marketing-company', 'the-nyc-seo', 'theroadsidehelper', 'toll-trucks-near-me',
     'wash-and-fold-hoboken', 'wash-and-fold-nyc', 'we-pay-you-junk',

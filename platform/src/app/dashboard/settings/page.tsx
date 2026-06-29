@@ -64,6 +64,9 @@ type Tenant = {
 
   // Selena AI config
   selena_config: Record<string, unknown> | null
+
+  // Agent / bot name — single source of truth read by both agent brains
+  agent_name: string | null
 }
 
 type ServiceType = {
@@ -1178,11 +1181,12 @@ export default function SettingsPage() {
                 </button>
               </div>
               <div>
-                <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">AI Name</label>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Bot Name</label>
                 <input
                   type="text"
-                  value={(selenaConfig.ai_name as string) || 'Selena'}
-                  onChange={(e) => setSelenaConfig({ ...selenaConfig, ai_name: e.target.value })}
+                  value={form.agent_name || ''}
+                  placeholder="Jefe"
+                  onChange={(e) => setForm({ ...form, agent_name: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900"
                 />
               </div>
@@ -1823,7 +1827,7 @@ export default function SettingsPage() {
 
           {/* Save Button */}
           <div className="pt-2">
-            <button onClick={saveSelenaConfig} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
+            <button onClick={async () => { await saveTenant(); await saveSelenaConfig() }} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
               {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
             </button>
           </div>

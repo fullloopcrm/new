@@ -7,6 +7,7 @@ import Link from 'next/link'
 type Business = {
   id: string
   name: string
+  agent_name: string | null
   industry: string
   slug: string
   phone: string | null
@@ -138,7 +139,7 @@ export default function OnboardingWizardPage() {
         setBusinessHours(b.business_hours || '')
         setPaymentMethods(Array.isArray(b.payment_methods) ? b.payment_methods : ['zelle', 'credit_card', 'cash'])
         const cfg = (b.selena_config || {}) as Record<string, unknown>
-        setAiName((cfg.ai_name as string) || 'Selena')
+        setAiName((b.agent_name as string) || (cfg.ai_name as string) || 'Jefe')
         setTone((cfg.tone as string) || 'warm_friendly')
         setLanguage((cfg.language as string) || 'en')
         setEmojiUsage((cfg.emoji_usage as string) || 'one_per_message')
@@ -218,7 +219,8 @@ export default function OnboardingWizardPage() {
     try {
       const currentCfg = (biz?.selena_config || {}) as Record<string, unknown>
       await patchBusiness({
-        selena_config: { ...currentCfg, ai_name: aiName, tone, language, emoji_usage: emojiUsage },
+        agent_name: aiName.trim() || 'Jefe',
+        selena_config: { ...currentCfg, tone, language, emoji_usage: emojiUsage },
       }, 'selena')
       setMsg('Saved')
       if (next) setStep('integrations')

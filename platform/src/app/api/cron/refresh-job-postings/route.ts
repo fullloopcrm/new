@@ -17,12 +17,19 @@ import { protectCronAPI } from '@/lib/nycmaid/auth'
 // sweeps every city/state/neighborhood page beneath it — including any
 // newly added pages — so the next crawl regenerates a fresh date.
 //
-// Adding a NEW TENANT? Add its career section root(s) below.
+// NEW TENANTS ARE AUTO-COVERED. Every new tenant renders from the shared
+// `/site/template`, so the `/site/template/...` roots below sweep all current
+// and future template tenants' career pages with no per-tenant edits. Only
+// hand-built (legacy) tenant sites with bespoke career URLs need an explicit
+// entry below.
 
 // Internal app-router section roots (post-rewrite `/site/<slug>/...`).
 // `revalidatePath(root, 'layout')` invalidates the entire subtree.
 const CAREER_SECTION_ROOTS: readonly string[] = [
-  // nycmaid (root tenant)
+  // Shared template — covers EVERY tenant that renders from it (all new tenants).
+  '/site/template/available-nyc-maid-jobs',
+  '/site/template/careers/operations-coordinator',
+  // nycmaid (root tenant / legacy shared tree)
   '/site/available-nyc-maid-jobs',
   '/site/careers/operations-coordinator',
   // landscaping-in-nyc

@@ -358,9 +358,9 @@ async function buildSystemPrompt(tenantId: string, config: SelenaConfig): Promis
   const startH = s.business_hours_start || 9
   const endH = s.business_hours_end || 17
 
-  // AI name — explicit selena_config.ai_name wins; otherwise fall back to the
-  // tenant's agent_name column (FullLoop default 'Jefe', nycmaid set to 'Yinez').
-  const aiName = config.ai_name || (tenantRow as { agent_name?: string } | null)?.agent_name || 'Jefe'
+  // AI name — single source of truth is the tenant's agent_name column (read by
+  // both agent brains). Legacy selena_config.ai_name kept as fallback only.
+  const aiName = (tenantRow as { agent_name?: string } | null)?.agent_name || config.ai_name || 'Jefe'
 
   // Personality tone
   const toneMap: Record<string, string> = {
