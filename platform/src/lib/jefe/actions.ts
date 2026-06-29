@@ -82,7 +82,20 @@ export async function provisionChecklist(identifier: string) {
 // ---- 2. notify_tenant_owner (CONFIRM-GATED outbound) ----
 // Picks the tenant's OWN channel (their telnyx/resend). If unprovisioned, returns
 // the owner's contact so Jeff can reach them manually — never silently no-ops.
-export async function notifyTenantOwner(identifier: string, message: string, confirm: boolean) {
+export interface NotifyResult {
+  ok: boolean
+  preview?: boolean
+  sent?: boolean
+  tenant?: string
+  channel?: 'sms' | 'email' | 'none'
+  to?: string
+  draft?: string
+  error?: string
+  reason?: string
+  manual_contact?: { name: string | null; email: string | null; phone: string | null }
+}
+
+export async function notifyTenantOwner(identifier: string, message: string, confirm: boolean): Promise<NotifyResult> {
   const t = await findTenant(identifier)
   if (!t) return { ok: false, error: `No single tenant matched "${identifier}". Use the exact slug or name.` }
   if (!has(message)) return { ok: false, error: 'message is empty' }

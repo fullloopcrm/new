@@ -19,16 +19,9 @@ type Section = {
 
 const navMain: Section[] = [
   { num: '00', label: 'Overview', href: '/admin', fold: 'overview', subs: [] },
-  { num: '01', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [
-    { letter: 'A', label: 'Businesses', href: '/admin/businesses' },
-  ]},
-  { num: '02', label: 'Sales', href: '/admin/leads', fold: 'sales', subs: [
-    { letter: 'A', label: 'Leads', href: '/admin/leads' },
-    { letter: 'B', label: 'Activate', href: '/admin/sales' },
-    { letter: 'C', label: 'Billing', href: '/admin/billing' },
-  ]},
-  { num: '03', label: 'Inbox', href: '/admin/inbox', fold: 'inbox', subs: [] },
-  { num: '04', label: 'Selena AI', href: '/admin/ai', fold: 'ai', subs: [] },
+  { num: '01', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [] },
+  { num: '02', label: 'Inbox', href: '/admin/inbox', fold: 'inbox', subs: [] },
+  { num: '03', label: 'Tenant Chats', href: '/admin/tenant-chats', fold: 'tenant-chats', subs: [] },
 ]
 
 const navPlatform = [
@@ -36,9 +29,7 @@ const navPlatform = [
   { label: 'Monitoring', href: '/admin/monitoring' },
   { label: 'Security', href: '/admin/security' },
   { label: 'Announcements', href: '/admin/announcements' },
-  { label: 'Changelog', href: '/admin/changelog' },
   { label: 'Settings', href: '/admin/settings' },
-  { label: 'Docs', href: '/admin/docs' },
 ]
 
 export default async function AdminLayout({
