@@ -42,7 +42,7 @@ export interface BookingChecklist {
   service_type: 'regular' | 'deep' | 'move_in_out' | 'airbnb' | 'emergency' | null
   bedrooms: number | null
   bathrooms: number | null
-  rate: 49 | 59 | 75 | 79 | 99 | 100 | null
+  rate: 49 | 59 | 65 | 69 | 75 | 79 | 89 | 99 | 100 | null
   day: string | null
   date: string | null
   time: string | null
@@ -672,7 +672,7 @@ export async function extractAndSave(
       const rateNum = lower.match(/\$?(\d{2,3})(?:\s*(?:\/hr|per hour|an hour|one))?/)
       if (rateNum) {
         const val = parseInt(rateNum[1])
-        if (val === 49 || val === 59 || val === 75 || val === 79 || val === 99 || val === 100) extracted.rate = val as 49 | 59 | 75 | 79 | 99 | 100
+        if (val === 49 || val === 59 || val === 65 || val === 69 || val === 75 || val === 79 || val === 89 || val === 99 || val === 100) extracted.rate = val as 49 | 59 | 65 | 69 | 75 | 79 | 89 | 99 | 100
       }
     }
     if (!extracted.rate) {

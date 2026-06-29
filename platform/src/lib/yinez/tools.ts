@@ -196,6 +196,8 @@ export async function runTool(
       return await handleScoreCleaners(input as { date: string; time: string; duration_hours: number; client_address?: string; client_id?: string; exclude_booking_id?: string; hourly_rate?: number })
     case 'get_smart_suggestion':
       return await handleGetSmartSuggestion(input as { booking_id: string }, tid)
+    case 'suggest_times':
+      return await handleSuggestTimes(input as { date: string; duration_hours: number; client_address?: string; client_id?: string; hourly_rate?: number; team_size?: number; requested_time?: string; exclude_booking_id?: string }, tid)
     default:
       return JSON.stringify({ error: `unknown tool: ${name}` })
   }
@@ -280,6 +282,49 @@ async function handleGetSmartSuggestion(input: { booking_id: string }, tid: stri
       conflict: s.conflict || null,
       zone_match: s.zone_match,
     })),
+  })
+}
+
+// ── suggest_times — OWNER-ONLY alternate-time finder (ported from nyc maid) ──
+// When nobody fits the requested time, scan the day and return the best ALTERNATE
+// start times, each paired with the cleaner who fits it, smart-cluster ranked.
+async function handleSuggestTimes(
+  input: { date: string; duration_hours: number; client_address?: string; client_id?: string; hourly_rate?: number; team_size?: number; requested_time?: string; exclude_booking_id?: string },
+  tid: string,
+): Promise<string> {
+  if (!input.date || !input.duration_hours) {
+    return JSON.stringify({ error: 'date and duration_hours are required' })
+  }
+  const { suggestBookingSlots } = await import('@/lib/smart-schedule')
+  const reqRaw = input.requested_time?.replace(/[^\d:]/g, '')
+  let requestedTime: string | undefined
+  if (reqRaw) {
+    const [h, m] = reqRaw.split(':').map(Number)
+    requestedTime = `${String(h || 0).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`
+  }
+  const suggestions = await suggestBookingSlots({
+    tenantId: tid,
+    date: input.date,
+    durationHours: input.duration_hours,
+    clientAddress: input.client_address || '',
+    clientId: input.client_id,
+    hourlyRate: input.hourly_rate,
+    teamSize: input.team_size,
+    requestedTime,
+    excludeBookingId: input.exclude_booking_id,
+  })
+  return JSON.stringify({
+    date: input.date,
+    requested_time: requestedTime || null,
+    suggestions: suggestions.map((s) => ({
+      time: s.label,
+      time_24h: s.time24,
+      cleaner: s.cleanerName,
+      reason: s.reason,
+      score: s.score,
+      ...(s.teamShort != null ? { team_short: s.teamShort } : {}),
+    })),
+    note: suggestions.length === 0 ? 'No alternate times work that day with current staffing.' : null,
   })
 }
 
