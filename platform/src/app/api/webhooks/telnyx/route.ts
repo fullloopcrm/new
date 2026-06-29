@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     // Find tenant by their Telnyx phone number
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone')
+      .select('id, name, telnyx_api_key, telnyx_phone, owner_phone')
       .eq('telnyx_phone', to)
       .single()
 
@@ -115,6 +115,22 @@ export async function POST(request: Request) {
 
     const tenantId = tenant.id
     const normalizedText = text.trim().toUpperCase()
+
+    // Owner inbound — if this SMS is from the tenant's OWNER (not a client), it's
+    // a reply in the platform owner<->admin chat, not a booking conversation.
+    // Route it to tenant_owner_messages and stop; don't run client/Selena logic.
+    const ownerDigits = (tenant.owner_phone || '').replace(/\D/g, '')
+    const fromDigits = String(from).replace(/\D/g, '')
+    if (ownerDigits.length >= 10 && fromDigits.endsWith(ownerDigits.slice(-10))) {
+      await supabaseAdmin.from('tenant_owner_messages').insert({
+        tenant_id: tenantId, direction: 'in', channel: 'sms', body: text, sender: 'owner',
+      })
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: tenantId, type: 'owner_message', title: `Owner reply — ${tenant.name}`,
+        message: text.slice(0, 200), channel: 'system', recipient_type: 'admin',
+      })
+      return NextResponse.json({ received: true, routed: 'owner_chat' })
+    }
 
     // ============================================
     // STOP/UNSUBSCRIBE — Revoke SMS consent
