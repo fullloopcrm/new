@@ -1095,6 +1095,23 @@ function BookingsPage() {
             }
           }
         }
+      } else if (editingBooking.schedule_id) {
+        // Single occurrence of a recurring series → record a skip exception.
+        // This removes THIS date's booking AND stops the generator from
+        // refilling it, without disturbing the rest of the series. Cleaner than
+        // a bare delete the cron could regenerate.
+        const occDate = editingBooking.start_time.split('T')[0]
+        const res = await fetch('/api/admin/recurring-schedules/' + editingBooking.schedule_id + '/exception', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ occurrence_date: occDate, type: 'skip' }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: res.statusText }))
+          alert(`Failed to cancel this occurrence: ${err.error || 'Unknown error'}`)
+          setSaving(false)
+          return
+        }
       } else {
         const res = await fetch('/api/bookings/' + editingBooking.id, { method: 'DELETE' })
         if (!res.ok) {
