@@ -97,6 +97,7 @@ const foldMap: Record<string, string[]> = {
 
 const navPlatform = [
   { label: 'Settings', href: '/dashboard/settings' },
+  { label: 'Users', href: '/dashboard/users' },
   { label: 'Selena', href: '/dashboard/selena' },
   { label: 'Notifications', href: '/dashboard/notifications' },
   { label: 'Activity', href: '/dashboard/activity' },
