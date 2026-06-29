@@ -232,6 +232,48 @@ export async function retryFailedNotifications(identifier?: string, sinceHours =
   }
 }
 
+// ---- Platform messaging (Level 1/2): the in-app admin<->owner thread ----
+// IN-PLATFORM ONLY — these write to tenant_owner_messages, NOT SMS/email.
+// notify_tenant_owner is the external-channel reach; these are the in-app chat.
+
+// READ-ONLY: Jefe reads a tenant's owner thread.
+export async function readTenantThread(identifier: string, limit = 30) {
+  const t = await findTenant(identifier)
+  if (!t) return { ok: false, error: `No single tenant matched "${identifier}". Use the exact slug or name.` }
+  const { data, error } = await supabaseAdmin
+    .from('tenant_owner_messages')
+    .select('direction, body, sender, sender_role, created_at')
+    .eq('tenant_id', t.id)
+    .order('created_at', { ascending: false })
+    .limit(Math.min(limit, 100))
+  if (error) return { ok: false, error: error.message }
+  const messages = (data || []).reverse().map((m) => ({
+    from: m.sender_role || (m.direction === 'in' ? 'owner' : 'admin'),
+    body: m.body,
+    at: m.created_at,
+  }))
+  return { ok: true, tenant: t.name, count: messages.length, messages }
+}
+
+// CONFIRM-GATED: Jefe posts an in-app message into the owner thread (sender_role 'jefe').
+export async function sendTenantMessage(identifier: string, message: string, confirm: boolean) {
+  const t = await findTenant(identifier)
+  if (!t) return { ok: false, error: `No single tenant matched "${identifier}". Use the exact slug or name.` }
+  if (!has(message)) return { ok: false, error: 'message is empty' }
+  if (!confirm) return { ok: true, preview: true, tenant: t.name, channel: 'platform', draft: message }
+  const { error } = await supabaseAdmin.from('tenant_owner_messages').insert({
+    tenant_id: t.id,
+    direction: 'out', // out = platform → owner
+    channel: 'platform',
+    body: message,
+    sender: 'jefe',
+    sender_role: 'jefe',
+    read_at: new Date().toISOString(),
+  })
+  if (error) return { ok: false, error: error.message, tenant: t.name }
+  return { ok: true, sent: true, tenant: t.name, channel: 'platform' }
+}
+
 // ---- Jefe's own conversation history (multi-turn confirm-then-act) ----
 export async function loadJefeHistory(limit = 10): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
   const { data } = await supabaseAdmin

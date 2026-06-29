@@ -55,10 +55,10 @@ export async function GET(request: NextRequest) {
   if (tenantsRes.error) return NextResponse.json({ error: tenantsRes.error.message }, { status: 500 })
 
   const msgs = (msgsRes.data || []) as Array<Pick<MsgRow, 'tenant_id' | 'direction' | 'body' | 'read_at' | 'created_at'>>
-  const lastByTenant = new Map<string, { body: string; created_at: string }>()
+  const lastByTenant = new Map<string, { body: string; created_at: string; direction: 'in' | 'out' }>()
   const unreadByTenant = new Map<string, number>()
   for (const m of msgs) {
-    if (!lastByTenant.has(m.tenant_id)) lastByTenant.set(m.tenant_id, { body: m.body, created_at: m.created_at })
+    if (!lastByTenant.has(m.tenant_id)) lastByTenant.set(m.tenant_id, { body: m.body, created_at: m.created_at, direction: m.direction })
     if (m.direction === 'in' && !m.read_at) unreadByTenant.set(m.tenant_id, (unreadByTenant.get(m.tenant_id) || 0) + 1)
   }
 
@@ -73,10 +73,13 @@ export async function GET(request: NextRequest) {
       last_message: last?.body?.slice(0, 120) || null,
       last_at: last?.created_at || null,
       unread: unreadByTenant.get(t.id) || 0,
+      // Triage: the owner sent the last message and it's unanswered.
+      needs_reply: last?.direction === 'in',
     }
   })
-  // Threads with activity first (most recent), then the rest alphabetically.
+  // Needs-reply first, then most-recent activity, then the rest alphabetically.
   threads.sort((a, b) => {
+    if (a.needs_reply !== b.needs_reply) return a.needs_reply ? -1 : 1
     if (a.last_at && b.last_at) return b.last_at.localeCompare(a.last_at)
     if (a.last_at) return -1
     if (b.last_at) return 1

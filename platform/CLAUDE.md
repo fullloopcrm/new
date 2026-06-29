@@ -32,3 +32,12 @@ These predate the rule and VIOLATE it — they are full per-tenant operator clon
 Cutover required: repoint these tenants' operators to the global `/dashboard` + `/admin` (they currently use their own `(app)/login`), verify, THEN delete the clones. Do not delete before the auth/routing cutover — it would dark a live tenant's admin.
 
 Until migrated, **do not add features to these clones.** Build in global only.
+
+## Platform Messaging (admin ↔ tenant owner)
+
+Two-way in-app messaging, threaded per tenant in `tenant_owner_messages`. **Global** like everything else.
+
+- **Admin:** `/admin/tenant-chats` (+ `/api/admin/tenant-chats`). **Owner:** `/dashboard/messages` (+ `/api/dashboard/messages`, tenant-scoped via `getTenantForRequest`).
+- **Level 1 is IN-PLATFORM ONLY** — sending stores a row with `channel:'platform'`; it does **not** send SMS/email. External owner reach is a separate path (`notifyTenantOwner` / Jefe `notify_tenant_owner`).
+- **Bot-ready (Level 2):** every row has `sender_role` (`admin|owner|jefe|tenant_agent`) + `meta` jsonb. Jefe tools: `read_tenant_thread`, `send_tenant_message` (confirm-gated). A bot reply is just an insert with `sender_role:'jefe'`.
+- Live refresh = 15s polling; true push-realtime is pending RLS on `tenant_owner_messages`.

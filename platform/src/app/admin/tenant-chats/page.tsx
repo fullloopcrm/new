@@ -51,6 +51,15 @@ export default function TenantChatsPage() {
   }, [])
 
   useEffect(() => { loadThreads() }, [loadThreads])
+  // Live-ish refresh: poll threads + the open thread while the tab is visible.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      loadThreads()
+      if (active) openThread(active)
+    }, 15000)
+    return () => clearInterval(id)
+  }, [loadThreads, openThread, active])
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function send() {

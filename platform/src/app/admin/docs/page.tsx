@@ -35,9 +35,28 @@ const sections: DocSection[] = [
 - **Client Portal** — Clients authenticate via phone or email verification codes.
 - **Impersonation** — Admins can impersonate any tenant via \`fl_impersonate\` cookie. Supports both Clerk super-admin and PIN-based admin.
 
-**Plans & Feature Gating:**
-- Tenants subscribe to plans: Starter, Growth, Pro
-- Plan determines available features, team member limits, and integrations`,
+**Pricing (one model — no tiers):**
+- **$1,000/mo per admin seat** + **$100/mo per field team-member seat**
+- **$25,000 one-time setup** (white-glove onboarding)
+- Every feature included — there are no Starter/Growth/Pro tiers and no feature gating
+- One operator per trade per city (exclusive territory)`,
+  },
+  {
+    id: 'platform-messaging',
+    title: 'Platform Messaging',
+    content: `Two-way messaging between the platform admin and each tenant's OWNER. Threaded per tenant, stored in \`tenant_owner_messages\`.
+
+**Level 1 — human ↔ human (live):**
+- Admin side: \`/admin/tenant-chats\` — every tenant as a thread, owner replies surface here. Threads needing a reply sort to the top.
+- Owner side: \`/dashboard/messages\` — the owner reads admin messages and replies.
+- **In-platform only** — sending stores a row (\`channel: 'platform'\`); it does NOT send SMS or email. (For external SMS/email to an owner, Jefe uses \`notify_tenant_owner\`, a separate path.)
+- Both views poll every 15s while visible. True push-realtime is pending RLS policies.
+
+**Level 2 — bot ↔ bot (groundwork in place):**
+- Every message carries \`sender_role\` (\`admin\` | \`owner\` | \`jefe\` | \`tenant_agent\`) and a \`meta\` jsonb for future intent/summary.
+- Jefe has tools \`read_tenant_thread\` (read-only) and \`send_tenant_message\` (confirm-gated) — a Jefe post is just an insert with \`sender_role: 'jefe'\`, no new plumbing.
+
+**Schema — \`tenant_owner_messages\`:** \`tenant_id, direction ('in'=from owner | 'out'=from platform), channel, body, sender, sender_role, meta jsonb, read_at, created_at\`. Indexed on \`(tenant_id, created_at)\` and a partial unread index.`,
   },
   {
     id: 'architecture',

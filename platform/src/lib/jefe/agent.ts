@@ -12,6 +12,8 @@ import {
   createTask,
   listTasks,
   retryFailedNotifications,
+  readTenantThread,
+  sendTenantMessage,
 } from '@/lib/jefe/actions'
 
 export interface JefeResult {
@@ -149,6 +151,33 @@ const TOOLS: Anthropic.Tool[] = [
       required: [],
     },
   },
+  {
+    name: 'read_tenant_thread',
+    description:
+      "Read the in-platform message thread between Full Loop and a tenant's OWNER (the admin<->owner chat shown in Tenant Chats). READ-ONLY. Use to see what an owner said before replying.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        tenant: { type: 'string', description: 'tenant slug or name' },
+        limit: { type: 'number', description: 'how many recent messages, default 30' },
+      },
+      required: ['tenant'],
+    },
+  },
+  {
+    name: 'send_tenant_message',
+    description:
+      "Post an IN-PLATFORM message into a tenant owner's chat thread (appears in their dashboard Messages — NOT an SMS or email). CONFIRM-GATED: confirm=false returns a preview draft; confirm=true posts it (only after Jeff says yes). For external SMS/email use notify_tenant_owner instead.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        tenant: { type: 'string', description: 'tenant slug or name' },
+        message: { type: 'string', description: 'the in-platform message to the owner' },
+        confirm: { type: 'boolean', description: 'false = preview only; true = actually post (after Jeff says yes)' },
+      },
+      required: ['tenant', 'message', 'confirm'],
+    },
+  },
 ]
 
 type ToolInput = Record<string, unknown>
@@ -166,6 +195,12 @@ async function runTool(name: string, input: ToolInput = {}): Promise<string> {
       break
     case 'notify_tenant_owner':
       out = await notifyTenantOwner(str(input.tenant), str(input.message), bool(input.confirm))
+      break
+    case 'read_tenant_thread':
+      out = await readTenantThread(str(input.tenant), typeof input.limit === 'number' ? input.limit : 30)
+      break
+    case 'send_tenant_message':
+      out = await sendTenantMessage(str(input.tenant), str(input.message), bool(input.confirm))
       break
     case 'rerun_cron':
       out = await rerunCron(str(input.name), bool(input.confirm))

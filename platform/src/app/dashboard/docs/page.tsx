@@ -164,6 +164,15 @@ export default function DocsPage() {
           </div>
         </section>
 
+        <section>
+          <h3 className="text-lg font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-200">Messages &mdash; Your Line to Full Loop</h3>
+          <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
+            <p>The <strong>Messages</strong> tab is your direct, in-app line to the Full Loop team &mdash; separate from client/team communications. Use it for account questions, support, billing, or anything platform-related.</p>
+            <p><strong>In-app only:</strong> these messages live inside your dashboard. They are not texts or emails &mdash; you&apos;ll see replies here when you open the Messages tab.</p>
+            <p><strong>How it works:</strong> type a message and send. The Full Loop team sees it on their side and replies in the same thread. The view refreshes automatically while it&apos;s open.</p>
+          </div>
+        </section>
+
         {/* Web Chat */}
         <section>
           <h3 className="text-lg font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-200">Web Chat</h3>

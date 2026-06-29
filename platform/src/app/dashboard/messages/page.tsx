@@ -32,6 +32,11 @@ export default function OwnerMessagesPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  // Live-ish refresh: poll while the tab is visible (true push-realtime needs RLS).
+  useEffect(() => {
+    const id = setInterval(() => { if (document.visibilityState === 'visible') load() }, 15000)
+    return () => clearInterval(id)
+  }, [load])
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, sending])
 
   async function send() {

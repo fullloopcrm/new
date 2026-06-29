@@ -19,9 +19,13 @@ type Section = {
 
 const navMain: Section[] = [
   { num: '00', label: 'Overview', href: '/admin', fold: 'overview', subs: [] },
-  { num: '01', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [] },
-  { num: '02', label: 'Inbox', href: '/admin/inbox', fold: 'inbox', subs: [] },
-  { num: '03', label: 'Tenant Chats', href: '/admin/tenant-chats', fold: 'tenant-chats', subs: [] },
+  { num: '01', label: 'Sales', href: '/admin/leads', fold: 'sales', subs: [
+    { letter: 'A', label: 'Leads', href: '/admin/leads' },
+    { letter: 'B', label: 'Pipeline', href: '/admin/sales' },
+  ]},
+  { num: '02', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [] },
+  { num: '03', label: 'Inbox', href: '/admin/inbox', fold: 'inbox', subs: [] },
+  { num: '04', label: 'Tenant Chats', href: '/admin/tenant-chats', fold: 'tenant-chats', subs: [] },
 ]
 
 const navPlatform = [
