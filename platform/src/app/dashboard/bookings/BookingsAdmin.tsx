@@ -1035,6 +1035,7 @@ function BookingsPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           client_id: createForm.client_id,
+          property_id: createForm.property_id || null,
           cleaner_id: createForm.cleaner_id,
           recurring_type: recurringType,
           day_of_week: new Date(createForm.start_date + 'T12:00:00').getDay(),

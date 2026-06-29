@@ -15,6 +15,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const {
     client_id,
+    property_id,
     frequency,
     start_date,
     time,
@@ -97,6 +98,7 @@ export async function POST(request: Request) {
     .insert({
       tenant_id: tenantId,
       client_id,
+      property_id: property_id || null,
       team_member_id: cleaner_id || null,
       recurring_type: recurringType,
       day_of_week: dayOfWeek,
@@ -126,6 +128,7 @@ export async function POST(request: Request) {
     return {
       tenant_id: tenantId,
       client_id,
+      property_id: property_id || null,
       team_member_id: cleaner_id || null,
       start_time: startISO,
       end_time: endISO,

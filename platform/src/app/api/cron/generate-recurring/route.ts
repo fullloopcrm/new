@@ -106,6 +106,7 @@ export async function GET(request: Request) {
       return {
         tenant_id: schedule.tenant_id,
         client_id: schedule.client_id,
+        property_id: schedule.property_id || null,
         team_member_id: canTake ? schedule.team_member_id : null,
         service_type_id: schedule.service_type_id,
         service_type: serviceType,

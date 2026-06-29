@@ -12,6 +12,7 @@ import { sendSMS } from '@/lib/sms'
 import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { getSettings } from '@/lib/settings'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabaseAdmin
       .from('bookings')
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone)', { count: 'exact' })
+      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)', { count: 'exact' })
       .eq('tenant_id', tenantId)
       .order('start_time', { ascending: false })
       .range(offset, offset + limit - 1)
@@ -51,6 +52,10 @@ export async function GET(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Render each booking under ITS property's address (multi-address clients),
+    // falling back to the client's legacy address when no property is set.
+    for (const b of data || []) applyPropertyToBookingClient(b as Parameters<typeof applyPropertyToBookingClient>[0])
 
     return NextResponse.json({ bookings: data, total: count })
   } catch (e) {
