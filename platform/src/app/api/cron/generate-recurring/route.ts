@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
+import { getSettings } from '@/lib/settings'
+import { getBookingAddress } from '@/lib/client-properties'
+import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
@@ -99,15 +102,63 @@ export async function GET(request: Request) {
       return slotWithinHours(mem.schedule, dateStr, startMin, startMin + durH * 60)
     }
 
-    const bookings = dates.map((d) => {
+    // Smart-assign (per-tenant flag, default OFF). When ON, each occurrence is
+    // scored: the schedule's preferred member is kept if available, otherwise the
+    // best-scoring available member is assigned, otherwise unassigned + flagged —
+    // instead of hard-locking one member and going unassigned the moment they're
+    // off. Flag OFF → byte-identical to the prior binary-lock behavior.
+    const { smart_recurring_assign: smartAssign } = await getSettings(schedule.tenant_id)
+    let jobAddr: { address: string | null; latitude: number | null; longitude: number | null } | null = null
+    if (smartAssign) {
+      jobAddr = await getBookingAddress({ propertyId: schedule.property_id, clientId: schedule.client_id })
+    }
+    const startHHMM = (): string => {
+      if (schedule.preferred_time) return String(schedule.preferred_time).slice(0, 5)
+      const m = startMinForDate(new Date())
+      return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+    }
+
+    const bookings: Record<string, unknown>[] = []
+    for (const d of dates) {
       const endTime = new Date(d)
       endTime.setHours(endTime.getHours() + durH)
-      const canTake = memberCanTake(d)
-      return {
+      const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+
+      let assignedId: string | null
+      let unassignedNote: string | null = null
+
+      if (smartAssign) {
+        const scores = await scoreTeamForBooking({
+          tenantId: schedule.tenant_id,
+          date: dateStr,
+          startTime: startHHMM(),
+          durationHours: durH,
+          clientAddress: jobAddr?.address || '',
+          clientId: schedule.client_id,
+          hourlyRate: schedule.hourly_rate != null ? Number(schedule.hourly_rate) : undefined,
+          jobCoords: jobAddr?.latitude != null && jobAddr?.longitude != null
+            ? { lat: Number(jobAddr.latitude), lng: Number(jobAddr.longitude) }
+            : undefined,
+        })
+        const preferredStillFits = schedule.team_member_id
+          ? scores.find((s) => s.id === schedule.team_member_id && s.available)
+          : null
+        const chosen = preferredStillFits || pickBestTeam(scores, 1).lead
+        assignedId = chosen?.id ?? null
+        if (!assignedId) unassignedNote = `[Auto: no available team member for ${dateStr} — needs assignment]`
+      } else {
+        const canTake = memberCanTake(d)
+        assignedId = canTake ? schedule.team_member_id : null
+        if (!assignedId && schedule.team_member_id) {
+          unassignedNote = `[Auto: ${mem?.name || 'assigned member'} unavailable this date — needs reassignment]`
+        }
+      }
+
+      bookings.push({
         tenant_id: schedule.tenant_id,
         client_id: schedule.client_id,
         property_id: schedule.property_id || null,
-        team_member_id: canTake ? schedule.team_member_id : null,
+        team_member_id: assignedId,
         service_type_id: schedule.service_type_id,
         service_type: serviceType,
         schedule_id: schedule.id,
@@ -116,12 +167,12 @@ export async function GET(request: Request) {
         status: 'scheduled',
         hourly_rate: schedule.hourly_rate,
         pay_rate: schedule.pay_rate,
-        notes: canTake
-          ? schedule.notes
-          : `${schedule.notes ? schedule.notes + ' — ' : ''}[Auto: ${mem?.name || 'assigned member'} unavailable this date — needs reassignment]`,
+        notes: unassignedNote
+          ? `${schedule.notes ? schedule.notes + ' — ' : ''}${unassignedNote}`
+          : schedule.notes,
         special_instructions: schedule.special_instructions,
-      }
-    })
+      })
+    }
 
     await supabaseAdmin.from('bookings').insert(bookings)
     totalGenerated += bookings.length

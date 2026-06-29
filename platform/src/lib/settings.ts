@@ -34,6 +34,10 @@ export interface TenantSettings {
   default_booking_status: string
   require_team_member: boolean
   auto_confirm_bookings: boolean
+  // When true, the recurring cron smart-assigns each generated occurrence
+  // (preferred member kept if available, else best-scoring member, else
+  // unassigned) instead of hard-locking the schedule's member. Default OFF.
+  smart_recurring_assign: boolean
   // Referrals & Policies
   commission_rate: number       // percentage, e.g. 10
   active_client_threshold_days: number
@@ -190,6 +194,7 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     default_booking_status: (selenaConfig.default_booking_status as string) || 'scheduled',
     require_team_member: Boolean(selenaConfig.require_team_member),
     auto_confirm_bookings: Boolean(selenaConfig.auto_confirm_bookings),
+    smart_recurring_assign: Boolean(selenaConfig.smart_recurring_assign),
     commission_rate: Number(tenant?.commission_rate ?? 10),
     active_client_threshold_days: Number(tenant?.active_client_threshold_days ?? 45),
     at_risk_threshold_days: Number(tenant?.at_risk_threshold_days ?? 90),
