@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
-import { verifyAdminToken } from '@/app/api/admin-auth/route'
+import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
 import type { Tenant } from './tenant'
@@ -74,14 +74,29 @@ export async function getTenantForRequest(): Promise<TenantContext> {
     const headerSig = h.get('x-tenant-sig')
     if (headerTenantId && verifyTenantHeaderSig(headerTenantId, headerSig)) {
       const adminToken = cookieStore.get('admin_token')?.value
-      if (adminToken && verifyAdminToken(adminToken)) {
-        const { data: tenant } = await supabaseAdmin
-          .from('tenants')
-          .select('*')
-          .eq('id', headerTenantId)
-          .single()
-        if (tenant) {
-          return { userId: 'admin', tenantId: tenant.id, tenant, role: 'owner' }
+      if (adminToken) {
+        // Global super-admin token → owner of whatever tenant this domain is.
+        if (verifyAdminToken(adminToken)) {
+          const { data: tenant } = await supabaseAdmin
+            .from('tenants')
+            .select('*')
+            .eq('id', headerTenantId)
+            .single()
+          if (tenant) {
+            return { userId: 'admin', tenantId: tenant.id, tenant, role: 'owner' }
+          }
+        }
+        // Per-tenant member token → only valid if minted for THIS tenant.
+        const ta = verifyTenantAdminToken(adminToken, headerTenantId)
+        if (ta) {
+          const { data: tenant } = await supabaseAdmin
+            .from('tenants')
+            .select('*')
+            .eq('id', headerTenantId)
+            .single()
+          if (tenant) {
+            return { userId: ta.memberId, tenantId: tenant.id, tenant, role: ta.role }
+          }
         }
       }
     }

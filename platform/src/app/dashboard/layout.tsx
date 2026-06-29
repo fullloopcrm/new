@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers'
 import { auth } from '@clerk/nextjs/server'
 import { getCurrentTenant, isImpersonating } from '@/lib/tenant'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
-import { verifyAdminToken } from '@/app/api/admin-auth/route'
+import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import ImpersonationBanner from './impersonation-banner'
@@ -21,15 +21,17 @@ export default async function DashboardLayout({
   // tenant is resolved from the signed header — NOT from Clerk or an
   // impersonation cookie, so middleware's auth.protect() never ran. Without
   // this gate the tenant's entire CRM (clients, finance, bookings) would be
-  // publicly readable. Require the admin PIN — the same gate platform /admin
-  // uses. (Shared admin PIN for now; per-tenant PINs are a later concern.)
+  // publicly readable. Accept EITHER the global super-admin token (Jeff, any
+  // tenant) OR a per-tenant member token minted for THIS tenant (login at
+  // <domain>/fullloop with the member's own PIN).
   const hdrs = await headers()
   const hdrTenantId = hdrs.get('x-tenant-id')
   const onTenantDomain = !!hdrTenantId && verifyTenantHeaderSig(hdrTenantId, hdrs.get('x-tenant-sig'))
   if (onTenantDomain) {
     const adminToken = (await cookies()).get('admin_token')?.value
-    if (!adminToken || !verifyAdminToken(adminToken)) {
-      redirect('/admin-login')
+    const ok = !!adminToken && (verifyAdminToken(adminToken) || !!verifyTenantAdminToken(adminToken, hdrTenantId!))
+    if (!ok) {
+      redirect('/fullloop')
     }
   }
 

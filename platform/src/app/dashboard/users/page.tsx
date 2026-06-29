@@ -8,6 +8,8 @@ interface Member {
   role: string
   status: string
   phone: string | null
+  has_pin: boolean
+  pin_set_at: string | null
   last_login: string | null
   created_at: string
 }
@@ -33,8 +35,14 @@ export default function UsersPage() {
   const [editForm, setEditForm] = useState({ name: '', email: '', role: '', phone: '' })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'staff'>('manager')
+  const [loginUrl, setLoginUrl] = useState<string>('')
+
+  // Add-member form
+  const [newName, setNewName] = useState('')
+  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'staff'>('manager')
+
+  // Issued-PIN reveal (shown once)
+  const [issued, setIssued] = useState<{ name: string; pin: string } | null>(null)
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -44,7 +52,17 @@ export default function UsersPage() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { loadUsers() }, [loadUsers])
+  const loadTenant = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tenant/public', { credentials: 'include' })
+      if (res.ok) {
+        const t = await res.json()
+        if (t.domain) setLoginUrl(`https://${t.domain}/fullloop`)
+      }
+    } catch { /* non-fatal */ }
+  }, [])
+
+  useEffect(() => { loadUsers(); loadTenant() }, [loadUsers, loadTenant])
 
   const startEdit = (u: Member) => {
     setEditingId(u.id)
@@ -73,10 +91,7 @@ export default function UsersPage() {
   const remove = async (id: string) => {
     if (!confirm('Remove this member?')) return
     setError(''); setSuccess('')
-    const res = await fetch(`/api/admin/users/${id}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    })
+    const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE', credentials: 'include' })
     if (res.ok) { setSuccess('Removed'); loadUsers() }
     else {
       const j = await res.json().catch(() => ({}))
@@ -84,23 +99,38 @@ export default function UsersPage() {
     }
   }
 
-  const sendInvite = async () => {
+  const addMember = async () => {
     setError(''); setSuccess('')
-    const tenantRes = await fetch('/api/tenant/public', { credentials: 'include' })
-    if (!tenantRes.ok) { setError('Could not resolve tenant'); return }
-    const res = await fetch('/api/admin/invites', {
+    const res = await fetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+      body: JSON.stringify({ name: newName, role: newRole }),
     })
+    const j = await res.json().catch(() => ({}))
     if (res.ok) {
-      setSuccess(`Invite sent to ${inviteEmail}`)
-      setInviteEmail('')
+      setIssued({ name: newName, pin: j.pin })
+      setNewName('')
       loadUsers()
     } else {
-      const j = await res.json().catch(() => ({}))
-      setError(j.error || 'Invite failed')
+      setError(j.error || 'Could not add member')
+    }
+  }
+
+  const resetPin = async (u: Member) => {
+    setError(''); setSuccess('')
+    const res = await fetch(`/api/admin/users/${u.id}/pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({}),
+    })
+    const j = await res.json().catch(() => ({}))
+    if (res.ok) {
+      setIssued({ name: u.name, pin: j.pin })
+      loadUsers()
+    } else {
+      setError(j.error || 'Could not reset PIN')
     }
   }
 
@@ -113,19 +143,53 @@ export default function UsersPage() {
       {error && <div className="mb-4 p-3 bg-red-50 text-red-800 rounded">{error}</div>}
       {success && <div className="mb-4 p-3 bg-green-50 text-green-800 rounded">{success}</div>}
 
+      {/* Issued PIN — shown once */}
+      {issued && (
+        <div className="mb-6 p-4 border-2 border-teal-500 rounded bg-teal-50">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="font-medium text-teal-900">PIN for {issued.name}</p>
+              <p className="text-3xl font-mono font-bold tracking-widest text-teal-900 mt-1">{issued.pin}</p>
+              <p className="text-sm text-teal-800 mt-2">
+                Copy this now — it won&apos;t be shown again. They sign in at{' '}
+                <span className="font-mono">{loginUrl || '<your-domain>/fullloop'}</span>.
+              </p>
+            </div>
+            <button onClick={() => setIssued(null)} className="text-sm text-teal-700 hover:underline">Done</button>
+          </div>
+        </div>
+      )}
+
+      {/* Login link for this tenant */}
+      {loginUrl && (
+        <div className="mb-6 p-4 border rounded bg-white">
+          <p className="text-sm text-gray-500 mb-1">Operator login link (same for everyone; each person uses their own PIN)</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 px-3 py-2 bg-gray-50 border rounded text-sm">{loginUrl}</code>
+            <button
+              onClick={() => { navigator.clipboard?.writeText(loginUrl); setSuccess('Login link copied') }}
+              className="px-3 py-2 bg-gray-900 text-white rounded text-sm"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add member */}
       <div className="mb-6 p-4 border rounded bg-white">
-        <h2 className="font-medium mb-3">Invite a member</h2>
+        <h2 className="font-medium mb-3">Add a member</h2>
         <div className="flex gap-2">
           <input
-            type="email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="email@example.com"
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Full name"
             className="flex-1 px-3 py-2 border rounded"
           />
           <select
-            value={inviteRole}
-            onChange={(e) => setInviteRole(e.target.value as 'admin' | 'manager' | 'staff')}
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value as 'admin' | 'manager' | 'staff')}
             className="px-3 py-2 border rounded"
           >
             <option value="admin">Admin</option>
@@ -133,11 +197,11 @@ export default function UsersPage() {
             <option value="staff">Staff</option>
           </select>
           <button
-            onClick={sendInvite}
-            disabled={!inviteEmail}
+            onClick={addMember}
+            disabled={!newName.trim()}
             className="px-4 py-2 bg-gray-900 text-white rounded disabled:opacity-50"
           >
-            Send Invite
+            Add &amp; generate PIN
           </button>
         </div>
       </div>
@@ -153,7 +217,7 @@ export default function UsersPage() {
               <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">Name</th>
               <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">Email</th>
               <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">Role</th>
-              <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">Status</th>
+              <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">PIN</th>
               <th className="text-right px-4 py-2 text-xs uppercase text-gray-500">Actions</th>
             </tr>
           </thead>
@@ -168,7 +232,7 @@ export default function UsersPage() {
                 <td className="px-4 py-3 text-gray-600">
                   {editingId === u.id ? (
                     <input value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="px-2 py-1 border rounded" />
-                  ) : u.email}
+                  ) : (u.email || <span className="text-gray-400">—</span>)}
                 </td>
                 <td className="px-4 py-3">
                   {editingId === u.id ? (
@@ -184,7 +248,11 @@ export default function UsersPage() {
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-600">{u.status}</td>
+                <td className="px-4 py-3 text-sm">
+                  {u.has_pin
+                    ? <span className="text-green-700">Set</span>
+                    : <span className="text-gray-400">Not set</span>}
+                </td>
                 <td className="px-4 py-3 text-right space-x-2">
                   {editingId === u.id ? (
                     <>
@@ -193,6 +261,7 @@ export default function UsersPage() {
                     </>
                   ) : (
                     <>
+                      <button onClick={() => resetPin(u)} className="text-sm text-teal-600 hover:underline">{u.has_pin ? 'Reset PIN' : 'Set PIN'}</button>
                       <button onClick={() => startEdit(u)} className="text-sm text-blue-600 hover:underline">Edit</button>
                       <button onClick={() => remove(u.id)} className="text-sm text-red-600 hover:underline">Remove</button>
                     </>

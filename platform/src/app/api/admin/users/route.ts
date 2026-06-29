@@ -8,6 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { hashAdminPin, generateAdminPin } from '@/lib/admin-pin'
+
+const VALID_ROLES = ['owner', 'admin', 'manager', 'staff']
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('settings.edit')
@@ -15,7 +18,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from('tenant_members')
-    .select('id, email, name, role, clerk_user_id, phone, created_at')
+    .select('id, email, name, role, clerk_user_id, phone, created_at, pin_hash, pin_set_at, pin_last_login')
     .eq('tenant_id', tenant.tenantId)
     .order('created_at', { ascending: true })
 
@@ -28,11 +31,57 @@ export async function GET() {
       name: m.name,
       role: m.role,
       phone: m.phone,
-      status: m.clerk_user_id ? 'active' : 'pending',
-      last_login: null,
+      // A member is active once they can log in either way (Clerk or PIN).
+      status: (m.clerk_user_id || m.pin_hash) ? 'active' : 'pending',
+      has_pin: !!m.pin_hash,
+      pin_set_at: m.pin_set_at,
+      last_login: m.pin_last_login,
       created_at: m.created_at,
     })),
   )
+}
+
+// Create a PIN-based member (no Clerk / no outside platform). Returns the
+// generated PIN ONCE so the operator can hand it over.
+export async function POST(request: NextRequest) {
+  const { tenant, error: authError } = await requirePermission('settings.edit')
+  if (authError) return authError
+
+  const { name, role, email, phone } = await request.json().catch(() => ({}))
+  if (!name || typeof name !== 'string') {
+    return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+  }
+  const memberRole = VALID_ROLES.includes(role) ? role : 'staff'
+
+  // Generate a per-tenant-unique 6-digit PIN (retry on the rare collision).
+  let pin = generateAdminPin()
+  for (let i = 0; i < 5; i++) {
+    const { data: clash } = await supabaseAdmin
+      .from('tenant_members')
+      .select('id')
+      .eq('tenant_id', tenant.tenantId)
+      .eq('pin_hash', hashAdminPin(pin))
+      .maybeSingle()
+    if (!clash) break
+    pin = generateAdminPin()
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('tenant_members')
+    .insert({
+      tenant_id: tenant.tenantId,
+      name: name.trim(),
+      role: memberRole,
+      email: email ? String(email).trim().toLowerCase() : null,
+      phone: phone ? String(phone).trim() : null,
+      pin_hash: hashAdminPin(pin),
+      pin_set_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true, id: data.id, pin })
 }
 
 export async function DELETE(request: NextRequest) {

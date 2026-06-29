@@ -92,6 +92,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/health',              // Health check endpoint
   '/admin(.*)',               // Admin uses PIN auth, not Clerk
   '/admin-login',             // Admin PIN login page
+  '/fullloop',                // Per-tenant operator PIN login page
   '/api/admin-auth(.*)',       // Admin PIN auth endpoint
   '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
   '/api/requests',            // Partnership form submissions
@@ -280,7 +281,7 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // injected so getTenantFromHeaders() can resolve them.
   const APP_ROOT_PREFIXES = [
     '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
-    '/stripe-onboard', '/dashboard', '/admin',
+    '/stripe-onboard', '/dashboard', '/admin', '/fullloop',
   ]
   if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
     const requestHeaders = new Headers(req.headers)
@@ -296,7 +297,31 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // subtree fall back to the legacy shared /site/* tree (FullLoop was built from
   // nycmaid's site, which lives at the /site root and has no /site/nycmaid dir).
   const ROOT_SITE_TENANTS = new Set<string>([])
-  const siteBase = ROOT_SITE_TENANTS.has(tenantSlug) ? '/site' : `/site/${tenantSlug}`
+  // Tenants with their own hand-built /site/<slug> subtree. Every other tenant —
+  // including all newly-created ones — is served by the shared de-branded
+  // template at /site/template, which renders from the tenant's own config
+  // (see src/app/site/template/_config/load.ts). No per-tenant file copy or
+  // redeploy is needed: a new tenant resolves to the template automatically.
+  // Cleaning tenants (the-florida-maid, sunnyside-clean-nyc) are routed to the
+  // shared /site/template — a config-driven copy of nycmaid's full
+  // smart-scheduling site — so they get the same booking flow as nycmaid without
+  // a per-tenant file copy. They are intentionally NOT listed here.
+  // The remaining tenants are non-cleaning verticals (tow, exterminator, salon,
+  // SEO, etc.); the template is cleaning-specific, so they keep their bespoke
+  // /site/<slug> subtree. nycmaid keeps its own bespoke site (the live primary).
+  const BESPOKE_SITE_TENANTS = new Set<string>([
+    'consortium-nyc', 'debt-service-ratio-loan', 'fla-dumpster-rentals', 'landscaping-in-nyc',
+    'nyc-classifieds', 'nyc-mobile-salon', 'nyc-tow', 'nycmaid', 'nycroadsideemergencyassistance',
+    'stretch-ny', 'stretch-service',
+    'the-home-services-company', 'the-nyc-exterminator', 'the-nyc-interior-designer',
+    'the-nyc-marketing-company', 'the-nyc-seo', 'theroadsidehelper', 'toll-trucks-near-me',
+    'wash-and-fold-hoboken', 'wash-and-fold-nyc', 'we-pay-you-junk',
+  ])
+  const siteBase = ROOT_SITE_TENANTS.has(tenantSlug)
+    ? '/site'
+    : BESPOKE_SITE_TENANTS.has(tenantSlug)
+      ? `/site/${tenantSlug}`
+      : '/site/template'
   const sitePathname = pathname === '/' ? siteBase : `${siteBase}${pathname}`
 
   const url = req.nextUrl.clone()
