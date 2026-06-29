@@ -6,6 +6,7 @@
 // (falls back to TELEGRAM_OWNER_CHAT_ID — Jeff's chat id is the same across bots).
 import { NextResponse } from 'next/server'
 import { askJefe } from '@/lib/jefe/agent'
+import { loadJefeHistory, saveJefeTurn } from '@/lib/jefe/actions'
 import { sendTelegram } from '@/lib/telegram'
 
 export const maxDuration = 60
@@ -30,15 +31,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, private: true })
   }
 
-  // Stateless for now — sms_conversations requires a tenant_id and Jefe is
-  // platform-level (no tenant). Multi-turn history is a follow-up (own table).
+  // Multi-turn: Jefe has his own platform-level history table (jefe_messages,
+  // no tenant_id). Threading the last N turns is what makes confirm-then-act
+  // work — "yes do it" can reference the proposal from the previous message.
   let reply = ''
   try {
-    const r = await askJefe(text)
+    const history = await loadJefeHistory(10)
+    const r = await askJefe(text, history)
     reply = r.text || '[Jefe returned empty — check ANTHROPIC_API_KEY / logs]'
   } catch (err) {
     reply = `[Jefe error] ${(err instanceof Error ? err.message : String(err)).slice(0, 400)}`
   }
+
+  // Persist the turn so the next message has context (best-effort).
+  await saveJefeTurn('user', text).catch(() => {})
+  if (reply && !reply.startsWith('[Jefe error]')) await saveJefeTurn('assistant', reply).catch(() => {})
 
   const send = await sendTelegram(chatId, reply, BOT_TOKEN)
   return NextResponse.json({ ok: true, send_ok: send.ok })

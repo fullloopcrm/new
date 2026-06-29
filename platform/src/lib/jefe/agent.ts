@@ -4,6 +4,15 @@
 // notices. Read-only for now (tools that act on tenants come next).
 import Anthropic from '@anthropic-ai/sdk'
 import { getPlatformHealth } from '@/lib/jefe/health'
+import {
+  provisionChecklist,
+  notifyTenantOwner,
+  rerunCron,
+  ackIssue,
+  createTask,
+  listTasks,
+  retryFailedNotifications,
+} from '@/lib/jefe/actions'
 
 export interface JefeResult {
   text: string
@@ -42,7 +51,16 @@ HARD RULE — ZERO HALLUCINATION: You never state a number, tenant name, issue, 
 
 WHEN JEFF OPENS WITH A VAGUE MESSAGE ("hey", "status", "what's up", "how are we"): call get_platform_health and lead with what's worst, in this order — (1) provisioning gaps if any tenant can't operate, (2) comms deliverability if success_rate is low, (3) silent crons / error spikes, (4) tenants with active issues, (5) then security and FL sales. If everything's clean, say so in one line. Don't dump every number — surface what needs action.
 
-WHEN THERE ARE TENANT PROBLEMS: name the tenant, the problem, and recommend reaching out. You exist to catch these before the tenant does.`
+WHEN THERE ARE TENANT PROBLEMS: name the tenant, the problem, and recommend reaching out. You exist to catch these before the tenant does.
+
+YOU CAN ACT — not just report. Your action tools: provision_checklist (read-only — what a tenant is missing), notify_tenant_owner (message a tenant's owner), rerun_cron (re-fire a silent job), ack_issue (silence a handled issue), create_task / list_tasks (Jeff's to-dos), retry_failed_notifications (preview only).
+
+CONFIRM BEFORE ACTING — HARD RULE: For anything that sends a message, fires a cron, or changes state (notify_tenant_owner, rerun_cron), you ALWAYS go two steps:
+1. First call the tool with confirm=false (or just describe what you'll do) and show Jeff the exact preview — who you'll message, on what channel, the exact draft. Then STOP and ask "Confirm?".
+2. ONLY after Jeff replies yes in the conversation do you call again with confirm=true to actually execute.
+Never execute an outbound or state-changing action in the same turn you propose it. Read-only tools (get_platform_health, provision_checklist, list_tasks, retry_failed_notifications) run immediately — no confirmation needed.
+
+You only ever contact a tenant's OWNER, never their clients. You never run a tenant's day-to-day operations — you protect their ability to operate and flag what needs Jeff.`
 
 const TOOLS: Anthropic.Tool[] = [
   {
@@ -51,14 +69,123 @@ const TOOLS: Anthropic.Tool[] = [
       "Full Loop platform health snapshot. Returns: provisioning (tenants that can't text/email/charge), comms (24h notification send success_rate + worst tenants), crons (silent background jobs), errors (1h/24h/7d real app errors), payments (jobs completed but unpaid >24h), lifecycle (new signups + tenants going inactive), plus FL sales pipeline, security events (24h), and the per-tenant issue feed. Call this for any 'how are we / status / any issues / who can't operate / any new leads' question.",
     input_schema: { type: 'object' as const, properties: {}, required: [] },
   },
+  {
+    name: 'provision_checklist',
+    description:
+      "READ-ONLY. For one tenant, list exactly which operating keys are missing (SMS/Telnyx, email/Resend, payments/Stripe, agent name, Telegram) plus the owner's contact info, so Jeff can finish setup. Use when Jeff asks what a tenant needs or why a tenant can't operate. Runs immediately, no confirmation.",
+    input_schema: {
+      type: 'object' as const,
+      properties: { tenant: { type: 'string', description: 'tenant slug or name' } },
+      required: ['tenant'],
+    },
+  },
+  {
+    name: 'notify_tenant_owner',
+    description:
+      "Send a message to a tenant's OWNER (never their clients) via that tenant's own SMS or email channel. CONFIRM-GATED: call with confirm=false first to get a preview (channel, recipient, draft), show it to Jeff, and only call again with confirm=true after Jeff explicitly says yes. If the tenant has no channel, it returns the owner's contact for manual reach-out.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        tenant: { type: 'string', description: 'tenant slug or name' },
+        message: { type: 'string', description: 'the message to the owner' },
+        confirm: { type: 'boolean', description: 'false = preview only; true = actually send (only after Jeff says yes)' },
+      },
+      required: ['tenant', 'message', 'confirm'],
+    },
+  },
+  {
+    name: 'rerun_cron',
+    description:
+      'Manually re-fire a background cron job (e.g. to clear a silent-job alert). CONFIRM-GATED: confirm=false returns a preview; confirm=true fires it (only after Jeff says yes).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'cron name, e.g. comms-monitor, health-monitor, email-monitor' },
+        confirm: { type: 'boolean' },
+      },
+      required: ['name', 'confirm'],
+    },
+  },
+  {
+    name: 'ack_issue',
+    description: 'Acknowledge a surfaced issue by its id so it stops nagging. Use when Jeff says he has handled or is aware of something.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        issue_id: { type: 'string' },
+        kind: { type: 'string', description: 'optional: notification | security_event | error' },
+      },
+      required: ['issue_id'],
+    },
+  },
+  {
+    name: 'create_task',
+    description: "Save a to-do for Jeff in Jefe's own task list (e.g. 'reach out to the-florida-maid about Stripe') so it doesn't get lost.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string' },
+        detail: { type: 'string' },
+        tenant: { type: 'string', description: 'optional tenant slug or name to attach' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'list_tasks',
+    description: "List Jefe's open to-do items for Jeff.",
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
+    name: 'retry_failed_notifications',
+    description:
+      'PREVIEW ONLY (auto-resend not yet enabled). Show how many failed notifications exist and their channel breakdown, optionally scoped to one tenant, so Jeff can decide. Does NOT re-send.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        tenant: { type: 'string', description: 'optional tenant slug or name' },
+        since_hours: { type: 'number', description: 'lookback window, default 24' },
+      },
+      required: [],
+    },
+  },
 ]
 
-async function runTool(name: string): Promise<string> {
-  if (name === 'get_platform_health') {
-    const h = await getPlatformHealth()
-    return JSON.stringify(h)
+type ToolInput = Record<string, unknown>
+const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+const bool = (v: unknown): boolean => v === true
+
+async function runTool(name: string, input: ToolInput = {}): Promise<string> {
+  let out: unknown
+  switch (name) {
+    case 'get_platform_health':
+      out = await getPlatformHealth()
+      break
+    case 'provision_checklist':
+      out = await provisionChecklist(str(input.tenant))
+      break
+    case 'notify_tenant_owner':
+      out = await notifyTenantOwner(str(input.tenant), str(input.message), bool(input.confirm))
+      break
+    case 'rerun_cron':
+      out = await rerunCron(str(input.name), bool(input.confirm))
+      break
+    case 'ack_issue':
+      out = await ackIssue(str(input.issue_id), str(input.kind) || undefined)
+      break
+    case 'create_task':
+      out = await createTask(str(input.title), str(input.detail) || undefined, str(input.tenant) || undefined)
+      break
+    case 'list_tasks':
+      out = await listTasks()
+      break
+    case 'retry_failed_notifications':
+      out = await retryFailedNotifications(str(input.tenant) || undefined, typeof input.since_hours === 'number' ? input.since_hours : 24)
+      break
+    default:
+      out = { error: `unknown tool ${name}` }
   }
-  return JSON.stringify({ error: `unknown tool ${name}` })
+  return JSON.stringify(out)
 }
 
 export async function askJefe(message: string, history: Array<{ role: 'user' | 'assistant'; content: string }> = []): Promise<JefeResult> {
@@ -88,7 +215,7 @@ export async function askJefe(message: string, history: Array<{ role: 'user' | '
         result.toolsCalled.push(tool.name)
         let out: string
         try {
-          out = await runTool(tool.name)
+          out = await runTool(tool.name, (tool.input as ToolInput) || {})
         } catch (err) {
           out = JSON.stringify({ error: (err as Error).message })
         }
