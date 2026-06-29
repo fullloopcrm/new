@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import './schedule.css'
-import BookingsListTab from './bookings-list-tab'
+import BookingsAdmin from './BookingsAdmin'
 
 const TEAM_COLORS = [
   'var(--sched-team-1)', 'var(--sched-team-2)', 'var(--sched-team-3)',
@@ -287,7 +287,7 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {tab === 'bookings' && <BookingsListTab />}
+      {tab === 'bookings' && <BookingsAdmin />}
 
       {tab !== 'calendar' && tab !== 'bookings' && (
         <div className="sched-coming-soon">
