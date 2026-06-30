@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendPushToAll } from '@/lib/nycmaid/push'
-import { notifyOwnerOnTelegram } from '@/lib/telegram'
+import { notifyOwnerOnTelegram, sendTelegram } from '@/lib/telegram'
+import { decryptSecret } from '@/lib/secret-crypto'
 
 interface NotifyOptions {
   type: string
@@ -8,6 +9,7 @@ interface NotifyOptions {
   message: string
   booking_id?: string
   url?: string
+  tenantId?: string
 }
 
 // Operational event types that Jeff wants pushed to Telegram.
@@ -32,13 +34,48 @@ const TELEGRAM_NOTIFY_TYPES = new Set<string>([
   'tip_paid',
 ])
 
-export async function notify({ type, title, message, booking_id, url }: NotifyOptions) {
+// Resolve the tenant: explicit arg wins, else the request's x-tenant-id header
+// (the nycmaid request-scoped pattern). Returns null outside request scope
+// (e.g. crons) — callers there should pass tenantId explicitly.
+async function resolveTenantId(explicit?: string): Promise<string | null> {
+  if (explicit) return explicit
+  try {
+    const { headers } = await import('next/headers')
+    const h = await headers()
+    return h.get('x-tenant-id') || null
+  } catch {
+    return null
+  }
+}
+
+// Per-tenant Telegram: post to the tenant's OWN bot when configured, else fall
+// back to the global platform bot (backward-compatible with pre-multitenant).
+async function sendTenantTelegram(tenantId: string | null, text: string): Promise<void> {
+  if (tenantId) {
+    const { data: t } = await supabaseAdmin
+      .from('tenants')
+      .select('telegram_bot_token, telegram_chat_id')
+      .eq('id', tenantId)
+      .single()
+    if (t?.telegram_bot_token && t?.telegram_chat_id) {
+      const botToken = decryptSecret(t.telegram_bot_token as string)
+      await sendTelegram(t.telegram_chat_id as string, text, botToken)
+      return
+    }
+  }
+  await notifyOwnerOnTelegram(text)
+}
+
+export async function notify({ type, title, message, booking_id, url, tenantId }: NotifyOptions) {
+  const tid = await resolveTenantId(tenantId)
+
   try {
     const { error } = await supabaseAdmin.from('notifications').insert({
       type,
       title,
       message,
-      booking_id: booking_id || null
+      booking_id: booking_id || null,
+      ...(tid ? { tenant_id: tid } : {}),
     })
     if (error) console.error('notify insert failed:', error)
   } catch (err) {
@@ -58,7 +95,7 @@ export async function notify({ type, title, message, booking_id, url }: NotifyOp
         ? (url.startsWith('http') ? url : `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`)
         : null
       const text = `${title}\n\n${message}${link ? `\n\n${link}` : ''}`
-      await notifyOwnerOnTelegram(text)
+      await sendTenantTelegram(tid, text)
     } catch (err) {
       console.error('notify telegram failed:', err)
     }
