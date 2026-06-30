@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
 import { runAllChecks } from '@/lib/onboarding-verify'
+import { decryptSecret } from '@/lib/secret-crypto'
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()
@@ -24,8 +25,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
+  // Vendor keys are encrypted at rest (v1:… envelopes). Decrypt before the
+  // verifiers use them as Bearer tokens — otherwise live checks always 401.
+  // decryptSecret() passes legacy plaintext through unchanged.
+  const tenantForVerify = {
+    ...tenant,
+    resend_api_key: tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : tenant.resend_api_key,
+    telnyx_api_key: tenant.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : tenant.telnyx_api_key,
+    stripe_api_key: tenant.stripe_api_key ? decryptSecret(tenant.stripe_api_key) : tenant.stripe_api_key,
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
-  const checks = await runAllChecks(tenant, appUrl)
+  const checks = await runAllChecks(tenantForVerify, appUrl)
 
   // Persist auto-verified flags into setup_progress so the /admin/businesses/[id]
   // checklist UI reflects live state without manual toggles.
