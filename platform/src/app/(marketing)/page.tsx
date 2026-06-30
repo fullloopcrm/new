@@ -52,6 +52,7 @@ export const metadata: Metadata = {
 // → Thank you (lead form) → inner-link matrix.
 import Hero from "@/components/home/Hero";
 import About from "@/components/home/About";
+import Comparison from "@/components/home/Comparison";
 import QuoteBand from "@/components/home/QuoteBand";
 import CaseStudyTeaser from "@/components/home/CaseStudyTeaser";
 import Features from "@/components/home/Features";
@@ -130,6 +131,9 @@ export default function Home() {
 
       {/* 2. About */}
       <About />
+
+      {/* Competitor comparison matrix */}
+      <Comparison />
 
       {/* Quote band */}
       <QuoteBand
