@@ -7,6 +7,7 @@ import {
   STAGE_LABELS,
   type LeadStage,
 } from '@/lib/lead-stages'
+import { FIT_BUCKET_META, fitBucket, QUALIFY_OPTIONS, optLabel } from '@/lib/lead-fit'
 
 interface Lead {
   id: string
@@ -25,6 +26,18 @@ interface Lead {
   created_at: string
   reviewed_at: string | null
   converted_tenant_id: string | null
+  fit_score: number | null
+  fit_bucket: string | null
+  revenue_trajectory: string | null
+  growth_goal: string | null
+  automation_comfort: string | null
+  lead_gen_spend: string | null
+  pain_point: string | null
+  timeline: string | null
+  current_system: string | null
+  wants_automation: boolean | null
+  wants_growth: boolean | null
+  comparing_prices: boolean | null
 }
 
 type Counts = Record<string, number>
@@ -190,7 +203,17 @@ export function LeadsPanel() {
                   <p className="text-xs text-slate-500 truncate mt-0.5">
                     {l.contact_name} &middot; {l.service_category?.replace(/_/g, ' ')} &middot; {l.city}, {l.state}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{new Date(l.created_at).toLocaleDateString()}</p>
+                  <div className="flex items-center justify-between gap-2 mt-0.5">
+                    <p className="text-[10px] text-slate-400">{new Date(l.created_at).toLocaleDateString()}</p>
+                    {l.fit_bucket && (() => {
+                      const m = FIT_BUCKET_META[fitBucket(l.fit_bucket)]
+                      return (
+                        <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border ${m.cls}`} title={`Fit score ${l.fit_score ?? '—'}`}>
+                          {m.emoji} {l.fit_score ?? ''}
+                        </span>
+                      )
+                    })()}
+                  </div>
                 </button>
               ))}
             </div>
@@ -289,6 +312,37 @@ export function LeadsPanel() {
                 </div>
               ) : null}
 
+              {/* Fit score + qualifying answers */}
+              {(selected.fit_bucket || selected.automation_comfort) && (
+                <div className="mb-5 rounded-lg border border-slate-200 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide">Fit &amp; qualifying</p>
+                    {selected.fit_bucket && (() => {
+                      const m = FIT_BUCKET_META[fitBucket(selected.fit_bucket)]
+                      return (
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium border ${m.cls}`}>
+                          {m.emoji} {m.label} · {selected.fit_score ?? '—'}
+                        </span>
+                      )
+                    })()}
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <Field label="Automation comfort">{optLabel(QUALIFY_OPTIONS.automation_comfort, selected.automation_comfort)}</Field>
+                    <Field label="Growth goal">{optLabel(QUALIFY_OPTIONS.growth_goal, selected.growth_goal)}</Field>
+                    <Field label="Revenue trend">{optLabel(QUALIFY_OPTIONS.revenue_trajectory, selected.revenue_trajectory)}</Field>
+                    <Field label="Lead-gen spend">{optLabel(QUALIFY_OPTIONS.lead_gen_spend, selected.lead_gen_spend)}</Field>
+                    <Field label="Using now">{optLabel(QUALIFY_OPTIONS.current_system, selected.current_system)}</Field>
+                    <Field label="Timeline">{optLabel(QUALIFY_OPTIONS.timeline, selected.timeline)}</Field>
+                    <Field label="Biggest pain">{optLabel(QUALIFY_OPTIONS.pain_point, selected.pain_point)}</Field>
+                  </dl>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {selected.wants_automation && <Chip>wants automation</Chip>}
+                    {selected.wants_growth && <Chip>wants growth</Chip>}
+                    {selected.comparing_prices && <Chip warn>comparing prices</Chip>}
+                  </div>
+                </div>
+              )}
+
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm mb-5">
                 <Field label="Email">
                   {selected.email ? <a href={`mailto:${selected.email}`} className="text-teal-700 hover:underline break-all">{selected.email}</a> : <span className="text-slate-400">—</span>}
@@ -369,5 +423,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <dt className="text-[10px] text-slate-400 uppercase tracking-wide">{label}</dt>
       <dd className="text-slate-700 mt-0.5">{children}</dd>
     </div>
+  )
+}
+
+function Chip({ children, warn }: { children: React.ReactNode; warn?: boolean }) {
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium border ${warn ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+      {children}
+    </span>
   )
 }

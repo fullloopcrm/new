@@ -1,35 +1,21 @@
 'use client'
 
 import { useState } from 'react'
+import { QUALIFY_OPTIONS } from '@/lib/lead-fit'
 
-const TRADES = ['cleaning','landscaping','hvac','plumbing','handyman','electrical','pest_control','roofing','painting','tree_service','moving','other']
-const REVENUE = [
-  { v: 'under_250k', l: 'Under $250k' },
-  { v: '250k_1m', l: '$250k – $1M' },
-  { v: '1m_3m', l: '$1M – $3M' },
-  { v: '3m_plus', l: '$3M+' },
-]
-const TIERS = [
-  { v: 'starter', l: 'Starter — $199/mo' },
-  { v: 'growth', l: 'Growth — $499/mo' },
-  { v: 'pro', l: 'Pro — $999/mo' },
-  { v: 'enterprise', l: 'Enterprise — custom' },
-]
+const O = QUALIFY_OPTIONS
 
 export default function QualifyPage() {
   const [f, setF] = useState({
-    business_name: '', legal_name: '', entity_type: '',
-    owner_name: '', owner_email: '', owner_phone: '',
-    trade: '', primary_city: '', primary_state: '', primary_zip: '',
-    years_in_business: '', annual_revenue_bracket: '',
-    revenue_trajectory: 'up',
-    team_size_wtwo: '', team_size_contractor: '',
-    current_tech_stack: '', growth_target_12mo: '',
-    uses_ai_tools: false, ai_tools_list: '', ai_comfort_level: '7',
-    has_crm: false, crm_name: '', day_to_day_operator: 'owner',
-    launch_timeline: '30_90', territory_exclusive_ok: true,
-    top_pain_point: '', heard_from: '', biggest_competitor: '',
-    wants_call: true, tier_interest: 'growth',
+    // Identity (free text — can't be a dropdown)
+    business_name: '', owner_name: '', owner_email: '', owner_phone: '',
+    // Routing
+    trade: '', primary_city: '', primary_state: '',
+    // Scored intent signals (all dropdown / checkbox)
+    annual_revenue: '', revenue_trajectory: '', growth_goal: '',
+    automation_comfort: '', lead_gen_spend: '', pain_point: '',
+    timeline: '', current_system: '',
+    wants_automation: false, wants_growth: false, comparing_prices: false,
   })
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState<{ slot_taken: boolean } | null>(null)
@@ -41,14 +27,9 @@ export default function QualifyPage() {
     e.preventDefault()
     setErr(''); setSubmitting(true)
     try {
-      const body = {
-        ...f,
-        years_in_business: f.years_in_business ? Number(f.years_in_business) : null,
-        team_size_wtwo: f.team_size_wtwo ? Number(f.team_size_wtwo) : null,
-        team_size_contractor: f.team_size_contractor ? Number(f.team_size_contractor) : null,
-        ai_comfort_level: f.ai_comfort_level ? Number(f.ai_comfort_level) : null,
-      }
-      const res = await fetch('/api/prospects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const res = await fetch('/api/prospects', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Submit failed')
       setDone({ slot_taken: !!data.slot_taken })
@@ -63,11 +44,7 @@ export default function QualifyPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <div className="max-w-lg bg-white border border-slate-200 rounded-2xl p-8 text-center">
           <h1 className="text-2xl font-bold text-slate-900 mb-3">Thanks — we got your application</h1>
-          {done.slot_taken ? (
-            <p className="text-sm text-amber-700">Heads up: the territory slot for your trade in that ZIP appears taken. We&apos;ll reach out to discuss alternatives.</p>
-          ) : (
-            <p className="text-sm text-slate-600">Our team will review your application and reach out within 2 business days. If approved, you&apos;ll receive a checkout link by email to activate your account.</p>
-          )}
+          <p className="text-sm text-slate-600">Our team reviews every application and reaches out within 2 business days. Full Loop isn&apos;t a cheap CRM — it&apos;s automation that runs your business. If you&apos;re a fit, you&apos;ll get a setup link by email.</p>
         </div>
       </div>
     )
@@ -75,78 +52,50 @@ export default function QualifyPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="font-heading text-3xl font-bold text-slate-900 mb-2">Apply for Territory Access</h1>
-        <p className="text-sm text-slate-500 mb-6">One business per trade, per city. Approvals happen within 2 business days.</p>
+      <div className="max-w-2xl mx-auto">
+        <h1 className="font-heading text-3xl font-bold text-slate-900 mb-2">Apply to Run Your Business on Full Loop</h1>
+        <p className="text-sm text-slate-500 mb-6">This isn&apos;t a CRM you shop on price — it&apos;s automation that changes how home-service businesses run. A few questions so we know you&apos;re a fit. Takes 60 seconds.</p>
         {err && <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-700 text-sm">{err}</div>}
         <form onSubmit={submit} className="space-y-6">
-          <Section title="Your Business">
+          <Section title="You & your business">
             <Row>
               <Field label="Business name *"><input required value={f.business_name} onChange={e => up('business_name', e.target.value)} className="input" /></Field>
-              <Field label="Legal name"><input value={f.legal_name} onChange={e => up('legal_name', e.target.value)} className="input" /></Field>
-            </Row>
-            <Row>
-              <Field label="Entity type"><select value={f.entity_type} onChange={e => up('entity_type', e.target.value)} className="input"><option value="">—</option><option value="sole_prop">Sole prop</option><option value="llc">LLC</option><option value="s_corp">S-Corp</option><option value="c_corp">C-Corp</option><option value="partnership">Partnership</option></select></Field>
-              <Field label="Years in business"><input type="number" value={f.years_in_business} onChange={e => up('years_in_business', e.target.value)} className="input" /></Field>
-            </Row>
-          </Section>
-
-          <Section title="You (Owner)">
-            <Row>
               <Field label="Your name *"><input required value={f.owner_name} onChange={e => up('owner_name', e.target.value)} className="input" /></Field>
+            </Row>
+            <Row>
               <Field label="Email *"><input required type="email" value={f.owner_email} onChange={e => up('owner_email', e.target.value)} className="input" /></Field>
-            </Row>
-            <Row>
               <Field label="Phone"><input value={f.owner_phone} onChange={e => up('owner_phone', e.target.value)} className="input" /></Field>
-              <Field label="Day-to-day operator"><select value={f.day_to_day_operator} onChange={e => up('day_to_day_operator', e.target.value)} className="input"><option value="owner">Owner</option><option value="ops_manager">Ops manager</option><option value="other">Other / TBD</option></select></Field>
             </Row>
+            <Row>
+              <Field label="Trade *"><Select v={f.trade} onChange={v => up('trade', v)} req>{O.trade.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</Select></Field>
+              <Field label="City"><input value={f.primary_city} onChange={e => up('primary_city', e.target.value)} className="input" /></Field>
+            </Row>
+            <Field label="State"><input value={f.primary_state} onChange={e => up('primary_state', e.target.value)} className="input" maxLength={2} placeholder="NY" /></Field>
           </Section>
 
-          <Section title="Trade & Territory">
+          <Section title="Where you're at">
             <Row>
-              <Field label="Trade *"><select required value={f.trade} onChange={e => up('trade', e.target.value)} className="input"><option value="">—</option>{TRADES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select></Field>
-              <Field label="Primary city"><input value={f.primary_city} onChange={e => up('primary_city', e.target.value)} className="input" /></Field>
+              <Field label="Annual revenue"><Select v={f.annual_revenue} onChange={v => up('annual_revenue', v)}>{O.annual_revenue.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</Select></Field>
+              <Field label="Revenue trend"><Select v={f.revenue_trajectory} onChange={v => up('revenue_trajectory', v)}>{O.revenue_trajectory.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</Select></Field>
             </Row>
             <Row>
-              <Field label="State"><input value={f.primary_state} onChange={e => up('primary_state', e.target.value)} className="input" /></Field>
-              <Field label="Primary ZIP"><input value={f.primary_zip} onChange={e => up('primary_zip', e.target.value)} className="input" /></Field>
+              <Field label="What are you using now?"><Select v={f.current_system} onChange={v => up('current_system', v)}>{O.current_system.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</Select></Field>
+              <Field label="Monthly lead-gen spend"><Select v={f.lead_gen_spend} onChange={v => up('lead_gen_spend', v)}>{O.lead_gen_spend.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</Select></Field>
             </Row>
+            <Field label="Biggest pain right now"><Select v={f.pain_point} onChange={v => up('pain_point', v)}>{O.pain_point.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</Select></Field>
           </Section>
 
-          <Section title="Growth">
+          <Section title="Where you're going">
             <Row>
-              <Field label="Annual revenue"><select value={f.annual_revenue_bracket} onChange={e => up('annual_revenue_bracket', e.target.value)} className="input"><option value="">—</option>{REVENUE.map(r => <option key={r.v} value={r.v}>{r.l}</option>)}</select></Field>
-              <Field label="Trajectory (3yr)"><select value={f.revenue_trajectory} onChange={e => up('revenue_trajectory', e.target.value)} className="input"><option value="up">Up</option><option value="flat">Flat</option><option value="down">Down</option></select></Field>
+              <Field label="Growth goal (12 mo)"><Select v={f.growth_goal} onChange={v => up('growth_goal', v)}>{O.growth_goal.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</Select></Field>
+              <Field label="Comfort automating customer comms"><Select v={f.automation_comfort} onChange={v => up('automation_comfort', v)}>{O.automation_comfort.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</Select></Field>
             </Row>
-            <Row>
-              <Field label="W-2 team size"><input type="number" value={f.team_size_wtwo} onChange={e => up('team_size_wtwo', e.target.value)} className="input" /></Field>
-              <Field label="1099 team size"><input type="number" value={f.team_size_contractor} onChange={e => up('team_size_contractor', e.target.value)} className="input" /></Field>
-            </Row>
-            <Field label="Current tech stack (CRM, booking, invoicing)"><input value={f.current_tech_stack} onChange={e => up('current_tech_stack', e.target.value)} className="input" /></Field>
-            <Field label="Growth target next 12 months"><input value={f.growth_target_12mo} onChange={e => up('growth_target_12mo', e.target.value)} placeholder="e.g., double revenue, add 2 crews" className="input" /></Field>
-          </Section>
-
-          <Section title="AI Fit">
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.uses_ai_tools} onChange={e => up('uses_ai_tools', e.target.checked)} /> I currently use AI tools</label>
-            {f.uses_ai_tools && <Field label="Which?"><input value={f.ai_tools_list} onChange={e => up('ai_tools_list', e.target.value)} className="input" /></Field>}
-            <Field label="How comfortable letting AI handle 80% of customer comms? (1-10)"><input type="range" min={1} max={10} value={f.ai_comfort_level} onChange={e => up('ai_comfort_level', e.target.value)} className="w-full" /></Field>
-          </Section>
-
-          <Section title="Commitment">
-            <Row>
-              <Field label="Launch timeline"><select value={f.launch_timeline} onChange={e => up('launch_timeline', e.target.value)} className="input"><option value="lt_30">&lt; 30 days</option><option value="30_90">30-90 days</option><option value="90_plus">90+ days</option></select></Field>
-              <Field label="Tier interest"><select value={f.tier_interest} onChange={e => up('tier_interest', e.target.value)} className="input">{TIERS.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}</select></Field>
-            </Row>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.territory_exclusive_ok} onChange={e => up('territory_exclusive_ok', e.target.checked)} /> I understand my territory will be exclusive</label>
-            <Field label="Top operational pain point"><textarea value={f.top_pain_point} onChange={e => up('top_pain_point', e.target.value)} rows={2} className="input" /></Field>
-          </Section>
-
-          <Section title="Context">
-            <Row>
-              <Field label="How'd you hear about us?"><input value={f.heard_from} onChange={e => up('heard_from', e.target.value)} className="input" /></Field>
-              <Field label="Biggest competitor"><input value={f.biggest_competitor} onChange={e => up('biggest_competitor', e.target.value)} className="input" /></Field>
-            </Row>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.wants_call} onChange={e => up('wants_call', e.target.checked)} /> I&apos;m open to a 30-min qualifying call</label>
+            <Field label="When do you want to start?"><Select v={f.timeline} onChange={v => up('timeline', v)}>{O.timeline.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</Select></Field>
+            <div className="space-y-2 pt-1">
+              <Check checked={f.wants_automation} onChange={v => up('wants_automation', v)} label="I want to automate my customer communication" />
+              <Check checked={f.wants_growth} onChange={v => up('wants_growth', v)} label="I want to grow / add crews" />
+              <Check checked={f.comparing_prices} onChange={v => up('comparing_prices', v)} label="I'm comparing prices across several CRMs" />
+            </div>
           </Section>
 
           <div className="flex justify-end">
@@ -161,6 +110,17 @@ export default function QualifyPage() {
   )
 }
 
+function Select({ v, onChange, children, req }: { v: string; onChange: (v: string) => void; children: React.ReactNode; req?: boolean }) {
+  return (
+    <select required={req} value={v} onChange={e => onChange(e.target.value)} className="input">
+      <option value="">—</option>
+      {children}
+    </select>
+  )
+}
+function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} /> {label}</label>
+}
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="bg-white border border-slate-200 rounded-xl p-5 space-y-3"><h2 className="font-heading font-semibold text-slate-900">{title}</h2>{children}</section>
 }

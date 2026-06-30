@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { computeFit } from '@/lib/lead-fit'
 
 // Cap free-text fields so a single submission can't balloon to megabytes.
 const MAX_TEXT = 2000
@@ -86,8 +87,20 @@ export async function POST(request: Request) {
       .single()
     if (error) throw error
 
-    // Fold qualify submissions into the single lead bucket (partner_requests)
-    // so they surface in the Leads pipeline. Best-effort — never block intake.
+    // Score the lead on intent (growth + automation), then fold the full answer
+    // set into the single lead bucket (partner_requests) so it surfaces, sorts,
+    // and flags shoppers in the Leads pipeline. Best-effort — never block intake.
+    const fit = computeFit({
+      automation_comfort: body.automation_comfort,
+      growth_goal: body.growth_goal,
+      revenue_trajectory: body.revenue_trajectory,
+      timeline: body.timeline,
+      current_system: body.current_system,
+      lead_gen_spend: body.lead_gen_spend,
+      wants_automation: body.wants_automation,
+      wants_growth: body.wants_growth,
+      comparing_prices: body.comparing_prices,
+    })
     try {
       await supabaseAdmin.from('partner_requests').insert({
         business_name: cap(body.business_name) || 'Unknown',
@@ -97,11 +110,20 @@ export async function POST(request: Request) {
         service_category: cap(body.trade) || 'Other',
         city: cap(body.primary_city) || 'N/A',
         state: cap(body.primary_state) || 'NA',
-        years_in_business: String(body.years_in_business ?? 'N/A'),
-        team_size: String(body.team_size_wtwo ?? 'N/A'),
-        monthly_revenue: cap(body.annual_revenue_bracket) || 'N/A',
+        monthly_revenue: cap(body.annual_revenue),
+        current_system: cap(body.current_system),
+        revenue_trajectory: cap(body.revenue_trajectory),
+        growth_goal: cap(body.growth_goal),
+        automation_comfort: cap(body.automation_comfort),
+        lead_gen_spend: cap(body.lead_gen_spend),
+        pain_point: cap(body.pain_point),
+        timeline: cap(body.timeline),
+        wants_automation: body.wants_automation ?? null,
+        wants_growth: body.wants_growth ?? null,
+        comparing_prices: body.comparing_prices ?? null,
+        fit_score: fit.score,
+        fit_bucket: fit.bucket,
         referral_source: 'Qualify form',
-        pitch: cap(body.top_pain_point) || 'Submitted via /qualify',
         status: 'new',
       })
     } catch (foldErr) {

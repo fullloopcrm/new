@@ -61,6 +61,14 @@ export async function POST(request: Request) {
   const name: string = lead.business_name || lead.contact_name || 'New tenant'
   const industry = mapIndustry(lead.service_category)
 
+  // Carry the qualifying context onto the tenant so it survives the handoff.
+  const convertNote = [
+    lead.fit_bucket ? `Fit: ${lead.fit_bucket} (${lead.fit_score ?? '—'})` : '',
+    lead.pain_point ? `Pain: ${lead.pain_point}` : '',
+    lead.lead_gen_spend ? `Lead-gen spend: ${lead.lead_gen_spend}` : '',
+    lead.automation_comfort ? `Automation: ${lead.automation_comfort}` : '',
+  ].filter(Boolean).join(' · ')
+
   // Unique slug — suffix on collision.
   const base = slugify(name) || 'tenant'
   let slug = base
@@ -85,6 +93,7 @@ export async function POST(request: Request) {
       phone: lead.phone || null,
       email: lead.email || null,
       primary_color: '#0d9488',
+      ...(convertNote && { admin_notes: `From lead — ${convertNote}` }),
     })
     .select()
     .single()
