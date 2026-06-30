@@ -75,6 +75,8 @@ export function LeadsPanel() {
   const [proposalErr, setProposalErr] = useState('')
   const [payLinkLoading, setPayLinkLoading] = useState(false)
   const [payUrl, setPayUrl] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailMsg, setEmailMsg] = useState('')
 
   const fetchLeads = useCallback(async () => {
     setLoading(true)
@@ -100,8 +102,43 @@ export function LeadsPanel() {
     setSavedFlash(false)
     setProposalErr('')
     setPayUrl('')
+    setEmailMsg('')
     setPropAdmins(lead.proposal_admins ?? 1)
     setPropTeam(lead.proposal_team_members ?? 0)
+  }
+
+  async function previewEmail() {
+    if (!selected) return
+    setProposalErr('')
+    try {
+      const res = await fetch(`/api/admin/requests/${selected.id}/proposal-email`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'preview', payUrl: payUrl || undefined }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Preview failed')
+      const w = window.open('', '_blank')
+      if (w) { w.document.write(data.html); w.document.close() }
+    } catch (e) {
+      setProposalErr(e instanceof Error ? e.message : 'Preview failed')
+    }
+  }
+
+  async function sendTestEmail() {
+    if (!selected) return
+    setSendingEmail(true); setProposalErr(''); setEmailMsg('')
+    try {
+      const res = await fetch(`/api/admin/requests/${selected.id}/proposal-email`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send', test: true, payUrl: payUrl || undefined }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Send failed')
+      setEmailMsg(`Test sent to ${data.sentTo}`)
+    } catch (e) {
+      setProposalErr(e instanceof Error ? e.message : 'Send failed')
+    }
+    setSendingEmail(false)
   }
 
   async function generatePayLink() {
@@ -399,6 +436,15 @@ export function LeadsPanel() {
                       >
                         {payLinkLoading ? 'Generating…' : 'Generate payment link (ACH / card)'}
                       </button>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <button onClick={previewEmail} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-lg text-sm font-medium">
+                          Preview email
+                        </button>
+                        <button onClick={sendTestEmail} disabled={sendingEmail} className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+                          {sendingEmail ? 'Sending…' : 'Send test email'}
+                        </button>
+                      </div>
+                      {emailMsg && <p className="text-[11px] text-green-600 mt-1">{emailMsg}</p>}
                     </>
                   )}
                   {payUrl && (
