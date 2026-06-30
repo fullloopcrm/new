@@ -6,28 +6,30 @@ export const LEAD_STAGES = [
   'new',
   'contacted',
   'qualified',
+  'proposed',
   'sold',
-  'onboarded',
   'lost',
 ] as const
 
 export type LeadStage = (typeof LEAD_STAGES)[number]
 
 // Ordered pipeline (excludes the terminal "lost" stage).
+// Sales stops at "sold" — once they accept + pay, a tenant is created and the
+// rest happens on the tenant side, not in the sales pipeline.
 export const PIPELINE_STAGES: LeadStage[] = [
   'new',
   'contacted',
   'qualified',
+  'proposed',
   'sold',
-  'onboarded',
 ]
 
 export const STAGE_LABELS: Record<LeadStage, string> = {
   new: 'New',
   contacted: 'Contacted',
   qualified: 'Qualified',
+  proposed: 'Proposed',
   sold: 'Sold',
-  onboarded: 'Onboarded',
   lost: 'Lost',
 }
 
@@ -35,6 +37,8 @@ const LEGACY_MAP: Record<string, LeadStage> = {
   pending: 'new',
   approved: 'qualified',
   rejected: 'lost',
+  // Onboarded was retired — sales now ends at sold (tenant takes over after).
+  onboarded: 'sold',
 }
 
 export function normalizeStage(raw: string | null | undefined): LeadStage {

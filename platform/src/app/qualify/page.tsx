@@ -11,6 +11,8 @@ export default function QualifyPage() {
     business_name: '', owner_name: '', owner_email: '', owner_phone: '',
     // Routing
     trade: '', primary_city: '', primary_state: '',
+    // Billing address
+    billing_address: '', billing_city: '', billing_state: '', billing_zip: '',
     // Scored intent signals (all dropdown / checkbox)
     annual_revenue: '', revenue_trajectory: '', growth_goal: '',
     automation_comfort: '', lead_gen_spend: '', pain_point: '',
@@ -71,6 +73,15 @@ export default function QualifyPage() {
               <Field label="City"><input value={f.primary_city} onChange={e => up('primary_city', e.target.value)} className="input" /></Field>
             </Row>
             <Field label="State"><input value={f.primary_state} onChange={e => up('primary_state', e.target.value)} className="input" maxLength={2} placeholder="NY" /></Field>
+          </Section>
+
+          <Section title="Billing address">
+            <Field label="Street address *"><input required value={f.billing_address} onChange={e => up('billing_address', e.target.value)} className="input" placeholder="123 Main St, Suite 200" /></Field>
+            <Row>
+              <Field label="City *"><input required value={f.billing_city} onChange={e => up('billing_city', e.target.value)} className="input" /></Field>
+              <Field label="State *"><input required value={f.billing_state} onChange={e => up('billing_state', e.target.value)} className="input" maxLength={2} placeholder="NY" /></Field>
+            </Row>
+            <Field label="ZIP *"><input required value={f.billing_zip} onChange={e => up('billing_zip', e.target.value)} className="input" /></Field>
           </Section>
 
           <Section title="Where you're at">

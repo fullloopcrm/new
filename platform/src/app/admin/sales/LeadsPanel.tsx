@@ -8,6 +8,7 @@ import {
   type LeadStage,
 } from '@/lib/lead-stages'
 import { FIT_BUCKET_META, fitBucket, QUALIFY_OPTIONS, optLabel } from '@/lib/lead-fit'
+import { PRICING, computeMonthly } from '@/lib/billing-pricing'
 
 interface Lead {
   id: string
@@ -38,6 +39,11 @@ interface Lead {
   wants_automation: boolean | null
   wants_growth: boolean | null
   comparing_prices: boolean | null
+  proposal_admins: number | null
+  proposal_team_members: number | null
+  proposal_setup_fee: number | null
+  proposal_monthly: number | null
+  proposal_sent_at: string | null
 }
 
 type Counts = Record<string, number>
@@ -46,8 +52,8 @@ const STAGE_BADGE: Record<LeadStage, string> = {
   new: 'bg-blue-50 text-blue-700 border-blue-200',
   contacted: 'bg-amber-50 text-amber-700 border-amber-200',
   qualified: 'bg-violet-50 text-violet-700 border-violet-200',
-  sold: 'bg-teal-50 text-teal-700 border-teal-200',
-  onboarded: 'bg-green-50 text-green-700 border-green-200',
+  proposed: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  sold: 'bg-green-50 text-green-700 border-green-200',
   lost: 'bg-slate-100 text-slate-500 border-slate-200',
 }
 
@@ -63,6 +69,10 @@ export function LeadsPanel() {
   const [savedFlash, setSavedFlash] = useState(false)
   const [converting, setConverting] = useState(false)
   const [convertErr, setConvertErr] = useState('')
+  const [propAdmins, setPropAdmins] = useState(1)
+  const [propTeam, setPropTeam] = useState(0)
+  const [sendingProposal, setSendingProposal] = useState(false)
+  const [proposalErr, setProposalErr] = useState('')
 
   const fetchLeads = useCallback(async () => {
     setLoading(true)
@@ -86,6 +96,27 @@ export function LeadsPanel() {
     setSelectedId(lead.id)
     setNotes(lead.admin_notes || '')
     setSavedFlash(false)
+    setProposalErr('')
+    setPropAdmins(lead.proposal_admins ?? 1)
+    setPropTeam(lead.proposal_team_members ?? 0)
+  }
+
+  async function sendProposal() {
+    if (!selected) return
+    setSendingProposal(true); setProposalErr('')
+    try {
+      const res = await fetch('/api/admin/requests/proposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, admins: propAdmins, team_members: propTeam }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to send proposal')
+      await fetchLeads()
+    } catch (e) {
+      setProposalErr(e instanceof Error ? e.message : 'Failed')
+    }
+    setSendingProposal(false)
   }
 
   async function patchLead(body: Record<string, unknown>) {
@@ -296,21 +327,57 @@ export function LeadsPanel() {
                     Open tenant →
                   </a>
                 </div>
-              ) : (selected.status === 'sold' || selected.status === 'onboarded') ? (
+              ) : selected.status === 'sold' ? (
                 <div className="mb-5">
                   <button
                     onClick={convertToTenant}
                     disabled={converting}
-                    className="w-full bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                    className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                   >
-                    {converting ? 'Creating tenant…' : 'Convert to tenant →'}
+                    {converting ? 'Creating tenant…' : 'Create tenant manually (comp / no payment)'}
                   </button>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Creates a pending tenant prefilled from this lead, seeds industry defaults, and marks the lead onboarded.
+                    Override — paid proposals create the tenant automatically. Use this only to comp an account without payment.
                   </p>
                   {convertErr && <p className="text-xs text-red-600 mt-1">{convertErr}</p>}
                 </div>
               ) : null}
+
+              {/* Proposal builder — Qualified → Proposed */}
+              {(selected.status === 'qualified' || selected.status === 'proposed') && (
+                <div className="mb-5 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Proposal</p>
+                  <div className="grid grid-cols-2 gap-3 mb-2">
+                    <label className="block">
+                      <span className="block text-[10px] text-slate-500 uppercase mb-1">Admins · ${PRICING.adminMonthly.toLocaleString()}/mo</span>
+                      <select value={propAdmins} onChange={e => setPropAdmins(Number(e.target.value))} className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="block text-[10px] text-slate-500 uppercase mb-1">Portal team · ${PRICING.teamMemberMonthly}/mo</span>
+                      <select value={propTeam} onChange={e => setPropTeam(Number(e.target.value))} className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+                        {Array.from({ length: 51 }, (_, i) => i).map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="text-xs text-slate-600 space-y-0.5 mb-2">
+                    <div className="flex justify-between"><span>Setup (one-time, ACH)</span><span className="font-mono">${PRICING.setupFee.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Monthly (recurring)</span><span className="font-mono">${computeMonthly(propAdmins, propTeam).toLocaleString()}/mo</span></div>
+                  </div>
+                  <button
+                    onClick={sendProposal}
+                    disabled={sendingProposal}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                  >
+                    {sendingProposal ? 'Sending…' : selected.proposal_sent_at ? 'Update & resend proposal' : 'Send proposal →'}
+                  </button>
+                  {selected.proposal_sent_at && (
+                    <p className="text-[11px] text-slate-400 mt-1">Last sent {new Date(selected.proposal_sent_at).toLocaleString()}</p>
+                  )}
+                  {proposalErr && <p className="text-xs text-red-600 mt-1">{proposalErr}</p>}
+                </div>
+              )}
 
               {/* Fit score + qualifying answers */}
               {(selected.fit_bucket || selected.automation_comfort) && (

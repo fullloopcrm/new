@@ -108,12 +108,12 @@ export async function POST(request: Request) {
     console.error('[convert] provision failed:', e)
   }
 
-  // Link lead → tenant and advance the pipeline.
+  // Link lead → tenant. Sales ends at 'sold' (tenant side takes over after).
   await supabaseAdmin
     .from('partner_requests')
     .update({
       converted_tenant_id: tenant.id,
-      status: 'onboarded',
+      status: 'sold',
       reviewed_at: new Date().toISOString(),
       reviewed_by: 'admin',
     })
