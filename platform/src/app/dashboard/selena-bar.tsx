@@ -7,7 +7,7 @@ type Msg = { role: 'user' | 'assistant'; content: string }
 // Sticky AI bar mounted on every dashboard page (replaces the prior
 // AiAssistant for the Loop redesign). Cmd-/ focuses the input. Talks to
 // /api/ai/assistant — same backend the old assistant used.
-export default function SelenaBar() {
+export default function SelenaBar({ agentName = 'Selena' }: { agentName?: string }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -56,7 +56,7 @@ export default function SelenaBar() {
         const data = await res.json()
         setMessages([...newMessages, { role: 'assistant', content: data.reply || data.text || 'No reply.' }])
       } else {
-        setMessages([...newMessages, { role: 'assistant', content: 'Selena could not respond. Try again in a moment.' }])
+        setMessages([...newMessages, { role: 'assistant', content: `${agentName} could not respond. Try again in a moment.` }])
       }
     } catch {
       setMessages([...newMessages, { role: 'assistant', content: 'Network hiccup. Try again.' }])
@@ -150,7 +150,7 @@ export default function SelenaBar() {
             className="w-[7px] h-[7px] rounded-full"
             style={{ background: 'var(--color-loop-good)', animation: 'loop-pulse-dot 2s infinite' }}
           />
-          Selena
+          {agentName}
         </span>
         <input
           ref={inputRef}

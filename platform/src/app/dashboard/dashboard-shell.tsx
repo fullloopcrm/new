@@ -74,7 +74,8 @@ const navMain: Array<{
     { letter: 'G', label: 'Analytics', href: '/dashboard/analytics' },
     { letter: 'H', label: 'Map', href: '/dashboard/map' },
   ]},
-  { num: '08', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
+  { num: '08', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
+  { num: '09', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
 ]
 
 // Routes that conceptually fold under each top-level section. Used to
@@ -92,6 +93,7 @@ const foldMap: Record<string, string[]> = {
     '/dashboard/social', '/dashboard/google', '/dashboard/websites',
     '/dashboard/analytics', '/dashboard/map',
   ],
+  comhub: ['/dashboard/comhub'],
   messages: ['/dashboard/messages'],
 }
 
@@ -179,12 +181,14 @@ function formatBadge(count: number): string {
 export default function DashboardShell({
   tenantName,
   primaryColor: _primaryColor,
+  agentName = 'Selena',
   impersonationBanner,
   isAdminImpersonation,
   children,
 }: {
   tenantName: string
   primaryColor: string
+  agentName?: string
   impersonationBanner: React.ReactNode | null
   isAdminImpersonation?: boolean
   children: React.ReactNode
@@ -459,7 +463,7 @@ export default function DashboardShell({
       </main>
 
       {/* Sticky Selena bar (every dashboard page) */}
-      <SelenaBar />
+      <SelenaBar agentName={agentName} />
 
       <ToastProvider />
       {/* Tawk widget removed — Selena AI bar replaces it. */}

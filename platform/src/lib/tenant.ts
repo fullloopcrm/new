@@ -10,6 +10,7 @@ const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 export type Tenant = {
   id: string
   name: string
+  agent_name: string | null
   slug: string
   domain: string | null
   phone: string | null
