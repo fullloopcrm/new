@@ -775,7 +775,14 @@ export async function extractAndSave(
     if (convo?.client_id) {
       const clientUpdate: Record<string, unknown> = {}
       if (extracted.phone) clientUpdate.phone = extracted.phone
-      if (extracted.address) clientUpdate.address = extracted.address
+      if (extracted.address) {
+        // Only fill the client's primary address if it's empty; always add/dedupe
+        // the address as a property so multi-address history is preserved.
+        const { data: cur } = await supabaseAdmin.from('clients').select('address').eq('id', convo.client_id).eq('tenant_id', tid).single()
+        if (!cur?.address || !cur.address.trim()) clientUpdate.address = extracted.address
+        const { resolveProperty } = await import('@/lib/client-properties')
+        await resolveProperty(convo.client_id, extracted.address, null, { changedBy: 'agent', actorId: 'yinez', source: 'api' })
+      }
       if (extracted.email) clientUpdate.email = extracted.email
       if (extracted.notes && extracted.notes !== 'none') {
         const { data: c } = await supabaseAdmin.from('clients').select('notes').eq('id', convo.client_id).eq('tenant_id', tid).single()
@@ -1243,6 +1250,14 @@ async function handleUpdateAccount(input: Record<string, unknown>, conversationI
     const value = input.value as string
     const allowed = ['address', 'email', 'phone', 'name']
     if (!allowed.includes(field)) return JSON.stringify({ error: `Cannot update ${field}` })
+    // Address changes ADD a property (set primary) — never overwrite the old one,
+    // so history is preserved and other properties aren't clobbered.
+    if (field === 'address') {
+      const { addProperty } = await import('@/lib/client-properties')
+      const prop = await addProperty(convo.client_id, value, { makePrimary: true, actor: { changedBy: 'agent', actorId: 'yinez', source: 'api' } })
+      if (!prop) return JSON.stringify({ error: 'Failed to add address' })
+      return JSON.stringify({ success: true, message: `Address added and set as primary: ${value}` })
+    }
     await supabaseAdmin.from('clients').update({ [field]: value }).eq('id', convo.client_id).eq('tenant_id', tid)
     return JSON.stringify({ success: true, message: `${field} updated to ${value}` })
   } catch (err) {
@@ -1630,10 +1645,15 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
     if (!bookingId) return JSON.stringify({ error: 'No bookings found for this client' })
 
     const { data: booking } = await supabaseAdmin.from('bookings')
-      .select('id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, actual_hours, hourly_rate, price, cleaner_pay, payment_status, payment_method, status, service_type, cleaners(name), clients(name, address)')
+      .select('id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, actual_hours, hourly_rate, price, cleaner_pay, payment_status, payment_method, status, service_type, cleaners(name), clients(name, address), client_properties(address)')
       .eq('id', bookingId).eq('tenant_id', tid).single()
 
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
+
+    // Show the booking's property address (multi-address parity) — overlays the
+    // per-booking property onto the client display before we read it.
+    const { applyPropertyToBookingClient } = await import('@/lib/client-properties')
+    applyPropertyToBookingClient(booking as Parameters<typeof applyPropertyToBookingClient>[0])
 
     const client = booking.clients as unknown as { name: string; address: string } | null
     const cleaner = booking.cleaners as unknown as { name: string } | null
