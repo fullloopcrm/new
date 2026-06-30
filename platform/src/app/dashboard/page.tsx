@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { getCurrentTenant } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
+import ScheduleIssues from './_components/ScheduleIssues'
+import JobsMap, { type MapJob } from './_components/JobsMap'
 
 // The Loop — global tenant dashboard, ported to match nycmaid's V1 Loop.
 // Server-rendered, tenant-scoped. bookings.price is stored in CENTS.
@@ -81,6 +83,22 @@ export default async function DashboardPage() {
   const roster = rosterRes.count || 0
   const newThisMonth = newClientsRes.count || 0
 
+  // Map jobs — this month, with client address for geocoding.
+  const { data: mapRows } = await supabaseAdmin
+    .from('bookings')
+    .select('id,start_time,status,service_type,team_member_id,clients(name,address),team_members(name)')
+    .eq('tenant_id', tenant.id)
+    .gte('start_time', startOfMonth.toISOString())
+    .lte('start_time', endOfMonth.toISOString())
+    .order('start_time', { ascending: true })
+    .limit(1000)
+  const mapJobs = (mapRows || []).map((r) => ({
+    id: r.id, start_time: r.start_time, status: r.status, service_type: r.service_type,
+    cleaner_id: (r as { team_member_id?: string | null }).team_member_id ?? null,
+    clients: r.clients as unknown as { name: string; address: string } | null,
+    team_members: r.team_members as unknown as { name: string } | null,
+  })) as MapJob[]
+
   const collected = (a: Date, b: Date) => allJobs.filter(j => COLLECTED(j) && inRange(j, a, b))
   const scheduled = (a: Date, b: Date) => allJobs.filter(j => SCHEDULED(j) && inRange(j, a, b))
   const collectedToday = collected(startOfDay, endOfDay)
@@ -151,6 +169,9 @@ export default async function DashboardPage() {
 
   return (
     <>
+      {/* SCHEDULE ISSUES — Fix-now triage (client; tenant-scoped API) */}
+      <ScheduleIssues />
+
       {/* REVENUE LADDER */}
       <Bar>Revenue</Bar>
       <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(5, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
@@ -229,6 +250,9 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* JOBS MAP — this month, geocoded */}
+      <JobsMap jobs={mapJobs} />
     </>
   )
 }
