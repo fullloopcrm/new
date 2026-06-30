@@ -95,6 +95,7 @@ const isPublicRoute = createRouteMatcher([
   '/fullloop',                // Per-tenant operator PIN login page
   '/api/admin-auth(.*)',       // Admin PIN auth endpoint
   '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
+  '/proposal(.*)',            // Post-payment redirect pages (thank-you / cancelled)
   '/api/requests',            // Partnership form submissions
   '/api/inquiry',             // Marketing-site contact form (homeservicesbusinesscrm.com/contact)
   '/api/feedback',            // Feedback form submissions

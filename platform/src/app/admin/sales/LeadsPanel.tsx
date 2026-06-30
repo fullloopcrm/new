@@ -73,6 +73,8 @@ export function LeadsPanel() {
   const [propTeam, setPropTeam] = useState(0)
   const [sendingProposal, setSendingProposal] = useState(false)
   const [proposalErr, setProposalErr] = useState('')
+  const [payLinkLoading, setPayLinkLoading] = useState(false)
+  const [payUrl, setPayUrl] = useState('')
 
   const fetchLeads = useCallback(async () => {
     setLoading(true)
@@ -97,8 +99,23 @@ export function LeadsPanel() {
     setNotes(lead.admin_notes || '')
     setSavedFlash(false)
     setProposalErr('')
+    setPayUrl('')
     setPropAdmins(lead.proposal_admins ?? 1)
     setPropTeam(lead.proposal_team_members ?? 0)
+  }
+
+  async function generatePayLink() {
+    if (!selected) return
+    setPayLinkLoading(true); setProposalErr(''); setPayUrl('')
+    try {
+      const res = await fetch(`/api/admin/requests/${selected.id}/proposal-checkout`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not generate link')
+      setPayUrl(data.url || '')
+    } catch (e) {
+      setProposalErr(e instanceof Error ? e.message : 'Failed')
+    }
+    setPayLinkLoading(false)
   }
 
   async function sendProposal() {
@@ -373,7 +390,22 @@ export function LeadsPanel() {
                     {sendingProposal ? 'Sending…' : selected.proposal_sent_at ? 'Update & resend proposal' : 'Send proposal →'}
                   </button>
                   {selected.proposal_sent_at && (
-                    <p className="text-[11px] text-slate-400 mt-1">Last sent {new Date(selected.proposal_sent_at).toLocaleString()}</p>
+                    <>
+                      <p className="text-[11px] text-slate-400 mt-1">Last sent {new Date(selected.proposal_sent_at).toLocaleString()}</p>
+                      <button
+                        onClick={generatePayLink}
+                        disabled={payLinkLoading}
+                        className="w-full mt-2 bg-white border border-indigo-300 text-indigo-700 hover:bg-indigo-50 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                      >
+                        {payLinkLoading ? 'Generating…' : 'Generate payment link (ACH / card)'}
+                      </button>
+                    </>
+                  )}
+                  {payUrl && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <input readOnly value={payUrl} className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-slate-50" onFocus={e => e.currentTarget.select()} />
+                      <a href={payUrl} target="_blank" rel="noreferrer" className="text-xs font-medium text-teal-700 hover:underline shrink-0">Open →</a>
+                    </div>
                   )}
                   {proposalErr && <p className="text-xs text-red-600 mt-1">{proposalErr}</p>}
                 </div>
