@@ -38,6 +38,8 @@ type Business = {
   resend_domain: string | null
   email_from: string | null
   telnyx_api_key: string | null
+  telegram_bot_token: string | null
+  telegram_chat_id: string | null
   google_place_id: string | null
   google_tokens: { access_token?: string; refresh_token?: string; expires_at?: number } | null
   google_business: { account_name?: string; location_name?: string; location_title?: string } | null
@@ -156,6 +158,8 @@ export default function BusinessDetailPage() {
   const [emailFrom, setEmailFrom] = useState('')
   const [telnyxApiKey, setTelnyxApiKey] = useState('')
   const [telnyxPhone, setTelnyxPhone] = useState('')
+  const [telegramBotToken, setTelegramBotToken] = useState('')
+  const [telegramChatId, setTelegramChatId] = useState('')
   const [stripeAccountId, setStripeAccountId] = useState('')
   const [stripeApiKey, setStripeApiKey] = useState('')
   const [googlePlaceId, setGooglePlaceId] = useState('')
@@ -203,6 +207,8 @@ export default function BusinessDetailPage() {
           setEmailFrom(b.email_from || '')
           setTelnyxApiKey(b.telnyx_api_key || '')
           setTelnyxPhone(b.telnyx_phone || '')
+          setTelegramBotToken(b.telegram_bot_token || '')
+          setTelegramChatId(b.telegram_chat_id || '')
           setStripeAccountId(b.stripe_account_id || '')
           setStripeApiKey(b.stripe_api_key || '')
           setGooglePlaceId(b.google_place_id || '')
@@ -631,6 +637,24 @@ export default function BusinessDetailPage() {
             </div>
           </div>
 
+          {/* Telegram — Owner Alerts */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Telegram — Owner Alerts</h3>
+            <p className="text-xs text-slate-400 mb-4">Bot token (from BotFather) + owner chat ID. The agent posts ops alerts (new lead, 30-min heads-up, payment, job done) here.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Bot Token</label>
+                <input value={telegramBotToken} onChange={(e) => setTelegramBotToken(e.target.value)} type="password"
+                  placeholder="123456:ABC-DEF1234..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Owner Chat ID</label>
+                <input value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value)}
+                  placeholder="-1001234567890" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+              </div>
+            </div>
+          </div>
+
           {/* Stripe — Payments */}
           <div>
             <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Stripe — Payments</h3>
@@ -730,6 +754,8 @@ export default function BusinessDetailPage() {
               email_from: emailFrom || null,
               telnyx_api_key: telnyxApiKey || null,
               telnyx_phone: telnyxPhone || null,
+              telegram_bot_token: telegramBotToken || null,
+              telegram_chat_id: telegramChatId || null,
               stripe_account_id: stripeAccountId || null,
               stripe_api_key: stripeApiKey || null,
               imap_host: imapHost || null,
