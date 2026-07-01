@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ServiceArea } from '@/lib/service-area'
-import { stateName } from '@/lib/service-area'
+import { stateName, isStateScoped } from '@/lib/service-area'
 
 interface Member {
   id: string
@@ -85,11 +85,12 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
     return () => { alive = false }
   }, [])
 
-  const isNational = serviceArea.scope === 'national'
+  // Regional and national both render state-by-state; local renders by zone.
+  const stateBased = isStateScoped(serviceArea.scope)
 
-  // Coverage buckets: by state (national) or by zone (local).
+  // Coverage buckets: by state (regional/national) or by zone (local).
   const buckets = useMemo(() => {
-    if (isNational) {
+    if (stateBased) {
       const wanted = serviceArea.states.includes('ALL')
         ? Array.from(new Set(members.map((m) => m.state).filter(Boolean) as string[]))
         : serviceArea.states
@@ -104,7 +105,7 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
       label: z.label,
       count: members.filter((m) => m.service_zones.includes(z.id)).length,
     }))
-  }, [isNational, serviceArea, members])
+  }, [stateBased, serviceArea, members])
 
   const gaps = buckets.filter((b) => b.count === 0)
   const thin = buckets.filter((b) => b.count === 1)
@@ -120,7 +121,7 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
         <MapInner
           members={members}
           clients={clients}
-          national={isNational}
+          national={stateBased}
           selected={selected}
         />
         {plotted === 0 && (
@@ -134,7 +135,7 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
 
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-[#1E2A4A]">{isNational ? 'State Coverage' : 'Zone Coverage'}</h3>
+          <h3 className="text-sm font-semibold text-[#1E2A4A]">{stateBased ? 'State Coverage' : 'Zone Coverage'}</h3>
           {selected && (
             <button onClick={() => setSelected(null)} className="text-xs text-gray-500 hover:text-[#1E2A4A]">Show all</button>
           )}

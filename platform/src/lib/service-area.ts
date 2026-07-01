@@ -1,18 +1,24 @@
 /**
  * Per-tenant service area model.
  *
- * Drives the team-page coverage heat map: a tenant is either `local` (operates
- * in one metro / set of zones — e.g. NYC Maid) or `national` (operates across
- * states). Stored in `tenants.selena_config.service_area` (jsonb) so no schema
- * migration is needed.
+ * Drives the team-page coverage heat map. A tenant's scope comes from its own
+ * profile (set in onboarding / Settings), never from hardcoded defaults:
+ *   - local    → operates in one metro / set of zones (e.g. NYC Maid).
+ *   - regional → operates across a bounded set of states / metros (e.g. the
+ *                tri-state area). Shown state-by-state like national, but the
+ *                state set is finite (no "ALL").
+ *   - national → operates across many states, up to all 50 (e.g. we-pay-you-junk).
  *
- * - local    → map shows the tenant's zones (city/borough granularity) + pins.
- * - national → map shows a US-state density choropleth of where team lives,
- *              highlighting the tenant's selected service-area states and
- *              flagging states with no / thin coverage.
+ * Stored in `tenants.selena_config.service_area` (jsonb) so no schema migration
+ * is needed.
+ *
+ * - local            → map shows the tenant's zones (borough/neighborhood) + pins.
+ * - regional/national → map shows US-state coverage of where team lives,
+ *                       highlighting the tenant's service-area states and
+ *                       flagging states with no / thin coverage.
  */
 
-export type BusinessScope = 'local' | 'national'
+export type BusinessScope = 'local' | 'regional' | 'national'
 
 export interface ServiceZone {
   id: string
@@ -23,10 +29,18 @@ export interface ServiceZone {
 
 export interface ServiceArea {
   scope: BusinessScope
-  /** Two-letter state codes the tenant serves. For `national` with full reach, use ['ALL']. */
+  /**
+   * Two-letter state codes the tenant serves. For `national` with full reach,
+   * use ['ALL']. For `regional`, a finite set of states ('ALL' is not allowed).
+   */
   states: string[]
-  /** Local-scope zones (boroughs / neighborhoods / suburbs). Empty for national. */
+  /** Local-scope zones (boroughs / neighborhoods / suburbs). Empty for regional/national. */
   zones: ServiceZone[]
+}
+
+/** True when the tenant's map is state-based (regional or national) vs zone-based (local). */
+export function isStateScoped(scope: BusinessScope): boolean {
+  return scope === 'regional' || scope === 'national'
 }
 
 export const US_STATES: ReadonlyArray<{ code: string; name: string }> = [
@@ -72,40 +86,63 @@ export const NYC_DEFAULT_ZONES: ServiceZone[] = [
   { id: 'nj_hudson', label: 'NJ — Hoboken / Jersey City / Weehawken' },
 ]
 
+/** The NYC-metro local preset (NYC Maid). A CHOOSABLE preset — never a silent default. */
 export const DEFAULT_SERVICE_AREA: ServiceArea = {
   scope: 'local',
   states: ['NY'],
   zones: NYC_DEFAULT_ZONES,
 }
 
-/** Narrow unknown jsonb into a valid ServiceArea, falling back to defaults. */
+/**
+ * Neutral fallback for a tenant that has NOT configured a service area yet.
+ * Local scope with NO zones → the map plots team pins only, with no false
+ * borough overlay. This is what an unconfigured national/regional tenant like
+ * we-pay-you-junk gets until its profile sets the real scope.
+ */
+export const NEUTRAL_SERVICE_AREA: ServiceArea = {
+  scope: 'local',
+  states: [],
+  zones: [],
+}
+
+/**
+ * Narrow unknown jsonb into a valid ServiceArea.
+ *
+ * This respects exactly what was stored — it does NOT inject NYC zones or a
+ * default state. Empty stays empty so a tenant only ever shows the coverage it
+ * actually configured. Non-object input falls back to NEUTRAL (not NYC).
+ */
 export function parseServiceArea(raw: unknown): ServiceArea {
-  if (!raw || typeof raw !== 'object') return DEFAULT_SERVICE_AREA
+  if (!raw || typeof raw !== 'object') return NEUTRAL_SERVICE_AREA
   const r = raw as Record<string, unknown>
-  const scope: BusinessScope = r.scope === 'national' ? 'national' : 'local'
-  const states = Array.isArray(r.states)
+  const scope: BusinessScope =
+    r.scope === 'national' ? 'national' : r.scope === 'regional' ? 'regional' : 'local'
+  const parsedStates = Array.isArray(r.states)
     ? r.states.filter((s): s is string => typeof s === 'string' && (s === 'ALL' || isValidStateCode(s))).map((s) => s.toUpperCase())
-    : DEFAULT_SERVICE_AREA.states
+    : []
+  // 'ALL' is only meaningful for national; regional is a finite state set.
+  const states = scope === 'regional' ? parsedStates.filter((s) => s !== 'ALL') : parsedStates
   const zones = Array.isArray(r.zones)
     ? r.zones.filter((z): z is ServiceZone => !!z && typeof z === 'object' && typeof (z as ServiceZone).id === 'string')
     : []
-  return {
-    scope,
-    states: states.length ? states : DEFAULT_SERVICE_AREA.states,
-    zones: scope === 'local' && zones.length === 0 ? NYC_DEFAULT_ZONES : zones,
-  }
+  // Only local scope carries zones.
+  return { scope, states, zones: scope === 'local' ? zones : [] }
 }
 
 /**
  * Read a tenant's service area from its `selena_config` jsonb.
  * `selenaConfig` is the raw column value (object or null).
+ *
+ * Resolution order: explicit `service_area` → legacy NYC `service_zones`
+ * back-compat → NEUTRAL (pins only). Never silently returns the NYC preset for
+ * a tenant that didn't configure it.
  */
 export function getServiceArea(selenaConfig: unknown): ServiceArea {
   const cfg = (selenaConfig && typeof selenaConfig === 'object') ? (selenaConfig as Record<string, unknown>) : {}
   if (cfg.service_area) return parseServiceArea(cfg.service_area)
   // Back-compat: a tenant with legacy NYC service_zones is a local NYC tenant.
   if (Array.isArray(cfg.service_zones) && cfg.service_zones.length) return DEFAULT_SERVICE_AREA
-  return DEFAULT_SERVICE_AREA
+  return NEUTRAL_SERVICE_AREA
 }
 
 /** Merge an updated service area back into a selena_config object (immutably). */

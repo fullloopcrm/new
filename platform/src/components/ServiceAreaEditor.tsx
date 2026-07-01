@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { US_STATES, type ServiceArea, type ServiceZone } from '@/lib/service-area'
+import { US_STATES, isStateScoped, type BusinessScope, type ServiceArea, type ServiceZone } from '@/lib/service-area'
 
 interface Props {
   onSaved?: (area: ServiceArea) => void
@@ -40,7 +40,13 @@ export default function ServiceAreaEditor({ onSaved, embedded, value, onChange }
 
   if (!area) return <div className="text-sm text-gray-400">Loading service area…</div>
 
-  const setScope = (scope: 'local' | 'national') => { setSaved(false); setArea({ ...area, scope }) }
+  const setScope = (scope: BusinessScope) => {
+    setSaved(false)
+    // Regional never carries 'ALL'; switching away from local drops zones.
+    const states = scope === 'regional' ? area.states.filter((s) => s !== 'ALL') : area.states
+    setArea({ ...area, scope, states, zones: scope === 'local' ? area.zones : [] })
+  }
+  const stateBased = isStateScoped(area.scope)
   const allStates = area.states.includes('ALL')
 
   const toggleState = (code: string) => {
@@ -102,7 +108,7 @@ export default function ServiceAreaEditor({ onSaved, embedded, value, onChange }
       <div>
         <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Business type</div>
         <div className="flex gap-2">
-          {(['local', 'national'] as const).map((s) => (
+          {(['local', 'regional', 'national'] as const).map((s) => (
             <button
               key={s}
               type="button"
@@ -111,20 +117,22 @@ export default function ServiceAreaEditor({ onSaved, embedded, value, onChange }
                 area.scope === s ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >
-              {s === 'local' ? 'Local (one metro / zones)' : 'National (multiple states)'}
+              {s === 'local' ? 'Local (one metro / zones)' : s === 'regional' ? 'Regional (a few states)' : 'National (many states)'}
             </button>
           ))}
         </div>
       </div>
 
-      {/* National: state picker */}
-      {area.scope === 'national' && (
+      {/* Regional / National: state picker ('All states' is national-only) */}
+      {stateBased && (
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Service-area states</div>
-            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-              <input type="checkbox" checked={allStates} onChange={toggleAll} /> All states
-            </label>
+            {area.scope === 'national' && (
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                <input type="checkbox" checked={allStates} onChange={toggleAll} /> All states
+              </label>
+            )}
           </div>
           {!allStates && (
             <div className="grid grid-cols-4 md:grid-cols-6 gap-1.5">

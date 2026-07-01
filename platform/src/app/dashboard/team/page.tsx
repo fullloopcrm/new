@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './team.css'
 import TeamCoverageMap from '@/components/TeamCoverageMap'
-import { type ServiceArea, DEFAULT_SERVICE_AREA } from '@/lib/service-area'
+import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
 
 type Tab = 'team' | 'applications' | 'ops_admin' | 'performance' | 'payroll'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
@@ -81,7 +81,7 @@ export default function TeamPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [appsLoading, setAppsLoading] = useState(true)
-  const [serviceArea, setServiceArea] = useState<ServiceArea>(DEFAULT_SERVICE_AREA)
+  const [serviceArea, setServiceArea] = useState<ServiceArea>(NEUTRAL_SERVICE_AREA)
 
   useEffect(() => {
     setLoading(true)
@@ -110,6 +110,33 @@ export default function TeamPage() {
       }
     } catch {}
     setAppsLoading(false)
+  }
+
+  const [bulkApproving, setBulkApproving] = useState(false)
+
+  async function bulkApproveAll() {
+    const pendingCount = applications.filter((a) => a.status === 'pending').length
+    if (pendingCount === 0) return
+    if (!confirm(`Approve all ${pendingCount} pending application${pendingCount === 1 ? '' : 's'}? Each applicant will be added to the team and emailed their portal PIN + login link.`)) return
+    setBulkApproving(true)
+    try {
+      const res = await fetch('/api/team-applications/bulk-approve', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Failed: ${json.error || res.statusText}`)
+        return
+      }
+      const failed = Array.isArray(json.failures) ? json.failures.length : 0
+      alert(
+        `Approved ${json.approved}. Emailed/provisioned ${json.provisioned}.` +
+        (failed > 0 ? `\n${failed} applicant(s) approved but could not be emailed/provisioned — check their email/phone.` : '')
+      )
+      await loadApplications()
+    } catch (e) {
+      alert(`Failed: ${e instanceof Error ? e.message : 'network error'}`)
+    } finally {
+      setBulkApproving(false)
+    }
   }
 
   async function updateApplication(id: string, status: 'approved' | 'rejected') {
@@ -249,9 +276,23 @@ export default function TeamPage() {
         <>
           <div className="tm-section-head">
             <h2 className="tm-section-title">Applications<em>.</em></h2>
-            <span className="tm-section-meta">
-              {applications.length} total · {applications.filter((a) => a.status === 'pending').length} pending
-            </span>
+            <div className="tm-section-actions">
+              <span className="tm-section-meta">
+                {applications.length} total · {applications.filter((a) => a.status === 'pending').length} pending
+              </span>
+              {applications.filter((a) => a.status === 'pending').length > 0 && (
+                <button
+                  type="button"
+                  className="tm-bulk-approve-btn"
+                  onClick={bulkApproveAll}
+                  disabled={bulkApproving}
+                >
+                  {bulkApproving
+                    ? 'Approving…'
+                    : `Approve all pending (${applications.filter((a) => a.status === 'pending').length})`}
+                </button>
+              )}
+            </div>
           </div>
 
           {appsLoading && <div className="tm-empty">Loading…</div>}
