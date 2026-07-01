@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { PRICING, computeMonthly } from '@/lib/billing-pricing'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -22,6 +23,8 @@ type Business = {
   billing_status: string
   monthly_rate: number
   setup_fee: number
+  admin_seats?: number
+  team_seats?: number
   setup_fee_paid_at: string | null
   payment_method: string | null
   last_active_at: string | null
@@ -142,6 +145,8 @@ export default function BusinessDetailPage() {
   const [billingStatus, setBillingStatus] = useState('')
   const [monthlyRate, setMonthlyRate] = useState(0)
   const [setupFee, setSetupFee] = useState(0)
+  const [adminSeats, setAdminSeats] = useState(1)
+  const [teamSeats, setTeamSeats] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('')
   const [adminNotes, setAdminNotes] = useState('')
   const [status, setStatus] = useState('')
@@ -198,6 +203,8 @@ export default function BusinessDetailPage() {
           setBillingStatus(b.billing_status || 'setup')
           setMonthlyRate(b.monthly_rate || 0)
           setSetupFee(b.setup_fee || 0)
+          setAdminSeats(b.admin_seats ?? 1)
+          setTeamSeats(b.team_seats ?? 0)
           setPaymentMethod(b.payment_method || '')
           setAdminNotes(b.admin_notes || '')
           setStatus(b.status || 'setup')
@@ -243,6 +250,7 @@ export default function BusinessDetailPage() {
       body: JSON.stringify({
         status, billing_status: billingStatus,
         monthly_rate: monthlyRate, setup_fee: setupFee,
+        admin_seats: adminSeats, team_seats: teamSeats,
         payment_method: paymentMethod || null,
         owner_name: ownerName || null, owner_email: ownerEmail || null, owner_phone: ownerPhone || null,
         gmail_account: gmailAccount || null, domain_name: domainName || null,
@@ -802,6 +810,21 @@ export default function BusinessDetailPage() {
               <option value="past_due">Past Due</option><option value="cancelled">Cancelled</option>
             </select>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-slate-400 uppercase">Admins (${PRICING.adminMonthly.toLocaleString()}/mo)</label>
+              <input type="number" min={0} value={adminSeats}
+                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setAdminSeats(v); setMonthlyRate(computeMonthly(v, teamSeats)) }}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 uppercase">Portal team (${PRICING.teamMemberMonthly}/mo)</label>
+              <input type="number" min={0} value={teamSeats}
+                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setTeamSeats(v); setMonthlyRate(computeMonthly(adminSeats, v)) }}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 -mt-2">Seats auto-compute the monthly rate. Stripe proration applies once billing keys are wired.</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-slate-400 uppercase">Monthly Rate ($)</label>

@@ -211,6 +211,7 @@ export async function PUT(
   const allowed = [
     'status', 'plan', 'admin_notes', 'billing_status',
     'monthly_rate', 'setup_fee', 'setup_fee_paid_at', 'payment_method',
+    'admin_seats', 'team_seats',
     'owner_name', 'owner_email', 'owner_phone',
     // Onboarding fields
     'gmail_account', 'domain', 'domain_name', 'dns_configured',
