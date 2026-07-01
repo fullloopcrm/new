@@ -1,10 +1,8 @@
-// @ts-nocheck
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { PricingCalculator } from "@/app/site/we-pay-you-junk/_components/PricingCalculator";
 import {
   PHONE,
-  PHONE_HREF,
   SMS_HREF,
   HOURS,
   RATING,
@@ -66,21 +64,16 @@ export default function HomePage() {
 
           {/* CTA buttons — Text (most popular), Call, Book */}
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <a href={SMS_HREF}>
-              <span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">
-                Text {PHONE} — Most Popular
-              </span>
-            </a>
-            <a href={PHONE_HREF}>
-              <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
-                Call {PHONE}
-              </span>
-            </a>
             <Link href="/book-junk-removal-service-today">
-              <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
+              <span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">
                 Book Now &amp; Save $10
               </span>
             </Link>
+            <a href={SMS_HREF}>
+              <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
+                Text {PHONE}
+              </span>
+            </a>
           </div>
         </div>
       </section>
@@ -367,7 +360,7 @@ export default function HomePage() {
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">
             <Link href="/book-junk-removal-service-today" className="text-teal-600 underline">Book online</Link> or{" "}
-            <a href={PHONE_HREF} className="text-teal-600 underline">call us</a>. We show up, load your stuff, appraise the valuables, and you pay less — or{" "}
+            <a href={SMS_HREF} className="text-teal-600 underline">text us</a>. We show up, load your stuff, appraise the valuables, and you pay less — or{" "}
             <Link href="/faq" className="text-teal-600 underline">get paid</Link>. That is the entire process.
           </p>
           <div className="mx-auto mt-8 grid max-w-4xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -947,7 +940,7 @@ export default function HomePage() {
             <Link href="/services/basement-cleanouts" className="text-teal-600 underline">basement</Link>, or{" "}
             <Link href="/services/attic-cleanouts" className="text-teal-600 underline">attic</Link> with a single call. Our crew handles everything.{" "}
             <Link href="/book-junk-removal-service-today" className="text-teal-600 underline">Book now</Link> or{" "}
-            <a href={PHONE_HREF} className="text-teal-600 underline">call {PHONE}</a>.
+            <a href={SMS_HREF} className="text-teal-600 underline">text {PHONE}</a>.
           </p>
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-base leading-relaxed text-slate-700">
             <p>
@@ -1043,7 +1036,7 @@ export default function HomePage() {
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">
             <Link href="/book-junk-removal-service-today" className="text-teal-600 underline">Book online</Link> in 2 minutes,{" "}
-            <a href={PHONE_HREF} className="text-teal-600 underline">call {PHONE}</a>, or{" "}
+            <a href={SMS_HREF} className="text-teal-600 underline">text {PHONE}</a>, or{" "}
             <a href={SMS_HREF} className="text-teal-600 underline">text us</a>.{" "}
             <Link href="/faq" className="text-teal-600 underline">See our FAQ</Link> for scheduling details.
           </p>
@@ -1223,21 +1216,16 @@ export default function HomePage() {
             Rates starting at $100/hr with dump fees included (an industry first). 50% Resale Credit (when applicable) on every item with value — furniture, appliances, electronics, tools, and more. {CITY_COUNT} cities across all {STATE_COUNT} states. Open {HOURS}, seven days a week, including weekends and holidays. Same-day service available for calls placed before noon. No contracts, no hidden fees, no minimum truck loads. Your stuff has value — stop giving it away to companies that profit from it without sharing. Text, call, or book online right now and see the difference.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <a href={SMS_HREF}>
-              <span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">
-                Text {PHONE} — Most Popular
-              </span>
-            </a>
-            <a href={PHONE_HREF}>
-              <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
-                Call {PHONE}
-              </span>
-            </a>
             <Link href="/book-junk-removal-service-today">
-              <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
+              <span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">
                 Book Now &amp; Save $10
               </span>
             </Link>
+            <a href={SMS_HREF}>
+              <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
+                Text {PHONE}
+              </span>
+            </a>
           </div>
         </div>
       </section>

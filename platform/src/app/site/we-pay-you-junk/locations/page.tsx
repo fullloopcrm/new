@@ -1,8 +1,7 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
-import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 import { STATES, TOTAL_CITIES } from "@/app/site/we-pay-you-junk/_data/cities";
 import { OFFICES } from "@/app/site/we-pay-you-junk/_data/offices";
 
@@ -64,7 +63,7 @@ export default function LocationsPage() {
                         <p className="mt-1 text-xs text-slate-500">{cityCount} cities served in {office.stateAbbr}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <a href={SMS_HREF} className="inline-block rounded-md bg-teal-700 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-800 font-cta">Text Us</a>
-                          <a href={PHONE_HREF} className="inline-block rounded-md border border-teal-700 px-4 py-2 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-50 font-cta">Call Us</a>
+                          <Link href="/book-junk-removal-service-today" className="inline-block rounded-md border border-teal-700 px-4 py-2 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-50 font-cta">Book</Link>
                           <Link href="/book-junk-removal-service-today" className="inline-block rounded-md bg-accent px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-accent-dark font-cta">Book Now &amp; Save $10</Link>
                         </div>
                       </div>
@@ -116,7 +115,7 @@ export default function LocationsPage() {
           <h2 className="text-center text-3xl font-bold text-white sm:text-4xl font-heading">Don&apos;t See Your City?</h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-white/70">We are expanding every week and chances are we already have a crew in your area. <Link href="/contact-we-pay-you-junk-removal-today" className="text-teal-200 font-semibold hover:underline">Send us a message</Link>, check our <Link href="/faq" className="text-teal-200 font-semibold hover:underline">FAQ for coverage questions</Link>, or explore <Link href="/franchise" className="text-teal-200 font-semibold hover:underline">franchise opportunities</Link> to bring We Pay You to your market.</p>
           <div className="mt-8">
-            <a href={PHONE_HREF}><span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">Call {PHONE}</span></a>
+            <Link href="/book-junk-removal-service-today"><span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">Book Now &amp; Save $10</span></Link>
           </div>
         </div>
       </section>

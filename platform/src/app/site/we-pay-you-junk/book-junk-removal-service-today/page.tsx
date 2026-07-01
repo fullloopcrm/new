@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, EMAIL, HOURS } from "@/app/site/we-pay-you-junk/_data/content";
 import { BookingForm } from "@/app/site/we-pay-you-junk/_components/BookingForm";
 
 export default function BookPage() {
@@ -43,8 +42,8 @@ export default function BookPage() {
 
               <div className="mt-10 space-y-4">
                 <div>
-                  <p className="text-sm font-bold uppercase tracking-widest text-teal-600 font-cta">Prefer to Call?</p>
-                  <a href={PHONE_HREF} className="mt-1 block text-xl font-bold text-slate-900 hover:text-teal-700 transition-colors">{PHONE}</a>
+                  <p className="text-sm font-bold uppercase tracking-widest text-teal-600 font-cta">Prefer to Text?</p>
+                  <a href={SMS_HREF} className="mt-1 block text-xl font-bold text-slate-900 hover:text-teal-700 transition-colors">{PHONE}</a>
                 </div>
                 <div>
                   <p className="text-sm font-bold uppercase tracking-widest text-teal-600 font-cta">Email</p>

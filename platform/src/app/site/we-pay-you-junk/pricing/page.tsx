@@ -1,9 +1,8 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { PricingCalculator } from "@/app/site/we-pay-you-junk/_components/PricingCalculator";
-import { PHONE, PHONE_HREF, SMS_HREF, PRICING, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, PRICING, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 
 export const metadata: Metadata = {
   title: "Junk Removal Pricing — starting at $100/hr Flat Rate, Dump Fees Included, 50% Resale Credit (when applicable)",
@@ -448,7 +447,7 @@ export default function PricingPage() {
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">→</span><div><strong>Medical waste</strong> — contact your local health department or use a licensed medical waste hauler.</div></li>
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">→</span><div><strong>Propane tanks</strong> — many hardware stores and propane dealers accept empties for exchange or recycling.</div></li>
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">→</span><div><strong>Ammunition</strong> — contact your local police department for safe disposal options.</div></li>
-                <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">→</span><div><strong>Not sure?</strong> Call us at <a href={PHONE_HREF} className="text-teal-700 font-semibold">{PHONE}</a>. We&apos;ll tell you if we can take it or point you to the right resource.</div></li>
+                <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">→</span><div><strong>Not sure?</strong> Text us at <a href={SMS_HREF} className="text-teal-700 font-semibold">{PHONE}</a>. We&apos;ll tell you if we can take it or point you to the right resource.</div></li>
               </ul>
             </div>
           </div>
@@ -517,7 +516,7 @@ export default function PricingPage() {
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">Whether you&apos;re in New York or Nebraska, LA or Little Rock — the rate is starting at $100/hr. Your local crew knows your area, your dump sites, your resale market. Same pricing, local execution. Find your city on our <Link href="/locations" className="text-teal-700 font-semibold hover:underline">locations page</Link>.</p>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
             <p>We don&apos;t charge more in expensive markets or less in rural areas. starting at $100/hr everywhere. What does vary is your crew&apos;s local knowledge — they know which items sell best in your market, which recycling centers are closest, which charities accept donations in your area. That local expertise means faster jobs and more accurate appraisals, which means lower bills and higher credits for you.</p>
-            <p>Same-day booking available in most cities for calls placed before noon. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book online</Link> or call <a href={PHONE_HREF} className="text-teal-700 font-semibold hover:underline">{PHONE}</a>. We&apos;ll confirm pricing, explain the 1 hour minimum, and schedule your pickup. That&apos;s it — no sales pitch, no upsell, no &quot;let me put you on hold while I check with my manager.&quot;</p>
+            <p>Same-day booking available in most cities for calls placed before noon. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book online</Link> or text <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">{PHONE}</a>. We&apos;ll confirm pricing, explain the 1 hour minimum, and schedule your pickup. That&apos;s it — no sales pitch, no upsell, no &quot;let me put you on hold while I check with my manager.&quot;</p>
           </div>
         </div>
       </section>
@@ -536,9 +535,6 @@ export default function PricingPage() {
             </Link>
             <a href={SMS_HREF}>
               <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">Text {PHONE}</span>
-            </a>
-            <a href={PHONE_HREF}>
-              <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">Call {PHONE}</span>
             </a>
           </div>
         </div>

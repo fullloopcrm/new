@@ -1,9 +1,7 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { notFound } from "next/navigation";
-import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/we-pay-you-junk/_data/content";
 import { STATES, getStateBySlug } from "@/app/site/we-pay-you-junk/_data/cities";
 import { SERVICES } from "@/app/site/we-pay-you-junk/_data/services";
 import { statePageContent } from "@/app/site/we-pay-you-junk/_data/content-templates";
@@ -111,9 +109,9 @@ export default async function StatePage({ params }: { params: Promise<{ state: s
             {state.cities.length} cities. Same-day available. 50% Resale Credit (when applicable) on valuable items.
           </p>
           <div className="mt-8">
-            <a href={PHONE_HREF}>
-              <span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">Call {PHONE}</span>
-            </a>
+            <Link href="/book-junk-removal-service-today">
+              <span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">Book Now &amp; Save $10</span>
+            </Link>
           </div>
         </div>
       </section>

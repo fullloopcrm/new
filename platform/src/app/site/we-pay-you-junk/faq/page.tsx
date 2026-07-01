@@ -1,7 +1,6 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF } from "@/app/site/we-pay-you-junk/_data/content";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 
 const LEFT_DATES = ['Jun 14, 2023', 'Jul 22, 2023', 'Jul 25, 2023', 'Aug 01, 2023', 'Aug 05, 2023', 'Aug 28, 2023', 'Sep 02, 2023', 'Oct 21, 2023', 'Nov 09, 2023', 'Nov 11, 2023', 'Nov 26, 2023', 'Dec 07, 2023', 'Dec 09, 2023', 'Dec 16, 2023', 'Dec 27, 2023', 'Dec 27, 2023', 'Jan 15, 2024', 'Feb 11, 2024', 'Mar 12, 2024', 'Apr 14, 2024', 'Apr 22, 2024', 'Jun 28, 2024', 'Jul 12, 2024', 'Aug 14, 2024', 'Aug 21, 2024'];
@@ -36,7 +35,7 @@ const LEFT_FAQS = [
   { q: "Do you charge extra for stairs?", a: <>No. Third-floor walkup, basement, attic with a pull-down ladder — same hourly rate. No stair fees, no heavy item surcharges, no distance fees. See <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">our no-hidden-fees policy</Link>.</> },
   { q: "Is there a minimum charge?", a: <>1 hour minimum per job. If your job takes 45 minutes, you pay for 1 hour. After the first hour, we bill in 15-minute increments. See <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">pricing details</Link>.</> },
   { q: "Do you charge more on weekends?", a: <>No. Same rate 7 days a week, 365 days a year. Saturdays, Sundays, holidays — no surcharges, no overtime. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book any day</Link>.</> },
-  { q: "How do I book junk removal?", a: <><Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book online</Link>, <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">text us</a>, or <a href={PHONE_HREF} className="text-teal-700 font-semibold hover:underline">call {PHONE}</a>. Takes about 2 minutes. We confirm the rate, estimate time, and schedule your crew.</> },
+  { q: "How do I book junk removal?", a: <><Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book online</Link>, <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">text us</a>, or <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">text {PHONE}</a>. Takes about 2 minutes. We confirm the rate, estimate time, and schedule your crew.</> },
   { q: "How far in advance do I need to book?", a: <>Same-day is available. We also take bookings up to 4 weeks out. 24-48 hours ahead guarantees your preferred time slot. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book now</Link>.</> },
   { q: "Do I need to be home?", a: <>For items with resale value — yes, so you can approve appraisals and credits. For pure junk with no valuable items, we can work without you present as long as we have access. <Link href="/contact-we-pay-you-junk-removal-today" className="text-teal-700 font-semibold hover:underline">Contact us</Link> to discuss.</> },
 ];

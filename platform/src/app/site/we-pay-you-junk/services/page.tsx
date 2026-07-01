@@ -1,7 +1,6 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 import { SERVICES, SERVICE_CATEGORIES } from "@/app/site/we-pay-you-junk/_data/services";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 
@@ -146,7 +145,7 @@ export default function ServicesPage() {
       <section className="bg-section-white py-16">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">Reno Debris, Yard Waste, Scrap, Flooring — Loaded and Gone</p>
-          <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">Construction Cleanup and Specialty Hauling — Skip the Dumpster, Call Us</h2>
+          <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">Construction Cleanup and Specialty Hauling — Skip the Dumpster, Text Us</h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">Knee-deep in drywall dust from a bathroom reno? Backyard full of branches after a storm? Pile of copper pipe from a replumb? Our crew shows up, loads it all by hand, and hauls it. starting at $100/hr. No dumpster blocking your driveway for a week. No weight limits. No overage fees.</p>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
             <p>Dumpster rental is a racket — $300-$800 per week, weight limits that renovation debris blows through in a day, and you still have to load the thing yourself. With <Link href="/services/construction-debris-removal" className="text-teal-700 font-semibold hover:underline">construction debris removal</Link>, our crew does the loading. Concrete, drywall, lumber, tile, roofing — unlimited weight, starting at $100/hr, dump fees included. If you&apos;re mid-renovation and need pickups every few days, we set up a recurring schedule. Your jobsite stays clean, your driveway stays open, and you don&apos;t spend your Saturday hauling demo waste to the transfer station.</p>
@@ -240,7 +239,7 @@ export default function ServicesPage() {
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">All {SERVICES.length} Services Available in {CITY_COUNT}+ Cities</p>
           <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">Nationwide Junk Removal — Every Service Available in Every City We Serve</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">All {SERVICES.length} junk removal services are available in every one of our <Link href="/locations" className="text-teal-700 font-semibold hover:underline">{CITY_COUNT}+ cities across {STATE_COUNT} states</Link>. Same rate, same credit system, same quality. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book now</Link> or call <a href={PHONE_HREF} className="text-teal-700 font-semibold hover:underline">{PHONE}</a> for same-day service.</p>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">All {SERVICES.length} junk removal services are available in every one of our <Link href="/locations" className="text-teal-700 font-semibold hover:underline">{CITY_COUNT}+ cities across {STATE_COUNT} states</Link>. Same rate, same credit system, same quality. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book now</Link> or text <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">{PHONE}</a> for same-day service.</p>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
             <p>We operate from 50 offices — one in every state — with local crews who know their markets. Whether you need <Link href="/services/full-service-junk-removal" className="text-teal-700 font-semibold hover:underline">full-service junk removal</Link> in New York City, <Link href="/services/estate-cleanouts" className="text-teal-700 font-semibold hover:underline">estate cleanouts</Link> in Los Angeles, <Link href="/services/construction-debris-removal" className="text-teal-700 font-semibold hover:underline">construction debris hauling</Link> in Chicago, or <Link href="/services/office-cleanouts" className="text-teal-700 font-semibold hover:underline">office cleanouts</Link> in Houston — same starting rate, same 50% Resale Credit (when applicable), same professional crew. Same-day service available in most cities for calls placed before noon.</p>
           </div>

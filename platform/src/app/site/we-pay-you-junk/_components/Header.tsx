@@ -1,9 +1,8 @@
-// @ts-nocheck
 "use client";
 
 import Link from "next/link";
 import { useState } from "react";
-import { PHONE, PHONE_HREF, SMS_HREF, TOP_CITIES } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, TOP_CITIES } from "@/app/site/we-pay-you-junk/_data/content";
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -15,7 +14,7 @@ export function Header() {
       <div className="bg-slate-900">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5">
           <div className="flex items-center gap-3 sm:hidden">
-            <a href={PHONE_HREF} className="text-xs font-semibold text-teal-400 font-cta">Call {PHONE}</a>
+            <a href={SMS_HREF} className="text-xs font-semibold text-teal-400 font-cta">Text {PHONE}</a>
           </div>
           <div className="hidden items-center gap-1.5 overflow-x-auto sm:flex">
             <span className="shrink-0 text-xs font-semibold text-slate-500 font-cta">Top Cities:</span>
@@ -28,7 +27,7 @@ export function Header() {
             <Link href="/commercial" className="shrink-0 text-xs font-semibold text-teal-400 transition-colors hover:text-teal-300 font-cta">Commercial</Link>
           </div>
           <div className="hidden items-center gap-3 shrink-0 sm:flex">
-            <a href={PHONE_HREF} className="text-xs font-semibold text-teal-400 transition-colors hover:text-teal-300 font-cta">Call {PHONE}</a>
+            <a href={SMS_HREF} className="text-xs font-semibold text-teal-400 transition-colors hover:text-teal-300 font-cta">Text {PHONE}</a>
           </div>
         </div>
       </div>
@@ -107,15 +106,12 @@ export function Header() {
             <Link href="/blog" onClick={() => setMobileOpen(false)} className="block text-base font-medium text-slate-300 hover:text-teal-400 transition-colors font-cta">Blog</Link>
           </div>
           <div className="mt-4 space-y-3">
-            <a href={SMS_HREF} className="block">
-              <span className="block w-full rounded-lg bg-white px-6 py-3 text-center text-base font-semibold text-teal-700 font-cta">Text {PHONE} — Most Popular</span>
-            </a>
-            <a href={PHONE_HREF} className="block">
-              <span className="block w-full rounded-lg border border-slate-600 px-6 py-3 text-center text-base font-semibold text-white font-cta">Call {PHONE}</span>
-            </a>
             <Link href="/book-junk-removal-service-today" onClick={() => setMobileOpen(false)} className="block">
-              <span className="block w-full rounded-lg bg-accent px-6 py-3 text-center text-base font-semibold text-white font-cta">Book Now &amp; Save $10</span>
+              <span className="block w-full rounded-lg bg-white px-6 py-3 text-center text-base font-semibold text-teal-700 font-cta">Book Now &amp; Save $10</span>
             </Link>
+            <a href={SMS_HREF} className="block">
+              <span className="block w-full rounded-lg border border-slate-600 px-6 py-3 text-center text-base font-semibold text-white font-cta">Text {PHONE}</span>
+            </a>
           </div>
         </div>
       )}

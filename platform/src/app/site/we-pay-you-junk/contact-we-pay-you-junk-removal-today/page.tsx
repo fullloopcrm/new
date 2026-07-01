@@ -1,10 +1,9 @@
-// @ts-nocheck
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
-import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, EMAIL, HOURS } from "@/app/site/we-pay-you-junk/_data/content";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -65,9 +64,9 @@ export default function ContactPage() {
 
               <div className="mt-8 space-y-6">
                 <div>
-                  <p className="text-sm font-bold uppercase tracking-widest text-teal-600 font-cta">Phone</p>
-                  <a href={PHONE_HREF} className="mt-1 block text-xl font-bold text-slate-900 hover:text-teal-700 transition-colors">{PHONE}</a>
-                  <p className="mt-0.5 text-sm text-slate-500">Call or text</p>
+                  <p className="text-sm font-bold uppercase tracking-widest text-teal-600 font-cta">Text Us</p>
+                  <a href={SMS_HREF} className="mt-1 block text-xl font-bold text-slate-900 hover:text-teal-700 transition-colors">{PHONE}</a>
+                  <p className="mt-0.5 text-sm text-slate-500">Text anytime</p>
                 </div>
 
                 <div>

@@ -1,8 +1,7 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 
 export const metadata: Metadata = {
   title: "Careers at We Pay You Junk Removal — We're Hiring Nationwide",

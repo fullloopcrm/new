@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";

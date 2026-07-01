@@ -1,8 +1,7 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, EMAIL } from "@/app/site/we-pay-you-junk/_data/content";
 import { getTopCitiesPerState, getCityBySlug } from "@/app/site/we-pay-you-junk/_data/cities";
 import { SERVICES } from "@/app/site/we-pay-you-junk/_data/services";
 import { getOfficeByState } from "@/app/site/we-pay-you-junk/_data/offices";

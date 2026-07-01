@@ -1,9 +1,8 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { notFound } from "next/navigation";
-import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 import { SERVICES, SERVICE_CATEGORIES, getExtendedContent } from "@/app/site/we-pay-you-junk/_data/services";
 
 export const dynamicParams = true
@@ -192,7 +191,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
             <p>There are plenty of companies that offer {service.title.toLowerCase()} — national chains like 1-800-GOT-JUNK and Junk King, regional operators, and local haulers with a truck and a phone number. But none of them share the resale value of your items with you. They all use the same model: charge you a flat fee, haul everything away, resell the good stuff for their own profit, and dump the rest. You pay the maximum price and get zero return on items that have real market value.</p>
             <p>We Pay You Junk Removal is the only {service.title.toLowerCase()} provider in America that credits you 50% of resale value (when applicable) on every item worth something. Our transparent hourly pricing means you know exactly what you&apos;re paying — no volume estimates, no truck space judgments, no ambiguity. Our trained, insured crews handle the heavy lifting safely and professionally. Our real-time appraisal system ensures fair, accurate valuations based on current market data. And our commitment to eco-friendly disposal means 60% of items stay out of landfills.</p>
-            <p>We&apos;re fully licensed, bonded, and insured. Every crew member is background-checked. We carry comprehensive liability coverage. We offer same-day service, evening and weekend appointments, and operate 7 days a week. No contracts, no minimums, no recurring fees. Just the best {service.title.toLowerCase()} service in the country — one that actually values your stuff and values you as a customer. Call {PHONE} today and experience the difference.</p>
+            <p>We&apos;re fully licensed, bonded, and insured. Every crew member is background-checked. We carry comprehensive liability coverage. We offer same-day service, evening and weekend appointments, and operate 7 days a week. No contracts, no minimums, no recurring fees. Just the best {service.title.toLowerCase()} service in the country — one that actually values your stuff and values you as a customer. Text {PHONE} today and experience the difference.</p>
           </div>
         </div>
       </section>

@@ -1,8 +1,7 @@
-// @ts-nocheck
 "use client";
 
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, HOURS } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, EMAIL, HOURS } from "@/app/site/we-pay-you-junk/_data/content";
 import { JobApplicationForm } from "@/app/site/we-pay-you-junk/_components/JobApplicationForm";
 
 export default function ApplyPage() {

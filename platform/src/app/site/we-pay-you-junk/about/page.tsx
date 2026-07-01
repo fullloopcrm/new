@@ -1,7 +1,6 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 import { SERVICES } from "@/app/site/we-pay-you-junk/_data/services";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 
@@ -134,7 +133,7 @@ export default function AboutPage() {
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-center text-base leading-relaxed text-slate-700">
             <p>We Pay You Junk Removal operates 50 regional offices across all {STATE_COUNT} states, serving {CITY_COUNT} cities and counting. Each office is staffed with local crews who know their market — the resale landscape, the donation partners, the recycling facilities, and the neighborhoods they serve. This isn&apos;t a franchise model with absentee operators. Every office is company-owned and held to the same standards.</p>
             <p>Whether you&apos;re in New York, Los Angeles, Chicago, Houston, Phoenix, or a smaller market, the experience is the same: starting at $100/hr, dump fees included, 50% Resale Credit (when applicable), and a crew that shows up on time and does the job right. Our national scale means we can serve you anywhere — and our local presence means we understand your market.</p>
-            <p>Need junk removal in your area? <Link href="/locations" className="text-teal-700 font-semibold hover:underline">Browse all locations</Link> to find your city, or call <a href={PHONE_HREF} className="text-teal-700 font-semibold hover:underline">{PHONE}</a> to speak with a local coordinator who can get a crew to you — often the same day.</p>
+            <p>Need junk removal in your area? <Link href="/locations" className="text-teal-700 font-semibold hover:underline">Browse all locations</Link> to find your city, or text <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">{PHONE}</a> to reach a local coordinator who can get a crew to you — often the same day.</p>
           </div>
         </div>
       </section>

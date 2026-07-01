@@ -1,6 +1,5 @@
-// @ts-nocheck
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, HOURS } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, EMAIL, HOURS } from "@/app/site/we-pay-you-junk/_data/content";
 import { SERVICES } from "@/app/site/we-pay-you-junk/_data/services";
 import { STATES } from "@/app/site/we-pay-you-junk/_data/cities";
 
@@ -32,7 +31,6 @@ export function Footer() {
             </p>
             <div className="space-y-1.5 text-sm">
               <p><a href={SMS_HREF} className="text-teal-400 font-semibold hover:text-teal-300 font-cta">Text {PHONE}</a></p>
-              <p><a href={PHONE_HREF} className="text-teal-400 font-semibold hover:text-teal-300 font-cta">Call {PHONE}</a></p>
               <p><a href={`mailto:${EMAIL}`} className="text-slate-400 hover:text-white">{EMAIL}</a></p>
               <p className="text-slate-500">{HOURS} &bull; 7 Days</p>
             </div>
@@ -92,7 +90,6 @@ export function Footer() {
               <li><Link href="/book-junk-removal-service-today" className="text-teal-400 hover:text-teal-300 font-semibold transition-colors font-cta">Book Now &amp; Save $10</Link></li>
               <li><Link href="/contact-we-pay-you-junk-removal-today" className="text-slate-400 hover:text-white transition-colors">Contact Us</Link></li>
               <li><a href={SMS_HREF} className="text-slate-400 hover:text-white transition-colors">Text Us</a></li>
-              <li><a href={PHONE_HREF} className="text-slate-400 hover:text-white transition-colors">Call Us</a></li>
             </ul>
 
             <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-6 mb-4 font-cta">Quick Links</h4>

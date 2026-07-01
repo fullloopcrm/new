@@ -1,6 +1,5 @@
-// @ts-nocheck
 import Link from "next/link";
-import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF } from "@/app/site/we-pay-you-junk/_data/content";
 import type { Office } from "@/app/site/we-pay-you-junk/_data/offices";
 
 export function OfficeBlock({ office, cityName }: { office: Office; cityName?: string }) {
@@ -17,9 +16,8 @@ export function OfficeBlock({ office, cityName }: { office: Office; cityName?: s
               <p className="text-base text-slate-700">{office.city}, {office.stateAbbr} {office.zip}</p>
               <p className="mt-1 text-sm text-slate-500">{PHONE}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <a href={SMS_HREF} className="inline-block rounded-md bg-teal-700 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-800 font-cta">Text Us</a>
-                <a href={PHONE_HREF} className="inline-block rounded-md border border-teal-700 px-4 py-2 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-50 font-cta">Call Us</a>
                 <Link href="/book-junk-removal-service-today" className="inline-block rounded-md bg-accent px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-accent-dark font-cta">Book Now &amp; Save $10</Link>
+                <a href={SMS_HREF} className="inline-block rounded-md border border-teal-700 px-4 py-2 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-50 font-cta">Text Us</a>
               </div>
             </div>
             <div className="sm:max-w-xs sm:text-right">
