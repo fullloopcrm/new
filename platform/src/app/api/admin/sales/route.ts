@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data: tenants, error } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, plan, status, created_at, owner_email, owner_name')
+    .select('id, name, slug, plan, status, created_at, owner_email, owner_name, monthly_rate, admin_seats, team_seats')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -44,12 +44,18 @@ export async function GET() {
   const suspended = enriched.filter((t) => t.status === 'suspended').length
   const cancelled = enriched.filter((t) => t.status === 'cancelled').length
 
+  // MRR = recurring monthly across active accounts.
+  const mrr = enriched
+    .filter((t) => t.status === 'active')
+    .reduce((sum, t) => sum + (t.monthly_rate || 0), 0)
+
   return NextResponse.json({
     total: enriched.length,
     pending,
     active,
     suspended,
     cancelled,
+    mrr,
     tenants: enriched,
   })
 }

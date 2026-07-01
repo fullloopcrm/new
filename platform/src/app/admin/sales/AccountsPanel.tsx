@@ -12,6 +12,7 @@ type Tenant = {
   created_at: string
   owner_email: string | null
   owner_name: string | null
+  monthly_rate: number | null
   billing: {
     billing_email?: string
     stripe_customer_id?: string
@@ -25,6 +26,7 @@ type Stats = {
   active: number
   suspended: number
   cancelled: number
+  mrr: number
 }
 
 const statusColors = SALES_STATUS_COLORS
@@ -41,7 +43,7 @@ const plans = ['free', 'starter', 'pro', 'enterprise']
 
 export function AccountsPanel() {
   const [tenants, setTenants] = useState<Tenant[]>([])
-  const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, active: 0, suspended: 0, cancelled: 0 })
+  const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, active: 0, suspended: 0, cancelled: 0, mrr: 0 })
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [loading, setLoading] = useState(true)
@@ -52,7 +54,7 @@ export function AccountsPanel() {
       .then((r) => r.json())
       .then((data) => {
         setTenants(data.tenants || [])
-        setStats({ total: data.total, pending: data.pending, active: data.active, suspended: data.suspended, cancelled: data.cancelled })
+        setStats({ total: data.total, pending: data.pending, active: data.active, suspended: data.suspended, cancelled: data.cancelled, mrr: data.mrr || 0 })
         setLoading(false)
       })
   }
@@ -109,7 +111,11 @@ export function AccountsPanel() {
   return (
     <div>
       {/* STATS BAR */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+          <p className="text-xs text-teal-700 uppercase tracking-wide">MRR (active)</p>
+          <p className="text-2xl font-bold text-teal-800">${stats.mrr.toLocaleString()}</p>
+        </div>
         <div className="bg-white border border-slate-200 rounded-lg p-4">
           <p className="text-xs text-slate-500 uppercase tracking-wide">Total Accounts</p>
           <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
@@ -161,6 +167,7 @@ export function AccountsPanel() {
               <th className="px-4 py-3 font-medium">Business Name</th>
               <th className="px-4 py-3 font-medium">Owner</th>
               <th className="px-4 py-3 font-medium">Plan</th>
+              <th className="px-4 py-3 font-medium">Monthly</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Created</th>
               <th className="px-4 py-3 font-medium">Actions</th>
@@ -188,6 +195,9 @@ export function AccountsPanel() {
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
+                </td>
+                <td className="px-4 py-3 text-slate-700 font-mono text-xs">
+                  {t.monthly_rate ? `$${t.monthly_rate.toLocaleString()}/mo` : '—'}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[t.status] || 'bg-slate-200 text-slate-400'}`}>
@@ -232,7 +242,7 @@ export function AccountsPanel() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-sm">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-sm">
                   {search || filterStatus !== 'all' ? 'No matching accounts' : 'No accounts yet'}
                 </td>
               </tr>
