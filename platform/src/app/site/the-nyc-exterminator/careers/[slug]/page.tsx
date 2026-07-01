@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -227,9 +226,9 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
             >
               {EMAIL}
             </a>{" "}
-            or call{" "}
+            or text{" "}
             <a
-              href={`tel:${PHONE.replace(/-/g, "")}`}
+              href={`sms:${PHONE.replace(/-/g, "")}`}
               className="text-green-400 hover:text-green-300"
             >
               {PHONE}
@@ -296,10 +295,10 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
                     Apply Now
                   </a>
                   <a
-                    href={`tel:${PHONE.replace(/-/g, "")}`}
+                    href={`sms:${PHONE.replace(/-/g, "")}`}
                     className="inline-flex items-center rounded-lg border border-zinc-600 px-5 py-2.5 text-sm font-semibold text-zinc-300 hover:border-zinc-400 hover:text-white"
                   >
-                    Call {PHONE}
+                    Text {PHONE}
                   </a>
                 </div>
               </div>
@@ -630,9 +629,9 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
                   paid training program immediately.
                 </p>
                 <p>
-                  You can also call us directly at{" "}
+                  You can also text us directly at{" "}
                   <a
-                    href={`tel:${PHONE.replace(/-/g, "")}`}
+                    href={`sms:${PHONE.replace(/-/g, "")}`}
                     className="text-green-400 hover:text-green-300"
                   >
                     {PHONE}
@@ -749,9 +748,9 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
               >
                 {EMAIL}
               </a>{" "}
-              or call{" "}
+              or text{" "}
               <a
-                href={`tel:${PHONE.replace(/-/g, "")}`}
+                href={`sms:${PHONE.replace(/-/g, "")}`}
                 className="text-green-400 hover:text-green-300"
               >
                 {PHONE}

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { PHONE } from "@/app/site/the-nyc-exterminator/_lib/seo";
 
 type Variant = "hero" | "mid" | "final";
@@ -24,13 +23,7 @@ export default function CareersCTA({ variant, neighborhood }: CareersCTAProps) {
           href={`sms:${phonePlain}?body=${encodeURIComponent("Hi, I'm interested in exterminator job opportunities.")}`}
           className="inline-flex items-center justify-center rounded-lg border border-zinc-700 px-6 py-3 text-sm font-semibold text-white hover:border-zinc-500 hover:bg-white/5"
         >
-          Text Us About Jobs
-        </a>
-        <a
-          href={`tel:${phonePlain}`}
-          className="inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold text-green-400 hover:text-green-300"
-        >
-          Call {PHONE} &rarr;
+          Text Us About Jobs &mdash; {PHONE}
         </a>
       </div>
     );
@@ -65,13 +58,7 @@ export default function CareersCTA({ variant, neighborhood }: CareersCTAProps) {
             href={`sms:${phonePlain}?body=${encodeURIComponent("Hi, I'm interested in exterminator job opportunities.")}`}
             className="inline-flex items-center rounded-lg border-2 border-white px-6 py-3 text-lg font-semibold text-white hover:bg-white/10"
           >
-            Text Us About Jobs
-          </a>
-          <a
-            href={`tel:${phonePlain}`}
-            className="inline-flex items-center rounded-lg px-6 py-3 text-lg font-semibold text-green-100 hover:text-white"
-          >
-            Call {PHONE} &rarr;
+            Text Us About Jobs &mdash; {PHONE}
           </a>
         </div>
       </div>

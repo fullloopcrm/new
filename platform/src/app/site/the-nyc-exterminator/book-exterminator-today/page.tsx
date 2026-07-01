@@ -1,19 +1,18 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Breadcrumbs from "@/app/site/the-nyc-exterminator/_components/Breadcrumbs";
 import ContactForm from "@/app/site/the-nyc-exterminator/_components/ContactForm";
 import { PHONE, SITE_URL, SITE_NAME, getBreadcrumbSchema, getFAQPageSchema, getLocalBusinessSchemaGlobal } from "@/app/site/the-nyc-exterminator/_lib/seo";
 
 export const metadata: Metadata = {
-  title: "Book NYC Exterminator Today | Same-Day Pest Control Appointments",
+  title: "Book NYC Exterminator Today | Save $10 Booking Online",
   description:
-    "Book a licensed NYC exterminator today. Same-day and next-day pest control appointments across all 5 boroughs, NJ, Long Island & Westchester. We respond within 10-30 minutes, schedule as soon as tomorrow, and your certified technician arrives on time within a 1-hour window. Free inspection, upfront pricing from $49. Call or text 212-202-8545.",
+    "Book a licensed NYC exterminator online and save $10 — the fastest way to lock in service. Same-day and next-day pest control appointments across all 5 boroughs, NJ, Long Island & Westchester. We respond within 10-30 minutes, schedule as soon as tomorrow, and your certified technician arrives on time within a 1-hour window. Free inspection, upfront pricing from $49.",
   keywords:
     "book exterminator NYC, schedule pest control appointment, same-day exterminator NYC, next-day pest control, book bed bug treatment, schedule cockroach extermination, NYC pest control appointment, emergency exterminator booking, hire exterminator today",
   openGraph: {
-    title: "Book NYC Exterminator Today | Same-Day Pest Control Appointments",
+    title: "Book NYC Exterminator Today | Save $10 Booking Online",
     description:
-      "Book a licensed NYC exterminator today. We respond in 10-30 min, schedule next-day appointments, and your technician arrives on time within a 1-hour window. Call 212-202-8545.",
+      "Book a licensed NYC exterminator online and save $10. We respond in 10-30 min, schedule next-day appointments, and your technician arrives on time within a 1-hour window.",
     url: `${SITE_URL}/book-exterminator-today`,
     siteName: SITE_NAME,
     type: "website",
@@ -27,7 +26,7 @@ export const metadata: Metadata = {
 const faqs = [
   {
     q: "How quickly will I hear back after booking an exterminator online?",
-    a: "We respond to every booking request within 10 to 30 minutes during business hours (Monday-Friday 7 AM-8 PM, Saturday 8 AM-6 PM, Sunday 9 AM-5 PM). If you submit your exterminator booking request after hours, you will hear from a licensed pest control technician first thing the next morning. For emergencies, call or text us at 212-202-8545 for the fastest response.",
+    a: "We respond to every booking request within 10 to 30 minutes during business hours (Monday-Friday 7 AM-8 PM, Saturday 8 AM-6 PM, Sunday 9 AM-5 PM). If you submit your exterminator booking request after hours, you will hear from a licensed pest control technician first thing the next morning. For emergencies, text us at 212-202-8545 for the fastest response.",
   },
   {
     q: "How soon can a pest control technician come to my property?",
@@ -138,14 +137,14 @@ export default function BookExterminatorTodayPage() {
             <ContactForm />
           </div>
 
-          {/* ── Call CTA ── */}
+          {/* ── Text fallback ── */}
           <div className="mt-8 text-center">
-            <p className="text-zinc-500">Need to book an exterminator right now?</p>
+            <p className="text-zinc-500">Prefer to text? Message us and we&apos;ll get you booked.</p>
             <a
-              href={`tel:${PHONE.replace(/-/g, "")}`}
+              href={`sms:${PHONE.replace(/-/g, "")}`}
               className="mt-1 inline-block text-2xl font-bold text-green-500 hover:text-green-400"
             >
-              {PHONE}
+              Text {PHONE}
             </a>
           </div>
         </div>
@@ -172,7 +171,7 @@ export default function BookExterminatorTodayPage() {
               <div>
                 <p className="font-semibold text-white">We respond within 10&ndash;30 minutes</p>
                 <p className="mt-1 text-sm text-zinc-400">
-                  A member of our pest control scheduling team will call or text you to confirm your
+                  A member of our pest control scheduling team will text you to confirm your
                   details, discuss the pest situation, and lock in your preferred appointment time.
                   No voicemail runaround &mdash; you talk to a real person who knows pest control.
                 </p>
@@ -330,15 +329,15 @@ export default function BookExterminatorTodayPage() {
             <span className="text-green-400">NYC Exterminator</span>?
           </h2>
           <p className="mt-3 text-zinc-400">
-            Scroll up to fill out the pest control booking form, or call and text us
-            directly to schedule your exterminator appointment right now.
+            Scroll up to fill out the pest control booking form and save $10 — the
+            fastest way to lock in your exterminator appointment. Prefer to text? We&apos;re here.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <a
-              href={`tel:${PHONE.replace(/-/g, "")}`}
+              href="#top"
               className="inline-flex items-center rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700"
             >
-              Call {PHONE}
+              Book Online — Save $10
             </a>
             <a
               href={`sms:${PHONE.replace(/-/g, "")}`}

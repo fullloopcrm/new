@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -61,11 +60,14 @@ export default function ContactForm({
       name: (form.elements.namedItem("name") as HTMLInputElement).value,
       email: (form.elements.namedItem("email") as HTMLInputElement).value,
       phone: (form.elements.namedItem("phone") as HTMLInputElement).value,
+      address: (form.elements.namedItem("address") as HTMLInputElement).value,
       pestType: (form.elements.namedItem("pestType") as HTMLInputElement).value,
       propertyType: (form.elements.namedItem("propertyType") as HTMLSelectElement).value,
       location: (form.elements.namedItem("location") as HTMLInputElement).value,
       urgency: (form.elements.namedItem("urgency") as HTMLSelectElement).value,
       message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
+      // Online form submission = self-book online → eligible for the $10 self-book discount
+      selfBook: true,
       session_id: getSessionId(),
     };
 
@@ -161,6 +163,10 @@ export default function ContactForm({
           <label htmlFor="email" className={labelClass}>Email *</label>
           <input type="email" id="email" name="email" required className={inputClass} placeholder="you@email.com" />
         </div>
+        <div>
+          <label htmlFor="address" className={labelClass}>Service address *</label>
+          <input type="text" id="address" name="address" required autoComplete="street-address" className={inputClass} placeholder="Street address, unit, city, ZIP" />
+        </div>
         <input type="hidden" name="pestType" value={service || ""} />
         <input type="hidden" name="propertyType" value="" />
         <input type="hidden" name="location" value={neighborhood || ""} />
@@ -170,10 +176,11 @@ export default function ContactForm({
           <textarea id="message" name="message" required rows={3} className={inputClass} placeholder="What pests are you seeing? Where in the property?" />
         </div>
         <button type="submit" disabled={status === "sending"} className="w-full rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50">
-          {status === "sending" ? "Sending..." : "Request a Free Quote"}
+          {status === "sending" ? "Sending..." : "Book Online — Save $10"}
         </button>
+        <p className="text-center text-xs text-green-500">Booking online saves you $10 — we take it off your quote.</p>
         {status === "error" && (
-          <p className={`text-center text-sm ${dark ? "text-red-400" : "text-red-600"}`}>Something went wrong. Please try again or call us directly.</p>
+          <p className={`text-center text-sm ${dark ? "text-red-400" : "text-red-600"}`}>Something went wrong. Please try again or text us at 212-202-8545.</p>
         )}
       </form>
     );
@@ -219,9 +226,14 @@ export default function ContactForm({
           </select>
         </div>
         <div>
-          <label htmlFor="location" className={labelClass}>Location / Neighborhood *</label>
+          <label htmlFor="location" className={labelClass}>Neighborhood / Borough *</label>
           <input type="text" id="location" name="location" required defaultValue={neighborhood || ""} className={inputClass} placeholder="e.g. Brooklyn Heights, Jersey City" />
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="address" className={labelClass}>Full service address *</label>
+        <input type="text" id="address" name="address" required autoComplete="street-address" className={inputClass} placeholder="Street address, apt/unit, city, ZIP" />
       </div>
 
       <div>
@@ -245,9 +257,12 @@ export default function ContactForm({
         disabled={status === "sending"}
         className="w-full rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
       >
-        {status === "sending" ? "Submitting..." : "Request a Free Quote"}
+        {status === "sending" ? "Submitting..." : "Book Online — Save $10"}
       </button>
 
+      <p className="text-center text-xs font-medium text-green-500">
+        Booking online saves you $10 — we take it off your quote.
+      </p>
       <p className={`text-center text-xs ${dark ? "text-zinc-500" : "text-zinc-500"}`}>
         Free inspections. Upfront pricing. No obligation.
         We&apos;ll respond within 2 hours during business hours.
@@ -255,7 +270,7 @@ export default function ContactForm({
 
       {status === "error" && (
         <p className={`text-center text-sm ${dark ? "text-red-400" : "text-red-600"}`}>
-          Something went wrong. Please try again or call us directly.
+          Something went wrong. Please try again or text us at 212-202-8545.
         </p>
       )}
     </form>

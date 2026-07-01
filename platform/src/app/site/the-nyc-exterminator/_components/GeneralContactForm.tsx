@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -144,7 +143,7 @@ export default function GeneralContactForm() {
 
       {status === "error" && (
         <p className="text-center text-sm text-red-600">
-          Something went wrong. Please try again or call us directly.
+          Something went wrong. Please try again or text us at 212-202-8545.
         </p>
       )}
     </form>

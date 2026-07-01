@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -83,8 +82,8 @@ export default function ServicesPage() {
               in Manhattan apartments to rat control in Brooklyn restaurants, our licensed and insured
               pest control technicians deliver results you can count on. Every service includes a free
               on-site inspection, transparent upfront pricing starting at just $49, and our satisfaction
-              guarantee. Call or text us at{" "}
-              <a href={`tel:${PHONE}`} className="font-semibold text-green-400 hover:underline">{PHONE}</a>{" "}
+              guarantee. Text us at{" "}
+              <a href={`sms:${PHONE}`} className="font-semibold text-green-400 hover:underline">{PHONE}</a>{" "}
               to schedule your pest control appointment today.
             </p>
             <p className="mt-4 text-base leading-7 text-zinc-400">
@@ -189,9 +188,9 @@ export default function ServicesPage() {
             We organize our {totalServices} pest control services into clear categories so you can
             quickly find the exterminator service that matches your situation. Click any service below
             to learn about our treatment process, pricing, and what to expect. Not sure which service
-            you need? Call us at{" "}
-            <a href={`tel:${PHONE}`} className="text-green-400 hover:underline">{PHONE}</a>{" "}
-            and we will identify the right pest control solution for you over the phone — or{" "}
+            you need? Text us at{" "}
+            <a href={`sms:${PHONE}`} className="text-green-400 hover:underline">{PHONE}</a>{" "}
+            and we will identify the right pest control solution for you over text — or{" "}
             <Link href="/quote-request" className="text-green-400 hover:underline">request a free quote</Link>{" "}
             online.
           </p>
@@ -403,8 +402,8 @@ export default function ServicesPage() {
                   including nights and weekends to minimize business disruption, and detailed service
                   reports after every visit. We offer monthly, bi-weekly, and weekly service
                   frequencies depending on the nature of your business and the level of pest pressure
-                  in your area. Contact us at{" "}
-                  <a href={`tel:${PHONE}`} className="text-green-400 hover:underline">{PHONE}</a>{" "}
+                  in your area. Text us at{" "}
+                  <a href={`sms:${PHONE}`} className="text-green-400 hover:underline">{PHONE}</a>{" "}
                   for a free commercial pest control consultation and site assessment.
                 </p>
               </div>
@@ -443,8 +442,8 @@ export default function ServicesPage() {
               infestations in food service establishments, and bed bug discoveries in hospitality
               settings. Emergency pest control pricing is transparent and quoted over the phone before
               we dispatch — no surprise fees, no pressure, just fast professional exterminator service
-              when you need it most. Call or text{" "}
-              <a href={`tel:${PHONE}`} className="font-semibold text-green-400 hover:underline">{PHONE}</a>{" "}
+              when you need it most. Text{" "}
+              <a href={`sms:${PHONE}`} className="font-semibold text-green-400 hover:underline">{PHONE}</a>{" "}
               for immediate emergency pest control assistance, or visit our{" "}
               <Link href="/emergency-pest-control" className="text-green-400 hover:underline">emergency pest control page</Link>{" "}
               for more details on our rapid response capabilities.
@@ -503,8 +502,8 @@ export default function ServicesPage() {
               where you can find your specific neighborhood and see the pest control services
               available in your location. Every neighborhood page includes local pest control
               insights, common infestations for that area, and direct booking links. If you are
-              unsure whether we cover your area, give us a call at{" "}
-              <a href={`tel:${PHONE}`} className="text-green-400 hover:underline">{PHONE}</a>{" "}
+              unsure whether we cover your area, text us at{" "}
+              <a href={`sms:${PHONE}`} className="text-green-400 hover:underline">{PHONE}</a>{" "}
               — chances are excellent that we do. We are continuously expanding our pest control
               service footprint to ensure that every New Yorker has access to professional
               exterminator services when they need them.

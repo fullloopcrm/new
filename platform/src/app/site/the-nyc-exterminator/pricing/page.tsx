@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllServices, getServicesByCategory } from "@/app/site/the-nyc-exterminator/_lib/data";
@@ -10,13 +9,13 @@ export const metadata: Metadata = {
   title:
     "Pest Control Pricing NYC | Exterminator Costs from $49 | No Hidden Fees",
   description:
-    "See transparent pest control pricing and exterminator rates for NYC, NJ, Long Island & Westchester. Cockroach extermination from $150, bed bug treatment from $300, rat control from $200. Free inspections, upfront written quotes, no hidden fees. Licensed & insured. Text 212-202-8545 for a free quote.",
+    "See transparent pest control pricing and exterminator rates for NYC, NJ, Long Island & Westchester. Cockroach extermination from $150, bed bug treatment from $300, rat control from $200. Book online and save $10. Free inspections, upfront written quotes, no hidden fees. Licensed & insured.",
   keywords:
     "pest control pricing NYC, exterminator cost NYC, how much does exterminator cost, bed bug treatment cost NYC, cockroach extermination price, rat exterminator cost, termite treatment pricing, commercial pest control pricing",
   openGraph: {
     title: "Pest Control Pricing NYC | Exterminator Costs from $49 | No Hidden Fees",
     description:
-      "Transparent pest control pricing for NYC. Cockroach treatment from $150, bed bugs from $300, rats from $200. Free inspections, no hidden fees. Text 212-202-8545.",
+      "Transparent pest control pricing for NYC. Cockroach treatment from $150, bed bugs from $300, rats from $200. Book online and save $10. Free inspections, no hidden fees.",
     url: `${SITE_URL}/pricing`,
   },
   alternates: {
@@ -194,9 +193,9 @@ export default function PricingPage() {
                 full service menu
               </Link>{" "}
               for detailed information about each pest control treatment, or
-              call us at{" "}
+              text us at{" "}
               <a
-                href={`tel:${phonePlain}`}
+                href={`sms:${phonePlain}`}
                 className="text-green-400 hover:text-green-300 font-semibold"
               >
                 {PHONE}
@@ -521,9 +520,9 @@ export default function PricingPage() {
             . Our licensed exterminator will assess all of these factors on-site
             and provide you with a detailed written quote before any work begins.
             There is never any obligation, and pest control inspections are
-            always free of charge. You can also call us at{" "}
+            always free of charge. You can also text us at{" "}
             <a
-              href={`tel:${phonePlain}`}
+              href={`sms:${phonePlain}`}
               className="text-green-400 hover:text-green-300 font-semibold"
             >
               {PHONE}
@@ -731,9 +730,9 @@ export default function PricingPage() {
               properties under a single account. This simplifies billing, ensures
               consistent service standards across your portfolio, and typically
               reduces your overall pest management costs by 15 to 25 percent
-              compared to treating each property separately. Contact us at{" "}
+              compared to treating each property separately. Text us at{" "}
               <a
-                href={`tel:${phonePlain}`}
+                href={`sms:${phonePlain}`}
                 className="text-green-400 hover:text-green-300"
               >
                 {PHONE}
@@ -1214,9 +1213,9 @@ export default function PricingPage() {
               in occupied living spaces.
             </p>
             <p>
-              To request emergency pest control service, call us directly at{" "}
+              To request emergency pest control service, text us directly at{" "}
               <a
-                href={`tel:${phonePlain}`}
+                href={`sms:${phonePlain}`}
                 className="font-semibold text-green-400 hover:text-green-300"
               >
                 {PHONE}
@@ -1333,9 +1332,9 @@ export default function PricingPage() {
             , we can arrange phased payment schedules that align with the
             treatment timeline. This allows you to spread the cost of more
             extensive exterminator work over the duration of the project rather
-            than paying the full amount upfront. Contact us at{" "}
+            than paying the full amount upfront. Text us at{" "}
             <a
-              href={`tel:${phonePlain}`}
+              href={`sms:${phonePlain}`}
               className="text-green-400 hover:text-green-300"
             >
               {PHONE}
@@ -1546,9 +1545,9 @@ export default function PricingPage() {
           <p className="mt-10 max-w-4xl text-zinc-300 leading-7">
             Have a question about pest control pricing that is not covered above?
             We are always happy to discuss your specific situation and provide a
-            free, no-obligation exterminator quote. Call us at{" "}
+            free, no-obligation exterminator quote. Text us at{" "}
             <a
-              href={`tel:${phonePlain}`}
+              href={`sms:${phonePlain}`}
               className="font-semibold text-green-400 hover:text-green-300"
             >
               {PHONE}

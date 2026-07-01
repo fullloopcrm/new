@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PHONE, SITE_URL, SITE_NAME, EMAIL, ADDRESS } from "@/app/site/the-nyc-exterminator/_lib/seo";
@@ -49,7 +48,7 @@ const faqCategories: FAQCategory[] = [
       },
       {
         q: "How quickly can an exterminator come to my NYC home or business?",
-        a: "We understand that pest problems are urgent, which is why The NYC Exterminator offers same-day and next-day pest control service for most calls across our entire service area. For emergency situations involving health-threatening pests such as bed bugs, rats, or severe cockroach infestations, we often dispatch a licensed exterminator within hours of your initial call. Our scheduling team operates seven days a week — weekdays from 7 AM to 8 PM, Saturdays from 8 AM to 6 PM, and Sundays from 9 AM to 5 PM — to coordinate pest control appointments that fit your schedule. Simply call us at 212-202-8545, text us, or submit a request through our online quote request form to get started immediately. If you are a commercial client such as a restaurant facing a Department of Health inspection, we offer priority emergency scheduling to protect your business.",
+        a: "We understand that pest problems are urgent, which is why The NYC Exterminator offers same-day and next-day pest control service for most calls across our entire service area. For emergency situations involving health-threatening pests such as bed bugs, rats, or severe cockroach infestations, we often dispatch a licensed exterminator within hours of your initial call. Our scheduling team operates seven days a week — weekdays from 7 AM to 8 PM, Saturdays from 8 AM to 6 PM, and Sundays from 9 AM to 5 PM — to coordinate pest control appointments that fit your schedule. Simply text us at 212-202-8545 or submit a request through our online quote request form to get started immediately. If you are a commercial client such as a restaurant facing a Department of Health inspection, we offer priority emergency scheduling to protect your business.",
       },
       {
         q: "Do you offer free pest inspections in New York City?",
@@ -83,7 +82,7 @@ const faqCategories: FAQCategory[] = [
     items: [
       {
         q: "How much does pest control cost in NYC?",
-        a: "Pest control pricing in New York City varies depending on the type of pest, the severity of the infestation, the size and type of your property, and the treatment method required. At The NYC Exterminator, our services typically range from $125 for a basic general pest control treatment to $3,000 or more for comprehensive multi-room bed bug heat treatments or full-building rat exclusion programs. A standard cockroach extermination for a one-bedroom apartment generally falls between $150 and $400. Bed bug treatment ranges from $300 to $1,500 per room depending on the method used. Rat and mouse extermination typically costs $200 to $600, and termite treatment ranges from $500 to $2,500 depending on the scope. We always provide free, no-obligation quotes after inspecting your property so you know exactly what to expect before any work begins. Visit our pricing page for detailed breakdowns by service type and property size, or call us at 212-202-8545 for an immediate estimate.",
+        a: "Pest control pricing in New York City varies depending on the type of pest, the severity of the infestation, the size and type of your property, and the treatment method required. At The NYC Exterminator, our services typically range from $125 for a basic general pest control treatment to $3,000 or more for comprehensive multi-room bed bug heat treatments or full-building rat exclusion programs. A standard cockroach extermination for a one-bedroom apartment generally falls between $150 and $400. Bed bug treatment ranges from $300 to $1,500 per room depending on the method used. Rat and mouse extermination typically costs $200 to $600, and termite treatment ranges from $500 to $2,500 depending on the scope. We always provide free, no-obligation quotes after inspecting your property so you know exactly what to expect before any work begins. Visit our pricing page for detailed breakdowns by service type and property size, or text us at 212-202-8545 for an immediate estimate.",
       },
       {
         q: "Do you offer payment plans or financing for extermination services?",
@@ -95,7 +94,7 @@ const faqCategories: FAQCategory[] = [
       },
       {
         q: "Do you offer discounts for ongoing pest control maintenance plans?",
-        a: "Yes, The NYC Exterminator offers significant savings through our ongoing pest control maintenance plans, which are the most cost-effective way to keep your property pest-free year-round. Clients who sign up for quarterly, bi-monthly, or monthly service plans receive discounted per-visit rates compared to one-time treatments, plus they benefit from priority scheduling, routine preventive inspections, and unlimited re-treatments between visits if pests return. Monthly residential plans start at $50 to $125 per month depending on property size and location. These recurring pest control plans are especially popular with commercial clients such as restaurants, hotels, and property management companies that need consistent, documented protection against pests to satisfy health department requirements. Check our pricing page or call us at 212-202-8545 for details on our current maintenance plan options and promotional discounts.",
+        a: "Yes, The NYC Exterminator offers significant savings through our ongoing pest control maintenance plans, which are the most cost-effective way to keep your property pest-free year-round. Clients who sign up for quarterly, bi-monthly, or monthly service plans receive discounted per-visit rates compared to one-time treatments, plus they benefit from priority scheduling, routine preventive inspections, and unlimited re-treatments between visits if pests return. Monthly residential plans start at $50 to $125 per month depending on property size and location. These recurring pest control plans are especially popular with commercial clients such as restaurants, hotels, and property management companies that need consistent, documented protection against pests to satisfy health department requirements. Check our pricing page or text us at 212-202-8545 for details on our current maintenance plan options and promotional discounts.",
       },
       {
         q: "Is pest control covered by renters or homeowners insurance in NYC?",
@@ -121,7 +120,7 @@ const faqCategories: FAQCategory[] = [
       },
       {
         q: "How far in advance do I need to book a pest control appointment?",
-        a: "For standard pest control appointments, we recommend booking two to three days in advance to secure your preferred date and time slot. However, The NYC Exterminator maintains availability for same-day and next-day exterminator service for urgent situations because we know that pest problems do not wait for a convenient time. Emergency pest control calls for bed bugs, rats, or severe cockroach infestations can often be addressed within hours of your initial contact. For non-emergency scheduled maintenance visits or routine quarterly pest control treatments, booking a week in advance ensures maximum scheduling flexibility. Our online booking system and phone team are available seven days a week to help you find the earliest available appointment. Contact us through our contact page or call 212-202-8545 to schedule.",
+        a: "For standard pest control appointments, we recommend booking two to three days in advance to secure your preferred date and time slot. However, The NYC Exterminator maintains availability for same-day and next-day exterminator service for urgent situations because we know that pest problems do not wait for a convenient time. Emergency pest control calls for bed bugs, rats, or severe cockroach infestations can often be addressed within hours of your initial contact. For non-emergency scheduled maintenance visits or routine quarterly pest control treatments, booking a week in advance ensures maximum scheduling flexibility. Our online booking system and phone team are available seven days a week to help you find the earliest available appointment. Contact us through our contact page or text 212-202-8545 to schedule.",
       },
       {
         q: "Do you serve areas outside of New York City for pest control?",
@@ -229,7 +228,7 @@ const faqCategories: FAQCategory[] = [
       },
       {
         q: "My building has rats coming from the sewer — can you help?",
-        a: "Absolutely, and this is a very common scenario in New York City buildings, particularly in older structures with aging plumbing systems. Rats are strong swimmers and can enter buildings through broken or deteriorated sewer lines, missing cleanout caps, damaged toilet seals, and compromised connections between building plumbing and the municipal sewer system. The NYC Exterminator's rat extermination program includes thorough plumbing infrastructure inspection to identify sewer-related entry points. We install one-way rat valves (also called rat blockers or non-return valves) in sewer cleanouts and floor drains that allow wastewater to flow out but prevent rats from traveling up through the plumbing system. We also seal gaps around pipe penetrations through foundation walls and basement floors, repair or recommend repairs for damaged sewer lines, and install monitoring stations to verify that the exclusion work is effective. Sewer rat intrusion is particularly prevalent in neighborhoods near waterfront areas, older sections of Manhattan, and areas with combined sewer systems. If you are dealing with rats in your basement, bathroom, or kitchen that seem to appear from drains, call us immediately at 212-202-8545 for a specialized sewer rat assessment.",
+        a: "Absolutely, and this is a very common scenario in New York City buildings, particularly in older structures with aging plumbing systems. Rats are strong swimmers and can enter buildings through broken or deteriorated sewer lines, missing cleanout caps, damaged toilet seals, and compromised connections between building plumbing and the municipal sewer system. The NYC Exterminator's rat extermination program includes thorough plumbing infrastructure inspection to identify sewer-related entry points. We install one-way rat valves (also called rat blockers or non-return valves) in sewer cleanouts and floor drains that allow wastewater to flow out but prevent rats from traveling up through the plumbing system. We also seal gaps around pipe penetrations through foundation walls and basement floors, repair or recommend repairs for damaged sewer lines, and install monitoring stations to verify that the exclusion work is effective. Sewer rat intrusion is particularly prevalent in neighborhoods near waterfront areas, older sections of Manhattan, and areas with combined sewer systems. If you are dealing with rats in your basement, bathroom, or kitchen that seem to appear from drains, text us immediately at 212-202-8545 for a specialized sewer rat assessment.",
       },
     ],
   },
@@ -424,9 +423,9 @@ export default function FAQPage() {
                 pricing
               </Link>
               , safety, scheduling, licensing, and more. If you do not see your
-              question answered here, call us at{" "}
+              question answered here, text us at{" "}
               <a
-                href={`tel:${phonePlain}`}
+                href={`sms:${phonePlain}`}
                 className="text-green-400 hover:text-green-300"
               >
                 {PHONE}
@@ -770,17 +769,17 @@ export default function FAQPage() {
               , or any other service, we are here to help.
             </p>
             <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <a
-                href={`tel:${phonePlain}`}
+              <Link
+                href="/book-exterminator-today"
                 className="inline-flex items-center rounded-lg bg-green-600 px-6 py-3 text-lg font-semibold text-white hover:bg-green-700"
               >
-                Call {PHONE}
-              </a>
+                Book Online — Save $10
+              </Link>
               <a
                 href={`sms:${phonePlain}`}
                 className="inline-flex items-center rounded-lg border border-zinc-700 px-6 py-3 text-lg font-semibold text-white hover:border-zinc-500 hover:bg-white/5"
               >
-                Text Us Now
+                Text Us — {PHONE}
               </a>
               <Link
                 href="/contact"

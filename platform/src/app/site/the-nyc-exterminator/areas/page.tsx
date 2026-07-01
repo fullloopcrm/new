@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -51,7 +50,7 @@ export default function AreasPage() {
     },
     {
       q: "What if my neighborhood isn't listed?",
-      a: "We are constantly expanding our pest control coverage across the NYC metro area. If you do not see your neighborhood listed, call or text us — we likely serve your area and can add it to our service map. Our exterminators cover a wider area than what is shown on this page.",
+      a: "We are constantly expanding our pest control coverage across the NYC metro area. If you do not see your neighborhood listed, text us — we likely serve your area and can add it to our service map. Our exterminators cover a wider area than what is shown on this page.",
     },
     {
       q: "Do you offer pest control for both residential and commercial properties?",
@@ -147,7 +146,7 @@ export default function AreasPage() {
               The NYC Exterminator provides comprehensive pest control and extermination services across the entire New York City metropolitan area — from the densest blocks of{" "}
               <Link href="/areas/midtown" className="text-green-400 hover:text-green-300">Midtown Manhattan</Link> to the tree-lined streets of{" "}
               <Link href="/areas/scarsdale" className="text-green-400 hover:text-green-300">Scarsdale</Link>, from the waterfront neighborhoods of{" "}
-              <Link href="/areas/hoboken" className="text-green-400 hover:text-green-300">Hoboken</Link> to the beach communities of Long Island. Our network of licensed exterminators covers {totalNeighborhoods}+ distinct neighborhoods across eight major regions, ensuring that no matter where you live or work in the metro area, professional pest control is just a phone call or text away. We built this coverage map because we believe every home and business in the NYC metro deserves access to affordable, effective, and reliable pest control services — not just the neighborhoods that happen to be convenient for a technician to reach. Our pest control team is dispatched from multiple staging locations across the five boroughs, New Jersey, Long Island, and Westchester County, which means faster response times and deeper local knowledge in every area we serve.
+              <Link href="/areas/hoboken" className="text-green-400 hover:text-green-300">Hoboken</Link> to the beach communities of Long Island. Our network of licensed exterminators covers {totalNeighborhoods}+ distinct neighborhoods across eight major regions, ensuring that no matter where you live or work in the metro area, professional pest control is just a text away. We built this coverage map because we believe every home and business in the NYC metro deserves access to affordable, effective, and reliable pest control services — not just the neighborhoods that happen to be convenient for a technician to reach. Our pest control team is dispatched from multiple staging locations across the five boroughs, New Jersey, Long Island, and Westchester County, which means faster response times and deeper local knowledge in every area we serve.
             </p>
 
             <p>
@@ -282,7 +281,7 @@ export default function AreasPage() {
                 <Link href="/areas/elmhurst" className="text-green-400 hover:text-green-300">Elmhurst</Link>, and{" "}
                 <Link href="/areas/corona" className="text-green-400 hover:text-green-300">Corona</Link>. In eastern Queens, the pest control landscape shifts toward more suburban challenges — homeowners in areas like{" "}
                 <Link href="/areas/little-neck" className="text-green-400 hover:text-green-300">Little Neck</Link> and{" "}
-                <Link href="/areas/fresh-meadows" className="text-green-400 hover:text-green-300">Fresh Meadows</Link> call us for{" "}
+                <Link href="/areas/fresh-meadows" className="text-green-400 hover:text-green-300">Fresh Meadows</Link> text us for{" "}
                 <Link href="/raccoon-removal" className="text-green-400 hover:text-green-300">raccoon removal</Link>,{" "}
                 <Link href="/squirrel-removal" className="text-green-400 hover:text-green-300">squirrel removal</Link> from attics, and even occasional{" "}
                 <Link href="/termite-treatment" className="text-green-400 hover:text-green-300">termite inspections</Link> for wood-frame homes near wooded areas.

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { PHONE, SITE_NAME, EMAIL, ADDRESS } from "@/app/site/the-nyc-exterminator/_lib/seo";
 import { getCategories, getRegions } from "@/app/site/the-nyc-exterminator/_lib/data";
@@ -22,10 +21,10 @@ export default function Footer() {
             </p>
             <div className="mt-4 space-y-1 text-sm">
               <a
-                href={`tel:${PHONE.replace(/-/g, "")}`}
+                href={`sms:${PHONE.replace(/-/g, "")}`}
                 className="block font-semibold text-green-400 hover:text-green-300"
               >
-                {PHONE}
+                Text {PHONE}
               </a>
               <a
                 href={`mailto:${EMAIL}`}
@@ -83,7 +82,7 @@ export default function Footer() {
               <li><Link href="/faq" className="text-sm text-zinc-500 transition-colors hover:text-white">FAQ</Link></li>
               <li><Link href="/careers" className="text-sm text-zinc-500 transition-colors hover:text-white">Careers</Link></li>
               <li><Link href="/contact" className="text-sm text-zinc-500 transition-colors hover:text-white">Contact</Link></li>
-              <li><Link href="/book-exterminator-today" className="text-sm font-medium text-green-400 hover:text-green-300">Book Yourself &rarr;</Link></li>
+              <li><Link href="/book-exterminator-today" className="text-sm font-medium text-green-400 hover:text-green-300">Book &amp; Save $10 &rarr;</Link></li>
             </ul>
           </div>
         </div>

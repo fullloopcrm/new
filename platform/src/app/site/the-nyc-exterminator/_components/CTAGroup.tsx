@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { PHONE } from "@/app/site/the-nyc-exterminator/_lib/seo";
 
@@ -40,14 +39,6 @@ function SmsIcon() {
   );
 }
 
-function PhoneIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-      <path fillRule="evenodd" d="M1.5 4.5a3 3 0 0 1 3-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 0 1-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 0 0 6.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 0 1 1.955-.694l4.423 1.105c.834.209 1.42.959 1.42 1.82V19.5a3 3 0 0 1-3 3h-2.25C8.552 22.5 1.5 15.448 1.5 6.75V4.5Z" clipRule="evenodd" />
-    </svg>
-  );
-}
-
 function CalendarIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
@@ -66,39 +57,30 @@ export default function CTAGroup({ variant, title, subtitle }: CTAGroupProps) {
     return (
       <div className="mt-8">
         <div className="mb-5 space-y-1.5 text-sm text-zinc-400">
+          <p>&#10003; <strong className="text-green-400">Book online &amp; save $10</strong> &mdash; the fastest way to lock in service</p>
           <p>&#10003; <strong className="text-zinc-200">No money upfront</strong> &mdash; pay when the job is done</p>
           <p>&#10003; <strong className="text-zinc-200">2,847+</strong> five-star reviews</p>
-          <p>&#10003; <strong className="text-zinc-200">100% satisfaction</strong> guarantee</p>
           <p>&#10003; <strong className="text-zinc-200">Licensed &amp; insured</strong> NYS DEC exterminators</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Link
+            href="/book-exterminator-today"
+            data-cta="self-book"
+            data-cta-location={`cta-${variant}`}
+            className="group inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-7 py-3.5 text-base font-bold text-white shadow-lg shadow-green-600/25 transition-all hover:bg-green-500 hover:shadow-green-500/30 hover:-translate-y-0.5"
+          >
+            <CalendarIcon />
+            Self-Book Online &mdash; Save $10
+          </Link>
           <a
             href={`sms:${phonePlain}`}
             data-cta="text-us"
             data-cta-location={`cta-${variant}`}
-            className="group inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-green-600/25 transition-all hover:bg-green-500 hover:shadow-green-500/30 hover:-translate-y-0.5"
-          >
-            <SmsIcon />
-            Text Us Now
-          </a>
-          <a
-            href={`tel:${phonePlain}`}
-            data-cta="call-us"
-            data-cta-location={`cta-${variant}`}
             className="group inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-white/5 px-7 py-3.5 text-sm font-bold text-white backdrop-blur transition-all hover:border-zinc-500 hover:bg-white/10 hover:-translate-y-0.5"
           >
-            <PhoneIcon />
-            Call {PHONE}
+            <SmsIcon />
+            Text Us &mdash; {PHONE}
           </a>
-          <Link
-            href="/book-exterminator-today"
-            data-cta="book-yourself"
-            data-cta-location={`cta-${variant}`}
-            className="group inline-flex items-center justify-center gap-2 rounded-xl px-7 py-3.5 text-sm font-bold text-green-400 transition-all hover:text-green-300 hover:-translate-y-0.5"
-          >
-            <CalendarIcon />
-            Book Yourself
-          </Link>
         </div>
       </div>
     );
@@ -117,39 +99,30 @@ export default function CTAGroup({ variant, title, subtitle }: CTAGroupProps) {
           {sub}
         </p>
         <div className="mx-auto mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-green-100/80">
+          <span>&#10003; Book online &amp; save $10</span>
           <span>&#10003; No money upfront</span>
           <span>&#10003; 2,847+ five-star reviews</span>
-          <span>&#10003; 100% satisfaction guarantee</span>
           <span>&#10003; Licensed &amp; insured</span>
         </div>
         <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Link
+            href="/book-exterminator-today"
+            data-cta="self-book"
+            data-cta-location={`cta-${variant}`}
+            className="group inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-lg font-bold text-green-700 shadow-lg shadow-black/10 transition-all hover:bg-green-50 hover:-translate-y-0.5"
+          >
+            <CalendarIcon />
+            Self-Book Online &mdash; Save $10
+          </Link>
           <a
             href={`sms:${phonePlain}`}
             data-cta="text-us"
             data-cta-location={`cta-${variant}`}
-            className="group inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-lg font-bold text-green-700 shadow-lg shadow-black/10 transition-all hover:bg-green-50 hover:-translate-y-0.5"
-          >
-            <SmsIcon />
-            Text Us Now
-          </a>
-          <a
-            href={`tel:${phonePlain}`}
-            data-cta="call-us"
-            data-cta-location={`cta-${variant}`}
             className="group inline-flex items-center gap-2 rounded-xl border-2 border-white px-7 py-3.5 text-lg font-bold text-white transition-all hover:bg-white/10 hover:-translate-y-0.5"
           >
-            <PhoneIcon />
-            Call {PHONE}
+            <SmsIcon />
+            Text Us &mdash; {PHONE}
           </a>
-          <Link
-            href="/book-exterminator-today"
-            data-cta="book-yourself"
-            data-cta-location={`cta-${variant}`}
-            className="group inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-lg font-bold text-green-100 transition-all hover:text-white hover:-translate-y-0.5"
-          >
-            <CalendarIcon />
-            Book Yourself
-          </Link>
         </div>
       </div>
     </section>

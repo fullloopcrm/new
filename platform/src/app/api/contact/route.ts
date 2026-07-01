@@ -9,9 +9,11 @@
  *   - job-application (formType: "job-application"): position/experience/license/availability
  *
  * Lead types write to clients + portal_leads (mirrors /api/portal/collect).
- * Job applications write to cleaner_applications (per migration
- * 2026_05_19_cleaner_applications). Admin notification goes through
- * emailAdmins which reads tenant.resend_api_key.
+ * Job applications write to team_applications — the canonical table the admin
+ * reads (GET /api/team-applications) and the approve→provision→PIN flow uses.
+ * (Previously wrote the dead cleaner_applications table, so apps never showed
+ * in admin.) Admin notification goes through emailAdmins which reads
+ * tenant.resend_api_key.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -28,6 +30,7 @@ interface ContactBody {
   name?: string
   email?: string
   phone?: string
+  address?: string
   message?: string
   subject?: string
   session_id?: string
@@ -36,6 +39,8 @@ interface ContactBody {
   propertyType?: string
   location?: string
   urgency?: string
+  // self-book online (eligible for online-booking discount)
+  selfBook?: boolean
   // job-application
   position?: string
   experience?: string
@@ -49,11 +54,16 @@ function inferFormType(body: ContactBody): 'service-quote' | 'general-inquiry' |
   return 'service-quote'
 }
 
+// $10 discount for customers who book online instead of calling/texting.
+const SELF_BOOK_DISCOUNT_NOTE = '💲 SELF-BOOK ONLINE — apply $10 discount to quote'
+
 function buildLeadNotes(form: string, body: ContactBody): string {
   const lines: string[] = [`[${form}]`]
+  if (body.selfBook) lines.push(SELF_BOOK_DISCOUNT_NOTE)
   if (body.pestType) lines.push(`Pest: ${body.pestType}`)
   if (body.propertyType) lines.push(`Property: ${body.propertyType}`)
   if (body.urgency) lines.push(`Urgency: ${body.urgency}`)
+  if (body.address) lines.push(`Address: ${body.address}`)
   if (body.location) lines.push(`Location: ${body.location}`)
   if (body.subject) lines.push(`Subject: ${body.subject}`)
   if (body.message) lines.push('', body.message.trim())
@@ -99,12 +109,12 @@ export async function POST(request: NextRequest) {
     if (formType === 'job-application') {
       const notes = buildJobNotes(body)
       const { data: app, error } = await supabaseAdmin
-        .from('cleaner_applications')
+        .from('team_applications')
         .insert({
           tenant_id: tenant.id,
           name,
           email: email || null,
-          phone,
+          phone: phone.replace(/\D/g, ''),
           address: body.location || null,
           experience: body.experience || null,
           availability: body.availability || null,
@@ -142,6 +152,12 @@ export async function POST(request: NextRequest) {
 
     // ─── lead branch (service-quote / general-inquiry) ───
     const notes = buildLeadNotes(formType, body)
+    const address = body.address?.trim() || null
+    // Online self-book leads are tagged so the $10 discount is traceable and
+    // can be applied at quote time. Non-self-book leads keep prior behavior
+    // (clients.source stays null; portal_leads.source stays the form type).
+    const clientSource = body.selfBook ? 'website-selfbook' : null
+    const leadSource = body.selfBook ? 'website-selfbook' : formType
 
     const cleanPhone = phone.replace(/\D/g, '')
     const { data: existing } = await supabaseAdmin
@@ -159,6 +175,8 @@ export async function POST(request: NextRequest) {
         .update({
           name,
           email: email || null,
+          ...(address ? { address } : {}),
+          ...(body.selfBook ? { source: leadSource } : {}),
           notes,
           active: true,
           status: 'active',
@@ -177,6 +195,8 @@ export async function POST(request: NextRequest) {
           name,
           email: email || null,
           phone,
+          address,
+          source: clientSource,
           notes,
           pin: randomInt(100000, 1000000).toString(),
         })
@@ -194,7 +214,7 @@ export async function POST(request: NextRequest) {
         email: email || null,
         phone,
         notes,
-        source: formType,
+        source: leadSource,
         client_id: clientId,
       })
       .then(() => {}, () => {})
@@ -213,7 +233,9 @@ export async function POST(request: NextRequest) {
           name,
           phone,
           email,
+          address: address || undefined,
           notes: notes || undefined,
+          selfBookDiscountCents: body.selfBook ? 1000 : undefined,
         },
         {
           tenantName: tenant.name,

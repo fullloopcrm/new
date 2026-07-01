@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import Breadcrumbs from "@/app/site/the-nyc-exterminator/_components/Breadcrumbs";
@@ -218,16 +217,16 @@ export default function QuoteRequestPage() {
           </div>
 
           <div className="mt-8 text-center">
-            <p className="text-zinc-500">Prefer to call or text?</p>
+            <p className="text-zinc-500">Prefer to text?</p>
             <a
-              href={`tel:${phonePlain}`}
+              href={`sms:${phonePlain}`}
               className="mt-1 inline-block text-2xl font-bold text-green-500 hover:text-green-400"
             >
-              {PHONE}
+              Text {PHONE}
             </a>
             <p className="mt-2 text-sm text-zinc-600">
-              Text us at {PHONE} for the fastest response. A real exterminator
-              answers &mdash; not a call center.
+              Text us at {PHONE} for the fastest response — a real exterminator
+              answers. Or <Link href="/book-exterminator-today" className="font-semibold text-green-400 hover:text-green-300">book online and save $10</Link>.
             </p>
           </div>
         </div>
@@ -271,7 +270,7 @@ export default function QuoteRequestPage() {
               <div>
                 <h3 className="text-xl font-semibold text-white">We Call to Schedule Your Free Inspection</h3>
                 <p className="mt-2 text-zinc-300">
-                  One of our exterminators will call or text you to confirm the details
+                  One of our exterminators will text you to confirm the details
                   of your pest problem and schedule a free on-site inspection at a
                   time that works for you. We offer morning, afternoon, and evening
                   appointments seven days a week. If your situation is urgent, we will

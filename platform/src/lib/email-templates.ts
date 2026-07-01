@@ -365,6 +365,7 @@ export function adminNewClientEmail(
     notes?: string
     referralInfo?: string
     referrerMatched?: boolean
+    selfBookDiscountCents?: number
   },
   data: TemplateData & { adminUrl?: string }
 ): { subject: string; html: string } {
@@ -379,6 +380,13 @@ export function adminNewClientEmail(
     rows.push(row('Referred by', client.referralInfo + (client.referrerMatched ? ' (matched)' : ' (unmatched)')))
   if (client.notes) rows.push(row('Notes', client.notes))
 
+  // Self-book online leads earn a discount that must be honored on the quote.
+  const discountBanner = client.selfBookDiscountCents
+    ? `<div style="background:#ecfdf5;border:1px solid #34d399;border-radius:8px;padding:12px 16px;margin-bottom:16px;color:#065f46;font-size:14px;font-weight:600;">
+         💲 Booked online — apply a $${(client.selfBookDiscountCents / 100).toFixed(0)} self-book discount to this lead's quote.
+       </div>`
+    : ''
+
   const cta = data.adminUrl
     ? `<a href="${data.adminUrl}" style="display:inline-block;background:${data.primaryColor || '#111827'};color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">View Clients</a>`
     : ''
@@ -386,6 +394,7 @@ export function adminNewClientEmail(
   const html = baseTemplate(
     `
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">New client added</h2>
+    ${discountBanner}
     <table width="100%" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
       ${rows.join('\n')}
     </table>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllServices } from "@/app/site/the-nyc-exterminator/_lib/data";
@@ -1004,9 +1003,9 @@ export default function ReviewsPage() {
                 >
                   free quote
                 </Link>
-                , call us directly at{" "}
+                , text us directly at{" "}
                 <a
-                  href={`tel:${PHONE.replace(/-/g, "")}`}
+                  href={`sms:${PHONE.replace(/-/g, "")}`}
                   className="text-green-400 hover:text-green-300"
                 >
                   {PHONE}
@@ -1459,9 +1458,9 @@ export default function ReviewsPage() {
                 >
                   Request a free quote online
                 </Link>
-                , call us at{" "}
+                , text us at{" "}
                 <a
-                  href={`tel:${PHONE.replace(/-/g, "")}`}
+                  href={`sms:${PHONE.replace(/-/g, "")}`}
                   className="text-green-400 hover:text-green-300"
                 >
                   {PHONE}

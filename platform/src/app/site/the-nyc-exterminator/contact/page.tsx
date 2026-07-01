@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import Breadcrumbs from "@/app/site/the-nyc-exterminator/_components/Breadcrumbs";
@@ -7,15 +6,15 @@ import { PHONE, EMAIL, ADDRESS, SITE_URL, getBreadcrumbSchema, getLocalBusinessS
 import { getAllServices, getAllNeighborhoods } from "@/app/site/the-nyc-exterminator/_lib/data";
 
 export const metadata: Metadata = {
-  title: "Contact NYC Exterminator | Call, Text, or Book Pest Control Today",
+  title: "Contact NYC Exterminator | Book Online & Save $10",
   description:
-    "Contact The NYC Exterminator for a free pest control inspection and quote. Call or text 212-202-8545. Same-day exterminator service across all 5 NYC boroughs, NJ, Long Island & Westchester. Licensed, insured, pricing from $49. We respond within minutes.",
+    "Contact The NYC Exterminator for a free pest control inspection and quote. Book online and save $10, or text 212-202-8545. Same-day exterminator service across all 5 NYC boroughs, NJ, Long Island & Westchester. Licensed, insured, pricing from $49. We respond within minutes.",
   keywords:
-    "contact exterminator NYC, call pest control NYC, text exterminator, NYC pest control phone number, book exterminator appointment, pest control near me, emergency exterminator contact",
+    "contact exterminator NYC, book pest control online NYC, text exterminator, NYC pest control, book exterminator appointment, pest control near me, emergency exterminator contact",
   openGraph: {
-    title: "Contact NYC Exterminator | Call, Text, or Book Pest Control Today",
+    title: "Contact NYC Exterminator | Book Online & Save $10",
     description:
-      "Contact The NYC Exterminator. Call or text 212-202-8545. Free inspection, same-day service, pricing from $49.",
+      "Contact The NYC Exterminator. Book online and save $10, or text 212-202-8545. Free inspection, same-day service, pricing from $49.",
     url: `${SITE_URL}/contact`,
   },
   alternates: {
@@ -186,16 +185,17 @@ export default function ContactPage() {
             </Link>
           </div>
 
-          <div className="mt-12 rounded-xl border border-zinc-800 bg-[#141414] p-8 text-center">
-            <p className="text-lg font-semibold text-white">Or just call us</p>
-            <a
-              href={`tel:${phonePlain}`}
-              className="mt-2 inline-block text-3xl font-bold text-green-500 hover:text-green-400"
+          <div className="mt-12 rounded-xl border border-green-500/30 bg-green-500/5 p-8 text-center">
+            <p className="text-lg font-semibold text-white">Fastest way to lock in service</p>
+            <Link
+              href="/book-exterminator-today"
+              className="mt-3 inline-block rounded-lg bg-green-600 px-7 py-3.5 text-lg font-bold text-white shadow-lg shadow-green-600/25 hover:bg-green-500"
             >
-              {PHONE}
-            </a>
-            <p className="mt-2 text-sm text-zinc-500">
-              A real exterminator picks up. Not a call center.
+              Self-Book Online &mdash; Save $10
+            </Link>
+            <p className="mt-3 text-sm text-zinc-500">
+              Prefer to text? Message us at{" "}
+              <a href={`sms:${phonePlain}`} className="font-semibold text-green-400 hover:text-green-300">{PHONE}</a>.
             </p>
           </div>
         </div>
@@ -243,28 +243,26 @@ export default function ContactPage() {
               </div>
             </div>
 
-            {/* Call */}
+            {/* Book Online */}
             <div className="flex gap-6">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-green-600/20 text-green-500">
                 <span className="text-xl font-bold">2</span>
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-green-400">Call Us</h3>
+                <h3 className="text-xl font-semibold text-green-400">Book Online &mdash; Save $10</h3>
                 <p className="mt-2 text-zinc-300">
-                  Dial{" "}
-                  <a href={`tel:${phonePlain}`} className="font-bold text-green-400 hover:text-green-300">
-                    {PHONE}
-                  </a>{" "}
-                  to speak directly with an exterminator. No automated phone trees,
-                  no hold music, no overseas call centers. When you call The NYC
-                  Exterminator, you reach a real pest control professional who can
-                  answer your questions, discuss treatment options, and schedule your
-                  free inspection right then and there. Phone calls are ideal when
-                  you need immediate guidance about an active pest situation &mdash;
-                  for example, if you have just spotted a rat in your apartment or
-                  discovered a wasp nest near your entrance. Our exterminators can
-                  walk you through immediate safety steps while we dispatch a
-                  technician to your location.
+                  The fastest way to lock in service is to{" "}
+                  <Link href="/book-exterminator-today" className="font-bold text-green-400 hover:text-green-300">
+                    book online
+                  </Link>{" "}
+                  &mdash; and you save $10 off your quote for doing it. Tell us your
+                  pest problem, property type, and service address, and a licensed
+                  exterminator confirms your appointment within minutes during business
+                  hours. Booking online means you skip the back-and-forth, keep a written
+                  record, and get the online-only $10 discount applied to your quote.
+                  It takes under two minutes and there is no commitment &mdash; every
+                  booking still comes with a free on-site inspection and upfront pricing
+                  before any work begins.
                 </p>
               </div>
             </div>
@@ -328,7 +326,7 @@ export default function ContactPage() {
               <p className="mt-4 text-sm text-zinc-500">
                 While we serve all of NYC, NJ, Long Island, and Westchester, our
                 main office is centrally located in Midtown Manhattan. Walk-ins are
-                welcome during business hours, though we recommend calling or texting
+                welcome during business hours, though we recommend texting or booking
                 ahead so we can have an exterminator ready to discuss your pest
                 control needs.
               </p>
@@ -389,7 +387,7 @@ export default function ContactPage() {
                   There are no bots, no automated responses, and no third-party
                   answering services. A real exterminator reads every message and
                   responds personally. During business hours, you can expect a response
-                  within 15 to 30 minutes for calls and texts, or within 2 hours for
+                  within 15 to 30 minutes for texts, or within 2 hours for
                   emails and form submissions.
                 </p>
               </div>
@@ -550,8 +548,8 @@ export default function ContactPage() {
               </a>{" "}
               with the word <strong className="text-white">&quot;URGENT&quot;</strong> and a brief
               description of the situation. Emergency texts are flagged for immediate
-              attention. You can also call us directly &mdash; we prioritize emergency
-              calls and will dispatch an exterminator to your location as quickly as
+              attention. You can also book online &mdash; we prioritize emergency
+              requests and will dispatch an exterminator to your location as quickly as
               possible, often within hours.
             </p>
           </div>
@@ -573,7 +571,7 @@ export default function ContactPage() {
           <div className="mt-12 space-y-8">
             <div className="rounded-xl border border-zinc-800 bg-[#141414] p-6">
               <h3 className="text-lg font-semibold text-green-400">
-                How quickly will I hear back after texting or calling?
+                How quickly will I hear back after texting or booking?
               </h3>
               <p className="mt-3 text-zinc-300">
                 During business hours (Monday&ndash;Friday 7am&ndash;8pm, Saturday

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -57,7 +56,7 @@ export default function HomePage() {
     },
     {
       q: "Do you offer same-day pest control and exterminator service?",
-      a: "Yes. We offer same-day and emergency pest control service for urgent situations throughout NYC, NJ, Long Island, and Westchester. Whether it's a wasp nest near your front door, a rat sighting in your restaurant kitchen, or a bed bug discovery the night before guests arrive, our licensed exterminators can respond quickly. Call or text us and we'll dispatch a technician as soon as possible.",
+      a: "Yes. We offer same-day and emergency pest control service for urgent situations throughout NYC, NJ, Long Island, and Westchester. Whether it's a wasp nest near your front door, a rat sighting in your restaurant kitchen, or a bed bug discovery the night before guests arrive, our licensed exterminators can respond quickly. Text us and we'll dispatch a technician as soon as possible.",
     },
     {
       q: "Are your pest control treatments safe for pets and children?",
@@ -217,7 +216,7 @@ export default function HomePage() {
                 Every exterminator on our team holds active NYS DEC Commercial Pesticide Applicator certification and undergoes ongoing training in the latest pest control techniques and safety protocols. Our wildlife control specialists carry additional NYS DEC Nuisance Wildlife Control licenses for <Link href="/raccoon-removal" className="text-green-400 hover:text-green-300">raccoon removal</Link>, <Link href="/squirrel-removal" className="text-green-400 hover:text-green-300">squirrel removal</Link>, <Link href="/pigeon-control" className="text-green-400 hover:text-green-300">pigeon control</Link>, and <Link href="/bat-removal" className="text-green-400 hover:text-green-300">bat removal</Link>. We carry full general liability insurance on every job and are happy to provide documentation for property managers, co-op boards, and commercial tenants.
               </p>
               <p>
-                Thousands of NYC property owners, tenants, and business operators trust The NYC Exterminator for reliable pest control. Check our <Link href="/reviews" className="text-green-400 hover:text-green-300">customer reviews</Link> to see why we maintain a 4.9-star rating across thousands of completed pest control jobs. Learn more <Link href="/about" className="text-green-400 hover:text-green-300">about our company</Link>, our commitment to excellence, and the Consortium NYC team behind every pest control treatment we perform. Ready to get started? <Link href="/quote-request" className="text-green-400 hover:text-green-300">Request a free quote</Link>, <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">text us</a>, or call <a href={`tel:${phonePlain}`} className="text-green-400 hover:text-green-300">{PHONE}</a> — we respond fast. With pest control pricing starting at just $49, there&apos;s no reason to wait. Don&apos;t let a small pest problem become a major infestation. Contact The NYC Exterminator today and let our licensed exterminators take care of the rest.
+                Thousands of NYC property owners, tenants, and business operators trust The NYC Exterminator for reliable pest control. Check our <Link href="/reviews" className="text-green-400 hover:text-green-300">customer reviews</Link> to see why we maintain a 4.9-star rating across thousands of completed pest control jobs. Learn more <Link href="/about" className="text-green-400 hover:text-green-300">about our company</Link>, our commitment to excellence, and the Consortium NYC team behind every pest control treatment we perform. Ready to get started? <Link href="/book-exterminator-today" className="text-green-400 hover:text-green-300">Book online and save $10</Link> — the fastest way to lock in service — or <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">text us at {PHONE}</a>. We respond fast. With pest control pricing starting at just $49, there&apos;s no reason to wait. Don&apos;t let a small pest problem become a major infestation. Contact The NYC Exterminator today and let our licensed exterminators take care of the rest.
               </p>
             </div>
           </div>
@@ -977,19 +976,19 @@ export default function HomePage() {
             Contact <span className="text-green-500">The NYC Exterminator</span>
           </h2>
           <p className="mt-4 max-w-3xl text-zinc-300 leading-7">
-            Ready to get rid of pests for good? Reach out to our pest control team today. We respond to texts and calls quickly — usually within minutes during business hours. You can also <Link href="/quote-request" className="text-green-400 hover:text-green-300">request a free quote online</Link> any time, day or night.
+            Ready to get rid of pests for good? <Link href="/book-exterminator-today" className="text-green-400 hover:text-green-300">Book online and save $10</Link> — it&apos;s the fastest way to lock in service. Prefer to text? We respond within minutes during business hours. You can also <Link href="/quote-request" className="text-green-400 hover:text-green-300">request a free quote online</Link> any time, day or night.
           </p>
 
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-5">
+              <h3 className="text-sm font-semibold uppercase text-green-500">Book Online (Save $10)</h3>
+              <Link href="/book-exterminator-today" className="mt-2 block text-lg font-bold text-green-400 hover:text-green-300">
+                Self-Book &rarr;
+              </Link>
+            </div>
             <div className="rounded-xl border border-white/[0.06] bg-[#141414] p-5">
               <h3 className="text-sm font-semibold uppercase text-zinc-500">Text Us (Fastest)</h3>
               <a href={`sms:${phonePlain}`} className="mt-2 block text-lg font-bold text-green-500 hover:text-green-400">
-                {PHONE}
-              </a>
-            </div>
-            <div className="rounded-xl border border-white/[0.06] bg-[#141414] p-5">
-              <h3 className="text-sm font-semibold uppercase text-zinc-500">Call Us</h3>
-              <a href={`tel:${phonePlain}`} className="mt-2 block text-lg font-bold text-white hover:text-green-400">
                 {PHONE}
               </a>
             </div>
@@ -1029,7 +1028,7 @@ export default function HomePage() {
               <p><strong className="text-white">Sunday:</strong> 9:00 AM – 5:00 PM</p>
             </div>
             <p className="mt-3 text-sm text-zinc-400">
-              Emergency pest control service is available outside regular hours for urgent situations. Whether it&apos;s an active <Link href="/wasp-removal" className="text-green-400 hover:text-green-300">wasp nest</Link> near your building entrance, a significant <Link href="/rat-extermination" className="text-green-400 hover:text-green-300">rat infestation</Link> in your restaurant kitchen, a <Link href="/bed-bug-treatment" className="text-green-400 hover:text-green-300">bed bug discovery</Link> the night before guests arrive, or any other pest emergency that requires immediate professional attention — our licensed exterminators are on call and ready to respond. Call or text <a href={`tel:${phonePlain}`} className="text-green-400 hover:text-green-300">{PHONE}</a> any time. You can also submit an <Link href="/quote-request" className="text-green-400 hover:text-green-300">online quote request</Link> and we&apos;ll respond first thing the next business morning.
+              Emergency pest control service is available outside regular hours for urgent situations. Whether it&apos;s an active <Link href="/wasp-removal" className="text-green-400 hover:text-green-300">wasp nest</Link> near your building entrance, a significant <Link href="/rat-extermination" className="text-green-400 hover:text-green-300">rat infestation</Link> in your restaurant kitchen, a <Link href="/bed-bug-treatment" className="text-green-400 hover:text-green-300">bed bug discovery</Link> the night before guests arrive, or any other pest emergency that requires immediate professional attention — our licensed exterminators are ready to respond. Text <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">{PHONE}</a> any time, or <Link href="/book-exterminator-today" className="text-green-400 hover:text-green-300">book online and save $10</Link>. You can also submit an <Link href="/quote-request" className="text-green-400 hover:text-green-300">online quote request</Link> and we&apos;ll respond first thing the next business morning.
             </p>
           </div>
         </div>

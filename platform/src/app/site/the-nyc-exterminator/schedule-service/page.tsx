@@ -4,9 +4,9 @@ import ContactForm from "@/app/site/the-nyc-exterminator/_components/ContactForm
 import { PHONE, SITE_URL, SITE_NAME, getBreadcrumbSchema, getFAQPageSchema, getLocalBusinessSchemaGlobal } from "@/app/site/the-nyc-exterminator/_lib/seo";
 
 export const metadata: Metadata = {
-  title: "Schedule Service | Pest Control Starting at $49 | Fully Inclusive",
+  title: "Schedule Service | Starting at $49 | Book Online & Save $10",
   description:
-    "Schedule a licensed NYC exterminator. Starting at $49 (fully inclusive — no hidden fees). Labor, products, treatment, follow-up — all in the rate. Pay only when the job is done. No contracts. No deposits. No catches. Call or text 212-202-8545.",
+    "Schedule a licensed NYC exterminator online and save $10. Starting at $49 (fully inclusive — no hidden fees). Labor, products, treatment, follow-up — all in the rate. Pay only when the job is done. No contracts. No deposits. No catches.",
   keywords:
     "schedule NYC exterminator, pay-on-completion pest control, no contract exterminator, pest control starting at $49, fully inclusive pest control pricing, NYC pest control booking, same-day exterminator",
   openGraph: {
@@ -46,7 +46,7 @@ const faqs = [
   },
   {
     q: "How quickly will I hear back after scheduling?",
-    a: "We respond to every booking request within 10 to 30 minutes during business hours (Monday-Friday 7 AM-8 PM, Saturday 8 AM-6 PM, Sunday 9 AM-5 PM). If you submit your request after hours, you'll hear from a licensed pest control technician first thing the next morning. For emergencies, call or text 212-202-8545 for the fastest response.",
+    a: "We respond to every booking request within 10 to 30 minutes during business hours (Monday-Friday 7 AM-8 PM, Saturday 8 AM-6 PM, Sunday 9 AM-5 PM). If you submit your request after hours, you'll hear from a licensed pest control technician first thing the next morning. For emergencies, text 212-202-8545 for the fastest response.",
   },
   {
     q: "How soon can a technician come to my property?",
@@ -172,7 +172,7 @@ export default function ScheduleServicePage() {
                     Online-Only Discount
                   </p>
                   <p className="mt-1 text-lg font-extrabold text-white sm:text-xl">
-                    Save <span className="text-green-300">$25</span> when you self-book below.
+                    Save <span className="text-green-300">$10</span> when you self-book below.
                   </p>
                 </div>
                 <div className="hidden shrink-0 rounded-lg bg-green-500/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-green-300 sm:block">
@@ -190,20 +190,20 @@ export default function ScheduleServicePage() {
               <p className="mb-6 text-sm text-zinc-400">
                 Tell us about your pest problem. We&apos;ll match you with a certified NYC technician,
                 confirm the visit, and bill you on completion. No contracts. No upfront payment.
-                <span className="font-semibold text-green-300"> $25 self-book discount applied automatically.</span>
+                <span className="font-semibold text-green-300"> Book online and we take $10 off your quote.</span>
               </p>
               <ContactForm dark />
             </div>
           </div>
 
-          {/* ── Call CTA ── */}
+          {/* ── Text fallback ── */}
           <div className="mt-8 text-center">
-            <p className="text-zinc-500">Need to talk to a human right now?</p>
+            <p className="text-zinc-500">Prefer to text?</p>
             <a
-              href={`tel:${PHONE.replace(/-/g, "")}`}
+              href={`sms:${PHONE.replace(/-/g, "")}`}
               className="mt-1 inline-block text-2xl font-bold text-green-500 hover:text-green-400"
             >
-              {PHONE}
+              Text {PHONE}
             </a>
           </div>
         </div>
@@ -435,7 +435,7 @@ export default function ScheduleServicePage() {
             <span className="text-green-400">Service from $49</span>?
           </h2>
           <p className="mt-3 text-zinc-400">
-            Scroll up to book in under 2 minutes &mdash; or call/text us right now. Same fully inclusive
+            Scroll up to book in under 2 minutes &mdash; or text us right now. Same fully inclusive
             pricing, same pay-on-completion. No contracts, no catches.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -443,19 +443,13 @@ export default function ScheduleServicePage() {
               href="#top"
               className="inline-flex items-center rounded-lg bg-green-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-green-600/25 hover:bg-green-500"
             >
-              Self-Book &mdash; Save $25 &uarr;
+              Self-Book &mdash; Save $10 &uarr;
             </a>
             <a
               href={`sms:${PHONE.replace(/-/g, "")}`}
               className="inline-flex items-center rounded-lg border border-zinc-700 px-6 py-3 text-sm font-semibold text-white hover:border-zinc-500 hover:bg-white/5"
             >
               Text {PHONE}
-            </a>
-            <a
-              href={`tel:${PHONE.replace(/-/g, "")}`}
-              className="inline-flex items-center rounded-lg px-6 py-3 text-sm font-semibold text-green-400 hover:text-green-300"
-            >
-              Call {PHONE}
             </a>
           </div>
         </div>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -80,7 +79,7 @@ export default async function NeighborhoodHubPage({ params }: PageProps) {
     },
     {
       q: `Do you offer same-day pest control in ${neighborhood.name}?`,
-      a: `Yes. We offer same-day and emergency pest control service in ${neighborhood.name} and throughout ${neighborhood.region}. Call us for urgent situations.`,
+      a: `Yes. We offer same-day and emergency pest control service in ${neighborhood.name} and throughout ${neighborhood.region}. Text us for urgent situations.`,
     },
     {
       q: `Are your ${neighborhood.name} exterminators licensed?`,

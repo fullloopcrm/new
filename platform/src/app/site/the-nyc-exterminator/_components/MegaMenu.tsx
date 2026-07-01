@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -172,7 +171,7 @@ export default function MegaMenu({ categories, phone }: MegaMenuProps) {
           href="/book-exterminator-today"
           className="ml-3 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition-all hover:bg-green-500 hover:shadow-green-500/30 hover:-translate-y-px"
         >
-          Book Yourself
+          Book &middot; Save $10
         </Link>
       </nav>
 
@@ -182,7 +181,7 @@ export default function MegaMenu({ categories, phone }: MegaMenuProps) {
           href="/book-exterminator-today"
           className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-green-600/20 hover:bg-green-500"
         >
-          Book Yourself
+          Book &middot; Save $10
         </Link>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -292,28 +291,20 @@ export default function MegaMenu({ categories, phone }: MegaMenuProps) {
 
           {/* Fixed bottom CTAs */}
           <div className="border-t border-white/[0.06] px-5 py-5 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <a
-                href={`sms:${phonePlain}`}
-                className="flex items-center justify-center rounded-xl bg-green-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-green-600/20 hover:bg-green-500"
-                onClick={() => setMobileOpen(false)}
-              >
-                Text Us Now
-              </a>
-              <a
-                href={`tel:${phonePlain}`}
-                className="flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] py-3.5 text-sm font-bold text-white hover:bg-white/[0.08]"
-              >
-                Call {phone}
-              </a>
-            </div>
             <Link
               href="/book-exterminator-today"
-              className="block w-full rounded-xl border border-white/[0.08] py-3 text-center text-sm font-semibold text-green-400 hover:bg-white/[0.04]"
+              className="block w-full rounded-xl bg-green-600 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-green-600/20 hover:bg-green-500"
               onClick={() => setMobileOpen(false)}
             >
-              Book Yourself &rarr;
+              Self-Book Online &mdash; Save $10
             </Link>
+            <a
+              href={`sms:${phonePlain}`}
+              className="flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] py-3.5 text-sm font-bold text-white hover:bg-white/[0.08]"
+              onClick={() => setMobileOpen(false)}
+            >
+              Text Us &mdash; {phone}
+            </a>
           </div>
         </div>
       , document.body)}
