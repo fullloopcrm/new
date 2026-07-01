@@ -10,6 +10,7 @@
 import { supabaseAdmin } from './supabase'
 import { provisionTenant } from './provision-tenant'
 import { computeMonthly } from './billing-pricing'
+import { zipToTimezone } from './timezone'
 
 type IndustryKey = 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general'
 
@@ -98,6 +99,7 @@ export async function createTenantFromLead(
       slug,
       industry,
       status,
+      timezone: zipToTimezone(lead.billing_zip),
       billing_status: 'setup',
       monthly_rate: monthly,
       admin_seats: admins,

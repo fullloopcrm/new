@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { PRICING, computeMonthly } from '@/lib/billing-pricing'
+import { NotesPanel } from '@/components/admin/NotesPanel'
+import { TenantUsers } from '@/components/admin/TenantUsers'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -135,7 +137,7 @@ export default function BusinessDetailPage() {
   const [cl, setCl] = useState<Checklist | null>(null)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'onboarding' | 'integrations' | 'billing' | 'contact' | 'notes'>('onboarding')
+  const [tab, setTab] = useState<'contact' | 'users' | 'integrations' | 'billing' | 'onboarding' | 'notes'>('contact')
 
   const [ownerName, setOwnerName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
@@ -316,10 +318,11 @@ export default function BusinessDetailPage() {
   const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
 
   const tabs = [
-    { key: 'onboarding' as const, label: `Onboarding (${pct}%)` },
+    { key: 'contact' as const, label: 'Profile' },
+    { key: 'users' as const, label: 'Users' },
     { key: 'integrations' as const, label: 'Integrations' },
     { key: 'billing' as const, label: 'Billing' },
-    { key: 'contact' as const, label: 'Contact & Access' },
+    { key: 'onboarding' as const, label: `Onboarding (${pct}%)` },
     { key: 'notes' as const, label: 'Notes' },
   ]
 
@@ -948,18 +951,13 @@ export default function BusinessDetailPage() {
       )}
 
       {/* TAB: Notes */}
+      {tab === 'users' && (
+        <TenantUsers tenantId={id} />
+      )}
+
       {tab === 'notes' && (
         <div className="max-w-2xl">
-          <textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)}
-            placeholder="Private admin notes about this business..."
-            rows={12}
-            className="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm resize-none placeholder-slate-400" />
-          <div className="mt-4">
-            <button onClick={() => save()} disabled={saving}
-              className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
-              {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Notes'}
-            </button>
-          </div>
+          <NotesPanel subjectType="tenant" subjectId={id} />
         </div>
       )}
 
