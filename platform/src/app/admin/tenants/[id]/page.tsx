@@ -14,6 +14,15 @@ type TenantDetail = {
   plan: string
   phone: string | null
   email: string | null
+  owner_email: string | null
+  owner_phone: string | null
+  sms_number: string | null
+  domain: string | null
+  website_url: string | null
+  logo_url: string | null
+  tagline: string | null
+  primary_color: string | null
+  secondary_color: string | null
   zip_code: string | null
   team_size: string
   timezone: string
@@ -51,6 +60,9 @@ export default function TenantDetailPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [status, setStatus] = useState('')
   const [plan, setPlan] = useState('')
+  const [branding, setBranding] = useState<Record<string, string>>({})
+  const [savingBrand, setSavingBrand] = useState(false)
+  const [brandSaved, setBrandSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
@@ -65,8 +77,34 @@ export default function TenantDetailPage() {
         setStats(data.stats || null)
         setStatus(data.tenant?.status || '')
         setPlan(data.tenant?.plan || 'free')
+        const t = data.tenant || {}
+        setBranding({
+          name: t.name || '',
+          tagline: t.tagline || '',
+          phone: t.phone || '',
+          email: t.email || '',
+          owner_phone: t.owner_phone || '',
+          domain: t.domain || '',
+          website_url: t.website_url || '',
+          logo_url: t.logo_url || '',
+          primary_color: t.primary_color || '',
+          secondary_color: t.secondary_color || '',
+        })
       })
   }, [id])
+
+  async function saveBranding() {
+    setSavingBrand(true)
+    setBrandSaved(false)
+    await fetch(`/api/admin/tenants/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(branding),
+    })
+    setSavingBrand(false)
+    setBrandSaved(true)
+    setTimeout(() => setBrandSaved(false), 3000)
+  }
 
   async function updateTenant() {
     setSaving(true)
@@ -232,6 +270,39 @@ export default function TenantDetailPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Site Branding — personalizes the tenant's site (shared de-branded template) */}
+      <div className="mb-6">
+        <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider mb-1 pb-3 border-b border-slate-200">Site Branding</h2>
+        <p className="text-xs text-slate-500 mt-2 mb-4">Drives this tenant&apos;s public site, which renders from the shared template. Saved to the tenant record — no redeploy needed.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {([
+            ['name', 'Business Name'],
+            ['tagline', 'Tagline'],
+            ['phone', 'Sales Phone'],
+            ['owner_phone', 'Support Phone'],
+            ['email', 'Email'],
+            ['domain', 'Custom Domain'],
+            ['website_url', 'Website URL'],
+            ['logo_url', 'Logo URL'],
+            ['primary_color', 'Primary Color (hex)'],
+            ['secondary_color', 'Accent Color (hex)'],
+          ] as const).map(([key, label]) => (
+            <div key={key}>
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">{label}</label>
+              <input
+                type="text"
+                value={branding[key] ?? ''}
+                onChange={(e) => setBranding((b) => ({ ...b, [key]: e.target.value }))}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+          ))}
+        </div>
+        <button onClick={saveBranding} disabled={savingBrand} className="mt-4 bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-cta font-semibold text-white disabled:opacity-50 transition-colors">
+          {savingBrand ? 'Saving...' : brandSaved ? 'Saved!' : 'Save Branding'}
+        </button>
       </div>
     </div>
   )

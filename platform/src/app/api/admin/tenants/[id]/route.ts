@@ -61,8 +61,16 @@ export async function PUT(
   const { id } = await params
   const body = await request.json()
 
-  // Only allow specific fields to be updated
-  const allowed = ['status', 'plan', 'name', 'industry']
+  // Only allow specific fields to be updated. Beyond status/plan, these are the
+  // brand/config fields the shared site template renders from (see
+  // src/app/site/template/_config/load.ts) so admins can personalize a new
+  // tenant's site without a code change.
+  const allowed = [
+    'status', 'plan', 'name', 'industry',
+    'phone', 'email', 'owner_email', 'owner_phone', 'sms_number',
+    'domain', 'website_url', 'logo_url', 'tagline',
+    'primary_color', 'secondary_color',
+  ]
   const updates: Record<string, string> = {}
   for (const key of allowed) {
     if (body[key] !== undefined) updates[key] = body[key]
