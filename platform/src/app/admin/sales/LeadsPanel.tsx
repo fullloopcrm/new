@@ -46,6 +46,14 @@ interface Lead {
   proposal_sent_at: string | null
 }
 
+interface Note {
+  id: string
+  body: string | null
+  image_urls: string[] | null
+  author: string | null
+  created_at: string
+}
+
 type Counts = Record<string, number>
 
 const STAGE_BADGE: Record<LeadStage, string> = {
@@ -64,9 +72,8 @@ export function LeadsPanel() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [notes, setNotes] = useState('')
+  const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
-  const [savedFlash, setSavedFlash] = useState(false)
   const [converting, setConverting] = useState(false)
   const [convertErr, setConvertErr] = useState('')
   const [propAdmins, setPropAdmins] = useState(1)
@@ -77,6 +84,15 @@ export function LeadsPanel() {
   const [payUrl, setPayUrl] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
+  const [notesList, setNotesList] = useState<Note[]>([])
+  const [noteImages, setNoteImages] = useState<string[]>([])
+  const [uploadingImg, setUploadingImg] = useState(false)
+  const [noteErr, setNoteErr] = useState('')
+
+  const loadNotes = useCallback(async (leadId: string) => {
+    const res = await fetch(`/api/admin/notes?subject_type=lead&subject_id=${leadId}`)
+    if (res.ok) { const d = await res.json(); setNotesList(d.notes || []) }
+  }, [])
 
   const fetchLeads = useCallback(async () => {
     setLoading(true)
@@ -98,13 +114,49 @@ export function LeadsPanel() {
 
   function selectLead(lead: Lead) {
     setSelectedId(lead.id)
-    setNotes(lead.admin_notes || '')
-    setSavedFlash(false)
+    setNewNote('')
+    setNoteImages([])
+    setNoteErr('')
+    setNotesList([])
     setProposalErr('')
     setPayUrl('')
     setEmailMsg('')
     setPropAdmins(lead.proposal_admins ?? 1)
     setPropTeam(lead.proposal_team_members ?? 0)
+    loadNotes(lead.id)
+  }
+
+  async function addNote() {
+    if (!selected || (!newNote.trim() && noteImages.length === 0)) return
+    setSaving(true); setNoteErr('')
+    try {
+      const res = await fetch('/api/admin/notes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject_type: 'lead', subject_id: selected.id, body: newNote, image_urls: noteImages }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to add note')
+      setNewNote(''); setNoteImages([])
+      await loadNotes(selected.id)
+    } catch (e) { setNoteErr(e instanceof Error ? e.message : 'Failed') }
+    setSaving(false)
+  }
+
+  async function deleteNote(id: string) {
+    if (!selected) return
+    await fetch(`/api/admin/notes?id=${id}`, { method: 'DELETE' })
+    await loadNotes(selected.id)
+  }
+
+  async function uploadNoteImage(file: File) {
+    setUploadingImg(true); setNoteErr('')
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const res = await fetch('/api/admin/notes/upload', { method: 'POST', body: fd })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(d.error || 'Upload failed')
+      setNoteImages(prev => [...prev, d.url])
+    } catch (e) { setNoteErr(e instanceof Error ? e.message : 'Upload failed') }
+    setUploadingImg(false)
   }
 
   async function previewEmail() {
@@ -182,19 +234,13 @@ export function LeadsPanel() {
     })
     setSaving(false)
     if (res.ok) {
-      setSavedFlash(true)
       await fetchLeads()
     }
   }
 
-  async function saveNotes() {
-    if (!selected) return
-    await patchLead({ id: selected.id, admin_notes: notes })
-  }
-
   async function setStage(stage: LeadStage) {
     if (!selected) return
-    await patchLead({ id: selected.id, status: stage, admin_notes: notes })
+    await patchLead({ id: selected.id, status: stage })
   }
 
   async function convertToTenant() {
@@ -224,7 +270,8 @@ export function LeadsPanel() {
     setSaving(false)
     if (res.ok) {
       setSelectedId(null)
-      setNotes('')
+      setNewNote('')
+      setNotesList([])
       await fetchLeads()
     }
   }
@@ -510,26 +557,64 @@ export function LeadsPanel() {
                 </div>
               )}
 
-              {/* Notes */}
+              {/* Notes — timestamped log with images */}
               <div>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Sales notes</p>
                 <textarea
-                  value={notes}
-                  onChange={e => { setNotes(e.target.value); setSavedFlash(false) }}
-                  placeholder="Calls, follow-ups, objections, next steps..."
-                  rows={4}
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                  placeholder="Add a note — call, follow-up, objection…"
+                  rows={2}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-teal-600"
                 />
-                <div className="flex items-center gap-3 mt-2">
-                  <button
-                    onClick={saveNotes}
-                    disabled={saving}
-                    className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-                  >
-                    {saving ? 'Saving...' : 'Save notes'}
+                {noteImages.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {noteImages.map((u, i) => (
+                      <div key={u} className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="attachment" className="h-14 w-14 object-cover rounded border border-slate-200" />
+                        <button onClick={() => setNoteImages(noteImages.filter((_, j) => j !== i))}
+                          className="absolute -top-1.5 -right-1.5 bg-slate-800 text-white rounded-full w-4 h-4 text-[10px] leading-none">×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mt-2">
+                  <button onClick={addNote} disabled={saving || (!newNote.trim() && noteImages.length === 0)}
+                    className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50">
+                    {saving ? 'Adding…' : 'Add note'}
                   </button>
-                  {savedFlash && <span className="text-xs text-green-600">Saved</span>}
+                  <label className="text-xs text-slate-600 border border-slate-300 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-50">
+                    {uploadingImg ? 'Uploading…' : '📎 Image'}
+                    <input type="file" accept="image/*,application/pdf" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadNoteImage(f); e.currentTarget.value = '' }} />
+                  </label>
+                  {noteErr && <span className="text-xs text-red-600">{noteErr}</span>}
                 </div>
+
+                {notesList.length > 0 && (
+                  <div className="mt-3 space-y-2 max-h-72 overflow-y-auto">
+                    {notesList.map(n => (
+                      <div key={n.id} className="bg-slate-50 border border-slate-100 rounded-lg p-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(n.created_at).toLocaleString()} · {n.author || 'admin'}
+                          </span>
+                          <button onClick={() => deleteNote(n.id)} className="text-[10px] text-slate-400 hover:text-red-600">delete</button>
+                        </div>
+                        {n.body && <p className="text-sm text-slate-700 whitespace-pre-wrap mt-0.5">{n.body}</p>}
+                        {n.image_urls && n.image_urls.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {n.image_urls.map(u => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="note" className="h-16 w-16 object-cover rounded border border-slate-200" /></a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Danger zone */}

@@ -122,6 +122,21 @@ export async function createTenantFromLead(
     console.error('[create-tenant-from-lead] provision failed:', e)
   }
 
+  // Carry the lead's note thread onto the tenant (timestamps preserved).
+  const { data: leadNotes } = await supabaseAdmin
+    .from('crm_notes')
+    .select('body, image_urls, author, created_at')
+    .eq('subject_type', 'lead')
+    .eq('subject_id', leadId)
+  if (leadNotes && leadNotes.length) {
+    await supabaseAdmin.from('crm_notes').insert(
+      leadNotes.map(n => ({
+        subject_type: 'tenant', subject_id: tenant.id,
+        body: n.body, image_urls: n.image_urls, author: n.author, created_at: n.created_at,
+      }))
+    )
+  }
+
   // Link lead → tenant. Sales ends at 'sold'; the tenant side takes over after.
   await supabaseAdmin
     .from('partner_requests')
