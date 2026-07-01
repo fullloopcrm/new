@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 }
 
 const testimonials = [
-  { text: 'We just had our apartment painted and needed a deep clean to get rid of loads of dust. Florida Maid sent a wonderful cleaner who was prompt, professional and did an amazing job. Highly recommend!!!', name: 'Julie Salamon', location: 'Florida' },
+  { text: 'We just had our home painted and needed a deep clean to get rid of loads of dust. Florida Maid sent a wonderful cleaner who was prompt, professional and did an amazing job. Highly recommend!!!', name: 'Julie Salamon', location: 'Florida' },
   { text: 'Best cleaning service I\'ve used in the 20 years I\'ve lived in Florida! Consistently efficient, thorough...', name: 'Courtney Gamble', location: 'Florida' },
   { text: 'After trying three different cleaning companies in Florida, The Florida Maid is hands down the most affordable and thorough.', name: 'Jenna M', location: 'Florida' },
 ]
@@ -503,24 +503,24 @@ export default function HomePage() {
             <div className="p-4 sm:p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {[
-                  { name: 'Lindsey Hill', time: '3 days ago', text: 'Awesome cleaners and very responsive. I\'ve used them for several months now for my 3 bed 3 bath walk up in Hell\'s Kitchen. Karina is my cleaner. She is so sweet and warm and lovely.', initial: 'L', color: 'bg-emerald-400' },
+                  { name: 'Lindsey Hill', time: '3 days ago', text: 'Awesome cleaners and very responsive. I\'ve used them for several months now for my 3 bed 3 bath home in Fort Lauderdale. Karina is my cleaner. She is so sweet and warm and lovely.', initial: 'L', color: 'bg-emerald-400' },
                   { name: 'Joseph Busacca', time: 'a day ago', text: 'Karina was great and very helpful.', initial: 'J', color: 'bg-indigo-500' },
                   { name: 'Adam Berger', time: '3 days ago', text: 'Great job. Friendly and professional.', initial: 'A', color: 'bg-slate-500' },
                   { name: 'Jessica Pace', time: '4 days ago', text: 'Ines Enriquez was incredible. Loved this job. Worth every penny.', initial: 'J', color: 'bg-purple-500' },
-                  { name: 'Brad Lieberman', time: '2 weeks ago', text: 'Jeff is a real gem. Super communicative easy going and responsive. In a city with a lot of fly by night operations, Florida Maids is the real deal.', initial: 'B', color: 'bg-amber-400' },
+                  { name: 'Brad Lieberman', time: '2 weeks ago', text: 'Jeff is a real gem. Super communicative easy going and responsive. In an area with a lot of fly by night operations, Florida Maids is the real deal.', initial: 'B', color: 'bg-amber-400' },
                   { name: 'Eeland Stribling', time: '4 weeks ago', text: 'Cindy came and cleaned very well. Even cleaned up my living room as bonus. Right on time, fast, easy to book and communicate. Will be using again. No complaints!', initial: 'E', color: 'bg-violet-400' },
                   { name: 'Kelsey Wheeler', time: '2 weeks ago', text: 'Great experience. Texted the number on their website on Saturday and had a deep cleaning scheduled for that following Monday at 9am. The cleaner was prompt and super nice/friendly.', initial: 'K', color: 'bg-cyan-400' },
-                  { name: 'Jason Klig', time: '2 months ago', text: 'Maria did an amazing job! My apartment is spotless and she is so easy to work with. Was very happy to accommodate all of my requests.', initial: 'J', color: 'bg-lime-500' },
+                  { name: 'Jason Klig', time: '2 months ago', text: 'Maria did an amazing job! My home is spotless and she is so easy to work with. Was very happy to accommodate all of my requests.', initial: 'J', color: 'bg-lime-500' },
                   { name: 'Jessica Papantoniou', time: '2 months ago', text: 'I called for an emergency cleaning Jeff took care of it right away. Karina did an amazing job and she\'s incredibly sweet. I\'ll definitely be using their services again!', initial: 'J', color: 'bg-fuchsia-400' },
                   { name: 'Endrit Jonuzi', time: '2 months ago', text: 'We hired them for cleaning our offices in Miami and no doubt they are the best we ever had. Affordable pricing, staff was friendly and on time.', initial: 'E', color: 'bg-yellow-500' },
-                  { name: 'Shannon Atran', time: '2 months ago', text: 'Karina was incredible. She was extremely meticulous and left my apt spotless. 10/10; will definitely use again.', initial: 'S', color: 'bg-red-400' },
+                  { name: 'Shannon Atran', time: '2 months ago', text: 'Karina was incredible. She was extremely meticulous and left my home spotless. 10/10; will definitely use again.', initial: 'S', color: 'bg-red-400' },
                   { name: 'Will Gags', time: '2 months ago', text: 'Maria is the grandmother you didn\'t know you needed. Couldn\'t recommend a more trustworthy and tidy business.', initial: 'W', color: 'bg-green-400' },
                   { name: 'Blair Silver-Matthes', time: '2 months ago', text: 'Karina was wonderful! She left my home in exceptional condition and I\'m looking forward to having her come again!', initial: 'B', color: 'bg-blue-500' },
                   { name: 'Vijay Chadderwala', time: '2 months ago', text: 'Gloria was great and very nice. Felt comfortable with her cleaning home.', initial: 'V', color: 'bg-orange-500' },
                   { name: 'Priya Vadlamudi', time: '3 months ago', text: 'Service was great and very friendly staff.', initial: 'P', color: 'bg-pink-500' },
                   { name: 'Erik Berlin', time: '2 months ago', text: 'Great service, cleaning, and pricing!', initial: 'E', color: 'bg-teal-500' },
                   { name: 'Kayli Watson', time: '5 months ago', text: 'Super fast to book, incredibly kind people, and great results!', initial: 'K', color: 'bg-pink-400' },
-                  { name: 'Julie Salamon', time: '5 months ago', text: 'We just had our apartment painted and needed a deep clean to get rid of loads of dust. Florida Maid sent a wonderful cleaner who was prompt, professional and did an amazing job. Highly recommend!!!', initial: 'J', color: 'bg-orange-400' },
+                  { name: 'Julie Salamon', time: '5 months ago', text: 'We just had our home painted and needed a deep clean to get rid of loads of dust. Florida Maid sent a wonderful cleaner who was prompt, professional and did an amazing job. Highly recommend!!!', initial: 'J', color: 'bg-orange-400' },
                   { name: 'Moodap', time: '5 months ago', text: 'Super detailed!', initial: 'M', color: 'bg-green-500' },
                   { name: 'Antong', time: '6 months ago', text: 'Everything was spotless, from oven stove to fridge.', initial: 'A', color: 'bg-teal-400' },
                   { name: 'Courtney Gamble', time: '6 months ago', text: "Best cleaning service I've used in the 20 years I've lived in Florida! Consistently efficient, thorough...", initial: 'C', color: 'bg-purple-400' },
