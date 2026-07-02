@@ -6,6 +6,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 import MarketingNav from '@/app/site/nycmaid/_components/MarketingNav'
 import MarketingFooter from '@/app/site/nycmaid/_components/MarketingFooter'
+import ReferralBanner from '@/app/site/nycmaid/_components/ReferralBanner'
 
 // Fallback title for tenant pages that set no metadata of their own — namely the
 // 'use client' booking/apply/feedback/referral pages, which would otherwise
@@ -24,6 +25,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[200] focus:bg-[#A8F0DC] focus:text-[#1E2A4A] focus:px-4 focus:py-2 focus:rounded-md focus:font-bold focus:text-sm">
         Skip to main content
       </a>
+      <ReferralBanner />
       <MarketingNav />
       <main id="main-content">{children}</main>
       <MarketingFooter />
