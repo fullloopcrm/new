@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { isHoliday } from '@/lib/holidays'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
+import { getSettings } from '@/lib/settings'
 
 export interface AvailabilitySlot {
   time: string
@@ -130,9 +131,13 @@ export async function checkAvailability(
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
   }
 
-  const holidayName = isHoliday(date)
-  if (holidayName) {
-    return { slots: [], message: `Closed for ${holidayName}` }
+  // Open-365 tenants (e.g. nycmaid) never treat a holiday as closed.
+  const { open_365 } = await getSettings(tenantId)
+  if (!open_365) {
+    const holidayName = isHoliday(date)
+    if (holidayName) {
+      return { slots: [], message: `Closed for ${holidayName}` }
+    }
   }
 
   const team = await getTeamForDay(tenantId, date)

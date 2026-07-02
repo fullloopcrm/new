@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
-import { isHoliday } from '@/lib/holidays'
+// nycmaid operates 365 days a year — no holiday blocking (open-365 policy).
 
 export interface AvailabilitySlot {
   time: string
@@ -40,9 +40,7 @@ const toMinutes = (timeStr: string) => {
 
 // Get cleaners available on a given day (filters by holidays, working_days, schedule, unavailable_dates)
 async function getCleanersForDay(date: string) {
-  // Block holidays — no one works
-  if (isHoliday(date)) return []
-
+  // Open 365 — holidays are working days for nycmaid.
   const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })
 
   const { data: allCleaners } = await supabaseAdmin
@@ -125,11 +123,7 @@ export async function checkAvailability(date: string, durationHours: number = 2)
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
   }
 
-  const holidayName = isHoliday(date)
-  if (holidayName) {
-    return { slots: [], message: `Closed for ${holidayName}` }
-  }
-
+  // Open 365 — no holiday closures for nycmaid.
   const cleaners = await getCleanersForDay(date)
   if (cleaners.length === 0) {
     const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })

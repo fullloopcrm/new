@@ -30,6 +30,10 @@ export interface TenantSettings {
   default_duration_hours: number
   min_days_ahead: number
   allow_same_day: boolean
+  // When true, the business operates 365 days a year — no holiday is ever
+  // treated as closed for booking/availability. Default OFF (federal holidays
+  // block, per lib/holidays.ts). Stored in tenants.selena_config jsonb.
+  open_365: boolean
   // Booking flow rules
   default_booking_status: string
   require_team_member: boolean
@@ -191,6 +195,7 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     default_duration_hours: Number(tenant?.default_duration_hours ?? 2),
     min_days_ahead: Number(tenant?.min_days_ahead ?? 1),
     allow_same_day: Boolean(tenant?.allow_same_day),
+    open_365: Boolean(selenaConfig.open_365),
     default_booking_status: (selenaConfig.default_booking_status as string) || 'scheduled',
     require_team_member: Boolean(selenaConfig.require_team_member),
     auto_confirm_bookings: Boolean(selenaConfig.auto_confirm_bookings),
