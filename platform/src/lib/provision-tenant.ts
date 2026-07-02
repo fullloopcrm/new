@@ -18,7 +18,10 @@
  */
 import { supabaseAdmin } from './supabase'
 
-type IndustryKey = 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general'
+type IndustryKey =
+  | 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest'
+  | 'towing' | 'junk_removal' | 'dumpster' | 'mobile_salon' | 'laundry'
+  | 'general'
 
 interface DefaultService {
   name: string
@@ -72,6 +75,38 @@ const SERVICE_PRESETS: Record<IndustryKey, DefaultService[]> = {
     { name: 'Rodent Control', description: 'Rat / mouse exclusion + baiting', default_duration_hours: 2, default_hourly_rate: 115, sort_order: 2 },
     { name: 'Termite Inspection', description: 'Full structure inspection + report', default_duration_hours: 2, default_hourly_rate: 125, sort_order: 3 },
     { name: 'Bed Bug Treatment', description: 'Heat or chemical bed bug remediation', default_duration_hours: 4, default_hourly_rate: 150, sort_order: 4 },
+  ],
+  towing: [
+    { name: 'Local Tow', description: 'Standard tow within the metro area', default_duration_hours: 1, default_hourly_rate: 95, sort_order: 1 },
+    { name: 'Long-Distance Tow', description: 'Tow beyond the local zone, per-mile', default_duration_hours: 2, default_hourly_rate: 125, sort_order: 2 },
+    { name: 'Jumpstart / Lockout', description: 'Battery jump, lockout, tire change roadside', default_duration_hours: 1, default_hourly_rate: 75, sort_order: 3 },
+    { name: 'Winch / Recovery', description: 'Off-road or stuck-vehicle recovery', default_duration_hours: 2, default_hourly_rate: 150, sort_order: 4 },
+    { name: 'Accident / Emergency Tow', description: '24/7 urgent accident recovery', default_duration_hours: 2, default_hourly_rate: 175, sort_order: 5 },
+  ],
+  junk_removal: [
+    { name: 'Single Item Pickup', description: 'One item — appliance, mattress, furniture', default_duration_hours: 1, default_hourly_rate: 95, sort_order: 1 },
+    { name: 'Quarter Truckload', description: 'Small load haul-away', default_duration_hours: 1, default_hourly_rate: 125, sort_order: 2 },
+    { name: 'Half Truckload', description: 'Medium cleanout haul-away', default_duration_hours: 2, default_hourly_rate: 150, sort_order: 3 },
+    { name: 'Full Truckload', description: 'Full-truck cleanout + disposal', default_duration_hours: 3, default_hourly_rate: 175, sort_order: 4 },
+    { name: 'Estate / Property Cleanout', description: 'Whole-property clearout', default_duration_hours: 5, default_hourly_rate: 150, sort_order: 5 },
+  ],
+  dumpster: [
+    { name: '10-Yard Dumpster', description: 'Small projects — up to 7-day rental', default_duration_hours: 1, default_hourly_rate: 350, sort_order: 1 },
+    { name: '20-Yard Dumpster', description: 'Mid-size renovation / cleanout', default_duration_hours: 1, default_hourly_rate: 450, sort_order: 2 },
+    { name: '30-Yard Dumpster', description: 'Large construction / demolition', default_duration_hours: 1, default_hourly_rate: 550, sort_order: 3 },
+    { name: '40-Yard Dumpster', description: 'Commercial / heavy debris', default_duration_hours: 1, default_hourly_rate: 650, sort_order: 4 },
+  ],
+  mobile_salon: [
+    { name: 'Haircut & Style', description: 'On-location cut and style', default_duration_hours: 1, default_hourly_rate: 85, sort_order: 1 },
+    { name: 'Color / Highlights', description: 'On-location color service', default_duration_hours: 2, default_hourly_rate: 120, sort_order: 2 },
+    { name: 'Blowout', description: 'Wash and blowout at your door', default_duration_hours: 1, default_hourly_rate: 65, sort_order: 3 },
+    { name: 'Bridal / Event', description: 'On-site hair and makeup for events', default_duration_hours: 3, default_hourly_rate: 150, sort_order: 4 },
+  ],
+  laundry: [
+    { name: 'Wash & Fold', description: 'Per-pound wash, dry, and fold', default_duration_hours: 1, default_hourly_rate: 40, sort_order: 1 },
+    { name: 'Pickup & Delivery', description: 'Doorstep pickup and next-day return', default_duration_hours: 1, default_hourly_rate: 45, sort_order: 2 },
+    { name: 'Dry Cleaning', description: 'Garment dry cleaning, pickup + delivery', default_duration_hours: 1, default_hourly_rate: 55, sort_order: 3 },
+    { name: 'Commercial / Bulk', description: 'Recurring bulk laundry for businesses', default_duration_hours: 2, default_hourly_rate: 40, sort_order: 4 },
   ],
   general: [
     { name: 'Service Call', description: 'Initial diagnostic visit + recommendation', default_duration_hours: 1, default_hourly_rate: 100, sort_order: 1 },
@@ -163,6 +198,60 @@ const CHECKLIST_BY_INDUSTRY: Record<IndustryKey, Array<{ key: string; enabled: b
     { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
     { key: 'address', enabled: true, required: true, question: 'Ask for address.', sms_options: '' },
     { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
+  towing: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask what they need — tow, jumpstart/lockout, winch/recovery, or accident tow.', sms_options: 'Local tow,Long-distance,Jumpstart/Lockout,Recovery,Accident' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask vehicle make/model, whether it drives, and pickup + drop-off locations.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote the tow/service rate.', sms_options: '' },
+    { key: 'time', enabled: true, required: true, question: 'Ask when they need it — most tows are ASAP.', sms_options: 'ASAP,Scheduled' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for the pickup location.', sms_options: '' },
+    { key: 'email', enabled: true, required: false, question: 'Ask for email for the receipt.', sms_options: '' },
+  ],
+  junk_removal: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask the load size — single item, quarter, half, or full truck, or full cleanout.', sms_options: 'Single item,Quarter,Half,Full,Cleanout' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask what items, roughly how much, stairs/access, and any heavy items.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote by load size.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for the pickup address.', sms_options: '' },
+    { key: 'email', enabled: true, required: false, question: 'Ask for email for the receipt.', sms_options: '' },
+  ],
+  dumpster: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask the dumpster size — 10, 20, 30, or 40 yard.', sms_options: '10yd,20yd,30yd,40yd' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask the project type, debris type, and rental length.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote by size + rental period.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask the drop-off date.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: false, question: 'Ask preferred drop-off time.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for the drop-off address.', sms_options: '' },
+    { key: 'email', enabled: true, required: false, question: 'Ask for email for the agreement.', sms_options: '' },
+  ],
+  mobile_salon: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask the service — cut & style, color, blowout, or bridal/event.', sms_options: 'Cut & style,Color,Blowout,Bridal/Event' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask hair length/type and the look they want.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote the service rate.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for the appointment address.', sms_options: '' },
+    { key: 'email', enabled: true, required: false, question: 'Ask for email.', sms_options: '' },
+  ],
+  laundry: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask the service — wash & fold, pickup & delivery, dry cleaning, or commercial.', sms_options: 'Wash & fold,Pickup/Delivery,Dry cleaning,Commercial' },
+    { key: 'notes', enabled: true, required: false, question: 'Ask rough load size and any special-care items.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote per-pound or per-service.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask the pickup day.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask the pickup time window.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for the pickup address.', sms_options: '' },
+    { key: 'email', enabled: true, required: false, question: 'Ask for email.', sms_options: '' },
   ],
   general: [
     { key: 'service_type', enabled: true, required: true, question: 'Ask what service they need.', sms_options: '' },
