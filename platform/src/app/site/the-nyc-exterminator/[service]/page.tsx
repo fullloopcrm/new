@@ -77,6 +77,7 @@ export default async function ServiceHubPage({ params }: PageProps) {
     "@type": "PestControlService",
     name: SITE_NAME,
     url: SITE_URL,
+    telephone: PHONE,
     address: {
       "@type": "PostalAddress",
       addressLocality: "New York",

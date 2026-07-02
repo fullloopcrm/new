@@ -58,6 +58,7 @@ export function getLocalBusinessSchema(
     name: `${SITE_NAME} — ${service.name}`,
     description: `Professional ${service.name.toLowerCase()} in ${location}.`,
     url: `${SITE_URL}/${service.slug}/${neighborhood.slug}`,
+    telephone: PHONE,
     provider: {
       "@type": "Organization",
       name: SITE_NAME,
@@ -156,6 +157,7 @@ export function getLocalBusinessSchemaGlobal() {
     "@id": `${SITE_URL}#business`,
     name: SITE_NAME,
     url: SITE_URL,
+    telephone: PHONE,
     email: EMAIL,
     image: `${SITE_URL}/icon.svg`,
     priceRange: "Starting at $49 — fully inclusive",
