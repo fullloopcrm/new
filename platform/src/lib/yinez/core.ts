@@ -94,17 +94,19 @@ function getClient(): Anthropic {
 // CLEANER DETECTION — Check if this phone belongs to staff, not a client
 // ════════════════════════════════════════════════════════════════════════════
 
-export async function isCleanerPhone(phone: string, tenantId?: string): Promise<{ isCleaner: boolean; name?: string }> {
+export async function isCleanerPhone(phone: string, tenantId: string): Promise<{ isCleaner: boolean; name?: string }> {
   const cleanPhone = phone.replace(/\D/g, '').slice(-10)
   if (!cleanPhone || cleanPhone.length < 7) return { isCleaner: false }
 
-  let q = supabaseAdmin
+  // tenantId REQUIRED — always tenant-scope so this can never match another
+  // tenant's team across the shared cleaners/team table.
+  const q = supabaseAdmin
     .from('cleaners')
     .select('name')
     .eq('active', true)
+    .eq('tenant_id', tenantId)
     .ilike('phone', `%${cleanPhone}%`)
     .limit(1)
-  if (tenantId) q = q.eq('tenant_id', tenantId)
 
   const { data } = await q
 

@@ -678,24 +678,13 @@ async function askYinezCore(channel: Channel, message: string, conversationId: s
     // tagged yet. Phase 3.2: every downstream tool query gains .eq('tenant_id', tenantId).
     const tenantId = await resolveTenantForConversation(conversationId)
 
-    // Phase 3.2 safety guard. Yinez's tool handlers (core.ts, tools.ts) have
-    // 87 supabase queries that don't yet filter by tenant_id. For non-nycmaid
-    // tenants, those queries would either return nycmaid data (today, since
-    // nycmaid is the only populated tenant) or cross-tenant data (once other
-    // tenants populate their tables). Until the handler-level sweep ships,
-    // refuse non-nycmaid tenants explicitly rather than silently leak.
-    if (tenantId !== NYCMAID_TENANT_ID) {
-      const owner = process.env.OWNER_EMAIL || 'support'
-      result.text = `This service is being prepared for your account — please contact ${owner} for help.`
-      // Telegram + admin-chat channels are owner-side; let those through even
-      // for non-nycmaid because the owner debugging their own tenant config
-      // shouldn't get this stub message.
-      if (channel === 'telegram' || channel === 'email') {
-        // fall through — owner-side channels are not exposed to client data
-      } else {
-        return result
-      }
-    }
+    // Phase 3.2 guard LIFTED (2026-07-02): the handler-level tenant-scoping sweep
+    // is complete. Audit of every .from() in tools.ts (58/58) and core.ts (78/78)
+    // confirmed each query is either tenant-scoped (.eq('tenant_id')), a unique
+    // id/fk lookup (row-specific, derived from the tenant's own conversation), or
+    // a global/config table (yinez_skills, yinez_memory, tenants, settings).
+    // isCleanerPhone now requires tenantId. Yinez runs for every tenant, each on
+    // its own tenant-scoped data + its own assembled playbook (below).
 
     // nyc-maid keeps its authored prompt verbatim. Every other tenant now gets
     // the shared discipline preamble + its OWN config-driven playbook — replacing
