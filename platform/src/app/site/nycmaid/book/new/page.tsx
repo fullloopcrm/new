@@ -360,6 +360,10 @@ function BookFormContent() {
               <p className="text-xs text-[#1E2A4A]/60 mt-2">Save this — log in at <Link href="/book" className="underline">thenycmaid.com/book</Link></p>
             </div>
           )}
+          <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="block bg-[#A8F0DC]/30 border border-[#A8F0DC] rounded-lg p-4 mb-6 text-left hover:bg-[#A8F0DC]/40 transition-colors">
+            <p className="text-sm font-bold text-[#1E2A4A]">Earn 10% on every referral &rarr;</p>
+            <p className="text-xs text-[#1E2A4A]/70 mt-1">Refer friends and earn 10% of every cleaning they book — recurring, no cap.</p>
+          </Link>
           <Link href="/" className="inline-block bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90">Back home</Link>
         </div>
       </div>
@@ -691,6 +695,10 @@ function BookFormContent() {
                 {selfBookingDiscount > 0 && <p className="text-xs text-gray-400 line-through">${estimatedTotal}</p>}
               </div>
             </div>
+            <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="block bg-[#A8F0DC] hover:bg-[#8DE8CC] rounded-lg px-4 py-3 transition-colors">
+              <p className="text-sm font-bold text-[#1E2A4A]">Want FREE cleanings?</p>
+              <p className="text-xs text-[#1E2A4A]/80 mt-0.5 leading-relaxed">Earn <strong>10% of every service</strong> your referrals book — for life, no cap. Refer enough friends &amp; family and your own cleanings are free. <span className="font-semibold underline underline-offset-2">Get your link &rarr;</span></p>
+            </Link>
             <div className="border-t border-gray-200 pt-3">
               <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">Heads up — this is an hourly service</p>
               <p className="text-xs text-gray-600 leading-relaxed">

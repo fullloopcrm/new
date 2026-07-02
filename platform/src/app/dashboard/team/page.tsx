@@ -4,14 +4,16 @@ import { useEffect, useMemo, useState } from 'react'
 import './team.css'
 import TeamCoverageMap from '@/components/TeamCoverageMap'
 import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
+import SalesAppsTab from './SalesAppsTab'
 
-type Tab = 'team' | 'applications' | 'ops_admin' | 'performance' | 'payroll'
+type Tab = 'team' | 'applications' | 'sales_apps' | 'ops_admin' | 'performance' | 'payroll'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'team', letter: 'A', label: 'Team' },
   { key: 'applications', letter: 'B', label: 'Applications' },
-  { key: 'ops_admin', letter: 'C', label: 'Ops Admin' },
-  { key: 'performance', letter: 'D', label: 'Performance' },
-  { key: 'payroll', letter: 'E', label: 'Payroll' },
+  { key: 'sales_apps', letter: 'C', label: 'Sales Apps' },
+  { key: 'ops_admin', letter: 'D', label: 'Ops Admin' },
+  { key: 'performance', letter: 'E', label: 'Performance' },
+  { key: 'payroll', letter: 'F', label: 'Payroll' },
 ]
 
 type TeamMember = {
@@ -385,7 +387,11 @@ export default function TeamPage() {
         </>
       )}
 
-      {tab !== 'team' && tab !== 'applications' && (
+      {tab === 'sales_apps' && (
+        <SalesAppsTab />
+      )}
+
+      {tab !== 'team' && tab !== 'applications' && tab !== 'sales_apps' && (
         <div className="tm-coming-soon">
           <div className="tm-coming-soon-title">Coming soon.</div>
           <div>{TABS.find((t) => t.key === tab)?.label} view will land next pass.</div>
