@@ -9,7 +9,7 @@ import { getOfficeByState } from "@/app/site/we-pay-you-junk/_data/offices";
 import { OfficeBlock } from "@/app/site/we-pay-you-junk/_components/OfficeBlock";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

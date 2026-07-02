@@ -14,7 +14,7 @@ function Sparkle({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 export const dynamicParams = true
 

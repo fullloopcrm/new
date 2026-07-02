@@ -8,7 +8,7 @@ import { SERVICES, SERVICE_CATEGORIES, getExtendedContent } from "@/app/site/the
 import { ServiceSchema, BreadcrumbSchema } from "@/app/site/the-home-services-company/_components/SiteSchema";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

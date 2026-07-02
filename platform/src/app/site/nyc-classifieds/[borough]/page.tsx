@@ -8,7 +8,7 @@ import { boroughFaqs } from '@/app/site/nyc-classifieds/_lib/seo-faqs'
 import BoroughPageClient from './BoroughPageClient'
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

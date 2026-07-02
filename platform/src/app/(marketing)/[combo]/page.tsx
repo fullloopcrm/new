@@ -30,7 +30,7 @@ import {
 // so claimed/available flips propagate without a deploy.
 // ---------------------------------------------------------------------------
 export const dynamicParams = true;
-export const revalidate = 3600;
+export const revalidate = 2592000;
 
 export function generateStaticParams() {
   return [];

@@ -7,7 +7,7 @@ import { PHONE, PHONE_HREF, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site
 import { SERVICES, SERVICE_CATEGORIES, getExtendedContent } from "@/app/site/toll-trucks-near-me/_data/services";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

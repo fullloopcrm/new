@@ -9,7 +9,7 @@ import { getServiceTips, parseLinks, type TextPart } from "@/app/site/nyc-tow/_d
 import { JsonLd, breadcrumbSchema, howToSchema, articleSchema, faqPageSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

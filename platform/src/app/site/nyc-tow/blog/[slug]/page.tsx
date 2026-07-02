@@ -9,7 +9,7 @@ import { getBlogImage } from "@/app/site/nyc-tow/_lib/blog-images";
 import { JsonLd, breadcrumbSchema, articleSchema } from "@/app/site/nyc-tow/_lib/schema";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

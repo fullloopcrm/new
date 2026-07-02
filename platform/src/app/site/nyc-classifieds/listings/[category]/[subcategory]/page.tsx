@@ -11,7 +11,7 @@ import ListingDetailClient from './ListingDetailClient'
 
 export const dynamicParams = true
 
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

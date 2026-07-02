@@ -6,7 +6,7 @@ import { neighborhoods, womensCategories, mensCategories, allServices } from "@/
 import { getServiceBySlug, getBoroughName, getServiceBoroughParams, serviceSchema, breadcrumbSchema, faqSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
 import { serviceContent } from "@/app/site/nyc-mobile-salon/_lib/service-content";
 
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 export const dynamicParams = true
 

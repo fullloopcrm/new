@@ -6,7 +6,7 @@ import { allClasses, classCategories, boroughNames, neighborhoods } from "@/app/
 import { getClassBySlug, courseSchema, faqSchema, breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
 import { classContent } from "@/app/site/nyc-mobile-salon/_lib/class-content";
 
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 export const dynamicParams = true
 

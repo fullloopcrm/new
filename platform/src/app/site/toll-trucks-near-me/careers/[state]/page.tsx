@@ -10,7 +10,7 @@ import { CtaButtons } from "@/app/site/toll-trucks-near-me/_components/CtaButton
 import { JobApplicationForm } from "@/app/site/toll-trucks-near-me/_components/JobApplicationForm";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

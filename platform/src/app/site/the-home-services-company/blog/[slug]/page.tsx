@@ -8,7 +8,7 @@ import { CtaButtons } from "@/app/site/the-home-services-company/_components/Cta
 import { SITE_URL } from "@/app/site/the-home-services-company/_data/content";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

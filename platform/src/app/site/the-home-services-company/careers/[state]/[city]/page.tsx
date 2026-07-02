@@ -12,7 +12,7 @@ import { JobApplicationForm } from "@/app/site/the-home-services-company/_compon
 import { getPostedLabel, getDatePostedISO, getValidThroughISO } from "@/app/site/the-home-services-company/_lib/freshness";
 
 export const dynamicParams = true;
-export const revalidate = 86400; // regenerate daily so job dates auto-refresh within the 15-day window
+export const revalidate = 2592000; // regenerate daily so job dates auto-refresh within the 15-day window
 
 export async function generateStaticParams() { return [] }
 

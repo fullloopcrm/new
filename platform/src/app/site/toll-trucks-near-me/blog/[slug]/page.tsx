@@ -7,7 +7,7 @@ import { AudioReader } from "@/app/site/toll-trucks-near-me/_components/AudioRea
 import { CtaButtons } from "@/app/site/toll-trucks-near-me/_components/CtaButtons";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

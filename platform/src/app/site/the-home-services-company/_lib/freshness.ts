@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Utilities for auto-renewing listing dates so Google Jobs / search don't mark listings stale.
-// Pages using these should set `export const revalidate = 86400` (daily ISR) so the HTML
+// Pages using these should set `export const revalidate = 2592000` (daily ISR) so the HTML
 // regenerates and the returned dates stay inside the freshness window.
 
 const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;

@@ -7,7 +7,7 @@ import { categoryFaqs } from '@/app/site/nyc-classifieds/_lib/seo-faqs'
 import CategoryPageClient from './CategoryPageClient'
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

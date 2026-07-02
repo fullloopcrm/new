@@ -24,7 +24,7 @@ interface Props {
 
 // Build on-demand with ISR — too many combos (areas x services) for static build
 export const dynamicParams = true;
-export const revalidate = 86400; // re-generate every 24h
+export const revalidate = 2592000; // re-generate every 24h
 
 export async function generateStaticParams() { return [] }
 

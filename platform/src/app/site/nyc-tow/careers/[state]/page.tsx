@@ -10,7 +10,7 @@ import { JobApplicationForm } from "@/app/site/nyc-tow/_components/JobApplicatio
 import { JsonLd, breadcrumbSchema, localBusinessSchemaPerOffice } from "@/app/site/nyc-tow/_lib/schema";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

@@ -9,7 +9,7 @@ import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { JobApplicationForm } from "@/app/site/we-pay-you-junk/_components/JobApplicationForm";
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

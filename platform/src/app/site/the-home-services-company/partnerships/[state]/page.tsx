@@ -8,7 +8,7 @@ import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
 import { PartnershipForm } from "@/app/site/the-home-services-company/_components/PartnershipForm";
 import { getPostedLabel, getDatePostedISO, getValidThroughISO } from "@/app/site/the-home-services-company/_lib/freshness";
 
-export const revalidate = 86400; // regenerate daily
+export const revalidate = 2592000; // regenerate daily
 
 export const dynamicParams = true
 

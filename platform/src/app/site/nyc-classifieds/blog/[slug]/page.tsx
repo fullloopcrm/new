@@ -8,7 +8,7 @@ import { getSecondarySchemas } from '@/app/site/nyc-classifieds/_lib/blog-schema
 import BlogPostClient from './BlogPostClient'
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

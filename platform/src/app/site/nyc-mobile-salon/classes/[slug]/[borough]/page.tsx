@@ -6,7 +6,7 @@ import { neighborhoods, allClasses } from "@/app/site/nyc-mobile-salon/_lib/cons
 import { getClassBySlug, getBoroughName, getClassBoroughParams, serviceSchema, breadcrumbSchema, faqSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
 import { classContent } from "@/app/site/nyc-mobile-salon/_lib/class-content";
 
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 export const dynamicParams = true
 

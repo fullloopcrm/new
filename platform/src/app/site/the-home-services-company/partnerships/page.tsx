@@ -6,7 +6,7 @@ import { STATES } from "@/app/site/the-home-services-company/_data/cities";
 import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
 import { getPostedLabel } from "@/app/site/the-home-services-company/_lib/freshness";
 
-export const revalidate = 86400; // regenerate daily so the "Posted" dates stay fresh
+export const revalidate = 2592000; // regenerate daily so the "Posted" dates stay fresh
 
 export const metadata: Metadata = {
   title: "Contractor Partnerships — Partner With Home Services Co",

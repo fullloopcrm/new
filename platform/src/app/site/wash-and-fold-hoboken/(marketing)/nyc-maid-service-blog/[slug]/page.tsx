@@ -9,7 +9,7 @@ import Breadcrumbs from '@/app/site/wash-and-fold-hoboken/_components/marketing/
 import CTABlock from '@/app/site/wash-and-fold-hoboken/_components/marketing/CTABlock'
 
 export const dynamicParams = true
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

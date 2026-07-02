@@ -13,7 +13,7 @@ import { customerCityContent } from "@/app/site/toll-trucks-near-me/_data/custom
 
 export const dynamicParams = true;
 
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

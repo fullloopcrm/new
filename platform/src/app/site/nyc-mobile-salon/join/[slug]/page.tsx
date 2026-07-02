@@ -18,7 +18,7 @@ function isWomensService(slug: string) {
 
 /* ── static params ────────────────────────────────────────────────── */
 
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 export const dynamicParams = true
 

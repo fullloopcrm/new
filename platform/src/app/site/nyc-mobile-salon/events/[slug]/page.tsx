@@ -6,7 +6,7 @@ import { allEvents, eventCategories, boroughNames, neighborhoods } from "@/app/s
 import { getEventBySlug, eventSchema, faqSchema, breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
 import { eventContent } from "@/app/site/nyc-mobile-salon/_lib/event-content";
 
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 export const dynamicParams = true
 

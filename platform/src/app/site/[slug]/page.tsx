@@ -28,7 +28,7 @@ interface Props {
 
 export const dynamicParams = false
 
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

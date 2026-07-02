@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { allServices, womensCategories, neighborhoods, boroughNames } from "@/app/site/nyc-mobile-salon/_lib/constants";
 import { getServiceBySlug, getServiceNeighborhoodParams, getNeighborhoodName, getBoroughName, faqSchema, breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
 
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 /* ── helpers ─────────────────────────────────────────────────────── */
 

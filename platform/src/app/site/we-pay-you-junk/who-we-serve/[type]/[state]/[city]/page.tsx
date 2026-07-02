@@ -12,7 +12,7 @@ import { customerCityContent } from "@/app/site/we-pay-you-junk/_data/customer-c
 
 export const dynamicParams = true;
 
-export const revalidate = 86400
+export const revalidate = 2592000
 
 export async function generateStaticParams() { return [] }
 

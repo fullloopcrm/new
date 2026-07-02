@@ -13,7 +13,7 @@ import { customerCityContent } from "@/app/site/nycroadsideemergencyassistance/_
 import { JsonLd, breadcrumbSchema, localBusinessSchemaPerOffice, serviceSchema } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
 
 export const dynamicParams = true;
-export const revalidate = 3600;
+export const revalidate = 2592000;
 
 export async function generateStaticParams() { return [] }
 

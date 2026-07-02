@@ -7,7 +7,7 @@ import { getServiceBySlug, serviceSchema, breadcrumbSchema, faqSchema } from "@/
 import { serviceContent } from "@/app/site/nyc-mobile-salon/_lib/service-content";
 import LeadForm from "@/app/site/nyc-mobile-salon/_components/LeadForm";
 
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 export const dynamicParams = true
 

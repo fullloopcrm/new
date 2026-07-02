@@ -11,7 +11,7 @@ import {
   faqSchema,
 } from "@/app/site/nyc-mobile-salon/_lib/seo";
 
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 export const dynamicParams = true
 

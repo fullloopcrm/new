@@ -27,7 +27,7 @@ import Logo from "@/app/site/stretch-service/_components/Logo";
 interface Props { params: Promise<{ state: string; city: string }> }
 
 export const dynamicParams = true;
-export const revalidate = 86400;
+export const revalidate = 2592000;
 
 export async function generateStaticParams() { return [] }
 
