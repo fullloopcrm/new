@@ -57,7 +57,7 @@ export default function CTAGroup({ variant, title, subtitle }: CTAGroupProps) {
     return (
       <div className="mt-8">
         <div className="mb-5 space-y-1.5 text-sm text-zinc-400">
-          <p>&#10003; <strong className="text-green-400">Book online &amp; save $10</strong> &mdash; the fastest way to lock in service</p>
+          <p>&#10003; <strong className="text-green-400">Self-book &amp; save $10</strong> &mdash; the fastest way to get service</p>
           <p>&#10003; <strong className="text-zinc-200">No money upfront</strong> &mdash; pay when the job is done</p>
           <p>&#10003; <strong className="text-zinc-200">2,847+</strong> five-star reviews</p>
           <p>&#10003; <strong className="text-zinc-200">Licensed &amp; insured</strong> NYS DEC exterminators</p>
@@ -79,9 +79,10 @@ export default function CTAGroup({ variant, title, subtitle }: CTAGroupProps) {
             className="group inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-white/5 px-7 py-3.5 text-sm font-bold text-white backdrop-blur transition-all hover:border-zinc-500 hover:bg-white/10 hover:-translate-y-0.5"
           >
             <SmsIcon />
-            Text Us &mdash; {PHONE}
+            Text Us With Questions
           </a>
         </div>
+        <p className="mt-2.5 text-xs font-medium text-green-400">Self-booking is the fastest way to get service.</p>
       </div>
     );
   }
@@ -99,7 +100,7 @@ export default function CTAGroup({ variant, title, subtitle }: CTAGroupProps) {
           {sub}
         </p>
         <div className="mx-auto mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-green-100/80">
-          <span>&#10003; Book online &amp; save $10</span>
+          <span>&#10003; Self-book &amp; save $10</span>
           <span>&#10003; No money upfront</span>
           <span>&#10003; 2,847+ five-star reviews</span>
           <span>&#10003; Licensed &amp; insured</span>
@@ -121,9 +122,10 @@ export default function CTAGroup({ variant, title, subtitle }: CTAGroupProps) {
             className="group inline-flex items-center gap-2 rounded-xl border-2 border-white px-7 py-3.5 text-lg font-bold text-white transition-all hover:bg-white/10 hover:-translate-y-0.5"
           >
             <SmsIcon />
-            Text Us &mdash; {PHONE}
+            Text Us With Questions
           </a>
         </div>
+        <p className="mt-4 text-sm font-medium text-green-100">Self-booking is the fastest way to get service.</p>
       </div>
     </section>
   );

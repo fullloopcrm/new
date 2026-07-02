@@ -10,14 +10,14 @@ export const metadata: Metadata = {
   title:
     "Exterminator Jobs NYC | Now Hiring Pest Control Technicians | $45K-$95K+",
   description:
-    "Now hiring licensed exterminators, pest control technicians, wildlife control specialists, and commercial account managers across NYC, NJ, Long Island & Westchester. $45K-$95K+ pay, full benefits, paid training, company vehicle. Join NYC's fastest-growing pest control team. Text 212-202-8545 to apply.",
+    "Now hiring licensed exterminators, pest control technicians, wildlife control specialists, and commercial account managers across NYC, NJ, Long Island & Westchester. $45K-$95K+ pay, full benefits, paid training, company vehicle. Join NYC's fastest-growing pest control team. Text us to apply.",
   keywords:
     "exterminator jobs NYC, pest control technician jobs, hiring exterminators New York, pest control careers, wildlife control jobs NYC, commercial pest control jobs, exterminator salary NYC",
   openGraph: {
     title:
       "Exterminator Jobs NYC | Now Hiring Pest Control Technicians | $45K-$95K+",
     description:
-      "Now hiring pest control pros across NYC. $45K-$95K+ pay, full benefits, paid training, company vehicle. Text 212-202-8545 to apply.",
+      "Now hiring pest control pros across NYC. $45K-$95K+ pay, full benefits, paid training, company vehicle. Text us to apply.",
     url: `${SITE_URL}/careers`,
   },
   alternates: {
@@ -308,7 +308,7 @@ export default function CareersPage() {
               href={`sms:${PHONE.replace(/-/g, "")}`}
               className="text-green-400 hover:text-green-300"
             >
-              {PHONE}
+              us
             </a>
             .
           </p>
@@ -363,7 +363,7 @@ export default function CareersPage() {
                     href={`sms:${PHONE.replace(/-/g, "")}`}
                     className="inline-flex items-center rounded-lg border border-zinc-600 px-5 py-2.5 text-sm font-semibold text-zinc-300 hover:border-zinc-400 hover:text-white"
                   >
-                    Text {PHONE}
+                    Text Us
                   </a>
                 </div>
               </div>
@@ -669,7 +669,7 @@ export default function CareersPage() {
           </div>
 
           <p className="mt-10 text-center text-lg text-zinc-300">
-            Ready to start your pest control career? Email us at{" "}
+            Ready to start your pest control career? Email{" "}
             <a
               href={`mailto:${EMAIL}`}
               className="text-green-400 hover:text-green-300"
@@ -681,7 +681,7 @@ export default function CareersPage() {
               href={`sms:${PHONE.replace(/-/g, "")}`}
               className="text-green-400 hover:text-green-300"
             >
-              {PHONE}
+              us
             </a>{" "}
             to speak with our hiring team about exterminator jobs and pest
             control career opportunities at {SITE_NAME}.
@@ -731,7 +731,7 @@ export default function CareersPage() {
           <p className="mt-12 text-lg text-zinc-300">
             Do not see your neighborhood listed? We are always expanding our
             pest control coverage area and hiring exterminators for new
-            territories. Contact us at{" "}
+            territories. Contact{" "}
             <a
               href={`mailto:${EMAIL}`}
               className="text-green-400 hover:text-green-300"

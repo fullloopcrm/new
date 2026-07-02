@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllTips, getTipCategories } from "@/app/site/the-nyc-exterminator/_data/tips";
@@ -177,7 +176,7 @@ export default function PestControlTipsPage() {
                 But here&apos;s what most pest control websites won&apos;t tell you: <strong className="text-white">a huge percentage of common pest problems can be prevented or solved without calling an exterminator</strong>. A mouse that wandered in through a gap under your sink pipe? You can seal that yourself with $5 worth of copper mesh. Drain flies in the bathroom? Clean the drain with a brush and boiling water. Ants marching across the kitchen counter? Find their entry point and seal it.
               </p>
               <p>
-                We&apos;re not saying this to talk ourselves out of business. We&apos;re saying it because it&apos;s true, and because we&apos;d rather you trust us for honest advice than for a hard sell. When you DO need professional help &mdash; bed bugs, established cockroach colonies, building-wide rodent problems &mdash; we want you to call us because you trust us, not because we scared you into it.
+                We&apos;re not saying this to talk ourselves out of business. We&apos;re saying it because it&apos;s true, and because we&apos;d rather you trust us for honest advice than for a hard sell. When you DO need professional help &mdash; bed bugs, established cockroach colonies, building-wide rodent problems &mdash; we want you to come to us because you trust us, not because we scared you into it.
               </p>
             </div>
             <div className="space-y-5 text-zinc-300 leading-7">

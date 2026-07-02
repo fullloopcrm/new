@@ -6,7 +6,7 @@ import { PHONE, SITE_URL, SITE_NAME, getBreadcrumbSchema, getFAQPageSchema, getL
 export const metadata: Metadata = {
   title: "Book NYC Exterminator Today | Save $10 Booking Online",
   description:
-    "Book a licensed NYC exterminator online and save $10 — the fastest way to lock in service. Same-day and next-day pest control appointments across all 5 boroughs, NJ, Long Island & Westchester. We respond within 10-30 minutes, schedule as soon as tomorrow, and your certified technician arrives on time within a 1-hour window. Free inspection, upfront pricing from $49.",
+    "Book a licensed NYC exterminator online and save $10 — the fastest way to get service. Same-day and next-day pest control appointments across all 5 boroughs, NJ, Long Island & Westchester. We respond within 10-30 minutes, schedule as soon as tomorrow, and your certified technician arrives on time within a 1-hour window. Free inspection, upfront pricing from $49.",
   keywords:
     "book exterminator NYC, schedule pest control appointment, same-day exterminator NYC, next-day pest control, book bed bug treatment, schedule cockroach extermination, NYC pest control appointment, emergency exterminator booking, hire exterminator today",
   openGraph: {
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 const faqs = [
   {
     q: "How quickly will I hear back after booking an exterminator online?",
-    a: "We respond to every booking request within 10 to 30 minutes during business hours (Monday-Friday 7 AM-8 PM, Saturday 8 AM-6 PM, Sunday 9 AM-5 PM). If you submit your exterminator booking request after hours, you will hear from a licensed pest control technician first thing the next morning. For emergencies, text us at 212-202-8545 for the fastest response.",
+    a: "We respond to every booking request within 10 to 30 minutes during business hours (Monday-Friday 7 AM-8 PM, Saturday 8 AM-6 PM, Sunday 9 AM-5 PM). If you submit your exterminator booking request after hours, you will hear from a licensed pest control technician first thing the next morning. For emergencies, text us for the fastest response.",
   },
   {
     q: "How soon can a pest control technician come to my property?",
@@ -144,7 +144,7 @@ export default function BookExterminatorTodayPage() {
               href={`sms:${PHONE.replace(/-/g, "")}`}
               className="mt-1 inline-block text-2xl font-bold text-green-500 hover:text-green-400"
             >
-              Text {PHONE}
+              Text Us
             </a>
           </div>
         </div>
@@ -286,7 +286,7 @@ export default function BookExterminatorTodayPage() {
                 identify the species and prepare the right treatment before arriving at your
                 property. Text photos to{" "}
                 <a href={`sms:${PHONE.replace(/-/g, "")}`} className="text-green-400 hover:text-green-300">
-                  {PHONE}
+                  us
                 </a>{" "}
                 after submitting your booking form.
               </p>
@@ -337,13 +337,13 @@ export default function BookExterminatorTodayPage() {
               href="#top"
               className="inline-flex items-center rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700"
             >
-              Book Online — Save $10
+              Self-Book — Save $10
             </a>
             <a
               href={`sms:${PHONE.replace(/-/g, "")}`}
               className="inline-flex items-center rounded-lg border border-zinc-700 px-6 py-3 text-sm font-semibold text-white hover:border-zinc-500 hover:bg-white/5"
             >
-              Text {PHONE}
+              Text Us
             </a>
           </div>
         </div>

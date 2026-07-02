@@ -176,11 +176,11 @@ export default function ContactForm({
           <textarea id="message" name="message" required rows={3} className={inputClass} placeholder="What pests are you seeing? Where in the property?" />
         </div>
         <button type="submit" disabled={status === "sending"} className="w-full rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50">
-          {status === "sending" ? "Sending..." : "Book Online — Save $10"}
+          {status === "sending" ? "Sending..." : "Self-Book — Save $10"}
         </button>
         <p className="text-center text-xs text-green-500">Booking online saves you $10 — we take it off your quote.</p>
         {status === "error" && (
-          <p className={`text-center text-sm ${dark ? "text-red-400" : "text-red-600"}`}>Something went wrong. Please try again or text us at 212-202-8545.</p>
+          <p className={`text-center text-sm ${dark ? "text-red-400" : "text-red-600"}`}>Something went wrong. Please try again or text us.</p>
         )}
       </form>
     );
@@ -257,7 +257,7 @@ export default function ContactForm({
         disabled={status === "sending"}
         className="w-full rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
       >
-        {status === "sending" ? "Submitting..." : "Book Online — Save $10"}
+        {status === "sending" ? "Submitting..." : "Self-Book — Save $10"}
       </button>
 
       <p className="text-center text-xs font-medium text-green-500">
@@ -270,7 +270,7 @@ export default function ContactForm({
 
       {status === "error" && (
         <p className={`text-center text-sm ${dark ? "text-red-400" : "text-red-600"}`}>
-          Something went wrong. Please try again or text us at 212-202-8545.
+          Something went wrong. Please try again or text us.
         </p>
       )}
     </form>

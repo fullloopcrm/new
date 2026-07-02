@@ -6,15 +6,15 @@ import { PHONE, EMAIL, ADDRESS, SITE_URL, getBreadcrumbSchema, getLocalBusinessS
 import { getAllServices, getAllNeighborhoods } from "@/app/site/the-nyc-exterminator/_lib/data";
 
 export const metadata: Metadata = {
-  title: "Contact NYC Exterminator | Book Online & Save $10",
+  title: "Contact NYC Exterminator | Self-Book & Save $10",
   description:
-    "Contact The NYC Exterminator for a free pest control inspection and quote. Book online and save $10, or text 212-202-8545. Same-day exterminator service across all 5 NYC boroughs, NJ, Long Island & Westchester. Licensed, insured, pricing from $49. We respond within minutes.",
+    "Contact The NYC Exterminator for a free pest control inspection and quote. Self-book online & save $10. Same-day exterminator service across all 5 NYC boroughs, NJ, Long Island & Westchester. Licensed, insured, pricing from $49. We respond within minutes.",
   keywords:
     "contact exterminator NYC, book pest control online NYC, text exterminator, NYC pest control, book exterminator appointment, pest control near me, emergency exterminator contact",
   openGraph: {
-    title: "Contact NYC Exterminator | Book Online & Save $10",
+    title: "Contact NYC Exterminator | Self-Book & Save $10",
     description:
-      "Contact The NYC Exterminator. Book online and save $10, or text 212-202-8545. Free inspection, same-day service, pricing from $49.",
+      "Contact The NYC Exterminator. Self-book online & save $10. Free inspection, same-day service, pricing from $49.",
     url: `${SITE_URL}/contact`,
   },
   alternates: {
@@ -38,7 +38,7 @@ export default function ContactPage() {
         name: "How quickly does The NYC Exterminator respond to contact requests?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "We respond to all text messages and phone calls within 30 minutes during business hours. Online form submissions and emails are answered within 2 hours. For emergency pest control situations, we prioritize immediate callbacks.",
+          text: "We respond to all text messages within 30 minutes during business hours. Online form submissions and emails are answered within 2 hours. For emergency pest control situations, we prioritize immediate responses.",
         },
       },
       {
@@ -46,7 +46,7 @@ export default function ContactPage() {
         name: "What is the fastest way to contact a pest control exterminator in NYC?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "The fastest way to reach us is by texting 212-202-8545. Text messages are monitored continuously and allow our exterminators to begin assessing your pest problem immediately with photos you send.",
+          text: "The fastest way to reach us is by texting us. Text messages are monitored continuously and allow our exterminators to begin assessing your pest problem immediately with photos you send.",
         },
       },
       {
@@ -110,9 +110,9 @@ export default function ContactPage() {
             inside and out.
           </p>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-green-100">
-            Text us at{" "}
+            Text{" "}
             <a href={`sms:${phonePlain}`} className="font-bold text-white underline hover:text-green-200">
-              {PHONE}
+              us
             </a>{" "}
             for the fastest response. We monitor texts around the clock and can
             start assessing your pest problem the moment you hit send. Include a
@@ -186,7 +186,7 @@ export default function ContactPage() {
           </div>
 
           <div className="mt-12 rounded-xl border border-green-500/30 bg-green-500/5 p-8 text-center">
-            <p className="text-lg font-semibold text-white">Fastest way to lock in service</p>
+            <p className="text-lg font-semibold text-white">Fastest way to get service</p>
             <Link
               href="/book-exterminator-today"
               className="mt-3 inline-block rounded-lg bg-green-600 px-7 py-3.5 text-lg font-bold text-white shadow-lg shadow-green-600/25 hover:bg-green-500"
@@ -194,8 +194,8 @@ export default function ContactPage() {
               Self-Book Online &mdash; Save $10
             </Link>
             <p className="mt-3 text-sm text-zinc-500">
-              Prefer to text? Message us at{" "}
-              <a href={`sms:${phonePlain}`} className="font-semibold text-green-400 hover:text-green-300">{PHONE}</a>.
+              Prefer to text? Message{" "}
+              <a href={`sms:${phonePlain}`} className="font-semibold text-green-400 hover:text-green-300">us</a>.
             </p>
           </div>
         </div>
@@ -224,9 +224,9 @@ export default function ContactPage() {
               <div>
                 <h3 className="text-xl font-semibold text-green-400">Text Us (Fastest)</h3>
                 <p className="mt-2 text-zinc-300">
-                  Text us at{" "}
+                  Text{" "}
                   <a href={`sms:${phonePlain}`} className="font-bold text-green-400 hover:text-green-300">
-                    {PHONE}
+                    us
                   </a>{" "}
                   and a licensed pest control technician will respond within minutes.
                   Texting is our recommended contact method because you can send photos
@@ -249,9 +249,9 @@ export default function ContactPage() {
                 <span className="text-xl font-bold">2</span>
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-green-400">Book Online &mdash; Save $10</h3>
+                <h3 className="text-xl font-semibold text-green-400">Self-Book &mdash; Save $10</h3>
                 <p className="mt-2 text-zinc-300">
-                  The fastest way to lock in service is to{" "}
+                  The fastest way to get service is to{" "}
                   <Link href="/book-exterminator-today" className="font-bold text-green-400 hover:text-green-300">
                     book online
                   </Link>{" "}
@@ -349,8 +349,8 @@ export default function ContactPage() {
               </div>
               <p className="mt-4 text-sm text-zinc-500">
                 Emergency pest control service is available outside regular hours.
-                If you have an urgent exterminator need after hours, text us at{" "}
-                <a href={`sms:${phonePlain}`} className="text-green-500 hover:text-green-400">{PHONE}</a>{" "}
+                If you have an urgent exterminator need after hours, text{" "}
+                <a href={`sms:${phonePlain}`} className="text-green-500 hover:text-green-400">us</a>{" "}
                 and we will respond as quickly as possible.
               </p>
             </div>
@@ -379,7 +379,7 @@ export default function ContactPage() {
               <div>
                 <h3 className="text-xl font-semibold text-white">You Reach Out</h3>
                 <p className="mt-2 text-zinc-300">
-                  Whether you text us at {PHONE}, call our office, send an email to{" "}
+                  Whether you text us, send an email to{" "}
                   {EMAIL}, or complete the{" "}
                   <Link href="/quote-request" className="text-green-400 hover:text-green-300">
                     online quote form
@@ -542,9 +542,9 @@ export default function ContactPage() {
               </li>
             </ul>
             <p className="mt-6 text-zinc-300">
-              For emergency pest control, text us at{" "}
+              For emergency pest control, text{" "}
               <a href={`sms:${phonePlain}`} className="font-bold text-green-400 hover:text-green-300">
-                {PHONE}
+                us
               </a>{" "}
               with the word <strong className="text-white">&quot;URGENT&quot;</strong> and a brief
               description of the situation. Emergency texts are flagged for immediate
@@ -576,7 +576,7 @@ export default function ContactPage() {
               <p className="mt-3 text-zinc-300">
                 During business hours (Monday&ndash;Friday 7am&ndash;8pm, Saturday
                 8am&ndash;6pm, Sunday 9am&ndash;5pm), we respond to text messages
-                within 15 minutes and answer phone calls live. Emails and online form
+                within 15 minutes. Emails and online form
                 submissions receive a response within 2 hours. After hours, emergency
                 texts are monitored and responded to as quickly as possible. We
                 understand that when you are dealing with a pest problem, every minute
@@ -663,7 +663,7 @@ export default function ContactPage() {
               <p className="mt-3 text-zinc-300">
                 Of course. Many of our clients are not sure what pest they are dealing
                 with when they first reach out &mdash; and that is completely normal.
-                Text us a photo at {PHONE} and our pest control experts will identify
+                Text us a photo and our pest control experts will identify
                 the species, explain what it means for your property, and recommend
                 the right course of action. Whether it turns out to be{" "}
                 <Link href="/cockroach-extermination" className="text-green-400 hover:text-green-300">cockroaches</Link>,{" "}
@@ -684,7 +684,7 @@ export default function ContactPage() {
                 we specialize in exactly that. Property managers and landlords should
                 contact us by email at{" "}
                 <a href={`mailto:${EMAIL}`} className="text-green-400 hover:text-green-300">{EMAIL}</a>{" "}
-                or by calling {PHONE} to discuss building-wide exterminator programs.
+                or by texting us to discuss building-wide exterminator programs.
                 We work with co-ops, condos, rental buildings, and housing authorities
                 across all five boroughs. Building-wide pest control contracts include
                 scheduled treatments, emergency service, and detailed reporting for
@@ -789,7 +789,7 @@ export default function ContactPage() {
                 Our pest control services cover the full spectrum of urban and suburban pest challenges — from <Link href="/cockroach-extermination" className="text-green-400 hover:text-green-300">cockroach extermination</Link> in Manhattan high-rises to <Link href="/termite-treatment" className="text-green-400 hover:text-green-300">termite treatment</Link> for Long Island homes to <Link href="/restaurant-pest-control" className="text-green-400 hover:text-green-300">restaurant pest control</Link> for NYC&apos;s thousands of food service establishments. Whether you&apos;re dealing with a minor ant problem or a major rat infestation, our exterminators bring the expertise and equipment to resolve it completely.
               </p>
               <p>
-                We&apos;re proud to maintain a 4.9-star rating across thousands of completed pest control jobs. Read our <Link href="/reviews" className="text-green-400 hover:text-green-300">customer reviews</Link> to see what real NYC homeowners, tenants, and business operators say about working with us. Check our <Link href="/pricing" className="text-green-400 hover:text-green-300">transparent pricing page</Link> to see what every service costs. And when you&apos;re ready, <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">text us at {PHONE}</a> — it&apos;s the fastest way to get a response. We typically reply within minutes during business hours. Your pest problem ends here.
+                We&apos;re proud to maintain a 4.9-star rating across thousands of completed pest control jobs. Read our <Link href="/reviews" className="text-green-400 hover:text-green-300">customer reviews</Link> to see what real NYC homeowners, tenants, and business operators say about working with us. Check our <Link href="/pricing" className="text-green-400 hover:text-green-300">transparent pricing page</Link> to see what every service costs. And when you&apos;re ready, <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">text us</a> — it&apos;s the fastest way to get a response. We typically reply within minutes during business hours. Your pest problem ends here.
               </p>
             </div>
           </div>

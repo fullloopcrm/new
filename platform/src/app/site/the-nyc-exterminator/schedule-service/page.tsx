@@ -4,7 +4,7 @@ import ContactForm from "@/app/site/the-nyc-exterminator/_components/ContactForm
 import { PHONE, SITE_URL, SITE_NAME, getBreadcrumbSchema, getFAQPageSchema, getLocalBusinessSchemaGlobal } from "@/app/site/the-nyc-exterminator/_lib/seo";
 
 export const metadata: Metadata = {
-  title: "Schedule Service | Starting at $49 | Book Online & Save $10",
+  title: "Schedule Service | Starting at $49 | Self-Book & Save $10",
   description:
     "Schedule a licensed NYC exterminator online and save $10. Starting at $49 (fully inclusive — no hidden fees). Labor, products, treatment, follow-up — all in the rate. Pay only when the job is done. No contracts. No deposits. No catches.",
   keywords:
@@ -46,7 +46,7 @@ const faqs = [
   },
   {
     q: "How quickly will I hear back after scheduling?",
-    a: "We respond to every booking request within 10 to 30 minutes during business hours (Monday-Friday 7 AM-8 PM, Saturday 8 AM-6 PM, Sunday 9 AM-5 PM). If you submit your request after hours, you'll hear from a licensed pest control technician first thing the next morning. For emergencies, text 212-202-8545 for the fastest response.",
+    a: "We respond to every booking request within 10 to 30 minutes during business hours (Monday-Friday 7 AM-8 PM, Saturday 8 AM-6 PM, Sunday 9 AM-5 PM). If you submit your request after hours, you'll hear from a licensed pest control technician first thing the next morning. For emergencies, text us for the fastest response.",
   },
   {
     q: "How soon can a technician come to my property?",
@@ -203,7 +203,7 @@ export default function ScheduleServicePage() {
               href={`sms:${PHONE.replace(/-/g, "")}`}
               className="mt-1 inline-block text-2xl font-bold text-green-500 hover:text-green-400"
             >
-              Text {PHONE}
+              Text Us
             </a>
           </div>
         </div>
@@ -390,9 +390,9 @@ export default function ScheduleServicePage() {
               <p className="font-semibold text-green-400">Text us photos after submitting</p>
               <p className="mt-1 text-sm text-zinc-400">
                 Photos of the pest, droppings, damage, or nesting areas help the tech prep the
-                right gear before arrival. Text to{" "}
+                right gear before arrival. Text{" "}
                 <a href={`sms:${PHONE.replace(/-/g, "")}`} className="text-green-400 hover:text-green-300">
-                  {PHONE}
+                  us
                 </a>{" "}
                 after submitting.
               </p>
@@ -449,7 +449,7 @@ export default function ScheduleServicePage() {
               href={`sms:${PHONE.replace(/-/g, "")}`}
               className="inline-flex items-center rounded-lg border border-zinc-700 px-6 py-3 text-sm font-semibold text-white hover:border-zinc-500 hover:bg-white/5"
             >
-              Text {PHONE}
+              Text Us
             </a>
           </div>
         </div>

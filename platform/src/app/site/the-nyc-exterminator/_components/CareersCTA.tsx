@@ -23,7 +23,7 @@ export default function CareersCTA({ variant, neighborhood }: CareersCTAProps) {
           href={`sms:${phonePlain}?body=${encodeURIComponent("Hi, I'm interested in exterminator job opportunities.")}`}
           className="inline-flex items-center justify-center rounded-lg border border-zinc-700 px-6 py-3 text-sm font-semibold text-white hover:border-zinc-500 hover:bg-white/5"
         >
-          Text Us About Jobs &mdash; {PHONE}
+          Text Us About Jobs
         </a>
       </div>
     );
@@ -58,7 +58,7 @@ export default function CareersCTA({ variant, neighborhood }: CareersCTAProps) {
             href={`sms:${phonePlain}?body=${encodeURIComponent("Hi, I'm interested in exterminator job opportunities.")}`}
             className="inline-flex items-center rounded-lg border-2 border-white px-6 py-3 text-lg font-semibold text-white hover:bg-white/10"
           >
-            Text Us About Jobs &mdash; {PHONE}
+            Text Us About Jobs
           </a>
         </div>
       </div>

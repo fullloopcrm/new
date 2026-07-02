@@ -8,13 +8,13 @@ import { PHONE, SITE_URL, EMAIL, ADDRESS, getBreadcrumbSchema, getLocalBusinessS
 export const metadata: Metadata = {
   title: "About The NYC Exterminator | Licensed & Insured NYC Pest Control Company",
   description:
-    "Learn about The NYC Exterminator, a Consortium NYC company providing licensed, insured pest control and extermination across all 5 NYC boroughs, NJ, Long Island & Westchester. 30+ services, 280+ neighborhoods, pricing from $49. Meet our team, our approach, and why thousands of New Yorkers trust us. Text 212-202-8545.",
+    "Learn about The NYC Exterminator, a Consortium NYC company providing licensed, insured pest control and extermination across all 5 NYC boroughs, NJ, Long Island & Westchester. 30+ services, 280+ neighborhoods, pricing from $49. Meet our team, our approach, and why thousands of New Yorkers trust us. Text us.",
   keywords:
     "about NYC exterminator, NYC pest control company, licensed exterminator NYC, insured pest control, Consortium NYC, pest control team NYC",
   openGraph: {
     title: "About The NYC Exterminator | Licensed & Insured NYC Pest Control Company",
     description:
-      "Licensed, insured pest control across NYC. 30+ services, 280+ neighborhoods, pricing from $49. Text 212-202-8545.",
+      "Licensed, insured pest control across NYC. 30+ services, 280+ neighborhoods, pricing from $49. Text us.",
     url: `${SITE_URL}/about`,
   },
   alternates: {
@@ -156,8 +156,8 @@ export default function AboutPage() {
               provider in the New York City metro area. We are continually investing in new training, new technology, and new service
               areas to ensure that no matter where you are in the NYC metro region, a licensed exterminator from The NYC Exterminator
               is just a text message away. If you have a pest problem, we want to be the first and last exterminator you
-              ever need. Text us anytime at{" "}
-              <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">{PHONE}</a> or{" "}
+              ever need. Text{" "}
+              <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">us</a> anytime, or{" "}
               <Link href="/quote-request" className="text-green-400 hover:text-green-300">request a free quote online</Link>.
             </p>
           </div>
@@ -197,7 +197,7 @@ export default function AboutPage() {
                 permits, authorizing them to handle raccoons, squirrels, opossums, and other wildlife that frequently invade NYC properties.
                 We verify every credential before a technician is assigned to a single job, and we maintain up-to-date records of all certifications
                 and continuing education credits. When you hire The NYC Exterminator, you are hiring a pest control company that takes licensing
-                and professional standards as seriously as you do. You can verify our credentials at any time by contacting us at{" "}
+                and professional standards as seriously as you do. You can verify our credentials at any time by contacting{" "}
                 <a href={`mailto:${EMAIL}`} className="text-green-400 hover:text-green-300">{EMAIL}</a>.
               </p>
             </div>
@@ -237,8 +237,8 @@ export default function AboutPage() {
                 <Link href="/restaurant-pest-control" className="text-green-400 hover:text-green-300">restaurant kitchen</Link>{" "}
                 at 6 PM on a Friday, a bed bug discovery the night before guests arrive, a wasp nest blocking your building&apos;s entrance
                 &mdash; these situations demand immediate attention. The NYC Exterminator offers same-day and after-hours emergency pest control
-                service for exactly these kinds of urgent situations. When you text us at{" "}
-                <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">{PHONE}</a>,
+                service for exactly these kinds of urgent situations. When you text{" "}
+                <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">us</a>,
                 we will dispatch a licensed exterminator to your location as quickly as possible, often within hours of your initial contact.
                 Our emergency pest control service is available across all of our{" "}
                 <Link href="/areas" className="text-green-400 hover:text-green-300">service areas</Link>,
@@ -516,8 +516,8 @@ export default function AboutPage() {
               sealing gaps around pipes and utility entries, and maintaining clean exterior areas can dramatically reduce pest pressure
               on a property. We believe that an informed community is a healthier community, and we are happy to share our expertise
               with anyone who asks &mdash; whether or not they are a paying customer. If you have questions about pest control, pest
-              prevention, or anything related to keeping your NYC property pest-free, do not hesitate to reach out to us at{" "}
-              <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">{PHONE}</a>{" "}
+              prevention, or anything related to keeping your NYC property pest-free, do not hesitate to reach out to{" "}
+              <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">us</a>{" "}
               or{" "}
               <a href={`mailto:${EMAIL}`} className="text-green-400 hover:text-green-300">{EMAIL}</a>.
             </p>

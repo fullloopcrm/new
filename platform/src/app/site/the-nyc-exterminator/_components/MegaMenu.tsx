@@ -303,7 +303,7 @@ export default function MegaMenu({ categories, phone }: MegaMenuProps) {
               className="flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] py-3.5 text-sm font-bold text-white hover:bg-white/[0.08]"
               onClick={() => setMobileOpen(false)}
             >
-              Text Us &mdash; {phone}
+              Text Us With Questions
             </a>
           </div>
         </div>

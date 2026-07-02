@@ -26,11 +26,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "The NYC Exterminator | Pest Control Starting at $49 | Book Online & Save $10",
+    default: "The NYC Exterminator | Pest Control Starting at $49 | Self-Book & Save $10",
     template: "%s | The NYC Exterminator",
   },
   description:
-    "Pest control starting at $49 (fully inclusive — no hidden fees). Book online and save $10 — the fastest way to lock in service. Pay only when the job is done. No contracts. No deposits. No catches. Licensed & insured.",
+    "Pest control starting at $49 (fully inclusive — no hidden fees). Self-book online & save $10 — the fastest way to get service. Pay only when the job is done. No contracts. No deposits. No catches. Licensed & insured.",
   metadataBase: new URL(SITE_URL),
   icons: {
     icon: "/icon.svg",
@@ -43,9 +43,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "The NYC Exterminator | NYC Pest Control | Book Online & Save $10",
+    title: "The NYC Exterminator | NYC Pest Control | Self-Book & Save $10",
     description:
-      "Pest control starting at $49 (fully inclusive — no hidden fees). Book online and save $10 — the fastest way to lock in service. Pay only when the job is done. No contracts.",
+      "Pest control starting at $49 (fully inclusive — no hidden fees). Self-book online & save $10 — the fastest way to get service. Pay only when the job is done. No contracts.",
   },
   robots: {
     index: true,

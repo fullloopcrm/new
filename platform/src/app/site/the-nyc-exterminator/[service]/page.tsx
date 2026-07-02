@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -78,7 +77,6 @@ export default async function ServiceHubPage({ params }: PageProps) {
     "@type": "PestControlService",
     name: SITE_NAME,
     url: SITE_URL,
-    telephone: PHONE,
     address: {
       "@type": "PostalAddress",
       addressLocality: "New York",

@@ -9,13 +9,13 @@ export const metadata: Metadata = {
   title:
     "Pest Control Pricing NYC | Exterminator Costs from $49 | No Hidden Fees",
   description:
-    "See transparent pest control pricing and exterminator rates for NYC, NJ, Long Island & Westchester. Cockroach extermination from $150, bed bug treatment from $300, rat control from $200. Book online and save $10. Free inspections, upfront written quotes, no hidden fees. Licensed & insured.",
+    "See transparent pest control pricing and exterminator rates for NYC, NJ, Long Island & Westchester. Cockroach extermination from $150, bed bug treatment from $300, rat control from $200. Self-book online & save $10. Free inspections, upfront written quotes, no hidden fees. Licensed & insured.",
   keywords:
     "pest control pricing NYC, exterminator cost NYC, how much does exterminator cost, bed bug treatment cost NYC, cockroach extermination price, rat exterminator cost, termite treatment pricing, commercial pest control pricing",
   openGraph: {
     title: "Pest Control Pricing NYC | Exterminator Costs from $49 | No Hidden Fees",
     description:
-      "Transparent pest control pricing for NYC. Cockroach treatment from $150, bed bugs from $300, rats from $200. Book online and save $10. Free inspections, no hidden fees.",
+      "Transparent pest control pricing for NYC. Cockroach treatment from $150, bed bugs from $300, rats from $200. Self-book online & save $10. Free inspections, no hidden fees.",
     url: `${SITE_URL}/pricing`,
   },
   alternates: {
@@ -46,7 +46,7 @@ const pricingFaqs = [
   },
   {
     q: "Do you offer discounts for multi-unit buildings?",
-    a: "Yes. We offer significant volume discounts for multi-unit residential buildings, co-ops, condominiums, and commercial properties with multiple locations. Treating an entire building is more effective than treating individual units in isolation, because pests migrate through shared walls, plumbing, and electrical chases. Our building-wide treatment programs are priced per unit at rates substantially below individual apartment treatment costs. We also offer dedicated account management for large buildings and property management companies. Contact us at 212-202-8545 or request a quote online for custom multi-unit pest control pricing.",
+    a: "Yes. We offer significant volume discounts for multi-unit residential buildings, co-ops, condominiums, and commercial properties with multiple locations. Treating an entire building is more effective than treating individual units in isolation, because pests migrate through shared walls, plumbing, and electrical chases. Our building-wide treatment programs are priced per unit at rates substantially below individual apartment treatment costs. We also offer dedicated account management for large buildings and property management companies. Contact us or request a quote online for custom multi-unit pest control pricing.",
   },
   {
     q: "What payment methods do you accept for pest control services?",
@@ -193,12 +193,12 @@ export default function PricingPage() {
                 full service menu
               </Link>{" "}
               for detailed information about each pest control treatment, or
-              text us at{" "}
+              text{" "}
               <a
                 href={`sms:${phonePlain}`}
                 className="text-green-400 hover:text-green-300 font-semibold"
               >
-                {PHONE}
+                us
               </a>{" "}
               to schedule your free inspection today.
             </p>
@@ -520,12 +520,12 @@ export default function PricingPage() {
             . Our licensed exterminator will assess all of these factors on-site
             and provide you with a detailed written quote before any work begins.
             There is never any obligation, and pest control inspections are
-            always free of charge. You can also text us at{" "}
+            always free of charge. You can also text{" "}
             <a
               href={`sms:${phonePlain}`}
               className="text-green-400 hover:text-green-300 font-semibold"
             >
-              {PHONE}
+              us
             </a>{" "}
             to discuss your situation and get a preliminary estimate over the
             phone, or visit our{" "}
@@ -730,12 +730,12 @@ export default function PricingPage() {
               properties under a single account. This simplifies billing, ensures
               consistent service standards across your portfolio, and typically
               reduces your overall pest management costs by 15 to 25 percent
-              compared to treating each property separately. Text us at{" "}
+              compared to treating each property separately. Text{" "}
               <a
                 href={`sms:${phonePlain}`}
                 className="text-green-400 hover:text-green-300"
               >
-                {PHONE}
+                us
               </a>{" "}
               or email{" "}
               <a
@@ -1213,15 +1213,15 @@ export default function PricingPage() {
               in occupied living spaces.
             </p>
             <p>
-              To request emergency pest control service, text us directly at{" "}
+              To request emergency pest control service, text{" "}
               <a
                 href={`sms:${phonePlain}`}
                 className="font-semibold text-green-400 hover:text-green-300"
               >
-                {PHONE}
+                us
               </a>
-              . Phone calls receive the fastest response for emergency
-              exterminator situations. You can also text us at the same number
+              . Texting receives the fastest response for emergency
+              exterminator situations. You can also self-book online
               or{" "}
               <Link
                 href="/quote-request"
@@ -1332,12 +1332,12 @@ export default function PricingPage() {
             , we can arrange phased payment schedules that align with the
             treatment timeline. This allows you to spread the cost of more
             extensive exterminator work over the duration of the project rather
-            than paying the full amount upfront. Text us at{" "}
+            than paying the full amount upfront. Text{" "}
             <a
               href={`sms:${phonePlain}`}
               className="text-green-400 hover:text-green-300"
             >
-              {PHONE}
+              us
             </a>{" "}
             or visit our{" "}
             <Link
@@ -1545,14 +1545,14 @@ export default function PricingPage() {
           <p className="mt-10 max-w-4xl text-zinc-300 leading-7">
             Have a question about pest control pricing that is not covered above?
             We are always happy to discuss your specific situation and provide a
-            free, no-obligation exterminator quote. Text us at{" "}
+            free, no-obligation exterminator quote. Text{" "}
             <a
               href={`sms:${phonePlain}`}
               className="font-semibold text-green-400 hover:text-green-300"
             >
-              {PHONE}
+              us
             </a>
-            , email us at{" "}
+            , email{" "}
             <a
               href={`mailto:${EMAIL}`}
               className="text-green-400 hover:text-green-300"

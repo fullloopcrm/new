@@ -9,13 +9,13 @@ import { getAllServices, getAllNeighborhoods } from "@/app/site/the-nyc-extermin
 export const metadata: Metadata = {
   title: "Free Pest Control Quote NYC | No-Obligation Exterminator Estimate",
   description:
-    "Request a free, no-obligation pest control quote from licensed NYC exterminators. Includes free on-site inspection, written treatment plan, and upfront pricing. Cockroaches, bed bugs, rats, mice, termites & more. Same-day service available across all 5 boroughs, NJ, Long Island & Westchester. Text 212-202-8545.",
+    "Request a free, no-obligation pest control quote from licensed NYC exterminators. Includes free on-site inspection, written treatment plan, and upfront pricing. Cockroaches, bed bugs, rats, mice, termites & more. Same-day service available across all 5 boroughs, NJ, Long Island & Westchester. Text us.",
   keywords:
     "free pest control quote NYC, exterminator estimate, pest control inspection free, cockroach extermination quote, bed bug treatment estimate, rat control quote, free exterminator inspection NYC",
   openGraph: {
     title: "Free Pest Control Quote NYC | No-Obligation Exterminator Estimate",
     description:
-      "Free pest control quote from licensed NYC exterminators. Free inspection, upfront pricing, same-day service. Text 212-202-8545.",
+      "Free pest control quote from licensed NYC exterminators. Free inspection, upfront pricing, same-day service. Text us.",
     url: `${SITE_URL}/quote-request`,
   },
   alternates: {
@@ -102,9 +102,9 @@ export default function QuoteRequestPage() {
               urgent situations &mdash; just mention it in your message.
             </p>
             <p className="mt-4 text-zinc-400">
-              Prefer to skip the form? Text us at{" "}
+              Prefer to skip the form? Text{" "}
               <a href={`sms:${phonePlain}`} className="font-bold text-green-400 hover:text-green-300">
-                {PHONE}
+                us
               </a>{" "}
               for the fastest response. You can also{" "}
               <Link href="/contact" className="text-green-400 hover:text-green-300">
@@ -192,7 +192,7 @@ export default function QuoteRequestPage() {
                 If you can include photos of the pest, droppings, damage, or
                 affected areas, it makes identification much faster. Even blurry
                 phone photos are helpful. You can also text photos directly to{" "}
-                <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">{PHONE}</a>{" "}
+                <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">us</a>{" "}
                 before or after submitting this form.
               </p>
             </div>
@@ -222,10 +222,10 @@ export default function QuoteRequestPage() {
               href={`sms:${phonePlain}`}
               className="mt-1 inline-block text-2xl font-bold text-green-500 hover:text-green-400"
             >
-              Text {PHONE}
+              Text Us
             </a>
             <p className="mt-2 text-sm text-zinc-600">
-              Text us at {PHONE} for the fastest response — a real exterminator
+              Text us for the fastest response — a real exterminator
               answers. Or <Link href="/book-exterminator-today" className="font-semibold text-green-400 hover:text-green-300">book online and save $10</Link>.
             </p>
           </div>
@@ -531,9 +531,9 @@ export default function QuoteRequestPage() {
             the infestation, the size of your property, and the treatment method
             required. The only way to get an exact price is through our{" "}
             <strong className="text-zinc-300">free on-site inspection</strong>.
-            Submit the form above or text us at{" "}
+            Submit the form above or text{" "}
             <a href={`sms:${phonePlain}`} className="font-bold text-green-400 hover:text-green-300">
-              {PHONE}
+              us
             </a>{" "}
             to get started.
           </p>
@@ -610,7 +610,7 @@ export default function QuoteRequestPage() {
               </p>
               <h3 className="text-xl font-semibold text-white">Serving the Entire NYC Metro Area</h3>
               <p>
-                Our licensed exterminators provide pest control services across <Link href="/areas" className="text-green-400 hover:text-green-300">{totalNeighborhoods}+ neighborhoods</Link> in all five NYC boroughs, northern New Jersey, Long Island, and Westchester County. No matter where your property is located in the metro area, we can provide a free on-site inspection and quote. Same-day appointments are often available for urgent pest situations. <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">Text us at {PHONE}</a> right now to describe your pest problem — we&apos;ll respond fast with a plan.
+                Our licensed exterminators provide pest control services across <Link href="/areas" className="text-green-400 hover:text-green-300">{totalNeighborhoods}+ neighborhoods</Link> in all five NYC boroughs, northern New Jersey, Long Island, and Westchester County. No matter where your property is located in the metro area, we can provide a free on-site inspection and quote. Same-day appointments are often available for urgent pest situations. <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">Text us</a> right now to describe your pest problem — we&apos;ll respond fast with a plan.
               </p>
               <p>
                 Join thousands of satisfied NYC property owners who trust The NYC Exterminator for reliable, affordable pest control. Read our <Link href="/reviews" className="text-green-400 hover:text-green-300">customer reviews</Link>, check our <Link href="/pricing" className="text-green-400 hover:text-green-300">transparent pricing</Link>, and learn more <Link href="/about" className="text-green-400 hover:text-green-300">about our company</Link>. Have questions? Visit our <Link href="/faq" className="text-green-400 hover:text-green-300">FAQ page</Link> or <Link href="/contact" className="text-green-400 hover:text-green-300">contact us</Link> directly. We&apos;re here to help you take back your property from pests — starting today.

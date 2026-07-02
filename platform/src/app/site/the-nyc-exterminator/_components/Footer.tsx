@@ -20,11 +20,17 @@ export default function Footer() {
               by thousands of residential and commercial properties.
             </p>
             <div className="mt-4 space-y-1 text-sm">
+              <Link
+                href="/book-exterminator-today"
+                className="block font-semibold text-green-400 hover:text-green-300"
+              >
+                Self-Book &amp; Save $10 &mdash; fastest way to get service
+              </Link>
               <a
                 href={`sms:${PHONE.replace(/-/g, "")}`}
                 className="block font-semibold text-green-400 hover:text-green-300"
               >
-                Text {PHONE}
+                Text us with questions
               </a>
               <a
                 href={`mailto:${EMAIL}`}

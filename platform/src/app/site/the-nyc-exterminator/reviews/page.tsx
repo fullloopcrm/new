@@ -8,13 +8,13 @@ import CTAGroup from "@/app/site/the-nyc-exterminator/_components/CTAGroup";
 export const metadata: Metadata = {
   title: "NYC Exterminator Reviews | 2,847+ Verified 5-Star Pest Control Ratings",
   description:
-    "Read 2,847+ verified pest control reviews from NYC homeowners, renters, and businesses. 4.9/5 average rating. See what real customers say about cockroach, bed bug, rat, mouse, and termite extermination results. Licensed exterminators across all 5 boroughs, NJ, Long Island & Westchester. Text 212-202-8545.",
+    "Read 2,847+ verified pest control reviews from NYC homeowners, renters, and businesses. 4.9/5 average rating. See what real customers say about cockroach, bed bug, rat, mouse, and termite extermination results. Licensed exterminators across all 5 boroughs, NJ, Long Island & Westchester. Text us.",
   keywords:
     "NYC exterminator reviews, pest control reviews NYC, best exterminator NYC, 5-star pest control, bed bug treatment reviews, cockroach exterminator reviews, rat exterminator reviews, pest control testimonials",
   openGraph: {
     title: "NYC Exterminator Reviews | 2,847+ Verified 5-Star Pest Control Ratings",
     description:
-      "2,847+ verified reviews. 4.9/5 average rating. See what NYC says about our pest control. Text 212-202-8545.",
+      "2,847+ verified reviews. 4.9/5 average rating. See what NYC says about our pest control. Text us.",
     url: `${SITE_URL}/reviews`,
   },
   alternates: {
@@ -955,7 +955,7 @@ export default function ReviewsPage() {
 
               <p>
                 Communication is something our reviewers highlight again and
-                again. From the moment you call our office to the completion of
+                again. From the moment you reach out to the completion of
                 your final follow-up visit, our team keeps you informed at every
                 step. Our exterminators explain what they find during the
                 inspection, what treatment they recommend, how to prepare for the
@@ -1003,12 +1003,12 @@ export default function ReviewsPage() {
                 >
                   free quote
                 </Link>
-                , text us directly at{" "}
+                , text{" "}
                 <a
                   href={`sms:${PHONE.replace(/-/g, "")}`}
                   className="text-green-400 hover:text-green-300"
                 >
-                  {PHONE}
+                  us
                 </a>
                 . Whether you need a{" "}
                 <Link
@@ -1095,7 +1095,7 @@ export default function ReviewsPage() {
                 Rapid Response &amp; Same-Day Scheduling
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                When you call our office or{" "}
+                When you reach out or{" "}
                 <Link
                   href="/quote-request"
                   className="text-green-400 hover:text-green-300"
@@ -1458,12 +1458,12 @@ export default function ReviewsPage() {
                 >
                   Request a free quote online
                 </Link>
-                , text us at{" "}
+                , text{" "}
                 <a
                   href={`sms:${PHONE.replace(/-/g, "")}`}
                   className="text-green-400 hover:text-green-300"
                 >
-                  {PHONE}
+                  us
                 </a>
                 , or visit our{" "}
                 <Link

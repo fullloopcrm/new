@@ -43,7 +43,7 @@ export async function generateMetadata({
   if (!neighborhood) return {};
 
   const title = `Exterminator Jobs in ${neighborhood.name} | Pest Control Careers | ${SITE_NAME}`;
-  const description = `Now hiring exterminators & pest control technicians in ${neighborhood.name}, ${neighborhood.region}. $45K-$95K+ pay, full benefits, paid training, company vehicle. Text us at 212-202-8545 to apply!`;
+  const description = `Now hiring exterminators & pest control technicians in ${neighborhood.name}, ${neighborhood.region}. $45K-$95K+ pay, full benefits, paid training, company vehicle. Text us to apply!`;
 
   return {
     title,
@@ -231,7 +231,7 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
               href={`sms:${PHONE.replace(/-/g, "")}`}
               className="text-green-400 hover:text-green-300"
             >
-              {PHONE}
+              us
             </a>
             .
           </p>
@@ -298,7 +298,7 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
                     href={`sms:${PHONE.replace(/-/g, "")}`}
                     className="inline-flex items-center rounded-lg border border-zinc-600 px-5 py-2.5 text-sm font-semibold text-zinc-300 hover:border-zinc-400 hover:text-white"
                   >
-                    Text {PHONE}
+                    Text Us
                   </a>
                 </div>
               </div>
@@ -629,12 +629,12 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
                   paid training program immediately.
                 </p>
                 <p>
-                  You can also text us directly at{" "}
+                  You can also text{" "}
                   <a
                     href={`sms:${PHONE.replace(/-/g, "")}`}
                     className="text-green-400 hover:text-green-300"
                   >
-                    {PHONE}
+                    us
                   </a>{" "}
                   to speak with our hiring team about exterminator positions in{" "}
                   {neighborhood.name} and across {neighborhood.region}.
@@ -753,7 +753,7 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
                 href={`sms:${PHONE.replace(/-/g, "")}`}
                 className="text-green-400 hover:text-green-300"
               >
-                {PHONE}
+                us
               </a>{" "}
               today to speak with our hiring team about exterminator jobs in{" "}
               {neighborhood.name}. You can also visit our{" "}
