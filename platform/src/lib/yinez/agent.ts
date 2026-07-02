@@ -6,6 +6,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { runTool } from '@/lib/yinez/tools'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { buildPlaybook } from './build-playbook'
+import { getAgentConfig } from './agent-config-loader'
 
 export type Channel = 'sms' | 'web' | 'email' | 'telegram'
 
@@ -319,6 +321,12 @@ You: [call get_today_summary, quote real numbers] "11 jobs on the books. 2 clean
 
 Jeff: "move sarah to thursday"
 You: [call lookup_client for sarah, then ask] "Which Sarah? Sarah Chen (last booked Apr 22) or Sarah Patel (recurring biweekly)?"`
+
+// Generic agent discipline shared by every tenant — the slice of YINEZ_PROMPT
+// before nyc-maid's persona begins. Non-nyc-maid tenants ride this + their own
+// buildPlaybook() output instead of nyc-maid's cleaning persona. nyc-maid keeps
+// the full YINEZ_PROMPT verbatim.
+const SHARED_PREAMBLE = YINEZ_PROMPT.slice(0, YINEZ_PROMPT.indexOf('You are Yinez. You run The NYC Maid'))
 
 const TOOLS: Anthropic.Tool[] = [
   { name: 'create_booking', description: 'Create a booking after recap confirmation. Args: date, time, service_type (regular/deep/move_in_out/airbnb/emergency), hourly_rate, estimated_hours, recurring_type (one_time/weekly/biweekly/monthly). For brand-new clients with no profile on file, ALSO pass client_name (REQUIRED for new clients) plus client_email and client_address if collected — the handler auto-creates the client record.', input_schema: { type: 'object' as const, properties: { date: { type: 'string' }, time: { type: 'string' }, service_type: { type: 'string' }, hourly_rate: { type: 'number' }, estimated_hours: { type: 'number' }, recurring_type: { type: 'string' }, client_name: { type: 'string' }, client_email: { type: 'string' }, client_address: { type: 'string' } }, required: ['date', 'time', 'service_type', 'hourly_rate', 'estimated_hours'] } },
@@ -689,7 +697,13 @@ async function askYinezCore(channel: Channel, message: string, conversationId: s
       }
     }
 
-    const brandOverride = await buildBrandOverride(tenantId)
+    // nyc-maid keeps its authored prompt verbatim. Every other tenant now gets
+    // the shared discipline preamble + its OWN config-driven playbook — replacing
+    // the old "ship nyc-maid's prompt + pretend you're {tenant}" brandOverride hack.
+    const basePrompt =
+      tenantId === NYCMAID_TENANT_ID
+        ? YINEZ_PROMPT
+        : SHARED_PREAMBLE + buildPlaybook(await getAgentConfig(tenantId))
     const context = await loadContext(lookupPhone, conversationId)
     const ctxBlock = ctx ? buildCtxBlock(ctx) : ''
     const channelNote = channel === 'telegram'
@@ -705,7 +719,7 @@ When Jeff teaches you something:
 When you don't know → "I don't know — show me once and I'll save it."
 When you flubbed on another channel → flag it here unprompted next check-in.`
       : ''
-    const systemPrompt = brandOverride + YINEZ_PROMPT + context + channelNote + ctxBlock
+    const systemPrompt = basePrompt + context + channelNote + ctxBlock
 
     const { data: msgs } = await supabaseAdmin
       .from('sms_conversation_messages')
