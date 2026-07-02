@@ -87,4 +87,11 @@ export interface SiteConfig {
   reviewCount: string
   /** Bookable service options for /book/new — vertical-specific, config-driven */
   services: ServiceOption[]
+  /**
+   * Which funnel the tenant runs — drives the front-end shape:
+   *  'booking'   → book-now CTAs + /book/new
+   *  'pipeline'  → quote-first CTAs (request a quote) instead of instant booking
+   *  'lead_only' → contact/lead capture only; no booking or pricing surfaced
+   */
+  funnelMode: 'booking' | 'pipeline' | 'lead_only'
 }

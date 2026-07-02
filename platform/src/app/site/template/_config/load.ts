@@ -86,6 +86,10 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     rating: defaultConfig.rating,
     reviewCount: defaultConfig.reviewCount,
     services: (await loadServices(str(tenant, 'id'))) ?? defaultConfig.services,
+    funnelMode:
+      selena?.['funnel_mode'] === 'pipeline' ? 'pipeline'
+      : selena?.['funnel_mode'] === 'lead_only' ? 'lead_only'
+      : 'booking',
   }
 }
 
