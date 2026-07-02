@@ -8,7 +8,7 @@
 //
 // Stored per tenant in `tenants.selena_config` (JSONB, currently `{}` everywhere).
 
-export type BookingModel = 'hourly' | 'appointment' | 'quote_first'
+export type BookingModel = 'hourly' | 'appointment' | 'quote_first' | 'lead_only'
 export type PricingModel = 'hourly' | 'flat' | 'inspection_first' | 'quote_only'
 
 export interface AgentConfig {
