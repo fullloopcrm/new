@@ -34,11 +34,13 @@ export interface TenantSettings {
   // treated as closed for booking/availability. Default OFF (federal holidays
   // block, per lib/holidays.ts). Stored in tenants.selena_config jsonb.
   open_365: boolean
-  // Which funnel this tenant runs: 'booking' = direct book → schedule → pay →
-  // review (cleanings, appointments); 'pipeline' = lead → quote/proposal →
-  // close → schedule → pay → review (contractors, high-ticket). Both share the
-  // schedule→pay→review tail. Default 'booking'. Stored in selena_config jsonb.
-  funnel_mode: 'booking' | 'pipeline'
+  // Which funnel this tenant runs:
+  //  'booking'   = direct book → schedule → pay → review (cleanings, appts)
+  //  'pipeline'  = lead → quote/proposal → close → schedule → pay → review
+  //  'lead_only' = capture the lead and hand off; no core booking/schedule/
+  //                pay/review (marketing, SEO, lending — lead-gen tenants)
+  // Default 'booking'. Stored in selena_config jsonb.
+  funnel_mode: 'booking' | 'pipeline' | 'lead_only'
   // Booking flow rules
   default_booking_status: string
   require_team_member: boolean
@@ -201,7 +203,10 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     min_days_ahead: Number(tenant?.min_days_ahead ?? 1),
     allow_same_day: Boolean(tenant?.allow_same_day),
     open_365: Boolean(selenaConfig.open_365),
-    funnel_mode: selenaConfig.funnel_mode === 'pipeline' ? 'pipeline' : 'booking',
+    funnel_mode:
+      selenaConfig.funnel_mode === 'pipeline' ? 'pipeline'
+      : selenaConfig.funnel_mode === 'lead_only' ? 'lead_only'
+      : 'booking',
     default_booking_status: (selenaConfig.default_booking_status as string) || 'scheduled',
     require_team_member: Boolean(selenaConfig.require_team_member),
     auto_confirm_bookings: Boolean(selenaConfig.auto_confirm_bookings),

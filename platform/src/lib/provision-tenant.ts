@@ -21,6 +21,7 @@ import { supabaseAdmin } from './supabase'
 type IndustryKey =
   | 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest'
   | 'towing' | 'junk_removal' | 'dumpster' | 'mobile_salon' | 'laundry'
+  | 'interior_design' | 'fitness'
   | 'general'
 
 interface DefaultService {
@@ -107,6 +108,18 @@ const SERVICE_PRESETS: Record<IndustryKey, DefaultService[]> = {
     { name: 'Pickup & Delivery', description: 'Doorstep pickup and next-day return', default_duration_hours: 1, default_hourly_rate: 45, sort_order: 2 },
     { name: 'Dry Cleaning', description: 'Garment dry cleaning, pickup + delivery', default_duration_hours: 1, default_hourly_rate: 55, sort_order: 3 },
     { name: 'Commercial / Bulk', description: 'Recurring bulk laundry for businesses', default_duration_hours: 2, default_hourly_rate: 40, sort_order: 4 },
+  ],
+  interior_design: [
+    { name: 'Design Consultation', description: 'In-home consult + concept direction', default_duration_hours: 1, default_hourly_rate: 150, sort_order: 1 },
+    { name: 'Room Design', description: 'Full design for a single room', default_duration_hours: 3, default_hourly_rate: 125, sort_order: 2 },
+    { name: 'Full-Home Project', description: 'Whole-home design + project management', default_duration_hours: 8, default_hourly_rate: 125, sort_order: 3 },
+    { name: 'Staging', description: 'Staging for sale or event', default_duration_hours: 4, default_hourly_rate: 100, sort_order: 4 },
+  ],
+  fitness: [
+    { name: 'Intro Session', description: 'First-time assessment + session', default_duration_hours: 1, default_hourly_rate: 60, sort_order: 1 },
+    { name: 'Single Session', description: 'One-on-one session', default_duration_hours: 1, default_hourly_rate: 90, sort_order: 2 },
+    { name: 'Monthly Package', description: 'Recurring package, per session', default_duration_hours: 1, default_hourly_rate: 80, sort_order: 3 },
+    { name: 'In-Home Session', description: 'Session at the client location', default_duration_hours: 1, default_hourly_rate: 110, sort_order: 4 },
   ],
   general: [
     { name: 'Service Call', description: 'Initial diagnostic visit + recommendation', default_duration_hours: 1, default_hourly_rate: 100, sort_order: 1 },
@@ -252,6 +265,28 @@ const CHECKLIST_BY_INDUSTRY: Record<IndustryKey, Array<{ key: string; enabled: b
     { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
     { key: 'address', enabled: true, required: true, question: 'Ask for the pickup address.', sms_options: '' },
     { key: 'email', enabled: true, required: false, question: 'Ask for email.', sms_options: '' },
+  ],
+  interior_design: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask the scope — consultation, single room, full home, or staging.', sms_options: 'Consult,Room,Full home,Staging' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask the space, style they want, and rough budget.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote the consult/design rate.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: true, question: 'Ask for the project address.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
+  fitness: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask the service — intro, single session, package, or in-home.', sms_options: 'Intro,Single,Package,In-home' },
+    { key: 'notes', enabled: true, required: false, question: 'Ask their goals and any injuries/limitations.', sms_options: '' },
+    { key: 'rate', enabled: true, required: true, question: 'Quote the session rate.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask what day works.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
+    { key: 'time', enabled: true, required: true, question: 'Ask what time works.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'address', enabled: true, required: false, question: 'Ask for address if in-home.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
   ],
   general: [
     { key: 'service_type', enabled: true, required: true, question: 'Ask what service they need.', sms_options: '' },
