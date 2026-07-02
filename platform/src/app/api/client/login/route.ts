@@ -9,6 +9,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
+import { audit } from '@/lib/audit'
 
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -46,6 +47,8 @@ export async function POST(request: Request) {
     path: opts.path,
     maxAge: opts.maxAge,
   })
+
+  await audit({ tenantId: tenant.id, action: 'portal.login', entityType: 'client', entityId: client.id, userId: client.id, ip })
 
   return NextResponse.json({ client_id: client.id })
 }

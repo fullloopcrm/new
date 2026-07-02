@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { audit } from '@/lib/audit'
 
 // POST — pause until date. Cancels any bookings within the pause window and
 // notifies the client via SMS if tenant has Telnyx configured.
@@ -67,6 +68,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
     }
 
+    await audit({ tenantId, action: 'schedule.paused', entityType: 'schedule', entityId: id, details: { paused_until, bookings_cancelled: cancelledCount } })
+
     return NextResponse.json({ success: true, schedule, bookings_cancelled: cancelledCount })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
@@ -101,6 +104,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       message: `${client?.name || 'Client'} — ${schedule.recurring_type} resumed`,
       channel: 'in_app',
     })
+
+    await audit({ tenantId, action: 'schedule.updated', entityType: 'schedule', entityId: id, details: { resumed: true } })
 
     return NextResponse.json({ success: true, schedule })
   } catch (e) {

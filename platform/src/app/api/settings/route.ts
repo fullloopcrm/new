@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { clearSettingsCache } from '@/lib/settings'
+import { audit } from '@/lib/audit'
 
 export async function GET() {
   try {
@@ -73,6 +74,8 @@ export async function PUT(request: Request) {
         console.error('[settings PUT] logSecurityEvent failed:', err)
       }
     }
+
+    await audit({ tenantId, action: 'settings.updated', entityType: 'settings', entityId: tenantId, details: { fields: Object.keys(body), sensitiveChanged: changedSensitive } })
 
     return NextResponse.json({ tenant: data })
   } catch (e) {

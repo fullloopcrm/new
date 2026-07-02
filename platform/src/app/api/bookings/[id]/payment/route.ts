@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { audit } from '@/lib/audit'
 
 export async function PATCH(
   request: Request,
@@ -36,6 +37,10 @@ export async function PATCH(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (payment_status === 'paid') {
+      await audit({ tenantId, action: 'payment.marked_paid', entityType: 'payment', entityId: id, details: { payment_method: payment_method || null, tip_amount: tip_amount ?? null } })
     }
 
     return NextResponse.json({ booking: data })

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { audit } from '@/lib/audit'
 
 export async function GET(
   _request: Request,
@@ -59,6 +60,8 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    await audit({ tenantId, action: 'schedule.updated', entityType: 'schedule', entityId: id })
+
     return NextResponse.json({ schedule: data })
   } catch (e) {
     if (e instanceof AuthError) {
@@ -95,6 +98,8 @@ export async function DELETE(
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    await audit({ tenantId, action: 'schedule.deleted', entityType: 'schedule', entityId: id })
 
     return NextResponse.json({ success: true })
   } catch (e) {

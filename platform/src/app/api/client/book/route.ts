@@ -16,6 +16,7 @@ import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt, randomBytes } from 'crypto'
+import { audit } from '@/lib/audit'
 
 function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
@@ -319,6 +320,8 @@ export async function POST(request: Request) {
         }).catch(() => {})
       }
     })()
+
+    await audit({ tenantId: tenant.id, action: 'portal.booking_created', entityType: 'booking', entityId: data.id, details: { is_new_client: isNewClient, start_time: data.start_time } })
 
     return NextResponse.json({ ...data, is_new_client: isNewClient })
   } catch (err) {

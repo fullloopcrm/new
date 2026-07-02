@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
+import { audit } from '@/lib/audit'
 
 export async function GET() {
   try {
@@ -53,6 +54,8 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    await audit({ tenantId, action: 'campaign.created', entityType: 'campaign', entityId: data.id, details: { name: data.name, type: data.type } })
 
     return NextResponse.json({ campaign: data }, { status: 201 })
   } catch (e) {

@@ -8,6 +8,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getSettings } from '@/lib/settings'
 import { notify } from '@/lib/notify'
+import { audit } from '@/lib/audit'
 
 export async function POST(request: Request) {
   try {
@@ -99,6 +100,8 @@ export async function POST(request: Request) {
     } catch (notifyErr) {
       console.error('[reviews/submit] low-rating notify failed:', notifyErr)
     }
+
+    await audit({ tenantId: tenant.id, action: 'review.created', entityType: 'review', entityId: data.id, details: { rating: r, verified }, ip })
 
     return NextResponse.json({ success: true, id: data.id })
   } catch {

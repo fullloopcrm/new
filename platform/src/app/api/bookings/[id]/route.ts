@@ -8,6 +8,7 @@ import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
 import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { audit } from '@/lib/audit'
 
 export async function GET(
   _request: Request,
@@ -158,6 +159,8 @@ export async function PUT(
       console.error('Booking update notification error:', notifErr)
     }
 
+    await audit({ tenantId, action: 'booking.updated', entityType: 'booking', entityId: id, details: { fields: Object.keys(fields) } })
+
     return NextResponse.json({ booking: data })
   } catch (e) {
     if (e instanceof AuthError) {
@@ -236,6 +239,8 @@ export async function DELETE(
         console.error('Cancellation notification error:', notifErr)
       }
     }
+
+    await audit({ tenantId, action: 'booking.deleted', entityType: 'booking', entityId: id })
 
     return NextResponse.json({ success: true })
   } catch (e) {

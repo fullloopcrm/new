@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
+import { audit } from '@/lib/audit'
 
 export async function GET() {
   try {
@@ -65,6 +66,8 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    await audit({ tenantId, action: 'referral.created', entityType: 'referral', entityId: data.id, details: { name: data.name, code: data.referral_code } })
 
     return NextResponse.json({ referral: data }, { status: 201 })
   } catch (e) {

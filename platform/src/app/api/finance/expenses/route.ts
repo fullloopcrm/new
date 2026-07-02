@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { audit } from '@/lib/audit'
 
 export async function GET(request: Request) {
   try {
@@ -69,6 +70,8 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    await audit({ tenantId, action: 'expense.created', entityType: 'expense', entityId: data.id, details: { category: data.category, amount: data.amount } })
 
     return NextResponse.json({ expense: data }, { status: 201 })
   } catch (e) {

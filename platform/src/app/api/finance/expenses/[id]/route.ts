@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { audit } from '@/lib/audit'
 
 export async function PUT(
   request: Request,
@@ -51,6 +52,8 @@ export async function DELETE(
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    await audit({ tenantId, action: 'expense.deleted', entityType: 'expense', entityId: id })
 
     return NextResponse.json({ success: true })
   } catch (e) {

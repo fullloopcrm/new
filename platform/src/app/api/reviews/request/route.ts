@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
+import { audit } from '@/lib/audit'
 
 export async function POST(request: Request) {
   try {
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
         console.error('Review SMS error:', e)
       }
     }
+
+    await audit({ tenantId, action: 'review.requested', entityType: 'review', entityId: review?.id, details: { client_id, booking_id: booking_id || null } })
 
     return NextResponse.json({ review, sent: true })
   } catch (e) {

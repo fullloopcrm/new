@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
+import { audit } from '@/lib/audit'
 
 export async function GET(
   _request: Request,
@@ -57,6 +58,8 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: id, details: { fields: Object.keys(fields) } })
+
     return NextResponse.json({ client: data })
   } catch (e) {
     if (e instanceof AuthError) {
@@ -86,6 +89,8 @@ export async function DELETE(
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    await audit({ tenantId, action: 'client.deleted', entityType: 'client', entityId: id })
 
     return NextResponse.json({ success: true })
   } catch (e) {

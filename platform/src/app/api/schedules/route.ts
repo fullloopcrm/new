@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
+import { audit } from '@/lib/audit'
 
 export async function GET() {
   try {
@@ -113,6 +114,8 @@ export async function POST(request: Request) {
     if (bookings.length > 0) {
       await supabaseAdmin.from('bookings').insert(bookings)
     }
+
+    await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated: bookings.length } })
 
     return NextResponse.json({ schedule, bookingsCreated: bookings.length }, { status: 201 })
   } catch (e) {

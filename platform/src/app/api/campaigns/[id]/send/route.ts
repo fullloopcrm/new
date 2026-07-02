@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
+import { audit } from '@/lib/audit'
 
 export async function POST(
   _request: Request,
@@ -122,6 +123,8 @@ export async function POST(
         recipient_count: sentCount,
       })
       .eq('id', id)
+
+    await audit({ tenantId, action: 'campaign.sent', entityType: 'campaign', entityId: id, details: { name: campaign.name, recipients: sentCount } })
 
     return NextResponse.json({ sent: sentCount })
   } catch {
