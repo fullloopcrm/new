@@ -170,6 +170,12 @@ export default function HomePage() {
             </a>
           </div>
 
+          {/* Referral hook */}
+          <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="inline-flex items-center gap-2 text-[#A8F0DC] text-sm font-semibold mb-8 hover:text-white transition-colors group">
+            <span className="text-base">&#9733;</span>
+            <span className="underline underline-offset-4 decoration-[#A8F0DC]/40 group-hover:decoration-white">Refer friends &amp; earn 10% recurring on every cleaning they book &rarr;</span>
+          </Link>
+
           {/* Pricing tiers */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white/[0.08] backdrop-blur-sm border border-white/15 rounded-2xl p-8">
