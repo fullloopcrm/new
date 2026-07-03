@@ -54,3 +54,16 @@ export async function notifyOwnerOnTelegram(text: string): Promise<TelegramSendR
   if (!target) return null
   return sendTelegram(target, text)
 }
+
+// Platform monitoring/warning alerts to the owner's Jefe channel (the "Full Loop
+// CRM" group). Replaces the old email-based alerts (system-check, comms/health
+// monitors, error-tracking). Mirrors jefe/heartbeat.ts EXACTLY — same bot + chat
+// so every platform alert lands in one place. Plain text, no HTML. No-ops
+// silently if the Jefe channel isn't configured.
+export async function alertOwner(subject: string, detail?: string): Promise<TelegramSendResult | null> {
+  const chatId = (process.env.JEFE_OWNER_CHAT_ID || process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
+  const token = (process.env.JEFE_BOT_TOKEN || '').trim()
+  if (!chatId || !token) return null
+  const text = detail ? `${subject}\n\n${detail}` : subject
+  return sendTelegram(chatId, text, token)
+}

@@ -13,7 +13,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendEmail } from '@/lib/email'
+import { alertOwner } from '@/lib/telegram'
 import { trackError } from '@/lib/error-tracking'
 
 type Source = 'email_logs' | 'notifications'
@@ -95,12 +95,7 @@ export async function GET(request: Request) {
           .map(f => `• ${f.desc} — silent ${Math.round(f.silenceMin / 60)}h (expected every ${Math.round(f.maxSilenceMin / 60)}h)`)
           .join('\n')
         const subject = `🚨 Cron health — ${failures.length} cron${failures.length === 1 ? '' : 's'} silent`
-        const html = `<div style="font-family: sans-serif; max-width: 520px;"><h2 style="color:#b91c1c;">Cron silence detected</h2><pre style="white-space:pre-wrap;">${lines}</pre><p style="margin-top:16px;color:#666;">fingerprint=${fingerprint}</p></div>`
-
-        const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
-        if (adminEmail) {
-          await sendEmail({ to: adminEmail, subject, html }).catch(err => console.error('[health-monitor] alert email failed', err))
-        }
+        await alertOwner(subject, `${lines}\nfingerprint=${fingerprint}`).catch(err => console.error('[health-monitor] alert telegram failed', err))
 
         await supabaseAdmin.from('notifications').insert({
           type: 'cron_health_alert',

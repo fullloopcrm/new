@@ -8,7 +8,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendEmail } from '@/lib/email'
+import { alertOwner } from '@/lib/telegram'
 import { trackError } from '@/lib/error-tracking'
 
 const WINDOW_MIN = 20
@@ -53,12 +53,7 @@ export async function GET(request: Request) {
     }
 
     const subject = `⚠️ Comms failures — ${fails.length} in last ${WINDOW_MIN} min`
-    const html = `<div style="font-family: sans-serif; max-width: 560px;"><h2 style="color:#b91c1c;">Outbound send failures</h2><pre style="white-space:pre-wrap; font-size:13px;">${summary}</pre><p style="color:#666;">fingerprint=${fingerprint}</p></div>`
-
-    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
-    if (adminEmail) {
-      await sendEmail({ to: adminEmail, subject, html }).catch(err => console.error('[comms-monitor] alert email failed', err))
-    }
+    await alertOwner(subject, `${summary}\nfingerprint=${fingerprint}`).catch(err => console.error('[comms-monitor] alert telegram failed', err))
 
     await supabaseAdmin.from('notifications').insert({
       type: 'comms_monitor_alert',

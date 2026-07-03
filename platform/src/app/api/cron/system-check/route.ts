@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { trackError } from '@/lib/error-tracking'
-import { sendEmail } from '@/lib/email'
+import { alertOwner } from '@/lib/telegram'
 
 export const maxDuration = 120
 
@@ -11,7 +11,6 @@ type CheckResult = {
   detail: string
 }
 
-const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
 
 /**
  * System check — runs every hour.
@@ -239,28 +238,15 @@ export async function GET(request: Request) {
         { source: 'cron/system-check', severity: 'high' }
       )
 
-      const rows = checks.map(c => {
-        const color = c.status === 'pass' ? '#16a34a' : c.status === 'warn' ? '#f59e0b' : '#dc2626'
-        const icon = c.status === 'pass' ? 'OK' : c.status === 'warn' ? 'WARN' : 'FAIL'
-        return `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-weight:600;color:${color}">${icon}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${c.name}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#666">${c.detail}</td></tr>`
-      }).join('')
+      const detail = checks.map(c => {
+        const icon = c.status === 'pass' ? '✅' : c.status === 'warn' ? '⚠️' : '❌'
+        return `${icon} ${c.name} — ${c.detail}`
+      }).join('\n')
 
-      await sendEmail({
-        to: ADMIN_EMAIL,
-        subject: `[FL] System Check FAILED — ${failures.length} issue${failures.length > 1 ? 's' : ''}`,
-        html: `
-          <div style="font-family:sans-serif;max-width:600px">
-            <div style="background:#dc2626;color:white;padding:16px 20px;border-radius:8px 8px 0 0">
-              <h2 style="margin:0;font-size:16px">System Check Failed</h2>
-              <p style="margin:4px 0 0 0;opacity:0.9;font-size:13px">${new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</p>
-            </div>
-            <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e5e7eb;border-top:0">
-              <thead><tr style="background:#f9fafb"><th style="padding:8px 12px;text-align:left;font-size:12px;color:#888">Status</th><th style="padding:8px 12px;text-align:left;font-size:12px;color:#888">Check</th><th style="padding:8px 12px;text-align:left;font-size:12px;color:#888">Detail</th></tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        `,
-      }).catch(() => {})
+      await alertOwner(
+        `🚨 System Check FAILED — ${failures.length} issue${failures.length > 1 ? 's' : ''}`,
+        detail,
+      ).catch(() => {})
     } catch {
       // If email fails, error is already tracked above
     }
