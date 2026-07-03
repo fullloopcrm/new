@@ -81,6 +81,23 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.total_cents = totals.total_cents
     }
 
+    // Deposit — resolve against the (possibly just-recomputed) total.
+    if ('deposit_type' in body || 'deposit_value' in body) {
+      const dtype = ['flat', 'percent'].includes(body.deposit_type) ? body.deposit_type : 'none'
+      const dval = Math.max(0, Math.round(Number(body.deposit_value) || 0))
+      let total = updates.total_cents as number | undefined
+      if (total == null) {
+        const { data: c2 } = await supabaseAdmin.from('quotes').select('total_cents').eq('id', id).single()
+        total = Number(c2?.total_cents) || 0
+      }
+      updates.deposit_type = dtype
+      updates.deposit_value = dval
+      updates.deposit_cents =
+        dtype === 'flat' ? Math.min(dval, total)
+        : dtype === 'percent' ? Math.round((total * dval) / 10000)
+        : 0
+    }
+
     const { data, error } = await supabaseAdmin
       .from('quotes')
       .update(updates)

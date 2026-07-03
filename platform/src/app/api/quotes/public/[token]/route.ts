@@ -26,7 +26,7 @@ export async function GET(request: Request, { params }: Params) {
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')
-      .select('*, tenants!inner(name, slug, domain, phone, email, logo_url, primary_color, status)')
+      .select('*, tenants!inner(name, slug, domain, phone, email, address, logo_url, primary_color, status)')
       .eq('public_token', token)
       .eq('tenants.status', 'active')
       .maybeSingle()

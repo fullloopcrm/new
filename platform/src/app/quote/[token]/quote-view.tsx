@@ -19,6 +19,7 @@ type Business = {
   domain: string | null
   phone: string | null
   email: string | null
+  address: string | null
   logo_url: string | null
   primary_color: string | null
 }
@@ -200,7 +201,9 @@ export default function QuoteView({ token }: { token: string }) {
                 {biz.phone && <span>{biz.phone}</span>}
                 {biz.phone && biz.email && <span> · </span>}
                 {biz.email && <span>{biz.email}</span>}
+                {biz.domain && <><span> · </span><span>{biz.domain}</span></>}
               </p>
+              {biz.address && <p className="text-xs text-slate-400 mt-0.5">{biz.address}</p>}
             </div>
           </div>
           <div className="text-right">

@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import HelpTip from '../../../_components/HelpTip'
 
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
 
@@ -49,6 +50,7 @@ function NewQuoteInner() {
   const dealId = sp.get('deal')
   const [clients, setClients] = useState<Client[]>([])
   const [clientId, setClientId] = useState<string>('')
+  const [catalog, setCatalog] = useState<Array<{ id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null }>>([])
 
   const [contactName, setContactName] = useState('')
   const [contactEmail, setContactEmail] = useState('')
@@ -76,7 +78,20 @@ function NewQuoteInner() {
       .then(r => r.json())
       .then(data => setClients(Array.isArray(data) ? data : data.clients || []))
       .catch(() => {})
+    fetch('/api/catalog')
+      .then(r => r.json())
+      .then(data => setCatalog((data?.items || []).filter((i: { active?: boolean }) => i.active !== false)))
+      .catch(() => {})
   }, [])
+
+  function addFromCatalog(itemId: string) {
+    const it = catalog.find(c => c.id === itemId)
+    if (!it) return
+    setItems(prev => [
+      ...prev.filter(li => li.name.trim() || li.unit_price_cents), // drop the empty starter row
+      { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents },
+    ])
+  }
 
   // Prefill from the originating deal (client + a starter title).
   useEffect(() => {
@@ -245,20 +260,45 @@ function NewQuoteInner() {
       <section className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading font-semibold text-slate-900">Line Items</h2>
-          <button
-            onClick={addItem}
-            className="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700"
-          >+ Add line</button>
+          <div className="flex items-center gap-2">
+            {catalog.length > 0 && (
+              <select
+                value=""
+                onChange={e => { if (e.target.value) { addFromCatalog(e.target.value); e.target.value = '' } }}
+                className="text-xs px-2 py-1 bg-white border border-slate-300 rounded text-slate-700"
+              >
+                <option value="">+ From catalog…</option>
+                {catalog.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} — {formatCents(c.price_cents)}/{c.per_unit}</option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={addItem}
+              className="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700"
+            >+ Add line</button>
+          </div>
         </div>
+
+        {/* Catalog options — feeds the type-to-search / dropdown on each line's name. */}
+        <datalist id="sku-catalog">
+          {catalog.map(c => <option key={c.id} value={c.name}>{`${formatCents(c.price_cents)} / ${c.per_unit}${c.category ? ` · ${c.category}` : ''}`}</option>)}
+        </datalist>
 
         <div className="space-y-2">
           {items.map((li, idx) => (
             <div key={li.id} className="grid grid-cols-12 gap-2 items-start bg-slate-50 rounded-lg p-3">
               <div className="col-span-5">
                 <input
-                  placeholder="Item name"
+                  placeholder="Item name — type to search catalog"
+                  list="sku-catalog"
                   value={li.name}
-                  onChange={e => updateItem(li.id, { name: e.target.value })}
+                  onChange={e => {
+                    const v = e.target.value
+                    const match = catalog.find(c => c.name.toLowerCase() === v.trim().toLowerCase())
+                    if (match) updateItem(li.id, { name: match.name, unit_price_cents: match.price_cents, description: li.description || match.description || '' })
+                    else updateItem(li.id, { name: v })
+                  }}
                   className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-sm mb-1"
                 />
                 <input
@@ -313,7 +353,7 @@ function NewQuoteInner() {
         {/* Tax + discount + totals */}
         <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-slate-500 uppercase mb-1">Tax %</label>
+            <label className="block text-xs text-slate-500 uppercase mb-1">Tax % <HelpTip text="Applied to taxable line items only. This will default from your Settings tax rate soon." /></label>
             <input
               type="text"
               value={taxPct}
@@ -321,21 +361,21 @@ function NewQuoteInner() {
               className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
               placeholder="8.875"
             />
-            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Discount ($)</label>
+            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Discount ($) <HelpTip text="A flat dollar amount taken off the subtotal before tax." /></label>
             <input
               type="text"
               value={discount}
               onChange={e => setDiscount(e.target.value)}
               className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
             />
-            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Valid for (days)</label>
+            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Valid for (days) <HelpTip text="How long the customer has to accept before the proposal expires." /></label>
             <input
               type="number"
               value={validUntilDays}
               onChange={e => setValidUntilDays(e.target.value)}
               className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
             />
-            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Deposit</label>
+            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Deposit <HelpTip text="An upfront amount the customer pays to accept — a % of the total or a flat $. If set, the deal waits at Pending until it's paid, then closes to Sold." /></label>
             <div className="flex gap-2">
               <select
                 value={depositType}

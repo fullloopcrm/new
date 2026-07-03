@@ -6,7 +6,8 @@ import './sales.css'
 import CalendarBoard from '../calendar/CalendarBoard'
 
 // The sales process IS the tabs, left→right. Deals move between them via the
-// stage dropdown on each card. Schedule is the calendar.
+// stage dropdown on each card. Schedule is the calendar. (The Master Catalog is
+// its own page under Sales in the main menu — it lives in proposal creation.)
 type Tab = 'pipeline' | 'leads' | 'qualify' | 'quotes' | 'sales' | 'schedule'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'pipeline', letter: 'A', label: 'Pipeline' },
@@ -16,13 +17,14 @@ const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'sales', letter: 'E', label: 'Sales' },
   { key: 'schedule', letter: 'F', label: 'Schedule' },
 ]
+// Tips teach the process. It all starts with a Lead and flows left → right.
 const TAB_TIPS: Record<Tab, string> = {
-  pipeline: 'The whole board — every deal across Lead → Qualify → Quote → Sale. Use a card’s dropdown to move it.',
-  leads: 'New leads — every one auto-creates a client. Open a card, log the contact, then qualify it.',
-  qualify: 'Confirm scope & fit. Mark Qualified to send a proposal, or Not Qualified to close it out with a reason.',
-  quotes: 'Quote sent — awaiting the yes. When accepted, move it to Sale.',
-  sales: 'The close — Pending / Sold / Lost. Bookings auto-land here when scheduled.',
-  schedule: 'The calendar — sold jobs and bookings land here as scheduled work.',
+  pipeline: 'The whole pipeline at a glance. Every deal flows left → right: Lead → Qualify → Quote → Sold → Schedule. It all starts on the Leads tab.',
+  leads: 'Step 1 — it all starts here. Every lead (web form or + New Lead) becomes a client automatically. Open one, log your first call/text/email, and it moves to Qualify.',
+  qualify: 'Step 2 — work the lead. Confirm scope & fit in the notes. Mark Qualified to send a proposal, or Not Qualified to close it out with a reason.',
+  quotes: 'Step 3 — the proposal. Build a real quote (line items + optional deposit) and send it by email + text. When the customer signs, it moves toward Sold.',
+  sales: 'Step 4 — the close. Signed proposals land here: Pending (awaiting deposit) or Sold. Instant bookings auto-land here too.',
+  schedule: 'Step 5 — put it on the calendar. A sold job opens the schedule window — pick the date and the visit lands on the calendar.',
 }
 
 // Locked stage spine (matches DB + pipeline.ts). Labels are operator-facing.
@@ -317,7 +319,7 @@ function SalesPageInner() {
 
       <div className="sl-tabbar-note">
         <span className="sl-tab-tip"><span className="sl-tab-tip-letter">{TABS.find((t) => t.key === tab)?.letter}</span>{TAB_TIPS[tab]}</span>
-        <button type="button" className="sl-newlead-btn" onClick={() => setShowNewLead(true)}>+ New Lead</button>
+        {tab === 'leads' && <button type="button" className="sl-newlead-btn" onClick={() => setShowNewLead(true)}>+ New Lead</button>}
       </div>
 
       {tab === 'schedule' && <CalendarBoard />}

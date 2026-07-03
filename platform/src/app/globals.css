@@ -655,3 +655,22 @@ body {
   background: rgba(13, 148, 136, 0.2);
   color: #0f172a;
 }
+
+/* Reusable inline help — a "?" that reveals a tip on hover/focus. Global so it
+   works on any page. Usage: <HelpTip text="…" /> */
+.help-tip {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; margin-left: 5px; border-radius: 50%;
+  border: 1px solid #b8b8b2; color: #8a8a84; font-size: 9px; font-weight: 700;
+  cursor: help; vertical-align: middle; line-height: 1; user-select: none;
+}
+.help-tip:hover, .help-tip:focus { background: #1c1c1c; color: #fff; border-color: #1c1c1c; outline: none; }
+.help-bubble {
+  position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: 230px; background: #1c1c1c; color: #fff;
+  font-size: 11px; font-weight: 400; line-height: 1.45; letter-spacing: normal;
+  text-transform: none; padding: 7px 10px; border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(0,0,0,.22); opacity: 0; visibility: hidden;
+  transition: opacity .12s ease; z-index: 60; pointer-events: none; text-align: left;
+}
+.help-tip:hover .help-bubble, .help-tip:focus .help-bubble { opacity: 1; visibility: visible; }

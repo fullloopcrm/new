@@ -12,7 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
 
 const ITEM_TYPES = ['service', 'project', 'product']
-const PER_UNITS = ['hour', 'job']
+const PER_UNITS = ['hour', 'job', 'unit', 'sqft', 'linear_ft', 'visit', 'day', 'custom']
 
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
@@ -25,7 +25,7 @@ export async function GET() {
     const { tenantId } = await getTenantForRequest()
     const { data, error } = await supabaseAdmin
       .from('service_types')
-      .select('id, name, description, item_type, per_unit, price_cents, active, sort_order')
+      .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
       .eq('tenant_id', tenantId)
       .order('sort_order', { ascending: true })
     if (error) throw error
@@ -55,11 +55,17 @@ export async function POST(request: Request) {
         description: (body.description as string) || null,
         item_type,
         per_unit,
+        unit_label: per_unit === 'custom' ? ((body.unit_label as string) || null) : null,
         price_cents: num(body.price_cents) ?? 0,
+        min_charge_cents: num(body.min_charge_cents),
+        cost_cents: num(body.cost_cents),
+        taxable: body.taxable !== false,
+        category: (body.category as string) || null,
+        default_duration_hours: num(body.default_duration_hours),
         sort_order: num(body.sort_order) ?? 0,
         active: body.active !== false,
       })
-      .select('id, name, description, item_type, per_unit, price_cents, active, sort_order')
+      .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
       .single()
     if (error) throw error
     await audit({ tenantId, action: 'service.created', entityType: 'catalog_item', entityId: data.id })
@@ -84,15 +90,24 @@ export async function PATCH(request: Request) {
     if ('active' in body) patch.active = !!body.active
     if ('sort_order' in body) patch.sort_order = num(body.sort_order) ?? 0
     if ('price_cents' in body) patch.price_cents = num(body.price_cents) ?? 0
+    if ('min_charge_cents' in body) patch.min_charge_cents = num(body.min_charge_cents)
+    if ('cost_cents' in body) patch.cost_cents = num(body.cost_cents)
+    if ('taxable' in body) patch.taxable = !!body.taxable
+    if ('category' in body) patch.category = (body.category as string) || null
+    if ('default_duration_hours' in body) patch.default_duration_hours = num(body.default_duration_hours)
+    if ('unit_label' in body) patch.unit_label = (body.unit_label as string) || null
     if (ITEM_TYPES.includes(body.item_type as string)) patch.item_type = body.item_type
-    if (PER_UNITS.includes(body.per_unit as string)) patch.per_unit = body.per_unit
+    if (PER_UNITS.includes(body.per_unit as string)) {
+      patch.per_unit = body.per_unit
+      if (body.per_unit !== 'custom') patch.unit_label = null
+    }
 
     const { data, error } = await supabaseAdmin
       .from('service_types')
       .update(patch)
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .select('id, name, description, item_type, per_unit, price_cents, active, sort_order')
+      .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
       .single()
     if (error) throw error
     return NextResponse.json({ item: data })

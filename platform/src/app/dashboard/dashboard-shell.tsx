@@ -40,11 +40,11 @@ const navMain: Array<{
 }> = [
   { num: '00', label: 'The Loop', href: '/dashboard', fold: 'loop', subs: [] },
   { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', subs: [] },
-  { num: '02', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [] },
-  { num: '03', label: 'Production', href: '/dashboard/jobs', fold: 'production', subs: [] },
-  { num: '04', label: 'Team', href: '/dashboard/team', fold: 'team', subs: [
-    { letter: 'A', label: 'Members', href: '/dashboard/team' },
+  { num: '02', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [
+    { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
   ]},
+  { num: '03', label: 'Production', href: '/dashboard/jobs', fold: 'production', subs: [] },
+  { num: '04', label: 'Team', href: '/dashboard/team', fold: 'team', subs: [] },
   { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', subs: [
     { letter: 'A', label: 'Overview', href: '/dashboard/finance' },
     { letter: 'B', label: 'Transactions', href: '/dashboard/finance/transactions' },
@@ -72,7 +72,7 @@ const navMain: Array<{
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/leads', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/schedules'],
+  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/schedules'],
   production: ['/dashboard/jobs'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   team: ['/dashboard/team'],
