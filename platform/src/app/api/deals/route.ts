@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         .select('id')
         .eq('tenant_id', tenantId)
         .eq('client_id', client_id)
-        .in('stage', ['lead', 'qualified', 'proposal', 'negotiation'])
+        .in('stage', ['new', 'qualifying', 'quoted', 'pending'])
         .limit(1)
       if (existing && existing.length > 0) {
         return NextResponse.json({ error: 'Client is already on the sales board' }, { status: 409 })
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
         tenant_id: tenantId,
         client_id: client_id || null,
         title: title || null,
-        stage: stage || 'lead',
+        stage: stage || 'new',
         value_cents: Number(value_cents) || 0,
         probability: probability != null ? Number(probability) : 10,
         expected_close_date: expected_close_date || null,

@@ -323,6 +323,28 @@ export async function POST(request: Request) {
 
     await audit({ tenantId: tenant.id, action: 'portal.booking_created', entityType: 'booking', entityId: data.id, details: { is_new_client: isNewClient, start_time: data.start_time } })
 
+    // Mirror this booking into the sales pipeline as a booking-mode deal at
+    // 'pending', linked by booking_id. Its stage then auto-syncs with the
+    // booking lifecycle (see /api/bookings/[id]/status: scheduled/confirmed →
+    // sold, cancelled/no_show → lost). Non-blocking: a failure here must never
+    // break the booking the customer just made.
+    try {
+      await supabaseAdmin.from('deals').insert({
+        tenant_id: tenant.id,
+        client_id: clientId || null,
+        booking_id: data.id,
+        mode: 'booking',
+        stage: 'pending',
+        title: (data.service_type as string) || 'Booking',
+        value_cents: Math.round(Number(data.price) || 0),
+        probability: 100,
+        source: (body.src as string) || 'booking',
+        status: 'active',
+      })
+    } catch (dealErr) {
+      console.error('Mirror-deal create error (non-blocking):', dealErr)
+    }
+
     return NextResponse.json({ ...data, is_new_client: isNewClient })
   } catch (err) {
     console.error('Booking error:', err)

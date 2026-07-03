@@ -33,10 +33,10 @@ export async function POST(request: Request, { params }: Params) {
     // set a custom one (probability === stage default → treat as default)
     const newMeta = stageMeta(to)
     const updates: Record<string, unknown> = { stage: to }
-    if (to === 'won' || to === 'lost') updates.closed_at = new Date().toISOString()
-    if (to === 'won') updates.probability = 100
+    if (to === 'sold' || to === 'lost') updates.closed_at = new Date().toISOString()
+    if (to === 'sold') updates.probability = 100
     if (to === 'lost') updates.probability = 0
-    if (!(to === 'won' || to === 'lost')) {
+    if (!(to === 'sold' || to === 'lost')) {
       const currentProb = Number(existing.probability) || 0
       const wasDefaultProb = PIPELINE_STAGES.some(s => s.defaultProbability === currentProb)
       if (wasDefaultProb) updates.probability = newMeta.defaultProbability

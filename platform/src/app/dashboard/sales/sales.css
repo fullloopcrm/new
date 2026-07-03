@@ -211,6 +211,43 @@
 .sl-stage-dot.quoted { background: var(--sl-vip); }
 .sl-stage-dot.negotiating { background: var(--sl-good); animation: sl-pulse 2s infinite; }
 .sl-stage-dot.booked { background: var(--sl-good); }
+/* Unified spine: new · qualifying · quoted · (sale: pending/sold/lost) */
+.sl-stage-dot.qualifying { background: var(--sl-ink); }
+.sl-stage-dot.pending { background: var(--sl-warn); }
+.sl-stage-dot.sold { background: var(--sl-good); }
+.sl-stage-dot.lost { background: #c0392b; }
+.sl-sale-substats { display: flex; gap: 10px; padding: 4px 0 8px; font-size: 11px; }
+.sl-sale-sub { display: inline-flex; align-items: center; gap: 4px; color: var(--sl-muted); }
+.sl-sale-sub strong { color: var(--sl-ink); font-family: var(--sl-mono, inherit); }
+.sl-deal-status { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 999px; }
+.sl-deal-status.pending { background: rgba(184,134,11,0.12); color: var(--sl-warn); }
+.sl-deal-status.sold { background: rgba(31,77,44,0.1); color: var(--sl-good); }
+.sl-deal-status.lost { background: rgba(192,57,43,0.1); color: #c0392b; }
+/* Per-phase walkthrough tip under each kanban lane header */
+.sl-lane-tip { font-size: 11px; color: var(--sl-muted); line-height: 1.35; margin: 3px 0 8px; padding-bottom: 8px; border-bottom: 1px dashed var(--sl-line, #e6e6e0); }
+.sl-pipeline-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+/* Always-visible tab tip (A–G) + New Lead, under the tab bar */
+.sl-tabbar-note { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 8px 0 16px; padding: 10px 14px; background: var(--sl-surface, #f6f6f3); border: 1px solid var(--sl-line, #e6e6e0); border-radius: 10px; }
+.sl-tab-tip { font-size: 12.5px; color: var(--sl-muted); line-height: 1.4; }
+.sl-tab-tip-letter { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-right: 8px; border-radius: 4px; background: var(--sl-ink); color: #fff; font-size: 9px; font-weight: 700; vertical-align: middle; }
+.sl-tabbar-note .sl-newlead-btn { flex-shrink: 0; }
+/* Per-card stage mover on the kanban */
+.sl-deal-move { width: 100%; margin-top: 6px; font-size: 11px; padding: 3px 6px; border: 1px solid var(--sl-line, #e6e6e0); border-radius: 6px; color: var(--sl-ink); background: #fff; cursor: pointer; }
+/* Per-stage tab deal list */
+.sl-stage-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
+/* New Lead button + modal */
+.sl-newlead-btn { border: 1px solid var(--sl-ink); background: var(--sl-ink); color: #fff; font-size: 12px; font-weight: 600; padding: 7px 13px; border-radius: 8px; cursor: pointer; }
+.sl-newlead-btn:hover { opacity: .9; }
+.sl-newlead-btn:disabled { opacity: .5; cursor: default; }
+.sl-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+.sl-modal { background: #fff; border-radius: 14px; width: 100%; max-width: 460px; padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,.25); max-height: 90vh; overflow-y: auto; }
+.sl-modal h3 { font-size: 18px; font-weight: 700; margin: 0 0 2px; color: var(--sl-ink); }
+.sl-modal .sl-field { margin-top: 12px; }
+.sl-modal label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--sl-muted); margin-bottom: 4px; }
+.sl-modal input, .sl-modal textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--sl-line, #e6e6e0); border-radius: 8px; font-size: 14px; color: var(--sl-ink); font-family: inherit; }
+.sl-modal textarea { resize: none; }
+.sl-modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+.sl-modal-tip { font-size: 11.5px; color: var(--sl-muted); margin-top: 4px; }
 .sl-stage-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .sl-stage-count {
   font-family: var(--sl-display);

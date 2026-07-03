@@ -1,0 +1,120 @@
+/**
+ * Per-tenant Catalog CRUD (operator-side). One list of items in the
+ * `service_types` table. Every item has a TYPE (service | project | product)
+ * and is priced per hour or per job. No booking/sales mode on the item — that
+ * fork lives on the deal (deals.mode).
+ *
+ * Tenant-scoped via getTenantForRequest (operator auth), like /api/deals.
+ */
+import { NextResponse } from 'next/server'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { supabaseAdmin } from '@/lib/supabase'
+import { audit } from '@/lib/audit'
+
+const ITEM_TYPES = ['service', 'project', 'product']
+const PER_UNITS = ['hour', 'job']
+
+function num(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+export async function GET() {
+  try {
+    const { tenantId } = await getTenantForRequest()
+    const { data, error } = await supabaseAdmin
+      .from('service_types')
+      .select('id, name, description, item_type, per_unit, price_cents, active, sort_order')
+      .eq('tenant_id', tenantId)
+      .order('sort_order', { ascending: true })
+    if (error) throw error
+    return NextResponse.json({ items: data || [] })
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    console.error('GET /api/catalog error:', err)
+    return NextResponse.json({ error: 'Failed to load catalog' }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const { tenantId } = await getTenantForRequest()
+    const body = await request.json().catch(() => ({} as Record<string, unknown>))
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+
+    const item_type = ITEM_TYPES.includes(body.item_type as string) ? (body.item_type as string) : 'service'
+    const per_unit = PER_UNITS.includes(body.per_unit as string) ? (body.per_unit as string) : 'job'
+
+    const { data, error } = await supabaseAdmin
+      .from('service_types')
+      .insert({
+        tenant_id: tenantId,
+        name,
+        description: (body.description as string) || null,
+        item_type,
+        per_unit,
+        price_cents: num(body.price_cents) ?? 0,
+        sort_order: num(body.sort_order) ?? 0,
+        active: body.active !== false,
+      })
+      .select('id, name, description, item_type, per_unit, price_cents, active, sort_order')
+      .single()
+    if (error) throw error
+    await audit({ tenantId, action: 'service.created', entityType: 'catalog_item', entityId: data.id })
+    return NextResponse.json({ item: data })
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    console.error('POST /api/catalog error:', err)
+    return NextResponse.json({ error: 'Failed to create item' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { tenantId } = await getTenantForRequest()
+    const body = await request.json().catch(() => ({} as Record<string, unknown>))
+    const id = body.id as string | undefined
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+
+    const patch: Record<string, unknown> = {}
+    if (typeof body.name === 'string') patch.name = body.name.trim()
+    if ('description' in body) patch.description = (body.description as string) || null
+    if ('active' in body) patch.active = !!body.active
+    if ('sort_order' in body) patch.sort_order = num(body.sort_order) ?? 0
+    if ('price_cents' in body) patch.price_cents = num(body.price_cents) ?? 0
+    if (ITEM_TYPES.includes(body.item_type as string)) patch.item_type = body.item_type
+    if (PER_UNITS.includes(body.per_unit as string)) patch.per_unit = body.per_unit
+
+    const { data, error } = await supabaseAdmin
+      .from('service_types')
+      .update(patch)
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select('id, name, description, item_type, per_unit, price_cents, active, sort_order')
+      .single()
+    if (error) throw error
+    return NextResponse.json({ item: data })
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    console.error('PATCH /api/catalog error:', err)
+    return NextResponse.json({ error: 'Failed to update item' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { tenantId } = await getTenantForRequest()
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    const { error } = await supabaseAdmin.from('service_types').delete().eq('id', id).eq('tenant_id', tenantId)
+    if (error) throw error
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    console.error('DELETE /api/catalog error:', err)
+    return NextResponse.json({ error: 'Failed to delete item' }, { status: 500 })
+  }
+}

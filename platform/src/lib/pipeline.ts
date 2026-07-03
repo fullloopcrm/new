@@ -2,18 +2,20 @@
  * Sales pipeline — stage definitions + forecast math.
  */
 
+// Unified spine (matches the DB check constraint + the kanban). Labels are the
+// operator-facing words; values are the locked stage keys.
 export const PIPELINE_STAGES = [
-  { value: 'lead', label: 'Lead', color: 'bg-slate-100 text-slate-700', defaultProbability: 10 },
-  { value: 'qualified', label: 'Qualified', color: 'bg-blue-50 text-blue-700', defaultProbability: 25 },
-  { value: 'proposal', label: 'Proposal', color: 'bg-violet-50 text-violet-700', defaultProbability: 50 },
-  { value: 'negotiation', label: 'Negotiation', color: 'bg-amber-50 text-amber-700', defaultProbability: 75 },
-  { value: 'won', label: 'Won', color: 'bg-green-50 text-green-700', defaultProbability: 100 },
+  { value: 'new', label: 'Lead', color: 'bg-slate-100 text-slate-700', defaultProbability: 10 },
+  { value: 'qualifying', label: 'Qualify', color: 'bg-blue-50 text-blue-700', defaultProbability: 25 },
+  { value: 'quoted', label: 'Quote', color: 'bg-violet-50 text-violet-700', defaultProbability: 50 },
+  { value: 'pending', label: 'Pending', color: 'bg-amber-50 text-amber-700', defaultProbability: 80 },
+  { value: 'sold', label: 'Sold', color: 'bg-green-50 text-green-700', defaultProbability: 100 },
   { value: 'lost', label: 'Lost', color: 'bg-red-50 text-red-600', defaultProbability: 0 },
 ] as const
 
 export type PipelineStage = (typeof PIPELINE_STAGES)[number]['value']
-export const OPEN_STAGES: PipelineStage[] = ['lead', 'qualified', 'proposal', 'negotiation']
-export const CLOSED_STAGES: PipelineStage[] = ['won', 'lost']
+export const OPEN_STAGES: PipelineStage[] = ['new', 'qualifying', 'quoted', 'pending']
+export const CLOSED_STAGES: PipelineStage[] = ['sold', 'lost']
 
 export function stageMeta(stage: string) {
   return PIPELINE_STAGES.find(s => s.value === stage) || PIPELINE_STAGES[0]

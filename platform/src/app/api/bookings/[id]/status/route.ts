@@ -55,6 +55,28 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Sync the mirrored booking-mode deal to match the booking outcome:
+    //   scheduled/confirmed/in_progress/completed/paid → sold
+    //   cancelled/no_show                              → lost
+    // Keyed by booking_id + mode='booking' so only the linked mirror deal
+    // moves. Non-blocking: never fail the status change on a deal-sync error.
+    const dealStage =
+      ['scheduled', 'confirmed', 'in_progress', 'completed', 'paid'].includes(status) ? 'sold'
+      : ['cancelled', 'no_show'].includes(status) ? 'lost'
+      : null
+    if (dealStage) {
+      try {
+        await supabaseAdmin
+          .from('deals')
+          .update({ stage: dealStage })
+          .eq('tenant_id', tenantId)
+          .eq('booking_id', id)
+          .eq('mode', 'booking')
+      } catch (dealErr) {
+        console.error('Deal sync error (non-blocking):', dealErr)
+      }
+    }
+
     await audit({ tenantId, action: 'booking.status_changed', entityType: 'booking', entityId: id, details: { from: booking.status, to: status } })
 
     return NextResponse.json({ booking: data })

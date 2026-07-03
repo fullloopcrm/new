@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
 import ToastProvider from './toast-provider'
-import AutoPageSettings from './auto-page-settings'
+// import AutoPageSettings from './auto-page-settings' // gear removed for now
 import SelenaBar from './selena-bar'
 import AnnouncementBanner from './announcement-banner'
 
@@ -39,21 +39,9 @@ const navMain: Array<{
   subs: Sub[]
 }> = [
   { num: '00', label: 'The Loop', href: '/dashboard', fold: 'loop', subs: [] },
-  { num: '01', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [
-    { letter: 'A', label: 'Leads', href: '/dashboard/leads' },
-    { letter: 'B', label: 'Pipeline', href: '/dashboard/sales' },
-    { letter: 'C', label: 'Go Live', href: '/dashboard/go-live' },
-  ]},
-  { num: '02', label: 'Schedule', href: '/dashboard/bookings', countKey: 'bookings', fold: 'schedule', subs: [
-    { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
-    { letter: 'B', label: 'Calendar', href: '/dashboard/calendar' },
-    { letter: 'C', label: 'Recurring', href: '/dashboard/schedules' },
-    { letter: 'D', label: 'Jobs', href: '/dashboard/jobs' },
-  ]},
-  { num: '03', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', subs: [
-    { letter: 'A', label: 'All Clients', href: '/dashboard/clients' },
-    { letter: 'B', label: 'SMS Inbox', href: '/dashboard/sms' },
-  ]},
+  { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', subs: [] },
+  { num: '02', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [] },
+  { num: '03', label: 'Production', href: '/dashboard/jobs', fold: 'production', subs: [] },
   { num: '04', label: 'Team', href: '/dashboard/team', fold: 'team', subs: [
     { letter: 'A', label: 'Members', href: '/dashboard/team' },
   ]},
@@ -84,8 +72,8 @@ const navMain: Array<{
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/leads', '/dashboard/go-live'],
-  schedule: ['/dashboard/bookings', '/dashboard/calendar', '/dashboard/schedules', '/dashboard/jobs'],
+  sales: ['/dashboard/sales', '/dashboard/leads', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/schedules'],
+  production: ['/dashboard/jobs'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   team: ['/dashboard/team'],
   finance: ['/dashboard/finance'],
@@ -459,7 +447,7 @@ export default function DashboardShell({
             )}
           </div>
 
-          <AutoPageSettings />
+          {/* Settings gear removed for now (was <AutoPageSettings />) */}
           {children}
         </div>
       </main>

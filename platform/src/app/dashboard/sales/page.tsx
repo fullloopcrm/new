@@ -1,33 +1,48 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import './sales.css'
-import SalesQuotesTab from './sales-quotes-tab'
-import SalesWonTab from './sales-won-tab'
-import SalesForecastTab from './sales-forecast-tab'
-import SalesConversationsTab from './sales-conversations-tab'
+import CalendarBoard from '../calendar/CalendarBoard'
 
-type Tab = 'pipeline' | 'leads' | 'quotes' | 'won' | 'lost' | 'forecast' | 'conversations'
+// The sales process IS the tabs, left→right. Deals move between them via the
+// stage dropdown on each card. Schedule is the calendar.
+type Tab = 'pipeline' | 'leads' | 'qualify' | 'quotes' | 'sales' | 'schedule'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'pipeline', letter: 'A', label: 'Pipeline' },
   { key: 'leads', letter: 'B', label: 'Leads' },
-  { key: 'quotes', letter: 'C', label: 'Quotes' },
-  { key: 'won', letter: 'D', label: 'Won' },
-  { key: 'lost', letter: 'E', label: 'Lost' },
-  { key: 'forecast', letter: 'F', label: 'Forecast' },
-  { key: 'conversations', letter: 'G', label: 'Conversations' },
+  { key: 'qualify', letter: 'C', label: 'Qualify' },
+  { key: 'quotes', letter: 'D', label: 'Quotes' },
+  { key: 'sales', letter: 'E', label: 'Sales' },
+  { key: 'schedule', letter: 'F', label: 'Schedule' },
 ]
+const TAB_TIPS: Record<Tab, string> = {
+  pipeline: 'The whole board — every deal across Lead → Qualify → Quote → Sale. Use a card’s dropdown to move it.',
+  leads: 'New leads — every one auto-creates a client. Reach out fast, then move it to Qualify.',
+  qualify: 'Confirm scope & fit. Book a site visit if it needs a quote, then move to Quote.',
+  quotes: 'Quote sent — awaiting the yes. When accepted, move it to Sale.',
+  sales: 'The close — Pending / Sold / Lost. Bookings auto-land here when scheduled.',
+  schedule: 'The calendar — sold jobs and bookings land here as scheduled work.',
+}
 
-type Stage = 'new' | 'contacted' | 'qualified' | 'quoted' | 'negotiating' | 'booked'
+// Locked stage spine (matches DB + pipeline.ts). Labels are operator-facing.
+type Stage = 'new' | 'qualifying' | 'quoted' | 'pending' | 'sold' | 'lost'
 const STAGES: Array<{ key: Stage; label: string }> = [
-  { key: 'new', label: 'Inbound' },
-  { key: 'contacted', label: 'Contacted' },
-  { key: 'qualified', label: 'Qualified' },
-  { key: 'quoted', label: 'Quoted' },
-  { key: 'negotiating', label: 'Negotiating' },
-  { key: 'booked', label: 'Booked' },
+  { key: 'new', label: 'Lead' },
+  { key: 'qualifying', label: 'Qualify' },
+  { key: 'quoted', label: 'Quote' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'sold', label: 'Sold' },
+  { key: 'lost', label: 'Lost' },
 ]
-const KANBAN_STAGES: Stage[] = ['new', 'qualified', 'quoted', 'negotiating', 'booked']
+// Which stage(s) each deal tab shows.
+const TAB_STAGES: Record<Exclude<Tab, 'schedule'>, Stage[]> = {
+  pipeline: ['new', 'qualifying', 'quoted', 'pending', 'sold', 'lost'],
+  leads: ['new'],
+  qualify: ['qualifying'],
+  quotes: ['quoted'],
+  sales: ['pending', 'sold', 'lost'],
+}
 
 type Deal = {
   id: string
@@ -50,20 +65,76 @@ function fmtMoney(cents: number): string {
 function ageDays(createdAt: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000))
 }
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
 
-export default function SalesPage() {
+function SalesPageInner() {
+  const sp = useSearchParams()
   const [tab, setTab] = useState<Tab>('pipeline')
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
+  const [showNewLead, setShowNewLead] = useState(false)
+  const [nl, setNl] = useState({ name: '', phone: '', email: '', service: '', value: '', notes: '' })
+  const [nlSaving, setNlSaving] = useState(false)
+  const [nlErr, setNlErr] = useState('')
 
-  useEffect(() => {
+  const loadDeals = () => {
     setLoading(true)
     fetch('/api/deals')
       .then((r) => r.json())
       .then((d) => setDeals((d?.deals || []) as Deal[]))
       .catch(() => setDeals([]))
       .finally(() => setLoading(false))
-  }, [])
+  }
+  useEffect(() => { loadDeals() }, [])
+  // Open the tab named in ?tab= (sidebar deep-links point here).
+  useEffect(() => {
+    const t = sp.get('tab')
+    if (t && TABS.some((x) => x.key === t)) setTab(t as Tab)
+  }, [sp])
+
+  async function moveDeal(id: string, stage: string) {
+    try {
+      await fetch(`/api/deals/${id}/stage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage }),
+      })
+    } catch { /* ignore */ }
+    loadDeals()
+  }
+
+  async function submitNewLead() {
+    setNlErr('')
+    if (!nl.name.trim()) { setNlErr('Name is required.'); return }
+    if (nl.phone.replace(/\D/g, '').length < 10) { setNlErr('A valid phone is required.'); return }
+    if (!/^\S+@\S+\.\S+$/.test(nl.email.trim())) { setNlErr('A valid email is required.'); return }
+    setNlSaving(true)
+    try {
+      const res = await fetch('/api/deals/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: nl.name.trim(),
+          phone: nl.phone.trim() || undefined,
+          email: nl.email.trim() || undefined,
+          service: nl.service.trim() || undefined,
+          value_cents: nl.value ? Math.round(Number(nl.value) * 100) : 0,
+          notes: nl.notes.trim() || undefined,
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) { setNlErr((data && data.error) || 'Could not create lead.'); setNlSaving(false); return }
+      setShowNewLead(false)
+      setNl({ name: '', phone: '', email: '', service: '', value: '', notes: '' })
+      loadDeals()
+    } catch {
+      setNlErr('Network error.')
+    } finally {
+      setNlSaving(false)
+    }
+  }
 
   const byStage = useMemo(() => {
     const map = new Map<Stage, Deal[]>()
@@ -75,268 +146,122 @@ export default function SalesPage() {
     return map
   }, [deals])
 
-  const stageStats = useMemo(() => {
-    return STAGES.map((s) => {
-      const list = byStage.get(s.key) || []
-      const value = list.reduce((sum, d) => sum + d.value_cents, 0)
-      return { stage: s.key, label: s.label, count: list.length, value }
-    })
-  }, [byStage])
-
-  const totalPipelineValue = stageStats.reduce((s, x) => s + x.value, 0)
-  const bookedThisMonth = (() => {
-    const start = new Date()
-    start.setDate(1)
-    start.setHours(0, 0, 0, 0)
-    return deals.filter((d) => d.stage === 'booked' && new Date(d.last_activity_at || d.created_at) >= start)
-  })()
-  const bookedCount = bookedThisMonth.length
-  const bookedValue = bookedThisMonth.reduce((s, d) => s + d.value_cents, 0)
-
-  const sourceCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const d of deals) {
-      const src = (d.source || 'web').toLowerCase()
-      counts[src] = (counts[src] || 0) + 1
-    }
-    return counts
-  }, [deals])
-  const sourceTotal = Object.values(sourceCounts).reduce((s, n) => s + n, 0) || 1
+  const stageDeals = tab === 'schedule' ? [] : TAB_STAGES[tab].flatMap((s) => byStage.get(s) || [])
+  const stageTotal = stageDeals.reduce((sum, d) => sum + d.value_cents, 0)
+  const activeLabel = TABS.find((t) => t.key === tab)?.label ?? ''
 
   return (
     <div className="sl-scope">
       <div className="sl-tabs">
-        {TABS.map((t) => (
-          <button key={t.key} className={`sl-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)} type="button">
-            <span className="sl-tab-letter">{t.letter}</span>
-            {t.label}
-            {t.key === 'pipeline' && deals.length > 0 && <span className="sl-tab-count">{deals.length}</span>}
-          </button>
-        ))}
+        {TABS.map((t) => {
+          const count = t.key === 'schedule' ? 0 : TAB_STAGES[t.key].flatMap((s) => byStage.get(s) || []).length
+          return (
+            <button key={t.key} className={`sl-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)} type="button">
+              <span className="sl-tab-letter">{t.letter}</span>
+              {t.label}
+              {count > 0 && <span className="sl-tab-count">{count}</span>}
+            </button>
+          )
+        })}
       </div>
 
-      <div className="sl-bar-label">Pipeline · This Month</div>
-      <div className="sl-outlook">
-        <div className="sl-stat">
-          <div className="sl-stat-label">Open Deals</div>
-          <div className="sl-stat-value">{deals.length}</div>
-          <div className="sl-stat-sub">Across stages</div>
-        </div>
-        <div className="sl-stat">
-          <div className="sl-stat-label">Pipeline Value</div>
-          <div className="sl-stat-value"><span className="unit">$</span>{Math.round(totalPipelineValue / 100).toLocaleString('en-US')}</div>
-          <div className="sl-stat-sub">Sum of open deals</div>
-        </div>
-        <div className="sl-stat">
-          <div className="sl-stat-label">Booked · MTD</div>
-          <div className="sl-stat-value">{bookedCount}</div>
-          <div className="sl-stat-sub good">{fmtMoney(bookedValue)}</div>
-        </div>
-        <div className="sl-stat">
-          <div className="sl-stat-label">Win Rate</div>
-          <div className="sl-stat-value">{deals.length > 0 ? Math.round((bookedCount / deals.length) * 100) : 0}<span className="pct">%</span></div>
-          <div className="sl-stat-sub">Booked / total open</div>
-        </div>
-        <div className="sl-stat">
-          <div className="sl-stat-label">Stale {deals.filter((d) => ageDays(d.last_activity_at || d.created_at) > 7).length > 0 && <span className="sl-stat-tag warn">action</span>}</div>
-          <div className="sl-stat-value">{deals.filter((d) => ageDays(d.last_activity_at || d.created_at) > 7).length}</div>
-          <div className="sl-stat-sub">No activity 7d+</div>
-        </div>
-        <div className="sl-stat">
-          <div className="sl-stat-label">Avg Deal Size</div>
-          <div className="sl-stat-value"><span className="unit">$</span>{deals.length > 0 ? Math.round(totalPipelineValue / 100 / deals.length).toLocaleString('en-US') : 0}</div>
-          <div className="sl-stat-sub">Per open deal</div>
-        </div>
+      <div className="sl-tabbar-note">
+        <span className="sl-tab-tip"><span className="sl-tab-tip-letter">{TABS.find((t) => t.key === tab)?.letter}</span>{TAB_TIPS[tab]}</span>
+        <button type="button" className="sl-newlead-btn" onClick={() => setShowNewLead(true)}>+ New Lead</button>
       </div>
 
-      {/* GOAL TRACKER */}
-      <div className="sl-goal-card">
-        <div className="sl-goal-block">
-          <span className="sl-goal-label">This Month · Bookings</span>
-          <span className={`sl-goal-num ${bookedCount > 0 ? 'good' : ''}`}>{bookedCount} / 32</span>
-          <div className="sl-goal-bar">
-            <div className={`sl-goal-fill ${bookedCount >= 32 ? 'over' : ''}`} style={{ width: `${Math.min(100, (bookedCount / 32) * 100)}%` }} />
-          </div>
-          <span className="sl-goal-meta">{Math.round((bookedCount / 32) * 100)}% to plan</span>
-        </div>
-        <div className="sl-goal-block">
-          <span className="sl-goal-label">Revenue Goal</span>
-          <span className="sl-goal-num">{fmtMoney(bookedValue)} / $6,400</span>
-          <div className="sl-goal-bar">
-            <div className="sl-goal-fill" style={{ width: `${Math.min(100, (bookedValue / 640000) * 100)}%` }} />
-          </div>
-          <span className="sl-goal-meta">{Math.round((bookedValue / 640000) * 100)}% to plan</span>
-        </div>
-        <div className="sl-goal-block">
-          <span className="sl-goal-label">Pipeline Health</span>
-          <span className="sl-goal-num">{deals.length}</span>
-          <div className="sl-goal-bar">
-            <div className="sl-goal-fill" style={{ width: `${Math.min(100, deals.length * 5)}%` }} />
-          </div>
-          <span className="sl-goal-meta">Target: 20+ open deals</span>
-        </div>
-        <div className="sl-goal-block">
-          <span className="sl-goal-label">Days Left in Month</span>
-          <span className="sl-goal-num">
-            {(() => {
-              const today = new Date()
-              const last = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-              return last.getDate() - today.getDate()
-            })()}
-          </span>
-          <div className="sl-goal-bar">
-            <div className="sl-goal-fill" style={{ width: `${(new Date().getDate() / 30) * 100}%` }} />
-          </div>
-          <span className="sl-goal-meta"><strong>{new Date().getDate()}</strong> days done</span>
-        </div>
-      </div>
+      {tab === 'schedule' && <CalendarBoard />}
 
-      {tab === 'quotes' && <SalesQuotesTab />}
-      {tab === 'won' && <SalesWonTab view="won" />}
-      {tab === 'lost' && <SalesWonTab view="lost" />}
-      {tab === 'forecast' && <SalesForecastTab />}
-      {tab === 'conversations' && <SalesConversationsTab />}
-
-      {tab === 'leads' && (
-        <div className="sl-coming-soon">
-          <div className="sl-coming-soon-title">Coming soon.</div>
-          <div>Leads view will land next pass.</div>
-        </div>
-      )}
-
-      {tab === 'pipeline' && (
+      {tab !== 'schedule' && (
         <>
           <div className="sl-section-head">
-            <h2 className="sl-section-title">Pipeline<em>.</em></h2>
-            <span className="sl-section-meta">{deals.length} {deals.length === 1 ? 'deal' : 'deals'} · {fmtMoney(totalPipelineValue)} value</span>
+            <h2 className="sl-section-title">{activeLabel}<em>.</em></h2>
+            <span className="sl-section-meta">{stageDeals.length} {stageDeals.length === 1 ? 'deal' : 'deals'} · {fmtMoney(stageTotal)}</span>
           </div>
 
-          {/* STAGE STATS */}
-          <div className="sl-stage-stats">
-            {stageStats.map((s) => (
-              <div key={s.stage} className="sl-stage-cell">
-                <span className="sl-stage-name">
-                  <span className={`sl-stage-dot ${s.stage}`} />
-                  {s.label}
-                </span>
-                <div className="sl-stage-row">
-                  <span className="sl-stage-count">{s.count}</span>
-                  <span className="sl-stage-value">{fmtMoney(s.value)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* KANBAN */}
-          <div className="sl-kanban">
-            {KANBAN_STAGES.map((stage) => {
-              const list = byStage.get(stage) || []
-              const stageMeta = STAGES.find((s) => s.key === stage)!
-              const total = list.reduce((s, d) => s + d.value_cents, 0)
+          <div className="sl-stage-list">
+            {loading && <div className="sl-empty">Loading…</div>}
+            {!loading && stageDeals.length === 0 && <div className="sl-empty">Nothing in {activeLabel} yet.</div>}
+            {stageDeals.map((d) => {
+              const age = ageDays(d.last_activity_at || d.created_at)
+              const ageClass = age >= 14 ? 'danger' : age >= 7 ? 'warn' : ''
+              const dealClass = d.probability && d.probability >= 75 ? 'hot' : age >= 14 ? 'stale' : age >= 7 ? 'aging' : ''
+              const src = (d.source || 'web').toLowerCase()
+              const srcSafe: 'selena' | 'web' | 'referral' | 'repeat' =
+                src.includes('selena') ? 'selena' : src === 'referral' ? 'referral' : src === 'repeat' ? 'repeat' : 'web'
               return (
-                <div key={stage} className="sl-lane">
-                  <div className="sl-lane-head">
-                    <span className="sl-lane-name">
-                      <span className={`sl-stage-dot ${stage}`} />
-                      {stageMeta.label}
-                    </span>
-                    <span className="sl-lane-count">{list.length}</span>
+                <div key={d.id} className={`sl-deal ${dealClass}`}>
+                  <div className="sl-deal-name">{d.clients?.name || d.title || 'Untitled'}</div>
+                  <div className="sl-deal-meta">
+                    <span className="sl-deal-ctx">{d.title || (d.clients?.address ?? '—')}</span>
+                    <span className="sl-deal-value">{fmtMoney(d.value_cents)}</span>
                   </div>
-                  <div className="sl-lane-value">{fmtMoney(total)}</div>
-                  {loading && list.length === 0 && <div className="sl-empty" style={{ padding: 8 }}>—</div>}
-                  {list.map((d) => {
-                    const age = ageDays(d.last_activity_at || d.created_at)
-                    const ageClass = age >= 14 ? 'danger' : age >= 7 ? 'warn' : ''
-                    const dealClass = d.probability && d.probability >= 75 ? 'hot' : age >= 14 ? 'stale' : age >= 7 ? 'aging' : ''
-                    const sourceClass = ((d.source || 'web') as string).toLowerCase().includes('selena') ? 'selena' : ((d.source || 'web') as string).toLowerCase()
-                    const srcSafe: 'selena' | 'web' | 'referral' | 'repeat' =
-                      sourceClass === 'selena' || sourceClass === 'web' || sourceClass === 'referral' || sourceClass === 'repeat'
-                        ? sourceClass as 'selena' | 'web' | 'referral' | 'repeat'
-                        : 'web'
-                    return (
-                      <div key={d.id} className={`sl-deal ${dealClass}`}>
-                        <div className="sl-deal-name">{d.clients?.name || d.title || 'Untitled'}</div>
-                        <div className="sl-deal-meta">
-                          <span className="sl-deal-ctx">{d.title || (d.clients?.address ?? '—')}</span>
-                          <span className="sl-deal-value">{fmtMoney(d.value_cents)}</span>
-                        </div>
-                        <div className="sl-deal-foot">
-                          <span className={`sl-deal-source ${srcSafe}`}>{srcSafe}</span>
-                          <span className={`sl-deal-age ${ageClass}`}>{age === 0 ? 'today' : `${age}d`}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
+                  <div className="sl-deal-foot">
+                    {['pending', 'sold', 'lost'].includes(d.stage)
+                      ? <span className={`sl-deal-status ${d.stage}`}>{cap(d.stage)}</span>
+                      : <span className={`sl-deal-source ${srcSafe}`}>{srcSafe}</span>}
+                    <span className={`sl-deal-age ${ageClass}`}>{age === 0 ? 'today' : `${age}d`}</span>
+                  </div>
+                  <select className="sl-deal-move" value={d.stage} onChange={(e) => moveDeal(d.id, e.target.value)}>
+                    {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                  </select>
                 </div>
               )
             })}
           </div>
-
-          {/* PANEL ROW */}
-          <div className="sl-panel-row">
-            <div className="sl-panel">
-              <div className="sl-panel-head">
-                <span className="sl-panel-label">Selena · Active Conversations</span>
-                <span className="sl-live-tag">LIVE</span>
-              </div>
-              <div className="sl-empty">Conversation feed wires next pass.</div>
-            </div>
-
-            <div className="sl-panel">
-              <div className="sl-panel-head">
-                <span className="sl-panel-label">Source Mix</span>
-              </div>
-              {Object.entries(sourceCounts).slice(0, 5).map(([src, n]) => {
-                const pct = Math.round((n / sourceTotal) * 100)
-                const colorMap: Record<string, string> = {
-                  selena: 'var(--sl-good)',
-                  web: 'var(--sl-ink)',
-                  referral: 'var(--sl-vip)',
-                  repeat: 'var(--sl-warn)',
-                }
-                const color = colorMap[src] || 'var(--sl-muted)'
-                return (
-                  <div key={src} className="sl-source-row">
-                    <span className="sl-source-dot" style={{ background: color }} />
-                    <span className="sl-source-name">{src}</span>
-                    <div className="sl-source-bar"><div className="sl-source-fill" style={{ width: `${pct}%`, background: color }} /></div>
-                    <span className="sl-source-pct">{pct}%</span>
-                  </div>
-                )
-              })}
-              {Object.keys(sourceCounts).length === 0 && <div className="sl-empty">No deals yet.</div>}
-            </div>
-
-            <div className="sl-panel">
-              <div className="sl-panel-head">
-                <span className="sl-panel-label">Lost Reasons</span>
-              </div>
-              <div className="sl-empty">Wires next pass.</div>
-            </div>
-
-            <div className="sl-panel">
-              <div className="sl-panel-head">
-                <span className="sl-panel-label">Funnel · Mini</span>
-              </div>
-              <div className="sl-funnel-mini">
-                {stageStats.map((s, i) => {
-                  const max = Math.max(1, ...stageStats.map((x) => x.count))
-                  const pctOfPrev = i === 0 ? 100 : stageStats[i - 1].count > 0 ? Math.round((s.count / stageStats[i - 1].count) * 100) : 0
-                  return (
-                    <div key={s.stage} className="sl-funnel-step">
-                      <span className="sl-funnel-label">{s.label}</span>
-                      <div className="sl-funnel-bar">
-                        <div className="sl-funnel-fill" style={{ width: `${(s.count / max) * 100}%` }}>{s.count}</div>
-                      </div>
-                      <span className={`sl-funnel-pct ${i === 0 ? 'muted' : ''}`}>{i === 0 ? '—' : `${pctOfPrev}%`}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
         </>
       )}
+
+      {showNewLead && (
+        <div className="sl-modal-overlay" role="dialog" aria-modal="true" onClick={() => !nlSaving && setShowNewLead(false)}>
+          <div className="sl-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>New Lead</h3>
+            <p className="sl-modal-tip">Adds a lead at the <strong>Lead</strong> stage and creates the client automatically.</p>
+            <div className="sl-field">
+              <label>Name *</label>
+              <input value={nl.name} onChange={(e) => setNl({ ...nl, name: e.target.value })} placeholder="First and last" />
+            </div>
+            <div className="sl-field" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label>Phone *</label>
+                <input value={nl.phone} onChange={(e) => setNl({ ...nl, phone: e.target.value })} placeholder="(212) 555-1234" />
+              </div>
+              <div>
+                <label>Email *</label>
+                <input value={nl.email} onChange={(e) => setNl({ ...nl, email: e.target.value })} placeholder="you@example.com" />
+              </div>
+            </div>
+            <p className="sl-modal-tip">Name, phone, and email are all required.</p>
+            <div className="sl-field" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label>Service</label>
+                <input value={nl.service} onChange={(e) => setNl({ ...nl, service: e.target.value })} placeholder="e.g. Kitchen remodel" />
+              </div>
+              <div>
+                <label>Est. value ($)</label>
+                <input value={nl.value} onChange={(e) => setNl({ ...nl, value: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" inputMode="decimal" />
+              </div>
+            </div>
+            <div className="sl-field">
+              <label>Notes</label>
+              <textarea rows={2} value={nl.notes} onChange={(e) => setNl({ ...nl, notes: e.target.value })} placeholder="Anything useful for follow-up" />
+            </div>
+            {nlErr && <div style={{ marginTop: 10, color: '#c0392b', fontSize: 13 }}>{nlErr}</div>}
+            <div className="sl-modal-actions">
+              <button type="button" className="sl-newlead-btn" style={{ background: 'transparent', color: 'var(--sl-ink)' }} onClick={() => setShowNewLead(false)} disabled={nlSaving}>Cancel</button>
+              <button type="button" className="sl-newlead-btn" style={{ flex: 1 }} onClick={submitNewLead} disabled={nlSaving}>{nlSaving ? 'Creating…' : 'Create lead'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+export default function SalesPage() {
+  return (
+    <Suspense fallback={null}>
+      <SalesPageInner />
+    </Suspense>
   )
 }
