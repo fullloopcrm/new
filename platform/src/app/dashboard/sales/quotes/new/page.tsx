@@ -1,464 +1,52 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+/**
+ * New proposal — rendered as a route-level modal over the sales surface. The
+ * three "Build Proposal" links still navigate here; this route paints a modal
+ * shell (dim backdrop that does NOT close — only X / Cancel / Escape) around the
+ * shared QuoteBuilder, which autosaves a draft as you type.
+ */
+import { Suspense, useCallback, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import HelpTip from '../../../_components/HelpTip'
+import QuoteBuilder from '../_QuoteBuilder'
 
-type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
-
-type LineItem = {
-  id: string
-  name: string
-  description: string
-  quantity: number
-  unit_price_cents: number
-  optional: boolean
-  selected: boolean
-}
-
-function blankLine(): LineItem {
-  return {
-    id: `li_${Math.random().toString(36).slice(2, 10)}`,
-    name: '',
-    description: '',
-    quantity: 1,
-    unit_price_cents: 0,
-    optional: false,
-    selected: true,
-  }
-}
-
-function centsToDollars(cents: number): string {
-  return (cents / 100).toFixed(2)
-}
-
-function dollarsToCents(str: string): number {
-  const n = parseFloat(String(str).replace(/[^0-9.-]/g, ''))
-  return Number.isFinite(n) ? Math.round(n * 100) : 0
-}
-
-function formatCents(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-}
-
-function NewQuoteInner() {
+function NewQuoteModal() {
   const router = useRouter()
   const sp = useSearchParams()
-  // When launched from a deal card (?deal=<id>) the proposal is bound to that
-  // deal and prefilled from it — this is the "carry through" into quoting.
   const dealId = sp.get('deal')
-  const [clients, setClients] = useState<Client[]>([])
-  const [clientId, setClientId] = useState<string>('')
-  const [catalog, setCatalog] = useState<Array<{ id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null }>>([])
+  const clientId = sp.get('client_id')
 
-  const [contactName, setContactName] = useState('')
-  const [contactEmail, setContactEmail] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
-  const [serviceAddress, setServiceAddress] = useState('')
-
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-
-  const [items, setItems] = useState<LineItem[]>([blankLine()])
-  const [taxPct, setTaxPct] = useState('0')
-  const [discount, setDiscount] = useState('0')
-  const [depositType, setDepositType] = useState<'none' | 'flat' | 'percent'>('none')
-  const [depositValue, setDepositValue] = useState('')
-
-  const [terms, setTerms] = useState('')
-  const [notes, setNotes] = useState('')
-  const [validUntilDays, setValidUntilDays] = useState('30')
-
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  // Close → back to wherever the builder was opened from; the autosaved draft
+  // persists. Falls back to the quotes list if there's no history.
+  const close = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back()
+    else router.push('/dashboard/sales/quotes')
+  }, [router])
 
   useEffect(() => {
-    fetch('/api/clients?limit=500')
-      .then(r => r.json())
-      .then(data => setClients(Array.isArray(data) ? data : data.clients || []))
-      .catch(() => {})
-    fetch('/api/catalog')
-      .then(r => r.json())
-      .then(data => setCatalog((data?.items || []).filter((i: { active?: boolean }) => i.active !== false)))
-      .catch(() => {})
-  }, [])
-
-  function addFromCatalog(itemId: string) {
-    const it = catalog.find(c => c.id === itemId)
-    if (!it) return
-    setItems(prev => [
-      ...prev.filter(li => li.name.trim() || li.unit_price_cents), // drop the empty starter row
-      { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents },
-    ])
-  }
-
-  // Prefill from the originating deal (client + a starter title).
-  useEffect(() => {
-    if (!dealId) return
-    fetch(`/api/deals/${dealId}`)
-      .then(r => r.json())
-      .then(data => {
-        const deal = data?.deal
-        if (!deal) return
-        if (deal.client_id) setClientId(deal.client_id)
-        if (deal.title) setTitle(prev => prev || deal.title)
-      })
-      .catch(() => {})
-  }, [dealId])
-
-  // When client picked, prefill contact fields
-  useEffect(() => {
-    if (!clientId) return
-    const c = clients.find(x => x.id === clientId)
-    if (c) {
-      if (!contactName) setContactName(c.name || '')
-      if (!contactEmail && c.email) setContactEmail(c.email)
-      if (!contactPhone && c.phone) setContactPhone(c.phone)
-      if (!serviceAddress && c.address) setServiceAddress(c.address)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId, clients])
-
-  function updateItem(id: string, patch: Partial<LineItem>) {
-    setItems(prev => prev.map(li => (li.id === id ? { ...li, ...patch } : li)))
-  }
-  function addItem() { setItems(prev => [...prev, blankLine()]) }
-  function removeItem(id: string) { setItems(prev => prev.filter(li => li.id !== id)) }
-
-  const subtotalCents = items
-    .filter(li => !li.optional || li.selected)
-    .reduce((acc, li) => acc + Math.round(li.quantity * li.unit_price_cents), 0)
-  const taxRateBps = Math.round(parseFloat(taxPct || '0') * 100)
-  const discountCents = dollarsToCents(discount)
-  const taxable = Math.max(0, subtotalCents - discountCents)
-  const taxCents = Math.round((taxable * taxRateBps) / 10000)
-  const totalCents = taxable + taxCents
-
-  // Resolve the deposit for display + submit. flat input is dollars, percent is %.
-  const depositValueForApi =
-    depositType === 'flat' ? dollarsToCents(depositValue)
-    : depositType === 'percent' ? Math.round(parseFloat(depositValue || '0') * 100)
-    : 0
-  const depositCents =
-    depositType === 'flat' ? Math.min(depositValueForApi, totalCents)
-    : depositType === 'percent' ? Math.round((totalCents * depositValueForApi) / 10000)
-    : 0
-
-  async function save(sendAfter: boolean) {
-    setError('')
-    if (!title.trim()) { setError('Title required'); return }
-    if (items.filter(li => li.name.trim()).length === 0) { setError('At least one line item'); return }
-
-    setSaving(true)
-    try {
-      const validUntil = validUntilDays
-        ? new Date(Date.now() + parseInt(validUntilDays) * 86400000).toISOString().slice(0, 10)
-        : null
-
-      const res = await fetch('/api/quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: clientId || null,
-          deal_id: dealId || null,
-          contact_name: contactName || null,
-          contact_email: contactEmail || null,
-          contact_phone: contactPhone || null,
-          service_address: serviceAddress || null,
-          title,
-          description: description || null,
-          line_items: items
-            .filter(li => li.name.trim())
-            .map(li => ({
-              id: li.id,
-              name: li.name,
-              description: li.description || undefined,
-              quantity: li.quantity,
-              unit_price_cents: li.unit_price_cents,
-              optional: li.optional,
-              selected: li.optional ? li.selected : true,
-            })),
-          tax_rate_bps: taxRateBps,
-          discount_cents: discountCents,
-          deposit_type: depositType,
-          deposit_value: depositValueForApi,
-          terms: terms || null,
-          notes: notes || null,
-          valid_until: validUntil,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed')
-
-      if (sendAfter) {
-        await fetch(`/api/quotes/${data.quote.id}/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ via: 'both' }),
-        })
-      }
-      router.push(`/dashboard/sales/quotes/${data.quote.id}`)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save')
-      setSaving(false)
-    }
-  }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [close])
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <Link href="/dashboard/sales/quotes" className="text-xs text-slate-500 hover:underline">← Quotes</Link>
-      <h1 className="font-heading text-2xl font-bold text-slate-900 mt-1 mb-6">New Quote</h1>
-
-      {error && (
-        <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
-      )}
-
-      {/* Client + contact */}
-      <section className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
-        <h2 className="font-heading font-semibold text-slate-900 mb-3">Recipient</h2>
-        <label className="block text-xs text-slate-500 uppercase mb-1">Existing client (optional)</label>
-        <select
-          value={clientId}
-          onChange={e => setClientId(e.target.value)}
-          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4"
-        >
-          <option value="">— Standalone (no client yet) —</option>
-          {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.email ? ` · ${c.email}` : ''}</option>)}
-        </select>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input placeholder="Name" value={contactName} onChange={e => setContactName(e.target.value)}
-            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
-          <input placeholder="Email" value={contactEmail} onChange={e => setContactEmail(e.target.value)}
-            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
-          <input placeholder="Phone" value={contactPhone} onChange={e => setContactPhone(e.target.value)}
-            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
-          <input placeholder="Service address" value={serviceAddress} onChange={e => setServiceAddress(e.target.value)}
-            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
-        </div>
-      </section>
-
-      {/* Title + description */}
-      <section className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
-        <h2 className="font-heading font-semibold text-slate-900 mb-3">Quote Details</h2>
-        <input
-          placeholder="Quote title (e.g., Kitchen deep clean · 4 hours)"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3"
-        />
-        <textarea
-          placeholder="Description (optional) — scope of work, assumptions, exclusions"
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          rows={3}
-          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
-        />
-      </section>
-
-      {/* Line items */}
-      <section className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-heading font-semibold text-slate-900">Line Items</h2>
-          <div className="flex items-center gap-2">
-            {catalog.length > 0 && (
-              <select
-                value=""
-                onChange={e => { if (e.target.value) { addFromCatalog(e.target.value); e.target.value = '' } }}
-                className="text-xs px-2 py-1 bg-white border border-slate-300 rounded text-slate-700"
-              >
-                <option value="">+ From catalog…</option>
-                {catalog.map(c => (
-                  <option key={c.id} value={c.id}>{c.name} — {formatCents(c.price_cents)}/{c.per_unit}</option>
-                ))}
-              </select>
-            )}
-            <button
-              onClick={addItem}
-              className="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700"
-            >+ Add line</button>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm" aria-modal="true" role="dialog">
+      {/* Backdrop is intentionally inert — clicking it does not close the modal. */}
+      <div className="min-h-full flex items-start justify-center p-3 md:p-6">
+        <div className="w-full max-w-4xl my-2 bg-slate-50 rounded-2xl shadow-2xl border border-slate-200">
+          <header className="flex items-center justify-between px-5 py-4 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl z-10">
+            <h1 className="font-heading text-lg font-bold text-slate-900">New Proposal</h1>
+            <button onClick={close} aria-label="Close" className="w-8 h-8 grid place-items-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200">✕</button>
+          </header>
+          <div className="p-5">
+            <QuoteBuilder
+              dealId={dealId}
+              clientIdInit={clientId}
+              onCancel={close}
+              onSaved={(id) => router.push(`/dashboard/sales/quotes/${id}`)}
+            />
           </div>
         </div>
-
-        {/* Catalog options — feeds the type-to-search / dropdown on each line's name. */}
-        <datalist id="sku-catalog">
-          {catalog.map(c => <option key={c.id} value={c.name}>{`${formatCents(c.price_cents)} / ${c.per_unit}${c.category ? ` · ${c.category}` : ''}`}</option>)}
-        </datalist>
-
-        <div className="space-y-2">
-          {items.map((li, idx) => (
-            <div key={li.id} className="grid grid-cols-12 gap-2 items-start bg-slate-50 rounded-lg p-3">
-              <div className="col-span-5">
-                <input
-                  placeholder="Item name — type to search catalog"
-                  list="sku-catalog"
-                  value={li.name}
-                  onChange={e => {
-                    const v = e.target.value
-                    const match = catalog.find(c => c.name.toLowerCase() === v.trim().toLowerCase())
-                    if (match) updateItem(li.id, { name: match.name, unit_price_cents: match.price_cents, description: li.description || match.description || '' })
-                    else updateItem(li.id, { name: v })
-                  }}
-                  className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-sm mb-1"
-                />
-                <input
-                  placeholder="Description (optional)"
-                  value={li.description}
-                  onChange={e => updateItem(li.id, { description: e.target.value })}
-                  className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-600"
-                />
-              </div>
-              <div className="col-span-2">
-                <input
-                  type="number" step="0.25" min="0"
-                  value={li.quantity}
-                  onChange={e => updateItem(li.id, { quantity: parseFloat(e.target.value) || 0 })}
-                  className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-sm text-right"
-                />
-                <p className="text-[10px] text-slate-400 text-right mt-0.5">qty</p>
-              </div>
-              <div className="col-span-2">
-                <input
-                  type="text"
-                  value={centsToDollars(li.unit_price_cents)}
-                  onChange={e => updateItem(li.id, { unit_price_cents: dollarsToCents(e.target.value) })}
-                  className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-sm text-right"
-                />
-                <p className="text-[10px] text-slate-400 text-right mt-0.5">unit $</p>
-              </div>
-              <div className="col-span-2 text-right pt-1.5 text-sm font-medium text-slate-900">
-                {formatCents(Math.round(li.quantity * li.unit_price_cents))}
-              </div>
-              <div className="col-span-1 flex flex-col gap-1 items-end">
-                <button
-                  onClick={() => removeItem(li.id)}
-                  disabled={items.length === 1}
-                  className="text-red-400 hover:text-red-600 text-sm disabled:opacity-30"
-                  aria-label={`Remove line ${idx + 1}`}
-                >×</button>
-                <label className="text-[10px] text-slate-500 flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={li.optional}
-                    onChange={e => updateItem(li.id, { optional: e.target.checked })}
-                    className="w-3 h-3"
-                  />
-                  opt
-                </label>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Tax + discount + totals */}
-        <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-slate-500 uppercase mb-1">Tax % <HelpTip text="Applied to taxable line items only. This will default from your Settings tax rate soon." /></label>
-            <input
-              type="text"
-              value={taxPct}
-              onChange={e => setTaxPct(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
-              placeholder="8.875"
-            />
-            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Discount ($) <HelpTip text="A flat dollar amount taken off the subtotal before tax." /></label>
-            <input
-              type="text"
-              value={discount}
-              onChange={e => setDiscount(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
-            />
-            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Valid for (days) <HelpTip text="How long the customer has to accept before the proposal expires." /></label>
-            <input
-              type="number"
-              value={validUntilDays}
-              onChange={e => setValidUntilDays(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
-            />
-            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Deposit <HelpTip text="An upfront amount the customer pays to accept — a % of the total or a flat $. If set, the deal waits at Pending until it's paid, then closes to Sold." /></label>
-            <div className="flex gap-2">
-              <select
-                value={depositType}
-                onChange={e => setDepositType(e.target.value as 'none' | 'flat' | 'percent')}
-                className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="none">No deposit</option>
-                <option value="percent">% of total</option>
-                <option value="flat">Flat $</option>
-              </select>
-              {depositType !== 'none' && (
-                <input
-                  type="text"
-                  value={depositValue}
-                  onChange={e => setDepositValue(e.target.value)}
-                  placeholder={depositType === 'percent' ? '25' : '500'}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
-                />
-              )}
-            </div>
-          </div>
-          <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
-            <div className="flex justify-between text-slate-600">
-              <span>Subtotal</span><span>{formatCents(subtotalCents)}</span>
-            </div>
-            {discountCents > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Discount</span><span>−{formatCents(discountCents)}</span>
-              </div>
-            )}
-            {taxRateBps > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Tax ({taxPct}%)</span><span>{formatCents(taxCents)}</span>
-              </div>
-            )}
-            <div className="flex justify-between pt-2 border-t border-slate-200 font-bold text-slate-900 text-base">
-              <span>Total</span><span>{formatCents(totalCents)}</span>
-            </div>
-            {depositCents > 0 && (
-              <div className="flex justify-between text-teal-700 font-medium pt-1">
-                <span>Deposit due now</span><span>{formatCents(depositCents)}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Terms + notes */}
-      <section className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
-        <h2 className="font-heading font-semibold text-slate-900 mb-3">Terms &amp; Notes</h2>
-        <label className="block text-xs text-slate-500 uppercase mb-1">Terms &amp; Conditions</label>
-        <textarea
-          placeholder="Payment terms, warranty, cancellation policy, etc."
-          value={terms}
-          onChange={e => setTerms(e.target.value)}
-          rows={3}
-          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3"
-        />
-        <label className="block text-xs text-slate-500 uppercase mb-1">Internal Notes (not shown to client)</label>
-        <textarea
-          placeholder="Visible only in admin."
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          rows={2}
-          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
-        />
-      </section>
-
-      <div className="flex flex-wrap gap-2 justify-end sticky bottom-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
-        <Link
-          href="/dashboard/sales/quotes"
-          className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900"
-        >Cancel</Link>
-        <button
-          onClick={() => save(false)}
-          disabled={saving}
-          className="px-4 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
-        >Save Draft</button>
-        <button
-          onClick={() => save(true)}
-          disabled={saving}
-          className="px-5 py-2 text-sm font-medium rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
-        >{saving ? 'Saving…' : 'Save & Send'}</button>
       </div>
     </div>
   )
@@ -467,7 +55,7 @@ function NewQuoteInner() {
 export default function NewQuotePage() {
   return (
     <Suspense fallback={null}>
-      <NewQuoteInner />
+      <NewQuoteModal />
     </Suspense>
   )
 }
