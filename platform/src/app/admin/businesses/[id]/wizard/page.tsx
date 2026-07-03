@@ -139,7 +139,7 @@ export default function OnboardingWizardPage() {
         setBusinessHours(b.business_hours || '')
         setPaymentMethods(Array.isArray(b.payment_methods) ? b.payment_methods : ['zelle', 'credit_card', 'cash'])
         const cfg = (b.selena_config || {}) as Record<string, unknown>
-        setAiName((b.agent_name as string) || (cfg.ai_name as string) || 'Jefe')
+        setAiName((b.agent_name as string) || (cfg.ai_name as string) || 'Yinez')
         setTone((cfg.tone as string) || 'warm_friendly')
         setLanguage((cfg.language as string) || 'en')
         setEmojiUsage((cfg.emoji_usage as string) || 'one_per_message')
@@ -219,7 +219,7 @@ export default function OnboardingWizardPage() {
     try {
       const currentCfg = (biz?.selena_config || {}) as Record<string, unknown>
       await patchBusiness({
-        agent_name: aiName.trim() || 'Jefe',
+        agent_name: aiName.trim() || 'Yinez',
         selena_config: { ...currentCfg, tone, language, emoji_usage: emojiUsage },
       }, 'selena')
       setMsg('Saved')
