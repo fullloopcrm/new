@@ -75,6 +75,7 @@ export function LeadsPanel() {
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [converting, setConverting] = useState(false)
+  const [ownerPin, setOwnerPin] = useState<string | null>(null)
   const [convertErr, setConvertErr] = useState('')
   const [propAdmins, setPropAdmins] = useState(1)
   const [propTeam, setPropTeam] = useState(0)
@@ -255,6 +256,7 @@ export function LeadsPanel() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Convert failed')
       await fetchLeads()
+      if (data.ownerPin) setOwnerPin(data.ownerPin)
       if (data.tenant?.id) window.open(`/admin/businesses/${data.tenant.id}`, '_blank')
     } catch (e) {
       setConvertErr(e instanceof Error ? e.message : 'Convert failed')
@@ -441,6 +443,13 @@ export function LeadsPanel() {
                     Override — paid proposals create the tenant automatically. Use this only to comp an account without payment.
                   </p>
                   {convertErr && <p className="text-xs text-red-600 mt-1">{convertErr}</p>}
+                  {ownerPin && (
+                    <div className="mt-2 p-3 rounded-lg border border-teal-300 bg-teal-50">
+                      <p className="text-xs text-teal-800 font-medium">Owner PIN — give this to the owner (shown once):</p>
+                      <p className="text-2xl font-bold tracking-[0.3em] text-teal-900 mt-1">{ownerPin}</p>
+                      <button onClick={() => { navigator.clipboard.writeText(ownerPin); }} className="mt-1 text-[11px] text-teal-700 underline">Copy</button>
+                    </div>
+                  )}
                 </div>
               ) : null}
 

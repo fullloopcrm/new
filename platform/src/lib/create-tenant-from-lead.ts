@@ -12,6 +12,8 @@ import { provisionTenant } from './provision-tenant'
 import { seedOnboardingTasks } from './onboarding-tasks'
 import { computeMonthly } from './billing-pricing'
 import { zipToTimezone } from './timezone'
+import { hashAdminPin } from './admin-pin'
+import crypto from 'crypto'
 
 type IndustryKey = 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general'
 
@@ -43,6 +45,8 @@ export interface CreateFromLeadResult {
   ok: boolean
   tenant?: { id: string; slug: string; name: string; status: string }
   alreadyConverted?: boolean
+  /** Plaintext owner PIN, returned ONCE at creation for the admin to relay. */
+  ownerPin?: string | null
   error?: string
 }
 
@@ -159,5 +163,24 @@ export async function createTenantFromLead(
     })
     .eq('id', leadId)
 
-  return { ok: true, tenant }
+  // Owner login: create an owner member with a PIN so they can sign in on the
+  // PIN pad — no email, no password. The plaintext PIN is returned ONCE for the
+  // admin to relay (pin_hash is one-way; it can't be recovered later).
+  let ownerPin: string | null = null
+  try {
+    ownerPin = String(crypto.randomInt(100000, 1000000)) // 6-digit
+    await supabaseAdmin.from('tenant_members').insert({
+      tenant_id: tenant.id,
+      email: lead.email || null,
+      name: lead.contact_name || lead.business_name || 'Owner',
+      role: 'owner',
+      pin_hash: hashAdminPin(ownerPin),
+      pin_set_at: new Date().toISOString(),
+    })
+  } catch (e) {
+    console.error('[create-tenant-from-lead] owner member/PIN failed:', e)
+    ownerPin = null
+  }
+
+  return { ok: true, tenant, ownerPin }
 }

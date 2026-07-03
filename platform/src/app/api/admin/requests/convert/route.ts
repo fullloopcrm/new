@@ -24,5 +24,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: result.error || 'Convert failed' }, { status: 500 })
   }
 
-  return NextResponse.json({ tenant: result.tenant, alreadyConverted: result.alreadyConverted })
+  return NextResponse.json({ tenant: result.tenant, alreadyConverted: result.alreadyConverted, ownerPin: result.ownerPin })
 }
