@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/release-due-payments",
+      "schedule": "0 7 * * *"
+    },
+    {
       "path": "/api/cron/generate-recurring",
       "schedule": "0 6 * * *"
     },
