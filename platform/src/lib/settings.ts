@@ -79,6 +79,11 @@ export interface TenantSettings {
   // Finance display config (mostly selena_config jsonb; expense_categories is a real column)
   fiscal_year_start: number
   tax_rate: number
+  // Sales & Proposals defaults (selena_config jsonb) — prefill the quote builder.
+  proposal_valid_days: number
+  proposal_deposit_type: 'none' | 'percent' | 'flat'
+  proposal_deposit_value: number
+  proposal_terms: string
   currency_symbol: string
   expense_categories: string[]
   zelle_email: string
@@ -240,6 +245,12 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
       : [],
     fiscal_year_start: Number(selenaConfig.fiscal_year_start ?? 1),
     tax_rate: Number(selenaConfig.tax_rate ?? 0),
+    proposal_valid_days: Number(selenaConfig.proposal_valid_days ?? 30),
+    proposal_deposit_type: (['percent', 'flat'].includes(selenaConfig.proposal_deposit_type as string)
+      ? selenaConfig.proposal_deposit_type
+      : 'none') as 'none' | 'percent' | 'flat',
+    proposal_deposit_value: Number(selenaConfig.proposal_deposit_value ?? 0),
+    proposal_terms: (selenaConfig.proposal_terms as string) || '',
     currency_symbol: (selenaConfig.currency_symbol as string) || '$',
     expense_categories: Array.isArray(tenant?.expense_categories)
       ? (tenant?.expense_categories as string[])

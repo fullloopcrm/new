@@ -81,6 +81,20 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       .then(data => setClients(Array.isArray(data) ? data : data.clients || [])).catch(() => {})
     fetch('/api/catalog').then(r => r.json())
       .then(data => setCatalog((data?.items || []).filter((i: { active?: boolean }) => i.active !== false))).catch(() => {})
+    // Prefill tax / valid-days / deposit / terms from the tenant's Sales &
+    // Proposals defaults. Functional guards ensure we never overwrite a value
+    // the operator has already changed (e.g. if settings resolves late).
+    fetch('/api/settings').then(r => r.json()).then(data => {
+      const cfg = (data?.tenant?.selena_config || {}) as Record<string, unknown>
+      if (cfg.tax_rate != null) setTaxPct(prev => (prev === '0' ? String(cfg.tax_rate) : prev))
+      if (cfg.proposal_valid_days != null) setValidUntilDays(prev => (prev === '30' ? String(cfg.proposal_valid_days) : prev))
+      if (cfg.proposal_terms) setTerms(prev => (prev === '' ? String(cfg.proposal_terms) : prev))
+      const dtype = ['percent', 'flat'].includes(cfg.proposal_deposit_type as string) ? (cfg.proposal_deposit_type as 'percent' | 'flat') : 'none'
+      if (dtype !== 'none') {
+        setDepositType(prev => (prev === 'none' ? dtype : prev))
+        if (cfg.proposal_deposit_value != null) setDepositValue(prev => (prev === '' ? String(cfg.proposal_deposit_value) : prev))
+      }
+    }).catch(() => {})
   }, [])
 
   // Prefill from the originating deal (client + a starter title).
@@ -314,7 +328,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
         {/* Tax + discount + totals */}
         <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-slate-500 uppercase mb-1">Tax % <HelpTip text="Applied to taxable line items only. This will default from your Settings tax rate soon." /></label>
+            <label className="block text-xs text-slate-500 uppercase mb-1">Tax % <HelpTip text="Applied to taxable line items only. Prefilled from Settings → Sales; change it per proposal." /></label>
             <input type="text" value={taxPct} onChange={e => setTaxPct(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="8.875" />
             <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Discount ($) <HelpTip text="A flat dollar amount taken off the subtotal before tax." /></label>
             <input type="text" value={discount} onChange={e => setDiscount(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
