@@ -245,10 +245,10 @@ export default function DashboardShell({
         />
       )}
 
-      {/* Notifications panel — opens from the right, 1/4 of the page */}
+      {/* Notifications panel — opens from the right, 1/4 of the page.
+          Transparent click-catcher (no screen dimming) closes on outside click. */}
       {notifPanelOpen && (
         <div className="fixed inset-0 z-50" onClick={() => setNotifPanelOpen(false)}>
-          <div className="absolute inset-0 bg-black/40" />
           <aside
             onClick={(e) => e.stopPropagation()}
             className="absolute inset-y-0 right-0 w-1/4 min-w-[300px] max-w-[460px] flex flex-col shadow-2xl"
@@ -268,7 +268,7 @@ export default function DashboardShell({
                 <div className="px-5 py-10 text-center" style={{ fontSize: '12px', color: '#666' }}>No notifications yet.</div>
               )}
               {notifs.map((n) => (
-                <div key={n.id} className={`px-5 py-2.5 flex items-start gap-2.5 ${n.seen ? 'opacity-50' : ''}`} style={{ fontSize: '12.5px', color: '#C8C5BC', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                <div key={n.id} className="px-5 py-2.5 flex items-start gap-2.5" style={{ fontSize: '12.5px', color: '#FFFFFF', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                   <span className="w-[6px] h-[6px] rounded-full flex-shrink-0" style={{ marginTop: 5, background: n.tone === 'warn' ? '#E8A04A' : n.tone === 'good' ? '#4ADE80' : '#6A6A66' }} />
                   <span className="flex-1">{n.text}</span>
                   <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', color: '#666', flexShrink: 0 }}>{n.time}</span>
@@ -295,33 +295,10 @@ export default function DashboardShell({
         style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-muted-2)', borderRight: '1px solid #2E2E2E' }}
       >
         {/* Brand */}
-        <div className="px-[22px] pt-[22px] pb-1 flex items-start justify-between gap-2">
+        <div className="px-[22px] pt-[22px] pb-1">
           <Link href="/dashboard" className="block" style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', color: '#F4F4F1' }}>
             {tenantName || 'Full Loop'}<i style={{ fontStyle: 'italic', color: '#888', fontWeight: 400 }}>/</i>
           </Link>
-          <button
-            type="button"
-            onClick={() => setNotifPanelOpen(true)}
-            aria-label={`Notifications${notifCount > 0 ? `, ${notifCount} new` : ''}`}
-            className={`relative flex-shrink-0 flex items-center justify-center rounded-md transition-transform hover:scale-105 ${notifCount > 0 ? 'animate-pulse' : ''}`}
-            style={{
-              width: 30,
-              height: 30,
-              background: notifCount > 0 ? '#E5484D' : 'rgba(255,255,255,0.06)',
-              color: notifCount > 0 ? '#fff' : '#888',
-              boxShadow: notifCount > 0 ? '0 0 0 3px rgba(229,72,77,0.18)' : 'none',
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            {notifCount > 0 && (
-              <span style={{ position: 'absolute', top: -5, right: -5, background: '#fff', color: '#E5484D', fontFamily: 'var(--mono)', fontSize: '9px', fontWeight: 700, lineHeight: '15px', minWidth: 15, height: 15, borderRadius: 8, padding: '0 3px', textAlign: 'center' }}>
-                {notifCount > 99 ? '99+' : notifCount}
-              </span>
-            )}
-          </button>
         </div>
         <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           v2.4 · NYC
@@ -452,10 +429,33 @@ export default function DashboardShell({
           </button>
 
           {/* TOPBAR */}
-          <div className="flex items-center justify-end mb-3">
+          <div className="flex items-center justify-end gap-4 mb-3">
             <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               {meta}
             </span>
+            <button
+              type="button"
+              onClick={() => setNotifPanelOpen(true)}
+              aria-label={`Notifications${notifCount > 0 ? `, ${notifCount} new` : ''}`}
+              className={`relative flex-shrink-0 flex items-center justify-center rounded-md transition-transform hover:scale-105 ${notifCount > 0 ? 'animate-pulse' : ''}`}
+              style={{
+                width: 32,
+                height: 32,
+                background: notifCount > 0 ? '#E5484D' : 'rgba(0,0,0,0.05)',
+                color: notifCount > 0 ? '#fff' : 'var(--color-loop-muted)',
+                boxShadow: notifCount > 0 ? '0 0 0 3px rgba(229,72,77,0.15)' : 'none',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              {notifCount > 0 && (
+                <span style={{ position: 'absolute', top: -5, right: -5, background: '#fff', color: '#E5484D', border: '1px solid #E5484D', fontFamily: 'var(--mono)', fontSize: '9px', fontWeight: 700, lineHeight: '15px', minWidth: 16, height: 16, borderRadius: 8, padding: '0 3px', textAlign: 'center' }}>
+                  {notifCount > 99 ? '99+' : notifCount}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* PERSISTENT PLATFORM-UPDATES BANNER */}
