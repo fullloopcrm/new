@@ -153,6 +153,9 @@ function SalesPageInner() {
   const [schedFor, setSchedFor] = useState<string | null>(null)
   const [schedDate, setSchedDate] = useState('')
   const [schedTime, setSchedTime] = useState('09:00')
+  const [schedDuration, setSchedDuration] = useState('2')
+  const [schedCrew, setSchedCrew] = useState('')
+  const [crews, setCrews] = useState<Array<{ id: string; name: string }>>([])
 
   const loadDeals = () => {
     setLoading(true)
@@ -199,6 +202,11 @@ function SalesPageInner() {
     setReasonFor(null)
     if (!activities[id]) loadActivities(id)
     loadQuotes(id)
+    if (crews.length === 0) {
+      fetch('/api/crews').then((r) => r.json())
+        .then((d) => setCrews((d?.crews || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))))
+        .catch(() => {})
+    }
   }
 
   async function moveDeal(id: string, stage: string, lostReason?: string) {
@@ -224,7 +232,11 @@ function SalesPageInner() {
       const res = await fetch(`/api/jobs/${jobId}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start_time: startIso }),
+        body: JSON.stringify({
+          start_time: startIso,
+          duration_hours: Number(schedDuration) || 2,
+          ...(schedCrew ? { crew_id: schedCrew } : {}),
+        }),
       })
       if (res.ok) {
         setSchedFor(null)
@@ -415,6 +427,11 @@ function SalesPageInner() {
                               <div className="sl-reason">
                                 <input type="date" className="sl-sched-input" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} />
                                 <input type="time" className="sl-sched-input" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
+                                <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Hours" />
+                                <select className="sl-sched-input" value={schedCrew} onChange={(e) => setSchedCrew(e.target.value)} title="Crew">
+                                  <option value="">No crew</option>
+                                  {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
                                 <button type="button" className="sl-act-btn go" disabled={busyId === d.id || !schedDate} onClick={() => scheduleSession(d.id, jobId)}>Add to calendar</button>
                                 <button type="button" className="sl-act-btn ghost" onClick={() => setSchedFor(null)}>Cancel</button>
                               </div>
