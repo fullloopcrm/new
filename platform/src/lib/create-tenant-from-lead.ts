@@ -9,6 +9,7 @@
  */
 import { supabaseAdmin } from './supabase'
 import { provisionTenant } from './provision-tenant'
+import { seedOnboardingTasks } from './onboarding-tasks'
 import { computeMonthly } from './billing-pricing'
 import { zipToTimezone } from './timezone'
 
@@ -122,6 +123,14 @@ export async function createTenantFromLead(
     await provisionTenant({ tenantId: tenant.id, industry })
   } catch (e) {
     console.error('[create-tenant-from-lead] provision failed:', e)
+  }
+
+  // Seed the onboarding checklist (Stripe/Telnyx/Resend/DNS/10DLC/Google) so the
+  // sold tenant has an actionable path to go live. Best-effort — never orphan.
+  try {
+    await seedOnboardingTasks(tenant.id)
+  } catch (e) {
+    console.error('[create-tenant-from-lead] onboarding seed failed:', e)
   }
 
   // Carry the lead's note thread onto the tenant (timestamps preserved).
