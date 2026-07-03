@@ -274,9 +274,10 @@ export default function QuoteDetailPage() {
           </button>
         )}
         {quote.converted_job_id && (
-          <span className="px-3 py-1.5 text-xs font-medium rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-            Job created ✓
-          </span>
+          <Link href={`/dashboard/jobs/${quote.converted_job_id}`}
+            className="px-3 py-1.5 text-xs font-medium rounded bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100">
+            View Job →
+          </Link>
         )}
         {['accepted', 'converted'].includes(quote.status) && (
           <Link
