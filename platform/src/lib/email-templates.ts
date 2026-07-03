@@ -7,33 +7,30 @@ type TemplateData = {
 }
 
 function baseTemplate(content: string, data: TemplateData): string {
-  const color = data.primaryColor || '#111827'
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 0;">
-<tr><td align="center">
-<table width="100%" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-<tr><td style="background:${color};padding:24px 32px;">
-<table width="100%"><tr>
-${data.logoUrl ? `<td width="40"><img src="${data.logoUrl}" width="36" height="36" style="border-radius:6px;" /></td>` : ''}
-<td><span style="color:#ffffff;font-size:16px;font-weight:700;">${data.tenantName}</span></td>
-</tr></table>
-</td></tr>
-<tr><td style="padding:32px;">
+  // Full Loop light-editorial shell (mirror of lib/messaging/shell.ts) so every
+  // template — all 14 that call this — matches the proposal + dashboard look,
+  // brand-injected per tenant. color-scheme:light resists dark-mode inversion.
+  const year = new Date().getFullYear()
+  const DISPLAY = "'Fraunces', Georgia, 'Times New Roman', serif"
+  const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+  const MONO = "'JetBrains Mono', ui-monospace, Menlo, monospace"
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><style>:root{color-scheme:light only}</style></head>
+<body style="margin:0;background:#E7E1D3;color-scheme:light only">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#E7E1D3;padding:36px 16px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#F5F1E8;border:1px solid #D8D2C4;border-radius:16px;overflow:hidden">
+<tr><td style="padding:22px 28px;border-bottom:1px solid #1C1C1C">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+${data.logoUrl ? `<td width="40" style="padding-right:12px"><img src="${data.logoUrl}" width="40" height="40" style="border-radius:8px;display:block" alt="${data.tenantName}"></td>` : ''}
+<td style="font-family:${DISPLAY};font-size:20px;font-weight:600;color:#1C1C1C;letter-spacing:-0.01em">${data.tenantName}</td>
+</tr></table></td></tr>
+<tr><td style="padding:28px;font-family:${SANS};font-size:15px;line-height:1.6;color:#1C1C1C">
 ${content}
 </td></tr>
-<tr><td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
-<p style="color:#9ca3af;font-size:11px;margin:0;text-align:center;">
-Sent by ${data.tenantName} via Full Loop CRM
-</p>
+<tr><td style="padding:16px 28px;border-top:1px solid #D8D2C4;background:#E7E1D3;font-family:${SANS};font-size:11px;color:#807B70;line-height:1.55">
+© ${year} ${data.tenantName} · powered by <a href="https://homeservicesbusinesscrm.com/" style="text-decoration:none"><span style="font-family:${DISPLAY};font-weight:600;color:#1C1C1C">Full&nbsp;Loop</span><span style="font-family:${MONO};font-size:8px;letter-spacing:0.18em;color:#807B70">&nbsp;CRM</span></a><br>Autonomous Home Service Business CRM Systems
 </td></tr>
-</table>
-</td></tr>
-</table>
-</body>
-</html>`
+</table></td></tr></table></body></html>`
 }
 
 export function bookingReminderEmail(data: TemplateData & {
