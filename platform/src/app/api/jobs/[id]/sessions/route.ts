@@ -26,11 +26,16 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: job, error: jErr } = await supabaseAdmin
       .from('jobs')
-      .select('id, client_id, service_address')
+      .select('id, client_id, service_address, title')
       .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
     if (jErr || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+
+    // bookings.start_time AND end_time are both NOT NULL. Default a 2-hour
+    // session when the caller doesn't give an explicit end.
+    const start = new Date(body.start_time)
+    const end = body.end_time ? new Date(body.end_time) : new Date(start.getTime() + 2 * 60 * 60 * 1000)
 
     const { data: booking, error: bErr } = await supabaseAdmin
       .from('bookings')
@@ -38,8 +43,10 @@ export async function POST(request: Request, { params }: Params) {
         tenant_id: tenantId,
         client_id: job.client_id,
         job_id: id,
-        start_time: body.start_time,
-        end_time: body.end_time ?? null,
+        // bookings.service_type is NOT NULL — label the session from the job.
+        service_type: job.title || 'Job session',
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
         status: 'confirmed',
         notes: body.notes || 'Job session',
         address: job.service_address || null,
