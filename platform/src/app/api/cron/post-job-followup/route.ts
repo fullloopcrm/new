@@ -40,11 +40,15 @@ export async function GET(request: Request) {
       const twoHoursAgo = new Date(Date.now() - delayMs)
       const threeHoursAgo = new Date(Date.now() - delayMs - 60 * 60 * 1000)
 
+      // Only standalone bookings (cleaning, N=1). Sessions of a multi-day JOB
+      // carry a job_id — following up per-session would spam one review text per
+      // session. Jobs get a single review request at job completion instead.
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
         .select('id, client_id, notes, check_out_time, clients(name, phone)')
         .eq('tenant_id', tenant.id)
         .eq('status', 'completed')
+        .is('job_id', null)
         .gte('check_out_time', threeHoursAgo.toISOString())
         .lte('check_out_time', twoHoursAgo.toISOString())
         .limit(500)
