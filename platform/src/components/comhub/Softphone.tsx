@@ -105,7 +105,7 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
   const [muted, setMuted] = useState(false)
   const [held, setHeld] = useState(false)
   const [durationSecs, setDurationSecs] = useState(0)
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const [callerId, setCallerId] = useState<string>(() => {
     if (typeof window === 'undefined') return DEFAULT_CALLER_ID
     const saved = window.localStorage.getItem('comhub:caller-id')
@@ -805,7 +805,7 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
       case 'error': return 'bg-rose-500'
       case 'idle':
       case 'registering':
-      default: return 'bg-neutral-500'
+      default: return 'bg-[#E4E2DC]'
     }
   })()
 
@@ -815,18 +815,18 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
         type="button"
         onClick={() => setCollapsed(false)}
         aria-label="Open softphone"
-        className="group relative h-14 w-14 rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:bg-neutral-800/90 hover:scale-105 transition-all duration-200 flex items-center justify-center"
+        className="group relative h-14 w-14 rounded-full bg-[#FFFFFF]/90 backdrop-blur-xl border border-[#E4E2DC] shadow-[0_6px_20px_rgba(0,0,0,0.12)] hover:bg-[#EFEFEC] hover:scale-105 transition-all duration-200 flex items-center justify-center"
       >
         <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-emerald-400" stroke="currentColor" strokeWidth="2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
         </svg>
-        <span className={`absolute top-0 right-0 h-3 w-3 rounded-full ${statusDotClass} ring-2 ring-neutral-950`} />
+        <span className={`absolute top-0 right-0 h-3 w-3 rounded-full ${statusDotClass} ring-2 ring-[#E4E2DC]`} />
       </button>
     )
   }
 
   return (
-    <div className="w-[340px] rounded-2xl bg-neutral-950/95 backdrop-blur-xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden text-neutral-100">
+    <div className="w-[300px] rounded-2xl bg-white backdrop-blur-xl border border-[#E4E2DC] shadow-[0_12px_40px_rgba(0,0,0,0.12)] overflow-hidden text-[#1C1C1C]">
       <audio
         id="comhub-softphone-remote-audio"
         ref={remoteAudioRef}
@@ -837,16 +837,16 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
       <header className="flex items-center justify-between px-4 py-3 border-b border-white/5">
         <div className="flex items-center gap-2.5">
           <span className={`h-2 w-2 rounded-full ${statusDotClass}`} />
-          <span className="text-[11px] uppercase tracking-[0.18em] text-neutral-400 font-medium">Softphone</span>
+          <span className="text-[11px] uppercase tracking-[0.18em] text-[#7A7A78] font-medium">Softphone</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-neutral-300 font-mono tabular-nums">{statusLabel}</span>
+          <span className="text-[11px] text-[#3A3A3A] font-mono tabular-nums">{statusLabel}</span>
           {!isLive && (
             <button
               type="button"
               onClick={() => setCollapsed(true)}
               aria-label="Minimize softphone"
-              className="text-neutral-500 hover:text-neutral-200 transition-colors"
+              className="text-[#7A7A78] hover:text-[#1C1C1C] transition-colors"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
@@ -918,7 +918,7 @@ function DialerScreen({
     <div>
       {/* Caller-ID picker — which Telnyx number outbound shows on customer phones. */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">From</span>
+        <span className="text-[10px] uppercase tracking-[0.18em] text-[#7A7A78]">From</span>
         <div className="flex gap-1">
           {CALLER_ID_OPTIONS.map(opt => (
             <button
@@ -928,7 +928,7 @@ function DialerScreen({
               className={`px-2 py-0.5 rounded-md text-[10px] font-mono tracking-wide transition-colors ${
                 callerId === opt.value
                   ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/40'
-                  : 'bg-white/[0.04] text-neutral-400 border border-white/[0.06] hover:bg-white/[0.08]'
+                  : 'bg-[#F4F4F1] text-[#7A7A78] border border-[#E4E2DC] hover:bg-[#EFEFEC]'
               }`}
             >
               {opt.label.split(') ')[0].replace('(', '')}
@@ -945,10 +945,10 @@ function DialerScreen({
             key={k.digit}
             type="button"
             onClick={() => onDigit(k.digit)}
-            className="h-14 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] active:bg-white/[0.12] active:scale-95 border border-white/[0.06] hover:border-white/[0.1] transition-all duration-100 flex flex-col items-center justify-center group"
+            className="h-12 rounded-xl bg-[#F4F4F1] hover:bg-[#EFEFEC] active:bg-[#E8E8E4] active:scale-95 border border-[#E4E2DC] hover:border-[#C8C5BC] transition-all duration-100 flex flex-col items-center justify-center group"
           >
-            <span className="text-xl font-light text-neutral-100">{k.digit}</span>
-            {k.sub && <span className="text-[9px] tracking-[0.15em] text-neutral-600 group-hover:text-neutral-500 transition-colors">{k.sub}</span>}
+            <span className="text-xl font-light text-[#1C1C1C]">{k.digit}</span>
+            {k.sub && <span className="text-[9px] tracking-[0.15em] text-[#7A7A78] group-hover:text-[#3A3A3A] transition-colors">{k.sub}</span>}
           </button>
         ))}
       </div>
@@ -957,7 +957,7 @@ function DialerScreen({
         type="button"
         onClick={onCall}
         disabled={!ready || !destination}
-        className="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-neutral-800 disabled:text-neutral-600 disabled:cursor-not-allowed text-white font-medium tracking-wide transition-colors flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(16,185,129,0.25)] disabled:shadow-none"
+        className="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-[#FFFFFF] disabled:text-[#7A7A78] disabled:cursor-not-allowed text-white font-medium tracking-wide transition-colors flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(16,185,129,0.25)] disabled:shadow-none"
       >
         <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
           <path d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
@@ -1014,12 +1014,12 @@ function CallScreen({
           </div>
         )}
         {callerName && (
-          <div className="text-base font-medium text-neutral-100 mb-0.5">{callerName}</div>
+          <div className="text-base font-medium text-[#1C1C1C] mb-0.5">{callerName}</div>
         )}
-        <div className="font-mono tabular-nums text-lg text-neutral-200">
+        <div className="font-mono tabular-nums text-lg text-[#1C1C1C]">
           {formatPretty(destination) || destination}
         </div>
-        <div className="mt-2 text-xs text-neutral-500">
+        <div className="mt-2 text-xs text-[#7A7A78]">
           {status === 'active' && (
             <span className="font-mono tabular-nums">{formatDuration(durationSecs)}</span>
           )}
@@ -1036,7 +1036,7 @@ function CallScreen({
               key={k.digit}
               type="button"
               onClick={() => onDtmf(k.digit)}
-              className="h-11 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-neutral-100 font-mono text-sm active:scale-95 transition-all"
+              className="h-11 rounded-lg bg-[#F4F4F1] hover:bg-[#EFEFEC] border border-[#E4E2DC] text-[#1C1C1C] font-mono text-sm active:scale-95 transition-all"
             >
               {k.digit}
             </button>
@@ -1056,7 +1056,7 @@ function CallScreen({
         <button
           type="button"
           onClick={() => setShowDialpad(false)}
-          className="w-full h-9 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-neutral-300 text-xs mb-3 transition-colors"
+          className="w-full h-9 rounded-lg bg-[#F4F4F1] hover:bg-[#EFEFEC] border border-[#E4E2DC] text-[#3A3A3A] text-xs mb-3 transition-colors"
         >
           Hide keypad
         </button>
@@ -1108,7 +1108,7 @@ function ControlButton({
       className={`h-14 rounded-xl border transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
         active
           ? 'bg-blue-500/20 border-blue-400/40 text-blue-200'
-          : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.06] text-neutral-300'
+          : 'bg-[#F4F4F1] hover:bg-[#EFEFEC] border-[#E4E2DC] text-[#3A3A3A]'
       }`}
     >
       <Icon name={icon} className="h-4 w-4" />
@@ -1255,10 +1255,10 @@ function RecipientSearch({
         onFocus={() => results.length > 0 && setShowDropdown(true)}
         onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
         placeholder="Name or number"
-        className="w-full bg-transparent text-center font-mono tabular-nums text-2xl text-neutral-100 placeholder:text-neutral-700 placeholder:font-sans placeholder:text-base focus:outline-none py-2"
+        className="w-full bg-transparent text-center font-mono tabular-nums text-2xl text-[#1C1C1C] placeholder:text-[#B5B2AC] placeholder:font-sans placeholder:text-base focus:outline-none py-2"
         aria-label="Recipient name or phone"
       />
-      <div className="text-center text-xs text-neutral-500 h-4 mb-3">
+      <div className="text-center text-xs text-[#7A7A78] h-4 mb-3">
         {selectedLabel
           ? selectedLabel
           : destination
@@ -1266,7 +1266,7 @@ function RecipientSearch({
             : ' '}
       </div>
       {showDropdown && results.length > 0 && (
-        <div className="absolute left-0 right-0 top-full -mt-2 mb-3 z-10 rounded-xl bg-neutral-900/95 backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)] overflow-hidden">
+        <div className="absolute left-0 right-0 top-full -mt-2 mb-3 z-10 rounded-xl bg-white backdrop-blur-xl border border-[#E4E2DC] shadow-[0_12px_40px_rgba(0,0,0,0.12)] overflow-hidden">
           {results.map(r => (
             <button
               key={`${r.role}:${r.id}`}
@@ -1275,10 +1275,10 @@ function RecipientSearch({
                 e.preventDefault()
                 select(r)
               }}
-              className="w-full text-left px-3 py-2 hover:bg-white/[0.06] transition-colors flex items-center justify-between gap-3 border-b border-white/5 last:border-b-0"
+              className="w-full text-left px-3 py-2 hover:bg-[#F4F4F1] transition-colors flex items-center justify-between gap-3 border-b border-white/5 last:border-b-0"
             >
               <div className="min-w-0">
-                <div className="text-sm text-neutral-100 truncate flex items-center gap-2">
+                <div className="text-sm text-[#1C1C1C] truncate flex items-center gap-2">
                   {r.name || 'Unnamed'}
                   {r.do_not_service && (
                     <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-200 border border-rose-500/40">
@@ -1286,11 +1286,11 @@ function RecipientSearch({
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-neutral-500 font-mono tabular-nums truncate">
+                <div className="text-[11px] text-[#7A7A78] font-mono tabular-nums truncate">
                   {r.phone ? formatPretty(normalizePhone(r.phone)) : 'no phone'}
                 </div>
               </div>
-              <span className="text-[9px] uppercase tracking-[0.15em] text-neutral-500 shrink-0">
+              <span className="text-[9px] uppercase tracking-[0.15em] text-[#7A7A78] shrink-0">
                 {r.role}
               </span>
             </button>

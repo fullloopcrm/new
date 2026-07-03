@@ -294,7 +294,7 @@ export default function ComhubPage() {
   const totalUnread = useMemo(() => threads.reduce((a, t) => a + (t.unread_count || 0), 0), [threads])
 
   return (
-    <div className="comhub-loop flex flex-col h-[100dvh] md:h-[calc(100vh-4rem)] bg-neutral-950 text-neutral-100">
+    <div className="comhub-loop flex flex-col h-[100dvh] md:h-[calc(100vh-4rem)] bg-[#F4F4F1] text-[#1C1C1C]">
       <ActiveCallBanner />
       <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Floating softphone — Telnyx WebRTC browser dialer. Hidden on mobile so it doesn't cover the composer. */}
@@ -310,8 +310,8 @@ export default function ComhubPage() {
         <Softphone />
       </div>
       {/* Left: thread list — full-width on mobile, sidebar on md+. Hidden on mobile when a thread is selected. */}
-      <aside className={`${selected ? 'hidden md:flex' : 'flex'} w-full md:w-80 md:shrink-0 border-r border-neutral-800 flex-col`}>
-        <div className="p-4 border-b border-neutral-800">
+      <aside className={`${selected ? 'hidden md:flex' : 'flex'} w-full md:w-80 md:shrink-0 border-r border-[#E4E2DC] flex-col`}>
+        <div className="p-4 border-b border-[#E4E2DC]">
           <div className="mb-3" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             01 · Comhub
           </div>
@@ -360,14 +360,14 @@ export default function ComhubPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search threads…"
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-neutral-600"
+            className="w-full bg-[#FFFFFF] border border-[#E4E2DC] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[#C8C5BC]"
           />
           <div className="flex gap-1 mt-3 text-xs">
             {(['all', 'unread', 'unresponded'] as Filter[]).map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1 rounded-full ${filter === f ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800'}`}
+                className={`px-3 py-1 rounded-full ${filter === f ? 'bg-blue-600 text-white' : 'bg-[#FFFFFF] text-[#7A7A78] hover:bg-[#EFEFEC]'}`}
               >
                 {f === 'all' ? 'Open' : f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
@@ -378,7 +378,7 @@ export default function ComhubPage() {
               <button
                 key={c}
                 onClick={() => setChannel(c)}
-                className={`px-2 py-0.5 rounded ${channel === c ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                className={`px-2 py-0.5 rounded ${channel === c ? 'bg-[#F4F4F1] text-white' : 'text-[#7A7A78] hover:text-[#1C1C1C]'}`}
               >
                 {c === 'admin' ? 'YINEZ' : c.toUpperCase()}
               </button>
@@ -386,26 +386,26 @@ export default function ComhubPage() {
           </div>
         </div>
         {/* Channels — collapsible dropdown. Collapsed by default so Messages list gets the height. */}
-        <div className="border-b border-neutral-800 shrink-0">
+        <div className="border-b border-[#E4E2DC] shrink-0">
           <div className="flex justify-between items-center px-4 pt-3 pb-1">
             <button
               onClick={() => setChannelsOpen(v => !v)}
-              className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-neutral-500 hover:text-neutral-300"
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[#7A7A78] hover:text-[#1C1C1C]"
               aria-expanded={channelsOpen}
             >
               <span className="inline-block transition-transform" style={{ transform: channelsOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▸</span>
-              Channels {channels.length > 0 && <span className="text-neutral-600">({channels.length})</span>}
+              Channels {channels.length > 0 && <span className="text-[#7A7A78]">({channels.length})</span>}
             </button>
             <button
               onClick={() => setShowNewChannel(true)}
-              className="text-[11px] text-neutral-500 hover:text-neutral-200"
+              className="text-[11px] text-[#7A7A78] hover:text-[#1C1C1C]"
               title="Create channel"
             >+ New</button>
           </div>
           {channelsOpen && (
             <div className="max-h-56 overflow-y-auto pb-1">
               {channels.length === 0 && (
-                <div className="px-4 pb-3 text-xs text-neutral-600">No channels.</div>
+                <div className="px-4 pb-3 text-xs text-[#7A7A78]">No channels.</div>
               )}
               {channels.map(t => {
                 const isSel = selected === t.id
@@ -413,14 +413,14 @@ export default function ComhubPage() {
                   <button
                     key={t.id}
                     onClick={() => setSelected(t.id)}
-                    className={`w-full text-left px-4 py-2 hover:bg-neutral-900 transition ${isSel ? 'bg-neutral-900' : ''}`}
+                    className={`w-full text-left px-4 py-2 hover:bg-[#F4F4F1] transition ${isSel ? 'bg-[#FFFFFF]' : ''}`}
                   >
                     <div className="flex justify-between items-baseline gap-2">
                       <div className="font-medium truncate text-sm">{t.name || `#${t.slug}`}</div>
-                      <div className="text-[10px] text-neutral-600 shrink-0">{fmtTime(t.last_message_at)}</div>
+                      <div className="text-[10px] text-[#7A7A78] shrink-0">{fmtTime(t.last_message_at)}</div>
                     </div>
                     {t.last_message_preview && (
-                      <div className="text-[11px] text-neutral-500 truncate mt-0.5">{t.last_message_preview}</div>
+                      <div className="text-[11px] text-[#7A7A78] truncate mt-0.5">{t.last_message_preview}</div>
                     )}
                   </button>
                 )
@@ -431,10 +431,10 @@ export default function ComhubPage() {
 
         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Messages — inbound from clients/cleaners/referrers via SMS, email, portal */}
-          <div className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-wider text-neutral-500 sticky top-0 bg-neutral-950">Messages</div>
-          {loadingList && <div className="p-4 text-sm text-neutral-500">Loading…</div>}
+          <div className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-wider text-[#7A7A78] sticky top-0 bg-[#F4F4F1]">Messages</div>
+          {loadingList && <div className="p-4 text-sm text-[#7A7A78]">Loading…</div>}
           {!loadingList && threads.length === 0 && (
-            <div className="p-4 text-sm text-neutral-500">No threads.</div>
+            <div className="p-4 text-sm text-[#7A7A78]">No threads.</div>
           )}
           {threads.map(t => {
             const isSel = selected === t.id
@@ -444,12 +444,12 @@ export default function ComhubPage() {
               ? 'bg-blue-500/15 text-blue-300'
               : role === 'cleaner'
                 ? 'bg-emerald-500/15 text-emerald-300'
-                : 'bg-neutral-800 text-neutral-500'
+                : 'bg-[#FFFFFF] text-[#7A7A78]'
             return (
               <button
                 key={t.id}
                 onClick={() => setSelected(t.id)}
-                className={`w-full text-left px-4 py-3 border-b border-neutral-900 hover:bg-neutral-900 transition ${isSel ? 'bg-neutral-900' : ''}`}
+                className={`w-full text-left px-4 py-3 border-b border-[#E4E2DC] hover:bg-[#F4F4F1] transition ${isSel ? 'bg-[#FFFFFF]' : ''}`}
               >
                 <div className="flex justify-between items-baseline gap-2">
                   <div className="font-medium truncate flex items-center gap-1.5 min-w-0">
@@ -458,14 +458,14 @@ export default function ComhubPage() {
                     </span>
                     <span className="truncate">{contactDisplay(c)}</span>
                   </div>
-                  <div className="text-xs text-neutral-500 shrink-0">{fmtTime(t.last_message_at)}</div>
+                  <div className="text-xs text-[#7A7A78] shrink-0">{fmtTime(t.last_message_at)}</div>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] uppercase text-neutral-600">{t.channel}</span>
+                  <span className="text-[10px] uppercase text-[#7A7A78]">{t.channel}</span>
                   {t.unread_count > 0 && (
                     <span className="text-[10px] bg-red-500 text-white rounded-full px-1.5">{t.unread_count}</span>
                   )}
-                  <div className="text-xs text-neutral-400 truncate">{t.last_message_preview || '—'}</div>
+                  <div className="text-xs text-[#7A7A78] truncate">{t.last_message_preview || '—'}</div>
                 </div>
               </button>
             )
@@ -477,17 +477,17 @@ export default function ComhubPage() {
       {/* Center: conversation — hidden on mobile when no thread is selected. */}
       <main className={`${selected ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0 overflow-hidden`}>
         {!thread && (
-          <div className="flex-1 hidden md:flex items-center justify-center text-neutral-500">
+          <div className="flex-1 hidden md:flex items-center justify-center text-[#7A7A78]">
             Select a conversation
           </div>
         )}
         {thread && (
           <>
-            <header className="px-3 md:px-6 py-3 border-b border-neutral-800 flex items-center justify-between gap-2">
+            <header className="px-3 md:px-6 py-3 border-b border-[#E4E2DC] flex items-center justify-between gap-2">
               {/* Mobile back button — returns to thread list */}
               <button
                 onClick={() => { setSelected(null); setMobileContextOpen(false) }}
-                className="md:hidden shrink-0 px-2 py-1 text-neutral-300 hover:text-white text-lg leading-none"
+                className="md:hidden shrink-0 px-2 py-1 text-[#3A3A3A] hover:text-[#1C1C1C] text-lg leading-none"
                 aria-label="Back to thread list"
               >
                 ←
@@ -496,7 +496,7 @@ export default function ComhubPage() {
               {thread.kind === 'contact' && (
                 <button
                   onClick={() => setMobileContextOpen(true)}
-                  className="md:hidden shrink-0 px-2 py-1 text-neutral-300 hover:text-white text-sm leading-none"
+                  className="md:hidden shrink-0 px-2 py-1 text-[#3A3A3A] hover:text-[#1C1C1C] text-sm leading-none"
                   aria-label="Open client info"
                   title="Client info"
                 >
@@ -505,7 +505,7 @@ export default function ComhubPage() {
               )}
               <div className="min-w-0 flex-1 mr-1 md:mr-3">
                 <div className="font-semibold truncate text-sm md:text-base">{threadTitle(thread)}</div>
-                <div className="text-xs text-neutral-500 truncate">
+                <div className="text-xs text-[#7A7A78] truncate">
                   {thread.kind === 'channel'
                     ? (thread.description || 'Internal channel')
                     : `${thread.channel.toUpperCase()} · ${thread.comhub_contacts?.phone || thread.comhub_contacts?.email || ''}`}
@@ -559,7 +559,7 @@ export default function ComhubPage() {
                       fetchThread(thread.id)
                       fetchThreads()
                     }}
-                    className="px-2 py-1 rounded bg-neutral-800/60 hover:bg-neutral-800 text-neutral-300 text-xs border-0 cursor-pointer"
+                    className="px-2 py-1 rounded bg-[#FFFFFF]/60 hover:bg-[#EFEFEC] text-[#3A3A3A] text-xs border-0 cursor-pointer"
                   >
                     <option value="">No status</option>
                     <option value="waiting_customer">Waiting on customer</option>
@@ -595,7 +595,7 @@ export default function ComhubPage() {
                     setSelected(null)
                     fetchThreads()
                   }}
-                  className="px-2.5 py-1 rounded text-xs bg-neutral-800/60 hover:bg-neutral-800 text-neutral-300 whitespace-nowrap"
+                  className="px-2.5 py-1 rounded text-xs bg-[#FFFFFF]/60 hover:bg-[#EFEFEC] text-[#3A3A3A] whitespace-nowrap"
                 >
                   Close
                 </button>
@@ -613,7 +613,7 @@ export default function ComhubPage() {
                 return (
                   <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'} group`}>
                     <div className="max-w-[85%] md:max-w-[70%] min-w-0">
-                      <div className={`rounded-2xl px-4 py-2 break-words overflow-hidden relative ${isOut ? (isAuto ? 'bg-purple-700' : 'bg-blue-600') : 'bg-neutral-800'} ${m.flagged_for_review ? 'ring-2 ring-amber-500' : ''}`}>
+                      <div className={`rounded-2xl px-4 py-2 break-words overflow-hidden relative ${isOut ? (isAuto ? 'bg-purple-700' : 'bg-blue-600') : 'bg-[#FFFFFF]'} ${m.flagged_for_review ? 'ring-2 ring-amber-500' : ''}`}>
                         {m.subject && <div className="font-medium text-sm mb-1 break-words">{m.subject}</div>}
                         <div className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{renderWithMentions(m.body || '')}</div>
                         {m.media_urls && m.media_urls.length > 0 && (
@@ -630,13 +630,13 @@ export default function ComhubPage() {
                           </div>
                         )}
                       </div>
-                      <div className="text-[10px] text-neutral-500 mt-1 px-1 flex gap-2 items-center">
+                      <div className="text-[10px] text-[#7A7A78] mt-1 px-1 flex gap-2 items-center">
                         <span>{authorName}{isAuto ? ' · auto' : ''}</span>
                         <span>{fmtTime(m.sent_at)}</span>
                         {isAuto && (
                           <button
                             onClick={() => setExplainOpen(s => ({ ...s, [m.id]: !s[m.id] }))}
-                            className="text-neutral-500 hover:text-neutral-300 underline-offset-2 hover:underline"
+                            className="text-[#7A7A78] hover:text-[#1C1C1C] underline-offset-2 hover:underline"
                             title="Why did Yinez say that?"
                           >
                             {explainShown ? 'hide' : 'why?'}
@@ -656,21 +656,21 @@ export default function ComhubPage() {
                             }
                             fetchThread(thread.id)
                           }}
-                          className={`opacity-0 group-hover:opacity-100 transition-opacity ${m.flagged_for_review ? 'text-amber-400 opacity-100' : 'text-neutral-600 hover:text-amber-400'}`}
+                          className={`opacity-0 group-hover:opacity-100 transition-opacity ${m.flagged_for_review ? 'text-amber-400 opacity-100' : 'text-[#7A7A78] hover:text-amber-400'}`}
                           title={m.flagged_for_review ? 'Unflag' : 'Flag for review'}
                         >
                           {m.flagged_for_review ? '🚩 flagged' : '🚩'}
                         </button>
                       </div>
                       {explainShown && isAuto && (
-                        <div className="mt-1 ml-1 px-3 py-2 rounded bg-neutral-900 border border-neutral-800 text-[11px] text-neutral-400 space-y-0.5">
-                          <div><span className="text-neutral-500">channel:</span> {m.channel}</div>
-                          <div><span className="text-neutral-500">author:</span> {m.author}</div>
+                        <div className="mt-1 ml-1 px-3 py-2 rounded bg-[#FFFFFF] border border-[#E4E2DC] text-[11px] text-[#7A7A78] space-y-0.5">
+                          <div><span className="text-[#7A7A78]">channel:</span> {m.channel}</div>
+                          <div><span className="text-[#7A7A78]">author:</span> {m.author}</div>
                           {hasMetadata
                             ? Object.entries(m.metadata as Record<string, unknown>).map(([k, v]) => (
-                              <div key={k}><span className="text-neutral-500">{k}:</span> {typeof v === 'string' ? v : JSON.stringify(v)}</div>
+                              <div key={k}><span className="text-[#7A7A78]">{k}:</span> {typeof v === 'string' ? v : JSON.stringify(v)}</div>
                             ))
-                            : <div className="text-neutral-600 italic">No structured trace recorded for this message — Yinez state-capture lands in a future build.</div>}
+                            : <div className="text-[#7A7A78] italic">No structured trace recorded for this message — Yinez state-capture lands in a future build.</div>}
                         </div>
                       )}
                       {m.flagged_for_review && m.flagged_reason && (
@@ -682,18 +682,18 @@ export default function ComhubPage() {
               })}
               <div ref={messagesEndRef} />
             </div>
-            <div className="border-t border-neutral-800 p-3 md:p-4 min-h-[140px] relative">
+            <div className="border-t border-[#E4E2DC] p-3 md:p-4 min-h-[140px] relative">
               {/* Templates picker — only meaningful for SMS / email composers */}
               {(thread.channel === 'sms' || thread.channel === 'email') && templates.length > 0 && (
                 <div className="absolute right-4 top-2">
                   <button
                     onClick={() => setShowTemplates(s => !s)}
-                    className="text-[11px] text-neutral-500 hover:text-neutral-200"
+                    className="text-[11px] text-[#7A7A78] hover:text-[#1C1C1C]"
                   >
                     Templates ▾
                   </button>
                   {showTemplates && (
-                    <div className="absolute right-0 top-5 w-64 bg-neutral-900 border border-neutral-800 rounded-md shadow-xl z-10 max-h-72 overflow-y-auto">
+                    <div className="absolute right-0 top-5 w-64 bg-[#FFFFFF] border border-[#E4E2DC] rounded-md shadow-xl z-10 max-h-72 overflow-y-auto">
                       {templates.map(tpl => (
                         <button
                           key={tpl.id}
@@ -701,10 +701,10 @@ export default function ComhubPage() {
                             setComposer(c => (c ? c + '\n\n' : '') + tpl.body)
                             setShowTemplates(false)
                           }}
-                          className="w-full text-left px-3 py-2 hover:bg-neutral-800 border-b border-neutral-800 last:border-b-0"
+                          className="w-full text-left px-3 py-2 hover:bg-[#EFEFEC] border-b border-[#E4E2DC] last:border-b-0"
                         >
                           <div className="text-xs font-medium">{tpl.name}</div>
-                          <div className="text-[11px] text-neutral-500 truncate">{tpl.body}</div>
+                          <div className="text-[11px] text-[#7A7A78] truncate">{tpl.body}</div>
                         </button>
                       ))}
                     </div>
@@ -718,11 +718,11 @@ export default function ComhubPage() {
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder={thread.subject ? `Re: ${thread.subject}` : 'Subject'}
-                    className="w-full h-full bg-neutral-900 border border-neutral-800 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-neutral-600"
+                    className="w-full h-full bg-[#FFFFFF] border border-[#E4E2DC] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[#C8C5BC]"
                   />
                 )}
                 {thread.channel !== 'email' && (
-                  <div className="h-full flex items-center text-[11px] text-neutral-600 px-1">
+                  <div className="h-full flex items-center text-[11px] text-[#7A7A78] px-1">
                     {thread.kind === 'channel'
                       ? `${thread.name || '#' + thread.slug}${thread.description ? ' · ' + thread.description : ''}`
                       : thread.channel === 'sms'
@@ -748,12 +748,12 @@ export default function ComhubPage() {
                         : `Reply via ${thread.channel.toUpperCase()} (⌘+Enter to send)`
                   }
                   rows={3}
-                  className="flex-1 bg-neutral-900 border border-neutral-800 rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-neutral-600"
+                  className="flex-1 bg-[#FFFFFF] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
                 />
                 <button
                   onClick={handleSend}
                   disabled={!composer.trim() || sending}
-                  className="self-stretch px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 rounded-md text-sm font-medium"
+                  className="self-stretch px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-[#FFFFFF] disabled:text-[#7A7A78] rounded-md text-sm font-medium"
                 >
                   {sending ? 'Sending…' : 'Send'}
                 </button>
@@ -764,13 +764,13 @@ export default function ComhubPage() {
       </main>
 
       {/* Right: context panel — 320px on md+. On mobile, slides in as a fullscreen overlay when ⓘ is tapped. */}
-      <aside className={`${mobileContextOpen ? 'fixed inset-0 z-40 w-full' : 'hidden'} md:!relative md:!inset-auto md:!flex md:!w-80 md:shrink-0 md:!z-auto border-l border-neutral-800 overflow-y-auto bg-neutral-950 flex-col`}>
+      <aside className={`${mobileContextOpen ? 'fixed inset-0 z-40 w-full' : 'hidden'} md:!relative md:!inset-auto md:!flex md:!w-80 md:shrink-0 md:!z-auto border-l border-[#E4E2DC] overflow-y-auto bg-[#F4F4F1] flex-col`}>
         {mobileContextOpen && (
-          <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-neutral-800 sticky top-0 bg-neutral-950 z-10">
+          <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-[#E4E2DC] sticky top-0 bg-[#F4F4F1] z-10">
             <span className="text-sm font-semibold">Client info</span>
             <button
               onClick={() => setMobileContextOpen(false)}
-              className="px-3 py-1 text-neutral-300 hover:text-white text-lg leading-none"
+              className="px-3 py-1 text-[#3A3A3A] hover:text-[#1C1C1C] text-lg leading-none"
               aria-label="Close client info"
             >
               ✕
@@ -778,7 +778,7 @@ export default function ComhubPage() {
           </div>
         )}
         {!thread && (
-          <div className="p-6 text-sm text-neutral-500">Select a thread.</div>
+          <div className="p-6 text-sm text-[#7A7A78]">Select a thread.</div>
         )}
         {thread?.kind === 'channel' && (
           <ChannelInfoPanel thread={thread} />
@@ -787,7 +787,7 @@ export default function ComhubPage() {
           <ContextPanelInline context={context} />
         )}
         {thread?.kind === 'contact' && !context && (
-          <div className="p-6 text-sm text-neutral-500">Loading contact details…</div>
+          <div className="p-6 text-sm text-[#7A7A78]">Loading contact details…</div>
         )}
       </aside>
 
@@ -931,39 +931,39 @@ function ComposeModal(props: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={props.onClose}>
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg w-[400px] max-w-full p-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-[#F4F4F1]/60 flex items-center justify-center z-50" onClick={props.onClose}>
+      <div className="bg-[#FFFFFF] border border-[#E4E2DC] rounded-lg w-[400px] max-w-full p-4" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">New conversation</h3>
-          <button onClick={props.onClose} className="text-neutral-500 hover:text-white">✕</button>
+          <button onClick={props.onClose} className="text-[#7A7A78] hover:text-[#1C1C1C]">✕</button>
         </div>
         <div className="flex gap-2 mb-3">
           {(['sms', 'email', 'call'] as const).map(c => (
             <button
               key={c}
               onClick={() => props.setChannel(c)}
-              className={`px-3 py-1.5 rounded-md text-sm ${props.channel === c ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+              className={`px-3 py-1.5 rounded-md text-sm ${props.channel === c ? 'bg-blue-600 text-white' : 'bg-[#FFFFFF] text-[#7A7A78] hover:bg-[#F4F4F1]'}`}
             >
               {c.toUpperCase()}
             </button>
           ))}
         </div>
         {/* Search by client/cleaner name to auto-fill phone/email */}
-        <label className="text-[10px] uppercase text-neutral-500 mb-1 block">Find by name</label>
+        <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">Find by name</label>
         <div className="relative mb-2">
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPicked(null) }}
             placeholder="Type a name to search clients + team…"
-            className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-neutral-600"
+            className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#C8C5BC]"
           />
           {!picked && search.trim().length >= 2 && (searching || searched) && (
-            <div className="absolute left-0 right-0 top-11 bg-neutral-900 border border-neutral-800 rounded-md shadow-xl z-10 max-h-60 overflow-y-auto">
+            <div className="absolute left-0 right-0 top-11 bg-[#FFFFFF] border border-[#E4E2DC] rounded-md shadow-xl z-10 max-h-60 overflow-y-auto">
               {searching && results.length === 0 && (
-                <div className="px-3 py-2 text-xs text-neutral-500">Searching…</div>
+                <div className="px-3 py-2 text-xs text-[#7A7A78]">Searching…</div>
               )}
               {!searching && searched && results.length === 0 && (
-                <div className="px-3 py-2 text-xs text-neutral-500">No matches in clients or team. Type the phone/email below.</div>
+                <div className="px-3 py-2 text-xs text-[#7A7A78]">No matches in clients or team. Type the phone/email below.</div>
               )}
               {results.map(r => (
                 <button
@@ -989,14 +989,14 @@ function ComposeModal(props: {
                     }
                     setResults([])
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-neutral-800 border-b border-neutral-800 last:border-b-0"
+                  className="w-full text-left px-3 py-2 hover:bg-[#EFEFEC] border-b border-[#E4E2DC] last:border-b-0"
                 >
                   <div className="flex items-center gap-2 text-sm">
                     <span className={`text-[9px] uppercase px-1 rounded ${r.role === 'client' ? 'bg-blue-900 text-blue-200' : 'bg-emerald-900 text-emerald-200'}`}>{r.role}</span>
                     <span className="font-medium">{r.name || '(no name)'}</span>
                     {r.dns && <span className="text-[9px] uppercase px-1 rounded bg-red-900 text-red-200">DNS</span>}
                   </div>
-                  <div className="text-[11px] text-neutral-500 truncate">{r.phone || ''} {r.phone && r.email ? '·' : ''} {r.email || ''}</div>
+                  <div className="text-[11px] text-[#7A7A78] truncate">{r.phone || ''} {r.phone && r.email ? '·' : ''} {r.email || ''}</div>
                 </button>
               ))}
             </div>
@@ -1004,21 +1004,21 @@ function ComposeModal(props: {
         </div>
         {props.channel !== 'call' && (
           <>
-            <label className="text-[10px] uppercase text-neutral-500 mb-1 block">
+            <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">
               {props.channel === 'email' ? 'Email' : 'Phone'}
             </label>
             <input
               value={props.recipient}
               onChange={(e) => props.setRecipient(e.target.value)}
               placeholder={props.channel === 'email' ? 'name@example.com' : '+1212...'}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-sm mb-2 focus:outline-none focus:border-neutral-600"
+              className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm mb-2 focus:outline-none focus:border-[#C8C5BC]"
             />
             {props.channel === 'email' && (
               <input
                 value={props.subject}
                 onChange={(e) => props.setSubject(e.target.value)}
                 placeholder="Subject"
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-sm mb-2 focus:outline-none focus:border-neutral-600"
+                className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm mb-2 focus:outline-none focus:border-[#C8C5BC]"
               />
             )}
           </>
@@ -1036,11 +1036,11 @@ function ComposeModal(props: {
             onChange={(e) => props.setBody(e.target.value)}
             placeholder="Message"
             rows={6}
-            className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-neutral-600"
+            className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
           />
         )}
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={props.onClose} className="px-3 py-1.5 rounded-md text-sm border border-neutral-800 hover:bg-neutral-800">Cancel</button>
+          <button onClick={props.onClose} className="px-3 py-1.5 rounded-md text-sm border border-[#E4E2DC] hover:bg-[#EFEFEC]">Cancel</button>
           <button
             onClick={handleSend}
             disabled={
@@ -1048,7 +1048,7 @@ function ComposeModal(props: {
               || sending
               || (props.channel === 'call' ? !adminPhone.trim() : !props.body.trim())
             }
-            className="px-4 py-1.5 rounded-md text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500"
+            className="px-4 py-1.5 rounded-md text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-[#FFFFFF] disabled:text-[#7A7A78]"
           >
             {sending ? '…' : props.channel === 'call' ? 'Call' : 'Send'}
           </button>
@@ -1095,7 +1095,7 @@ function Dialer({ recipient, setRecipient, adminPhone, setAdminPhone }: {
   ]
 
   return (
-    <div className="bg-neutral-950 border border-neutral-800 rounded-lg p-3">
+    <div className="bg-[#F4F4F1] border border-[#E4E2DC] rounded-lg p-3">
       {/* Number display */}
       <div className="text-center mb-2">
         <input
@@ -1106,7 +1106,7 @@ function Dialer({ recipient, setRecipient, adminPhone, setAdminPhone }: {
           aria-label="Phone number"
         />
         {recipient && (
-          <div className="text-[10px] text-neutral-500 mt-0.5">{formatPhone(recipient)}</div>
+          <div className="text-[10px] text-[#7A7A78] mt-0.5">{formatPhone(recipient)}</div>
         )}
       </div>
 
@@ -1117,10 +1117,10 @@ function Dialer({ recipient, setRecipient, adminPhone, setAdminPhone }: {
             key={digit}
             type="button"
             onClick={() => press(digit)}
-            className="h-11 bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-700 rounded-full flex flex-col items-center justify-center transition select-none"
+            className="h-11 bg-[#FFFFFF] hover:bg-[#EFEFEC] active:bg-[#F4F4F1] rounded-full flex flex-col items-center justify-center transition select-none"
           >
             <div className="text-base font-medium leading-none">{digit}</div>
-            {letters && <div className="text-[8px] tracking-widest text-neutral-600 mt-0.5">{letters}</div>}
+            {letters && <div className="text-[8px] tracking-widest text-[#7A7A78] mt-0.5">{letters}</div>}
           </button>
         ))}
       </div>
@@ -1130,20 +1130,20 @@ function Dialer({ recipient, setRecipient, adminPhone, setAdminPhone }: {
           type="button"
           onClick={backspace}
           disabled={!recipient}
-          className="text-[11px] text-neutral-500 hover:text-neutral-200 disabled:text-neutral-700 px-3 py-1"
+          className="text-[11px] text-[#7A7A78] hover:text-[#1C1C1C] disabled:text-[#B5B2AC] px-3 py-1"
         >
           ⌫ Backspace
         </button>
       </div>
 
       {/* Admin's "ring me first" phone — saved to localStorage */}
-      <div className="border-t border-neutral-800 mt-2 pt-2">
-        <label className="text-[10px] uppercase text-neutral-500 mb-1 block">Your phone (we ring you first)</label>
+      <div className="border-t border-[#E4E2DC] mt-2 pt-2">
+        <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">Your phone (we ring you first)</label>
         <input
           value={adminPhone}
           onChange={(e) => setAdminPhone(e.target.value)}
           placeholder="+1212..."
-          className="w-full bg-neutral-900 border border-neutral-800 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:border-neutral-600"
+          className="w-full bg-[#FFFFFF] border border-[#E4E2DC] rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#C8C5BC]"
         />
       </div>
     </div>
@@ -1185,17 +1185,17 @@ function YinezModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg w-[640px] max-w-full h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-3 border-b border-neutral-800 flex justify-between items-center">
+    <div className="fixed inset-0 bg-[#F4F4F1]/60 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-[#FFFFFF] border border-[#E4E2DC] rounded-lg w-[640px] max-w-full h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-[#E4E2DC] flex justify-between items-center">
           <div>
             <h3 className="text-lg font-semibold">✦ Yinez</h3>
-            <div className="text-xs text-neutral-500">Owner channel — terse, can teach via remember/create_skill</div>
+            <div className="text-xs text-[#7A7A78]">Owner channel — terse, can teach via remember/create_skill</div>
           </div>
-          <button onClick={onClose} className="text-neutral-500 hover:text-white">✕</button>
+          <button onClick={onClose} className="text-[#7A7A78] hover:text-[#1C1C1C]">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-          {history.length === 0 && <div className="text-neutral-500 text-sm">Say something to Yinez…</div>}
+          {history.length === 0 && <div className="text-[#7A7A78] text-sm">Say something to Yinez…</div>}
           {history.map((m, i) => {
             const isAdmin = m.role === 'admin'
             return (
@@ -1208,19 +1208,19 @@ function YinezModal({ onClose }: { onClose: () => void }) {
           })}
           <div ref={endRef} />
         </div>
-        <div className="border-t border-neutral-800 p-3 flex gap-2">
+        <div className="border-t border-[#E4E2DC] p-3 flex gap-2">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send() }}
             placeholder="Ask Yinez (⌘+Enter to send)"
             rows={2}
-            className="flex-1 bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-neutral-600"
+            className="flex-1 bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
           />
           <button
             onClick={send}
             disabled={!input.trim() || sending}
-            className="px-4 py-2 bg-purple-700 hover:bg-purple-600 disabled:bg-neutral-800 rounded-md text-sm font-medium"
+            className="px-4 py-2 bg-purple-700 hover:bg-purple-600 disabled:bg-[#FFFFFF] rounded-md text-sm font-medium"
           >
             {sending ? '…' : 'Send'}
           </button>
@@ -1257,42 +1257,42 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
 
   return (
     <div>
-      <div className="p-4 border-b border-neutral-800">
+      <div className="p-4 border-b border-[#E4E2DC]">
         <div className="flex items-center gap-2">
           <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
             role === 'client' ? 'bg-blue-900 text-blue-200'
             : role === 'cleaner' ? 'bg-emerald-900 text-emerald-200'
-            : 'bg-neutral-800 text-neutral-400'
+            : 'bg-[#FFFFFF] text-[#7A7A78]'
           }`}>{role}</span>
           {client?.do_not_service && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-900 text-red-200">DNS</span>
           )}
           {client?.active === false && (
-            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">Inactive</span>
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FFFFFF] text-[#7A7A78]">Inactive</span>
           )}
           {cleaner?.active === false && (
-            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">Inactive</span>
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FFFFFF] text-[#7A7A78]">Inactive</span>
           )}
         </div>
         <h3 className="font-semibold mt-2">{contact.name || client?.name || cleaner?.name || 'Unknown'}</h3>
-        <div className="text-xs text-neutral-500 mt-1 space-y-0.5">
+        <div className="text-xs text-[#7A7A78] mt-1 space-y-0.5">
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
         </div>
       </div>
 
       {client && (
-        <div className="p-4 border-b border-neutral-800 space-y-2 text-sm">
+        <div className="p-4 border-b border-[#E4E2DC] space-y-2 text-sm">
           {(client.address || client.address_line1) && (
             <div>
-              <div className="text-[10px] uppercase text-neutral-500">Address</div>
-              <div className="text-neutral-300">{client.address || client.address_line1}</div>
+              <div className="text-[10px] uppercase text-[#7A7A78]">Address</div>
+              <div className="text-[#3A3A3A]">{client.address || client.address_line1}</div>
             </div>
           )}
           {(client.pet_name || client.pet_type) && (
             <div>
-              <div className="text-[10px] uppercase text-neutral-500">Pets</div>
-              <div className="text-neutral-300">{[client.pet_name, client.pet_type].filter(Boolean).join(' · ')}</div>
+              <div className="text-[10px] uppercase text-[#7A7A78]">Pets</div>
+              <div className="text-[#3A3A3A]">{[client.pet_name, client.pet_type].filter(Boolean).join(' · ')}</div>
             </div>
           )}
           <div className="flex gap-3 pt-1">
@@ -1315,14 +1315,14 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
       )}
 
       {cleaner && (
-        <div className="p-4 border-b border-neutral-800 space-y-2 text-sm">
+        <div className="p-4 border-b border-[#E4E2DC] space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-neutral-500 text-xs">Hourly rate</span>
+            <span className="text-[#7A7A78] text-xs">Hourly rate</span>
             <span>${cleaner.hourly_rate ?? '—'}</span>
           </div>
           {typeof cleaner.avg_rating === 'number' && cleaner.rating_count ? (
             <div className="flex justify-between">
-              <span className="text-neutral-500 text-xs">Rating</span>
+              <span className="text-[#7A7A78] text-xs">Rating</span>
               <span>★ {cleaner.avg_rating.toFixed(2)} ({cleaner.rating_count})</span>
             </div>
           ) : null}
@@ -1336,14 +1336,14 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
       )}
 
       {client && (
-        <div className="p-4 border-b border-neutral-800 grid grid-cols-2 gap-2 text-sm">
+        <div className="p-4 border-b border-[#E4E2DC] grid grid-cols-2 gap-2 text-sm">
           <div>
-            <div className="text-[10px] uppercase text-neutral-500">Total bookings</div>
-            <div className="text-neutral-200">{total_bookings}</div>
+            <div className="text-[10px] uppercase text-[#7A7A78]">Total bookings</div>
+            <div className="text-[#1C1C1C]">{total_bookings}</div>
           </div>
           <div>
-            <div className="text-[10px] uppercase text-neutral-500">Lifetime spent</div>
-            <div className="text-neutral-200">{fmtMoney(total_spent_cents)}</div>
+            <div className="text-[10px] uppercase text-[#7A7A78]">Lifetime spent</div>
+            <div className="text-[#1C1C1C]">{fmtMoney(total_spent_cents)}</div>
           </div>
           {outstanding_cents > 0 && (
             <div className="col-span-2">
@@ -1356,31 +1356,31 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
 
       {recent_bookings.length > 0 && (
         <div className="p-4 space-y-2">
-          <div className="text-[10px] uppercase text-neutral-500 mb-1">Recent bookings</div>
+          <div className="text-[10px] uppercase text-[#7A7A78] mb-1">Recent bookings</div>
           {recent_bookings.map(b => (
             <a
               key={b.id}
               href={`/admin/bookings?id=${b.id}`}
-              className="block p-2 rounded border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900 text-sm"
+              className="block p-2 rounded border border-[#E4E2DC] hover:border-[#C8C5BC] hover:bg-[#F4F4F1] text-sm"
             >
               <div className="flex justify-between items-baseline">
                 <span className="font-medium">{fmtDate(b.start_time)}</span>
-                <span className="text-xs text-neutral-500">{b.status || '—'}</span>
+                <span className="text-xs text-[#7A7A78]">{b.status || '—'}</span>
               </div>
-              <div className="text-xs text-neutral-400 mt-0.5">
+              <div className="text-xs text-[#7A7A78] mt-0.5">
                 {b.service_type || 'Cleaning'} · {b.price != null ? `$${(b.price / 100).toFixed(2)}` : '?'}
                 {b.payment_status && b.payment_status !== 'paid' && (
                   <span className="text-amber-400 ml-1">({b.payment_status})</span>
                 )}
               </div>
-              <div className="text-[11px] text-neutral-500 mt-0.5">{cleanerName(b)}</div>
+              <div className="text-[11px] text-[#7A7A78] mt-0.5">{cleanerName(b)}</div>
             </a>
           ))}
         </div>
       )}
 
       {role === 'unlinked' && (
-        <div className="p-4 text-sm text-neutral-500">
+        <div className="p-4 text-sm text-[#7A7A78]">
           Not yet linked to a client or team member. Once they book or get hired, this panel will populate.
         </div>
       )}
@@ -1392,29 +1392,29 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
 function ChannelInfoPanel({ thread }: { thread: Thread }) {
   return (
     <div>
-      <div className="p-4 border-b border-neutral-800">
-        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">
+      <div className="p-4 border-b border-[#E4E2DC]">
+        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FFFFFF] text-[#7A7A78]">
           Channel
         </span>
         <h3 className="font-semibold mt-2">{thread.name || `#${thread.slug}`}</h3>
         {thread.description && (
-          <div className="text-xs text-neutral-500 mt-1">{thread.description}</div>
+          <div className="text-xs text-[#7A7A78] mt-1">{thread.description}</div>
         )}
       </div>
-      <div className="p-4 border-b border-neutral-800 text-sm space-y-2">
+      <div className="p-4 border-b border-[#E4E2DC] text-sm space-y-2">
         <div>
-          <div className="text-[10px] uppercase text-neutral-500">Created</div>
-          <div className="text-neutral-300 text-xs">
+          <div className="text-[10px] uppercase text-[#7A7A78]">Created</div>
+          <div className="text-[#3A3A3A] text-xs">
             {(() => { try { return new Date(thread.created_at).toLocaleString() } catch { return '' } })()}
           </div>
         </div>
         <div>
-          <div className="text-[10px] uppercase text-neutral-500">Members</div>
-          <div className="text-neutral-400 text-xs">All admins (public channel)</div>
+          <div className="text-[10px] uppercase text-[#7A7A78]">Members</div>
+          <div className="text-[#7A7A78] text-xs">All admins (public channel)</div>
         </div>
       </div>
-      <div className="p-4 text-xs text-neutral-500">
-        Use this channel for team posts. <code className="text-neutral-300">@here</code> pings everyone, <code className="text-neutral-300">@firstname</code> pings one person.
+      <div className="p-4 text-xs text-[#7A7A78]">
+        Use this channel for team posts. <code className="text-[#3A3A3A]">@here</code> pings everyone, <code className="text-[#3A3A3A]">@firstname</code> pings one person.
       </div>
     </div>
   )
@@ -1461,19 +1461,19 @@ function NotesEditor({ contactId, initialPrivate, initialPublic }: {
   }
 
   return (
-    <div className="p-4 border-b border-neutral-800 space-y-3 text-sm">
+    <div className="p-4 border-b border-[#E4E2DC] space-y-3 text-sm">
       <div>
-        <div className="text-[10px] uppercase text-neutral-500 mb-1">Private notes (admin only)</div>
+        <div className="text-[10px] uppercase text-[#7A7A78] mb-1">Private notes (admin only)</div>
         <textarea
           value={priv}
           onChange={(e) => setPriv(e.target.value)}
           placeholder="Internal notes — never shown to the client"
           rows={3}
-          className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-2 py-1.5 text-sm resize-none focus:outline-none focus:border-neutral-600"
+          className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-2 py-1.5 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
         />
       </div>
       <div>
-        <div className="text-[10px] uppercase text-neutral-500 mb-1 flex items-center gap-1">
+        <div className="text-[10px] uppercase text-[#7A7A78] mb-1 flex items-center gap-1">
           <span>Public notes</span>
           <span className="text-[9px] bg-emerald-900 text-emerald-200 px-1 rounded">visible to client</span>
         </div>
@@ -1482,11 +1482,11 @@ function NotesEditor({ contactId, initialPrivate, initialPublic }: {
           onChange={(e) => setPub(e.target.value)}
           placeholder="Notes the client sees in their portal"
           rows={3}
-          className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-2 py-1.5 text-sm resize-none focus:outline-none focus:border-neutral-600"
+          className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-2 py-1.5 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
         />
       </div>
       <div className="flex items-center justify-between">
-        <div className="text-[11px] text-neutral-500">
+        <div className="text-[11px] text-[#7A7A78]">
           {error ? <span className="text-red-400">{error}</span>
             : saving ? 'Saving…'
             : savedAt && !dirty ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
@@ -1495,7 +1495,7 @@ function NotesEditor({ contactId, initialPrivate, initialPublic }: {
         <button
           onClick={save}
           disabled={!dirty || saving}
-          className="px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500"
+          className="px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-500 disabled:bg-[#FFFFFF] disabled:text-[#7A7A78]"
         >
           Save
         </button>
@@ -1538,34 +1538,34 @@ function NewChannelModal({ onClose, onCreated }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg w-[480px] max-w-full p-5" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-[#F4F4F1]/60 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-[#FFFFFF] border border-[#E4E2DC] rounded-lg w-[480px] max-w-full p-5" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">New channel</h3>
-          <button onClick={onClose} className="text-neutral-500 hover:text-white">✕</button>
+          <button onClick={onClose} className="text-[#7A7A78] hover:text-[#1C1C1C]">✕</button>
         </div>
-        <label className="text-[10px] uppercase text-neutral-500 mb-1 block">Slug (no spaces)</label>
+        <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">Slug (no spaces)</label>
         <input
           value={slug}
           onChange={(e) => setSlug(e.target.value)}
           placeholder="e.g. dispatch, marketing, oncall"
-          className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-sm mb-3 focus:outline-none focus:border-neutral-600"
+          className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm mb-3 focus:outline-none focus:border-[#C8C5BC]"
         />
-        <label className="text-[10px] uppercase text-neutral-500 mb-1 block">Description (optional)</label>
+        <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">Description (optional)</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="What's this channel for?"
           rows={3}
-          className="w-full bg-neutral-950 border border-neutral-800 rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-neutral-600"
+          className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
         />
         {error && <div className="text-red-400 text-xs mt-2">{error}</div>}
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm border border-neutral-800 hover:bg-neutral-800">Cancel</button>
+          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm border border-[#E4E2DC] hover:bg-[#EFEFEC]">Cancel</button>
           <button
             onClick={create}
             disabled={!slug.trim() || creating}
-            className="px-4 py-1.5 rounded-md text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500"
+            className="px-4 py-1.5 rounded-md text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-[#FFFFFF] disabled:text-[#7A7A78]"
           >
             {creating ? 'Creating…' : 'Create'}
           </button>
