@@ -178,6 +178,7 @@ export default function DashboardShell({
 }) {
   const pathname = usePathname() || '/dashboard'
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [notifPanelOpen, setNotifPanelOpen] = useState(false)
   const [counts, setCounts] = useState<SidebarCounts | null>(null)
   const [meta, setMeta] = useState(topbarMeta())
   const fold = activeFold(pathname)
@@ -206,7 +207,7 @@ export default function DashboardShell({
       .then((d) => {
         const rows = (d?.notifications || []) as Array<{ id: string; type?: string; title?: string; message?: string; created_at?: string; metadata?: { read?: boolean } }>
         if (!rows.length) return
-        setLiveNotifs(rows.slice(0, 8).map((n) => ({
+        setLiveNotifs(rows.slice(0, 20).map((n) => ({
           id: n.id,
           tone: /opt_out|error|no_show|fail|overdue/i.test(n.type || '') ? 'warn' : 'info',
           text: n.title || n.message || 'Notification',
@@ -224,6 +225,7 @@ export default function DashboardShell({
   if (notifs.length === 0 && counts && counts.leads > 0) {
     notifs.push({ id: 'l', tone: 'info', text: `${counts.leads} new lead${counts.leads === 1 ? '' : 's'}`, time: 'today' })
   }
+  const notifCount = notifs.length
 
   const quote = todayQuote()
   const day = dayOfBuilding()
@@ -243,6 +245,48 @@ export default function DashboardShell({
         />
       )}
 
+      {/* Notifications panel — opens from the right, 1/4 of the page */}
+      {notifPanelOpen && (
+        <div className="fixed inset-0 z-50" onClick={() => setNotifPanelOpen(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <aside
+            onClick={(e) => e.stopPropagation()}
+            className="absolute inset-y-0 right-0 w-1/4 min-w-[300px] max-w-[460px] flex flex-col shadow-2xl"
+            style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-muted-2)', borderLeft: '1px solid #2E2E2E' }}
+          >
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid #2A2A2A' }}>
+              <div className="flex items-baseline gap-2">
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#8A8A86', fontWeight: 600 }}>Notifications</span>
+                {notifCount > 0 && (
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', color: '#E5484D', background: 'rgba(229,72,77,0.12)', padding: '1px 6px', borderRadius: '2px' }}>{notifCount} new</span>
+                )}
+              </div>
+              <button type="button" onClick={() => setNotifPanelOpen(false)} aria-label="Close notifications" style={{ color: '#888', fontSize: 20, lineHeight: 1 }}>×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              {notifs.length === 0 && (
+                <div className="px-5 py-10 text-center" style={{ fontSize: '12px', color: '#666' }}>No notifications yet.</div>
+              )}
+              {notifs.map((n) => (
+                <div key={n.id} className={`px-5 py-2.5 flex items-start gap-2.5 ${n.seen ? 'opacity-50' : ''}`} style={{ fontSize: '12.5px', color: '#C8C5BC', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                  <span className="w-[6px] h-[6px] rounded-full flex-shrink-0" style={{ marginTop: 5, background: n.tone === 'warn' ? '#E8A04A' : n.tone === 'good' ? '#4ADE80' : '#6A6A66' }} />
+                  <span className="flex-1">{n.text}</span>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', color: '#666', flexShrink: 0 }}>{n.time}</span>
+                </div>
+              ))}
+            </div>
+            <Link
+              href="/dashboard/notifications"
+              onClick={() => setNotifPanelOpen(false)}
+              className="block px-5 py-3 hover:text-white"
+              style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', borderTop: '1px solid #2A2A2A' }}
+            >
+              Read all activity →
+            </Link>
+          </aside>
+        </div>
+      )}
+
       {/* SIDEBAR */}
       <aside
         className={`w-60 fixed inset-y-0 left-0 z-40 flex flex-col transform transition-transform md:translate-x-0 ${
@@ -251,10 +295,33 @@ export default function DashboardShell({
         style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-muted-2)', borderRight: '1px solid #2E2E2E' }}
       >
         {/* Brand */}
-        <div className="px-[22px] pt-[22px] pb-1">
+        <div className="px-[22px] pt-[22px] pb-1 flex items-start justify-between gap-2">
           <Link href="/dashboard" className="block" style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', color: '#F4F4F1' }}>
             {tenantName || 'Full Loop'}<i style={{ fontStyle: 'italic', color: '#888', fontWeight: 400 }}>/</i>
           </Link>
+          <button
+            type="button"
+            onClick={() => setNotifPanelOpen(true)}
+            aria-label={`Notifications${notifCount > 0 ? `, ${notifCount} new` : ''}`}
+            className={`relative flex-shrink-0 flex items-center justify-center rounded-md transition-transform hover:scale-105 ${notifCount > 0 ? 'animate-pulse' : ''}`}
+            style={{
+              width: 30,
+              height: 30,
+              background: notifCount > 0 ? '#E5484D' : 'rgba(255,255,255,0.06)',
+              color: notifCount > 0 ? '#fff' : '#888',
+              boxShadow: notifCount > 0 ? '0 0 0 3px rgba(229,72,77,0.18)' : 'none',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {notifCount > 0 && (
+              <span style={{ position: 'absolute', top: -5, right: -5, background: '#fff', color: '#E5484D', fontFamily: 'var(--mono)', fontSize: '9px', fontWeight: 700, lineHeight: '15px', minWidth: 15, height: 15, borderRadius: 8, padding: '0 3px', textAlign: 'center' }}>
+                {notifCount > 99 ? '99+' : notifCount}
+              </span>
+            )}
+          </button>
         </div>
         <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           v2.4 · NYC
@@ -262,28 +329,6 @@ export default function DashboardShell({
 
         {/* Scroll area */}
         <div className="flex-1 overflow-y-auto pb-20">
-          {/* Notifications */}
-          {notifs.length > 0 && (
-            <>
-              <div className="mx-[22px] mt-[14px] mb-[6px] flex items-baseline justify-between" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#5A5A5A', fontWeight: 600 }}>
-                <span>Notifications</span>
-                <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', color: '#888', background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '2px' }}>
-                  {notifs.length} new
-                </span>
-              </div>
-              {notifs.map((n) => (
-                <div key={n.id} className={`px-[22px] py-1.5 flex items-center gap-2 ${n.seen ? 'opacity-50' : ''}`} style={{ fontSize: '12px', color: '#C8C5BC' }}>
-                  <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: n.tone === 'warn' ? '#E8A04A' : n.tone === 'good' ? '#4ADE80' : '#6A6A66' }} />
-                  <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{n.text}</span>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', color: '#666' }}>{n.time}</span>
-                </div>
-              ))}
-              <Link href="/dashboard/notifications" className="block mx-[22px] mt-1 pb-2 hover:text-white" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid #2A2A2A' }}>
-                Read all activity →
-              </Link>
-            </>
-          )}
-
           {/* The Loop section */}
           <div className="mx-[22px] mt-[14px] mb-[6px]" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#5A5A5A', fontWeight: 600 }}>
             The Loop
