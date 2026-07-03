@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
-import { sendSMS } from '@/lib/nycmaid/sms'
-import { sendEmail } from '@/lib/nycmaid/email'
+import { sendSMS } from '@/lib/sms'
+import { sendEmail } from '@/lib/email'
+import { emailShell } from '@/lib/messaging/shell'
 
 // Resolve @firstname / @first.last mentions to tenant_members rows.
 async function resolveMentions(tenantId: string, body: string): Promise<string[]> {
@@ -45,6 +46,13 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+
+  // Comms go out on THIS tenant's own channels (profile creds), never a global.
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('name, phone, email, address, logo_url, primary_color, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
+    .eq('id', tenantId)
+    .maybeSingle()
 
   const body = await req.json().catch(() => null) as {
     thread_id?: string
@@ -213,12 +221,15 @@ export async function POST(req: NextRequest) {
 
   if (body.channel === 'sms') {
     if (!phone) return NextResponse.json({ error: 'no phone on contact' }, { status: 400 })
-    const result = await sendSMS(phone, body.body, {
-      skipConsent: true,
-      smsType: 'comhub_admin_reply',
-    })
-    if (!result.success) {
-      return NextResponse.json({ error: typeof result.error === 'string' ? result.error : 'sms send failed' }, { status: 502 })
+    if (!tenant?.telnyx_api_key || !tenant?.telnyx_phone) {
+      return NextResponse.json({ error: 'SMS is not configured for this business.' }, { status: 400 })
+    }
+    let smsExternalId: string | null = null
+    try {
+      const result = await sendSMS({ to: phone, body: body.body, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+      smsExternalId = (result as { data?: { id?: string } } | null)?.data?.id ?? null
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : 'sms send failed' }, { status: 502 })
     }
 
     const { data: msg, error: insErr } = await supabaseAdmin
@@ -232,7 +243,7 @@ export async function POST(req: NextRequest) {
         author: 'admin',
         body: body.body,
         to_address: phone,
-        external_id: result.id,
+        external_id: smsExternalId,
         sent_at: new Date().toISOString(),
       })
       .select()
@@ -257,14 +268,33 @@ export async function POST(req: NextRequest) {
 
   if (body.channel === 'email') {
     if (!email) return NextResponse.json({ error: 'no email on contact' }, { status: 400 })
-    const subj = body.subject || '(no subject)'
-    const html = `<div style="font-family:system-ui,sans-serif;white-space:pre-wrap;font-size:14px;line-height:1.5">${escapeHtml(body.body)}</div>`
-    const result = await sendEmail(email, subj, html, undefined, { skipOwnerBcc: true })
-    if (!result?.success) {
-      return NextResponse.json({ error: 'email send failed', detail: result?.error }, { status: 502 })
+    if (!tenant?.resend_api_key) {
+      return NextResponse.json({ error: 'Email is not configured for this business.' }, { status: 400 })
     }
-
-    const externalId = (result.data as { id?: string } | undefined)?.id || null
+    const subj = body.subject || `Message from ${tenant?.name || 'us'}`
+    const bodyHtml = body.body
+      .split(/\n{2,}/)
+      .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
+      .join('')
+    const html = emailShell({
+      brand: {
+        name: tenant?.name || 'Full Loop',
+        phone: tenant?.phone,
+        email: tenant?.email_from || tenant?.email,
+        address: tenant?.address,
+        logoUrl: tenant?.logo_url,
+        primaryColor: tenant?.primary_color,
+      },
+      heading: subj,
+      bodyHtml,
+    })
+    let externalId: string | null = null
+    try {
+      const result = await sendEmail({ to: email, subject: subj, html, from: tenant?.email_from || undefined, resendApiKey: tenant?.resend_api_key })
+      externalId = (result as { id?: string } | null)?.id ?? null
+    } catch (e) {
+      return NextResponse.json({ error: 'email send failed', detail: e instanceof Error ? e.message : String(e) }, { status: 502 })
+    }
 
     const { data: msg, error: insErr } = await supabaseAdmin
       .from('comhub_messages')
