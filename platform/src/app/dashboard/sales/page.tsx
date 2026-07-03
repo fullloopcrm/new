@@ -18,8 +18,8 @@ const TABS: Array<{ key: Tab; letter: string; label: string }> = [
 ]
 const TAB_TIPS: Record<Tab, string> = {
   pipeline: 'The whole board — every deal across Lead → Qualify → Quote → Sale. Use a card’s dropdown to move it.',
-  leads: 'New leads — every one auto-creates a client. Reach out fast, then move it to Qualify.',
-  qualify: 'Confirm scope & fit. Book a site visit if it needs a quote, then move to Quote.',
+  leads: 'New leads — every one auto-creates a client. Open a card, log the contact, then qualify it.',
+  qualify: 'Confirm scope & fit. Mark Qualified to send a proposal, or Not Qualified to close it out with a reason.',
   quotes: 'Quote sent — awaiting the yes. When accepted, move it to Sale.',
   sales: 'The close — Pending / Sold / Lost. Bookings auto-land here when scheduled.',
   schedule: 'The calendar — sold jobs and bookings land here as scheduled work.',
@@ -44,6 +44,28 @@ const TAB_STAGES: Record<Exclude<Tab, 'schedule'>, Stage[]> = {
   sales: ['pending', 'sold', 'lost'],
 }
 
+// Canned "why we lost it" reasons for the Not-Qualified / Lost tag.
+const LOST_REASONS: Array<{ key: string; label: string }> = [
+  { key: 'not_qualified', label: 'Not qualified' },
+  { key: 'no_budget', label: 'No budget' },
+  { key: 'went_elsewhere', label: 'Went elsewhere' },
+  { key: 'no_response', label: 'No response' },
+  { key: 'other', label: 'Other' },
+]
+function lostReasonLabel(key: string | null): string {
+  if (!key) return 'Lost'
+  return LOST_REASONS.find((r) => r.key === key)?.label || 'Lost'
+}
+
+// Activity channels the operator can log from a card.
+type ActType = 'note' | 'call' | 'text' | 'email'
+const ACT_TYPES: Array<{ key: ActType; label: string }> = [
+  { key: 'note', label: 'Note' },
+  { key: 'call', label: 'Call' },
+  { key: 'text', label: 'Text' },
+  { key: 'email', label: 'Email' },
+]
+
 type Deal = {
   id: string
   client_id: string | null
@@ -54,9 +76,32 @@ type Deal = {
   source: string | null
   notes: string | null
   status: string | null
+  lost_reason: string | null
   last_activity_at: string | null
+  last_contacted_at: string | null
   created_at: string
   clients: { name: string | null; address: string | null } | null
+}
+
+type Activity = {
+  id: string
+  type: string
+  description: string
+  metadata: Record<string, unknown> | null
+  created_at: string
+}
+
+type Quote = {
+  id: string
+  quote_number: string | null
+  status: string
+  total_cents: number | null
+  deposit_cents: number | null
+  deposit_paid_at: string | null
+  converted_job_id: string | null
+  sent_at: string | null
+  accepted_at: string | null
+  declined_at: string | null
 }
 
 function fmtMoney(cents: number): string {
@@ -68,6 +113,21 @@ function ageDays(createdAt: string): number {
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
+function relTime(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 30) return `${days}d ago`
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+const ACT_ICON: Record<string, string> = {
+  note: '📝', call: '📞', text: '💬', email: '✉️',
+  stage_change: '↗', follow_up_set: '⏰', quote_sent: '📄',
+  auto_created: '✨',
+}
 
 function SalesPageInner() {
   const sp = useSearchParams()
@@ -78,6 +138,19 @@ function SalesPageInner() {
   const [nl, setNl] = useState({ name: '', phone: '', email: '', service: '', value: '', notes: '' })
   const [nlSaving, setNlSaving] = useState(false)
   const [nlErr, setNlErr] = useState('')
+
+  // Per-card working state.
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [activities, setActivities] = useState<Record<string, Activity[]>>({})
+  const [actLoading, setActLoading] = useState<Record<string, boolean>>({})
+  const [quotesByDeal, setQuotesByDeal] = useState<Record<string, Quote[]>>({})
+  const [composer, setComposer] = useState<{ type: ActType; text: string }>({ type: 'note', text: '' })
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [reasonFor, setReasonFor] = useState<string | null>(null)
+  const [reason, setReason] = useState<string>('not_qualified')
+  const [schedFor, setSchedFor] = useState<string | null>(null)
+  const [schedDate, setSchedDate] = useState('')
+  const [schedTime, setSchedTime] = useState('09:00')
 
   const loadDeals = () => {
     setLoading(true)
@@ -94,15 +167,92 @@ function SalesPageInner() {
     if (t && TABS.some((x) => x.key === t)) setTab(t as Tab)
   }, [sp])
 
-  async function moveDeal(id: string, stage: string) {
+  async function loadActivities(id: string) {
+    setActLoading((m) => ({ ...m, [id]: true }))
+    try {
+      const r = await fetch(`/api/deals/${id}/activities`)
+      const d = await r.json()
+      setActivities((m) => ({ ...m, [id]: Array.isArray(d) ? d : [] }))
+    } catch {
+      setActivities((m) => ({ ...m, [id]: [] }))
+    } finally {
+      setActLoading((m) => ({ ...m, [id]: false }))
+    }
+  }
+
+  async function loadQuotes(id: string) {
+    try {
+      const r = await fetch(`/api/quotes?deal_id=${id}`)
+      const d = await r.json()
+      setQuotesByDeal((m) => ({ ...m, [id]: (d?.quotes || []) as Quote[] }))
+    } catch {
+      setQuotesByDeal((m) => ({ ...m, [id]: [] }))
+    }
+  }
+
+  function toggleExpand(id: string) {
+    if (expandedId === id) { setExpandedId(null); return }
+    setExpandedId(id)
+    setComposer({ type: 'note', text: '' })
+    setReasonFor(null)
+    if (!activities[id]) loadActivities(id)
+    loadQuotes(id)
+  }
+
+  async function moveDeal(id: string, stage: string, lostReason?: string) {
+    setBusyId(id)
     try {
       await fetch(`/api/deals/${id}/stage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage }),
+        body: JSON.stringify({ stage, ...(lostReason ? { lost_reason: lostReason } : {}) }),
       })
     } catch { /* ignore */ }
+    setReasonFor(null)
+    if (expandedId === id) await loadActivities(id)
     loadDeals()
+    setBusyId(null)
+  }
+
+  async function scheduleSession(dealId: string, jobId: string) {
+    if (!schedDate) return
+    setBusyId(dealId)
+    try {
+      const startIso = new Date(`${schedDate}T${schedTime || '09:00'}`).toISOString()
+      const res = await fetch(`/api/jobs/${jobId}/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_time: startIso }),
+      })
+      if (res.ok) {
+        setSchedFor(null)
+        setSchedDate('')
+        await loadActivities(dealId)
+      }
+    } catch { /* ignore */ }
+    setBusyId(null)
+  }
+
+  async function logActivity(id: string, stage: string) {
+    const text = composer.text.trim()
+    if (!text) return
+    setBusyId(id)
+    try {
+      await fetch(`/api/deals/${id}/activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: composer.type, description: text }),
+      })
+      setComposer({ type: 'note', text: '' })
+      await loadActivities(id)
+      // First outbound touch on a raw lead advances it into Qualifying.
+      if (stage === 'new' && (composer.type === 'call' || composer.type === 'text' || composer.type === 'email')) {
+        await moveDeal(id, 'qualifying')
+      } else {
+        loadDeals()
+      }
+    } catch { /* ignore */ }
+    setBusyId(null)
   }
 
   async function submitNewLead() {
@@ -189,22 +339,125 @@ function SalesPageInner() {
               const src = (d.source || 'web').toLowerCase()
               const srcSafe: 'selena' | 'web' | 'referral' | 'repeat' =
                 src.includes('selena') ? 'selena' : src === 'referral' ? 'referral' : src === 'repeat' ? 'repeat' : 'web'
+              const isOpen = expandedId === d.id
+              const acts = activities[d.id] || []
               return (
-                <div key={d.id} className={`sl-deal ${dealClass}`}>
-                  <div className="sl-deal-name">{d.clients?.name || d.title || 'Untitled'}</div>
-                  <div className="sl-deal-meta">
-                    <span className="sl-deal-ctx">{d.title || (d.clients?.address ?? '—')}</span>
-                    <span className="sl-deal-value">{fmtMoney(d.value_cents)}</span>
+                <div key={d.id} className={`sl-deal ${dealClass} ${isOpen ? 'open' : ''}`}>
+                  <div className="sl-row" onClick={() => toggleExpand(d.id)}>
+                    <span className="sl-row-caret">{isOpen ? '▾' : '▸'}</span>
+                    <span className="sl-row-name">{d.clients?.name || d.title || 'Untitled'}</span>
+                    <span className="sl-row-ctx">{d.title || (d.clients?.address ?? '—')}</span>
+                    <span className="sl-row-chip">
+                      {d.stage === 'lost'
+                        ? <span className="sl-deal-status lost">{lostReasonLabel(d.lost_reason)}</span>
+                        : ['pending', 'sold'].includes(d.stage)
+                          ? <span className={`sl-deal-status ${d.stage}`}>{cap(d.stage)}</span>
+                          : <span className={`sl-deal-source ${srcSafe}`}>{srcSafe}</span>}
+                    </span>
+                    <span className="sl-row-value">{fmtMoney(d.value_cents)}</span>
+                    <span className={`sl-row-age ${ageClass}`}>{age === 0 ? 'today' : `${age}d`}</span>
+                    <select className="sl-row-move" value={d.stage} onClick={(e) => e.stopPropagation()} onChange={(e) => moveDeal(d.id, e.target.value)}>
+                      {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                    </select>
                   </div>
-                  <div className="sl-deal-foot">
-                    {['pending', 'sold', 'lost'].includes(d.stage)
-                      ? <span className={`sl-deal-status ${d.stage}`}>{cap(d.stage)}</span>
-                      : <span className={`sl-deal-source ${srcSafe}`}>{srcSafe}</span>}
-                    <span className={`sl-deal-age ${ageClass}`}>{age === 0 ? 'today' : `${age}d`}</span>
-                  </div>
-                  <select className="sl-deal-move" value={d.stage} onChange={(e) => moveDeal(d.id, e.target.value)}>
-                    {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                  </select>
+
+                  {isOpen && (
+                    <div className="sl-deal-panel">
+                      {/* Stage-driven primary actions */}
+                      <div className="sl-actions">
+                        {d.stage === 'new' && (
+                          <span className="sl-action-hint">Log a call/text/email below to move this into Qualify.</span>
+                        )}
+                        {d.stage === 'qualifying' && reasonFor !== d.id && (
+                          <>
+                            <button type="button" className="sl-act-btn go" disabled={busyId === d.id} onClick={() => moveDeal(d.id, 'quoted')}>Qualified → Proposal</button>
+                            <button type="button" className="sl-act-btn kill" disabled={busyId === d.id} onClick={() => { setReasonFor(d.id); setReason('not_qualified') }}>Not Qualified</button>
+                          </>
+                        )}
+                        {d.stage === 'qualifying' && reasonFor === d.id && (
+                          <div className="sl-reason">
+                            <select value={reason} onChange={(e) => setReason(e.target.value)}>
+                              {LOST_REASONS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+                            </select>
+                            <button type="button" className="sl-act-btn kill" disabled={busyId === d.id} onClick={() => moveDeal(d.id, 'lost', reason)}>Confirm — mark Lost</button>
+                            <button type="button" className="sl-act-btn ghost" onClick={() => setReasonFor(null)}>Cancel</button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Proposal — build/send an actual quote, linked to this deal */}
+                      {(['quoted', 'pending', 'sold'].includes(d.stage) || (quotesByDeal[d.id]?.length ?? 0) > 0) && (
+                        <div className="sl-proposal">
+                          <div className="sl-proposal-head">Proposal</div>
+                          {(quotesByDeal[d.id] || []).map((q) => (
+                            <a key={q.id} href={`/dashboard/sales/quotes/${q.id}`} className="sl-proposal-row">
+                              <span className="sl-proposal-num">{q.quote_number || 'Draft'}</span>
+                              <span className={`sl-proposal-status ${q.status}`}>{q.status}</span>
+                              <span className="sl-proposal-total">{fmtMoney(q.total_cents || 0)}</span>
+                            </a>
+                          ))}
+                          <a href={`/dashboard/sales/quotes/new?deal=${d.id}`} className="sl-act-btn go">
+                            {(quotesByDeal[d.id]?.length ?? 0) > 0 ? '+ New proposal' : 'Build Proposal →'}
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Schedule — once the sale is a Job, drop visits on the calendar */}
+                      {(() => {
+                        const jobId = (quotesByDeal[d.id] || []).map((q) => q.converted_job_id).find(Boolean) || null
+                        if (!jobId) return null
+                        return (
+                          <div className="sl-proposal">
+                            <div className="sl-proposal-head">Schedule</div>
+                            {schedFor === d.id ? (
+                              <div className="sl-reason">
+                                <input type="date" className="sl-sched-input" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} />
+                                <input type="time" className="sl-sched-input" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
+                                <button type="button" className="sl-act-btn go" disabled={busyId === d.id || !schedDate} onClick={() => scheduleSession(d.id, jobId)}>Add to calendar</button>
+                                <button type="button" className="sl-act-btn ghost" onClick={() => setSchedFor(null)}>Cancel</button>
+                              </div>
+                            ) : (
+                              <button type="button" className="sl-act-btn go" onClick={() => { setSchedFor(d.id); setSchedDate('') }}>+ Schedule a visit</button>
+                            )}
+                          </div>
+                        )
+                      })()}
+
+                      {/* Ongoing-notes composer — carries through every stage */}
+                      <div className="sl-composer">
+                        <div className="sl-composer-types">
+                          {ACT_TYPES.map((a) => (
+                            <button key={a.key} type="button" className={`sl-chan ${composer.type === a.key ? 'active' : ''}`} onClick={() => setComposer((c) => ({ ...c, type: a.key }))}>{a.label}</button>
+                          ))}
+                        </div>
+                        <textarea
+                          className="sl-composer-input"
+                          rows={2}
+                          placeholder={composer.type === 'note' ? 'Add a note…' : `Log the ${composer.type}…`}
+                          value={composer.text}
+                          onChange={(e) => setComposer((c) => ({ ...c, text: e.target.value }))}
+                        />
+                        <button type="button" className="sl-act-btn" disabled={busyId === d.id || !composer.text.trim()} onClick={() => logActivity(d.id, d.stage)}>
+                          {busyId === d.id ? 'Saving…' : 'Log it'}
+                        </button>
+                      </div>
+
+                      {/* Timeline */}
+                      <div className="sl-timeline">
+                        {actLoading[d.id] && <div className="sl-tl-empty">Loading history…</div>}
+                        {!actLoading[d.id] && acts.length === 0 && <div className="sl-tl-empty">No activity yet.</div>}
+                        {acts.map((a) => (
+                          <div key={a.id} className="sl-tl-row">
+                            <span className="sl-tl-icon">{ACT_ICON[a.type] || '•'}</span>
+                            <div className="sl-tl-body">
+                              <div className="sl-tl-desc">{a.description}</div>
+                              <div className="sl-tl-time">{relTime(a.created_at)}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}

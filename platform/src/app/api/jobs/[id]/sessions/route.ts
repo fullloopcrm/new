@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: job, error: jErr } = await supabaseAdmin
       .from('jobs')
-      .select('id, client_id, service_address, title')
+      .select('id, client_id, title')
       .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
@@ -49,7 +49,6 @@ export async function POST(request: Request, { params }: Params) {
         end_time: end.toISOString(),
         status: 'confirmed',
         notes: body.notes || 'Job session',
-        address: job.service_address || null,
       })
       .select('id, start_time, end_time, status')
       .single()

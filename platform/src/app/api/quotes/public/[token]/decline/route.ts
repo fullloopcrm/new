@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')
-      .select('id, tenant_id, status, quote_number')
+      .select('id, tenant_id, status, quote_number, deal_id')
       .eq('public_token', token)
       .maybeSingle()
     if (!quote) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -45,6 +45,18 @@ export async function POST(request: Request, { params }: Params) {
       ip_address: ipFromRequest(request),
       user_agent: request.headers.get('user-agent'),
     })
+
+    // Log the decline on the deal timeline. Leave the stage where it is — the
+    // operator decides whether to re-quote or mark it Lost.
+    if (quote.deal_id) {
+      await supabaseAdmin.from('deal_activities').insert({
+        tenant_id: quote.tenant_id,
+        deal_id: quote.deal_id,
+        type: 'note',
+        description: `Proposal ${quote.quote_number} declined${reason ? ` — ${reason}` : ''}`,
+        metadata: { quote_id: quote.id, declined_reason: reason || null },
+      }).then(() => {}, () => {})
+    }
 
     try {
       const { notify } = await import('@/lib/notify')

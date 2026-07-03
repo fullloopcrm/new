@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
@@ -41,8 +41,12 @@ function formatCents(cents: number): string {
   return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 }
 
-export default function NewQuotePage() {
+function NewQuoteInner() {
   const router = useRouter()
+  const sp = useSearchParams()
+  // When launched from a deal card (?deal=<id>) the proposal is bound to that
+  // deal and prefilled from it — this is the "carry through" into quoting.
+  const dealId = sp.get('deal')
   const [clients, setClients] = useState<Client[]>([])
   const [clientId, setClientId] = useState<string>('')
 
@@ -57,6 +61,8 @@ export default function NewQuotePage() {
   const [items, setItems] = useState<LineItem[]>([blankLine()])
   const [taxPct, setTaxPct] = useState('0')
   const [discount, setDiscount] = useState('0')
+  const [depositType, setDepositType] = useState<'none' | 'flat' | 'percent'>('none')
+  const [depositValue, setDepositValue] = useState('')
 
   const [terms, setTerms] = useState('')
   const [notes, setNotes] = useState('')
@@ -71,6 +77,20 @@ export default function NewQuotePage() {
       .then(data => setClients(Array.isArray(data) ? data : data.clients || []))
       .catch(() => {})
   }, [])
+
+  // Prefill from the originating deal (client + a starter title).
+  useEffect(() => {
+    if (!dealId) return
+    fetch(`/api/deals/${dealId}`)
+      .then(r => r.json())
+      .then(data => {
+        const deal = data?.deal
+        if (!deal) return
+        if (deal.client_id) setClientId(deal.client_id)
+        if (deal.title) setTitle(prev => prev || deal.title)
+      })
+      .catch(() => {})
+  }, [dealId])
 
   // When client picked, prefill contact fields
   useEffect(() => {
@@ -100,6 +120,16 @@ export default function NewQuotePage() {
   const taxCents = Math.round((taxable * taxRateBps) / 10000)
   const totalCents = taxable + taxCents
 
+  // Resolve the deposit for display + submit. flat input is dollars, percent is %.
+  const depositValueForApi =
+    depositType === 'flat' ? dollarsToCents(depositValue)
+    : depositType === 'percent' ? Math.round(parseFloat(depositValue || '0') * 100)
+    : 0
+  const depositCents =
+    depositType === 'flat' ? Math.min(depositValueForApi, totalCents)
+    : depositType === 'percent' ? Math.round((totalCents * depositValueForApi) / 10000)
+    : 0
+
   async function save(sendAfter: boolean) {
     setError('')
     if (!title.trim()) { setError('Title required'); return }
@@ -116,6 +146,7 @@ export default function NewQuotePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           client_id: clientId || null,
+          deal_id: dealId || null,
           contact_name: contactName || null,
           contact_email: contactEmail || null,
           contact_phone: contactPhone || null,
@@ -135,6 +166,8 @@ export default function NewQuotePage() {
             })),
           tax_rate_bps: taxRateBps,
           discount_cents: discountCents,
+          deposit_type: depositType,
+          deposit_value: depositValueForApi,
           terms: terms || null,
           notes: notes || null,
           valid_until: validUntil,
@@ -302,6 +335,27 @@ export default function NewQuotePage() {
               onChange={e => setValidUntilDays(e.target.value)}
               className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
             />
+            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Deposit</label>
+            <div className="flex gap-2">
+              <select
+                value={depositType}
+                onChange={e => setDepositType(e.target.value as 'none' | 'flat' | 'percent')}
+                className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="none">No deposit</option>
+                <option value="percent">% of total</option>
+                <option value="flat">Flat $</option>
+              </select>
+              {depositType !== 'none' && (
+                <input
+                  type="text"
+                  value={depositValue}
+                  onChange={e => setDepositValue(e.target.value)}
+                  placeholder={depositType === 'percent' ? '25' : '500'}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                />
+              )}
+            </div>
           </div>
           <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
             <div className="flex justify-between text-slate-600">
@@ -320,6 +374,11 @@ export default function NewQuotePage() {
             <div className="flex justify-between pt-2 border-t border-slate-200 font-bold text-slate-900 text-base">
               <span>Total</span><span>{formatCents(totalCents)}</span>
             </div>
+            {depositCents > 0 && (
+              <div className="flex justify-between text-teal-700 font-medium pt-1">
+                <span>Deposit due now</span><span>{formatCents(depositCents)}</span>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -362,5 +421,13 @@ export default function NewQuotePage() {
         >{saving ? 'Saving…' : 'Save & Send'}</button>
       </div>
     </div>
+  )
+}
+
+export default function NewQuotePage() {
+  return (
+    <Suspense fallback={null}>
+      <NewQuoteInner />
+    </Suspense>
   )
 }

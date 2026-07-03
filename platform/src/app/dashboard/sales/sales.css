@@ -233,8 +233,8 @@
 .sl-tabbar-note .sl-newlead-btn { flex-shrink: 0; }
 /* Per-card stage mover on the kanban */
 .sl-deal-move { width: 100%; margin-top: 6px; font-size: 11px; padding: 3px 6px; border: 1px solid var(--sl-line, #e6e6e0); border-radius: 6px; color: var(--sl-ink); background: #fff; cursor: pointer; }
-/* Per-stage tab deal list */
-.sl-stage-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
+/* Per-stage tab deal list — LIST view (rows, not boxes) */
+.sl-stage-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 /* New Lead button + modal */
 .sl-newlead-btn { border: 1px solid var(--sl-ink); background: var(--sl-ink); color: #fff; font-size: 12px; font-weight: 600; padding: 7px 13px; border-radius: 8px; cursor: pointer; }
 .sl-newlead-btn:hover { opacity: .9; }
@@ -322,12 +322,7 @@
 .sl-deal {
   background: var(--sl-canvas);
   border: 1px solid var(--sl-line);
-  border-radius: 3px;
-  padding: 8px 9px;
-  cursor: grab;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  border-radius: 6px;
   min-width: 0;
 }
 .sl-deal:hover { border-color: var(--sl-ink); }
@@ -335,6 +330,42 @@
 .sl-deal.aging { border-left: 2.5px solid var(--sl-warn); }
 .sl-deal.stale { border-left: 2.5px solid var(--sl-danger); opacity: 0.85; }
 .sl-deal.vip { border-left: 2.5px solid var(--sl-vip); }
+
+/* One deal = one row. Columns line up table-style across the list. */
+.sl-row {
+  display: grid;
+  grid-template-columns: 14px minmax(120px, 1.4fr) minmax(0, 1.8fr) auto 84px 46px 104px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+.sl-row-caret { font-size: 10px; color: var(--sl-muted-2); }
+.sl-row-name {
+  font-family: var(--sl-display); font-size: 14px; font-weight: 500; color: var(--sl-ink);
+  letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sl-row-ctx {
+  font-size: 12.5px; color: var(--sl-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sl-row-chip { justify-self: start; }
+.sl-row-value {
+  font-family: var(--sl-display); font-size: 13.5px; font-weight: 500; color: var(--sl-ink);
+  text-align: right; letter-spacing: -0.01em;
+}
+.sl-row-age { font-family: var(--sl-mono); font-size: 10px; color: var(--sl-muted); text-align: right; }
+.sl-row-age.warn { color: var(--sl-warn); font-weight: 600; }
+.sl-row-age.danger { color: var(--sl-danger); font-weight: 600; }
+.sl-row-move {
+  font-size: 11px; padding: 4px 6px; border: 1px solid var(--sl-line); border-radius: 6px;
+  color: var(--sl-ink); background: #fff; cursor: pointer; width: 100%;
+}
+.sl-deal-panel { margin: 0 12px; padding: 10px 0 12px; }
+@media (max-width: 720px) {
+  .sl-row { grid-template-columns: 14px 1fr auto 84px; }
+  .sl-row-ctx, .sl-row-age { display: none; }
+}
 .sl-deal-name {
   font-family: var(--sl-display);
   font-size: 13.5px;
@@ -531,4 +562,106 @@
   color: var(--sl-ink);
   font-weight: 500;
   margin-bottom: 8px;
+}
+
+/* ── Expandable working card (lead → qualify, with ongoing notes) ── */
+.sl-deal { cursor: default; }
+.sl-deal.open { border-color: var(--sl-ink); box-shadow: 0 6px 22px rgba(0,0,0,0.06); }
+.sl-deal-top { cursor: pointer; display: flex; flex-direction: column; gap: 5px; }
+.sl-deal-status.new,
+.sl-deal-status.qualifying { background: rgba(28,28,28,0.06); color: var(--sl-ink); }
+
+.sl-deal-panel {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--sl-line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sl-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sl-action-hint { font-size: 11px; color: var(--sl-muted); line-height: 1.35; }
+.sl-act-btn {
+  border: 1px solid var(--sl-ink);
+  background: var(--sl-ink);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.sl-act-btn:hover { opacity: 0.9; }
+.sl-act-btn:disabled { opacity: 0.45; cursor: default; }
+.sl-act-btn.go { background: var(--sl-good); border-color: var(--sl-good); }
+.sl-act-btn.kill { background: #fff; color: #c0392b; border-color: #d8b3ad; }
+.sl-act-btn.ghost { background: transparent; color: var(--sl-muted); border-color: transparent; }
+.sl-reason { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sl-reason select {
+  font-size: 11.5px; padding: 5px 8px; border: 1px solid var(--sl-line);
+  border-radius: 7px; background: #fff; color: var(--sl-ink); cursor: pointer;
+}
+
+.sl-composer { display: flex; flex-direction: column; gap: 6px; }
+.sl-composer-types { display: flex; gap: 4px; }
+.sl-chan {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--sl-line);
+  background: #fff;
+  color: var(--sl-muted);
+  cursor: pointer;
+}
+.sl-chan.active { background: var(--sl-ink); color: #fff; border-color: var(--sl-ink); }
+.sl-composer-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--sl-ink);
+  resize: vertical;
+}
+.sl-composer .sl-act-btn { align-self: flex-start; }
+
+.sl-timeline { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
+.sl-tl-empty { font-size: 11.5px; color: var(--sl-muted); padding: 4px 0; }
+.sl-tl-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--sl-line-soft); }
+.sl-tl-row:last-child { border-bottom: none; }
+.sl-tl-icon { font-size: 12px; line-height: 1.4; flex-shrink: 0; width: 16px; text-align: center; }
+.sl-tl-body { min-width: 0; flex: 1; }
+.sl-tl-desc { font-size: 12px; color: var(--sl-ink); line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+.sl-tl-time { font-family: var(--sl-mono); font-size: 9.5px; color: var(--sl-muted-2); letter-spacing: 0.04em; margin-top: 2px; }
+
+/* Proposal block on the deal card */
+a.sl-act-btn { display: inline-block; text-decoration: none; text-align: center; }
+.sl-proposal { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: var(--sl-bg); border-radius: 8px; }
+.sl-proposal-head { font-family: var(--sl-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--sl-muted); font-weight: 600; }
+.sl-proposal-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; background: #fff; border: 1px solid var(--sl-line); border-radius: 6px;
+  text-decoration: none; color: var(--sl-ink); font-size: 12px;
+}
+.sl-proposal-row:hover { border-color: var(--sl-ink); }
+.sl-proposal-num { font-family: var(--sl-mono); font-size: 11px; color: var(--sl-graphite); }
+.sl-proposal-total { margin-left: auto; font-family: var(--sl-display); font-weight: 500; }
+.sl-proposal-status {
+  font-family: var(--sl-mono); font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  font-weight: 700; padding: 1px 6px; border-radius: 999px;
+  background: rgba(28,28,28,0.06); color: var(--sl-graphite);
+}
+.sl-proposal-status.sent { background: rgba(107,79,174,0.12); color: var(--sl-vip); }
+.sl-proposal-status.viewed { background: rgba(184,134,11,0.14); color: var(--sl-warn); }
+.sl-proposal-status.accepted { background: rgba(31,77,44,0.12); color: var(--sl-good); }
+.sl-proposal-status.declined { background: rgba(192,57,43,0.1); color: #c0392b; }
+.sl-proposal-status.expired { background: rgba(192,57,43,0.08); color: #c0392b; }
+.sl-sched-input {
+  font-size: 12px; padding: 5px 8px; border: 1px solid var(--sl-line);
+  border-radius: 7px; background: #fff; color: var(--sl-ink); font-family: inherit;
 }

@@ -207,6 +207,8 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
           p.startsWith('/api/indexnow') || p.startsWith('/api/management-applications') ||
           p.startsWith('/api/import-clients') || p.startsWith('/api/sms') || p.startsWith('/api/schedules') ||
           p.startsWith('/api/send-booking-emails') || p.startsWith('/api/selena') ||
+          p.startsWith('/api/quotes') || p.startsWith('/api/quote-templates') ||
+          p.startsWith('/api/jobs') ||
           p.startsWith('/api/referral-commissions')) {
         return
       }

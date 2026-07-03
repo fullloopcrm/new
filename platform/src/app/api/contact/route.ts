@@ -219,6 +219,72 @@ export async function POST(request: NextRequest) {
       })
       .then(() => {}, () => {})
 
+    // ─── enter the sales pipeline ───
+    // A web lead must become a DEAL so it can walk new → qualifying → quoted →
+    // sold/lost in the Sales workspace. One continuous record: if this client
+    // already has an OPEN deal, we append the new submission as a note activity
+    // instead of creating a duplicate. Non-blocking — a form submit never fails
+    // on a pipeline error (the client/portal_lead is already saved).
+    try {
+      const { data: openDeal } = await supabaseAdmin
+        .from('deals')
+        .select('id')
+        .eq('tenant_id', tenant.id)
+        .eq('client_id', clientId)
+        .in('stage', ['new', 'qualifying', 'quoted', 'pending'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const nowIso = new Date().toISOString()
+
+      if (openDeal) {
+        // Existing live deal — log the resubmission onto its timeline.
+        await supabaseAdmin.from('deal_activities').insert({
+          tenant_id: tenant.id,
+          deal_id: openDeal.id,
+          type: 'note',
+          description: `New web submission [${formType}]${notes ? `\n${notes}` : ''}`,
+          metadata: { source: leadSource, form_type: formType },
+        })
+        await supabaseAdmin
+          .from('deals')
+          .update({ last_activity_at: nowIso })
+          .eq('id', openDeal.id)
+          .eq('tenant_id', tenant.id)
+      } else {
+        // New deal at the front of the pipeline, seeded with the capture note.
+        const { data: newDeal } = await supabaseAdmin
+          .from('deals')
+          .insert({
+            tenant_id: tenant.id,
+            client_id: clientId,
+            title: body.pestType || body.subject || 'New lead',
+            stage: 'new',
+            mode: 'sales',
+            value_cents: 0,
+            probability: 10,
+            source: leadSource,
+            notes: notes || null,
+            status: 'active',
+            last_activity_at: nowIso,
+          })
+          .select('id')
+          .single()
+        if (newDeal) {
+          await supabaseAdmin.from('deal_activities').insert({
+            tenant_id: tenant.id,
+            deal_id: newDeal.id,
+            type: 'note',
+            description: `Lead captured via web form [${formType}]${notes ? `\n${notes}` : ''}`,
+            metadata: { source: leadSource, form_type: formType, self_book: !!body.selfBook },
+          })
+        }
+      }
+    } catch (dealErr) {
+      console.error('[api/contact] pipeline deal error (non-blocking):', dealErr)
+    }
+
     await notify({
       tenantId: tenant.id,
       type: 'new_client',

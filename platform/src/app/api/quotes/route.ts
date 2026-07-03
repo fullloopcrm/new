@@ -27,8 +27,10 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
       .limit(limit)
 
+    const dealId = url.searchParams.get('deal_id')
     if (status) q = q.eq('status', status)
     if (clientId) q = q.eq('client_id', clientId)
+    if (dealId) q = q.eq('deal_id', dealId)
 
     const { data, error } = await q
     if (error) throw error
@@ -50,6 +52,14 @@ export async function POST(request: Request) {
     const discount_cents = Number(body.discount_cents) || 0
     const totals = computeTotals(lineItems, tax_rate_bps, discount_cents)
 
+    // Resolve the deposit into a concrete cents amount so the public page and
+    // checkout never recompute. flat = cents; percent = basis points.
+    const deposit_type = ['flat', 'percent'].includes(body.deposit_type) ? body.deposit_type : 'none'
+    const deposit_value = Math.max(0, Math.round(Number(body.deposit_value) || 0))
+    let deposit_cents = 0
+    if (deposit_type === 'flat') deposit_cents = Math.min(deposit_value, totals.total_cents)
+    else if (deposit_type === 'percent') deposit_cents = Math.round((totals.total_cents * deposit_value) / 10000)
+
     const quote_number = body.quote_number || (await generateQuoteNumber(tenantId))
     const public_token = generatePublicToken()
 
@@ -58,6 +68,7 @@ export async function POST(request: Request) {
       .insert({
         tenant_id: tenantId,
         client_id: body.client_id || null,
+        deal_id: body.deal_id || null,
         quote_number,
         status: 'draft',
         title: body.title || null,
@@ -76,6 +87,9 @@ export async function POST(request: Request) {
         terms: body.terms || null,
         notes: body.notes || null,
         valid_until: body.valid_until || null,
+        deposit_type,
+        deposit_value,
+        deposit_cents,
         public_token,
       })
       .select('*')
@@ -88,6 +102,23 @@ export async function POST(request: Request) {
       event_type: 'created',
       detail: { quote_number: data.quote_number, total_cents: data.total_cents },
     })
+
+    // Carry the proposal onto the deal's timeline so it shows in the pipeline.
+    if (data.deal_id) {
+      await supabaseAdmin.from('deal_activities').insert({
+        tenant_id: tenantId,
+        deal_id: data.deal_id,
+        type: 'note',
+        description: `Proposal ${data.quote_number} created — ${(data.total_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}`,
+        metadata: { quote_id: data.id, quote_number: data.quote_number, total_cents: data.total_cents },
+      })
+      // Keep the deal's value in step with the proposal total.
+      await supabaseAdmin
+        .from('deals')
+        .update({ value_cents: data.total_cents, last_activity_at: new Date().toISOString() })
+        .eq('id', data.deal_id)
+        .eq('tenant_id', tenantId)
+    }
 
     return NextResponse.json({ quote: data })
   } catch (err) {

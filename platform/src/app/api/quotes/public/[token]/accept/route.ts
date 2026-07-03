@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')
-      .select('id, tenant_id, status, total_cents, quote_number')
+      .select('id, tenant_id, status, total_cents, quote_number, deal_id, deposit_cents')
       .eq('public_token', token)
       .maybeSingle()
     if (!quote) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -73,6 +73,68 @@ export async function POST(request: Request, { params }: Params) {
       ip_address: ip,
       user_agent: ua,
     })
+
+    // Carry through the close rule (self-configured by the proposal's deposit):
+    //   deposit required → deal → PENDING, wait for the deposit payment to close.
+    //   no deposit       → deal → SOLD now + auto-create the Job (→ Schedule).
+    // Only advance an OPEN deal so a re-fired accept never overrides sold/lost.
+    const hasDeposit = (quote.deposit_cents || 0) > 0
+    if (quote.deal_id) {
+      try {
+        const { data: dealRow } = await supabaseAdmin
+          .from('deals')
+          .select('stage')
+          .eq('id', quote.deal_id)
+          .eq('tenant_id', quote.tenant_id)
+          .maybeSingle()
+        if (dealRow && ['new', 'qualifying', 'quoted'].includes(dealRow.stage)) {
+          const toStage = hasDeposit ? 'pending' : 'sold'
+          await supabaseAdmin
+            .from('deals')
+            .update({
+              stage: toStage,
+              probability: hasDeposit ? 80 : 100,
+              value_cents: quote.total_cents,
+              last_activity_at: acceptedAt,
+              ...(hasDeposit ? {} : { closed_at: acceptedAt }),
+            })
+            .eq('id', quote.deal_id)
+            .eq('tenant_id', quote.tenant_id)
+          await supabaseAdmin.from('deal_activities').insert([
+            {
+              tenant_id: quote.tenant_id,
+              deal_id: quote.deal_id,
+              type: 'stage_change',
+              description: `Moved from ${dealRow.stage} to ${toStage}`,
+              metadata: { from: dealRow.stage, to: toStage, quote_id: quote.id },
+            },
+            {
+              tenant_id: quote.tenant_id,
+              deal_id: quote.deal_id,
+              type: 'note',
+              description: hasDeposit
+                ? `Proposal ${quote.quote_number} signed by ${signature_name} — awaiting deposit`
+                : `Proposal ${quote.quote_number} accepted & signed by ${signature_name}`,
+              metadata: { quote_id: quote.id, signature_name },
+            },
+          ])
+        }
+      } catch (dealErr) {
+        console.warn('deal sync on accept failed', dealErr)
+      }
+    }
+
+    // No deposit → the sale is closed on signature: spin up the Job now so it
+    // can be scheduled. Idempotent on quotes.converted_job_id. Best-effort —
+    // never fail the customer's accept on a conversion error.
+    if (!hasDeposit) {
+      try {
+        const { convertSaleToJob } = await import('@/lib/jobs')
+        await convertSaleToJob(quote.tenant_id, { type: 'quote', quoteId: quote.id }, {})
+      } catch (jobErr) {
+        console.warn('job creation on accept failed', jobErr)
+      }
+    }
 
     // Notify business owner — best-effort, don't fail the accept on notify errors
     try {

@@ -89,6 +89,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: dErr?.message || 'Failed to create lead' }, { status: 500 })
     }
 
+    // Seed the timeline so the note carries through every stage.
+    const openingNote = [service ? `Service: ${service}` : '', notes]
+      .filter(Boolean)
+      .join('\n')
+    await supabaseAdmin.from('deal_activities').insert({
+      tenant_id: tenantId,
+      deal_id: deal.id,
+      type: 'note',
+      description: `Lead created manually${openingNote ? `\n${openingNote}` : ''}`,
+      metadata: { source: 'manual' },
+    })
+
     await audit({ tenantId, action: 'deal.created', entityType: 'deal', entityId: deal.id, details: { client_id: clientId, source: 'manual' } })
 
     return NextResponse.json({ deal })

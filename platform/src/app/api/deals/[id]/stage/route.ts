@@ -16,6 +16,7 @@ export async function POST(request: Request, { params }: Params) {
     const { id } = await params
     const body = await request.json()
     const to = String(body.stage || '')
+    const lostReason = typeof body.lost_reason === 'string' ? body.lost_reason.trim() : ''
     if (!VALID.has(to as (typeof PIPELINE_STAGES)[number]['value'])) {
       return NextResponse.json({ error: `Invalid stage: ${to}` }, { status: 400 })
     }
@@ -35,7 +36,13 @@ export async function POST(request: Request, { params }: Params) {
     const updates: Record<string, unknown> = { stage: to }
     if (to === 'sold' || to === 'lost') updates.closed_at = new Date().toISOString()
     if (to === 'sold') updates.probability = 100
-    if (to === 'lost') updates.probability = 0
+    if (to === 'lost') {
+      updates.probability = 0
+      updates.lost_reason = lostReason || null
+    } else {
+      // Re-opening a previously-lost deal clears the reason.
+      updates.lost_reason = null
+    }
     if (!(to === 'sold' || to === 'lost')) {
       const currentProb = Number(existing.probability) || 0
       const wasDefaultProb = PIPELINE_STAGES.some(s => s.defaultProbability === currentProb)
@@ -55,9 +62,32 @@ export async function POST(request: Request, { params }: Params) {
       tenant_id: tenantId,
       deal_id: id,
       type: 'stage_change',
-      description: `Moved from ${existing.stage || 'lead'} to ${to}`,
-      metadata: { from: existing.stage, to, value_cents: existing.value_cents },
+      description: `Moved from ${existing.stage || 'lead'} to ${to}`
+        + (to === 'lost' && lostReason ? ` — reason: ${lostReason}` : ''),
+      metadata: { from: existing.stage, to, value_cents: existing.value_cents, ...(to === 'lost' && lostReason ? { lost_reason: lostReason } : {}) },
     })
+
+    // Manually closing to SOLD spins up the Job from the deal's proposal (if any,
+    // and not already converted) so it can be scheduled. Idempotent + best-effort.
+    if (to === 'sold') {
+      try {
+        const { data: q } = await supabaseAdmin
+          .from('quotes')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('deal_id', id)
+          .is('converted_job_id', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (q) {
+          const { convertSaleToJob } = await import('@/lib/jobs')
+          await convertSaleToJob(tenantId, { type: 'quote', quoteId: q.id }, {})
+        }
+      } catch (jobErr) {
+        console.warn('job creation on manual sold failed', jobErr)
+      }
+    }
 
     return NextResponse.json({ deal: updated })
   } catch (err) {

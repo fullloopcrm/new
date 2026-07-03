@@ -68,9 +68,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single()
     if (error) throw error
 
+    // Logging work keeps the deal "fresh" (drives pipeline aging) and, for a
+    // real outbound touch, stamps last_contacted_at so the operator sees it.
+    const nowIso = new Date().toISOString()
+    const dealUpdate: Record<string, unknown> = { updated_at: nowIso, last_activity_at: nowIso }
+    if (type === 'call' || type === 'text' || type === 'email') {
+      dealUpdate.last_contacted_at = nowIso
+    }
     await supabaseAdmin
       .from('deals')
-      .update({ updated_at: new Date().toISOString() })
+      .update(dealUpdate)
       .eq('id', id)
       .eq('tenant_id', tenantId)
 
