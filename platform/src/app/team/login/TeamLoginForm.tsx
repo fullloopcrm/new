@@ -63,6 +63,7 @@ export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
       maxLength={4}
       buttonLabel={t('Sign in →', 'Entrar →')}
       loadingLabel={t('Signing in…', 'Entrando…')}
+      helpLinks={[{ label: t('Feedback', 'Comentarios'), href: '/feedback' }]}
     >
       {needBusiness && (
         <div>

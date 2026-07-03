@@ -93,6 +93,8 @@ const isPublicRoute = createRouteMatcher([
   '/admin(.*)',               // Admin uses PIN auth, not Clerk
   '/admin-login',             // Admin PIN login page
   '/fullloop',                // Per-tenant operator PIN login page
+  '/reset-pin',               // Self-service tenant PIN reset page
+  '/api/pin-reset(.*)',       // Self-service PIN reset (tenant via signed header)
   '/api/admin-auth(.*)',       // Admin PIN auth endpoint
   '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
   '/proposal(.*)',            // Post-payment redirect pages (thank-you / cancelled)
@@ -284,7 +286,7 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // injected so getTenantFromHeaders() can resolve them.
   const APP_ROOT_PREFIXES = [
     '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
-    '/stripe-onboard', '/dashboard', '/admin', '/fullloop',
+    '/stripe-onboard', '/dashboard', '/admin', '/fullloop', '/reset-pin',
   ]
   if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
     const requestHeaders = new Headers(req.headers)

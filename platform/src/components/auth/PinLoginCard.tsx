@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react'
-import AuthShell, { authLabelClass, authInputClass, authButtonClass, authErrorClass } from './AuthShell'
+import AuthShell, {
+  authLabelClass,
+  authInputClass,
+  authButtonClass,
+  authErrorClass,
+  type AuthHelpLink,
+} from './AuthShell'
 
 interface PinLoginCardProps {
   /** Business / brand name shown in serif at the top (e.g. "The NYC Maid"). */
@@ -25,6 +31,8 @@ interface PinLoginCardProps {
   inputMode?: 'numeric' | 'text'
   inputType?: 'password' | 'text'
   autoFocus?: boolean
+  /** Footer help links (Forgot PIN, Feedback, Contact, etc.). */
+  helpLinks?: AuthHelpLink[]
   /** Optional extra fields rendered above the credential field (e.g. a business code). */
   children?: ReactNode
 }
@@ -51,10 +59,11 @@ export default function PinLoginCard({
   inputMode = 'numeric',
   inputType = 'password',
   autoFocus = true,
+  helpLinks,
   children,
 }: PinLoginCardProps) {
   return (
-    <AuthShell businessName={businessName} subtitle={subtitle}>
+    <AuthShell businessName={businessName} subtitle={subtitle} helpLinks={helpLinks}>
       <form
         className="mt-10"
         onSubmit={(e) => {

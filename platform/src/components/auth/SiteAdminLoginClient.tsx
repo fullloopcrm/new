@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import PinLoginCard from './PinLoginCard'
+import { FULL_LOOP_CONTACT_URL } from './AuthShell'
 
 interface SiteAdminLoginClientProps {
   businessName: string
@@ -62,6 +63,10 @@ export default function SiteAdminLoginClient({ businessName, docTitle }: SiteAdm
       loading={loading}
       submitDisabled={attempts >= 5 || !password}
       maxLength={16}
+      helpLinks={[
+        { label: 'Feedback', href: '/feedback' },
+        { label: 'Having trouble?', href: FULL_LOOP_CONTACT_URL },
+      ]}
     />
   )
 }

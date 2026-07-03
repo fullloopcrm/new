@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import PinLoginCard from '@/components/auth/PinLoginCard'
+import { FULL_LOOP_CONTACT_URL } from '@/components/auth/AuthShell'
 
 interface LoginFormProps {
   businessName: string
@@ -53,6 +54,11 @@ export default function LoginForm({ businessName }: LoginFormProps) {
       error={error}
       loading={loading}
       submitDisabled={pin.length < 4}
+      helpLinks={[
+        { label: 'Forgot PIN?', href: '/reset-pin' },
+        { label: 'Feedback', href: '/feedback' },
+        { label: 'Having trouble?', href: FULL_LOOP_CONTACT_URL },
+      ]}
     />
   )
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import PinLoginCard from '@/components/auth/PinLoginCard'
+import { FULL_LOOP_CONTACT_URL } from '@/components/auth/AuthShell'
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -45,6 +46,10 @@ export default function AdminLoginPage() {
       error={error}
       loading={loading}
       submitDisabled={pin.length < 4}
+      helpLinks={[
+        { label: 'Feedback', href: '/feedback' },
+        { label: 'Having trouble?', href: FULL_LOOP_CONTACT_URL },
+      ]}
     />
   )
 }

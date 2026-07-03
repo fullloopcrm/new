@@ -27,6 +27,7 @@ const navMain: Section[] = [
 ]
 
 const navPlatform = [
+  { label: 'Feedback', href: '/admin/feedback' },
   { label: 'System Status', href: '/admin/status' },
   { label: 'Activity Log', href: '/admin/activity' },
   { label: 'Monitoring', href: '/admin/monitoring' },
