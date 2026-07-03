@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './books.css'
 
-type Tab = 'overview' | 'ledger' | 'payroll' | 'expenses' | 'reconcile' | 'tax' | 'statements' | 'qb' | 'cleaners'
+type Tab = 'overview' | 'ledger' | 'payroll' | 'expenses' | 'reconcile' | 'tax' | 'statements' | 'cleaners'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'overview', letter: 'A', label: 'Overview' },
   { key: 'ledger', letter: 'B', label: 'Ledger' },
@@ -12,8 +12,7 @@ const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'reconcile', letter: 'E', label: 'Reconcile' },
   { key: 'tax', letter: 'F', label: 'Tax' },
   { key: 'statements', letter: 'G', label: 'Statements' },
-  { key: 'qb', letter: 'H', label: 'QuickBooks' },
-  { key: 'cleaners', letter: 'I', label: 'Cleaners' },
+  { key: 'cleaners', letter: 'H', label: 'Cleaners' },
 ]
 
 type LedgerRow = {
@@ -147,15 +146,6 @@ export default function BooksPage() {
 
   return (
     <div className="books-scope">
-      <div className="books-qb-bar">
-        <span className="books-qb-bar-status">QuickBooks · Not Connected</span>
-        <span className="books-qb-bar-divider" />
-        <span className="books-qb-bar-meta">Connect to enable auto-sync</span>
-        <div className="books-qb-bar-actions">
-          <button className="books-btn books-btn-ghost" type="button">Connect QuickBooks</button>
-        </div>
-      </div>
-
       <div className="books-tabs">
         {TABS.map((t) => (
           <button key={t.key} className={`books-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)} type="button">
@@ -181,9 +171,9 @@ export default function BooksPage() {
           <div className="books-stat-sub">All categorized</div>
         </div>
         <div className="books-stat">
-          <div className="books-stat-label">Synced <span className="books-stat-tag qb">QB</span></div>
+          <div className="books-stat-label">Posted</div>
           <div className="books-stat-value">{counts.synced}</div>
-          <div className="books-stat-sub good">Pushed to QuickBooks</div>
+          <div className="books-stat-sub good">Posted to your books</div>
         </div>
         <div className="books-stat">
           <div className="books-stat-label">Total Volume</div>
@@ -233,7 +223,7 @@ export default function BooksPage() {
               <span className="books-chip-dot muted" />Ready <span className="books-chip-count">{counts.ready}</span>
             </span>
             <span className={`books-chip ${statusFilter === 'synced' ? 'active' : ''}`} onClick={() => setStatusFilter('synced')}>
-              <span className="books-chip-dot qb" />Synced <span className="books-chip-count">{counts.synced}</span>
+              <span className="books-chip-dot qb" />Posted <span className="books-chip-count">{counts.synced}</span>
             </span>
             <span className={`books-chip ${typeFilter === 'revenue' ? 'active' : ''}`} onClick={() => setTypeFilter(typeFilter === 'revenue' ? 'all' : 'revenue')}>
               Revenue <span className="books-chip-count">{counts.revenue}</span>
@@ -259,7 +249,7 @@ export default function BooksPage() {
                   return `${fmtMoney(total)} total`
                 })()}
               </span>
-              <button className="books-bulk-action primary" type="button">Sync to QB →</button>
+              <button className="books-bulk-action primary" type="button">Post to books →</button>
             </div>
           )}
 
@@ -274,7 +264,7 @@ export default function BooksPage() {
               <div>Date</div>
               <div>Type</div>
               <div>Description</div>
-              <div>QB Account</div>
+              <div>Account</div>
               <div>Source</div>
               <div>Status</div>
               <div />

@@ -44,17 +44,11 @@ const navMain: Array<{
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
   ]},
   { num: '03', label: 'Production', href: '/dashboard/jobs', fold: 'production', subs: [] },
-  { num: '04', label: 'Team', href: '/dashboard/team', fold: 'team', subs: [] },
-  { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', subs: [
-    { letter: 'A', label: 'Overview', href: '/dashboard/finance' },
-    { letter: 'B', label: 'Transactions', href: '/dashboard/finance/transactions' },
-    { letter: 'C', label: 'Receipts', href: '/dashboard/finance/receipts' },
+  { num: '04', label: 'Finance', href: '/dashboard/finance', fold: 'finance', subs: [] },
+  { num: '05', label: 'HR', href: '/dashboard/team', fold: 'hr', subs: [
+    { letter: 'A', label: 'Crews', href: '/dashboard/team/crews' },
   ]},
-  { num: '06', label: 'Books', href: '/dashboard/books', fold: 'books', subs: [
-    { letter: 'A', label: 'Overview', href: '/dashboard/books' },
-    { letter: 'B', label: 'Ledger', href: '/dashboard/books' },
-  ]},
-  { num: '07', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', subs: [
+  { num: '06', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
     { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
@@ -64,8 +58,8 @@ const navMain: Array<{
     { letter: 'G', label: 'Analytics', href: '/dashboard/analytics' },
     { letter: 'H', label: 'Map', href: '/dashboard/map' },
   ]},
-  { num: '08', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
-  { num: '09', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
+  { num: '07', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
+  { num: '08', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
 ]
 
 // Routes that conceptually fold under each top-level section. Used to
@@ -75,9 +69,8 @@ const foldMap: Record<string, string[]> = {
   sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/schedules'],
   production: ['/dashboard/jobs'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
-  team: ['/dashboard/team'],
-  finance: ['/dashboard/finance'],
-  books: ['/dashboard/books'],
+  hr: ['/dashboard/team', '/dashboard/team/crews'],
+  finance: ['/dashboard/finance', '/dashboard/books'],
   marketing: [
     '/dashboard/campaigns', '/dashboard/reviews', '/dashboard/referrals',
     '/dashboard/social', '/dashboard/google', '/dashboard/websites',

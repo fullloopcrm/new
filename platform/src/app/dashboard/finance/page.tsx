@@ -1,14 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import './finance.css'
 
-type Tab = 'overview' | 'revenue' | 'margin' | 'forecast'
-const TABS: Array<{ key: Tab; letter: string; label: string }> = [
-  { key: 'overview', letter: 'A', label: 'Overview' },
-  { key: 'revenue', letter: 'B', label: 'Revenue' },
-  { key: 'margin', letter: 'C', label: 'Margin' },
-  { key: 'forecast', letter: 'D', label: 'Forecast' },
+type Tab = 'overview'
+// The finance PROCESS, left→right — one connected hub. Overview lives on this
+// page; each other step links to the surface that owns it. No outside stacks.
+const PROCESS: Array<{ letter: string; label: string; href: string }> = [
+  { letter: 'A', label: 'Overview', href: '/dashboard/finance' },
+  { letter: 'B', label: 'Transactions', href: '/dashboard/finance/transactions' },
+  { letter: 'C', label: 'Expenses', href: '/dashboard/finance/receipts' },
+  { letter: 'D', label: 'Ledger & Payroll', href: '/dashboard/books' },
+  { letter: 'E', label: 'Reconcile', href: '/dashboard/finance/reconcile' },
+  { letter: 'F', label: 'Reports', href: '/dashboard/finance/reports' },
+  { letter: 'G', label: 'Close', href: '/dashboard/finance/close' },
+  { letter: 'H', label: 'Accountant', href: '/dashboard/finance/cpa-access' },
 ]
 
 type DateRange = 'today' | 'week' | 'month' | 'quarter' | 'ytd' | 'custom'
@@ -45,7 +52,7 @@ function fmt(cents: number): string {
 }
 
 export default function FinancePage() {
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab] = useState<Tab>('overview')
   const [range, setRange] = useState<DateRange>('month')
   const [summary, setSummary] = useState<Summary>({})
   const [totals, setTotals] = useState<EnrichedTotals | null>(null)
@@ -112,12 +119,19 @@ export default function FinancePage() {
       </div>
 
       <div className="fin-tabs">
-        {TABS.map((t) => (
-          <button key={t.key} className={`fin-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)} type="button">
-            <span className="fin-tab-letter">{t.letter}</span>
-            {t.label}
-          </button>
-        ))}
+        {PROCESS.map((t) =>
+          t.href === '/dashboard/finance' ? (
+            <span key={t.label} className="fin-tab active">
+              <span className="fin-tab-letter">{t.letter}</span>
+              {t.label}
+            </span>
+          ) : (
+            <Link key={t.label} href={t.href} className="fin-tab">
+              <span className="fin-tab-letter">{t.letter}</span>
+              {t.label}
+            </Link>
+          ),
+        )}
       </div>
 
       <div className="fin-bar-label">Snapshot</div>
@@ -155,13 +169,6 @@ export default function FinancePage() {
           <div className="fin-stat-sub">From completed jobs</div>
         </div>
       </div>
-
-      {tab !== 'overview' && (
-        <div className="fin-coming-soon">
-          <div className="fin-coming-soon-title">Coming soon.</div>
-          <div>{TABS.find((t) => t.key === tab)?.label} view will land next pass.</div>
-        </div>
-      )}
 
       {tab === 'overview' && (
         <>
