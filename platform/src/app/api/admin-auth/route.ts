@@ -4,6 +4,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { hashAdminPin } from '@/lib/admin-pin'
+import { sendLoginAlert } from '@/lib/login-alert'
 import crypto from 'crypto'
 
 const ADMIN_PIN = process.env.ADMIN_PIN || ''
@@ -94,6 +95,7 @@ function setAdminCookie(res: NextResponse, token: string): void {
 
 export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
+  const ua = request.headers.get('user-agent') || 'unknown'
 
   const rl = await rateLimitDb(`admin_auth:${ip}`, 5, 15 * 60 * 1000)
   if (!rl.allowed) {
@@ -113,6 +115,7 @@ export async function POST(request: Request) {
   if (ADMIN_PIN && pin === ADMIN_PIN) {
     const res = NextResponse.json({ success: true, role: 'super_admin' })
     setAdminCookie(res, createAdminToken())
+    await sendLoginAlert({ ip, ua, who: 'Super Admin (platform)' })
     return res
   }
 
@@ -139,6 +142,7 @@ export async function POST(request: Request) {
 
       const res = NextResponse.json({ success: true, role: 'tenant_admin' })
       setAdminCookie(res, createTenantAdminToken(headerTenantId, member.id, member.role))
+      await sendLoginAlert({ tenantId: headerTenantId, ip, ua, who: `Tenant admin (${member.role})` })
       return res
     }
   }
