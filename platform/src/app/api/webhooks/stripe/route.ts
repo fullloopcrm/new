@@ -229,6 +229,49 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, invoice_paid: true })
       }
 
+      // ── Proposal deposit path — customer paid the deposit on a public quote ──
+      if (session.metadata?.quote_deposit === 'true' && session.metadata?.quote_id && tenantId) {
+        const quoteId = session.metadata.quote_id
+        const { data: q } = await supabaseAdmin
+          .from('quotes')
+          .select('id, deal_id, deposit_paid_at, deposit_cents, quote_number')
+          .eq('id', quoteId).eq('tenant_id', tenantId).maybeSingle()
+        if (!q) return NextResponse.json({ received: true, quote_not_found: true })
+        if (q.deposit_paid_at) return NextResponse.json({ received: true, idempotent: true })
+
+        const amt = session.amount_total || q.deposit_cents || 0
+        const nowIso = new Date().toISOString()
+        await supabaseAdmin.from('quotes')
+          .update({ deposit_paid_cents: amt, deposit_paid_at: nowIso, deposit_session_id: session.id })
+          .eq('id', quoteId).eq('tenant_id', tenantId)
+
+        // Deposit closes the sale: advance the deal to sold + create the Job.
+        if (q.deal_id) {
+          const { data: deal } = await supabaseAdmin
+            .from('deals').select('stage').eq('id', q.deal_id).eq('tenant_id', tenantId).maybeSingle()
+          if (deal && ['new', 'qualifying', 'quoted', 'pending'].includes(deal.stage)) {
+            await supabaseAdmin.from('deals')
+              .update({ stage: 'sold', probability: 100, closed_at: nowIso, last_activity_at: nowIso })
+              .eq('id', q.deal_id).eq('tenant_id', tenantId)
+            await supabaseAdmin.from('deal_activities').insert([
+              { tenant_id: tenantId, deal_id: q.deal_id, type: 'stage_change', description: `Moved from ${deal.stage} to sold`, metadata: { from: deal.stage, to: 'sold', quote_id: quoteId } },
+              { tenant_id: tenantId, deal_id: q.deal_id, type: 'note', description: `Deposit $${(amt / 100).toFixed(2)} paid — closed to Sold`, metadata: { quote_id: quoteId } },
+            ])
+          }
+        }
+        try { const { convertSaleToJob } = await import('@/lib/jobs'); await convertSaleToJob(tenantId, { type: 'quote', quoteId }, {}) } catch (e) { console.warn('[stripe] deposit convert-to-job failed', e) }
+        try {
+          const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+          await ownerAlert({
+            tenantId, subject: `Deposit paid — ${q.quote_number}`, kicker: 'Deposit paid',
+            heading: `${q.quote_number} — deposit in, it's sold`,
+            bodyHtml: `<p style="margin:0">Deposit <strong>$${(amt / 100).toFixed(2)}</strong> received. Closed to Sold — job created, ready to schedule.</p>`,
+            sms: `Deposit $${(amt / 100).toFixed(0)} paid on ${q.quote_number}. SOLD — schedule the job.`,
+          })
+        } catch (e) { console.warn('[stripe] deposit owner alert failed', e) }
+        return NextResponse.json({ received: true, quote_deposit_paid: true })
+      }
+
       if (!bookingId || !tenantId) break
 
       // Idempotency — skip if we already processed this session

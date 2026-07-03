@@ -79,6 +79,8 @@ export async function GET(request: Request, { params }: Params) {
       tax_cents: quote.tax_cents,
       discount_cents: quote.discount_cents,
       total_cents: quote.total_cents,
+      deposit_cents: quote.deposit_cents,
+      deposit_paid_at: quote.deposit_paid_at,
       terms: quote.terms,
       notes: quote.notes,
       valid_until: quote.valid_until,
