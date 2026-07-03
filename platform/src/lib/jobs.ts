@@ -14,6 +14,7 @@ import { logQuoteEvent } from '@/lib/quote'
 export type JobStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
 export type PaymentKind = 'deposit' | 'progress' | 'final' | 'milestone'
 export type PaymentStatus = 'pending' | 'invoiced' | 'paid' | 'void'
+export type PaymentTrigger = 'manual' | 'on_date' | 'on_stage_complete' | 'on_signature'
 
 export interface Job {
   id: string
@@ -38,6 +39,8 @@ export interface PaymentPlanItem {
   kind: PaymentKind
   amount_cents: number
   due_at?: string | null
+  /** How this payment becomes due. Defaults to 'manual'. */
+  trigger?: PaymentTrigger
 }
 
 /** One scheduled work session → becomes a booking under the job. */
@@ -144,6 +147,7 @@ export async function createJobFromQuote(
     kind: p.kind,
     amount_cents: p.amount_cents,
     due_at: p.due_at ?? null,
+    trigger: p.trigger ?? 'manual',
     sort_order: i,
   }))
   const { error: pErr } = await supabaseAdmin.from('job_payments').insert(paymentRows)
@@ -189,6 +193,10 @@ export async function createJobFromQuote(
       sessions: opts.sessions?.length ?? 0,
     },
   })
+
+  // The job was created from a SIGNED quote → release any 'on_signature'
+  // payments (the deposit) so they're immediately due to collect.
+  await releasePaymentsForEvent(tenantId, jobId, 'created')
 
   return { job_id: jobId, already_converted: false }
 }
@@ -242,4 +250,52 @@ export async function convertSaleToJob(
     case 'manual':
       throw new Error(`convertSaleToJob: source '${source.type}' not yet implemented`)
   }
+}
+
+// Which job event releases which payment trigger. One universal map — no
+// per-trade rules. A cleaning job's single 'manual' payment matches nothing
+// here and is simply marked paid by the operator; a project's triggered
+// payments flip to 'invoiced' (due) as the job progresses.
+const EVENT_RELEASES: Record<string, PaymentTrigger> = {
+  created: 'on_signature', // job created from a signed quote → deposit due
+  session_completed: 'on_stage_complete', // a scheduled work day finished → milestone due
+  completed: 'on_stage_complete', // whole job done → any remaining stage-gated payment due
+}
+
+/**
+ * Fire a job event's payment releases. Flips matching PENDING payments to
+ * 'invoiced' (due to collect) — it never marks them paid (real money still
+ * flips 'paid'). Returns how many were released. No-op for events that don't
+ * gate a payment.
+ */
+export async function releasePaymentsForEvent(
+  tenantId: string,
+  jobId: string,
+  eventType: string,
+): Promise<number> {
+  const trigger = EVENT_RELEASES[eventType]
+  if (!trigger) return 0
+
+  const { data: released, error } = await supabaseAdmin
+    .from('job_payments')
+    .update({ status: 'invoiced' })
+    .eq('tenant_id', tenantId)
+    .eq('job_id', jobId)
+    .eq('trigger', trigger)
+    .eq('status', 'pending')
+    .select('id, label, amount_cents')
+  if (error) {
+    console.error('[releasePaymentsForEvent] failed:', error)
+    return 0
+  }
+
+  for (const p of released ?? []) {
+    await logJobEvent({
+      tenant_id: tenantId,
+      job_id: jobId,
+      event_type: 'payment_invoiced',
+      detail: { payment_id: p.id, label: p.label, amount_cents: p.amount_cents, released_by: eventType },
+    })
+  }
+  return (released ?? []).length
 }

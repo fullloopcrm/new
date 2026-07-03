@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
-import { logJobEvent, type JobStatus } from '@/lib/jobs'
+import { logJobEvent, releasePaymentsForEvent, type JobStatus } from '@/lib/jobs'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -89,6 +89,8 @@ export async function PATCH(request: Request, { params }: Params) {
 
     if (body.status) {
       await logJobEvent({ tenant_id: tenantId, job_id: id, event_type: body.status, detail: {} })
+      // Release stage-gated payments (e.g. a final milestone) when the job completes.
+      await releasePaymentsForEvent(tenantId, id, body.status)
       // NOTE: on 'completed', a single review request should fire here (reusing
       // the flag-gated post-job-followup pattern). Left unwired until the review
       // trigger is approved — no client messaging without explicit sign-off.
