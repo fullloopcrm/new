@@ -46,6 +46,7 @@ type Quote = {
   signature_name: string | null
   signature_png: string | null
   converted_booking_id: string | null
+  converted_job_id: string | null
   converted_at: string | null
   clients: { id: string; name: string; email: string | null; phone: string | null } | null
   created_at: string
@@ -84,6 +85,8 @@ export default function QuoteDetailPage() {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [publicUrl, setPublicUrl] = useState('')
+  const [showJobPlan, setShowJobPlan] = useState(false)
+  const [plan, setPlan] = useState<Array<{ label: string; kind: string; amount: string }>>([])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -127,6 +130,34 @@ export default function QuoteDetailPage() {
     router.push(`/dashboard/bookings?highlight=${data.booking_id}`)
   })
 
+  // Project conversion: build a payment plan (default deposit/final split), then
+  // create a Job that owns the plan. Sessions are scheduled after the job exists.
+  const openJobPlan = () => {
+    const total = quote?.total_cents || 0
+    const half = Math.round(total / 2)
+    setPlan([
+      { label: 'Deposit', kind: 'deposit', amount: (half / 100).toFixed(2) },
+      { label: 'Final', kind: 'final', amount: ((total - half) / 100).toFixed(2) },
+    ])
+    setShowJobPlan(true)
+  }
+  const planTotalCents = () => plan.reduce((s, p) => s + Math.round(parseFloat(p.amount || '0') * 100), 0)
+  const convertToJob = () => doAction('convert-job', async () => {
+    const payments = plan
+      .filter(p => p.label.trim() && parseFloat(p.amount || '0') > 0)
+      .map(p => ({ label: p.label.trim(), kind: p.kind, amount_cents: Math.round(parseFloat(p.amount) * 100) }))
+    const res = await fetch(`/api/quotes/${id}/convert-to-job`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payments }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Convert to job failed')
+    setShowJobPlan(false)
+    setMsg(`Job created with ${payments.length} payment${payments.length === 1 ? '' : 's'}. Schedule the sessions next.`)
+    load()
+  })
+
   const del = () => doAction('delete', async () => {
     if (!confirm('Delete this quote? This cannot be undone.')) return
     const res = await fetch(`/api/quotes/${id}`, { method: 'DELETE' })
@@ -145,7 +176,8 @@ export default function QuoteDetailPage() {
   if (!quote) return <div className="p-8 text-slate-500 text-sm">Not found.</div>
 
   const canSend = ['draft', 'sent', 'viewed'].includes(quote.status)
-  const canConvert = quote.status === 'accepted' && !quote.converted_booking_id
+  const notYetConverted = !quote.converted_booking_id && !quote.converted_job_id
+  const canConvert = quote.status === 'accepted' && notYetConverted
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -170,6 +202,51 @@ export default function QuoteDetailPage() {
       {msg && <div className="mb-3 p-2 rounded bg-green-50 border border-green-200 text-green-700 text-sm">{msg}</div>}
       {err && <div className="mb-3 p-2 rounded bg-red-50 border border-red-200 text-red-700 text-sm">{err}</div>}
 
+      {/* Payment-plan builder (project conversion) */}
+      {showJobPlan && (
+        <div className="mb-5 p-4 rounded-lg border border-indigo-200 bg-indigo-50/50">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-slate-800">Payment plan</h3>
+            <span className={`text-xs font-medium ${planTotalCents() === quote.total_cents ? 'text-green-600' : 'text-amber-600'}`}>
+              Plan {formatCents(planTotalCents())} / Quote {formatCents(quote.total_cents)}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {plan.map((p, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <input value={p.label}
+                  onChange={e => setPlan(pl => pl.map((r, j) => j === i ? { ...r, label: e.target.value } : r))}
+                  placeholder="Label" className="flex-1 px-2 py-1 text-xs rounded border border-slate-300" />
+                <select value={p.kind}
+                  onChange={e => setPlan(pl => pl.map((r, j) => j === i ? { ...r, kind: e.target.value } : r))}
+                  className="px-2 py-1 text-xs rounded border border-slate-300 bg-white">
+                  <option value="deposit">deposit</option>
+                  <option value="progress">progress</option>
+                  <option value="final">final</option>
+                  <option value="milestone">milestone</option>
+                </select>
+                <input value={p.amount} inputMode="decimal" placeholder="0.00"
+                  onChange={e => setPlan(pl => pl.map((r, j) => j === i ? { ...r, amount: e.target.value } : r))}
+                  className="w-24 px-2 py-1 text-xs rounded border border-slate-300 text-right" />
+                <button onClick={() => setPlan(pl => pl.filter((_, j) => j !== i))}
+                  className="text-slate-400 hover:text-red-500 text-xs px-1" aria-label="Remove payment">✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button onClick={() => setPlan(pl => [...pl, { label: '', kind: 'milestone', amount: '' }])}
+              className="px-2 py-1 text-xs rounded border border-slate-300 bg-white hover:bg-slate-50">+ Payment</button>
+            <button onClick={convertToJob} disabled={!!busy || plan.length === 0}
+              className="px-3 py-1 text-xs font-medium rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+              {busy === 'convert-job' ? 'Creating…' : 'Create Job'}
+            </button>
+            <button onClick={() => setShowJobPlan(false)}
+              className="px-2 py-1 text-xs rounded text-slate-500 hover:bg-slate-100">Cancel</button>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">Plan doesn&apos;t have to equal the quote total (deposits, change orders). Schedule work sessions after the job is created.</p>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex flex-wrap gap-2 mb-5">
         {canSend && (
@@ -189,6 +266,17 @@ export default function QuoteDetailPage() {
             className="px-3 py-1.5 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
             {busy === 'convert' ? 'Converting…' : 'Convert to Booking'}
           </button>
+        )}
+        {canConvert && (
+          <button onClick={openJobPlan} disabled={!!busy}
+            className="px-3 py-1.5 text-xs font-medium rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+            Convert to Job (project)
+          </button>
+        )}
+        {quote.converted_job_id && (
+          <span className="px-3 py-1.5 text-xs font-medium rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+            Job created ✓
+          </span>
         )}
         {['accepted', 'converted'].includes(quote.status) && (
           <Link
