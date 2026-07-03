@@ -42,6 +42,7 @@ const navMain: Array<{
   { num: '01', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [
     { letter: 'A', label: 'Leads', href: '/dashboard/leads' },
     { letter: 'B', label: 'Pipeline', href: '/dashboard/sales' },
+    { letter: 'C', label: 'Go Live', href: '/dashboard/go-live' },
   ]},
   { num: '02', label: 'Schedule', href: '/dashboard/bookings', countKey: 'bookings', fold: 'schedule', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
@@ -82,7 +83,7 @@ const navMain: Array<{
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/leads'],
+  sales: ['/dashboard/sales', '/dashboard/leads', '/dashboard/go-live'],
   schedule: ['/dashboard/bookings', '/dashboard/calendar', '/dashboard/schedules'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   team: ['/dashboard/team'],
