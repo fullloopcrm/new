@@ -107,12 +107,16 @@ export async function PATCH(request: Request, { params }: Params) {
       .single()
     if (error) throw error
 
-    await logQuoteEvent({
-      quote_id: id,
-      tenant_id: tenantId,
-      event_type: 'edited',
-      detail: { fields: Object.keys(updates) },
-    })
+    // Autosave passes silent:true so a draft being typed doesn't spam the
+    // activity log with an 'edited' row on every keystroke-debounce.
+    if (!body.silent) {
+      await logQuoteEvent({
+        quote_id: id,
+        tenant_id: tenantId,
+        event_type: 'edited',
+        detail: { fields: Object.keys(updates) },
+      })
+    }
     return NextResponse.json({ quote: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

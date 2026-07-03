@@ -124,6 +124,24 @@ export async function POST(request: Request, { params }: Params) {
       detail: { via: sentVia, results, to_email: toEmail, to_phone: toPhone },
     })
 
+    // Announce to the deal's pipeline timeline on the FIRST send only (drafts
+    // are created silently now, so this is where a proposal enters the pipeline).
+    // quote.status is the pre-update value → 'draft' means this is the first send.
+    if (quote.status === 'draft' && quote.deal_id) {
+      await supabaseAdmin.from('deal_activities').insert({
+        tenant_id: tenantId,
+        deal_id: quote.deal_id,
+        type: 'note',
+        description: `Proposal ${quote.quote_number} sent — ${formatCents(quote.total_cents)}`,
+        metadata: { quote_id: quote.id, quote_number: quote.quote_number, total_cents: quote.total_cents, via: sentVia },
+      })
+      await supabaseAdmin
+        .from('deals')
+        .update({ value_cents: quote.total_cents, last_activity_at: new Date().toISOString() })
+        .eq('id', quote.deal_id)
+        .eq('tenant_id', tenantId)
+    }
+
     const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
     await ownerAlert({
       tenantId,

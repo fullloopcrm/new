@@ -104,7 +104,9 @@ export async function POST(request: Request) {
     })
 
     // Carry the proposal onto the deal's timeline so it shows in the pipeline.
-    if (data.deal_id) {
+    // Autosaved drafts pass silent:true to stay OFF the pipeline until sent —
+    // the send route announces to the deal instead (see quotes/[id]/send).
+    if (data.deal_id && !body.silent) {
       await supabaseAdmin.from('deal_activities').insert({
         tenant_id: tenantId,
         deal_id: data.deal_id,

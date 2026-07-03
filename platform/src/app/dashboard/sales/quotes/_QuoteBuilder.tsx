@@ -164,12 +164,14 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
 
   const meaningful = title.trim().length > 0 || items.some(li => li.name.trim().length > 0)
 
-  /** Persist the current body — create the draft on first call, PATCH after. */
+  /** Persist the current body — create the draft on first call, PATCH after.
+   * silent:true keeps drafts off the deal pipeline + activity log until sent. */
   async function persist(payload: typeof body): Promise<string | null> {
     const id = quoteIdRef.current
+    const wire = JSON.stringify({ ...payload, silent: true })
     const res = id
-      ? await fetch(`/api/quotes/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      : await fetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      ? await fetch(`/api/quotes/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: wire })
+      : await fetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: wire })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Save failed')
     const newId = (data.quote?.id as string) || id
