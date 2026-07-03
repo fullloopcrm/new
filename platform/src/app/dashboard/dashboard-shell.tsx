@@ -43,11 +43,11 @@ const navMain: Array<{
   { num: '02', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
   ]},
-  { num: '03', label: 'Production', href: '/dashboard/jobs', fold: 'production', subs: [] },
-  { num: '04', label: 'Finance', href: '/dashboard/finance', fold: 'finance', subs: [] },
-  { num: '05', label: 'HR', href: '/dashboard/team', fold: 'hr', subs: [
-    { letter: 'A', label: 'Crews', href: '/dashboard/team/crews' },
+  { num: '03', label: 'Production', href: '/dashboard/jobs', fold: 'production', subs: [
+    { letter: 'A', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
+  { num: '04', label: 'Finance', href: '/dashboard/finance', fold: 'finance', subs: [] },
+  { num: '05', label: 'HR', href: '/dashboard/team', fold: 'hr', subs: [] },
   { num: '06', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
@@ -67,7 +67,7 @@ const navMain: Array<{
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
   sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/schedules'],
-  production: ['/dashboard/jobs'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   hr: ['/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
