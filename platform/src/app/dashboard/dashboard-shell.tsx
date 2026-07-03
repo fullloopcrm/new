@@ -48,6 +48,7 @@ const navMain: Array<{
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
     { letter: 'B', label: 'Calendar', href: '/dashboard/calendar' },
     { letter: 'C', label: 'Recurring', href: '/dashboard/schedules' },
+    { letter: 'D', label: 'Jobs', href: '/dashboard/jobs' },
   ]},
   { num: '03', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', subs: [
     { letter: 'A', label: 'All Clients', href: '/dashboard/clients' },
@@ -84,7 +85,7 @@ const navMain: Array<{
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
   sales: ['/dashboard/sales', '/dashboard/leads', '/dashboard/go-live'],
-  schedule: ['/dashboard/bookings', '/dashboard/calendar', '/dashboard/schedules'],
+  schedule: ['/dashboard/bookings', '/dashboard/calendar', '/dashboard/schedules', '/dashboard/jobs'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   team: ['/dashboard/team'],
   finance: ['/dashboard/finance'],
