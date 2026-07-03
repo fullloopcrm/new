@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
 type Job = { id: string; title: string | null; status: string; total_cents: number; service_address: string | null; notes: string | null }
-type Payment = { id: string; label: string; kind: string; amount_cents: number; status: string; paid_at: string | null }
+type Payment = { id: string; label: string; kind: string; amount_cents: number; status: string; trigger: string; paid_at: string | null }
 type Session = { id: string; start_time: string | null; end_time: string | null; status: string }
 type EventRow = { id: string; event_type: string; created_at: string }
 
@@ -89,7 +89,11 @@ export default function JobDetailPage() {
           {payments.map(p => (
             <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-white">
               <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">{p.kind}</span>
-              <span className="flex-1 text-sm text-slate-700">{p.label}</span>
+              <span className="flex-1 min-w-0">
+                <span className="text-sm text-slate-700">{p.label}</span>
+                {p.trigger && p.trigger !== 'manual' && <span className="ml-2 text-[10px] text-slate-400">{p.trigger.replace(/_/g, ' ')}</span>}
+              </span>
+              {p.status === 'invoiced' && <span className="text-[10px] text-amber-600 font-medium">due</span>}
               <span className="text-sm font-medium text-slate-900">{money(p.amount_cents)}</span>
               {p.status === 'paid'
                 ? <span className="text-[11px] text-green-600 font-medium w-16 text-right">paid</span>

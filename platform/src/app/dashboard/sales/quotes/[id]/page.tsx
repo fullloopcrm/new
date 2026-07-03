@@ -90,7 +90,7 @@ export default function QuoteDetailPage() {
   const [err, setErr] = useState('')
   const [publicUrl, setPublicUrl] = useState('')
   const [showJobPlan, setShowJobPlan] = useState(false)
-  const [plan, setPlan] = useState<Array<{ label: string; kind: string; amount: string }>>([])
+  const [plan, setPlan] = useState<Array<{ label: string; kind: string; amount: string; trigger: string }>>([])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -140,8 +140,8 @@ export default function QuoteDetailPage() {
     const total = quote?.total_cents || 0
     const half = Math.round(total / 2)
     setPlan([
-      { label: 'Deposit', kind: 'deposit', amount: (half / 100).toFixed(2) },
-      { label: 'Final', kind: 'final', amount: ((total - half) / 100).toFixed(2) },
+      { label: 'Deposit', kind: 'deposit', amount: (half / 100).toFixed(2), trigger: 'on_signature' },
+      { label: 'Final', kind: 'final', amount: ((total - half) / 100).toFixed(2), trigger: 'on_stage_complete' },
     ])
     setShowJobPlan(true)
   }
@@ -149,7 +149,7 @@ export default function QuoteDetailPage() {
   const convertToJob = () => doAction('convert-job', async () => {
     const payments = plan
       .filter(p => p.label.trim() && parseFloat(p.amount || '0') > 0)
-      .map(p => ({ label: p.label.trim(), kind: p.kind, amount_cents: Math.round(parseFloat(p.amount) * 100) }))
+      .map(p => ({ label: p.label.trim(), kind: p.kind, amount_cents: Math.round(parseFloat(p.amount) * 100), trigger: p.trigger }))
     const res = await fetch(`/api/quotes/${id}/convert-to-job`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -232,13 +232,21 @@ export default function QuoteDetailPage() {
                 <input value={p.amount} inputMode="decimal" placeholder="0.00"
                   onChange={e => setPlan(pl => pl.map((r, j) => j === i ? { ...r, amount: e.target.value } : r))}
                   className="w-24 px-2 py-1 text-xs rounded border border-slate-300 text-right" />
+                <select value={p.trigger} title="When this payment becomes due"
+                  onChange={e => setPlan(pl => pl.map((r, j) => j === i ? { ...r, trigger: e.target.value } : r))}
+                  className="px-2 py-1 text-xs rounded border border-slate-300 bg-white">
+                  <option value="manual">manual</option>
+                  <option value="on_signature">on signature</option>
+                  <option value="on_stage_complete">on stage done</option>
+                  <option value="on_date">on date</option>
+                </select>
                 <button onClick={() => setPlan(pl => pl.filter((_, j) => j !== i))}
                   className="text-slate-400 hover:text-red-500 text-xs px-1" aria-label="Remove payment">✕</button>
               </div>
             ))}
           </div>
           <div className="flex flex-wrap gap-2 mt-3">
-            <button onClick={() => setPlan(pl => [...pl, { label: '', kind: 'milestone', amount: '' }])}
+            <button onClick={() => setPlan(pl => [...pl, { label: '', kind: 'milestone', amount: '', trigger: 'manual' }])}
               className="px-2 py-1 text-xs rounded border border-slate-300 bg-white hover:bg-slate-50">+ Payment</button>
             <button onClick={convertToJob} disabled={!!busy || plan.length === 0}
               className="px-3 py-1 text-xs font-medium rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
