@@ -62,14 +62,16 @@ export async function runOnboardingGate(tenantId: string): Promise<GateResult> {
 
   // 2. LEAD — a lead posted from the site can land: host exists to carry the
   //    form, and the leads table is reachable for this tenant.
+  // Site/agent leads land in portal_leads (tenant-scoped). The legacy `leads`
+  // table has no tenant_id, so querying it here always errored.
   const { error: leadErr } = await supabaseAdmin
-    .from('leads')
+    .from('portal_leads')
     .select('id', { count: 'exact', head: true })
     .eq('tenant_id', tenantId)
   stages.push({
     stage: 'lead',
     ok: !!host && !leadErr,
-    detail: leadErr ? `Leads table unreachable: ${leadErr.message}` : 'Lead capture wired to /api/lead',
+    detail: leadErr ? `Lead capture unreachable: ${leadErr.message}` : 'Lead capture wired (portal_leads)',
   })
 
   // 3. SCHEDULE — at least one active team member + one active service, and the
