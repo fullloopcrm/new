@@ -50,6 +50,41 @@ export interface JobSessionInput {
   notes?: string | null
 }
 
+/** A booking row with its assignees + crew embedded (PostgREST shape). */
+export interface RawSession {
+  id: string
+  start_time: string | null
+  end_time: string | null
+  status: string | null
+  notes: string | null
+  service_type: string | null
+  team_member_id: string | null
+  crew_id: string | null
+  booking_assignees?: { team_member_id: string; team_members: { name: string | null } | { name: string | null }[] | null }[] | null
+  crew?: { name: string | null; color: string | null } | { name: string | null; color: string | null }[] | null
+}
+
+/** Flatten PostgREST's embedded rows into a flat session the UI can render. */
+export function shapeSession(b: RawSession) {
+  const crew = Array.isArray(b.crew) ? b.crew[0] : b.crew
+  const assignees = (b.booking_assignees || []).map((a) => {
+    const tm = Array.isArray(a.team_members) ? a.team_members[0] : a.team_members
+    return { id: a.team_member_id, name: tm?.name || '—' }
+  })
+  return {
+    id: b.id,
+    start_time: b.start_time,
+    end_time: b.end_time,
+    status: b.status,
+    notes: b.notes,
+    service_type: b.service_type,
+    team_member_id: b.team_member_id,
+    crew_id: b.crew_id,
+    crew: crew ? { name: crew.name, color: crew.color } : null,
+    assignees,
+  }
+}
+
 export interface CreateJobFromQuoteOptions {
   /** Payment plan. If omitted, a single 'final' payment for the quote total is created. */
   payments?: PaymentPlanItem[]

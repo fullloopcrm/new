@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
-import { logJobEvent, releasePaymentsForEvent, type JobStatus } from '@/lib/jobs'
+import { logJobEvent, releasePaymentsForEvent, shapeSession, type JobStatus, type RawSession } from '@/lib/jobs'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -30,14 +30,21 @@ export async function GET(_request: Request, { params }: Params) {
 
     const [payments, sessions, events] = await Promise.all([
       supabaseAdmin.from('job_payments').select('*').eq('job_id', id).order('sort_order'),
-      supabaseAdmin.from('bookings').select('id, start_time, end_time, status, notes').eq('job_id', id).order('start_time'),
+      supabaseAdmin
+        .from('bookings')
+        .select(
+          'id, start_time, end_time, status, notes, service_type, team_member_id, crew_id, ' +
+            'booking_assignees(team_member_id, team_members(name)), crew:crews(name, color)',
+        )
+        .eq('job_id', id)
+        .order('start_time'),
       supabaseAdmin.from('job_events').select('*').eq('job_id', id).order('created_at', { ascending: false }),
     ])
 
     return NextResponse.json({
       job,
       payments: payments.data ?? [],
-      sessions: sessions.data ?? [],
+      sessions: (sessions.data ?? []).map((s) => shapeSession(s as unknown as RawSession)),
       events: events.data ?? [],
     })
   } catch (err) {
