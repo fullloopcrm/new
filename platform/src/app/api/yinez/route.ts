@@ -25,11 +25,17 @@ export async function POST(req: NextRequest) {
       }
 
       // If returning client, try to link to existing client record
-      if (phone) {
+      // TENANT WALL: scope the returning-client lookup to THIS tenant
+      // (x-tenant-id is set + signed by middleware from the domain). Without it,
+      // a phone could match another tenant's client and leak their name here.
+      // No tenant context → skip linking rather than search globally.
+      const reqTenantId = req.headers.get('x-tenant-id')
+      if (phone && reqTenantId) {
         const digits = phone.replace(/\D/g, '').slice(-10)
         const { data: client } = await supabaseAdmin
           .from('clients')
           .select('id, name')
+          .eq('tenant_id', reqTenantId)
           .ilike('phone', `%${digits}%`)
           .limit(1).single()
         if (client) {
