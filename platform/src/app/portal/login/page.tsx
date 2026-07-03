@@ -3,6 +3,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePortalAuth } from '../layout'
+import AuthShell, {
+  authLabelClass,
+  authInputClass,
+  authButtonClass,
+  authErrorClass,
+} from '@/components/auth/AuthShell'
 
 export default function PortalLoginPage() {
   const { setAuth } = usePortalAuth()
@@ -52,55 +58,81 @@ export default function PortalLoginPage() {
   }
 
   return (
-    <div className="flex flex-col items-center pt-16">
-      <h1 className="text-xl font-bold text-slate-800 mb-2">Client Portal</h1>
-      <p className="text-sm text-slate-400 mb-8">
-        {step === 'phone' ? 'Enter your phone number to get started' : 'Enter the code we sent you'}
-      </p>
+    <AuthShell businessName="Full Loop" subtitle="Client Portal">
+      {step === 'phone' ? (
+        <form className="mt-10" onSubmit={sendCode}>
+          <div>
+            <label htmlFor="portal-slug" className={authLabelClass}>
+              Business code
+            </label>
+            <input
+              id="portal-slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+              required
+              placeholder="nyc-maid"
+              className={authInputClass}
+            />
+          </div>
 
-      {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+          <div className="mt-6">
+            <label htmlFor="portal-phone" className={authLabelClass}>
+              Phone
+            </label>
+            <input
+              id="portal-phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              placeholder="Phone number"
+              className={authInputClass}
+            />
+          </div>
 
-      {step === 'phone' && (
-        <form onSubmit={sendCode} className="w-full max-w-sm space-y-4">
-          <input
-            placeholder="Business code (e.g. nyc-maid)"
-            value={slug}
-            onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-            required
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm"
-          />
-          <input
-            placeholder="Phone number"
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm"
-          />
-          <button type="submit" disabled={loading} className="w-full bg-slate-800 text-white py-3 rounded-lg font-medium disabled:opacity-50">
-            {loading ? 'Sending...' : 'Send Code'}
+          {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
+
+          <button type="submit" disabled={loading} className={`mt-8 ${authButtonClass}`}>
+            {loading ? 'Sending…' : 'Send code →'}
+          </button>
+        </form>
+      ) : (
+        <form className="mt-10" onSubmit={verifyCode}>
+          <div>
+            <label htmlFor="portal-code" className={authLabelClass}>
+              Verification code
+            </label>
+            <input
+              id="portal-code"
+              autoFocus
+              inputMode="numeric"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              required
+              maxLength={6}
+              placeholder="6-digit code"
+              className={authInputClass}
+            />
+          </div>
+
+          {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
+
+          <button
+            type="submit"
+            disabled={loading || code.length !== 6}
+            className={`mt-8 ${authButtonClass}`}
+          >
+            {loading ? 'Verifying…' : 'Verify →'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep('phone')}
+            className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
+          >
+            ← Back
           </button>
         </form>
       )}
-
-      {step === 'code' && (
-        <form onSubmit={verifyCode} className="w-full max-w-sm space-y-4">
-          <input
-            placeholder="6-digit code"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            required
-            maxLength={6}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm text-center tracking-widest text-xl font-mono"
-          />
-          <button type="submit" disabled={loading || code.length !== 6} className="w-full bg-slate-800 text-white py-3 rounded-lg font-medium disabled:opacity-50">
-            {loading ? 'Verifying...' : 'Verify'}
-          </button>
-          <button type="button" onClick={() => setStep('phone')} className="w-full text-sm text-slate-400">
-            Back
-          </button>
-        </form>
-      )}
-    </div>
+    </AuthShell>
   )
 }

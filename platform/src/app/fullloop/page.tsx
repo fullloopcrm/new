@@ -1,107 +1,29 @@
-'use client'
-
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { headers } from 'next/headers'
+import { supabaseAdmin } from '@/lib/supabase'
+import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import LoginForm from './LoginForm'
 
 /**
- * Per-tenant operator login. Served at <tenant-domain>/fullloop. The PIN is
- * matched against THIS domain's tenant_members (see /api/admin-auth); the minted
- * token is bound to the tenant + member, so it is useless on another tenant.
+ * Per-tenant operator login. Served at <tenant-domain>/fullloop. The business
+ * name is resolved server-side (pre-auth) from the domain's signed x-tenant-id
+ * header — getTenantForRequest() can't be used here because the operator isn't
+ * authenticated yet. The PIN entered is matched against THIS domain's
+ * tenant_members (see /api/admin-auth); the minted token is bound to the tenant.
  */
-export default function FullLoopLoginPage() {
-  const router = useRouter()
-  const [pin, setPin] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+export default async function FullLoopLoginPage() {
+  const h = await headers()
+  const tenantId = h.get('x-tenant-id')
+  const sig = h.get('x-tenant-sig')
 
-  function addDigit(d: string) {
-    if (pin.length < 6) setPin(pin + d)
+  let businessName = 'Full Loop'
+  if (tenantId && verifyTenantHeaderSig(tenantId, sig)) {
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('name')
+      .eq('id', tenantId)
+      .maybeSingle()
+    if (tenant?.name) businessName = tenant.name
   }
 
-  function clear() {
-    setPin('')
-  }
-
-  async function login() {
-    if (pin.length < 4) return
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/admin-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Login failed')
-        setPin('')
-        return
-      }
-      router.push('/admin')
-      router.refresh()
-    } catch {
-      setError('Connection error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="w-full max-w-sm px-6">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold font-heading text-white">Full Loop</h1>
-          <p className="text-sm font-body text-slate-400 mt-1">Enter your PIN to sign in</p>
-        </div>
-
-        <input
-          autoFocus
-          type="password"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          onKeyDown={(e) => { if (e.key === 'Enter') login() }}
-          placeholder="Type your PIN"
-          className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-center text-xl font-mono tracking-widest placeholder:text-slate-500 placeholder:tracking-normal placeholder:text-base focus:outline-none focus:border-teal-500"
-        />
-
-        <div className="flex justify-center gap-3 mb-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg font-mono font-bold transition-colors ${
-              i < pin.length ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-600'
-            }`}>
-              {i < pin.length ? '•' : ''}
-            </div>
-          ))}
-        </div>
-
-        {error && <p className="text-red-400 text-sm text-center mb-4">{error}</p>}
-
-        <div className="grid grid-cols-3 gap-3 max-w-[240px] mx-auto">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '←'].map((d) => (
-            <button
-              key={d}
-              onClick={() => d === '←' ? clear() : d ? addDigit(d) : null}
-              disabled={!d}
-              className={`h-14 rounded-xl text-xl font-mono font-medium transition-colors ${
-                d ? 'bg-slate-800 border border-slate-700 text-white hover:bg-slate-700 active:bg-slate-600' : ''
-              } ${!d ? 'invisible' : ''}`}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={login}
-          disabled={pin.length < 4 || loading}
-          className="w-full mt-6 bg-teal-600 text-white py-3 rounded-xl font-cta font-semibold disabled:opacity-30 hover:bg-teal-500 transition-colors"
-        >
-          {loading ? 'Signing in…' : 'Sign in'}
-        </button>
-      </div>
-    </div>
-  )
+  return <LoginForm businessName={businessName} />
 }

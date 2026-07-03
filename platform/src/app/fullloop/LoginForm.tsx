@@ -4,7 +4,16 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import PinLoginCard from '@/components/auth/PinLoginCard'
 
-export default function AdminLoginPage() {
+interface LoginFormProps {
+  businessName: string
+}
+
+/**
+ * Editorial single-field operator login. The credential is matched against THIS
+ * domain's tenant_members PIN hash (see /api/admin-auth); email is intentionally
+ * absent because the backend has no email lookup — it is PIN-only.
+ */
+export default function LoginForm({ businessName }: LoginFormProps) {
   const router = useRouter()
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
@@ -37,8 +46,7 @@ export default function AdminLoginPage() {
 
   return (
     <PinLoginCard
-      businessName="Full Loop"
-      subtitle="Admin Portal"
+      businessName={businessName}
       value={pin}
       onChange={(v) => setPin(v.replace(/\D/g, '').slice(0, 6))}
       onSubmit={login}

@@ -1,17 +1,22 @@
-// @ts-nocheck
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import AuthShell, {
+  authLabelClass,
+  authInputClass,
+  authButtonClass,
+  authErrorClass,
+  authLinkClass,
+} from '@/components/auth/AuthShell'
 
 export default function LoginClient() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async () => {
+    if (loading || !email || pin.length < 4) return
     setError('')
     setLoading(true)
     try {
@@ -24,70 +29,77 @@ export default function LoginClient() {
       if (!res.ok) throw new Error(data.error || 'Login failed')
       window.location.href = '/account'
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Login failed'
-      setError(msg)
+      setError(e instanceof Error ? e.message : 'Login failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <main style={{ maxWidth: '400px', margin: '0 auto', padding: '1.5rem', minHeight: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>Log in</h1>
-      <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>Enter your email and 4-digit PIN.</p>
+    <AuthShell businessName="NYC Classifieds" subtitle="Member Login">
+      <form
+        className="mt-10"
+        onSubmit={(e) => {
+          e.preventDefault()
+          handleLogin()
+        }}
+      >
+        <div>
+          <label htmlFor="classifieds-email" className={authLabelClass}>
+            Email
+          </label>
+          <input
+            id="classifieds-email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={authInputClass}
+          />
+        </div>
 
-      <input
-        type="email"
-        placeholder="you@example.com"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        style={inputStyle}
-      />
-      <input
-        type="password"
-        inputMode="numeric"
-        maxLength={10}
-        placeholder="PIN"
-        value={pin}
-        onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
-        onKeyDown={e => e.key === 'Enter' && handleLogin()}
-        style={inputStyle}
-      />
+        <div className="mt-6">
+          <label htmlFor="classifieds-pin" className={authLabelClass}>
+            PIN
+          </label>
+          <input
+            id="classifieds-pin"
+            type="password"
+            inputMode="numeric"
+            maxLength={10}
+            placeholder="4-digit PIN"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+            className={authInputClass}
+          />
+        </div>
 
-      {error && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginBottom: '0.75rem' }}>{error}</p>}
+        {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
 
-      <button onClick={handleLogin} disabled={loading || !email || pin.length < 4} style={{
-        width: '100%',
-        padding: '0.75rem',
-        borderRadius: '0.5rem',
-        border: 'none',
-        backgroundColor: '#2563eb',
-        color: '#fff',
-        fontSize: '1rem',
-        fontWeight: 600,
-        cursor: 'pointer',
-      }}>
-        {loading ? 'Logging in...' : 'Log in'}
-      </button>
+        <button
+          type="submit"
+          disabled={loading || !email || pin.length < 4}
+          className={`mt-8 ${authButtonClass}`}
+        >
+          {loading ? 'Logging in…' : 'Log in →'}
+        </button>
+      </form>
 
-      <p style={{ textAlign: 'center', marginTop: '1rem', color: '#64748b', fontSize: '0.875rem' }}>
-        Don&apos;t have an account?{' '}
-        <a href="/signup" style={{ color: '#2563eb', fontWeight: 500 }}>Sign up</a>
-      </p>
-      <p style={{ textAlign: 'center', marginTop: '0.5rem', color: '#64748b', fontSize: '0.875rem' }}>
-        Forgot your PIN?{' '}
-        <a href="/forgot-pin" style={{ color: '#2563eb', fontWeight: 500 }}>Reset via email</a>
-      </p>
-    </main>
+      <div className="mt-6 space-y-1 text-center font-mono text-xs uppercase tracking-wide text-neutral-500">
+        <p>
+          No account?{' '}
+          <a href="/signup" className={authLinkClass}>
+            Sign up
+          </a>
+        </p>
+        <p>
+          Forgot your PIN?{' '}
+          <a href="/forgot-pin" className={authLinkClass}>
+            Reset via email
+          </a>
+        </p>
+      </div>
+    </AuthShell>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '0.75rem 1rem',
-  borderRadius: '0.5rem',
-  border: '1px solid #e2e8f0',
-  fontSize: '1rem',
-  outline: 'none',
-  marginBottom: '0.75rem',
 }
