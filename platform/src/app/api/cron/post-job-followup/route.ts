@@ -100,6 +100,52 @@ export async function GET(request: Request) {
           errors.push(`SMS to ${client.phone} for booking ${booking.id}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
         }
       }
+
+      // Jobs (projects): one review request per COMPLETED job — the piece
+      // bookings don't cover. Same flag gate (review_followup_enabled, checked
+      // above) + telnyx. Deduped via a 'review_requested' job_event so a job is
+      // only ever asked once, no matter how many sessions it had.
+      const { data: doneJobs } = await supabaseAdmin
+        .from('jobs')
+        .select('id, client_id, completed_at, clients(name, phone)')
+        .eq('tenant_id', tenant.id)
+        .eq('status', 'completed')
+        .gte('completed_at', threeHoursAgo.toISOString())
+        .lte('completed_at', twoHoursAgo.toISOString())
+        .limit(200)
+
+      const jobReviewUrl = settings.google_review_link
+        || (tenant.domain
+          ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/reviews/submit`
+          : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`)
+
+      for (const job of doneJobs || []) {
+        const { count: already } = await supabaseAdmin
+          .from('job_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('job_id', job.id)
+          .eq('event_type', 'review_requested')
+        if (already && already > 0) { skipped++; continue }
+
+        const jc = job.clients as unknown as { name: string; phone: string | null } | null
+        if (!jc?.phone) { skipped++; continue }
+        const jFirst = jc.name?.split(' ')[0] || 'there'
+
+        try {
+          await sendSMS({
+            to: jc.phone,
+            body: `Hi ${jFirst}! How did everything go? We'd love your feedback — takes 30 sec:\n${jobReviewUrl}\nReply STOP to opt out.`,
+            telnyxApiKey: tenant.telnyx_api_key,
+            telnyxPhone: tenant.telnyx_phone,
+          })
+          await supabaseAdmin.from('job_events').insert({
+            tenant_id: tenant.id, job_id: job.id, event_type: 'review_requested', detail: {},
+          })
+          sent++
+        } catch (smsErr) {
+          errors.push(`Job review SMS ${job.id}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
+        }
+      }
     } catch (tenantErr) {
       errors.push(`Tenant ${tenant.name} (${tenant.id}): ${tenantErr instanceof Error ? tenantErr.message : String(tenantErr)}`)
     }
