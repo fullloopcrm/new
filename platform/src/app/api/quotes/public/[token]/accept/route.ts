@@ -152,6 +152,18 @@ export async function POST(request: Request, { params }: Params) {
       console.warn('notify quote_accepted failed', e)
     }
 
+    const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+    await ownerAlert({
+      tenantId: quote.tenant_id,
+      subject: hasDeposit ? `Signed — awaiting deposit (${quote.quote_number})` : `SOLD — ${quote.quote_number}`,
+      kicker: hasDeposit ? 'Signed — awaiting deposit' : 'Sold',
+      heading: hasDeposit ? `${signature_name} signed — deposit next` : `${signature_name} accepted — it's a sale`,
+      bodyHtml: `<p style="margin:0 0 12px">Proposal <strong>${quote.quote_number}</strong> was accepted & signed.</p><p style="margin:0"><strong>${(quote.total_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</strong>${hasDeposit ? ` · deposit ${(quote.deposit_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} due` : ' · closed to Sold, job created'}</p>`,
+      sms: hasDeposit
+        ? `${signature_name} signed ${quote.quote_number}. Awaiting deposit.`
+        : `SOLD: ${signature_name} accepted ${quote.quote_number}. Job created — schedule it.`,
+    })
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('POST /api/quotes/public/[token]/accept', err)

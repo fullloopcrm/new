@@ -8,6 +8,7 @@ import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { logQuoteEvent, formatCents } from '@/lib/quote'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -31,10 +32,16 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, slug, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from, selena_config')
+      .select('name, slug, domain, phone, email, address, logo_url, primary_color, telnyx_api_key, telnyx_phone, resend_api_key, email_from, selena_config')
       .eq('id', tenantId)
       .single()
     if (!tenant) return NextResponse.json({ error: 'Tenant config missing' }, { status: 500 })
+
+    const brand: CommsBrand = {
+      name: tenant.name,
+      phone: tenant.phone, email: tenant.email, address: tenant.address,
+      logoUrl: tenant.logo_url, primaryColor: tenant.primary_color,
+    }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
     const baseUrl = tenant.domain ? `https://${tenant.domain}` : appUrl
@@ -51,14 +58,23 @@ export async function POST(request: Request, { params }: Params) {
         const apiKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
         if (!apiKey) throw new Error('No Resend API key configured for tenant')
         const fromEmail = tenant.email_from || `quotes@${tenant.domain || 'fullloopcrm.com'}`
-        const html = renderQuoteEmailHtml({
-          businessName: tenant.name,
-          quoteNumber: quote.quote_number,
-          title: quote.title || 'Your Quote',
-          total: formatCents(quote.total_cents),
-          quoteUrl,
-          validUntil: quote.valid_until ? new Date(quote.valid_until).toLocaleDateString('en-US') : null,
-          contactName: quote.contact_name || null,
+        const greeting = quote.contact_name ? `Hi ${quote.contact_name},` : 'Hi there,'
+        const validLine = quote.valid_until
+          ? `<p style="margin:0 0 14px">Valid through ${new Date(quote.valid_until).toLocaleDateString('en-US')}.</p>` : ''
+        const depositLine = quote.deposit_cents > 0
+          ? ` A deposit of <strong>${formatCents(quote.deposit_cents)}</strong> gets it started.` : ''
+        const html = emailShell({
+          brand,
+          preheader: `Your proposal from ${tenant.name} is ready to review.`,
+          kicker: 'Your proposal is ready',
+          heading: "Let's make it official.",
+          bodyHtml: `
+            <p style="margin:0 0 14px">${greeting}</p>
+            <p style="margin:0 0 14px">Your proposal <strong>${quote.quote_number}</strong>${quote.title ? ` — ${quote.title}` : ''} is ready. Total <strong>${formatCents(quote.total_cents)}</strong>.${depositLine}</p>
+            <p style="margin:0 0 14px">Review the details, sign, and (if a deposit is set) pay online whenever you're ready.</p>
+            ${validLine}
+          `,
+          cta: { label: 'Review & Accept', url: quoteUrl },
         })
         await sendEmail({
           to: toEmail,
@@ -80,7 +96,7 @@ export async function POST(request: Request, { params }: Params) {
         const phoneFrom = tenant.telnyx_phone || ''
         if (!apiKey || !phoneFrom) throw new Error('No Telnyx credentials configured for tenant')
         const firstName = (quote.contact_name || '').split(' ')[0] || 'there'
-        const smsBody = `Hi ${firstName}, here's your quote from ${tenant.name} for ${formatCents(quote.total_cents)}: ${quoteUrl}`
+        const smsBody = smsFormat(brand, `Hi ${firstName}, your proposal for ${formatCents(quote.total_cents)} is ready — review, sign & pay here: ${quoteUrl}`)
         await sendSMS({ to: toPhone, body: smsBody, telnyxApiKey: apiKey, telnyxPhone: phoneFrom })
         results.sms = { ok: true }
       } catch (e) {
@@ -108,6 +124,16 @@ export async function POST(request: Request, { params }: Params) {
       detail: { via: sentVia, results, to_email: toEmail, to_phone: toPhone },
     })
 
+    const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+    await ownerAlert({
+      tenantId,
+      subject: `Proposal sent — ${quote.quote_number}`,
+      kicker: 'Proposal sent',
+      heading: `${quote.quote_number} is out the door`,
+      bodyHtml: `<p style="margin:0 0 12px">Sent to ${quote.contact_name || 'the customer'} via ${sentVia}.</p><p style="margin:0"><strong>${formatCents(quote.total_cents)}</strong>${quote.deposit_cents > 0 ? ` · deposit ${formatCents(quote.deposit_cents)}` : ''}</p>`,
+      sms: `Proposal ${quote.quote_number} (${formatCents(quote.total_cents)}) sent to ${quote.contact_name || 'customer'}.`,
+    })
+
     return NextResponse.json({ ok: true, via: sentVia, results, quote_url: quoteUrl })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -116,45 +142,3 @@ export async function POST(request: Request, { params }: Params) {
   }
 }
 
-function renderQuoteEmailHtml(opts: {
-  businessName: string
-  quoteNumber: string
-  title: string
-  total: string
-  quoteUrl: string
-  validUntil: string | null
-  contactName: string | null
-}): string {
-  const greeting = opts.contactName ? `Hi ${opts.contactName},` : 'Hi there,'
-  return `<!DOCTYPE html>
-<html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f8fafc;padding:40px 20px;margin:0;">
-  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
-    <div style="padding:32px 32px 16px;">
-      <p style="color:#64748b;font-size:13px;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">Quote ${escapeHtml(opts.quoteNumber)}</p>
-      <h1 style="font-size:22px;color:#0f172a;margin:0 0 16px;">${escapeHtml(opts.title)}</h1>
-      <p style="color:#475569;line-height:1.6;margin:0 0 8px;">${greeting}</p>
-      <p style="color:#475569;line-height:1.6;margin:0 0 24px;">Your quote from <strong>${escapeHtml(opts.businessName)}</strong> is ready to review. Review the details and accept online when you're ready.</p>
-      <div style="background:#f1f5f9;border-radius:10px;padding:20px;text-align:center;margin:0 0 24px;">
-        <p style="color:#64748b;font-size:13px;margin:0 0 4px;">Total</p>
-        <p style="font-size:32px;font-weight:700;color:#0f172a;margin:0;">${escapeHtml(opts.total)}</p>
-      </div>
-      <div style="text-align:center;margin:0 0 24px;">
-        <a href="${encodeURI(opts.quoteUrl)}" style="display:inline-block;background:#0d9488;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;">Review &amp; Accept</a>
-      </div>
-      ${opts.validUntil ? `<p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">Valid until ${escapeHtml(opts.validUntil)}</p>` : ''}
-    </div>
-    <div style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-      <p style="color:#94a3b8;font-size:12px;margin:0;text-align:center;">Sent by ${escapeHtml(opts.businessName)} via Full Loop</p>
-    </div>
-  </div>
-</body></html>`
-}
-
-function escapeHtml(s: string): string {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}

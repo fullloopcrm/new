@@ -103,6 +103,16 @@ export async function POST(request: Request) {
 
     await audit({ tenantId, action: 'deal.created', entityType: 'deal', entityId: deal.id, details: { client_id: clientId, source: 'manual' } })
 
+    const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+    await ownerAlert({
+      tenantId,
+      subject: `New lead — ${name}`,
+      kicker: 'New lead',
+      heading: `${name} just came in`,
+      bodyHtml: `<p style="margin:0 0 12px">A new lead landed in your pipeline.</p><p style="margin:0"><strong>${name}</strong>${phone ? ` · ${phone}` : ''}${service ? `<br>${service}` : ''}</p>`,
+      sms: `New lead: ${name}${phone ? ` (${phone})` : ''} — in your pipeline now.`,
+    })
+
     return NextResponse.json({ deal })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

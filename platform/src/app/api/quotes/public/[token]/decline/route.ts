@@ -73,6 +73,16 @@ export async function POST(request: Request, { params }: Params) {
       console.warn('notify quote_declined failed', e)
     }
 
+    const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+    await ownerAlert({
+      tenantId: quote.tenant_id,
+      subject: `Proposal declined — ${quote.quote_number}`,
+      kicker: 'Proposal declined',
+      heading: `${quote.quote_number} was declined`,
+      bodyHtml: `<p style="margin:0 0 12px">The customer declined this proposal.</p>${reason ? `<p style="margin:0"><strong>Reason:</strong> ${reason.replace(/</g, '&lt;')}</p>` : '<p style="margin:0;color:#807B70">No reason given.</p>'}`,
+      sms: `Proposal ${quote.quote_number} declined${reason ? `: ${reason}` : ''}. Re-quote or mark it lost.`,
+    })
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('POST /api/quotes/public/[token]/decline', err)
