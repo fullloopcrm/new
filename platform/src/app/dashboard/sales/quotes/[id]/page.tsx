@@ -45,6 +45,8 @@ type Quote = {
   declined_reason: string | null
   signature_name: string | null
   signature_png: string | null
+  signature_ip: string | null
+  signature_user_agent: string | null
   converted_booking_id: string | null
   converted_job_id: string | null
   converted_at: string | null
@@ -57,6 +59,8 @@ type Activity = {
   event_type: string
   detail: Record<string, unknown> | null
   created_at: string
+  ip_address: string | null
+  user_agent: string | null
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -313,6 +317,40 @@ export default function QuoteDetailPage() {
           {quote.description && (
             <section className="bg-white border border-slate-200 rounded-xl p-5">
               <p className="text-sm text-slate-700 whitespace-pre-wrap">{quote.description}</p>
+            </section>
+          )}
+
+          {/* Signed record — e-signature + full tracking (IP, device, timestamp, audit trail) */}
+          {quote.signature_png && (
+            <section className="bg-white border border-green-200 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-slate-800">Signed record</h2>
+                <span className="text-[11px] px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">e-signature captured</span>
+              </div>
+              <div className="border border-slate-200 rounded-lg bg-slate-50 p-3 mb-3 inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={quote.signature_png} alt="Signature" className="max-h-24" />
+              </div>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs mb-4">
+                <div><dt className="text-slate-400">Signed by</dt><dd className="text-slate-800 font-medium">{quote.signature_name || '—'}</dd></div>
+                <div><dt className="text-slate-400">Signed at</dt><dd className="text-slate-800">{quote.accepted_at ? new Date(quote.accepted_at).toLocaleString('en-US') : '—'}</dd></div>
+                <div><dt className="text-slate-400">IP address</dt><dd className="text-slate-800 font-mono">{quote.signature_ip || '—'}</dd></div>
+                <div><dt className="text-slate-400">Device</dt><dd className="text-slate-600 truncate" title={quote.signature_user_agent || ''}>{quote.signature_user_agent || '—'}</dd></div>
+              </dl>
+              {activity.length > 0 && (
+                <div className="border-t border-slate-100 pt-3">
+                  <p className="text-[11px] font-medium text-slate-500 uppercase mb-1.5">Audit trail</p>
+                  <ul className="space-y-1">
+                    {activity.map(a => (
+                      <li key={a.id} className="text-xs text-slate-500 flex flex-wrap gap-x-2">
+                        <span className="text-slate-400 tabular-nums">{new Date(a.created_at).toLocaleString('en-US')}</span>
+                        <span className="text-slate-700 font-medium">{a.event_type}</span>
+                        {a.ip_address && <span className="font-mono text-slate-400">{a.ip_address}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </section>
           )}
 

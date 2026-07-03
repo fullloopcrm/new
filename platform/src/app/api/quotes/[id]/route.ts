@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: Params) {
 
     const { data: activity } = await supabaseAdmin
       .from('quote_activity')
-      .select('id, event_type, detail, created_at')
+      .select('id, event_type, detail, created_at, ip_address, user_agent')
       .eq('quote_id', id)
       .order('created_at', { ascending: false })
       .limit(50)
