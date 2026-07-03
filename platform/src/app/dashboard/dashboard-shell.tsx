@@ -40,15 +40,16 @@ const navMain: Array<{
 }> = [
   { num: '00', label: 'The Loop', href: '/dashboard', fold: 'loop', subs: [] },
   { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', subs: [] },
-  { num: '02', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [
+  { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
+  { num: '03', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
   ]},
-  { num: '03', label: 'Production', href: '/dashboard/jobs', fold: 'production', subs: [
+  { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', subs: [
     { letter: 'A', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
-  { num: '04', label: 'Finance', href: '/dashboard/finance', fold: 'finance', subs: [] },
-  { num: '05', label: 'HR', href: '/dashboard/team', fold: 'hr', subs: [] },
-  { num: '06', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', subs: [
+  { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', subs: [] },
+  { num: '06', label: 'HR', href: '/dashboard/team', fold: 'hr', subs: [] },
+  { num: '07', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
     { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
@@ -58,7 +59,6 @@ const navMain: Array<{
     { letter: 'G', label: 'Analytics', href: '/dashboard/analytics' },
     { letter: 'H', label: 'Map', href: '/dashboard/map' },
   ]},
-  { num: '07', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
   { num: '08', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
 ]
 
@@ -296,18 +296,18 @@ export default function DashboardShell({
       >
         {/* Brand */}
         <div className="px-[22px] pt-[22px] pb-1">
-          <Link href="/dashboard" className="block" style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', color: '#F4F4F1' }}>
+          <Link href="/dashboard" className="block" style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', lineHeight: 1.1, color: '#F4F4F1' }}>
             {tenantName || 'Full Loop'}<i style={{ fontStyle: 'italic', color: '#888', fontWeight: 400 }}>/</i>
           </Link>
         </div>
-        <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+        <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#F4F4F1', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           v2.4 · NYC
         </div>
 
         {/* Scroll area */}
         <div className="flex-1 overflow-y-auto pb-20">
           {/* The Loop section */}
-          <div className="mx-[22px] mt-[14px] mb-[6px]" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#5A5A5A', fontWeight: 600 }}>
+          <div className="mx-[22px] mt-[14px] mb-[6px]" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#F4F4F1', fontWeight: 600 }}>
             The Loop
           </div>
           {navMain.map((item) => {
@@ -370,7 +370,7 @@ export default function DashboardShell({
           })}
 
           {/* Platform section */}
-          <div className="mx-[22px] mt-[14px] mb-[6px]" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#5A5A5A', fontWeight: 600 }}>
+          <div className="mx-[22px] mt-[14px] mb-[6px]" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#F4F4F1', fontWeight: 600 }}>
             Platform
           </div>
           {navPlatform.map((item) => {
