@@ -101,6 +101,22 @@ export async function PATCH(request: Request, { params }: Params) {
       // NOTE: on 'completed', a single review request should fire here (reusing
       // the flag-gated post-job-followup pattern). Left unwired until the review
       // trigger is approved — no client messaging without explicit sign-off.
+
+      // Owner heads-up when a job wraps (Production milestone). Owner-only,
+      // best-effort — never breaks the status update.
+      if (body.status === 'completed') {
+        const money = ((job.total_cents as number) / 100 || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+        const title = (job.title as string) || 'A job'
+        const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+        await ownerAlert({
+          tenantId,
+          subject: `Job complete — ${title}`,
+          kicker: 'Job complete',
+          heading: `${title} is wrapped`,
+          bodyHtml: `<p style="margin:0"><strong>${title}</strong> was marked complete. Total <strong>${money}</strong>.</p>`,
+          sms: `Job complete: ${title} (${money}).`,
+        })
+      }
     }
 
     return NextResponse.json({ job })

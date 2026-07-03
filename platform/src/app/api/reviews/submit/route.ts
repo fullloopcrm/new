@@ -82,9 +82,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to submit review' }, { status: 500 })
     }
 
-    // Tenant rule: low_rating_threshold fires an admin alert on submission
-    // so the owner can intervene before a bad review fully surfaces. Non-
-    // fatal: a notification failure must not 500 the public submission.
+    // Owner heads-up on submission. LOW ratings keep the existing intervene-
+    // before-it-surfaces notify; ratings ABOVE the threshold (previously
+    // silent) now fire a Luxe owner alert so good reviews are heard too. Both
+    // owner-only + non-fatal — a comms failure must not 500 the public submit.
     try {
       const settings = await getSettings(tenant.id)
       if (r <= settings.review_low_rating_threshold) {
@@ -96,9 +97,24 @@ export async function POST(request: Request) {
           channel: 'email',
           recipientType: 'admin',
         })
+      } else {
+        // Review text + name are PUBLIC user input → escape before HTML email.
+        const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        const safeName = esc(String(name).trim())
+        const snippet = esc(String(text).slice(0, 240)) + (String(text).length > 240 ? '…' : '')
+        const stars = '★'.repeat(r) + '☆'.repeat(5 - r)
+        const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+        await ownerAlert({
+          tenantId: tenant.id,
+          subject: `New ${r}-star review from ${safeName}`,
+          kicker: 'New review',
+          heading: `${r}-star review from ${safeName}`,
+          bodyHtml: `<p style="margin:0 0 10px;font-size:18px;letter-spacing:2px">${stars}${service_type ? ` <span style="font-size:13px;letter-spacing:0">· ${esc(String(service_type))}</span>` : ''}</p><p style="margin:0">&ldquo;${snippet}&rdquo;</p>`,
+          sms: `New ${r}★ review from ${String(name).trim()}${service_type ? ` (${service_type})` : ''}.`,
+        })
       }
     } catch (notifyErr) {
-      console.error('[reviews/submit] low-rating notify failed:', notifyErr)
+      console.error('[reviews/submit] owner alert failed:', notifyErr)
     }
 
     await audit({ tenantId: tenant.id, action: 'review.created', entityType: 'review', entityId: data.id, details: { rating: r, verified }, ip })
