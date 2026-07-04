@@ -4,11 +4,14 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const url = new URL(request.url)
     const entityId = entityIdFromUrl(url)
 
@@ -32,7 +35,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const body = await request.json()
     if (!body.year || !body.month) {
       return NextResponse.json({ error: 'year, month required' }, { status: 400 })

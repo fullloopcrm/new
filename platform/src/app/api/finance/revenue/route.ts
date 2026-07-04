@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const period = request.nextUrl.searchParams.get('period') || 'month'
 
     const now = new Date()

@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
 
 function csvEscape(v: string | number | null | undefined): string {
@@ -19,7 +20,9 @@ function csvEscape(v: string | number | null | undefined): string {
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const url = new URL(request.url)
     const entityId = entityIdFromUrl(url)
     const year = url.searchParams.get('year') || String(new Date().getUTCFullYear())

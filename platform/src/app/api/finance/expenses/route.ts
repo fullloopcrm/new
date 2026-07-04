@@ -8,7 +8,9 @@ import { audit } from '@/lib/audit'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const entityId = entityIdFromUrl(new URL(request.url))
 
     let q = supabaseAdmin

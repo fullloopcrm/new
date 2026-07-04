@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 // Round to half-hour with 10-min grace: 3:09 → 3.0, 3:10 → 3.5.
 const roundToHalfHour = (hours: number) => {
@@ -26,7 +27,9 @@ interface BookingRow {
 
 export async function POST() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
 
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')

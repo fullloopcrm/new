@@ -4,12 +4,15 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { detectAndParse } from '@/lib/bank-import'
 import { sha256File, transactionFingerprint } from '@/lib/ledger'
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const form = await request.formData()
     const file = form.get('file') as File | null
     const bankAccountId = String(form.get('bank_account_id') || '')

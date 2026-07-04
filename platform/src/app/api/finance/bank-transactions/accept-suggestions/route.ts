@@ -5,11 +5,14 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { normalizeDescription, postJournalEntry } from '@/lib/ledger'
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const body = await request.json().catch(() => ({}))
     const threshold = Math.max(0, Math.min(1, Number(body.threshold) || 0.8))
 

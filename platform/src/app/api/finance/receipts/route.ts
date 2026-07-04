@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { extractReceipt, matchReceiptToTransaction, type BankTxnLite } from '@/lib/receipt-ai'
@@ -20,7 +21,9 @@ const ALLOWED_MEDIA: ReceiptMediaType[] = ['image/jpeg', 'image/png', 'image/web
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const form = await request.formData()
     const file = form.get('file') as File | null
     if (!file) return NextResponse.json({ error: 'Receipt image required' }, { status: 400 })

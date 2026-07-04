@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 interface BankTxn { id: string; txn_date: string; description: string; amount_cents: number; bank_account_id: string }
 interface Invoice { id: string; invoice_number: string; total_cents: number; amount_paid_cents: number; due_date: string | null; contact_name: string | null; clients: { name: string } | null }
@@ -26,7 +27,9 @@ function scoreMatch(target_amount_cents: number, target_date: string, bank_amoun
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
 
     const [txnsRes, invRes, bookRes, expRes] = await Promise.all([
       supabaseAdmin
