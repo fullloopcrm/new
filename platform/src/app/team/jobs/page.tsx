@@ -9,7 +9,8 @@ type Job = {
   service_type: string | null
   start_time: string
   end_time: string | null
-  clients: { name: string; address: string | null } | null
+  // Open-pool jobs are masked: only a coarse area, no client name/address/phone.
+  area: string | null
 }
 
 export default function OpenJobsPage() {
@@ -60,7 +61,7 @@ export default function OpenJobsPage() {
             <div className="mb-3">
               <p className="font-semibold text-slate-800">{job.service_type || 'Service'}</p>
               <p className="text-sm text-slate-400">{new Date(job.start_time).toLocaleString()}</p>
-              {job.clients?.address && <p className="text-sm text-slate-400">{job.clients.address}</p>}
+              {job.area && <p className="text-sm text-slate-400">📍 {job.area}</p>}
             </div>
             <button
               onClick={() => claimJob(job.id)}

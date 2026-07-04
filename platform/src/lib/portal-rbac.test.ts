@@ -14,10 +14,15 @@ describe('portal-rbac (field staff tiers)', () => {
     expect(hasPortalPermission('manager', 'jobs.view_crew')).toBe(true)
   })
 
-  it('only manager sees crew earnings by default', () => {
+  it('crew earnings (pay visibility) is OFF for everyone by default — opt-in only', () => {
     expect(hasPortalPermission('worker', 'earnings.view_crew')).toBe(false)
     expect(hasPortalPermission('lead', 'earnings.view_crew')).toBe(false)
-    expect(hasPortalPermission('manager', 'earnings.view_crew')).toBe(true)
+    expect(hasPortalPermission('manager', 'earnings.view_crew')).toBe(false)
+  })
+
+  it('a tenant can explicitly grant crew earnings to manager', () => {
+    const overrides: PortalRolePermissionOverrides = { manager: { 'earnings.view_crew': true } }
+    expect(hasPortalPermission('manager', 'earnings.view_crew', overrides)).toBe(true)
   })
 
   it('everyone sees and claims their own work by default', () => {

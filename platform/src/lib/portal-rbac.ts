@@ -47,7 +47,10 @@ const PORTAL_ROLE_PERMISSIONS: Record<PortalRole, PortalPermission[]> = {
     'jobs.view_crew', 'jobs.reassign',
     'schedule.view_crew',
     'team.view_roster',
-    'earnings.view_own', 'earnings.view_crew',
+    // earnings.view_crew (pay visibility) is intentionally OFF even for manager —
+    // it's the highest-risk grant (a field manager could poach at known rates).
+    // A tenant must explicitly opt in via the portal permission matrix.
+    'earnings.view_own',
     'availability.edit_own', 'availability.manage_others',
     'messages.use',
   ],
