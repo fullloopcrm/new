@@ -193,7 +193,7 @@ export async function runTool(
     case 'get_briefing':
       return await handleGetBriefing(input as { since_hours?: number }, tid)
     case 'score_cleaners':
-      return await handleScoreCleaners(input as { date: string; time: string; duration_hours: number; client_address?: string; client_id?: string; exclude_booking_id?: string; hourly_rate?: number })
+      return await handleScoreCleaners(input as { date: string; time: string; duration_hours: number; client_address?: string; client_id?: string; exclude_booking_id?: string; hourly_rate?: number }, tid)
     case 'get_smart_suggestion':
       return await handleGetSmartSuggestion(input as { booking_id: string }, tid)
     case 'suggest_times':
@@ -208,7 +208,7 @@ export async function runTool(
 // list of cleaners with availability, conflicts, day-off reasons, score + rationale.
 // Same data Jeff sees when assigning. So she can answer "why this cleaner" and "who else?".
 
-async function handleScoreCleaners(input: { date: string; time: string; duration_hours: number; client_address?: string; client_id?: string; exclude_booking_id?: string; hourly_rate?: number }): Promise<string> {
+async function handleScoreCleaners(input: { date: string; time: string; duration_hours: number; client_address?: string; client_id?: string; exclude_booking_id?: string; hourly_rate?: number }, tid: string): Promise<string> {
   if (!input.date || !input.time || !input.duration_hours) {
     return JSON.stringify({ error: 'date, time (HH:MM), and duration_hours are required' })
   }
@@ -216,6 +216,7 @@ async function handleScoreCleaners(input: { date: string; time: string; duration
   const [h, m] = input.time.replace(/[^\d:]/g, '').split(':').map(Number)
   const startTime = `${String(h || 0).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`
   const scores = await scoreCleanersForBooking({
+    tenantId: tid,
     date: input.date,
     startTime,
     durationHours: input.duration_hours,
@@ -259,6 +260,7 @@ async function handleGetSmartSuggestion(input: { booking_id: string }, tid: stri
 
   const { scoreCleanersForBooking } = await import('@/lib/nycmaid/smart-schedule')
   const scores = await scoreCleanersForBooking({
+    tenantId: tid,
     date: booking.start_time.split('T')[0],
     startTime,
     durationHours: duration,

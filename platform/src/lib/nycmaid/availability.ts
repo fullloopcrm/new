@@ -39,13 +39,14 @@ const toMinutes = (timeStr: string) => {
 }
 
 // Get cleaners available on a given day (filters by holidays, working_days, schedule, unavailable_dates)
-async function getCleanersForDay(date: string) {
+async function getCleanersForDay(tenantId: string, date: string) {
   // Open 365 — holidays are working days for nycmaid.
   const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })
 
   const { data: allCleaners } = await supabaseAdmin
     .from('cleaners')
     .select('*')
+    .eq('tenant_id', tenantId)
     .eq('active', true)
 
   if (!allCleaners || allCleaners.length === 0) return []
@@ -65,13 +66,14 @@ async function getCleanersForDay(date: string) {
 }
 
 // Get existing bookings for a date (excluding cancelled)
-async function getBookingsForDay(date: string, excludeBookingId?: string) {
+async function getBookingsForDay(tenantId: string, date: string, excludeBookingId?: string) {
   const startOfDay = date + 'T00:00:00'
   const endOfDay = date + 'T23:59:59'
 
   let query = supabaseAdmin
     .from('bookings')
     .select('id, cleaner_id, start_time, end_time, clients(name)')
+    .eq('tenant_id', tenantId)
     .gte('start_time', startOfDay)
     .lte('start_time', endOfDay)
     .neq('status', 'cancelled')
@@ -117,20 +119,20 @@ function hasConflict(
  * Duration-aware — a 4hr deep clean won't show 3PM as available.
  * Returns all slots, with preferred pockets (8am, 12pm, 4pm) first.
  */
-export async function checkAvailability(date: string, durationHours: number = 2): Promise<AvailabilityResult> {
+export async function checkAvailability(tenantId: string, date: string, durationHours: number = 2): Promise<AvailabilityResult> {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   if (date === today) {
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
   }
 
   // Open 365 — no holiday closures for nycmaid.
-  const cleaners = await getCleanersForDay(date)
+  const cleaners = await getCleanersForDay(tenantId, date)
   if (cleaners.length === 0) {
     const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })
     return { slots: [], message: 'No cleaners available on ' + dayOfWeek }
   }
 
-  const existingBookings = await getBookingsForDay(date)
+  const existingBookings = await getBookingsForDay(tenantId, date)
   const durationMin = durationHours * 60
   // Last start time: service must finish by BUSINESS_END
   const lastStartHour = BUSINESS_END - durationHours
@@ -159,8 +161,8 @@ export async function checkAvailability(date: string, durationHours: number = 2)
  * prioritizing preferred pockets (8am, 12pm, 4pm) first.
  * Used by Yinez to suggest optimal times.
  */
-export async function getSmartSuggestions(date: string, durationHours: number = 2): Promise<string[]> {
-  const result = await checkAvailability(date, durationHours)
+export async function getSmartSuggestions(tenantId: string, date: string, durationHours: number = 2): Promise<string[]> {
+  const result = await checkAvailability(tenantId, date, durationHours)
   if (result.sameDay || result.slots.length === 0) return []
 
   const available = result.slots.filter(s => s.available)
@@ -180,13 +182,14 @@ export async function getSmartSuggestions(date: string, durationHours: number = 
  * Returns all cleaners with available/conflict status.
  */
 export async function checkCleanerAvailability(
+  tenantId: string,
   date: string,
   startTime: string, // HH:MM format
   durationHours: number = 2,
   excludeBookingId?: string
 ): Promise<CleanerAvailability[]> {
-  const cleanersForDay = await getCleanersForDay(date)
-  const existingBookings = await getBookingsForDay(date, excludeBookingId)
+  const cleanersForDay = await getCleanersForDay(tenantId, date)
+  const existingBookings = await getBookingsForDay(tenantId, date, excludeBookingId)
 
   const [h, m] = startTime.split(':').map(Number)
   const slotStartMin = h * 60 + m
@@ -196,6 +199,7 @@ export async function checkCleanerAvailability(
   const { data: allCleaners } = await supabaseAdmin
     .from('cleaners')
     .select('id, name')
+    .eq('tenant_id', tenantId)
     .eq('active', true)
 
   return (allCleaners || []).map(cleaner => {

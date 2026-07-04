@@ -28,6 +28,7 @@ interface CleanerScore {
 // 2. Clustering with their other jobs that day (less total travel = better)
 // 3. Can they get home on time after this job?
 export async function scoreCleanersForBooking(opts: {
+  tenantId: string // REQUIRED — every cleaners/bookings read below MUST be tenant-scoped or it leaks across tenants
   date: string
   startTime: string // HH:MM
   durationHours: number
@@ -38,12 +39,13 @@ export async function scoreCleanersForBooking(opts: {
   excludeBookingId?: string
   hourlyRate?: number // 59 = labor only, 79 = supplies included, 99 = same-day emergency
 }): Promise<CleanerScore[]> {
-  const { date, startTime, durationHours, clientAddress, clientId, excludeBookingId, hourlyRate } = opts
+  const { tenantId, date, startTime, durationHours, clientAddress, clientId, excludeBookingId, hourlyRate } = opts
   // Pull every booking_cleaners row so we know which cleaners are on a team for any
   // booking that day — they conflict the same way as the lead.
   const { data: teamRows } = await supabaseAdmin
     .from('booking_cleaners')
     .select('booking_id, cleaner_id')
+    .eq('tenant_id', tenantId)
   const teamMap = new Map<string, string[]>() // booking_id -> [cleaner_ids]
   for (const r of teamRows || []) {
     const list = teamMap.get(r.booking_id) || []
@@ -62,6 +64,7 @@ export async function scoreCleanersForBooking(opts: {
       .from('clients')
       .select('latitude, longitude, preferred_cleaner_id')
       .eq('id', clientId)
+      .eq('tenant_id', tenantId)
       .single()
     if (!jobCoords && client?.latitude && client?.longitude) {
       jobCoords = { lat: Number(client.latitude), lng: Number(client.longitude) }
@@ -83,12 +86,14 @@ export async function scoreCleanersForBooking(opts: {
   const { data: allCleaners } = await supabaseAdmin
     .from('cleaners')
     .select('id, name, address, home_latitude, home_longitude, home_by_time, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, labor_only')
+    .eq('tenant_id', tenantId)
     .eq('active', true)
 
   // Get existing bookings for the day
   let bookingsQuery = supabaseAdmin
     .from('bookings')
     .select('id, cleaner_id, start_time, end_time, clients(name, address, latitude, longitude)')
+    .eq('tenant_id', tenantId)
     .gte('start_time', date + 'T00:00:00')
     .lte('start_time', date + 'T23:59:59')
     .neq('status', 'cancelled')
@@ -188,7 +193,7 @@ export async function scoreCleanersForBooking(opts: {
       if (!homeCoords && cleaner.address) {
         homeCoords = await geocodeAddress(cleaner.address)
         if (homeCoords) {
-          supabaseAdmin.from('cleaners').update({ home_latitude: homeCoords.lat, home_longitude: homeCoords.lng }).eq('id', cleaner.id).then(() => {})
+          supabaseAdmin.from('cleaners').update({ home_latitude: homeCoords.lat, home_longitude: homeCoords.lng }).eq('id', cleaner.id).eq('tenant_id', tenantId).then(() => {})
         }
       }
 
@@ -433,6 +438,7 @@ function buildSuggestionReason(c: CleanerScore): string {
 }
 
 export async function suggestBookingSlots(opts: {
+  tenantId: string // REQUIRED — scopes the client read + every scoreCleanersForBooking call below
   date: string
   durationHours: number
   clientAddress: string
@@ -444,7 +450,7 @@ export async function suggestBookingSlots(opts: {
   limit?: number           // default 3
   stepMin?: number         // default 30; public form passes 60 (hourly picker)
 }): Promise<SlotSuggestion[]> {
-  const { date, durationHours, clientAddress, clientId, hourlyRate, requestedTime, excludeBookingId } = opts
+  const { tenantId, date, durationHours, clientAddress, clientId, hourlyRate, requestedTime, excludeBookingId } = opts
   const teamSize = Math.max(1, Math.floor(opts.teamSize || 1))
   const limit = Math.max(1, opts.limit || 3)
   const stepMin = opts.stepMin && opts.stepMin > 0 ? opts.stepMin : SUGGEST_STEP_MIN
@@ -454,7 +460,7 @@ export async function suggestBookingSlots(opts: {
   let jobCoords: { lat: number; lng: number } | undefined
   if (clientId && !clientAddress) {
     const { data: client } = await supabaseAdmin
-      .from('clients').select('latitude, longitude').eq('id', clientId).single()
+      .from('clients').select('latitude, longitude').eq('id', clientId).eq('tenant_id', tenantId).single()
     if (client?.latitude && client?.longitude) jobCoords = { lat: Number(client.latitude), lng: Number(client.longitude) }
   }
   if (!jobCoords && clientAddress) {
@@ -475,6 +481,7 @@ export async function suggestBookingSlots(opts: {
   // Score every candidate time in parallel — each reuses the proven scorer.
   const scored = await Promise.all(candidates.map(async (startMin) => {
     const scores = await scoreCleanersForBooking({
+      tenantId,
       date,
       startTime: minToHHMM(startMin),
       durationHours,

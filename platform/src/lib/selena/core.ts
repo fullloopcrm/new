@@ -1,7 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
-import { checkAvailability, getSmartSuggestions, checkCleanerAvailability } from '@/lib/nycmaid/availability'
 import { scoreCleanersForBooking } from '@/lib/nycmaid/smart-schedule'
 import { notify } from '@/lib/nycmaid/notify'
 import { sendSMS } from '@/lib/nycmaid/sms'
@@ -1115,6 +1114,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     let suggestedReason = ''
     try {
       const scores = await scoreCleanersForBooking({
+        tenantId: tid,
         date, startTime: `${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}`,
         durationHours: estimatedHours, clientAddress: checklist.address || '',
         clientId: convo.client_id, hourlyRate,
