@@ -1,0 +1,23 @@
+name: tenant-scope-guard
+
+# Blocks any PR/push that introduces a query on a tenant-owned table without a
+# tenant_id filter (and not a row-specific id lookup). Backstop for the fact
+# that the app runs on the service_role client, which bypasses Postgres RLS.
+# See platform/docs/tenant-isolation-rls-plan.md and scripts/audit-tenant-scope.mjs.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tenant-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run tenant-scope guard
+        working-directory: platform
+        run: node scripts/audit-tenant-scope.mjs

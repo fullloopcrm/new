@@ -16,11 +16,17 @@
  * cross-tenant admin aggregate), add `// tenant-scope-ok: <reason>` on the
  * .from() line to silence it.
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 
 const ALL = process.argv.includes('--all')
+const UPDATE_BASELINE = process.argv.includes('--update-baseline')
 const ROOT = 'src'
+// Known-accepted violations (existing debt + intentional cross-tenant paths).
+// The gate fails only on findings NOT in this baseline, so new leaks can't
+// merge while the 96 legacy candidates are triaged separately.
+const BASELINE_FILE = 'scripts/.tenant-scope-baseline.json'
+const keyOf = (f) => `${f.file}::${f.table}::${f.snippet}`
 
 // Tables that carry tenant_id and hold per-tenant data.
 const TENANT_TABLES = new Set([
@@ -62,11 +68,23 @@ for (const file of files) {
   }
 }
 
-if (flagged.length === 0) {
-  console.log('✓ tenant-scope guard: no unscoped queries on tenant tables in live code')
+if (UPDATE_BASELINE) {
+  const keys = flagged.map(keyOf).sort()
+  writeFileSync(BASELINE_FILE, JSON.stringify(keys, null, 2) + '\n')
+  console.log(`baseline updated: ${keys.length} accepted findings written to ${BASELINE_FILE}`)
   process.exit(0)
 }
-console.error(`✗ tenant-scope guard: ${flagged.length} unscoped quer${flagged.length === 1 ? 'y' : 'ies'} on tenant tables\n`)
-for (const f of flagged) console.error(`  ${f.file}:${f.line}  [${f.table}]  ${f.snippet}`)
-console.error('\nAdd .eq(\'tenant_id\', tenantId), or `// tenant-scope-ok: <reason>` if intentional.')
+
+const baseline = existsSync(BASELINE_FILE)
+  ? new Set(JSON.parse(readFileSync(BASELINE_FILE, 'utf8')))
+  : new Set()
+const fresh = flagged.filter((f) => !baseline.has(keyOf(f)))
+
+if (fresh.length === 0) {
+  console.log(`✓ tenant-scope guard: no NEW unscoped queries (${flagged.length} known/baselined)`)
+  process.exit(0)
+}
+console.error(`✗ tenant-scope guard: ${fresh.length} NEW unscoped quer${fresh.length === 1 ? 'y' : 'ies'} on tenant tables\n`)
+for (const f of fresh) console.error(`  ${f.file}:${f.line}  [${f.table}]  ${f.snippet}`)
+console.error('\nAdd .eq(\'tenant_id\', tenantId); or `// tenant-scope-ok: <reason>` if intentional; or `npm run audit:tenant -- --update-baseline` to accept.')
 process.exit(ALL ? 0 : 1)

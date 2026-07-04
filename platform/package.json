@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "audit:tenant": "node scripts/audit-tenant-scope.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
