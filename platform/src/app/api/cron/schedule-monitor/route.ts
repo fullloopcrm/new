@@ -69,7 +69,7 @@ export async function GET(request: Request) {
         })
       }
 
-      const byDate: Record<string, typeof bookings> = {}
+      const byDate: Record<string, NonNullable<typeof bookings>> = {}
       for (const b of bookings || []) {
         const date = b.start_time.split('T')[0]
         if (!byDate[date]) byDate[date] = []
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
         const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })
 
         // Duplicate client
-        const clientGroups: Record<string, typeof bookings> = {}
+        const clientGroups: Record<string, NonNullable<typeof bookings>> = {}
         for (const b of dayBookings) {
           if (!b.client_id) continue
           if (!clientGroups[b.client_id]) clientGroups[b.client_id] = []
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
         }
 
         // Per-team-member checks
-        const memberGroups: Record<string, typeof bookings> = {}
+        const memberGroups: Record<string, NonNullable<typeof bookings>> = {}
         for (const b of dayBookings) {
           if (!b.team_member_id) continue
           if (!memberGroups[b.team_member_id]) memberGroups[b.team_member_id] = []
