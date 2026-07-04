@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
+import { submitLead } from "@/app/site/the-nyc-marketing-company/_lib/submitLead";
 
 export default function FreeSEOAudit() {
   const [url, setUrl] = useState("");
@@ -12,11 +13,16 @@ export default function FreeSEOAudit() {
   const [name, setName] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Forms route to Consortium NYC (Now The NYC Marketing Company)'s form.
-    window.location.href =
-      "https://www.thenycmarketingcompany.com/the-free-human%2Bai-seo-marketing-review";
+    const ok = await submitLead({
+      name,
+      email,
+      subject: "Free SEO / marketing review",
+      message: `Website to review: ${url}`,
+    });
+    if (ok) setSubmitted(true);
+    else alert("Something went wrong. Please email hello@thenycmarketingcompany.com and we'll send your review.");
   };
 
   return (

@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { submitLead } from "../_lib/submitLead";
 
 const PHONE = "(212) 202-9220";
 const PHONE_HREF = "tel:+12122029220";
@@ -16,11 +17,18 @@ export default function ContactLandingClient() {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
-    // Forms route to Consortium NYC (Now The NYC Marketing Company)'s form.
-    window.location.href = "https://www.thenycmarketingcompany.com/contact";
+    const ok = await submitLead({
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      subject: "Contact inquiry",
+    });
+    setSending(false);
+    if (ok) setSubmitted(true);
+    else alert("Something went wrong. Please email hello@thenycmarketingcompany.com and we'll jump on it.");
   }
 
   return (

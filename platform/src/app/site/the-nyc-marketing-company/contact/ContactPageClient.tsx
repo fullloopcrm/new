@@ -4,6 +4,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { submitLead } from "../_lib/submitLead";
 
 const PHONE = "(212) 202-9220";
 const PHONE_HREF = "tel:+12122029220";
@@ -313,11 +314,23 @@ function StrategyForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: (
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
-    // Forms route to Consortium NYC (Now The NYC Marketing Company)'s form.
-    window.location.href = "https://www.thenycmarketingcompany.com/contact";
+    const ok = await submitLead({
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      subject: "Free strategy session",
+      message: [
+        form.company && `Company: ${form.company}`,
+        form.service && `Service: ${form.service}`,
+        form.message,
+      ].filter(Boolean).join("\n\n"),
+    });
+    setSending(false);
+    if (ok) onSubmit();
+    else alert("Something went wrong sending your request. Please email hello@thenycmarketingcompany.com and we'll jump on it.");
   }
 
   if (submitted) return <SuccessMessage />;
@@ -414,11 +427,22 @@ function RFPForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: () => 
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
-    // Forms route to Consortium NYC (Now The NYC Marketing Company)'s form.
-    window.location.href = "https://www.thenycmarketingcompany.com/contact";
+    const fileNote = files.length
+      ? `Attached ${files.length} file(s): ${files.map((f) => f.name).join(", ")} (uploaded separately on request)`
+      : "";
+    const ok = await submitLead({
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      subject: "RFP submission",
+      message: ["Request for Proposal received via website.", fileNote].filter(Boolean).join("\n"),
+    });
+    setSending(false);
+    if (ok) onSubmit();
+    else alert("Something went wrong sending your RFP. Please email hello@thenycmarketingcompany.com and we'll jump on it.");
   }
 
   if (submitted) return <SuccessMessage isRFP />;

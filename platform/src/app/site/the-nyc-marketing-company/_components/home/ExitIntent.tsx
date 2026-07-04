@@ -3,11 +3,13 @@
 
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
+import { submitLead } from "@/app/site/the-nyc-marketing-company/_lib/submitLead";
 
 export default function ExitIntent() {
   const [shown, setShown] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
   const { scrollYProgress } = useScroll();
 
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
@@ -21,10 +23,15 @@ export default function ExitIntent() {
     setDismissed(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Forms route to Consortium NYC (Now The NYC Marketing Company)'s form.
-    window.location.href = "https://www.thenycmarketingcompany.com/contact";
+    const ok = await submitLead({
+      name: "Website visitor",
+      email,
+      subject: "Exit-intent SEO audit request",
+    });
+    if (ok) setSent(true);
+    else alert("Something went wrong. Please email hello@thenycmarketingcompany.com for your free audit.");
   };
 
   return (
@@ -73,22 +80,28 @@ export default function ExitIntent() {
               outrank your competitors.
             </p>
 
-            <form onSubmit={handleSubmit} className="flex gap-2">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="flex-1 px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-bold hover:bg-teal-500 transition-colors whitespace-nowrap"
-              >
-                Send My Audit
-              </button>
-            </form>
+            {sent ? (
+              <p className="text-sm text-teal-700 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2.5">
+                &#10003; Got it — we&apos;ll email your free audit shortly.
+              </p>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex gap-2">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  className="flex-1 px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-bold hover:bg-teal-500 transition-colors whitespace-nowrap"
+                >
+                  Send My Audit
+                </button>
+              </form>
+            )}
           </div>
         </motion.div>
       )}

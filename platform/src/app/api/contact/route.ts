@@ -99,8 +99,10 @@ export async function POST(request: NextRequest) {
     const email = body.email?.trim().toLowerCase()
     const phone = body.phone?.trim()
 
-    if (!name || !phone) {
-      return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
+    // Require a name + at least one way to reach them. Home-services forms send
+    // a phone; email-first marketing forms may send only an email — both valid.
+    if (!name || (!phone && !email)) {
+      return NextResponse.json({ error: 'Name and a phone or email are required' }, { status: 400 })
     }
 
     const formType = inferFormType(body)
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest) {
           tenant_id: tenant.id,
           name,
           email: email || null,
-          phone: phone.replace(/\D/g, ''),
+          phone: (phone || '').replace(/\D/g, ''),
           address: body.location || null,
           experience: body.experience || null,
           availability: body.availability || null,
@@ -159,13 +161,21 @@ export async function POST(request: NextRequest) {
     const clientSource = body.selfBook ? 'website-selfbook' : null
     const leadSource = body.selfBook ? 'website-selfbook' : formType
 
-    const cleanPhone = phone.replace(/\D/g, '')
-    const { data: existing } = await supabaseAdmin
-      .from('clients')
-      .select('id')
-      .eq('tenant_id', tenant.id)
-      .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-      .limit(1)
+    // Dedup against an existing client by phone when we have one, else by email
+    // (email-only marketing leads). No contact match → treated as new.
+    const cleanPhone = phone ? phone.replace(/\D/g, '') : ''
+    let existing: { id: string }[] | null = null
+    if (cleanPhone) {
+      const r = await supabaseAdmin
+        .from('clients').select('id').eq('tenant_id', tenant.id)
+        .ilike('phone', `%${cleanPhone.slice(-10)}%`).limit(1)
+      existing = r.data
+    } else if (email) {
+      const r = await supabaseAdmin
+        .from('clients').select('id').eq('tenant_id', tenant.id)
+        .eq('email', email).limit(1)
+      existing = r.data
+    }
 
     let clientId: string
 
@@ -194,7 +204,7 @@ export async function POST(request: NextRequest) {
           tenant_id: tenant.id,
           name,
           email: email || null,
-          phone,
+          phone: phone || null,
           address,
           source: clientSource,
           notes,
