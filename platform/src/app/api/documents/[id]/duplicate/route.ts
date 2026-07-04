@@ -5,13 +5,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { DOCUMENTS_BUCKET, documentOriginalPath, generateSignerToken, logDocEvent } from '@/lib/documents'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function POST(_request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
 
     const { data: src } = await supabaseAdmin

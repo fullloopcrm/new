@@ -4,6 +4,7 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, type PaymentStatus } from '@/lib/jobs'
 
@@ -13,7 +14,9 @@ const VALID: PaymentStatus[] = ['pending', 'invoiced', 'paid', 'void']
 
 export async function PATCH(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const { payment_id, status } = (await request.json().catch(() => ({}))) as {
       payment_id?: string

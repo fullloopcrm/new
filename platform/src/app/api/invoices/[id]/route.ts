@@ -4,13 +4,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { normalizeLineItems, computeTotals, logInvoiceEvent } from '@/lib/invoice'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function GET(_request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const { data, error } = await supabaseAdmin
       .from('invoices')
@@ -49,7 +52,9 @@ export async function GET(_request: Request, { params }: Params) {
 
 export async function PATCH(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const body = await request.json()
 
@@ -118,7 +123,9 @@ export async function PATCH(request: Request, { params }: Params) {
 // Void (soft delete) — hard delete is disallowed on anything past draft.
 export async function DELETE(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const url = new URL(request.url)
     const reason = url.searchParams.get('reason') || ''

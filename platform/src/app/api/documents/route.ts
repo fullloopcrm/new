@@ -4,12 +4,15 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { documentOriginalPath, logDocEvent, DOCUMENTS_BUCKET } from '@/lib/documents'
 import { PDFDocument } from 'pdf-lib'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const url = new URL(request.url)
     const status = url.searchParams.get('status')
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 100)
@@ -34,7 +37,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const form = await request.formData()
     const file = form.get('file') as File | null
     const title = String(form.get('title') || '').trim()

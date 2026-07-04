@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { isEditableStatus, FIELD_TYPES, type FieldType } from '@/lib/documents'
 
 type Params = { params: Promise<{ id: string }> }
@@ -40,7 +41,9 @@ function normalizeField(f: Partial<FieldInput>): FieldInput | { error: string } 
 
 export async function GET(_request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const { data, error } = await supabaseAdmin
       .from('document_fields')
@@ -58,7 +61,9 @@ export async function GET(_request: Request, { params }: Params) {
 
 export async function POST(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
 
     const { data: doc } = await supabaseAdmin
@@ -89,7 +94,9 @@ export async function POST(request: Request, { params }: Params) {
 // PUT = replace all fields at once (for bulk editor save)
 export async function PUT(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
 
     const { data: doc } = await supabaseAdmin

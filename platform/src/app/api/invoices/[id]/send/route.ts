@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { logInvoiceEvent, formatInvoiceCents } from '@/lib/invoice'
@@ -13,7 +14,9 @@ type Params = { params: Promise<{ id: string }> }
 
 export async function POST(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const body = await request.json().catch(() => ({}))
     const via: 'email' | 'sms' | 'both' = body.via || 'both'
