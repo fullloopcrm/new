@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABlock'
 import FAQSection from '@/app/site/wash-and-fold-nyc/_components/marketing/FAQSection'
+import PickupRequestForm from '../_components/PickupRequestForm'
 
 export const metadata: Metadata = {
   title: 'Contact The NYC Wash and Fold Service Company — (917) 970-6002 | Text, Call, or Email',
@@ -34,7 +35,7 @@ export default function ContactPage() {
             Contact The NYC Wash and Fold Service Company
           </h1>
           <p className="text-sky-200/60 text-lg max-w-2xl mx-auto mb-10">
-            Text or call to schedule your first pickup. No app, no account, no forms — just a real person ready to help.
+            Text or call to schedule your first pickup — or use the quick form below. No app, no account, just a real person ready to help.
           </p>
         </div>
       </section>
@@ -68,6 +69,19 @@ export default function ContactPage() {
               <p className="text-[#4BA3D4] font-bold text-lg mb-2">hi@washandfoldnyc.com</p>
               <p className="text-gray-500 text-sm">For billing, invoices, business inquiries, or partnership questions.</p>
             </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-white border-t border-gray-100">
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <p className="text-xs font-semibold text-[#4BA3D4] tracking-[0.25em] uppercase mb-3">Request a Pickup</p>
+            <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1a3a5c] tracking-wide">Send us your address, we&apos;ll do the rest</h2>
+            <p className="text-gray-500 text-sm mt-2">Drop your details below and we&apos;ll text you to lock in a pickup window.</p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+            <PickupRequestForm />
           </div>
         </div>
       </section>
