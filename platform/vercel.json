@@ -41,6 +41,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/seo-ingest",
+      "schedule": "30 4 * * *"
+    },
+    {
       "path": "/api/cron/auto-reply-reviews",
       "schedule": "30 */6 * * *"
     },
