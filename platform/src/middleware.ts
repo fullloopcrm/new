@@ -147,10 +147,6 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   // NOTE: the old www.homeservicesbusinesscrm.com -> apex redirect in
   // next.config.ts was removed alongside this; keeping it would infinite-loop.
   const canonicalHost = hostname.split(':')[0].toLowerCase()
-  // Temporarily excluded: their www does NOT point at Vercel yet, so a
-  // 301 to www would dead-link. Remove from this set once www is repointed.
-  //   - fullloopcrm.com: www -> 35.212.99.34 (Google Cloud), not Vercel
-  const WWW_REDIRECT_EXCLUDED = new Set(['fullloopcrm.com'])
   if (
     !canonicalHost.startsWith('www.') &&
     canonicalHost !== 'localhost' &&
@@ -158,7 +154,6 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     !canonicalHost.endsWith('.vercel.app') &&
     !canonicalHost.endsWith('.fullloopcrm.com') &&
     !canonicalHost.endsWith('.homeservicesbusinesscrm.com') &&
-    !WWW_REDIRECT_EXCLUDED.has(canonicalHost) &&
     !/^\d+\.\d+\.\d+\.\d+$/.test(canonicalHost)
   ) {
     const url = req.nextUrl.clone()
