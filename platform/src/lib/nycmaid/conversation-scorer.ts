@@ -1,11 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
-
-let _anthropic: Anthropic | null = null
-function getClient(): Anthropic {
-  if (!_anthropic) _anthropic = new Anthropic()
-  return _anthropic
-}
+import { resolveAnthropic } from '@/lib/anthropic-client'
 
 /**
  * Post-conversation quality scorer.
@@ -212,12 +207,16 @@ export async function selfReviewConversation(conversationId: string): Promise<{ 
 
   const { data: convo } = await supabaseAdmin
     .from('sms_conversations')
-    .select('outcome, name')
+    .select('outcome, name, tenant_id')
     .eq('id', conversationId)
     .single()
 
+  // Tenant's own Anthropic key if set, platform key otherwise. Derive the
+  // tenant from the conversation (this scorer takes no tenantId directly).
+  const anthropic = await resolveAnthropic((convo?.tenant_id as string) || '')
+
   try {
-    const response = await getClient().messages.create({
+    const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 500,
       system: `You are a brutally honest quality reviewer for a cleaning service called The NYC Maid. You are reviewing a conversation between a client and an AI agent named "Yinez."

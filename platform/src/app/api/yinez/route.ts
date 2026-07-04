@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { askYinez } from '@/lib/yinez/agent'
-import { EMPTY_CHECKLIST } from '@/lib/yinez/core'
+import { askSelena } from '@/lib/selena/agent'
+import { EMPTY_CHECKLIST } from '@/lib/selena/core'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/nycmaid/notify'
 import { scoreConversation, selfReviewConversation } from '@/lib/nycmaid/conversation-scorer'
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       conversation_id: conversationId, direction: 'inbound', message,
     })
 
-    const result = await askYinez('web', message, conversationId, phone || undefined)
+    const result = await askSelena('web', message, conversationId, phone || undefined)
     // No canned dead-end. Empty reply surfaces as "no response" to the widget,
     // and the agent.ts catch already notifies admin so we know there's a gap.
     const reply = result.text || ''

@@ -3,22 +3,22 @@
  * team flow); body can override `target` to translate to another language.
  */
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 export async function POST(request: Request) {
   try {
-    await getTenantForRequest()
+    const { tenant } = await getTenantForRequest()
     const { text, target = 'Spanish' } = await request.json()
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'No text provided' }, { status: 400 })
     }
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
     }
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const client = anthropicFromStoredKey(tenant.anthropic_api_key)
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,

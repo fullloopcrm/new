@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
-import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena'
+import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena-legacy'
 
 const TEST_TAG = 'selena-email-test'
 

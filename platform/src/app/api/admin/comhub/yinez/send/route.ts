@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
-import { askYinez } from '@/lib/yinez/agent'
+import { askSelena } from '@/lib/selena/agent'
 
 export const maxDuration = 60
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   const conversationId = `comhub-admin-${threadId}`
   const ownerPhone = (process.env.ADMIN_FORWARD_PHONE || '').trim() || undefined
-  const result = await askYinez('telegram', text, conversationId, ownerPhone)
+  const result = await askSelena('telegram', text, conversationId, ownerPhone)
   const reply = result.text || `[yinez returned empty — tools called: ${result.toolsCalled.join(', ') || 'none'}]`
 
   await supabaseAdmin.from('comhub_messages').insert({

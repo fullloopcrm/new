@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
-import { askSelena } from '@/lib/selena'
+import { askSelena } from '@/lib/selena-legacy'
 
 export async function POST(request: NextRequest) {
   const authError = await requireAdmin()

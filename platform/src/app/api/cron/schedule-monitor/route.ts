@@ -48,10 +48,29 @@ export async function GET(request: Request) {
         .in('status', ['scheduled', 'pending', 'confirmed'])
         .limit(500)
 
-      if (!bookings || bookings.length === 0) continue
+      // Sold-but-unscheduled: dateless bookings (a converted sale with no time
+      // set → status 'pending' with null start_time) are invisible to the dated
+      // scan below, so they'd rot unseen. Detect them here regardless.
+      const { data: dateless } = await supabaseAdmin
+        .from('bookings')
+        .select('id, clients(name)')
+        .eq('tenant_id', tenantId)
+        .is('start_time', null)
+        .in('status', ['pending', 'scheduled'])
+        .limit(200)
+      for (const b of dateless || []) {
+        const name = (b.clients as any)?.name || 'Client'
+        issues.push({
+          type: 'unscheduled_sale',
+          severity: 'warning',
+          message: `Sold: ${name} (#${String(b.id).slice(0, 8)}) — not scheduled yet`,
+          booking_ids: [b.id],
+          tenant_id: tenantId,
+        })
+      }
 
       const byDate: Record<string, typeof bookings> = {}
-      for (const b of bookings) {
+      for (const b of bookings || []) {
         const date = b.start_time.split('T')[0]
         if (!byDate[date]) byDate[date] = []
         byDate[date].push(b)

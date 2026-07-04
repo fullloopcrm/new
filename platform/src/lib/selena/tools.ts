@@ -3,8 +3,8 @@
 // Owner-facing tools (8) → inline supabase queries.
 
 import { supabaseAdmin } from '@/lib/supabase'
-import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/yinez/core'
-import { isOwner, type YinezResult } from '@/lib/yinez/agent'
+import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
+import { isOwner, type YinezResult } from '@/lib/selena/agent'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'

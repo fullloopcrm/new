@@ -1,8 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getValidAccessToken, getGoogleBusiness } from '@/lib/google'
-import Anthropic from '@anthropic-ai/sdk'
-
-const anthropic = new Anthropic()
+import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 /**
  * Generate an AI reply for a Google review.
@@ -17,12 +15,14 @@ export async function generateReviewReply(
   // Get business info for context
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('name, industry')
+    .select('name, industry, anthropic_api_key')
     .eq('id', tenantId)
     .single()
 
   const bizName = tenant?.name || 'our business'
   const industry = tenant?.industry?.replace(/_/g, ' ') || 'service'
+  // Tenant's own Anthropic key if set, platform key otherwise.
+  const anthropic = anthropicFromStoredKey(tenant?.anthropic_api_key as string | null | undefined)
 
   const prompt = rating >= 4
     ? `Write a warm, professional reply to a ${rating}-star Google review for "${bizName}" (${industry}). The reviewer "${reviewerName}" said: "${comment}". Keep it 2-3 sentences. Thank them genuinely, reference something specific they said if possible. Don't be generic or overly enthusiastic. Sound like a real business owner.`

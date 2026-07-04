@@ -36,7 +36,9 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')
-      .select('id, tenant_id, status, total_cents, quote_number, deal_id, deposit_cents')
+      // select('*') so a pre-migration DB (no recurring_type column yet) doesn't
+      // error the accept — recurring_type just reads undefined → one-off path.
+      .select('*')
       .eq('public_token', token)
       .maybeSingle()
     if (!quote) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -79,6 +81,7 @@ export async function POST(request: Request, { params }: Params) {
     //   no deposit       → deal → SOLD now + auto-create the Job (→ Schedule).
     // Only advance an OPEN deal so a re-fired accept never overrides sold/lost.
     const hasDeposit = (quote.deposit_cents || 0) > 0
+    const isRecurring = !!quote.recurring_type
     if (quote.deal_id) {
       try {
         const { data: dealRow } = await supabaseAdmin
@@ -124,15 +127,21 @@ export async function POST(request: Request, { params }: Params) {
       }
     }
 
-    // No deposit → the sale is closed on signature: spin up the Job now so it
-    // can be scheduled. Idempotent on quotes.converted_job_id. Best-effort —
-    // never fail the customer's accept on a conversion error.
+    // No deposit → the sale is closed on signature: spin up fulfillment now.
+    //   recurring service → recurring_schedules series (the engine rolls it).
+    //   otherwise         → a Job (project/one-off). Idempotent per helper.
+    // Best-effort — never fail the customer's accept on a conversion error.
     if (!hasDeposit) {
       try {
-        const { convertSaleToJob } = await import('@/lib/jobs')
-        await convertSaleToJob(quote.tenant_id, { type: 'quote', quoteId: quote.id }, {})
-      } catch (jobErr) {
-        console.warn('job creation on accept failed', jobErr)
+        if (isRecurring) {
+          const { createRecurringSeriesFromQuote } = await import('@/lib/sale-to-recurring')
+          await createRecurringSeriesFromQuote(quote.tenant_id, quote.id)
+        } else {
+          const { convertSaleToJob } = await import('@/lib/jobs')
+          await convertSaleToJob(quote.tenant_id, { type: 'quote', quoteId: quote.id }, {})
+        }
+      } catch (convErr) {
+        console.warn('sale conversion on accept failed', convErr)
       }
     }
 
@@ -158,10 +167,10 @@ export async function POST(request: Request, { params }: Params) {
       subject: hasDeposit ? `Signed — awaiting deposit (${quote.quote_number})` : `SOLD — ${quote.quote_number}`,
       kicker: hasDeposit ? 'Signed — awaiting deposit' : 'Sold',
       heading: hasDeposit ? `${signature_name} signed — deposit next` : `${signature_name} accepted — it's a sale`,
-      bodyHtml: `<p style="margin:0 0 12px">Proposal <strong>${quote.quote_number}</strong> was accepted & signed.</p><p style="margin:0"><strong>${(quote.total_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</strong>${hasDeposit ? ` · deposit ${(quote.deposit_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} due` : ' · closed to Sold, job created'}</p>`,
+      bodyHtml: `<p style="margin:0 0 12px">Proposal <strong>${quote.quote_number}</strong> was accepted & signed.</p><p style="margin:0"><strong>${(quote.total_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</strong>${hasDeposit ? ` · deposit ${(quote.deposit_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} due` : (isRecurring ? ' · closed to Sold, recurring series created' : ' · closed to Sold, job created')}</p>`,
       sms: hasDeposit
         ? `${signature_name} signed ${quote.quote_number}. Awaiting deposit.`
-        : `SOLD: ${signature_name} accepted ${quote.quote_number}. Job created — schedule it.`,
+        : `SOLD: ${signature_name} accepted ${quote.quote_number}. ${isRecurring ? 'Recurring series created — first visits scheduled.' : 'Job created — schedule it.'}`,
     })
 
     return NextResponse.json({ ok: true })

@@ -3,8 +3,8 @@
  * to keep the output consistent with the calling tenant's brand.
  */
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
     }
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
     }
 
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const bookUrl = tenant.domain ? `https://${tenant.domain}/book` : '/book'
     const phone = tenant.phone || ''
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const client = anthropicFromStoredKey(tenant.anthropic_api_key)
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,

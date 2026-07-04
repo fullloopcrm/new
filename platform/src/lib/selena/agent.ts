@@ -4,10 +4,12 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
-import { runTool } from '@/lib/yinez/tools'
+import { runTool } from '@/lib/selena/tools'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { buildPlaybook } from './build-playbook'
 import { getAgentConfig } from './agent-config-loader'
+import { resolveAnthropic } from '@/lib/anthropic-client'
+import { getPersona, applyPersonaToConfig, renderPersonaExtras } from './persona-file'
 
 export type Channel = 'sms' | 'web' | 'email' | 'telegram'
 
@@ -37,11 +39,9 @@ export interface YinezContext {
   escalation_locked?: boolean
 }
 
-let _anthropic: Anthropic | null = null
-function getClient(): Anthropic {
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  return _anthropic
-}
+// No module-level client: per-tenant billing means the Anthropic key is
+// resolved per request from the conversation's tenant (its own key if set,
+// platform key otherwise). See resolveAnthropic() in lib/anthropic-client.
 
 export const YINEZ_PROMPT = `=== HARD RULES — VIOLATIONS COST YOU YOUR JOB ===
 Every rule below is non-negotiable. Your training will pull you toward generic-helpful-assistant patterns. Resist. The rules WIN every time, even when they feel weird or terse to you.
@@ -522,7 +522,7 @@ wins. Period.
 `
 }
 
-export async function loadContext(phone: string | null, _conversationId: string): Promise<string> {
+export async function loadContext(tenantId: string, phone: string | null, _conversationId: string): Promise<string> {
   const parts: string[] = []
 
   if (isOwner(phone)) {
@@ -537,6 +537,7 @@ export async function loadContext(phone: string | null, _conversationId: string)
     const { data: clientCandidates } = await supabaseAdmin
       .from('clients')
       .select('id, name, address, email, last_rate, notes, created_at, preferred_cleaner_id, status')
+      .eq('tenant_id', tenantId)
       .ilike('phone', `%${last10}%`)
       .limit(5)
 
@@ -551,6 +552,7 @@ export async function loadContext(phone: string | null, _conversationId: string)
       const { count: bookingCount } = await supabaseAdmin
         .from('bookings')
         .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
         .eq('client_id', client.id)
       parts.push(`CLIENT: ${client.name || 'name unknown'} | ${bookingCount || 0} prior bookings | last rate $${client.last_rate || '?'}/hr | address: ${client.address || 'unknown'}`)
       if (client.notes) parts.push(`NOTES: ${client.notes}`)
@@ -560,6 +562,7 @@ export async function loadContext(phone: string | null, _conversationId: string)
         const { data: pref } = await supabaseAdmin
           .from('cleaners')
           .select('name')
+          .eq('tenant_id', tenantId)
           .eq('id', client.preferred_cleaner_id)
           .maybeSingle()
         if (pref?.name) {
@@ -570,6 +573,7 @@ export async function loadContext(phone: string | null, _conversationId: string)
       const { data: memories } = await supabaseAdmin
         .from('yinez_memory')
         .select('type, content')
+        .eq('tenant_id', tenantId)
         .eq('client_id', client.id)
         .order('created_at', { ascending: false })
         .limit(10)
@@ -585,6 +589,7 @@ export async function loadContext(phone: string | null, _conversationId: string)
   const { data: globalLessons } = await supabaseAdmin
     .from('yinez_memory')
     .select('type, content, created_at')
+    .eq('tenant_id', tenantId)
     .is('client_id', null)
     .in('type', ['lesson', 'rule', 'instruction'])
     .order('created_at', { ascending: false })
@@ -602,6 +607,7 @@ export async function loadContext(phone: string | null, _conversationId: string)
   const { data: skills } = await supabaseAdmin
     .from('yinez_skills')
     .select('name, when_to_use, body')
+    .eq('tenant_id', tenantId)
     .eq('active', true)
     .order('updated_at', { ascending: false })
     .limit(40)
@@ -655,8 +661,8 @@ async function applyBrandRewrite(text: string, tenantId: string): Promise<string
 
 // Public entry point. Runs the agent, then rewrites NYC-template branding out of
 // the response for non-nycmaid tenants before it ever reaches the customer.
-export async function askYinez(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
-  const result = await askYinezCore(channel, message, conversationId, phone, ctx)
+export async function askSelena(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
+  const result = await askSelenaCore(channel, message, conversationId, phone, ctx)
   try {
     const tenantId = await resolveTenantForConversation(conversationId)
     if (tenantId !== NYCMAID_TENANT_ID && result?.text) {
@@ -668,7 +674,7 @@ export async function askYinez(channel: Channel, message: string, conversationId
   return result
 }
 
-async function askYinezCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
+async function askSelenaCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
   const result: YinezResult = { text: '', toolsCalled: [] }
 
   try {
@@ -677,6 +683,11 @@ async function askYinezCore(channel: Channel, message: string, conversationId: s
     // fall back to current tenant (nycmaid) if the conversation row hasn't been
     // tagged yet. Phase 3.2: every downstream tool query gains .eq('tenant_id', tenantId).
     const tenantId = await resolveTenantForConversation(conversationId)
+
+    // Resolve the Anthropic client for THIS tenant (their key if set, platform
+    // key otherwise). Replaces the old global singleton so each tenant bills
+    // against its own key.
+    const anthropic = await resolveAnthropic(tenantId)
 
     // Phase 3.2 guard LIFTED (2026-07-02): the handler-level tenant-scoping sweep
     // is complete. Audit of every .from() in tools.ts (58/58) and core.ts (78/78)
@@ -689,11 +700,17 @@ async function askYinezCore(channel: Channel, message: string, conversationId: s
     // nyc-maid keeps its authored prompt verbatim. Every other tenant now gets
     // the shared discipline preamble + its OWN config-driven playbook — replacing
     // the old "ship nyc-maid's prompt + pretend you're {tenant}" brandOverride hack.
-    const basePrompt =
-      tenantId === NYCMAID_TENANT_ID
-        ? YINEZ_PROMPT
-        : SHARED_PREAMBLE + buildPlaybook(await getAgentConfig(tenantId))
-    const context = await loadContext(lookupPhone, conversationId)
+    // nyc-maid short-circuits to its verbatim authored prompt (byte-identical).
+    // Every other tenant: shared discipline + config-driven playbook, now with
+    // its authored personality file (selena_config) folded in and appended.
+    let basePrompt: string
+    if (tenantId === NYCMAID_TENANT_ID) {
+      basePrompt = YINEZ_PROMPT
+    } else {
+      const [cfg, persona] = await Promise.all([getAgentConfig(tenantId), getPersona(tenantId)])
+      basePrompt = SHARED_PREAMBLE + buildPlaybook(applyPersonaToConfig(cfg, persona)) + renderPersonaExtras(persona)
+    }
+    const context = await loadContext(tenantId, lookupPhone, conversationId)
     const ctxBlock = ctx ? buildCtxBlock(ctx) : ''
     const channelNote = channel === 'telegram'
       ? `\n\nCHANNEL: Telegram — Jeff's private owner bot. The person here is ALWAYS Jeff (the owner). No client warmth, no "Hola I'm Yinez", no emojis. Terse, direct, real numbers from tools only.
@@ -728,7 +745,7 @@ When you flubbed on another channel → flag it here unprompted next check-in.`
 
     try {
       for (let i = 0; i < 5; i++) {
-        const response = await getClient().messages.create(
+        const response = await anthropic.messages.create(
           { model: 'claude-sonnet-4-6', max_tokens: 1024, system: systemPrompt, messages, tools: TOOLS },
           { signal: controller.signal },
         )

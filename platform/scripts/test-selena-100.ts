@@ -147,7 +147,7 @@ async function main() {
   }
   console.log(`[test] ${tenants.length} tenants loaded, ${TESTS.length} test messages`)
 
-  const { askSelena } = await import('../src/lib/selena')
+  const { askSelena } = await import('../src/lib/selena-legacy')
 
   interface Result {
     idx: number

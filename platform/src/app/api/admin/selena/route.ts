@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
-import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena'
+import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena-legacy'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 const CHECKLIST_FIELDS = ['name', 'phone', 'service_type', 'bedrooms', 'bathrooms', 'rate', 'day', 'time', 'address', 'email']

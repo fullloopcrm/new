@@ -98,6 +98,18 @@ export async function PATCH(request: Request, { params }: Params) {
         : 0
     }
 
+    // Recurring intent. Only touch recurring columns when actually going
+    // recurring, so normal (one-off) autosaves don't reference the new columns
+    // on a pre-migration DB. Setting a cadence makes the sale spin up a
+    // recurring_schedules series on close (see sale-to-recurring.ts).
+    const RECURRING_TYPES = ['weekly', 'biweekly', 'triweekly', 'monthly_date', 'monthly_weekday']
+    if (RECURRING_TYPES.includes(body.recurring_type)) {
+      updates.recurring_type = body.recurring_type
+      updates.recurring_start_date = body.recurring_start_date || null
+      updates.recurring_preferred_time = body.recurring_preferred_time || null
+      updates.recurring_duration_hours = body.recurring_duration_hours ? Number(body.recurring_duration_hours) : null
+    }
+
     const { data, error } = await supabaseAdmin
       .from('quotes')
       .update(updates)

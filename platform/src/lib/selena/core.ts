@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
+import { resolveAnthropic } from '@/lib/anthropic-client'
 import { checkAvailability, getSmartSuggestions, checkCleanerAvailability } from '@/lib/nycmaid/availability'
 import { scoreCleanersForBooking } from '@/lib/nycmaid/smart-schedule'
 import { notify } from '@/lib/nycmaid/notify'
@@ -83,12 +84,8 @@ export const EMPTY_CHECKLIST: BookingChecklist = {
 }
 
 // ─── Anthropic Client ───────────────────────────────────────────────────────
-
-let _anthropic: Anthropic | null = null
-function getClient(): Anthropic {
-  if (!_anthropic) _anthropic = new Anthropic()
-  return _anthropic
-}
+// No module-level client — resolved per request from the conversation's tenant
+// (its own key if set, platform key otherwise) in askSelena below.
 
 // ════════════════════════════════════════════════════════════════════════════
 // CLEANER DETECTION — Check if this phone belongs to staff, not a client
@@ -2222,7 +2219,7 @@ export function generateBookingResponse(cl: BookingChecklist, next: NextStep, ex
 
   switch (next.field) {
     case 'service_type':
-      // Dead-end menu deleted — every inbound now goes through askYinez (agent.ts).
+      // Dead-end menu deleted — every inbound now goes through askSelena (agent.ts).
       // Returning null here lets the caller fall through to the Yinez path.
       return null
 
@@ -2299,7 +2296,7 @@ export function buildMessages(transcript: Array<{ role: 'user' | 'assistant'; co
 // MAIN ENTRY POINT
 // ════════════════════════════════════════════════════════════════════════════
 
-export async function askYinez(
+export async function askSelena(
   channel: 'sms' | 'web' | 'email',
   message: string,
   conversationId: string,
@@ -2314,6 +2311,9 @@ export async function askYinez(
     // Resolve tenant for this conversation (needed for all downstream queries).
     const { data: convoTenantRow } = await supabaseAdmin.from('sms_conversations').select('tenant_id').eq('id', conversationId).single()
     const tid = (convoTenantRow as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+
+    // Per-tenant Anthropic client (tenant key if set, platform key otherwise).
+    const anthropic = await resolveAnthropic(tid)
 
     // Determine if returning client.
     // - SMS: convo.phone is a real phone → use it directly.
@@ -2531,7 +2531,7 @@ export async function askYinez(
       let currentMessages: Array<{ role: 'user' | 'assistant'; content: string | Anthropic.Messages.ContentBlockParam[] }> = [...messages]
 
       for (let i = 0; i < 4; i++) {
-        const response = await getClient().messages.create(
+        const response = await anthropic.messages.create(
           { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages, tools: activeTools.length > 0 ? activeTools : undefined },
           { signal: controller.signal }
         )
@@ -2565,7 +2565,7 @@ export async function askYinez(
 
       // Retry once on empty response
       if (!result.text) {
-        const fallback = await getClient().messages.create(
+        const fallback = await anthropic.messages.create(
           { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages },
           { signal: controller.signal }
         )
@@ -2586,7 +2586,7 @@ export async function askYinez(
     result.checklist = await loadChecklist(conversationId)
     return result
   } catch (err) {
-    await yinezError('askYinez_main', err, conversationId)
+    await yinezError('askSelena_main', err, conversationId)
     // No canned fallback — surface the error to admin and return empty so the
     // caller can route to Yinez/retry instead of dead-ending the conversation.
     result.text = ''

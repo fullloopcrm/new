@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 const tools: Anthropic.Tool[] = [
   {
@@ -370,7 +371,7 @@ export async function POST(request: Request) {
     if (!Array.isArray(messages)) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })
     }
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
     }
 
@@ -388,7 +389,8 @@ Key rules:
 - Format results concisely — bullet points or short lists.
 - If a user asks to do something, do it (after confirmation if destructive). Don't explain how to do it in the UI.`
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    // Tenant's own Anthropic key if set, platform key otherwise.
+    const anthropic = anthropicFromStoredKey(tenant.anthropic_api_key)
     let currentMessages = [...messages] as Array<Anthropic.Messages.MessageParam>
     let maxIterations = 10
 

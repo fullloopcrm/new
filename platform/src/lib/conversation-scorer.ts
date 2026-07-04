@@ -11,12 +11,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
-
-let _anthropic: Anthropic | null = null
-function getClient(): Anthropic {
-  if (!_anthropic) _anthropic = new Anthropic()
-  return _anthropic
-}
+import { resolveAnthropic } from '@/lib/anthropic-client'
 
 export interface ScoreResult {
   score: number       // 0-100
@@ -222,8 +217,11 @@ export async function selfReviewConversation(
 - Speak as the business — say "we" and "our"
 `.trim()
 
+  // Tenant's own Anthropic key if set, platform key otherwise.
+  const anthropic = await resolveAnthropic(tenantId)
+
   try {
-    const response = await getClient().messages.create({
+    const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6-20250912' as never,
       max_tokens: 500,
       system: `You are a brutally honest quality reviewer for a service business called "${config.business_name}". You are reviewing a conversation between a client and an AI agent.

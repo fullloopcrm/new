@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies } from '@/lib/selena'
+import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies } from '@/lib/selena-legacy'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'

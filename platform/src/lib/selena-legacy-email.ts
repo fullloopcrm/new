@@ -12,7 +12,7 @@
  */
 import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
-import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena'
+import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena-legacy'
 import { sendEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
 import type { ParsedEmail } from '@/lib/email-monitor'

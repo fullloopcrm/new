@@ -2,18 +2,11 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
-import { encryptSecret, isEncrypted } from '@/lib/secret-crypto'
+import { encryptSecret, isEncrypted, ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
 
-// Vendor API-key fields that must be encrypted at rest.
-const ENCRYPTED_FIELDS = [
-  'stripe_api_key',
-  'telnyx_api_key',
-  'resend_api_key',
-  'imap_pass',
-  'anthropic_api_key',
-  'indexnow_key',
-  'telegram_bot_token',
-] as const
+// Vendor API-key fields that must be encrypted at rest — shared single source
+// of truth so write paths can't drift (see secret-crypto.ts).
+const ENCRYPTED_FIELDS = ENCRYPTED_TENANT_FIELDS
 
 export async function GET(
   _request: Request,
@@ -283,7 +276,7 @@ export async function PUT(
   // Bust Selena config cache if selena_config was touched so persona
   // changes take effect immediately (default TTL is 5 min).
   if (updates.selena_config !== undefined) {
-    const { clearSelenaConfigCache } = await import('@/lib/selena')
+    const { clearSelenaConfigCache } = await import('@/lib/selena-legacy')
     clearSelenaConfigCache(id)
   }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { protectAdminAPI } from '@/lib/nycmaid/auth'
 import { getCurrentTenant } from '@/lib/tenant'
-import { askYinez } from '@/lib/yinez/agent'
+import { askSelena } from '@/lib/selena/agent'
 
 export const maxDuration = 60
 
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     .insert({ conversation_id: sessionId, direction: 'inbound', message })
     .then(() => {}, () => {})
 
-  const result = await askYinez('web', message, sessionId, ownerPhone)
+  const result = await askSelena('web', message, sessionId, ownerPhone)
   const reply = result.text || '(no reply)'
 
   await supabaseAdmin

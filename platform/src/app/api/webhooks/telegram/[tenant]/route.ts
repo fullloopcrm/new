@@ -8,7 +8,7 @@
 // route. This route is for tenant-owned bots.
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { askYinez } from '@/lib/yinez/agent'
+import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
 
@@ -121,7 +121,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
 
   let reply = ''
   try {
-    const result = await askYinez('telegram', text, convoId, ownerPhone())
+    const result = await askSelena('telegram', text, convoId, ownerPhone())
     reply = result.text || ''
     if (!reply) {
       await logEvent(tenant.id, 'telegram_error', 'Agent returned empty', JSON.stringify({ toolsCalled: result.toolsCalled }))

@@ -154,7 +154,7 @@ async function main() {
 
   // 5. Replay each sampled inbound against Selena, using a throwaway conversation
   //    that hydrates prior transcript from the original conversation (up to this point).
-  const { askSelena } = await import('@/lib/selena')
+  const { askSelena } = await import('@/lib/selena-legacy')
 
   interface ReplayRow extends InboundEvent {
     replay_text: string

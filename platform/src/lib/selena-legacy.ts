@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { resolveAnthropic } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
 import { checkAvailability } from '@/lib/availability'
 import { getSettings } from '@/lib/settings'
@@ -17,8 +18,8 @@ import {
   detectMultiIntent,
   EXTENDED_TOOLS,
   type Intent,
-} from '@/lib/selena-core'
-import { routeExtendedTool } from '@/lib/selena-handlers'
+} from '@/lib/selena-legacy-core'
+import { routeExtendedTool } from '@/lib/selena-legacy-handlers'
 
 // ─── Selena Config Type ─────────────────────────────────────────────────────
 
@@ -193,11 +194,9 @@ async function selenaError(tenantId: string, context: string, err: unknown, conv
 
 // ─── Anthropic Client ───────────────────────────────────────────────────────
 
-let _anthropic: Anthropic | null = null
-function getClient(): Anthropic {
-  if (!_anthropic) _anthropic = new Anthropic()
-  return _anthropic
-}
+// No module-level client — per-tenant billing means the Anthropic key is
+// resolved per request from the tenant in askSelena (its own key if set,
+// platform key otherwise). See resolveAnthropic() in lib/anthropic-client.
 
 // ─── Default checklist field order ──────────────────────────────────────────
 
@@ -881,6 +880,9 @@ export async function askSelena(
   const result: SelenaResult = { text: '', checklist: EMPTY_CHECKLIST }
 
   try {
+    // Per-tenant Anthropic client (tenant key if set, platform key otherwise).
+    const anthropic = await resolveAnthropic(tenantId)
+
     // 0a. Team-member gate — staff phones must NOT enter the booking flow.
     // Ported from nycmaid: cleaners were being booked as clients.
     if (channel === 'sms' && phone) {
@@ -1062,7 +1064,7 @@ export async function askSelena(
       const activeTools = intentTools.length > 0 ? intentTools : TOOLS
 
       for (let i = 0; i < 5; i++) {
-        const response = await getClient().messages.create(
+        const response = await anthropic.messages.create(
           { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages, tools: activeTools },
           { signal: controller.signal }
         )
@@ -1115,7 +1117,7 @@ export async function askSelena(
       }
       // If tool loop finished without capturing text, force a text-only response
       if (!result.text) {
-        const fallback = await getClient().messages.create(
+        const fallback = await anthropic.messages.create(
           { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages },
           { signal: controller.signal }
         )

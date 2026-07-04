@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
 import { clearSettingsCache } from '@/lib/settings'
+import { encryptTenantSecrets } from '@/lib/secret-crypto'
 
 // Columns a super-admin may write to via this route. Excludes: id, slug,
 // created_at, system-managed (google_tokens, google_business, stripe_account_id),
@@ -79,9 +80,13 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: `Column '${key}' is not editable via this route` }, { status: 400 })
   }
 
+  // Encrypt the value at rest if this column holds a vendor secret. Non-secret
+  // columns pass through unchanged.
+  const encrypted = encryptTenantSecrets({ [key]: value })
+
   const { error } = await supabaseAdmin
     .from('tenants')
-    .update({ [key]: value, updated_at: new Date().toISOString() })
+    .update({ ...encrypted, updated_at: new Date().toISOString() })
     .eq('id', tenant_id)
 
   if (error) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { askYinez } from '@/lib/yinez/agent'
+import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 
 export const maxDuration = 60
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
   // Run Yinez with full error visibility
   let reply = ''
   try {
-    const result = await askYinez('telegram', text, convoId, realPhone)
+    const result = await askSelena('telegram', text, convoId, realPhone)
     reply = result.text || ''
     if (!reply) {
       await logEvent('telegram_error', 'Yinez returned empty', JSON.stringify({ toolsCalled: result.toolsCalled }))

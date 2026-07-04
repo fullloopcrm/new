@@ -62,3 +62,36 @@ export function decryptSecret(envelope: string): string {
 export function isEncrypted(value: string | null | undefined): boolean {
   return !!value && value.startsWith(ENVELOPE_PREFIX)
 }
+
+/**
+ * Tenant columns that hold vendor secrets and must be encrypted at rest.
+ * Single source of truth — every write path that touches these columns must
+ * run values through encryptTenantSecrets() before saving. Keep in sync when
+ * adding a new integration credential column.
+ */
+export const ENCRYPTED_TENANT_FIELDS = [
+  'stripe_api_key',
+  'telnyx_api_key',
+  'resend_api_key',
+  'imap_pass',
+  'anthropic_api_key',
+  'indexnow_key',
+  'telegram_bot_token',
+] as const
+
+/**
+ * Return a copy of `updates` with any ENCRYPTED_TENANT_FIELDS encrypted.
+ * Idempotent (skips already-encrypted values) and non-destructive (leaves
+ * empty/null values untouched so callers keep control over clear-vs-skip
+ * semantics). Does not mutate the input.
+ */
+export function encryptTenantSecrets<T extends Record<string, unknown>>(updates: T): T {
+  const out: Record<string, unknown> = { ...updates }
+  for (const field of ENCRYPTED_TENANT_FIELDS) {
+    const v = out[field]
+    if (typeof v === 'string' && v.length > 0 && !isEncrypted(v)) {
+      out[field] = encryptSecret(v)
+    }
+  }
+  return out as T
+}

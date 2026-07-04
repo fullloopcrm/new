@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import type Anthropic from '@anthropic-ai/sdk'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '',
-})
 
 function buildSystemPrompt(tenantName: string, industry: string) {
   return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
@@ -338,9 +335,12 @@ export async function POST(request: Request) {
   try {
     const { tenant, tenantId } = await getTenantForRequest()
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
     }
+
+    // Tenant's own Anthropic key if set, platform key otherwise.
+    const anthropic = anthropicFromStoredKey(tenant.anthropic_api_key)
 
     const { messages } = await request.json()
 

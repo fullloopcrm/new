@@ -16,13 +16,14 @@ type IssueGroup = 'fix' | 'review' | 'verify'
 const ISSUE_GROUP: Record<string, IssueGroup> = {
   time_conflict: 'fix', duplicate_client: 'fix', unassigned: 'fix', over_max_jobs: 'fix',
   tight_buffer: 'fix', day_off: 'fix', no_car: 'fix', no_show: 'fix', stuck_pending: 'fix',
+  unscheduled_sale: 'fix',
   home_by_risk: 'review',
   price_mismatch: 'verify', payment_overdue: 'verify', cleaner_unpaid: 'verify',
 }
 const ISSUE_ACTION: Record<string, string> = {
   unassigned: 'Assign', time_conflict: 'Reassign', duplicate_client: 'Reassign', no_car: 'Reassign',
   day_off: 'Reassign', over_max_jobs: 'Rebalance', tight_buffer: 'Adjust', home_by_risk: 'Adjust',
-  no_show: 'View job', stuck_pending: 'Schedule', payment_overdue: 'Collect', cleaner_unpaid: 'Pay',
+  no_show: 'View job', stuck_pending: 'Schedule', unscheduled_sale: 'Schedule', payment_overdue: 'Collect', cleaner_unpaid: 'Pay',
   price_mismatch: 'Review price',
 }
 const groupOf = (type: string): IssueGroup => ISSUE_GROUP[type] || 'verify'

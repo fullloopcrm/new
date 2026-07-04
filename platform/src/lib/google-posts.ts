@@ -1,8 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getValidAccessToken, getGoogleBusiness } from '@/lib/google'
-import Anthropic from '@anthropic-ai/sdk'
-
-const anthropic = new Anthropic()
+import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 export type PostType = 'STANDARD' | 'EVENT' | 'OFFER'
 
@@ -93,12 +91,14 @@ export async function generateGooglePost(
 ): Promise<string> {
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('name, industry, phone, email')
+    .select('name, industry, phone, email, anthropic_api_key')
     .eq('id', tenantId)
     .single()
 
   const bizName = tenant?.name || 'our business'
   const industry = tenant?.industry?.replace(/_/g, ' ') || 'service'
+  // Tenant's own Anthropic key if set, platform key otherwise.
+  const anthropic = anthropicFromStoredKey(tenant?.anthropic_api_key as string | null | undefined)
 
   const prompt = topic
     ? `Write a short Google Business Profile post (2-3 sentences max) for "${bizName}" (${industry}) about: ${topic}. Make it engaging and natural. Include a soft call to action. No hashtags. No emojis. Sound like a real business owner, not a marketer.`

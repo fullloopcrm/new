@@ -7,7 +7,7 @@
  */
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
-import { buildSystemPromptForPreview } from '@/lib/selena'
+import { buildSystemPromptForPreview } from '@/lib/selena-legacy'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()

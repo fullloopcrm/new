@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
-import { askSelena } from '@/lib/selena'
+import { askSelena } from '@/lib/selena-legacy'
 import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 

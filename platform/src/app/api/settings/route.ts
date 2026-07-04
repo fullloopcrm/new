@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { clearSettingsCache } from '@/lib/settings'
 import { audit } from '@/lib/audit'
+import { encryptTenantSecrets } from '@/lib/secret-crypto'
 
 export async function GET() {
   try {
@@ -40,9 +41,14 @@ export async function PUT(request: Request) {
     const sensitiveFields = ['resend_api_key', 'telnyx_api_key', 'telnyx_phone', 'stripe_api_key', 'stripe_account_id', 'imap_pass', 'anthropic_api_key', 'indexnow_key']
     const changedSensitive = sensitiveFields.filter((f) => body[f] !== undefined)
 
+    // Encrypt vendor secrets at rest (anthropic/telnyx/resend/stripe/etc.).
+    // Non-destructive: empty/null values pass through so a tenant can clear a
+    // key (e.g. blank Anthropic key => fall back to the platform key).
+    const updatePayload = encryptTenantSecrets(body)
+
     const { data, error } = await supabaseAdmin
       .from('tenants')
-      .update(body)
+      .update(updatePayload)
       .eq('id', tenantId)
       .select()
       .single()
@@ -57,7 +63,7 @@ export async function PUT(request: Request) {
     // Bust Selena config cache if selena_config was touched so persona/
     // config changes take effect immediately (default cache TTL is 5 min).
     if (body.selena_config !== undefined) {
-      const { clearSelenaConfigCache } = await import('@/lib/selena')
+      const { clearSelenaConfigCache } = await import('@/lib/selena-legacy')
       clearSelenaConfigCache(tenantId)
     }
 

@@ -61,6 +61,13 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
   const [depositType, setDepositType] = useState<'none' | 'flat' | 'percent'>('none')
   const [depositValue, setDepositValue] = useState('')
 
+  // Recurring service? 'none' = one-off. A cadence makes the sale spin up a
+  // recurring_schedules series on close instead of a single booking/job.
+  const [recurringType, setRecurringType] = useState<'none' | 'weekly' | 'biweekly' | 'triweekly' | 'monthly_date'>('none')
+  const [recurringStart, setRecurringStart] = useState('')
+  const [recurringTime, setRecurringTime] = useState('09:00')
+  const [recurringHours, setRecurringHours] = useState('')
+
   const [terms, setTerms] = useState('')
   const [notes, setNotes] = useState('')
   const [validUntilDays, setValidUntilDays] = useState('30')
@@ -170,11 +177,15 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       discount_cents: discountCents,
       deposit_type: depositType,
       deposit_value: depositValueForApi,
+      recurring_type: recurringType === 'none' ? null : recurringType,
+      recurring_start_date: recurringType === 'none' ? null : recurringStart || null,
+      recurring_preferred_time: recurringType === 'none' ? null : recurringTime || null,
+      recurring_duration_hours: recurringType === 'none' ? null : recurringHours ? Number(recurringHours) : null,
       terms: terms || null,
       notes: notes || null,
       valid_until: validUntil,
     }
-  }, [clientId, dealId, contactName, contactEmail, contactPhone, serviceAddress, title, description, items, taxRateBps, discountCents, depositType, depositValueForApi, terms, notes, validUntilDays])
+  }, [clientId, dealId, contactName, contactEmail, contactPhone, serviceAddress, title, description, items, taxRateBps, discountCents, depositType, depositValueForApi, recurringType, recurringStart, recurringTime, recurringHours, terms, notes, validUntilDays])
 
   const meaningful = title.trim().length > 0 || items.some(li => li.name.trim().length > 0)
 
@@ -346,6 +357,30 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
                   className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
               )}
             </div>
+            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Recurring service <HelpTip text="For repeat visits (weekly cleaning, monthly pest, etc.). On accept this auto-sets the recurring schedule instead of a one-off — the price above is per visit." /></label>
+            <select value={recurringType} onChange={e => setRecurringType(e.target.value as typeof recurringType)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm">
+              <option value="none">One-time (no repeat)</option>
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Every 2 weeks</option>
+              <option value="triweekly">Every 3 weeks</option>
+              <option value="monthly_date">Monthly</option>
+            </select>
+            {recurringType !== 'none' && (
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase mb-1">First visit</label>
+                  <input type="date" value={recurringStart} onChange={e => setRecurringStart(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase mb-1">Time</label>
+                  <input type="time" value={recurringTime} onChange={e => setRecurringTime(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase mb-1">Hours/visit</label>
+                  <input type="text" inputMode="decimal" value={recurringHours} onChange={e => setRecurringHours(e.target.value.replace(/[^\d.]/g, ''))} placeholder="3" className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
+                </div>
+              </div>
+            )}
           </div>
           <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
             <div className="flex justify-between text-slate-600"><span>Subtotal</span><span>{formatCents(subtotalCents)}</span></div>

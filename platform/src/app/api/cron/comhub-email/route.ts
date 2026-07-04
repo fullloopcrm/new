@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import { supabaseAdmin } from '@/lib/supabase'
-import { askYinez } from '@/lib/yinez/agent'
+import { askSelena } from '@/lib/selena/agent'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { sendEmail as sendTenantEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
@@ -200,7 +200,7 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
             .limit(1)
             .single()
           if (!paused && !dnsClient?.do_not_service) {
-            const result = await askYinez('email', text || subject || '', threadId as string, undefined)
+            const result = await askSelena('email', text || subject || '', threadId as string, undefined)
             if (result.text) {
               const replySubject = subject ? `Re: ${subject.replace(/^(re:\s*)+/i, '')}` : '(no subject)'
               const externalId = await sendReply(account, fromAddr, replySubject, result.text)

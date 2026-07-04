@@ -3,8 +3,8 @@
  * before posting via /api/admin/google/reply. Tenant-aware.
  */
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 export async function POST(request: Request) {
   try {
@@ -34,7 +34,8 @@ Review: ${comment || '(no comment, just a star rating)'}
 
 Reply:`
 
-    const anthropic = new Anthropic()
+    // Tenant's own Anthropic key if set, platform key otherwise.
+    const anthropic = anthropicFromStoredKey(tenant.anthropic_api_key)
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 200,

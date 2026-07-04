@@ -60,6 +60,14 @@ export async function POST(request: Request) {
     if (deposit_type === 'flat') deposit_cents = Math.min(deposit_value, totals.total_cents)
     else if (deposit_type === 'percent') deposit_cents = Math.round((totals.total_cents * deposit_value) / 10000)
 
+    // Recurring intent: null = one-off (default). A set cadence makes the sale
+    // spin up a recurring_schedules series on close (see sale-to-recurring.ts).
+    const RECURRING_TYPES = ['weekly', 'biweekly', 'triweekly', 'monthly_date', 'monthly_weekday']
+    const recurring_type = RECURRING_TYPES.includes(body.recurring_type) ? body.recurring_type : null
+    const recurring_start_date = recurring_type ? body.recurring_start_date || null : null
+    const recurring_preferred_time = recurring_type ? body.recurring_preferred_time || null : null
+    const recurring_duration_hours = recurring_type && body.recurring_duration_hours ? Number(body.recurring_duration_hours) : null
+
     const quote_number = body.quote_number || (await generateQuoteNumber(tenantId))
     const public_token = generatePublicToken()
 
@@ -90,6 +98,11 @@ export async function POST(request: Request) {
         deposit_type,
         deposit_value,
         deposit_cents,
+        // Only reference recurring columns when actually recurring, so a
+        // pre-migration DB still creates normal (one-off) quotes fine.
+        ...(recurring_type
+          ? { recurring_type, recurring_start_date, recurring_preferred_time, recurring_duration_hours }
+          : {}),
         public_token,
       })
       .select('*')
