@@ -1023,15 +1023,15 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* IMAP — Zelle/Venmo payment email monitor */}
+          {/* IMAP — ComHub inbound client email */}
           <div className="space-y-3 pb-5 border-b border-slate-100">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">Payment Email Monitor (IMAP)</h3>
+              <h3 className="text-sm font-semibold text-slate-700">Inbound Email (IMAP)</h3>
               <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.imap_host && form.imap_user && form.imap_pass ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
                 {form.imap_host && form.imap_user && form.imap_pass ? 'Connected' : 'Not configured'}
               </span>
             </div>
-            <p className="text-xs text-slate-400">Cron scans your inbox every minute for Zelle / Venmo / Cash App payment emails and auto-matches them to bookings.</p>
+            <p className="text-xs text-slate-400">Connect your business inbox — client emails flow into ComHub as threads and Yinez can auto-reply. Use an app password (e.g. imap.gmail.com).</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm text-slate-400 block mb-1">IMAP Host</label>
