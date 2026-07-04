@@ -1,5 +1,6 @@
 // @ts-nocheck
 import type { Metadata } from 'next'
+import CTABlock from "@/app/site/wash-and-fold-nyc/_components/marketing/CTABlock"
 import Link from 'next/link'
 import { breadcrumbSchema } from '@/app/site/wash-and-fold-nyc/_lib/seo/schema'
 import JsonLd from '@/app/site/wash-and-fold-nyc/_components/marketing/JsonLd'
@@ -111,6 +112,7 @@ export default function RefundPolicyPage() {
           </div>
         </div>
       </div>
-    </>
+    <CTABlock />
+      </>
   )
 }
