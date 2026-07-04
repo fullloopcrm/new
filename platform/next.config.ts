@@ -38,12 +38,10 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      {
-        source: '/:path*',
-        has: [{ type: 'host', value: 'www.homeservicesbusinesscrm.com' }],
-        destination: 'https://homeservicesbusinesscrm.com/:path*',
-        permanent: true,
-      },
+      // NOTE: www is now canonical for every domain (apex -> www 301 lives in
+      // src/middleware.ts). The previous www.homeservicesbusinesscrm.com -> apex
+      // redirect was removed here — keeping it would infinite-loop against the
+      // middleware redirect.
       {
         source: '/sm.xml',
         destination: '/sitemap.xml',

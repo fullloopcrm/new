@@ -21,11 +21,6 @@ export const metadata: Metadata = {
   authors: [{ name: "The NYC Mobile Salon" }],
   creator: "The NYC Mobile Salon",
   publisher: "The NYC Mobile Salon",
-  icons: {
-    icon: "/favicons/nyc-mobile-salon.ico",
-    shortcut: "/favicons/nyc-mobile-salon.ico",
-    apple: "/favicons/nyc-mobile-salon.ico",
-  },
   title: {
     default: "The NYC Mobile Salon — Beauty Services Delivered to Your Door",
     template: "%s | The NYC Mobile Salon",

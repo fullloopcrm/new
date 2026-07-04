@@ -137,6 +137,37 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req: NextRequest) => {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
+  // --- Canonical www redirect (301) ---
+  // Every apex domain redirects to its www. equivalent so www is canonical
+  // everywhere. Excludes: hosts already on www, localhost, raw IPs,
+  // *.vercel.app preview hosts, and the *.fullloopcrm.com /
+  // *.homeservicesbusinesscrm.com carrying SUBDOMAINS (a subdomain has no www).
+  // The bare apex fullloopcrm.com / homeservicesbusinesscrm.com are NOT excluded
+  // — they don't end with the leading-dot suffix — so they flip to www too.
+  // NOTE: the old www.homeservicesbusinesscrm.com -> apex redirect in
+  // next.config.ts was removed alongside this; keeping it would infinite-loop.
+  const canonicalHost = hostname.split(':')[0].toLowerCase()
+  // Temporarily excluded: their www does NOT point at Vercel yet, so a
+  // 301 to www would dead-link. Remove from this set once www is repointed.
+  //   - fullloopcrm.com: www -> 35.212.99.34 (Google Cloud), not Vercel
+  const WWW_REDIRECT_EXCLUDED = new Set(['fullloopcrm.com'])
+  if (
+    !canonicalHost.startsWith('www.') &&
+    canonicalHost !== 'localhost' &&
+    canonicalHost.includes('.') &&
+    !canonicalHost.endsWith('.vercel.app') &&
+    !canonicalHost.endsWith('.fullloopcrm.com') &&
+    !canonicalHost.endsWith('.homeservicesbusinesscrm.com') &&
+    !WWW_REDIRECT_EXCLUDED.has(canonicalHost) &&
+    !/^\d+\.\d+\.\d+\.\d+$/.test(canonicalHost)
+  ) {
+    const url = req.nextUrl.clone()
+    url.protocol = 'https'
+    url.hostname = `www.${canonicalHost}`
+    url.port = ''
+    return NextResponse.redirect(url, 301)
+  }
+
   // --- Killed routes: return 410 Gone for the marketing-site buyer-funnel
   // pages we shut down in the 2026-05-03 teaser pivot. Only applies on the
   // main host so tenant subdomains/custom domains are unaffected.
