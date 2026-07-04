@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 type Lang = 'en' | 'es'
 type AuthState = {
   token: string
-  member: { id: string; name: string; language: string; pay_rate?: number | null; avatar_url?: string | null }
+  member: { id: string; name: string; language: string; pay_rate?: number | null; avatar_url?: string | null; role?: string | null }
   tenant: { id: string; name: string; phone?: string | null }
 } | null
 
@@ -92,11 +92,15 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
 
   const t = (en: string, es: string) => (lang === 'es' ? es : en)
 
+  // Crew view is only surfaced to leads/managers. The endpoints enforce the
+  // real permission server-side; this just avoids showing a dead tab to workers.
+  const isCrewLead = auth?.member.role === 'lead' || auth?.member.role === 'manager'
   const navItems = [
     { href: '/team', icon: '◻', label: t('Jobs', 'Trabajos') },
     { href: '/team/earnings', icon: '$', label: t('Earnings', 'Ganancias') },
     { href: '/team/availability', icon: '◈', label: t('Schedule', 'Horario') },
     { href: '/team/jobs', icon: '!', label: t('Open', 'Abierto') },
+    ...(isCrewLead ? [{ href: '/team/crew', icon: '⧉', label: t('Crew', 'Equipo') }] : []),
     { href: '/team/connect', icon: '💬', label: t('Connect', 'Chat'), badge: connectUnread },
     { href: '/team/messages', icon: '✉', label: t('Office', 'Oficina') },
   ]
