@@ -191,10 +191,11 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 
   // --- Main site / dashboard (existing behavior) ---
   if (!isPublicRoute(req)) {
-    // Allow admin impersonation to bypass Clerk on dashboard + its API routes
-    const impersonateCookie = req.cookies.get('fl_impersonate')?.value
+    // Allow admin (PIN-auth) to bypass Clerk on dashboard + its API routes.
+    // admin_token alone is enough — an admin hitting /dashboard directly (no
+    // active impersonation) must not fall through to Clerk's handshake.
     const adminCookie = req.cookies.get('admin_token')?.value
-    if (impersonateCookie && adminCookie) {
+    if (adminCookie) {
       const p = req.nextUrl.pathname
       if (p.startsWith('/dashboard') || p.startsWith('/api/bookings') || p.startsWith('/api/clients') ||
           p.startsWith('/api/team') || p.startsWith('/api/finance') || p.startsWith('/api/campaigns') ||
