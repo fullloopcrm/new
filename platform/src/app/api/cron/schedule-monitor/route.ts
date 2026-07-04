@@ -48,22 +48,22 @@ export async function GET(request: Request) {
         .in('status', ['scheduled', 'pending', 'confirmed'])
         .limit(500)
 
-      // Sold-but-unscheduled: dateless bookings (a converted sale with no time
-      // set → status 'pending' with null start_time) are invisible to the dated
-      // scan below, so they'd rot unseen. Detect them here regardless.
-      const { data: dateless } = await supabaseAdmin
+      // Sold-but-unscheduled: a converted service sale lands as a 'pending'
+      // booking on a placeholder slot (bookings.start_time is NOT NULL, so it
+      // can't be dateless) — the owner must confirm the real date. Surface every
+      // pending booking so it doesn't rot on a placeholder date.
+      const { data: pendingBk } = await supabaseAdmin
         .from('bookings')
         .select('id, clients(name)')
         .eq('tenant_id', tenantId)
-        .is('start_time', null)
-        .in('status', ['pending', 'scheduled'])
+        .eq('status', 'pending')
         .limit(200)
-      for (const b of dateless || []) {
+      for (const b of pendingBk || []) {
         const name = (b.clients as any)?.name || 'Client'
         issues.push({
           type: 'unscheduled_sale',
           severity: 'warning',
-          message: `Sold: ${name} (#${String(b.id).slice(0, 8)}) — not scheduled yet`,
+          message: `Sold: ${name} (#${String(b.id).slice(0, 8)}) — confirm the date`,
           booking_ids: [b.id],
           tenant_id: tenantId,
         })

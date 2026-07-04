@@ -15,6 +15,20 @@ ALTER TABLE quotes ADD COLUMN IF NOT EXISTS recurring_duration_hours NUMERIC;
 ALTER TABLE quotes ADD COLUMN IF NOT EXISTS converted_schedule_id UUID
   REFERENCES recurring_schedules(id) ON DELETE SET NULL;
 
+-- Fulfillment routing: does a sold quote become a BOOKING (service → Bookings)
+-- or a JOB/project (→ Job board)? NULL = project (current default behavior).
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS fulfillment_type TEXT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.constraint_column_usage
+    WHERE table_name = 'quotes' AND constraint_name = 'quotes_fulfillment_type_chk'
+  ) THEN
+    ALTER TABLE quotes ADD CONSTRAINT quotes_fulfillment_type_chk
+      CHECK (fulfillment_type IS NULL OR fulfillment_type IN ('booking', 'project'));
+  END IF;
+END $$;
+
 -- Guard: only allow known cadences (matches RecurringType in src/lib/recurring.ts).
 DO $$
 BEGIN

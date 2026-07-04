@@ -109,6 +109,11 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.recurring_preferred_time = body.recurring_preferred_time || null
       updates.recurring_duration_hours = body.recurring_duration_hours ? Number(body.recurring_duration_hours) : null
     }
+    // Fulfillment routing — only touch the column when a valid value is sent
+    // (keeps pre-migration one-off saves from referencing it).
+    if (['booking', 'project'].includes(body.fulfillment_type)) {
+      updates.fulfillment_type = body.fulfillment_type
+    }
 
     const { data, error } = await supabaseAdmin
       .from('quotes')

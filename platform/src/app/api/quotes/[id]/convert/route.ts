@@ -66,9 +66,18 @@ export async function POST(request: Request, { params }: Params) {
       await supabaseAdmin.from('quotes').update({ client_id: clientId }).eq('id', id)
     }
 
-    // Use provided start_time or null (can be scheduled later)
-    const startTime: string | null = body.start_time || null
-    const endTime: string | null = body.end_time || null
+    // bookings.start_time is NOT NULL. If no time is given, place a 'pending'
+    // booking on a near-future placeholder slot for the owner to confirm.
+    let startTime: string = body.start_time || ''
+    let endTime: string | null = body.end_time || null
+    let bkStatus = 'confirmed'
+    if (!startTime) {
+      const s = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+      s.setHours(9, 0, 0, 0)
+      startTime = s.toISOString()
+      endTime = new Date(s.getTime() + 2 * 60 * 60 * 1000).toISOString()
+      bkStatus = 'pending'
+    }
 
     const { data: booking, error: bErr } = await supabaseAdmin
       .from('bookings')
@@ -77,11 +86,10 @@ export async function POST(request: Request, { params }: Params) {
         client_id: clientId,
         start_time: startTime,
         end_time: endTime,
-        status: startTime ? 'confirmed' : 'pending',
+        status: bkStatus,
         price: quote.total_cents ? quote.total_cents / 100 : null,
         notes: `Converted from quote ${quote.quote_number}`,
         special_instructions: quote.notes || null,
-        address: quote.service_address || null,
       })
       .select('id')
       .single()

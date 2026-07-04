@@ -68,6 +68,9 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
   const [recurringTime, setRecurringTime] = useState('09:00')
   const [recurringHours, setRecurringHours] = useState('')
 
+  // When accepted, route to Bookings (service) or the Job board (project).
+  const [fulfillment, setFulfillment] = useState<'project' | 'booking'>('project')
+
   const [terms, setTerms] = useState('')
   const [notes, setNotes] = useState('')
   const [validUntilDays, setValidUntilDays] = useState('30')
@@ -181,11 +184,12 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       recurring_start_date: recurringType === 'none' ? null : recurringStart || null,
       recurring_preferred_time: recurringType === 'none' ? null : recurringTime || null,
       recurring_duration_hours: recurringType === 'none' ? null : recurringHours ? Number(recurringHours) : null,
+      fulfillment_type: recurringType !== 'none' ? 'booking' : fulfillment,
       terms: terms || null,
       notes: notes || null,
       valid_until: validUntil,
     }
-  }, [clientId, dealId, contactName, contactEmail, contactPhone, serviceAddress, title, description, items, taxRateBps, discountCents, depositType, depositValueForApi, recurringType, recurringStart, recurringTime, recurringHours, terms, notes, validUntilDays])
+  }, [clientId, dealId, contactName, contactEmail, contactPhone, serviceAddress, title, description, items, taxRateBps, discountCents, depositType, depositValueForApi, recurringType, recurringStart, recurringTime, recurringHours, fulfillment, terms, notes, validUntilDays])
 
   const meaningful = title.trim().length > 0 || items.some(li => li.name.trim().length > 0)
 
@@ -380,6 +384,15 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
                   <input type="text" inputMode="decimal" value={recurringHours} onChange={e => setRecurringHours(e.target.value.replace(/[^\d.]/g, ''))} placeholder="3" className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
                 </div>
               </div>
+            )}
+            {recurringType === 'none' && (
+              <>
+                <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">When accepted <HelpTip text="Project → lands on the Job board (multi-session work like a remodel). Service booking → lands in Bookings (a scheduled visit)." /></label>
+                <select value={fulfillment} onChange={e => setFulfillment(e.target.value as 'project' | 'booking')} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="project">Project — goes to the Job board</option>
+                  <option value="booking">Service booking — goes to Bookings</option>
+                </select>
+              </>
             )}
           </div>
           <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">

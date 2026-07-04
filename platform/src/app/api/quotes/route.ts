@@ -67,6 +67,8 @@ export async function POST(request: Request) {
     const recurring_start_date = recurring_type ? body.recurring_start_date || null : null
     const recurring_preferred_time = recurring_type ? body.recurring_preferred_time || null : null
     const recurring_duration_hours = recurring_type && body.recurring_duration_hours ? Number(body.recurring_duration_hours) : null
+    // Fulfillment: 'booking' (service → Bookings) | 'project' (→ Job board). null = project default.
+    const fulfillment_type = ['booking', 'project'].includes(body.fulfillment_type) ? body.fulfillment_type : null
 
     const quote_number = body.quote_number || (await generateQuoteNumber(tenantId))
     const public_token = generatePublicToken()
@@ -103,6 +105,7 @@ export async function POST(request: Request) {
         ...(recurring_type
           ? { recurring_type, recurring_start_date, recurring_preferred_time, recurring_duration_hours }
           : {}),
+        ...(fulfillment_type ? { fulfillment_type } : {}),
         public_token,
       })
       .select('*')
