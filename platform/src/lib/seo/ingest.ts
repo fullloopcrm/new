@@ -126,6 +126,10 @@ export async function ingestAllProperties(opts?: { days?: number }): Promise<{
     results.push(await ingestProperty(site, startDate, endDate))
   }
 
+  // Rebuild the materialized rollup detection reads from (fresh data + top-query
+  // value). Done here in the 300s ingest budget so detect stays a ~1s call.
+  await supabaseAdmin.rpc('seo_refresh_rollup')
+
   return {
     properties: sites.length,
     totalRows: results.reduce((n, r) => n + r.rows, 0),
