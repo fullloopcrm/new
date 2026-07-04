@@ -18,17 +18,7 @@ function isStateGuide(slug: string) {
 
 export const dynamicParams = true;
 
-export function generateStaticParams() {
-  const cityParams = getTopCitiesPerState(1).map(({ state, city }) => ({
-    state: state.slug,
-    city: city.slug,
-  }));
-  const guideParams = STATES.map((s) => ({
-    state: s.slug,
-    city: `roadside-help-in-${s.slug}-guide-tips-and-costs`,
-  }));
-  return [...cityParams, ...guideParams];
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

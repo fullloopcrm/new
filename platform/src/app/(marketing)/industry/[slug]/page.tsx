@@ -18,9 +18,7 @@ import LiveProofBand from "@/components/LiveProofBand";
 // ---------------------------------------------------------------------------
 // Static params — generates all 51 industry pages at build time
 // ---------------------------------------------------------------------------
-export function generateStaticParams() {
-  return comboIndustries.map((i) => ({ slug: generateIndustrySlug(i) }));
-}
+export function generateStaticParams() { return [] }
 
 // ---------------------------------------------------------------------------
 // Find industry from slug

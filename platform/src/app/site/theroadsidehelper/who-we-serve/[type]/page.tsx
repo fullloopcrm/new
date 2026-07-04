@@ -11,9 +11,7 @@ import { customerTypeContent } from "@/app/site/theroadsidehelper/_data/customer
 import { breadcrumbSchema, jsonLd } from "@/app/site/theroadsidehelper/_lib/schema";
 import { pageSeo } from "@/app/site/theroadsidehelper/_lib/seo";
 
-export function generateStaticParams() {
-  return CUSTOMER_TYPES.map((ct) => ({ type: ct.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

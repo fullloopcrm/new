@@ -9,9 +9,7 @@ import { SERVICE_PHOTOS } from "@/app/site/theroadsidehelper/_data/photos";
 import { serviceSchema, breadcrumbSchema, howToSchema, graph } from "@/app/site/theroadsidehelper/_lib/schema";
 import { pageSeo } from "@/app/site/theroadsidehelper/_lib/seo";
 
-export function generateStaticParams() {
-  return SERVICES.map((s) => ({ slug: s.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

@@ -13,9 +13,7 @@ import { pageSeo } from "@/app/site/theroadsidehelper/_lib/seo";
 
 export const dynamicParams = true;
 
-export function generateStaticParams() {
-  return getTopCitiesPerState(1).map(({ state, city }) => ({ state: state.slug, city: city.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

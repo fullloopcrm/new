@@ -4,9 +4,7 @@ import { notFound } from "next/navigation";
 import { RoadwayPage } from "@/app/site/nycroadsideemergencyassistance/_components/RoadwayPage";
 import { getRoadwayBySlug, getRoadwaysByKind } from "@/app/site/nycroadsideemergencyassistance/_data/roadways";
 
-export function generateStaticParams() {
-  return getRoadwaysByKind("highway").map((r) => ({ slug: r.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

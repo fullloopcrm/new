@@ -34,17 +34,9 @@ interface Props {
   params: Promise<{ slug: string; service: string }>
 }
 
-export const dynamicParams = false
+export const dynamicParams = true
 
-export async function generateStaticParams() {
-  const params: { slug: string; service: string }[] = []
-  for (const n of ALL_NEIGHBORHOODS) {
-    for (const s of SERVICES) {
-      params.push({ slug: n.urlSlug, service: s.slug })
-    }
-  }
-  return params
-}
+export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, service: serviceSlug } = await params

@@ -14,16 +14,7 @@ import { pageSeo } from "@/app/site/theroadsidehelper/_lib/seo";
 
 export const dynamicParams = true;
 
-export function generateStaticParams() {
-  const topCities = getTopCitiesPerState(1);
-  const params: { type: string; state: string; city: string }[] = [];
-  for (const ct of CUSTOMER_TYPES) {
-    for (const { state, city } of topCities) {
-      params.push({ type: ct.slug, state: state.slug, city: city.slug });
-    }
-  }
-  return params;
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

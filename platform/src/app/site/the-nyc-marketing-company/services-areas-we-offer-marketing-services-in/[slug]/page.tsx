@@ -13,9 +13,7 @@ import AreaPageClient from "./AreaPageClient";
 
 export const revalidate = false;
 
-export function generateStaticParams() {
-  return areas.map((area) => ({ slug: area.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

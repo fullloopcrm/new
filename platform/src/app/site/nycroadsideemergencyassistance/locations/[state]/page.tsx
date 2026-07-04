@@ -11,9 +11,7 @@ import { getOfficeByState } from "@/app/site/nycroadsideemergencyassistance/_dat
 import { OfficeBlock } from "@/app/site/nycroadsideemergencyassistance/_components/OfficeBlock";
 import { JsonLd, breadcrumbSchema, localBusinessSchemaPerOffice, placeSchema } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
 
-export function generateStaticParams() {
-  return STATES.map((s) => ({ state: s.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ state: string }> }): Promise<Metadata> {
   const { state: stateSlug } = await params;

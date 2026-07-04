@@ -15,9 +15,7 @@ import LiveProofBand from "@/components/LiveProofBand";
 // ---------------------------------------------------------------------------
 // Static params — generates all 400+ location pages at build time
 // ---------------------------------------------------------------------------
-export function generateStaticParams() {
-  return metros.map((m) => ({ slug: generateLocationSlug(m) }));
-}
+export function generateStaticParams() { return [] }
 
 // ---------------------------------------------------------------------------
 // Helper: find metro from page slug

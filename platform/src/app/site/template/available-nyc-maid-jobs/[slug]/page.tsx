@@ -9,12 +9,10 @@ import { pickTeamPhoto } from '@/app/site/template/_lib/seo/photos'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 
-export const dynamicParams = false
+export const dynamicParams = true
 export const revalidate = 1296000
 
-export function generateStaticParams() {
-  return ALL_NEIGHBORHOODS.map(n => ({ slug: n.slug }))
-}
+export function generateStaticParams() { return [] }
 
 // Stable 15-day window: datePosted and validThrough only change when the 15-day
 // revalidation cron fires. Prevents Google Jobs from seeing drifting dates.

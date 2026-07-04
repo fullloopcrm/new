@@ -19,18 +19,7 @@ function isTipsSlug(slug: string) {
 
 export const dynamicParams = true;
 
-export function generateStaticParams() {
-  const topCities = getTopCitiesPerState(1);
-  const params: { state: string; city: string; service: string }[] = [];
-  for (const { state, city } of topCities) {
-    for (const service of SERVICES) {
-      params.push({ state: state.slug, city: city.slug, service: service.slug });
-    }
-    const tipsSlug = `roadside-help-in-${city.slug}-guide-tips-and-costs`;
-    params.push({ state: state.slug, city: city.slug, service: tipsSlug });
-  }
-  return params;
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

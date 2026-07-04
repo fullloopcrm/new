@@ -6,9 +6,7 @@ export const size = og_size;
 export const contentType = og_contentType;
 export const alt = og_alt("NYC service");
 
-export function generateStaticParams() {
-  return SERVICES.map((s) => ({ slug: s.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

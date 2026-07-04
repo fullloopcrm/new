@@ -10,9 +10,7 @@ import { JobApplicationForm } from "@/app/site/theroadsidehelper/_components/Job
 import { breadcrumbSchema, jsonLd } from "@/app/site/theroadsidehelper/_lib/schema";
 import { pageSeo } from "@/app/site/theroadsidehelper/_lib/seo";
 
-export function generateStaticParams() {
-  return STATES.map((s) => ({ state: s.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

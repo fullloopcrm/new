@@ -25,7 +25,7 @@ interface PageProps {
   params: Promise<{ service: string }>;
 }
 
-export const dynamicParams = false;
+export const dynamicParams = true;
 
 export const revalidate = 2592000
 

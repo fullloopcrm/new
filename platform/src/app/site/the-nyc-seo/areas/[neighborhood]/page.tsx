@@ -28,7 +28,7 @@ interface PageProps {
   params: Promise<{ neighborhood: string }>;
 }
 
-export const dynamicParams = false;
+export const dynamicParams = true;
 
 export const revalidate = 2592000
 

@@ -18,17 +18,7 @@ function isBoroughGuide(slug: string) {
 
 export const dynamicParams = true;
 
-export function generateStaticParams() {
-  const cityParams = getAllCities().map(({ state, city }) => ({
-    state: state.slug,
-    city: city.slug,
-  }));
-  const guideParams = STATES.map((s) => ({
-    state: s.slug,
-    city: `towing-in-${s.slug}-guide-and-pricing`,
-  }));
-  return [...cityParams, ...guideParams];
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ state: string; city: string }> }): Promise<Metadata> {
   const { state: stateSlug, city: citySlug } = await params;

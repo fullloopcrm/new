@@ -13,9 +13,7 @@ import { getServiceFAQs } from "@/app/site/nycroadsideemergencyassistance/_data/
 import { STATES } from "@/app/site/nycroadsideemergencyassistance/_data/cities";
 import { JsonLd, breadcrumbSchema, serviceSchema, faqPageSchema } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
 
-export function generateStaticParams() {
-  return SERVICES.map((s) => ({ slug: s.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

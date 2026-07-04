@@ -1,6 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    // Remote hosts used as next/image sources across tenant sites. Required now
+    // that programmatic pages render on-demand (build-time prerender previously
+    // masked missing remotePatterns; on-demand render throws "hostname not
+    // configured" → 500 without this).
+    remotePatterns: [
+      { protocol: 'https', hostname: 'images.pexels.com' },
+      { protocol: 'https', hostname: 'www.pexels.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+    ],
+  },
   async rewrites() {
     // Use afterFiles so these rewrites run AFTER middleware prefixes tenant
     // requests with /site. Tenant content already reads getTenantFromHeaders.

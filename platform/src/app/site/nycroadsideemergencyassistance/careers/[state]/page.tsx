@@ -9,9 +9,7 @@ import { CtaButtons } from "@/app/site/nycroadsideemergencyassistance/_component
 import { JobApplicationForm } from "@/app/site/nycroadsideemergencyassistance/_components/JobApplicationForm";
 import { JsonLd, breadcrumbSchema, localBusinessSchemaPerOffice } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
 
-export function generateStaticParams() {
-  return STATES.map((s) => ({ state: s.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ state: string }> }): Promise<Metadata> {
   const { state: stateSlug } = await params;

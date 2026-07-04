@@ -9,11 +9,9 @@ import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 
-export const dynamicParams = false
+export const dynamicParams = true
 
-export function generateStaticParams() {
-  return getAllBlogSlugs().map(slug => ({ slug }))
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

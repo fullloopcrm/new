@@ -6,12 +6,7 @@ export const size = og_size;
 export const contentType = og_contentType;
 export const alt = og_alt("NYC neighborhood coverage");
 
-export function generateStaticParams() {
-  return getAllCities().map(({ state, city }) => ({
-    state: state.slug,
-    city: city.slug,
-  }));
-}
+export function generateStaticParams() { return [] }
 
 export default async function Image({
   params,

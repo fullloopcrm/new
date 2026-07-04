@@ -6,9 +6,7 @@ export const size = og_size;
 export const contentType = og_contentType;
 export const alt = og_alt("NYC borough coverage");
 
-export function generateStaticParams() {
-  return STATES.map((s) => ({ state: s.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export default async function Image({ params }: { params: Promise<{ state: string }> }) {
   const { state: stateSlug } = await params;

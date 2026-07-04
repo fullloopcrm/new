@@ -7,9 +7,7 @@ import { CtaButtons } from "@/app/site/theroadsidehelper/_components/CtaButtons"
 import { blogPostSchema, breadcrumbSchema, jsonLd } from "@/app/site/theroadsidehelper/_lib/schema";
 import { pageSeo } from "@/app/site/theroadsidehelper/_lib/seo";
 
-export function generateStaticParams() {
-  return BLOG_POSTS.map((p) => ({ slug: p.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({
   params,

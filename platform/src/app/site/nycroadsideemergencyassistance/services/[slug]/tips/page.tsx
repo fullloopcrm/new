@@ -8,9 +8,7 @@ import { SERVICES, SERVICE_CATEGORIES } from "@/app/site/nycroadsideemergencyass
 import { getServiceTips, parseLinks, type TextPart } from "@/app/site/nycroadsideemergencyassistance/_data/service-tips";
 import { JsonLd, breadcrumbSchema, howToSchema, articleSchema, faqPageSchema } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
 
-export function generateStaticParams() {
-  return SERVICES.map((s) => ({ slug: s.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

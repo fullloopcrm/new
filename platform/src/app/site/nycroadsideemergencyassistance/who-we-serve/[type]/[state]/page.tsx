@@ -16,20 +16,7 @@ function isServiceSlug(slug: string) {
   return SERVICES.some((s) => s.slug === slug);
 }
 
-export function generateStaticParams() {
-  const params: { type: string; state: string }[] = [];
-  for (const ct of CUSTOMER_TYPES) {
-    // State pages
-    for (const s of STATES) {
-      params.push({ type: ct.slug, state: s.slug });
-    }
-    // Service pages (type + service)
-    for (const svc of SERVICES) {
-      params.push({ type: ct.slug, state: svc.slug });
-    }
-  }
-  return params;
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ type: string; state: string }> }): Promise<Metadata> {
   const { type, state: stateOrService } = await params;

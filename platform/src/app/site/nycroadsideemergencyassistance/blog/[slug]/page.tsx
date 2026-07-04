@@ -10,9 +10,7 @@ import { getBlogImage } from "@/app/site/nycroadsideemergencyassistance/_lib/blo
 import { getBlogPhoto } from "@/app/site/nycroadsideemergencyassistance/_data/blog-photos";
 import { JsonLd, breadcrumbSchema, articleSchema } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
 
-export function generateStaticParams() {
-  return BLOG_POSTS.map((p) => ({ slug: p.slug }));
-}
+export function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
