@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
       // a phone could match another tenant's client and leak their name here.
       // No tenant context → skip linking rather than search globally.
       const reqTenantId = req.headers.get('x-tenant-id')
+      // tenant-scope guard (added by the security work) rejects tenant-less inserts —
+      // scope the conversation to this tenant from the signed header.
+      if (reqTenantId) insertData.tenant_id = reqTenantId
       if (phone && reqTenantId) {
         const digits = phone.replace(/\D/g, '').slice(-10)
         const { data: client } = await supabaseAdmin
