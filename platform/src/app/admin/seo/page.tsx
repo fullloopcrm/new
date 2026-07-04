@@ -26,6 +26,14 @@ type IssueSummary = {
   applicant_issues: number
 }
 
+type ChangeField = { id: string; before: string | null; after: string | null }
+type Proposal = {
+  url: string
+  rationale: string | null
+  title?: ChangeField
+  description?: ChangeField
+}
+
 type Payload = {
   properties: Row[]
   totals: {
@@ -36,6 +44,7 @@ type Payload = {
     queries: number
   }
   issues: IssueSummary[]
+  proposals: Proposal[]
   windowDays: number
 }
 
@@ -59,14 +68,41 @@ export default function AdminSeoPage() {
   const [data, setData] = useState<Payload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = () =>
     fetch('/api/admin/seo')
       .then((r) => (r.ok ? r.json() : r.json().then((j) => Promise.reject(j.error || r.statusText))))
       .then(setData)
       .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false))
+
+  useEffect(() => {
+    load().finally(() => setLoading(false))
   }, [])
+
+  async function act(p: Proposal, revert: boolean) {
+    setBusy(p.url)
+    try {
+      const res = await fetch('/api/admin/seo/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          url: p.url,
+          title: p.title?.after ?? null,
+          description: p.description?.after ?? null,
+          changeIds: [p.title?.id, p.description?.id].filter(Boolean),
+          revert,
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || res.statusText)
+      await load()
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   if (loading) return <div className="p-8 text-zinc-400">Loading fleet…</div>
   if (error) return <div className="p-8 text-rose-400">Couldn’t load SEO data: {error}</div>
@@ -103,6 +139,48 @@ export default function AdminSeoPage() {
           </div>
         ))}
       </div>
+
+      {/* Proposed fixes — review & apply */}
+      {data.proposals.length > 0 && (
+        <div className="mt-8">
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-teal-400">
+            Proposed fixes · {data.proposals.length} awaiting review
+          </div>
+          <div className="flex flex-col gap-3">
+            {data.proposals.map((p) => (
+              <div key={p.url} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <a href={p.url} target="_blank" rel="noreferrer" className="truncate font-mono text-xs text-zinc-400 hover:text-teal-400">
+                    {p.url.replace(/^https?:\/\/(www\.)?/, '')}
+                  </a>
+                  <button
+                    onClick={() => act(p, false)}
+                    disabled={busy === p.url}
+                    className="shrink-0 rounded-md bg-teal-600 px-3 py-1 text-xs font-semibold text-white hover:bg-teal-500 disabled:opacity-50"
+                  >
+                    {busy === p.url ? 'Applying…' : 'Apply'}
+                  </button>
+                </div>
+                {p.title && (
+                  <div className="mt-3 text-sm">
+                    <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Title</div>
+                    <div className="text-rose-400/80 line-through decoration-zinc-700">{p.title.before || '(none)'}</div>
+                    <div className="text-emerald-300">{p.title.after}</div>
+                  </div>
+                )}
+                {p.description && (
+                  <div className="mt-2 text-sm">
+                    <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Meta</div>
+                    <div className="text-rose-400/70 line-through decoration-zinc-700">{p.description.before || '(none)'}</div>
+                    <div className="text-emerald-300/90">{p.description.after}</div>
+                  </div>
+                )}
+                {p.rationale && <div className="mt-2 text-xs text-zinc-500">{p.rationale}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Opportunity — detected issues */}
       {data.issues.length > 0 && (
