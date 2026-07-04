@@ -30,26 +30,30 @@ type Notif = {
 // `sb-sub` / `sb-letter` pattern from the mockup — A/B/C lettered children
 // rendered immediately below the parent.
 type Sub = { letter: string; label: string; href: string }
+// `perm` gates visibility: if set and the user's effective permissions don't
+// include it, the item is hidden. Enforcement is still server-side per route —
+// this only trims the nav. Items with no `perm` are always shown.
 const navMain: Array<{
   num: string
   label: string
   href: string
   countKey?: keyof SidebarCounts
   fold: string
+  perm?: string
   subs: Sub[]
 }> = [
   { num: '00', label: 'The Loop', href: '/dashboard', fold: 'loop', subs: [] },
-  { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', subs: [] },
+  { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', perm: 'clients.view', subs: [] },
   { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
-  { num: '03', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', subs: [
+  { num: '03', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
   ]},
-  { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', subs: [
+  { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
-  { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', subs: [] },
-  { num: '06', label: 'HR', href: '/dashboard/team', fold: 'hr', subs: [] },
-  { num: '07', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', subs: [
+  { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
+  { num: '06', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
+  { num: '07', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
     { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
@@ -80,12 +84,12 @@ const foldMap: Record<string, string[]> = {
   messages: ['/dashboard/messages'],
 }
 
-const navPlatform = [
-  { label: 'Settings', href: '/dashboard/settings' },
-  { label: 'Users', href: '/dashboard/users' },
-  { label: 'Selena', href: '/dashboard/selena' },
-  { label: 'Notifications', href: '/dashboard/notifications' },
-  { label: 'Activity', href: '/dashboard/activity' },
+const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
+  { label: 'Settings', href: '/dashboard/settings', perm: 'settings.view' },
+  { label: 'Users', href: '/dashboard/users', perm: 'settings.edit' },
+  { label: 'Selena', href: '/dashboard/selena', perm: 'settings.view' },
+  { label: 'Notifications', href: '/dashboard/notifications', perm: 'notifications.view' },
+  { label: 'Activity', href: '/dashboard/activity', perm: 'audit.view' },
   { label: 'Docs', href: '/dashboard/docs' },
   { label: 'Loop Connect', href: '/dashboard/connect' },
   { label: 'Feedback', href: '/dashboard/feedback' },
@@ -182,6 +186,20 @@ export default function DashboardShell({
   const [counts, setCounts] = useState<SidebarCounts | null>(null)
   const [meta, setMeta] = useState(topbarMeta())
   const fold = activeFold(pathname)
+
+  // Effective permissions for hiding nav items. null = not loaded yet → show
+  // everything (fail-open for visibility; routes still enforce server-side).
+  const [perms, setPerms] = useState<string[] | null>(null)
+  const canSee = (perm?: string) => !perm || perms === null || perms.includes(perm)
+
+  useEffect(() => {
+    fetch('/api/permissions/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (Array.isArray(data?.permissions)) setPerms(data.permissions)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch('/api/sidebar-counts')
@@ -310,7 +328,7 @@ export default function DashboardShell({
           <div className="mx-[22px] mt-[14px] mb-[6px]" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#F4F4F1', fontWeight: 600 }}>
             The Loop
           </div>
-          {navMain.map((item) => {
+          {navMain.filter((item) => canSee(item.perm)).map((item) => {
             const isActive = fold === item.fold
             const badge = item.countKey && counts ? counts[item.countKey] : 0
             return (
@@ -373,7 +391,7 @@ export default function DashboardShell({
           <div className="mx-[22px] mt-[14px] mb-[6px]" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#F4F4F1', fontWeight: 600 }}>
             Platform
           </div>
-          {navPlatform.map((item) => {
+          {navPlatform.filter((item) => canSee(item.perm)).map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             return (
               <Link
