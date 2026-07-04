@@ -10,6 +10,13 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { activateTenant } from '@/lib/activate-tenant'
 
+// Activation runs several sequential external calls (Vercel domain API x3 +
+// onboarding gate + provisioning), which can exceed the default ~10s function
+// limit and get killed mid-run (progress shows a few steps, then dies). Give it
+// real headroom.
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()
   if (authError) return authError
