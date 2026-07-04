@@ -64,6 +64,18 @@ export function isEncrypted(value: string | null | undefined): boolean {
 }
 
 /**
+ * True when SECRET_ENCRYPTION_KEY is present and well-formed (64 hex chars).
+ * Lets callers degrade gracefully (store plaintext) instead of throwing when
+ * the platform hasn't provisioned an encryption key yet. decryptSecret()
+ * already tolerates plaintext, so unencrypted values keep working, and they
+ * upgrade to encrypted automatically once a key is set and they're re-saved.
+ */
+export function encryptionKeyAvailable(): boolean {
+  const hex = process.env.SECRET_ENCRYPTION_KEY
+  return !!hex && hex.length === 64
+}
+
+/**
  * Tenant columns that hold vendor secrets and must be encrypted at rest.
  * Single source of truth — every write path that touches these columns must
  * run values through encryptTenantSecrets() before saving. Keep in sync when
@@ -86,6 +98,16 @@ export const ENCRYPTED_TENANT_FIELDS = [
  * semantics). Does not mutate the input.
  */
 export function encryptTenantSecrets<T extends Record<string, unknown>>(updates: T): T {
+  // Degrade gracefully: with no encryption key provisioned, store plaintext
+  // (prior behavior) rather than throwing and 500-ing the save. Values upgrade
+  // to encrypted automatically once SECRET_ENCRYPTION_KEY is set and re-saved.
+  if (!encryptionKeyAvailable()) {
+    if (!_warnedNoKey) {
+      console.warn('[secret-crypto] SECRET_ENCRYPTION_KEY not set — storing tenant secrets in PLAINTEXT. Set the key to enable encryption at rest.')
+      _warnedNoKey = true
+    }
+    return updates
+  }
   const out: Record<string, unknown> = { ...updates }
   for (const field of ENCRYPTED_TENANT_FIELDS) {
     const v = out[field]
@@ -95,3 +117,5 @@ export function encryptTenantSecrets<T extends Record<string, unknown>>(updates:
   }
   return out as T
 }
+
+let _warnedNoKey = false

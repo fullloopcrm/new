@@ -128,11 +128,21 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
                   .update({ sms_consent: false })
                   .eq('id', options.recipientId)
               } else {
-                // No recipient ID supplied — flip every client/cleaner row
-                // with this phone (best-effort).
-                const last10 = cleanPhone.replace(/\D/g, '').slice(-10)
-                await supabaseAdmin.from('clients').update({ sms_consent: false }).ilike('phone', `%${last10}%`)
-                await supabaseAdmin.from('cleaners').update({ sms_consent: false }).ilike('phone', `%${last10}%`)
+                // No recipient ID supplied. Scope the opt-out to the tenant that
+                // OWNS the sending number — never flip another tenant's rows that
+                // happen to share this phone. (The carrier already enforces STOP;
+                // this flag only silences our own retry noise.) If we can't
+                // resolve the sending tenant, do nothing rather than write across
+                // tenants.
+                const fromNum = options?.from
+                const { data: ownerTenant } = fromNum
+                  ? await supabaseAdmin.from('tenants').select('id').eq('telnyx_phone', fromNum).single()
+                  : { data: null }
+                if (ownerTenant?.id) {
+                  const last10 = cleanPhone.replace(/\D/g, '').slice(-10)
+                  await supabaseAdmin.from('clients').update({ sms_consent: false }).eq('tenant_id', ownerTenant.id).ilike('phone', `%${last10}%`)
+                  await supabaseAdmin.from('cleaners').update({ sms_consent: false }).eq('tenant_id', ownerTenant.id).ilike('phone', `%${last10}%`)
+                }
               }
             } catch (e) {
               console.error('Auto-opt-out on STOP failed:', e)
