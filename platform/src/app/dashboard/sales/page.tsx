@@ -344,6 +344,18 @@ function SalesPageInner() {
           </div>
 
           <div className="sl-stage-list">
+            {!loading && stageDeals.length > 0 && (
+              <div className="sl-thead">
+                <span />
+                <span>Name</span>
+                <span>Detail</span>
+                <span>Source</span>
+                <span>Value</span>
+                <span>Date</span>
+                <span>Age</span>
+                <span>Stage</span>
+              </div>
+            )}
             {loading && <div className="sl-empty">Loading…</div>}
             {!loading && stageDeals.length === 0 && <div className="sl-empty">Nothing in {activeLabel} yet.</div>}
             {stageDeals.map((d) => {
@@ -369,6 +381,7 @@ function SalesPageInner() {
                           : <span className={`sl-deal-source ${srcSafe}`}>{srcSafe}</span>}
                     </span>
                     <span className="sl-row-value">{fmtMoney(d.value_cents)}</span>
+                    <span className="sl-row-date">{new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                     <span className={`sl-row-age ${ageClass}`}>{age === 0 ? 'today' : `${age}d`}</span>
                     <select className="sl-row-move" value={d.stage} onClick={(e) => e.stopPropagation()} onChange={(e) => moveDeal(d.id, e.target.value)}>
                       {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}

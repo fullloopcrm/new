@@ -334,12 +334,26 @@
 /* One deal = one row. Columns line up table-style across the list. */
 .sl-row {
   display: grid;
-  grid-template-columns: 14px minmax(120px, 1.4fr) minmax(0, 1.8fr) auto 84px 46px 104px;
+  grid-template-columns: 14px minmax(120px, 1.4fr) minmax(0, 1.8fr) auto 84px 88px 46px 104px;
   align-items: center;
   gap: 12px;
   padding: 9px 12px;
   cursor: pointer;
 }
+.sl-thead {
+  display: grid;
+  grid-template-columns: 14px minmax(120px, 1.4fr) minmax(0, 1.8fr) auto 84px 88px 46px 104px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 8px;
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sl-muted-2);
+  border-bottom: 1px solid var(--sl-line);
+}
+.sl-row-date { font-family: var(--sl-mono); font-size: 10px; color: var(--sl-muted); text-align: right; white-space: nowrap; }
 .sl-row-caret { font-size: 10px; color: var(--sl-muted-2); }
 .sl-row-name {
   font-family: var(--sl-display); font-size: 14px; font-weight: 500; color: var(--sl-ink);
@@ -364,7 +378,7 @@
 .sl-deal-panel { margin: 0 12px; padding: 10px 0 12px; }
 @media (max-width: 720px) {
   .sl-row { grid-template-columns: 14px 1fr auto 84px; }
-  .sl-row-ctx, .sl-row-age { display: none; }
+  .sl-row-ctx, .sl-row-age, .sl-row-date, .sl-thead { display: none; }
 }
 .sl-deal-name {
   font-family: var(--sl-display);
