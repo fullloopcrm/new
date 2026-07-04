@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { resolveAnthropic } from '@/lib/anthropic-client'
+import { logAnthropicUsage } from '@/lib/ai-usage'
 import { supabaseAdmin } from '@/lib/supabase'
 import { checkAvailability } from '@/lib/availability'
 import { getSettings } from '@/lib/settings'
@@ -1068,6 +1069,7 @@ export async function askSelena(
           { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages, tools: activeTools },
           { signal: controller.signal }
         )
+        void logAnthropicUsage({ tenantId, model: 'claude-sonnet-4-6', channel, usage: response.usage })
 
         const toolBlocks = response.content.filter((b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use')
         const textBlocks = response.content.filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
@@ -1121,6 +1123,8 @@ export async function askSelena(
           { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages },
           { signal: controller.signal }
         )
+        void logAnthropicUsage({ tenantId, model: 'claude-sonnet-4-6', channel, usage: fallback.usage })
+
         const fallbackText = fallback.content.filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
         if (fallbackText.length > 0) result.text = fallbackText.map(b => b.text).join(' ').trim()
       }

@@ -10,6 +10,7 @@ import { getCurrentTenantId } from '@/lib/tenant'
 import { buildPlaybook } from './build-playbook'
 import { getAgentConfig } from './agent-config-loader'
 import { resolveAnthropic } from '@/lib/anthropic-client'
+import { logAnthropicUsage } from '@/lib/ai-usage'
 import { getPersona, applyPersonaToConfig, renderPersonaExtras } from './persona-file'
 
 export type Channel = 'sms' | 'web' | 'email' | 'telegram'
@@ -479,6 +480,7 @@ When you flubbed on another channel → flag it here unprompted next check-in.`
           { model: 'claude-sonnet-4-6', max_tokens: 1024, system: systemPrompt, messages, tools: TOOLS },
           { signal: controller.signal },
         )
+        void logAnthropicUsage({ tenantId, model: 'claude-sonnet-4-6', channel, usage: response.usage })
 
         const textBlocks = response.content.filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
         const toolBlocks = response.content.filter((b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use')
