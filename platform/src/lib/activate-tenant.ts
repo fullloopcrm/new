@@ -42,9 +42,26 @@ export interface ActivationResult {
   gate: GateResult
 }
 
+// TEMP diagnostic: drop a breadcrumb row at each phase boundary so a hard-killed
+// activation still leaves a trail in the DB showing exactly where it stopped.
+// Best-effort, independent inserts (no transaction) so committed crumbs survive.
+async function crumb(tenantId: string, phase: string): Promise<void> {
+  try {
+    await supabaseAdmin.from('notifications').insert({
+      tenant_id: tenantId,
+      type: 'activation_debug',
+      title: 'activation phase',
+      message: phase,
+    })
+  } catch {
+    /* never block activation on a breadcrumb */
+  }
+}
+
 export async function activateTenant(tenantId: string): Promise<ActivationResult> {
   const steps: ActivationStep[] = []
   let ownerPin: string | null = null
+  await crumb(tenantId, 'start')
 
   const { data: tenant, error } = await supabaseAdmin
     .from('tenants')
@@ -86,6 +103,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   } catch (e) {
     steps.push({ key: 'settings', label: 'Global settings applied', status: 'failed', detail: msg(e) })
   }
+  await crumb(tenantId, 'after_settings')
 
   let customDomain: CustomDomainResult | undefined
 
@@ -105,6 +123,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   } catch (e) {
     steps.push({ key: 'onboarding_tasks', label: 'Onboarding checklist seeded', status: 'failed', detail: msg(e) })
   }
+  await crumb(tenantId, 'after_seed_tasks')
 
   // 5. Owner login — idempotent: create an owner member with a PIN only if none
   // exists. Requires an owner_email/name to attach to; otherwise it's an action
@@ -146,6 +165,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   } catch (e) {
     steps.push({ key: 'owner_login', label: 'Owner login', status: 'failed', detail: msg(e) })
   }
+  await crumb(tenantId, 'after_owner')
 
   // 6. Smoke test — run the onboarding gate over the lead→review spine.
   const gate = await runOnboardingGate(tenantId)
@@ -157,6 +177,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       detail: stage.detail,
     })
   }
+  await crumb(tenantId, 'after_gate')
 
   // 7. Domains LAST — external Vercel API calls are the slowest part and must
   // never block the essential DB provisioning above. If they're slow or fail,
@@ -204,6 +225,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     if (!upErr) activated = true
   }
 
+  await crumb(tenantId, 'done')
   return { ok: true, activated, ready, steps, ownerPin, customDomain, gate }
 }
 
