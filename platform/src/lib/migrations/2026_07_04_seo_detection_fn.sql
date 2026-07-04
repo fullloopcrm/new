@@ -1,38 +1,6 @@
-drop view if exists seo_page_rollup;
+alter table seo_issues add column if not exists value integer default 0;
+create index if not exists idx_seo_issues_value on seo_issues (value desc);
 
-create materialized view seo_page_rollup as
-select
-  a.property, a.page, a.impressions, a.clicks, a.ctr, a.avg_position, a.has_applicant, a.best_position,
-  tq.query as top_query,
-  tq.commercial as top_commercial
-from (
-  select
-    property, page,
-    sum(impressions)::bigint as impressions,
-    sum(clicks)::bigint as clicks,
-    case when sum(impressions)>0 then round(sum(clicks)::numeric/sum(impressions),4) else 0 end as ctr,
-    case when sum(impressions)>0 then round(sum(position*impressions)/sum(impressions),1) else null end as avg_position,
-    max(intent) filter (where intent='applicant') as has_applicant,
-    min(position) as best_position
-  from seo_metrics
-  where page <> '' and date >= (current_date - interval '28 days')
-  group by property, page
-) a
-left join lateral (
-  select query, commercial
-  from seo_metrics m
-  where m.property = a.property and m.page = a.page and m.query <> ''
-    and m.date >= (current_date - interval '28 days')
-  order by impressions desc
-  limit 1
-) tq on true;
-
-create index if not exists idx_seo_page_rollup_property on seo_page_rollup (property);
-
-create or replace function seo_refresh_rollup()
-returns void language sql as $$
-  refresh materialized view seo_page_rollup;
-$$;
 create or replace function seo_run_detection()
 returns integer
 language plpgsql
@@ -41,10 +9,10 @@ declare inserted integer;
 begin
   delete from seo_issues where status = 'open';
 
-  insert into seo_issues (property, tenant_id, type, severity, intent, target_url, recipe, tier, status, detail)
+  insert into seo_issues (property, tenant_id, type, severity, intent, target_url, recipe, tier, status, value, detail)
   select property, tenant_id, type,
     case when value >= 600 then 'high' when value >= 150 then 'medium' else 'low' end,
-    intent, page, recipe, tier, 'open',
+    intent, page, recipe, tier, 'open', value,
     jsonb_build_object('impressions',impressions,'clicks',clicks,'ctr',ctr,'position',avg_position,
       'best_position',best_position,'top_query',top_query,'top_commercial',commercial,'value',value)
   from (
@@ -71,3 +39,5 @@ begin
   return inserted;
 end;
 $$;
+
+select seo_run_detection() as inserted;

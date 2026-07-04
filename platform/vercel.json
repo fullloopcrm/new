@@ -49,6 +49,10 @@
       "schedule": "30 6 * * *"
     },
     {
+      "path": "/api/cron/seo-propose",
+      "schedule": "0 7 * * 1"
+    },
+    {
       "path": "/api/cron/auto-reply-reviews",
       "schedule": "30 */6 * * *"
     },

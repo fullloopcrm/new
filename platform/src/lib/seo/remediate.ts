@@ -120,7 +120,7 @@ export async function generateProposals(opts?: { limit?: number }): Promise<{
     .eq('status', 'open')
     .eq('tier', 1)
     .in('type', ['striking_distance', 'low_ctr'])
-    .order('id')
+    .order('value', { ascending: false })
     .limit(limit)
 
   const issues = (data ?? []) as Issue[]
