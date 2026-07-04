@@ -70,6 +70,30 @@ export async function registerCarryingDomain(slug: string): Promise<RegisterDoma
   }
 }
 
+/**
+ * Remove a domain from the Vercel project. Used by tenant deletion so a deleted
+ * tenant doesn't leave `<slug>.fullloopcrm.com` (or a custom domain) attached and
+ * serving the fallback marketing site. Best-effort — never throws; a missing
+ * domain (404) is treated as already-gone (success).
+ */
+export async function removeDomain(name: string): Promise<{ ok: boolean; name: string; status: 'removed' | 'not_found' | 'skipped' | 'error'; detail?: string }> {
+  const { token, project, teamId } = vercelEnv()
+  if (!token || !teamId) return { ok: false, name, status: 'skipped', detail: 'vercel env not configured' }
+
+  try {
+    const res = await fetch(
+      `https://api.vercel.com/v9/projects/${encodeURIComponent(project)}/domains/${encodeURIComponent(name)}?teamId=${encodeURIComponent(teamId)}`,
+      { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+    )
+    if (res.ok) return { ok: true, name, status: 'removed' }
+    if (res.status === 404) return { ok: true, name, status: 'not_found' }
+    const body = (await res.json().catch(() => ({}))) as VercelError
+    return { ok: false, name, status: 'error', detail: `${res.status} ${body.error?.code ?? 'unknown'}` }
+  } catch (err) {
+    return { ok: false, name, status: 'error', detail: err instanceof Error ? err.message : 'unknown' }
+  }
+}
+
 /** A DNS record the tenant must create at their registrar. */
 export interface DnsRecord {
   type: 'A' | 'CNAME' | 'TXT'

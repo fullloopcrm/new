@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
+import { removeDomain } from '@/lib/vercel-domains'
 import { encryptSecret, isEncrypted, ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
 
 // Vendor API-key fields that must be encrypted at rest — shared single source
@@ -314,6 +315,15 @@ export async function DELETE(
 
   const { id } = await params
 
+  // Capture the domains BEFORE deleting so we can detach them from Vercel after.
+  // Otherwise a deleted tenant leaves <slug>.fullloopcrm.com (and any custom
+  // domain) attached to the project, serving the fallback marketing site.
+  const { data: doomed } = await supabaseAdmin
+    .from('tenants')
+    .select('slug, domain, domain_name')
+    .eq('id', id)
+    .single()
+
   // Hard delete. Every tenant-scoped table cascades from tenants.id EXCEPT two
   // cross-tenant FKs that are ON DELETE NO ACTION and would block the delete:
   // leads.converted_tenant_id and partner_requests.converted_tenant_id. These
@@ -329,6 +339,17 @@ export async function DELETE(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Detach Vercel domains — best-effort, never blocks the delete result.
+  if (doomed?.slug) {
+    const domains = [`${doomed.slug}.fullloopcrm.com`]
+    const custom = (doomed.domain as string | null) || (doomed.domain_name as string | null)
+    if (custom && custom.trim()) {
+      const apex = custom.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+      domains.push(apex, `www.${apex}`)
+    }
+    await Promise.all(domains.map((d) => removeDomain(d)))
   }
 
   return NextResponse.json({ success: true })
