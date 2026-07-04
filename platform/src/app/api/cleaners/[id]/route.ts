@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
+import { isPortalRole } from '@/lib/portal-rbac'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('team.edit')
@@ -37,6 +38,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     calendar_color: body.calendar_color ?? undefined,
   }
   if (body.active !== undefined) update.status = body.active ? 'active' : 'inactive'
+  // Field-staff portal tier (worker/lead/manager) — drives portal permissions.
+  if (body.role !== undefined) {
+    if (!isPortalRole(body.role)) {
+      return NextResponse.json({ error: 'Invalid role. Must be: worker, lead, manager' }, { status: 400 })
+    }
+    update.role = body.role
+  }
 
   const { data, error } = await supabaseAdmin
     .from('team_members')

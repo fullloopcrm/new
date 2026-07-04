@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasPermission, getRolePermissions } from './rbac'
+import { hasPermission, getRolePermissions, resolvePermissions, type RolePermissionOverrides } from './rbac'
 
 describe('RBAC', () => {
   describe('owner', () => {
@@ -81,6 +81,40 @@ describe('RBAC', () => {
 
     it('returns empty array for invalid roles', () => {
       expect(getRolePermissions('unknown')).toEqual([])
+    })
+  })
+
+  // Per-tenant customization: hard-coded defaults + tenant deltas, connected to
+  // the same hasPermission() that every requirePermission() call site uses.
+  describe('tenant overrides', () => {
+    it('no override → identical to hard-coded defaults (zero behavior change)', () => {
+      expect(resolvePermissions('manager')).toEqual(getRolePermissions('manager'))
+      expect(resolvePermissions('staff', null)).toEqual(getRolePermissions('staff'))
+      expect(resolvePermissions('staff', {})).toEqual(getRolePermissions('staff'))
+    })
+
+    it('owner is always full access and ignores overrides (no lockout)', () => {
+      const overrides = { admin: { 'settings.edit': false } } as RolePermissionOverrides
+      expect(resolvePermissions('owner', overrides)).toEqual(getRolePermissions('owner'))
+      expect(hasPermission('owner', 'settings.integrations', overrides)).toBe(true)
+    })
+
+    it('a revoke delta removes a default permission for that role only', () => {
+      const overrides: RolePermissionOverrides = { admin: { 'finance.payroll': false } }
+      expect(hasPermission('admin', 'finance.payroll')).toBe(true)
+      expect(hasPermission('admin', 'finance.payroll', overrides)).toBe(false)
+      expect(hasPermission('admin', 'clients.create', overrides)).toBe(true)
+    })
+
+    it('a grant delta adds a non-default permission', () => {
+      expect(hasPermission('staff', 'finance.view')).toBe(false)
+      const overrides: RolePermissionOverrides = { staff: { 'finance.view': true } }
+      expect(hasPermission('staff', 'finance.view', overrides)).toBe(true)
+    })
+
+    it('ignores unknown permission keys in an override', () => {
+      const overrides = { staff: { 'not.a.real.permission': true } } as unknown as RolePermissionOverrides
+      expect(resolvePermissions('staff', overrides)).toEqual(getRolePermissions('staff'))
     })
   })
 })

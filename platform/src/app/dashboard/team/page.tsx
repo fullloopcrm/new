@@ -5,6 +5,7 @@ import './team.css'
 import TeamCoverageMap from '@/components/TeamCoverageMap'
 import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
 import SalesAppsTab from './SalesAppsTab'
+import { PORTAL_ROLES } from '@/lib/portal-rbac'
 
 type Tab = 'team' | 'applications' | 'sales_apps' | 'ops_admin' | 'performance' | 'payroll'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
@@ -165,6 +166,22 @@ export default function TeamPage() {
       return
     }
     loadApplications()
+  }
+
+  async function setMemberRole(id: string, role: string) {
+    // Optimistic — reflect immediately, roll back on failure.
+    const prev = members
+    setMembers((ms) => ms.map((m) => (m.id === id ? { ...m, role } : m)))
+    const res = await fetch(`/api/cleaners/${id}/role`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert(`Failed to set role: ${err.error || res.statusText}`)
+      setMembers(prev)
+    }
   }
 
   const enriched: EnrichedMember[] = useMemo(() => {
@@ -425,7 +442,19 @@ export default function TeamPage() {
                       <div className="tm-name">{m.name}</div>
                       <div className={`tm-status-row ${statusClass}`}>
                         <span className="tm-status-dot live" />
-                        {statusLabel} · {m.role || 'worker'}
+                        {statusLabel}
+                        <span aria-hidden="true"> · </span>
+                        <select
+                          value={PORTAL_ROLES.some((r) => r.value === m.role) ? (m.role as string) : 'worker'}
+                          onChange={(e) => setMemberRole(m.id, e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="tm-role-select"
+                          title="Field-staff tier — controls portal access"
+                        >
+                          {PORTAL_ROLES.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   </div>

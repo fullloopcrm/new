@@ -11,13 +11,15 @@ function getSecret(): string {
   return s
 }
 
-function createToken(memberId: string, tenantId: string, payRate?: number | null): string {
-  const payload = JSON.stringify({ id: memberId, tid: tenantId, pr: payRate || 0, exp: Date.now() + 24 * 3600 * 1000 })
+function createToken(memberId: string, tenantId: string, payRate?: number | null, role?: string | null): string {
+  const payload = JSON.stringify({ id: memberId, tid: tenantId, pr: payRate || 0, r: role || 'worker', exp: Date.now() + 24 * 3600 * 1000 })
   const hmac = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
   return Buffer.from(payload).toString('base64') + '.' + hmac
 }
 
-export function verifyToken(token: string): { id: string; tid: string } | null {
+// role is the field-staff portal tier (worker/lead/manager). Legacy tokens
+// minted before tiers existed carry no `r` → treated as least-privilege 'worker'.
+export function verifyToken(token: string): { id: string; tid: string; role: string } | null {
   try {
     const [payloadB64, sig] = token.split('.')
     const payload = Buffer.from(payloadB64, 'base64').toString()
@@ -25,7 +27,7 @@ export function verifyToken(token: string): { id: string; tid: string } | null {
     if (sig !== expected) return null
     const data = JSON.parse(payload)
     if (data.exp < Date.now()) return null
-    return data
+    return { id: data.id, tid: data.tid, role: data.r || 'worker' }
   } catch {
     return null
   }
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
   // Look up team member by PIN
   const { data: member } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, preferred_language, pay_rate, avatar_url')
+    .select('id, name, preferred_language, pay_rate, avatar_url, role')
     .eq('tenant_id', tenant.id)
     .eq('pin', pin)
     .eq('status', 'active')
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
   }
 
-  const token = createToken(member.id, tenant.id, member.pay_rate)
+  const token = createToken(member.id, tenant.id, member.pay_rate, member.role)
 
   return NextResponse.json({
     token,
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
       language: member.preferred_language,
       pay_rate: member.pay_rate,
       avatar_url: member.avatar_url,
+      role: member.role,
     },
     tenant: { id: tenant.id, name: tenant.name, phone: tenant.phone },
   })

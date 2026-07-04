@@ -44,6 +44,7 @@ export type Tenant = {
   telnyx_phone: string | null
   stripe_api_key: string | null
   stripe_account_id: string | null
+  anthropic_api_key: string | null
   resend_domain: string | null
   email_from: string | null
   google_place_id: string | null
@@ -55,6 +56,7 @@ export type Tenant = {
   website_published: boolean
   website_content: Record<string, unknown>
   setup_progress: Record<string, boolean>
+  selena_config: Record<string, unknown> | null
 }
 
 // Check for admin PIN impersonation (no Clerk needed)

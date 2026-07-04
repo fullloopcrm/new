@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/route'
+import { requirePortalPermission } from '@/lib/team-portal-auth'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -18,6 +19,11 @@ export async function GET(request: NextRequest) {
   tomorrow.setDate(tomorrow.getDate() + 1)
 
   if (available === 'true') {
+    // Seeing the open (unassigned) pool is a field-staff tier permission — a
+    // tenant can restrict this to leads/managers via the portal permission matrix.
+    const { error: permError } = await requirePortalPermission(request, 'jobs.view_unassigned')
+    if (permError) return permError
+
     // Return unassigned jobs for this tenant
     const { data, error } = await supabaseAdmin
       .from('bookings')

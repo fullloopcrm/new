@@ -10,7 +10,7 @@ type AuditAction =
   | 'review.requested' | 'review.created'
   | 'referral.created' | 'referral.paid'
   | 'expense.created' | 'expense.deleted'
-  | 'settings.updated' | 'service.created' | 'service.updated' | 'service.deleted'
+  | 'settings.updated' | 'permissions.updated' | 'service.created' | 'service.updated' | 'service.deleted'
   | 'team_portal.login' | 'team_portal.checkin' | 'team_portal.checkout'
   | 'portal.login' | 'portal.booking_created' | 'portal.booking_cancelled'
   | 'deal.created' | 'deal.updated' | 'deal.deleted'

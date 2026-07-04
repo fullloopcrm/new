@@ -5,6 +5,7 @@ import { formatPhone } from '@/lib/phone'
 import { downloadCSV } from '@/lib/csv'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
+import PermissionsTab from './PermissionsTab'
 
 type Tenant = {
   id: string
@@ -79,7 +80,7 @@ type ServiceType = {
   active: boolean
 }
 
-const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Integrations', 'Branding', 'Notifications', 'Guidelines', 'Selena', 'Tools'] as const
+const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Notifications', 'Guidelines', 'Selena', 'Tools'] as const
 type Tab = typeof TABS[number]
 
 const PAYMENT_METHOD_OPTIONS = [
@@ -944,6 +945,8 @@ export default function SettingsPage() {
           </button>
         </div>
       )}
+
+      {tab === 'Permissions' && <PermissionsTab />}
 
       {tab === 'Integrations' && (
         <div className="border border-slate-200 rounded-lg p-6 space-y-6 max-w-2xl">

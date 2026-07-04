@@ -416,3 +416,17 @@
 }
 .tm-app-status.approved { background: #e8f5e9; color: #1b5e20; }
 .tm-app-status.rejected { background: #fdecea; color: #7a1f1f; }
+
+/* Field-staff tier selector on roster cards */
+.tm-role-select {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 0.1rem;
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+.tm-role-select:hover { background: rgba(0, 0, 0, 0.05); }
+.tm-role-select:focus { outline: 1px solid rgba(0, 0, 0, 0.2); }
