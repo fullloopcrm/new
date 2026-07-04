@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { PRICING, computeMonthly } from '@/lib/billing-pricing'
 import { NotesPanel } from '@/components/admin/NotesPanel'
 import { TenantUsers } from '@/components/admin/TenantUsers'
+import { LaunchPanel } from '@/components/admin/LaunchPanel'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -137,7 +138,7 @@ export default function BusinessDetailPage() {
   const [cl, setCl] = useState<Checklist | null>(null)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'contact' | 'users' | 'integrations' | 'billing' | 'onboarding' | 'notes'>('contact')
+  const [tab, setTab] = useState<'contact' | 'users' | 'integrations' | 'billing' | 'onboarding' | 'launch' | 'notes'>('contact')
 
   const [ownerName, setOwnerName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
@@ -158,6 +159,12 @@ export default function BusinessDetailPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteResult, setInviteResult] = useState<{ ok?: boolean; error?: string } | null>(null)
+
+  // Delete confirmation
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   // Integration fields
   const [resendApiKey, setResendApiKey] = useState('')
@@ -312,6 +319,20 @@ export default function BusinessDetailPage() {
     else setInviteResult({ error: data.error || 'Failed' })
   }
 
+  async function deleteBusiness() {
+    if (!biz || deleteConfirm.trim() !== biz.name) return
+    setDeleting(true)
+    setDeleteError('')
+    const res = await fetch(`/api/admin/businesses/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      router.push('/admin/businesses')
+      return
+    }
+    const data = await res.json().catch(() => ({}))
+    setDeleting(false)
+    setDeleteError(data.error || 'Delete failed')
+  }
+
   if (loading) return <p className="text-slate-500">Loading...</p>
   if (!biz) return <p className="text-slate-500">Not found</p>
 
@@ -323,6 +344,7 @@ export default function BusinessDetailPage() {
     { key: 'integrations' as const, label: 'Integrations' },
     { key: 'billing' as const, label: 'Billing' },
     { key: 'onboarding' as const, label: `Onboarding (${pct}%)` },
+    { key: 'launch' as const, label: 'Launch' },
     { key: 'notes' as const, label: 'Notes' },
   ]
 
@@ -950,6 +972,11 @@ export default function BusinessDetailPage() {
         </div>
       )}
 
+      {/* TAB: Launch */}
+      {tab === 'launch' && (
+        <LaunchPanel tenantId={id} slug={biz.slug} />
+      )}
+
       {/* TAB: Notes */}
       {tab === 'users' && (
         <TenantUsers tenantId={id} />
@@ -963,11 +990,54 @@ export default function BusinessDetailPage() {
 
       {/* Delete */}
       <div className="mt-16 pt-6 border-t border-slate-200">
-        <button onClick={() => { if (confirm(`Delete "${biz.name}"? This cannot be undone.`)) { fetch(`/api/admin/businesses/${id}`, { method: 'DELETE' }).then(() => router.push('/admin/businesses')) } }}
+        <button onClick={() => { setShowDelete(true); setDeleteConfirm(''); setDeleteError('') }}
           className="text-sm text-slate-400 hover:text-red-500 transition-colors">
           Delete this business
         </button>
       </div>
+
+      {/* Delete confirmation modal */}
+      {showDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={() => { if (!deleting) setShowDelete(false) }}>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <h3 className="font-heading font-bold text-lg text-slate-900">Delete this business?</h3>
+            </div>
+            <p className="text-sm text-slate-600 mb-2">
+              This <strong>permanently deletes</strong> <strong>{biz.name}</strong> and everything tied to it —
+              clients, bookings, jobs, invoices, payments, team members, messages, and all history.
+              <strong> This cannot be undone.</strong>
+            </p>
+            <p className="text-sm text-slate-600 mb-4">
+              Type <span className="font-mono font-semibold text-slate-900">{biz.name}</span> to confirm.
+            </p>
+            <input
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder={biz.name}
+              autoFocus
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4 focus:border-red-400 focus:outline-none"
+            />
+            {deleteError && <p className="text-sm text-red-500 mb-3">{deleteError}</p>}
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShowDelete(false)} disabled={deleting}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 transition-colors">
+                Cancel
+              </button>
+              <button onClick={deleteBusiness} disabled={deleting || deleteConfirm.trim() !== biz.name}
+                className="px-4 py-2 rounded-lg text-sm font-cta font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {deleting ? 'Deleting...' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

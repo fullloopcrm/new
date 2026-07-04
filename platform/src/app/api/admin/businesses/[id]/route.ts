@@ -314,9 +314,17 @@ export async function DELETE(
 
   const { id } = await params
 
+  // Hard delete. Every tenant-scoped table cascades from tenants.id EXCEPT two
+  // cross-tenant FKs that are ON DELETE NO ACTION and would block the delete:
+  // leads.converted_tenant_id and partner_requests.converted_tenant_id. These
+  // are global lead records that merely *reference* the tenant they converted
+  // into — not tenant-owned rows — so we detach them before deleting.
+  await supabaseAdmin.from('leads').update({ converted_tenant_id: null }).eq('converted_tenant_id', id)
+  await supabaseAdmin.from('partner_requests').update({ converted_tenant_id: null }).eq('converted_tenant_id', id)
+
   const { error } = await supabaseAdmin
     .from('tenants')
-    .update({ status: 'deleted' })
+    .delete()
     .eq('id', id)
 
   if (error) {
