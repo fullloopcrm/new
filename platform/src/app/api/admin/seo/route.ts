@@ -25,9 +25,10 @@ export async function GET() {
 
   // Group proposed title/meta changes by URL so each proposal is one review card.
   type Field = { id: string; before: string | null; after: string | null }
-  const byUrl = new Map<string, { url: string; rationale: string | null; title?: Field; description?: Field }>()
+  type Grouped = { url: string; rationale: string | null; title?: Field; description?: Field }
+  const byUrl = new Map<string, Grouped>()
   for (const c of changes ?? []) {
-    const row = byUrl.get(c.target_url) ?? { url: c.target_url, rationale: c.rationale }
+    const row: Grouped = byUrl.get(c.target_url) ?? { url: c.target_url, rationale: c.rationale }
     const field: Field = { id: c.id, before: c.before_value, after: c.after_value }
     if (c.field === 'title') row.title = field
     else if (c.field === 'meta_description') row.description = field
