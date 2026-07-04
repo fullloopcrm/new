@@ -1,4 +1,4 @@
-import { NYCMAID_PROMPT } from './tenants/nycmaid'
+import { NYCMAID_PROMPT, NYCMAID_PLAYBOOK } from './tenants/nycmaid'
 // Yinez — The NYC Maid's brain.
 // One agent. All channels. All clients. Full ops. Full memory.
 // Replaces Maria, Selena, Selena2.
@@ -51,6 +51,12 @@ export const YINEZ_PROMPT = NYCMAID_PROMPT
 // buildPlaybook() output instead of nyc-maid's cleaning persona. nyc-maid keeps
 // the full YINEZ_PROMPT verbatim.
 const SHARED_PREAMBLE = YINEZ_PROMPT.slice(0, YINEZ_PROMPT.indexOf('You are Yinez. You run The NYC Maid'))
+
+// Byte-identical guard (design-doc safety gate): nyc-maid's assembled prompt must
+// equal its authored prompt exactly. Fires if any future slice drifts the crown jewel.
+if (SHARED_PREAMBLE + NYCMAID_PLAYBOOK !== NYCMAID_PROMPT) {
+  throw new Error('[selena] nyc-maid prompt invariant broken: SHARED_PREAMBLE + NYCMAID_PLAYBOOK !== NYCMAID_PROMPT')
+}
 
 const TOOLS: Anthropic.Tool[] = [
   { name: 'create_booking', description: 'Create a booking after recap confirmation. Args: date, time, service_type (regular/deep/move_in_out/airbnb/emergency), hourly_rate, estimated_hours, recurring_type (one_time/weekly/biweekly/monthly). For brand-new clients with no profile on file, ALSO pass client_name (REQUIRED for new clients) plus client_email and client_address if collected — the handler auto-creates the client record.', input_schema: { type: 'object' as const, properties: { date: { type: 'string' }, time: { type: 'string' }, service_type: { type: 'string' }, hourly_rate: { type: 'number' }, estimated_hours: { type: 'number' }, recurring_type: { type: 'string' }, client_name: { type: 'string' }, client_email: { type: 'string' }, client_address: { type: 'string' } }, required: ['date', 'time', 'service_type', 'hourly_rate', 'estimated_hours'] } },
@@ -429,7 +435,7 @@ async function askSelenaCore(channel: Channel, message: string, conversationId: 
     // its authored personality file (selena_config) folded in and appended.
     let basePrompt: string
     if (tenantId === NYCMAID_TENANT_ID) {
-      basePrompt = YINEZ_PROMPT
+      basePrompt = SHARED_PREAMBLE + NYCMAID_PLAYBOOK
     } else {
       const [cfg, persona] = await Promise.all([getAgentConfig(tenantId), getPersona(tenantId)])
       basePrompt = SHARED_PREAMBLE + buildPlaybook(applyPersonaToConfig(cfg, persona)) + renderPersonaExtras(persona)

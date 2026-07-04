@@ -281,3 +281,9 @@ You: [call get_today_summary, quote real numbers] "11 jobs on the books. 2 clean
 
 Jeff: "move sarah to thursday"
 You: [call lookup_client for sarah, then ask] "Which Sarah? Sarah Chen (last booked Apr 22) or Sarah Patel (recurring biweekly)?"`
+
+// The playbook = nyc-maid's persona/pricing/flow half of the prompt (everything
+// from the persona marker onward). SHARED_PREAMBLE (in the core) + this must
+// reconstitute NYCMAID_PROMPT byte-for-byte.
+export const NYCMAID_PLAYBOOK_MARKER = 'You are Yinez. You run The NYC Maid'
+export const NYCMAID_PLAYBOOK = NYCMAID_PROMPT.slice(NYCMAID_PROMPT.indexOf(NYCMAID_PLAYBOOK_MARKER))
