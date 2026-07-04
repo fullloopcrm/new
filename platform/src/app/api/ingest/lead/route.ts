@@ -160,6 +160,42 @@ export async function POST(request: Request) {
       })
       .then(() => {}, () => {})
 
+    // Create the sales deal so the lead actually shows in Sales › Leads (which
+    // reads `deals` @ stage 'new'). Without this, ingested leads landed as
+    // client + portal_lead only and were invisible to Sales. Idempotent: bump an
+    // existing open deal instead of duplicating on repeat submissions.
+    try {
+      const { data: openDeal } = await supabaseAdmin
+        .from('deals')
+        .select('id')
+        .eq('tenant_id', tenant.id)
+        .eq('client_id', clientId)
+        .in('stage', ['new', 'qualifying', 'quoted', 'pending'])
+        .limit(1)
+        .maybeSingle()
+      if (openDeal) {
+        await supabaseAdmin
+          .from('deals')
+          .update({ last_activity_at: new Date().toISOString() })
+          .eq('id', openDeal.id)
+          .eq('tenant_id', tenant.id)
+      } else {
+        await supabaseAdmin.from('deals').insert({
+          tenant_id: tenant.id,
+          client_id: clientId,
+          title: body.type || body.source || 'New lead',
+          stage: 'new',
+          mode: 'sales',
+          probability: 25,
+          source: body.source || body.type || 'ingest',
+          notes,
+          status: 'active',
+        })
+      }
+    } catch (dealErr) {
+      console.error('[ingest/lead] deal create error:', dealErr)
+    }
+
     await notify({
       tenantId: tenant.id,
       type: 'new_client',
