@@ -52,7 +52,6 @@ type Tab = 'all' | 'map' | 'lifecycle' | 'cohorts' | 'conversations' | 'reviews'
 
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'all', letter: 'A', label: 'All Clients' },
-  { key: 'map', letter: 'B', label: 'Map' },
   { key: 'lifecycle', letter: 'C', label: 'Lifecycle' },
   { key: 'cohorts', letter: 'D', label: 'Cohorts' },
   { key: 'conversations', letter: 'E', label: 'Conversations' },
@@ -309,9 +308,8 @@ export default function ClientsPage() {
         </span>
       </div>
 
-      {/* MAP TAB */}
-      {tab === 'map' && (
-        <div style={{ height: 640, border: '1px solid var(--clients-line)', borderRadius: 4, overflow: 'hidden', marginBottom: 22 }}>
+      {/* MAP — always on top: every client + lead (lead-stage rows show as potential pins) */}
+      <div style={{ height: 420, border: '1px solid var(--clients-line)', borderRadius: 4, overflow: 'hidden', marginBottom: 22 }}>
           <ClientsMap
             clients={filtered.map((c) => ({
               id: c.id,
@@ -325,8 +323,7 @@ export default function ClientsPage() {
             }))}
             onClientClick={(id) => setDrawerId(id)}
           />
-        </div>
-      )}
+      </div>
 
       {/* TABLE */}
       {tab === 'all' && (
