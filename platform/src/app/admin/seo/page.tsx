@@ -18,6 +18,14 @@ type Row = {
   last_date: string | null
 }
 
+type IssueSummary = {
+  type: string
+  tier: number
+  issues: number
+  impressions_at_stake: number
+  applicant_issues: number
+}
+
 type Payload = {
   properties: Row[]
   totals: {
@@ -27,7 +35,14 @@ type Payload = {
     applicant_clicks: number
     queries: number
   }
+  issues: IssueSummary[]
   windowDays: number
+}
+
+const ISSUE_LABEL: Record<string, string> = {
+  striking_distance: 'Striking distance (page 2 → 1)',
+  deep_underperformer: 'Deep underperformer (enrich)',
+  low_ctr: 'Low CTR (title/meta)',
 }
 
 const n = (v: number) => (v ?? 0).toLocaleString('en-US')
@@ -88,6 +103,31 @@ export default function AdminSeoPage() {
           </div>
         ))}
       </div>
+
+      {/* Opportunity — detected issues */}
+      {data.issues.length > 0 && (
+        <div className="mt-8">
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-amber-400">
+            Opportunity · {n(data.issues.reduce((s, i) => s + i.issues, 0))} pages ·{' '}
+            {n(data.issues.reduce((s, i) => s + i.impressions_at_stake, 0))} impressions at stake
+          </div>
+          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-zinc-800 bg-zinc-800 md:grid-cols-3">
+            {data.issues.map((i) => (
+              <div key={i.type} className="bg-zinc-950 p-4">
+                <div className="flex items-baseline justify-between">
+                  <span className="font-mono text-2xl font-semibold tabular-nums text-zinc-100">{n(i.issues)}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Tier {i.tier}</span>
+                </div>
+                <div className="mt-1 text-xs font-medium text-zinc-300">{ISSUE_LABEL[i.type] ?? i.type}</div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  {n(i.impressions_at_stake)} impr. at stake
+                  {i.applicant_issues > 0 ? <span className="ml-1 text-teal-500">· {n(i.applicant_issues)} jobs</span> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Fleet table */}
       <div className="mt-6 overflow-x-auto rounded-xl border border-zinc-800">

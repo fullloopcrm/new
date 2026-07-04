@@ -10,10 +10,10 @@ export async function GET() {
   const authError = await requireAdmin()
   if (authError) return authError
 
-  const { data, error } = await supabaseAdmin
-    .from('seo_fleet_summary')
-    .select('*')
-    .order('impressions', { ascending: false })
+  const [{ data, error }, { data: issues }] = await Promise.all([
+    supabaseAdmin.from('seo_fleet_summary').select('*').order('impressions', { ascending: false }),
+    supabaseAdmin.from('seo_issue_summary').select('*').order('impressions_at_stake', { ascending: false }),
+  ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -29,5 +29,5 @@ export async function GET() {
     { impressions: 0, clicks: 0, applicant_impressions: 0, applicant_clicks: 0, queries: 0 },
   )
 
-  return NextResponse.json({ properties, totals, windowDays: 28 })
+  return NextResponse.json({ properties, totals, issues: issues ?? [], windowDays: 28 })
 }
