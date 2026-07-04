@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSeoOverride } from "@/lib/seo/overrides";
 import { notFound } from "next/navigation";
 import {
   JsonLd,
@@ -68,9 +69,15 @@ export async function generateMetadata({
         : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it powers our own portfolio of vertical brands. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one system. Inquire about the platform.`;
   const url = `https://homeservicesbusinesscrm.com/${slug}`;
 
+  // SIGNAL apply layer: a per-URL override (a shipped SEO fix) wins over the
+  // template default. No code edit — the fix is a data row.
+  const override = await getSeoOverride(url);
+  const finalTitle = override?.title || title;
+  const finalDescription = override?.description || description;
+
   return {
-    title,
-    description,
+    title: finalTitle,
+    description: finalDescription,
     keywords: [
       `${trade} CRM ${metro.city}`,
       `exclusive ${trade} CRM ${metro.city}`,
@@ -83,14 +90,14 @@ export async function generateMetadata({
     ],
     openGraph: {
       title: `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — ${statusTag}`,
-      description,
+      description: finalDescription,
       url,
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — ${statusTag}`,
-      description,
+      description: finalDescription,
     },
     alternates: { canonical: url },
   };
