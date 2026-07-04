@@ -15,6 +15,16 @@ const MAIN_HOSTS = new Set([
   'platform-ten-psi.vercel.app',
 ])
 
+// A tenant's public site (carrying domain or custom domain) serves in every
+// state EXCEPT the ones where it should be dark. New tenants are 'setup'/
+// 'pending' and must still show their live site immediately (booking + collect
+// work before full activation) — gating on status==='active' hid every new
+// tenant behind the Full Loop marketing page until the onboarding gate passed.
+const NON_SERVING_STATUSES = new Set(['suspended', 'cancelled', 'deleted'])
+function tenantServesSite(status: string | null | undefined): boolean {
+  return !NON_SERVING_STATUSES.has(status ?? '')
+}
+
 function isMainHost(hostname: string): boolean {
   // Strip port for comparison
   const host = hostname.split(':')[0]
@@ -181,7 +191,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   if (subdomain) {
     try {
       const tenant = await getTenantBySlug(subdomain)
-      if (tenant && tenant.status === 'active') {
+      if (tenant && tenantServesSite(tenant.status)) {
         return rewriteToSite(req, tenant.id, tenant.slug)
       }
     } catch (e) {
@@ -205,7 +215,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     }
     try {
       const tenant = await getTenantByDomain(hostname)
-      if (tenant && tenant.status === 'active') {
+      if (tenant && tenantServesSite(tenant.status)) {
         return rewriteToSite(req, tenant.id, tenant.slug)
       }
     } catch (e) {
