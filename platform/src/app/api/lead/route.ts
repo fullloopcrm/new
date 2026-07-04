@@ -124,6 +124,48 @@ export async function POST(request: NextRequest) {
       })
       .then(() => {}, () => {})
 
+    // ─── enter the sales pipeline ───
+    // A web lead must become a DEAL so it shows in Sales > Leads. Dedupe on an
+    // existing OPEN deal for this client (append a note) else create a new one.
+    // Non-blocking — a form submit never fails on a pipeline error.
+    const leadSource = body.source || body.type || 'lead-form'
+    try {
+      const { data: openDeal } = await supabaseAdmin
+        .from('deals')
+        .select('id')
+        .eq('tenant_id', tenant.id)
+        .eq('client_id', clientId)
+        .in('stage', ['new', 'qualifying', 'quoted', 'pending'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const nowIso = new Date().toISOString()
+      if (openDeal) {
+        await supabaseAdmin.from('deal_activities').insert({
+          tenant_id: tenant.id, deal_id: openDeal.id, type: 'note',
+          description: `New web submission [${leadSource}]${notes ? `\n${notes}` : ''}`,
+          metadata: { source: leadSource },
+        })
+        await supabaseAdmin.from('deals').update({ last_activity_at: nowIso }).eq('id', openDeal.id).eq('tenant_id', tenant.id)
+      } else {
+        const { data: newDeal } = await supabaseAdmin.from('deals').insert({
+          tenant_id: tenant.id, client_id: clientId,
+          title: name || 'New lead', stage: 'new', mode: 'sales',
+          value_cents: 0, probability: 10, source: leadSource,
+          notes: notes || null, status: 'active', last_activity_at: nowIso,
+        }).select('id').single()
+        if (newDeal) {
+          await supabaseAdmin.from('deal_activities').insert({
+            tenant_id: tenant.id, deal_id: newDeal.id, type: 'note',
+            description: `Lead captured via web form [${leadSource}]`,
+            metadata: { source: leadSource },
+          })
+        }
+      }
+    } catch (dealErr) {
+      console.error('[api/lead] pipeline deal error (non-blocking):', dealErr)
+    }
+
     await notify({
       tenantId: tenant.id,
       type: 'new_client',
