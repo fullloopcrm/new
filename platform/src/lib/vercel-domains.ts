@@ -25,6 +25,17 @@ interface VercelError {
   error?: { code?: string; message?: string }
 }
 
+// A fetch that cannot hang the serverless function — aborts after `ms`.
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 8000): Promise<Response> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 function vercelEnv(): { token?: string; project: string; teamId?: string } {
   return {
     token: process.env.VERCEL_API_TOKEN,
@@ -44,7 +55,7 @@ export async function registerCarryingDomain(slug: string): Promise<RegisterDoma
   }
 
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://api.vercel.com/v10/projects/${encodeURIComponent(project)}/domains?teamId=${encodeURIComponent(teamId)}`,
       {
         method: 'POST',
@@ -81,7 +92,7 @@ export async function removeDomain(name: string): Promise<{ ok: boolean; name: s
   if (!token || !teamId) return { ok: false, name, status: 'skipped', detail: 'vercel env not configured' }
 
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://api.vercel.com/v9/projects/${encodeURIComponent(project)}/domains/${encodeURIComponent(name)}?teamId=${encodeURIComponent(teamId)}`,
       { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
     )
@@ -144,7 +155,7 @@ export async function registerCustomDomain(rawDomain: string): Promise<CustomDom
     // Add apex + www (idempotent — 409/already-exists is the desired end state).
     let status: CustomDomainResult['status'] = 'created'
     for (const name of [domain.replace(/^www\./, ''), `www.${domain.replace(/^www\./, '')}`]) {
-      const res = await fetch(addUrl, {
+      const res = await fetchWithTimeout(addUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -163,7 +174,7 @@ export async function registerCustomDomain(rawDomain: string): Promise<CustomDom
     // Read verification state + any required TXT challenge for the apex.
     let verified = false
     const apex = domain.replace(/^www\./, '')
-    const cfg = await fetch(
+    const cfg = await fetchWithTimeout(
       `https://api.vercel.com/v9/projects/${encodeURIComponent(project)}/domains/${encodeURIComponent(apex)}?${qs}`,
       { headers: { Authorization: `Bearer ${token}` } },
     )

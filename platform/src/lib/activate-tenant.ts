@@ -87,41 +87,9 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     steps.push({ key: 'settings', label: 'Global settings applied', status: 'failed', detail: msg(e) })
   }
 
-  // 3. Carrying domain — register <slug>.fullloopcrm.com as a Vercel project
-  // domain so it auto-follows deploys and never strands. Best-effort.
   let customDomain: CustomDomainResult | undefined
-  const carry = await registerCarryingDomain(tenant.slug)
-  steps.push({
-    key: 'carrying_domain',
-    label: 'Live site domain',
-    status: carry.ok ? 'done' : carry.status === 'skipped' ? 'action_needed' : 'failed',
-    detail: carry.status === 'skipped'
-      ? `${carry.domain} — Vercel env not configured`
-      : `${carry.domain} (${carry.status})`,
-  })
 
-  // 3b. Custom domain — if the tenant set their own domain, add it to Vercel and
-  // surface the DNS records + verification so the operator/tenant can point it.
-  const rawCustom = (tenant.domain as string | null) || (tenant.domain_name as string | null)
-  if (rawCustom && rawCustom.trim()) {
-    customDomain = await registerCustomDomain(rawCustom)
-    steps.push({
-      key: 'custom_domain',
-      label: 'Custom domain',
-      status: customDomain.verified
-        ? 'done'
-        : customDomain.status === 'error'
-          ? 'failed'
-          : 'action_needed',
-      detail: customDomain.status === 'skipped'
-        ? `${customDomain.domain} — Vercel env not configured`
-        : customDomain.verified
-          ? `${customDomain.domain} verified`
-          : `${customDomain.domain} — set DNS, then verify`,
-    })
-  }
-
-  // 4. Onboarding checklist.
+  // 3. Onboarding checklist.
   try {
     await seedOnboardingTasks(tenantId)
     const { count } = await supabaseAdmin
@@ -187,6 +155,38 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       label: `Spine · ${stage.stage}`,
       status: stage.ok ? 'done' : 'action_needed',
       detail: stage.detail,
+    })
+  }
+
+  // 7. Domains LAST — external Vercel API calls are the slowest part and must
+  // never block the essential DB provisioning above. If they're slow or fail,
+  // the tenant is still fully provisioned; domains just show action_needed.
+  const carry = await registerCarryingDomain(tenant.slug)
+  steps.push({
+    key: 'carrying_domain',
+    label: 'Live site domain',
+    status: carry.ok ? 'done' : carry.status === 'skipped' ? 'action_needed' : 'failed',
+    detail: carry.status === 'skipped'
+      ? `${carry.domain} — Vercel env not configured`
+      : `${carry.domain} (${carry.status})`,
+  })
+
+  const rawCustom = (tenant.domain as string | null) || (tenant.domain_name as string | null)
+  if (rawCustom && rawCustom.trim()) {
+    customDomain = await registerCustomDomain(rawCustom)
+    steps.push({
+      key: 'custom_domain',
+      label: 'Custom domain',
+      status: customDomain.verified
+        ? 'done'
+        : customDomain.status === 'error'
+          ? 'failed'
+          : 'action_needed',
+      detail: customDomain.status === 'skipped'
+        ? `${customDomain.domain} — Vercel env not configured`
+        : customDomain.verified
+          ? `${customDomain.domain} verified`
+          : `${customDomain.domain} — set DNS, then verify`,
     })
   }
 
