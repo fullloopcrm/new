@@ -12,6 +12,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { listSites, querySearchAnalytics, type GscSite } from './gsc'
 import { classifyIntent } from './intent'
+import { commercialIntent } from './commercial'
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10)
 
@@ -54,11 +55,13 @@ type IngestResult = { property: string; rows: number; error?: string }
 
 async function ingestProperty(site: GscSite, startDate: string, endDate: string): Promise<IngestResult> {
   try {
-    const rows = await querySearchAnalytics(site.siteUrl, {
-      startDate,
-      endDate,
-      dimensions: ['date', 'page', 'query'],
-    })
+    // High cap so the biggest properties aren't truncated (default is 25k,
+    // which silently drops rows on high-traffic sites). GSC paginates via startRow.
+    const rows = await querySearchAnalytics(
+      site.siteUrl,
+      { startDate, endDate, dimensions: ['date', 'page', 'query'] },
+      500000,
+    )
 
     const records = rows.map((r) => {
       const [date, page = '', query = ''] = r.keys ?? []
@@ -68,6 +71,7 @@ async function ingestProperty(site: GscSite, startDate: string, endDate: string)
         page,
         query,
         intent: classifyIntent(query),
+        commercial: commercialIntent(query),
         clicks: r.clicks,
         impressions: r.impressions,
         ctr: r.ctr,
