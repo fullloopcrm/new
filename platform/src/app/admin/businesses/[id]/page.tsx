@@ -421,6 +421,12 @@ export default function BusinessDetailPage() {
 
         <div className="flex items-center gap-2">
           <Link
+            href={`/admin/businesses/${id}/profile`}
+            className="bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
+          >
+            Profile Form (new) →
+          </Link>
+          <Link
             href={`/admin/businesses/${id}/wizard`}
             className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
           >

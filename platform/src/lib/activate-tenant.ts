@@ -16,6 +16,7 @@ import { provisionTenant } from './provision-tenant'
 import { seedOnboardingTasks } from './onboarding-tasks'
 import { seedChartOfAccounts } from './ledger'
 import { seedHrDefaults } from './hr'
+import { ensureDefaultEntity } from './entity-provision'
 import { runOnboardingGate, type GateResult } from './onboarding-gate'
 import { registerCarryingDomain, registerCustomDomain, type CustomDomainResult } from './vercel-domains'
 import { resolveCoverage } from './geo/coverage'
@@ -179,13 +180,14 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   // profile per team member). Both idempotent: no-op when already seeded, so
   // this is safe on repeat activations. Best-effort — never block activation.
   try {
+    const createdEntity = await ensureDefaultEntity(tenantId, tenant.name || 'Main')
     const accounts = await seedChartOfAccounts(tenantId)
     const hr = await seedHrDefaults(tenantId)
     steps.push({
       key: 'finance_hr',
       label: 'Bookkeeping + HR seeded',
       status: 'done',
-      detail: `Ledger: ${accounts > 0 ? `${accounts} accounts` : 'already set'} · HR: ${hr.requirementsSeeded} doc rule(s), ${hr.profilesBackfilled} profile(s)`,
+      detail: `Entity: ${createdEntity ? 'created default' : 'already set'} · Ledger: ${accounts > 0 ? `${accounts} accounts` : 'already set'} · HR: ${hr.requirementsSeeded} doc rule(s), ${hr.profilesBackfilled} profile(s)`,
     })
   } catch (e) {
     steps.push({ key: 'finance_hr', label: 'Bookkeeping + HR seeded', status: 'failed', detail: msg(e) })
@@ -365,10 +367,24 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   }
 
   const ownerOk = steps.find((s) => s.key === 'owner_login')?.status === 'done'
-  const ready = gate.passed && ownerOk
+  // The site only actually SERVES if a domain was really registered — the
+  // carrying domain succeeded, or a custom domain verified. Without that there
+  // is no TLS cert and the URL is dead, so we must NOT claim the tenant is live.
+  // (Root cause of dead auto-created sites: VERCEL_API_TOKEN/VERCEL_TEAM_ID unset
+  // → registerCarryingDomain returns 'skipped', which used to still flip 'active'.)
+  const siteServes = carry.ok || !!customDomain?.verified
+  if (!siteServes) {
+    steps.push({
+      key: 'site_live',
+      label: 'Site reachable',
+      status: 'action_needed',
+      detail: 'No live domain yet — the carrying/custom domain was not registered (check Vercel env). Site will 404/TLS-fail until fixed.',
+    })
+  }
+  const ready = gate.passed && ownerOk && siteServes
 
-  // Flip to active only when the spine passes and there's an owner login. Never
-  // mark a tenant live on faith.
+  // Flip to active only when the spine passes, there's an owner login, AND the
+  // site actually serves. Never mark a tenant live on faith.
   let activated = tenant.status === 'active'
   if (ready && tenant.status !== 'active') {
     const { error: upErr } = await supabaseAdmin
