@@ -274,6 +274,34 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     })
   }
 
+  // 8. Domain routing rows — tenant_domains is what middleware lead-routing and
+  // the SEO ingest both read to map a hostname back to this tenant. Register the
+  // carrying domain (always) and the custom domain apex (when set) so SEO
+  // tracking and inbound-lead attribution self-link with no manual step.
+  // Idempotent: unique(domain) + on-conflict-ignore, best-effort (never blocks).
+  try {
+    const carryHost = `${tenant.slug}.fullloopcrm.com`
+    const customHost = ((tenant.domain as string | null) || (tenant.domain_name as string | null) || '')
+      .trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+    const rows: Array<{ tenant_id: string; domain: string; active: boolean; is_primary: boolean; notes: string }> = [
+      { tenant_id: tenantId, domain: carryHost, active: true, is_primary: !customHost, notes: 'Carrying domain — auto-registered on activation' },
+    ]
+    if (customHost) {
+      rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, notes: 'Custom domain — auto-registered on activation' })
+    }
+    const { error: tdErr } = await supabaseAdmin
+      .from('tenant_domains')
+      .upsert(rows, { onConflict: 'domain', ignoreDuplicates: true })
+    steps.push({
+      key: 'domain_routing',
+      label: 'Domain routing + SEO link',
+      status: tdErr ? 'failed' : 'done',
+      detail: tdErr ? tdErr.message : `${rows.map(r => r.domain).join(', ')} → lead routing + SEO ingest`,
+    })
+  } catch (e) {
+    steps.push({ key: 'domain_routing', label: 'Domain routing + SEO link', status: 'failed', detail: msg(e) })
+  }
+
   const ownerOk = steps.find((s) => s.key === 'owner_login')?.status === 'done'
   const ready = gate.passed && ownerOk
 

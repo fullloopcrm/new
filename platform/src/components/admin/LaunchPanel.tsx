@@ -23,6 +23,7 @@ export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
   const [result, setResult] = useState<ActivationResult | null>(null)
   const [error, setError] = useState('')
   const [httpNote, setHttpNote] = useState('')
+  const [showSummary, setShowSummary] = useState(false)
 
   const carryingUrl = `https://${slug}.fullloopcrm.com`
 
@@ -64,6 +65,7 @@ export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
       }
 
       setResult(data as ActivationResult)
+      setShowSummary(true)
     } catch (e) {
       setError(e instanceof Error ? `Request never completed: ${e.message}` : 'Request never completed')
     } finally {
@@ -142,6 +144,60 @@ export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
               )
             })}
           </div>
+
+          {showSummary && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+              onClick={() => setShowSummary(false)}>
+              <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6"
+                onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-start gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    result.activated || result.ready ? 'bg-green-50' : 'bg-amber-50'
+                  }`}>
+                    <span className={`text-lg ${result.activated || result.ready ? 'text-green-600' : 'text-amber-600'}`}>
+                      {result.activated || result.ready ? '✓' : '!'}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-heading font-bold text-lg text-slate-900">
+                      {result.activated ? 'Tenant is LIVE' : result.ready ? 'Ready to go live' : 'Auto-setup ran — items need attention'}
+                    </h3>
+                    <a href={carryingUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-sm text-teal-600 hover:text-teal-700 font-mono">
+                      {slug}.fullloopcrm.com ↗
+                    </a>
+                  </div>
+                </div>
+
+                {result.ownerPin && (
+                  <div className="rounded-lg bg-teal-50 border border-teal-200 px-4 py-3 mb-4">
+                    <p className="text-xs uppercase tracking-wide text-teal-600 font-semibold">Owner PIN — shown once</p>
+                    <p className="text-2xl font-mono font-bold text-teal-800 mt-1">{result.ownerPin}</p>
+                    <p className="text-xs text-teal-600 mt-1">Relay to the owner. It can&apos;t be recovered later.</p>
+                  </div>
+                )}
+
+                <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">What auto-setup did</p>
+                <ul className="space-y-1.5 mb-5">
+                  {result.steps.map((s) => {
+                    const st = STATUS_STYLE[s.status]
+                    return (
+                      <li key={s.key} className="flex items-start gap-2.5 text-sm">
+                        <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${st.dot}`} />
+                        <span className="text-slate-700 flex-1">{s.label}</span>
+                        <span className={`text-xs font-semibold ${st.text} flex-shrink-0`}>{st.label}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+
+                <button onClick={() => setShowSummary(false)}
+                  className="w-full bg-teal-600 hover:bg-teal-500 text-white py-2.5 rounded-lg text-sm font-cta font-semibold transition-colors">
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
 
           {result.customDomain && result.customDomain.records.length > 0 && (
             <div>
