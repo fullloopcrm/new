@@ -881,19 +881,14 @@ export default function BusinessDetailPage() {
 
           <div className="pt-6 border-t border-slate-200">
             <h3 className="font-heading font-semibold text-slate-900 mb-3">Activate Business</h3>
-            <p className="text-sm text-slate-500 mb-4">Set account and billing status to active. This gives the business full access to the platform.</p>
-            {biz.status === 'active' && biz.billing_status === 'active' ? (
-              <p className="text-sm text-green-600 font-semibold">This business is active.</p>
-            ) : (
-              <button onClick={() => {
-                setStatus('active')
-                setBillingStatus('active')
-                save({ status: 'active', billing_status: 'active' })
-              }}
-                className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2.5 rounded-lg text-sm font-cta font-semibold transition-colors">
-                Activate Business
-              </button>
-            )}
+            <p className="text-sm text-slate-500 mb-4">
+              Activation is the full launch — settings, carrying domain, owner login, and a live smoke test —
+              not just a status flag. It runs on the <strong>Launch</strong> tab.
+            </p>
+            <button onClick={() => setTab('launch')}
+              className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2.5 rounded-lg text-sm font-cta font-semibold transition-colors">
+              Go to activation →
+            </button>
           </div>
 
           <div className="pt-4">
