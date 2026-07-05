@@ -199,7 +199,7 @@ export default function TimelineView() {
                         style={{ left: `${left}%`, width: `${Math.max(2, width)}%`, background: bg }}
                         title={`${b.clients?.name || 'Client'} · ${b.service_type || 'Job'} — drag to move`}
                       >
-                        <span className="truncate text-[10px] font-medium">{b.clients?.name || 'Client'}</span>
+                        <span className="cal-chip-sm truncate text-[10px] font-medium">{b.clients?.name || 'Client'}</span>
                       </div>
                     )
                   })}

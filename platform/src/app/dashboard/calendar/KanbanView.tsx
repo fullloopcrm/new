@@ -128,7 +128,7 @@ export default function KanbanView() {
                   className={`cursor-grab rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-sm transition-opacity active:cursor-grabbing ${dragId === b.id ? 'opacity-40' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium text-slate-900">{b.clients?.name || 'Client'}</span>
+                    <span className="cal-chip-md truncate text-sm font-medium text-slate-900">{b.clients?.name || 'Client'}</span>
                     {b.duration_class && b.duration_class !== 'slot' && (
                       <span className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${CLASS_BADGE[b.duration_class] || CLASS_BADGE.slot}`}>{b.duration_class}</span>
                     )}

@@ -114,7 +114,7 @@ export default function ProjectsView() {
                   style={{ left: `${Math.max(0, left)}%`, width: `${width}%` }}
                   title={`${b.service_type || 'Job'} · ${b.team_members?.name || 'Unassigned'}`}
                 >
-                  <span className="truncate text-[10px] font-medium text-white">{b.service_type || 'Job'}</span>
+                  <span className="cal-chip-sm truncate text-[10px] font-medium text-white">{b.service_type || 'Job'}</span>
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import CalendarBoard from './CalendarBoard'
 import KanbanView from './KanbanView'
 import ProjectsView from './ProjectsView'
@@ -116,8 +116,15 @@ export default function CalendarShell() {
         </div>
       </div>
 
-      {/* zoom scales the active view proportionally; each view keeps its own value */}
-      <div style={{ zoom: scale }}>
+      {/* Font-only scaling: the size control adjusts the TEXT inside event chips,
+          not the window/layout. Each rule scales from the element's real base size,
+          so 100% renders identically to before. Per-view value via --cal-fs. */}
+      <div className="cal-scale" style={{ '--cal-fs': scale } as CSSProperties}>
+        <style>{`
+          .cal-scale .fc-daygrid-event .fc-event-title { font-size: calc(9px * var(--cal-fs, 1)) !important; }
+          .cal-scale .cal-chip-sm { font-size: calc(10px * var(--cal-fs, 1)); }
+          .cal-scale .cal-chip-md { font-size: calc(14px * var(--cal-fs, 1)); }
+        `}</style>
         {view === 'month' ? <CalendarBoard /> : view === 'timeline' ? <TimelineView /> : view === 'kanban' ? <KanbanView /> : view === 'projects' ? <ProjectsView /> : <Scaffold view={active} />}
       </div>
     </div>
