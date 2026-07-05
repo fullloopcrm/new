@@ -379,23 +379,21 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
               supplies are now defaults (1 cleaner, hours derived from service,
               we-bring); they can be tweaked from "More options" below. */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Service</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {services.filter(s => !s.emergency).map(s => (
-                <button
-                  key={s.value}
-                  type="button"
-                  onClick={() => pickServiceType(s.value)}
-                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${
-                    form.service_type === s.value
-                      ? 'border-[var(--brand)] bg-[var(--brand)] text-white'
-                      : 'border-gray-200 text-gray-700 hover:border-gray-400'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
+            <label htmlFor="service-type-select" className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Service</label>
+            <select
+              id="service-type-select"
+              value={form.service_type}
+              onChange={(e) => pickServiceType(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 bg-white focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/10 transition"
+            >
+              {services
+                .filter(s => !s.emergency)
+                .slice()
+                .sort((a, b) => a.label.localeCompare(b.label))
+                .map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+            </select>
             <button
               type="button"
               onClick={() => pickServiceType(isSameDay ? standardValue : emergencyValue)}
