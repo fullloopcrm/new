@@ -17,6 +17,7 @@ export async function GET() {
     { data: competitors },
     { data: gaps },
     { data: scores },
+    { data: notIndexed },
   ] = await Promise.all([
       supabaseAdmin.from('seo_fleet_summary').select('*').order('impressions', { ascending: false }),
       supabaseAdmin.from('seo_issue_summary').select('*').order('impressions_at_stake', { ascending: false }),
@@ -40,6 +41,12 @@ export async function GET() {
         .order('value', { ascending: false })
         .limit(20),
       supabaseAdmin.from('seo_site_score').select('property,grade,score,at_goal,on_page1,targets'),
+      supabaseAdmin
+        .from('seo_issues')
+        .select('property,target_url,detail')
+        .eq('status', 'open')
+        .eq('type', 'not_indexed')
+        .limit(40),
     ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -95,6 +102,7 @@ export async function GET() {
     proposals,
     competitors: competitors ?? [],
     competitorGaps: gaps ?? [],
+    notIndexed: notIndexed ?? [],
     windowDays: 28,
   })
 }

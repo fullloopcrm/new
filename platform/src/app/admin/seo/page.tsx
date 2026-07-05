@@ -76,7 +76,14 @@ type Payload = {
   proposals: Proposal[]
   competitors: CompetitorRow[]
   competitorGaps: GapRow[]
+  notIndexed: NotIndexedRow[]
   windowDays: number
+}
+
+type NotIndexedRow = {
+  property: string
+  target_url: string | null
+  detail: { coverage_state?: string | null; canonical_mismatch?: boolean }
 }
 
 const ISSUE_LABEL: Record<string, string> = {
@@ -84,6 +91,7 @@ const ISSUE_LABEL: Record<string, string> = {
   deep_underperformer: 'Deep underperformer (enrich)',
   low_ctr: 'Low CTR (title/meta)',
   competitor_gap: 'Competitor outranking you',
+  not_indexed: 'Not indexed by Google',
 }
 
 const n = (v: number) => (v ?? 0).toLocaleString('en-US')
@@ -344,6 +352,53 @@ export default function AdminSeoPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Technical — pages Google isn't indexing (rank nowhere until fixed) */}
+      {data.notIndexed.length > 0 && (
+        <div className="mt-8">
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-rose-600">
+            Indexing · {n(data.notIndexed.length)} pages not indexed by Google
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-rose-200">
+            <table className="w-full min-w-[560px] border-collapse text-sm">
+              <thead>
+                <tr className="bg-rose-50 text-left font-mono text-[10.5px] uppercase tracking-wide text-rose-400">
+                  <th className="p-3 font-semibold">URL</th>
+                  <th className="p-3 font-semibold">Google coverage state</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rose-100 text-slate-600">
+                {data.notIndexed.map((r, i) => (
+                  <tr key={`${r.target_url}-${i}`} className="hover:bg-rose-50/40">
+                    <td className="p-3">
+                      {r.target_url ? (
+                        <a
+                          href={r.target_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-mono text-xs text-slate-600 hover:text-rose-600"
+                        >
+                          {r.target_url.replace(/^https?:\/\/(www\.)?/, '')}
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="p-3 text-xs">
+                      <span className="text-rose-700">{r.detail?.coverage_state ?? 'unknown'}</span>
+                      {r.detail?.canonical_mismatch ? (
+                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                          canonical mismatch
+                        </span>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

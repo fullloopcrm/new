@@ -135,6 +135,67 @@ export async function listSites(): Promise<GscSite[]> {
   return data.siteEntry ?? []
 }
 
+// ---------------------------------------------------------------------------
+// Technical SEO — Sitemaps API + URL Inspection API. Same service-account auth;
+// URL Inspection lives on a different host (searchconsole.googleapis.com/v1),
+// so it gets its own token-authed fetch.
+// ---------------------------------------------------------------------------
+const INSPECT_URL = 'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect'
+
+export type SitemapEntry = {
+  path?: string
+  isPending?: boolean
+  errors?: string
+  warnings?: string
+  lastDownloaded?: string
+  contents?: unknown[]
+}
+
+/** Submitted sitemaps + their health for a property. */
+export async function listSitemaps(siteUrl: string): Promise<SitemapEntry[]> {
+  const enc = encodeURIComponent(siteUrl)
+  const data = await apiFetch<{ sitemap?: SitemapEntry[] }>(`/sites/${enc}/sitemaps`)
+  return data.sitemap ?? []
+}
+
+export type UrlInspection = {
+  verdict?: string // PASS | PARTIAL | FAIL | NEUTRAL
+  coverageState?: string // "Submitted and indexed", "Crawled - currently not indexed", ...
+  robotsTxtState?: string
+  indexingState?: string
+  lastCrawlTime?: string
+  googleCanonical?: string
+  userCanonical?: string
+  richResults?: unknown
+}
+
+/** Inspect one URL's index status (URL Inspection API). Quota ~2k/day/property. */
+export async function inspectUrl(siteUrl: string, inspectionUrl: string): Promise<UrlInspection> {
+  const token = await getAccessToken()
+  const res = await fetch(INSPECT_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inspectionUrl, siteUrl, languageCode: 'en-US' }),
+  })
+  const json = (await res.json().catch(() => ({}))) as {
+    inspectionResult?: { indexStatusResult?: Record<string, unknown>; richResultsResult?: unknown }
+  }
+  if (!res.ok) {
+    throw new Error(`URL inspect failed: ${res.status} ${JSON.stringify(json).slice(0, 200)}`)
+  }
+  const r = json.inspectionResult?.indexStatusResult ?? {}
+  return {
+    verdict: r.verdict as string | undefined,
+    coverageState: r.coverageState as string | undefined,
+    robotsTxtState: r.robotsTxtState as string | undefined,
+    indexingState: r.indexingState as string | undefined,
+    lastCrawlTime: r.lastCrawlTime as string | undefined,
+    googleCanonical: r.googleCanonical as string | undefined,
+    userCanonical: r.userCanonical as string | undefined,
+    richResults: json.inspectionResult?.richResultsResult,
+  }
+}
+
 /**
  * Query Search Analytics for one property. Paginates automatically up to
  * `maxRows` (GSC caps a single request at 25,000 rows).
