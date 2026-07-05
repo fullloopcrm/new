@@ -35,7 +35,7 @@ async function topQueryFor(property: string, page: string): Promise<string | nul
   return (data?.query as string) ?? null
 }
 
-async function fetchTitleMeta(url: string): Promise<{ title: string; meta: string }> {
+export async function fetchTitleMeta(url: string): Promise<{ title: string; meta: string }> {
   try {
     const res = await fetch(url, { redirect: 'follow' })
     const html = await res.text()

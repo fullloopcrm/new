@@ -10,16 +10,30 @@ export async function GET() {
   const authError = await requireAdmin()
   if (authError) return authError
 
-  const [{ data, error }, { data: issues }, { data: changes }] = await Promise.all([
-    supabaseAdmin.from('seo_fleet_summary').select('*').order('impressions', { ascending: false }),
-    supabaseAdmin.from('seo_issue_summary').select('*').order('impressions_at_stake', { ascending: false }),
-    supabaseAdmin
-      .from('seo_changes')
-      .select('id,target_url,field,before_value,after_value,rationale')
-      .eq('status', 'proposed')
-      .order('proposed_at', { ascending: false })
-      .limit(200),
-  ])
+  const [{ data, error }, { data: issues }, { data: changes }, { data: competitors }, { data: gaps }] =
+    await Promise.all([
+      supabaseAdmin.from('seo_fleet_summary').select('*').order('impressions', { ascending: false }),
+      supabaseAdmin.from('seo_issue_summary').select('*').order('impressions_at_stake', { ascending: false }),
+      supabaseAdmin
+        .from('seo_changes')
+        .select('id,target_url,field,before_value,after_value,rationale')
+        .eq('status', 'proposed')
+        .order('proposed_at', { ascending: false })
+        .limit(200),
+      supabaseAdmin
+        .from('seo_competitor_summary')
+        .select('*')
+        .eq('is_directory', false)
+        .order('keywords_ahead', { ascending: false })
+        .limit(12),
+      supabaseAdmin
+        .from('seo_issues')
+        .select('property,target_url,value,detail')
+        .eq('status', 'open')
+        .eq('type', 'competitor_gap')
+        .order('value', { ascending: false })
+        .limit(20),
+    ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -49,5 +63,13 @@ export async function GET() {
     { impressions: 0, clicks: 0, applicant_impressions: 0, applicant_clicks: 0, queries: 0 },
   )
 
-  return NextResponse.json({ properties, totals, issues: issues ?? [], proposals, windowDays: 28 })
+  return NextResponse.json({
+    properties,
+    totals,
+    issues: issues ?? [],
+    proposals,
+    competitors: competitors ?? [],
+    competitorGaps: gaps ?? [],
+    windowDays: 28,
+  })
 }

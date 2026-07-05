@@ -34,6 +34,30 @@ type Proposal = {
   description?: ChangeField
 }
 
+type CompetitorRow = {
+  competitor_domain: string
+  is_directory: boolean
+  properties_hit: number
+  keywords_ahead: number
+  avg_position: number | null
+  best_position: number | null
+}
+
+type GapRow = {
+  property: string
+  target_url: string | null
+  value: number
+  detail: {
+    query?: string
+    our_position?: number
+    top_competitor_domain?: string
+    top_competitor_title?: string
+    top_competitor_position?: number
+    competitors_above?: number
+    impressions?: number
+  }
+}
+
 type Payload = {
   properties: Row[]
   totals: {
@@ -45,6 +69,8 @@ type Payload = {
   }
   issues: IssueSummary[]
   proposals: Proposal[]
+  competitors: CompetitorRow[]
+  competitorGaps: GapRow[]
   windowDays: number
 }
 
@@ -52,6 +78,7 @@ const ISSUE_LABEL: Record<string, string> = {
   striking_distance: 'Striking distance (page 2 → 1)',
   deep_underperformer: 'Deep underperformer (enrich)',
   low_ctr: 'Low CTR (title/meta)',
+  competitor_gap: 'Competitor outranking you',
 }
 
 const n = (v: number) => (v ?? 0).toLocaleString('en-US')
@@ -218,6 +245,88 @@ export default function AdminSeoPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Competitors — who's outranking us on money keywords */}
+      {(data.competitors.length > 0 || data.competitorGaps.length > 0) && (
+        <div className="mt-8">
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-indigo-600">
+            Competitors · {n(data.competitorGaps.length)} winnable gaps
+          </p>
+
+          {data.competitors.length > 0 && (
+            <div className="mb-4 overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full min-w-[560px] border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-left font-mono text-[10.5px] uppercase tracking-wide text-slate-400">
+                    <th className="p-3 font-semibold">Competitor domain</th>
+                    <th className="p-3 text-right font-semibold">Keywords ahead</th>
+                    <th className="p-3 text-right font-semibold">Sites hit</th>
+                    <th className="p-3 text-right font-semibold">Avg pos.</th>
+                    <th className="p-3 text-right font-semibold">Best pos.</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-600">
+                  {data.competitors.map((c) => (
+                    <tr key={c.competitor_domain} className="hover:bg-slate-50">
+                      <td className="p-3 font-medium text-slate-900">{c.competitor_domain}</td>
+                      <td className="p-3 text-right font-semibold tabular-nums text-indigo-600">{n(c.keywords_ahead)}</td>
+                      <td className="p-3 text-right tabular-nums text-slate-400">{n(c.properties_hit)}</td>
+                      <td className="p-3 text-right tabular-nums">{c.avg_position ?? '—'}</td>
+                      <td className="p-3 text-right tabular-nums">{c.best_position ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {data.competitorGaps.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {data.competitorGaps.map((g, i) => (
+                <div
+                  key={`${g.property}-${g.detail.query}-${i}`}
+                  className="rounded-xl border border-slate-200 border-l-4 border-l-indigo-500 bg-white p-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-slate-900">“{g.detail.query}”</div>
+                      {g.target_url && (
+                        <a
+                          href={g.target_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="truncate font-mono text-xs text-slate-500 hover:text-indigo-600"
+                        >
+                          {g.target_url.replace(/^https?:\/\/(www\.)?/, '')}
+                        </a>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="font-mono text-xs text-slate-400">you: #{g.detail.our_position ?? '—'}</div>
+                      <div className="font-mono text-[10px] uppercase tracking-wide text-slate-300">
+                        {n(g.detail.impressions ?? 0)} impr.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-600">
+                    Beaten by{' '}
+                    <span className="font-medium text-indigo-700">{g.detail.top_competitor_domain}</span>
+                    {g.detail.top_competitor_position ? ` (#${g.detail.top_competitor_position})` : ''}
+                    {g.detail.competitors_above && g.detail.competitors_above > 1
+                      ? ` · ${g.detail.competitors_above} above you`
+                      : ''}
+                  </div>
+                  {g.detail.top_competitor_title && (
+                    <div className="mt-1 truncate font-mono text-[11px] text-slate-400">
+                      their title: {g.detail.top_competitor_title}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
