@@ -8,6 +8,7 @@ import MarketingNav from '@/app/site/template/_components/MarketingNav'
 import MarketingFooter from '@/app/site/template/_components/MarketingFooter'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { buildThemeCss } from '@/app/site/template/_config/theme'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 
 // Fallback title for tenant pages that set no metadata of their own — namely the
 // 'use client' booking/apply/feedback/referral pages, which would otherwise
@@ -16,10 +17,14 @@ import { buildThemeCss } from '@/app/site/template/_config/theme'
 // their existing titles are not wrapped/doubled). Resolved per-tenant.
 export async function generateMetadata() {
   const config = await getSiteConfig()
+  const p = industryProfile(config.industry)
   return {
     title: {
       default: config.identity.siteName ?? config.identity.name,
     },
+    // Override the platform root layout's CRM keywords ("software for cleaners")
+    // so tenant public sites carry their OWN trade keywords, not the product's.
+    keywords: `${p.serviceLabel}, ${p.serviceLabel} in ${config.geo.placename}, ${config.identity.name}`,
   }
 }
 
