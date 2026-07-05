@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Sora, DM_Sans, Space_Grotesk } from "next/font/google";

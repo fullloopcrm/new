@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { supabaseAdmin } from '@/app/site/wash-and-fold-hoboken/_lib/supabase'
 import { geocodeAddress, calculateDistance, estimateTransitMinutes, geocodeClient } from '@/app/site/wash-and-fold-hoboken/_lib/geo'
 import { guessZoneFromAddress, zoneRequiresCar } from '@/app/site/wash-and-fold-hoboken/_lib/service-zones'

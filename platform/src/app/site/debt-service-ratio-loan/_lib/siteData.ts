@@ -1,4 +1,3 @@
-// @ts-nocheck
 /* ─── DSCR Services (18 total) ─── */
 
 export interface Service {

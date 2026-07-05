@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import Logo from "@/app/site/stretch-service/_components/Logo";
 import { SITE_SMS_LINK, SITE_PHONE } from "@/app/site/stretch-service/_lib/siteData";

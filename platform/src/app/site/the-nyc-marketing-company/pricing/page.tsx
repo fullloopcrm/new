@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, webPageSchema, breadcrumbSchema, faqSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { services, findServiceBySlug, getServiceUrl, SITE_DOMAIN } from "@/app/site/the-nyc-interior-designer/_lib/siteData";

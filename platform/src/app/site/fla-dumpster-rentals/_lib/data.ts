@@ -1,4 +1,3 @@
-// @ts-nocheck
 import servicesData from "@/app/site/fla-dumpster-rentals/_data/services.json";
 import neighborhoodsData from "@/app/site/fla-dumpster-rentals/_data/neighborhoods.json";
 

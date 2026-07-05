@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client'
 
 import Link from 'next/link'
@@ -54,13 +53,13 @@ export default function PageDescription({
       case 'tickets':
         return <P>Buy and sell {sub.toLowerCase()} tickets in {locLink} from {bold('geo-verified')} locals. No bots, no scalpers — {bold('every seller')} is confirmed to be a real person in your area. {examples && <>Browse {examples}. </>}{bold('Free')} to post and browse. {alertsLink} when new {sub.toLowerCase()} tickets drop in {locShort}.</P>
       case 'pets':
-        return <P>Find {sub.toLowerCase()} in {locLink} from {bold('verified pet owners')} and animal lovers. {bold('Every poster is geo-verified')} — they're your actual neighbors who care about animals as much as you do. {examples && <>Browse {examples}. </>}{bold('Completely free')} to post. {alertsLink} for {sub.toLowerCase()} in {locShort}.</P>
+        return <P>Find {sub.toLowerCase()} in {locLink} from {bold('verified pet owners')} and animal lovers. {bold('Every poster is geo-verified')} — they&apos;re your actual neighbors who care about animals as much as you do. {examples && <>Browse {examples}. </>}{bold('Completely free')} to post. {alertsLink} for {sub.toLowerCase()} in {locShort}.</P>
       case 'personals':
-        return <P>Find {sub.toLowerCase()} in {locLink}. {bold('Every person is geo-verified')} with a live selfie and GPS — you know they're real and actually local. {examples && <>Browse {examples}. </>}{bold('Free')} and safe to use. {alertsLink} to connect with verified people in {locShort}.</P>
+        return <P>Find {sub.toLowerCase()} in {locLink}. {bold('Every person is geo-verified')} with a live selfie and GPS — you know they&apos;re real and actually local. {examples && <>Browse {examples}. </>}{bold('Free')} and safe to use. {alertsLink} to connect with verified people in {locShort}.</P>
       case 'barter':
         return <P>Browse {sub.toLowerCase()} listings in {locLink}. Trade with your {bold('geo-verified')} neighbors — {bold('every user')} is confirmed local. {examples && <>Browse {examples}. </>}No money needed, just swap what you have for what you need. {bold('Free')} to post in {locShort}.</P>
       case 'rentals':
-        return <P>Find {sub.toLowerCase()} available to rent or borrow in {locLink}. {bold('Every lender is geo-verified')} — they're your actual neighbors. {examples && <>Browse {examples}. </>}Why buy when you can borrow from someone nearby? {bold('Free')} to post and browse in {locShort}.</P>
+        return <P>Find {sub.toLowerCase()} available to rent or borrow in {locLink}. {bold('Every lender is geo-verified')} — they&apos;re your actual neighbors. {examples && <>Browse {examples}. </>}Why buy when you can borrow from someone nearby? {bold('Free')} to post and browse in {locShort}.</P>
       case 'resumes':
         return <P>Browse verified {sub.toLowerCase()} professionals in {locLink}. {bold('Every candidate is geo-verified')} with selfie + GPS — they actually live or work in your area. {examples && <>Browse {examples}. </>}{bold('Free')} to post your resume and get found by local employers. {alertsLink} for new {sub.toLowerCase()} candidates in {locShort}.</P>
       default:
@@ -122,7 +121,7 @@ export function LocationDescription({ neighborhood, neighborhoodHref, borough }:
   }
 
   // Borough-level
-  return <P>Browse classified ads across {bold(`every neighborhood in ${loc}`)} on The NYC Classifieds. Apartments, jobs, services, items for sale, gigs, community posts, and more — all from people {bold('geo-verified')} with a live selfie and GPS to their {loc} address. This isn't a faceless feed. {bold('These are your actual neighbors.')} {signupLink} or {alertsLink} to stay connected.</P>
+  return <P>Browse classified ads across {bold(`every neighborhood in ${loc}`)} on The NYC Classifieds. Apartments, jobs, services, items for sale, gigs, community posts, and more — all from people {bold('geo-verified')} with a live selfie and GPS to their {loc} address. This isn&apos;t a faceless feed. {bold('These are your actual neighbors.')} {signupLink} or {alertsLink} to stay connected.</P>
 }
 
 function P({ children }: { children: React.ReactNode }) {

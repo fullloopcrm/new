@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getServicesByCategory } from "@/app/site/fla-dumpster-rentals/_lib/data";

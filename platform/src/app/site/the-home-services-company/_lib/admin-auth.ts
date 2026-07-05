@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { cookies } from "next/headers";
 
 const COOKIE_NAME = "admin_session";

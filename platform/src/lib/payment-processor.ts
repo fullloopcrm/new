@@ -20,6 +20,7 @@ import { smsAdmins } from './admin-contacts'
 import { notify } from './notify'
 import { decryptSecret } from './secret-crypto'
 import { postPaymentRevenue } from './finance/post-revenue'
+import { postPayoutToLedger } from './finance/post-labor'
 import type { Tenant } from './tenant'
 
 type TenantPaymentFields = Pick<
@@ -250,7 +251,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
 
         cleanerPaidCents = payAmountCents
 
-        await supabaseAdmin
+        const { data: payoutRow, error: payoutErr } = await supabaseAdmin
           .from('team_member_payouts')
           .insert({
             tenant_id: tenantId,
@@ -264,7 +265,13 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
             status: 'transferred',
             paid_at: new Date().toISOString(),
           })
-          .then(() => {}, err => console.error('[payment-processor] payout record failed:', err))
+          .select('id')
+          .single()
+        if (payoutErr) console.error('[payment-processor] payout record failed:', payoutErr)
+        if (payoutRow?.id) {
+          postPayoutToLedger({ tenantId, payoutId: payoutRow.id })
+            .catch(err => console.error('[payment-processor] payout ledger post failed:', err))
+        }
 
         await supabaseAdmin
           .from('bookings')

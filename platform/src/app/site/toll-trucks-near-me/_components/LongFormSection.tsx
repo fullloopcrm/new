@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 import type { HomepageSection } from "@/app/site/toll-trucks-near-me/_data/homepage-content";

@@ -1,4 +1,3 @@
-// @ts-nocheck
 const DOMAIN = "https://www.landscapinginnyc.com";
 const BIZ_NAME = "Landscaping In NYC";
 const PHONE = "+1-212-470-9637";

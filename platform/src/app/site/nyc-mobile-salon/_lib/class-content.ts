@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Rich SEO descriptions per class slug. Used on individual class pages. */
 export const classContent: Record<string, { intro: string; details: string; ideal: string; includes: string[]; price: string }> = {
   "diy-blowout-workshop": {

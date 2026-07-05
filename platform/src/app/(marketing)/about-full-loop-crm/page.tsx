@@ -81,8 +81,8 @@ export default function AboutPage() {
           <div className="space-y-6 text-slate-700 text-lg leading-relaxed">
             <p>
               Full Loop CRM was not designed by consultants, venture capitalists,
-              or software engineers who read a whitepaper about "field service
-              management." It was built by someone who spent over twenty years
+              or software engineers who read a whitepaper about &quot;field service
+              management.&quot; It was built by someone who spent over twenty years
               working in, managing, and owning multiple home service companies.
             </p>
             <p>
@@ -132,7 +132,7 @@ export default function AboutPage() {
               the next service window opens.
             </p>
             <p>
-              That is what "full loop" means. Not a partial solution. Not a
+              That is what &quot;full loop&quot; means. Not a partial solution. Not a
               stack of integrations. One closed loop where every stage feeds the
               next.
             </p>

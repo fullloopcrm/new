@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import { getPhoto } from "@/app/site/nycroadsideemergencyassistance/_data/photos";
 import Image from "next/image";

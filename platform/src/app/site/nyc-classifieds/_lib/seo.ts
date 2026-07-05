@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Stub: scaffold-only in nycmaid source. Minimal exports to unblock render.
 // Replace with real schema builders when nyc-classifieds becomes a live tenant.
 

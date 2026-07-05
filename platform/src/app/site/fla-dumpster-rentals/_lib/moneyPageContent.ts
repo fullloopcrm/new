@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Service, Neighborhood } from "./data";
 
 interface MoneyPageContent {

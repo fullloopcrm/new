@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Neighborhood } from '../locations'
 
 export const MANHATTAN_NEIGHBORHOODS: Neighborhood[] = [

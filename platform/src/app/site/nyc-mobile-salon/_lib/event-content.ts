@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Rich SEO descriptions per event slug. Used on individual event pages. */
 export const eventContent: Record<string, { intro: string; details: string; ideal: string; includes: string[]; groupSize: string; price: string }> = {
   // ── Bridal ──

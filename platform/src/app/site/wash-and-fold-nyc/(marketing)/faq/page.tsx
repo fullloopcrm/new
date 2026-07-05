@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { faqSchema } from '@/app/site/wash-and-fold-nyc/_lib/seo/schema'

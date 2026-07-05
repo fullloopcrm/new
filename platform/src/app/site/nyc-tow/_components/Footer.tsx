@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { PHONE, PHONE_HREF, SMS_HREF, EMAIL, HOURS } from "@/app/site/nyc-tow/_data/content";
 import { SERVICES } from "@/app/site/nyc-tow/_data/services";

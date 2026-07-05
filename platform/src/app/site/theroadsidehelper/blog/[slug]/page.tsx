@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BLOG_POSTS } from "@/app/site/theroadsidehelper/_data/blog-posts";

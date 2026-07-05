@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import Breadcrumbs from "@/app/site/the-nyc-seo/_components/Breadcrumbs";
@@ -651,7 +650,7 @@ export default function LocalSEOServicesPage() {
               ))}
             </div>
             <blockquote className="mt-4 text-zinc-300 leading-relaxed italic">
-              &ldquo;We run a multi-location dental practice across Manhattan and Queens. Before The NYC SEO, our local listings were a mess — duplicate profiles, inconsistent addresses, no review strategy. They consolidated everything, optimized each location's GBP individually, and built neighborhood pages that rank for every 'dentist near me' search in our areas. Our new patient inquiries from Google Maps doubled in 4 months. The geo-grid reports they provide show exactly where we rank at every point across the city. No other agency we spoke to even knew what that was.&rdquo;
+              &ldquo;We run a multi-location dental practice across Manhattan and Queens. Before The NYC SEO, our local listings were a mess — duplicate profiles, inconsistent addresses, no review strategy. They consolidated everything, optimized each location&apos;s GBP individually, and built neighborhood pages that rank for every &apos;dentist near me&apos; search in our areas. Our new patient inquiries from Google Maps doubled in 4 months. The geo-grid reports they provide show exactly where we rank at every point across the city. No other agency we spoke to even knew what that was.&rdquo;
             </blockquote>
             <p className="mt-4 text-sm font-semibold text-white">— Dr. Lisa K., Multi-Location Dental Practice, Manhattan & Queens</p>
           </div>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface BoroughInfo {
   name: string;
   slug: string;

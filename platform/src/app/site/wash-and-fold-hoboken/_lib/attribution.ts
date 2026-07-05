@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Zip code → Neighborhood → Domains mapping for attribution
 // Note: Each zip maps to ONE primary neighborhood (no duplicates)
 

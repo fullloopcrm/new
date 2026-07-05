@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { IMG, unsplash } from "./images";
 
 /** Slugs match entries in src/data/customer-types.ts CUSTOMER_TYPES. */

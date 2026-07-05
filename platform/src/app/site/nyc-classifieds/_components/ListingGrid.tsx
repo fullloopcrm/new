@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client'
 
 import ListingCard from './ListingCard'

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { neighborhoods, boroughNames, allServices, allEvents, allClasses } from "./constants";
 import type { Service, EventItem, ClassItem } from "./constants";
 

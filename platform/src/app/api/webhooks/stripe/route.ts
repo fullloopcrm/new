@@ -11,6 +11,8 @@ import { smsAdmins } from '@/lib/admin-contacts'
 import { cleanerPaidHours } from '@/lib/billing-hours'
 import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
+import { postPayoutToLedger } from '@/lib/finance/post-labor'
+import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
@@ -248,6 +250,10 @@ export async function POST(request: Request) {
           .update({ deposit_paid_cents: amt, deposit_paid_at: nowIso, deposit_session_id: session.id })
           .eq('id', quoteId).eq('tenant_id', tenantId)
 
+        // Deposit is unearned until the job runs → post as a liability, not revenue.
+        postDepositToLedger({ tenantId, sourceId: quoteId, amountCents: amt, memo: `Deposit ${q.quote_number}` })
+          .catch(err => console.error('[stripe] deposit ledger post failed:', err))
+
         // Deposit closes the sale: advance the deal to sold + create the Job.
         if (q.deal_id) {
           const { data: deal } = await supabaseAdmin
@@ -390,7 +396,7 @@ export async function POST(request: Request) {
             transfer_group: bookingId,
             metadata: { booking_id: bookingId, tenant_id: tenantId },
           })
-          await supabaseAdmin.from('team_member_payouts').insert({
+          const { data: payoutRow } = await supabaseAdmin.from('team_member_payouts').insert({
             tenant_id: tenantId,
             team_member_id: booking.team_member_id,
             booking_id: bookingId,
@@ -399,7 +405,11 @@ export async function POST(request: Request) {
             stripe_transfer_id: transfer.id,
             status: 'transferred',
             paid_at: new Date().toISOString(),
-          })
+          }).select('id').single()
+          if (payoutRow?.id) {
+            postPayoutToLedger({ tenantId, payoutId: payoutRow.id })
+              .catch(err => console.error('[stripe] payout ledger post failed:', err))
+          }
           await supabaseAdmin
             .from('bookings')
             .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString(), team_member_pay: cleanerCents })
@@ -470,6 +480,49 @@ export async function POST(request: Request) {
         channel: 'in_app',
       })
 
+      break
+    }
+
+    case 'charge.refunded': {
+      // Refund issued in Stripe → reverse the sale in the ledger.
+      const charge = event.data.object as Stripe.Charge
+      const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id
+      const resolved = piId ? await tenantFromPaymentIntent(piId) : null
+      if (resolved) {
+        const memo = resolved.bookingId ? `Refund · booking ${resolved.bookingId.slice(0, 8)}` : 'Refund'
+        const refunds = charge.refunds?.data || []
+        if (refunds.length > 0) {
+          for (const r of refunds) {
+            await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: r.id, amountCents: r.amount, memo })
+              .catch(err => console.error('[stripe] refund post failed:', err))
+          }
+        } else if (charge.amount_refunded > 0) {
+          // Fallback when the refunds list isn't expanded on the event.
+          await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: charge.id, amountCents: charge.amount_refunded, memo })
+            .catch(err => console.error('[stripe] refund post failed:', err))
+        }
+      }
+      break
+    }
+
+    case 'charge.dispute.created': {
+      // Chargeback opened → record the loss + flag the owner to respond in Stripe.
+      const dispute = event.data.object as Stripe.Dispute
+      const piId = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id
+      const resolved = piId ? await tenantFromPaymentIntent(piId) : null
+      if (resolved) {
+        await postChargebackToLedger({ tenantId: resolved.tenantId, sourceId: dispute.id, amountCents: dispute.amount, memo: 'Chargeback / dispute' })
+          .catch(err => console.error('[stripe] chargeback post failed:', err))
+        await supabaseAdmin.from('admin_tasks').insert({
+          tenant_id: resolved.tenantId,
+          type: 'chargeback',
+          priority: 'high',
+          title: `Chargeback $${(dispute.amount / 100).toFixed(2)}`,
+          description: `Dispute ${dispute.id} opened — respond in Stripe before the deadline.`,
+          related_type: 'booking',
+          related_id: resolved.bookingId,
+        }).then(() => {}, () => {})
+      }
       break
     }
 

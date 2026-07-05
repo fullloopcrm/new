@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { supabaseAdmin } from '@/app/site/wash-and-fold-hoboken/_lib/supabase'
 
 interface GoogleTokens {

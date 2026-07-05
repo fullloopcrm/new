@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface CustomerType {
   slug: string;
   name: string;

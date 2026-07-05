@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { supabaseAdmin } from '@/app/site/the-nyc-interior-designer/_lib/supabase'
 
 interface NotifyOptions {

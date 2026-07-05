@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Auto-generated per-blog-post photo manifest from Pexels.
 // Each blog post slug → topic-matched image with SEO alt text.
 import data from "./blog-photos.json";

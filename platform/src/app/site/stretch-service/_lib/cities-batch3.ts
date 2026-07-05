@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { City } from "./siteData";
 
 export const citiesBatch3: City[] = [

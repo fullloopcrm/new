@@ -1,4 +1,3 @@
-// @ts-nocheck
 // ============================================
 // SMS TEMPLATES — Short text versions of emails
 // All messages end with opt-out info per TCPA

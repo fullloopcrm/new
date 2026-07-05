@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllServices, getAllNeighborhoods } from "@/app/site/the-nyc-seo/_lib/data";

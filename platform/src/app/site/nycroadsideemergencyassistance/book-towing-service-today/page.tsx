@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useCallback } from "react";
@@ -196,7 +195,7 @@ export default function BookPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Describe What's Happening *</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Describe What&apos;s Happening *</label>
                     <textarea name="narrative" required rows={4} placeholder="What's wrong with the vehicle, where it needs to go, and anything unusual (in a garage, on a bridge, hit by another car, etc.)" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
                   </div>
                   {error && (

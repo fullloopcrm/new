@@ -1,4 +1,3 @@
-// @ts-nocheck
 export const PHONE = "(888) 944-3001";
 export const PHONE_HREF = "tel:+18889443001";
 export const SMS_HREF = "sms:+18889443001";

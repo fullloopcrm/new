@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/nycroadsideemergencyassistance/_data/content";
 

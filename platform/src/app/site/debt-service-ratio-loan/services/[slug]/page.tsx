@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { services, findServiceBySlug, getServiceUrl } from "@/app/site/debt-service-ratio-loan/_lib/siteData";

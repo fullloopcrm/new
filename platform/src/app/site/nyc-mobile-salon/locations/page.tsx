@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { neighborhoods, boroughNames } from "@/app/site/nyc-mobile-salon/_lib/constants";

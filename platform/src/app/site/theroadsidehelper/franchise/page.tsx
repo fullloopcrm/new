@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { EMAIL, CITY_COUNT } from "@/app/site/theroadsidehelper/_data/content";
 import { pageSeo } from "@/app/site/theroadsidehelper/_lib/seo";
@@ -27,9 +26,9 @@ export default function FranchisePage() {
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-emerald-700 font-cta">For Roadside Contractors</p>
           <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">Why Partner With Us</h2>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
-            <p>The Roadside Helper dispatch network routes calls to qualified local contractors in {CITY_COUNT}+ cities. Unlike auto-club contractor agreements that lock you into low per-call rates and prioritize the club's economics over yours, our partnership is straightforward: predictable per-call compensation, no membership tier games, no auto-renewing exclusivity contracts.</p>
-            <p>Contractors who fit our network: experienced tow operators with their own equipment, mobile mechanics who can handle on-site lockouts and basic roadside repair, independent roadside service providers with proper licensing and insurance. We don't dispatch to untrained operators or one-vehicle outfits without proper insurance documentation.</p>
-            <p>The partnership economics work because we operate the customer-facing brand, dispatch infrastructure, and billing — and you operate the service vehicles and crew. Customers pay us at the flat $149/hr rate; partners receive a transparent split per call. No surprise deductions, no after-the-fact "quality fees," no automatic renewals.</p>
+            <p>The Roadside Helper dispatch network routes calls to qualified local contractors in {CITY_COUNT}+ cities. Unlike auto-club contractor agreements that lock you into low per-call rates and prioritize the club&apos;s economics over yours, our partnership is straightforward: predictable per-call compensation, no membership tier games, no auto-renewing exclusivity contracts.</p>
+            <p>Contractors who fit our network: experienced tow operators with their own equipment, mobile mechanics who can handle on-site lockouts and basic roadside repair, independent roadside service providers with proper licensing and insurance. We don&apos;t dispatch to untrained operators or one-vehicle outfits without proper insurance documentation.</p>
+            <p>The partnership economics work because we operate the customer-facing brand, dispatch infrastructure, and billing — and you operate the service vehicles and crew. Customers pay us at the flat $149/hr rate; partners receive a transparent split per call. No surprise deductions, no after-the-fact &quot;quality fees,&quot; no automatic renewals.</p>
           </div>
         </div>
       </section>
@@ -61,9 +60,9 @@ export default function FranchisePage() {
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-emerald-700 font-cta">Partnership Requirements</p>
           <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">Who We Partner With</h2>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
-            <p>Our partners share a few traits: they own and operate their own service vehicles (we don't lease vehicles), they carry their own commercial liability and auto insurance at industry-standard coverage levels, they have background-checked technicians, and they care about customer experience as much as we do.</p>
+            <p>Our partners share a few traits: they own and operate their own service vehicles (we don&apos;t lease vehicles), they carry their own commercial liability and auto insurance at industry-standard coverage levels, they have background-checked technicians, and they care about customer experience as much as we do.</p>
             <p>Required: at minimum one service vehicle suitable for roadside work (tow truck, service truck, or properly-equipped van), commercial general liability and auto insurance with us listed as additional insured, current state-required licensing for tow operations or roadside service in your jurisdiction, and a clean operating history.</p>
-            <p>We do not partner with: brokers who don't own their vehicles, operators without commercial insurance, anyone with a history of customer-complaint patterns, or contractors who can't pass our background and licensing verification.</p>
+            <p>We do not partner with: brokers who don&apos;t own their vehicles, operators without commercial insurance, anyone with a history of customer-complaint patterns, or contractors who can&apos;t pass our background and licensing verification.</p>
           </div>
         </div>
       </section>

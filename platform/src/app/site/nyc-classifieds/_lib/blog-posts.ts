@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Stub: scaffold-only.
 export type BlogPost = { slug: string; title: string; date: string; excerpt: string; body: string; category?: string }
 export const blogPosts: BlogPost[] = []

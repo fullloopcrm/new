@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { getPhoto } from "@/app/site/nycroadsideemergencyassistance/_data/photos";
 import Image from "next/image";
@@ -174,7 +173,7 @@ export default function HomePage() {
                     January through March, the overnight lows on Riverside Drive, Ocean Parkway, and the Henry Hudson shoulders sit in the teens and turn every marginal battery in the city into a no-start condition by sunrise. We stage jump-capable trucks inside every borough so the closest one is normally inside a mile of the stranded vehicle, not an hour away from Hicksville on Long Island. The stranded commuter with a Tuesday morning meeting at eight does not have time to wait for a truck that needs to cross two bridges before it gets to the call.
                   </p>
                   <p className="mt-4 text-base leading-relaxed text-slate-700">
-                    Our jump-start driver brings a real load tester, not a cheap voltmeter reading a surface charge off a bad battery. If the battery is truly dead past the point of recovery, we can install a replacement group size on the curb, register the new battery to the body control module for BMW, Audi, and Mercedes that require it, and hand the customer the receipt before their morning coffee cools. If the fault is actually the alternator, we say so and flatbed the vehicle to the customer's chosen shop instead of sending them home on borrowed time.
+                    Our jump-start driver brings a real load tester, not a cheap voltmeter reading a surface charge off a bad battery. If the battery is truly dead past the point of recovery, we can install a replacement group size on the curb, register the new battery to the body control module for BMW, Audi, and Mercedes that require it, and hand the customer the receipt before their morning coffee cools. If the fault is actually the alternator, we say so and flatbed the vehicle to the customer&apos;s chosen shop instead of sending them home on borrowed time.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-4">
                     <Link href="/services/jump-start" className="inline-flex items-center text-sm font-semibold text-teal-700 hover:text-teal-800 font-cta">Read the full jump-start guide →</Link>
@@ -405,7 +404,7 @@ export default function HomePage() {
                     Dispatch runs twenty four hours a day, three hundred sixty five days a year. Snowstorms, holidays, three in the morning on a Tuesday, three in the afternoon on Christmas Day, they all run at the same flat rate with the same response and the same drivers who have been running NYC streets for long enough to know where every pothole, every bridge closure, and every active construction zone actually is right now, in real time, without having to look it up.
                   </p>
                   <p className="mt-4 text-base leading-relaxed text-slate-700">
-                    Dispatch never closes. Overnight rates match daytime rates exactly, holiday rates match weekday rates exactly, and snowstorm calls run as long as the roads stay safe enough to operate a heavy truck on. A three in the morning call on New Year's Eve in Bay Ridge gets the same flat rate as a three in the afternoon call on a Tuesday in Midtown Manhattan. No surcharge for being awake. No markup for being up on a holiday.
+                    Dispatch never closes. Overnight rates match daytime rates exactly, holiday rates match weekday rates exactly, and snowstorm calls run as long as the roads stay safe enough to operate a heavy truck on. A three in the morning call on New Year&apos;s Eve in Bay Ridge gets the same flat rate as a three in the afternoon call on a Tuesday in Midtown Manhattan. No surcharge for being awake. No markup for being up on a holiday.
                   </p>
                   <p className="mt-4 text-base leading-relaxed text-slate-700">
                     For anything genuinely life-safety — a vehicle stopped in an active travel lane on a highway, smoke from the engine bay, injuries on scene — the right call is nine one one first. NYPD and FDNY have to manage and clear the scene before we can get in. Once the scene is under control and the traveling public is safe, one call to our dispatch line and the truck is moving. We coordinate with the responding unit on scene for safe positioning and load-out.
@@ -702,7 +701,7 @@ export default function HomePage() {
               <p className="text-xs font-semibold uppercase tracking-widest text-teal-600 font-cta">Emergency Playbook</p>
               <h3 className="mt-2 text-xl font-bold text-slate-900 font-heading">Stuck in the Snow After a Storm</h3>
               <p className="mt-4 text-base leading-relaxed text-slate-700">
-                Woke up the morning after a nor'easter, went out to move the car for alternate-side parking rules, and discovered a two-foot wall of plowed slush packed solid against the driver-side doors. Or you parked the car overnight on a side street and a plow came through at four in the morning, sealing the tires in six inches of packed ice that will not budge under tire rotation alone.
+                Woke up the morning after a nor&apos;easter, went out to move the car for alternate-side parking rules, and discovered a two-foot wall of plowed slush packed solid against the driver-side doors. Or you parked the car overnight on a side street and a plow came through at four in the morning, sealing the tires in six inches of packed ice that will not budge under tire rotation alone.
               </p>
               <p className="mt-4 text-base leading-relaxed text-slate-700">
                 Do not keep spinning the drive wheels against the ice pack. You will either glaze the ice underneath into a permanent skating rink, burn out the transmission in an automatic, or smoke the clutch plate completely in a manual gearbox. Clear what snow you can with a shovel if you have one, throw cat litter or sand under the drive wheels for traction grip, and try rocking between drive and reverse one time — gently.
@@ -1218,16 +1217,16 @@ export default function HomePage() {
                 <span className="ml-4 text-teal-600 transition-transform group-open:rotate-45">+</span>
               </summary>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                Exotic transport runs on our low-angle hydraulic flatbeds equipped with wooden ramp extensions so a three-inch ground clearance on a low car does not scrape the front splitter on the ramp lip during loading. Tie-downs anchor to factory tow hooks or subframe points only. Drivers cleared specifically for exotic work carry elevated cargo insurance on the unit. Pickup and delivery are handled with full discretion — we are used to moving vehicles out of valet garages in Tribeca, Hamptons estate driveways, and concours d'elegance events held up in Greenwich. Book ahead whenever possible for dedicated crew assignment.
+                Exotic transport runs on our low-angle hydraulic flatbeds equipped with wooden ramp extensions so a three-inch ground clearance on a low car does not scrape the front splitter on the ramp lip during loading. Tie-downs anchor to factory tow hooks or subframe points only. Drivers cleared specifically for exotic work carry elevated cargo insurance on the unit. Pickup and delivery are handled with full discretion — we are used to moving vehicles out of valet garages in Tribeca, Hamptons estate driveways, and concours d&apos;elegance events held up in Greenwich. Book ahead whenever possible for dedicated crew assignment.
               </p>
             </details>
             <details className="group rounded-xl border border-slate-200 bg-white p-5">
               <summary className="flex cursor-pointer items-start justify-between text-base font-semibold text-slate-900 font-heading">
-                <span>Can you help me if I'm double-parked, blocking a driveway, or stuck in a fire lane?</span>
+                <span>Can you help me if I&apos;m double-parked, blocking a driveway, or stuck in a fire lane?</span>
                 <span className="ml-4 text-teal-600 transition-transform group-open:rotate-45">+</span>
               </summary>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                For the driver who got blocked in physically or is the victim of another car's bad parking decision, we can help get you out once the blocker moves their vehicle. For property managers, landlords, HOA boards, and commercial lot owners, we run a full NYC-compliant private-property tow operation — proper posted signage, photo documentation of every violation, a clearly posted tow-fee schedule, and legal impound handling afterward. We never tow vehicles from public streets without explicit NYPD authorization. Private lots, fire lanes on private property, and tenant-only parking spots are all fair game with the proper setup in place.
+                For the driver who got blocked in physically or is the victim of another car&apos;s bad parking decision, we can help get you out once the blocker moves their vehicle. For property managers, landlords, HOA boards, and commercial lot owners, we run a full NYC-compliant private-property tow operation — proper posted signage, photo documentation of every violation, a clearly posted tow-fee schedule, and legal impound handling afterward. We never tow vehicles from public streets without explicit NYPD authorization. Private lots, fire lanes on private property, and tenant-only parking spots are all fair game with the proper setup in place.
               </p>
             </details>
             <details className="group rounded-xl border border-slate-200 bg-white p-5">
@@ -1290,7 +1289,7 @@ export default function HomePage() {
                 <span className="ml-4 text-teal-600 transition-transform group-open:rotate-45">+</span>
               </summary>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                There is no earliest hour and no latest hour. Dispatch operates twenty four hours a day, three hundred sixty five days a year including Christmas Eve, New Year's Eve, the Fourth of July, every single blizzard, and the occasional heat wave that makes car batteries quit by two in the afternoon. Overnight rates match daytime rates exactly. Holiday rates match weekday rates exactly. We scale operations up for major snowstorms when the roads are safe enough to run heavy trucks on, and we scale down during major weather events like hurricanes where NYC orders vehicles off the roads entirely — but dispatch itself stays open throughout.
+                There is no earliest hour and no latest hour. Dispatch operates twenty four hours a day, three hundred sixty five days a year including Christmas Eve, New Year&apos;s Eve, the Fourth of July, every single blizzard, and the occasional heat wave that makes car batteries quit by two in the afternoon. Overnight rates match daytime rates exactly. Holiday rates match weekday rates exactly. We scale operations up for major snowstorms when the roads are safe enough to run heavy trucks on, and we scale down during major weather events like hurricanes where NYC orders vehicles off the roads entirely — but dispatch itself stays open throughout.
               </p>
             </details>
             <details className="group rounded-xl border border-slate-200 bg-white p-5">

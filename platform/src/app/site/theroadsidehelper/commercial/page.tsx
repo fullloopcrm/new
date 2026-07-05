@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/theroadsidehelper/_components/CtaButtons";
 import { PHONE, PHONE_HREF } from "@/app/site/theroadsidehelper/_data/content";

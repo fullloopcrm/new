@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { notFound } from "next/navigation";
 import { areas, services, serviceCategories } from "@/app/site/consortium-nyc/_lib/siteData";
 import {

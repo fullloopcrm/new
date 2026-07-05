@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EMAIL } from "@/app/site/nyc-tow/_data/content";

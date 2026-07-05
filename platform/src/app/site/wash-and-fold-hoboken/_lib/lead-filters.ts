@@ -1,4 +1,3 @@
-// @ts-nocheck
 const SPAM_REFERRERS = [
   'siteground', 'sgcaptcha', 'telnyx.io',
   'consortium', 'nycsidehustle',

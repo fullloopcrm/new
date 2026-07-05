@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { supabaseAdmin } from '@/app/site/wash-and-fold-nyc/_lib/supabase'
 import { sendPushToAll } from '@/app/site/wash-and-fold-nyc/_lib/push'
 

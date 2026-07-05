@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { PHONE } from "@/app/site/fla-dumpster-rentals/_lib/seo";
 
 type CTAVariant = "hero" | "mid" | "preFaq" | "final" | "inline";

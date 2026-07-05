@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { ServiceContent } from "./serviceContentTypes";
 
 export const batch2: Record<string, ServiceContent> = {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { IMG, unsplash } from "./images";
 
 /**

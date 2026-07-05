@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-interior-designer/_lib/schema";
 import { SITE_NAME, SITE_DOMAIN, PHONE, EMAIL } from "@/app/site/the-nyc-interior-designer/_lib/siteData";

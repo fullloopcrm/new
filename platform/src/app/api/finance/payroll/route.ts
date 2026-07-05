@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { postPayrollToLedger } from '@/lib/finance/post-labor'
 
 export async function GET() {
   try {
@@ -74,6 +75,12 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Post the wage payment to the ledger (account by HR employment type).
+    if (data?.id) {
+      postPayrollToLedger({ tenantId, payrollPaymentId: data.id })
+        .catch(err => console.error('[payroll] ledger post failed:', err))
     }
 
     // Mark related bookings as paid

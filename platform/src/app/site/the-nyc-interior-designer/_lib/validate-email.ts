@@ -1,4 +1,3 @@
-// @ts-nocheck
 const TYPO_MAP: Record<string, string> = {
   '.con': '.com',
   '.cmo': '.com',

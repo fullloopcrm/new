@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/landscaping-in-nyc/_lib/schema";
 import { SITE_NAME, SITE_DOMAIN, PHONE, PHONE_HREF, SMS_HREF, EMAIL, ADDRESS } from "@/app/site/landscaping-in-nyc/_lib/siteData";

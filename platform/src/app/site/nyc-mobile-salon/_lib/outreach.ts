@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Selena's check-in outreach
 // Warm, friendly, personal — Selena with The NYC Mobile Salon checking in
 // No selling, no discounts, no "if you need anything" — just genuine warmth

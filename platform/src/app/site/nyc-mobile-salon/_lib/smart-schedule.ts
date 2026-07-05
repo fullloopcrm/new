@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { supabaseAdmin } from '@/app/site/nyc-mobile-salon/_lib/supabase'
 import { geocodeAddress, calculateDistance, estimateTransitMinutes, geocodeClient } from '@/app/site/nyc-mobile-salon/_lib/geo'
 import { guessZoneFromAddress, zoneRequiresCar } from '@/app/site/nyc-mobile-salon/_lib/service-zones'

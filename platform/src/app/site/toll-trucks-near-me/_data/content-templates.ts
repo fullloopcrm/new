@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { PHONE } from "./content";
 import { Service, SERVICES, SERVICE_CATEGORIES } from "./services";
 

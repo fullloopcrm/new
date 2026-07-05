@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import { neighborhoods, parks, services, boroughs, clientTypes, getNeighborhoodUrl, getParkUrl, getServiceUrl, getBoroughUrl, SITE_URL, SITE_PHONE, SITE_SMS_LINK, SITE_PHONE_LINK } from "@/app/site/stretch-ny/_lib/siteData";

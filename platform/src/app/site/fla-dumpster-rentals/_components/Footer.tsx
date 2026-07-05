@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { PHONE, SITE_NAME, EMAIL, ADDRESS } from "@/app/site/fla-dumpster-rentals/_lib/seo";
 import { getRegions } from "@/app/site/fla-dumpster-rentals/_lib/data";

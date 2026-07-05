@@ -1,4 +1,3 @@
-// @ts-nocheck
 const TZ = 'America/New_York'
 
 /**

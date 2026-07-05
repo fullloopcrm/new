@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";

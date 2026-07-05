@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { validateEmail } from '@/app/site/wash-and-fold-nyc/_lib/validate-email'

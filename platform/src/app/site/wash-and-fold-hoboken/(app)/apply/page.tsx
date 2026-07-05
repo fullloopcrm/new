@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client'
 import { useState, useRef } from 'react'
 import AddressAutocomplete from '@/app/site/wash-and-fold-hoboken/_components/AddressAutocomplete'

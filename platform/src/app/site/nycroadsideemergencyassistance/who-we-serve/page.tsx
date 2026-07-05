@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CUSTOMER_TYPES } from "@/app/site/nycroadsideemergencyassistance/_data/customer-types";

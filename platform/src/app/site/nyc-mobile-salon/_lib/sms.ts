@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { supabaseAdmin } from '@/app/site/nyc-mobile-salon/_lib/supabase'
 
 const TELNYX_API_KEY = process.env.TELNYX_API_KEY?.replace(/\s/g, '')

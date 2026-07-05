@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, breadcrumbSchema } from "@/app/site/the-nyc-interior-designer/_lib/schema";

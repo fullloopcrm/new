@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";

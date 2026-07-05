@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Per-tenant rich sitemap for thenycmobilesalon.com.
  *

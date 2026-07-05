@@ -1,4 +1,3 @@
-// @ts-nocheck
 // ─── Types ──────────────────────────────────────────────────────────
 
 export type Service = { name: string; slug: string; description: string };

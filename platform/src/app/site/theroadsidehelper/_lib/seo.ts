@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 
 const SITE_URL = "https://www.theroadsidehelper.com";

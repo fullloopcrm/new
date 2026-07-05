@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { CITY_COUNT, STATE_COUNT } from "@/app/site/theroadsidehelper/_data/content";
 import { CUSTOMER_TYPES } from "@/app/site/theroadsidehelper/_data/customer-types";

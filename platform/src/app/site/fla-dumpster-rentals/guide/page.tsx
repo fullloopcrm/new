@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -292,7 +291,7 @@ export default function GuidePage() {
               <p>
                 The higher weight limit of 4 to 5 tons makes the 30-yard better
                 suited for projects involving heavy materials — demolition of
-                Florida's common concrete block construction, large roofing
+                Florida&apos;s common concrete block construction, large roofing
                 projects, and mixed heavy debris. For commercial construction
                 sites that generate a continuous stream of waste, the 30-yard
                 provides enough capacity to go several days between swaps,
@@ -572,7 +571,7 @@ export default function GuidePage() {
                 a 4-ton (8,000 lb) weight limit and you are loading concrete at
                 2,200 lbs per cubic yard, you will hit the weight limit after
                 loading just 3.6 cubic yards — less than 20 percent of the
-                dumpster's volume. This is why communication with your dumpster
+                dumpster&apos;s volume. This is why communication with your dumpster
                 provider about what you are loading is critical.
               </p>
               <p className="text-sm italic text-stone-500">
@@ -593,7 +592,7 @@ export default function GuidePage() {
             <div className="mt-6 space-y-4 text-lg leading-relaxed text-zinc-700">
               <p>
                 Florida has specific regulations governing what can be disposed
-                of in roll-off dumpsters. These rules exist to protect Florida's
+                of in roll-off dumpsters. These rules exist to protect Florida&apos;s
                 unique environment — the Everglades, coastal waterways, aquifers,
                 and ecosystems that make the state special. Violating disposal
                 regulations can result in fines for both the customer and the
@@ -765,7 +764,7 @@ export default function GuidePage() {
               </p>
               <p>
                 <strong>Orlando / Orange County:</strong> Right-of-way permit
-                required for street placement. Apply through the City's
+                required for street placement. Apply through the City&apos;s
                 Transportation Engineering Division. Cost varies by duration.
               </p>
               <p>
@@ -774,7 +773,7 @@ export default function GuidePage() {
                 Department. Generally straightforward and affordable.
               </p>
               <p className="text-sm italic text-stone-500">
-                Not sure about your city's requirements? Text or call us at{" "}
+                Not sure about your city&apos;s requirements? Text or call us at{" "}
                 {PHONE} and we will look it up for you. We have delivered
                 dumpsters in every corner of Florida and we know the local rules.
               </p>
@@ -824,7 +823,7 @@ export default function GuidePage() {
                 clear. Move vehicles out of the driveway, clear any items from
                 the placement spot, and make sure there are no overhead
                 obstructions like low-hanging tree branches, basketball hoops,
-                or power lines that could interfere with the delivery truck's
+                or power lines that could interfere with the delivery truck&apos;s
                 hydraulic arm. The delivery area should be on a firm, relatively
                 level surface — concrete, asphalt, or compacted ground.
               </p>
@@ -998,7 +997,7 @@ export default function GuidePage() {
                 Hurricane Season Planning
               </h3>
               <p>
-                Florida's hurricane season officially runs from June 1 through
+                Florida&apos;s hurricane season officially runs from June 1 through
                 November 30, with peak activity in August through October. If
                 you are planning a major renovation or construction project,
                 consider the timing relative to hurricane season. A roof
@@ -1063,7 +1062,7 @@ export default function GuidePage() {
                 Coastal and Island Delivery
               </h3>
               <p>
-                Florida's extensive coastline and barrier islands create
+                Florida&apos;s extensive coastline and barrier islands create
                 unique delivery challenges. Bridge weight limits, narrow island
                 streets, limited turning radius, and tidal flooding can all
                 affect dumpster delivery logistics. If you are located on a
@@ -1165,9 +1164,9 @@ export default function GuidePage() {
             </h2>
             <div className="mt-6 space-y-4 text-lg leading-relaxed text-zinc-700">
               <p>
-                Florida's environment is uniquely sensitive — from the
+                Florida&apos;s environment is uniquely sensitive — from the
                 Everglades and coral reefs to the aquifer that supplies much of
-                the state's drinking water. Responsible waste disposal is not
+                the state&apos;s drinking water. Responsible waste disposal is not
                 just a regulatory requirement; it is essential to preserving
                 the natural beauty and ecological health that define Florida.
               </p>

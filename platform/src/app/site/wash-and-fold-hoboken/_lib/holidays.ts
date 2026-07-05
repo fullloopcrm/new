@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Major US holidays — no scheduling on these dates
 // Covers fixed dates + computed floating holidays (Memorial Day, Labor Day, Thanksgiving)
 

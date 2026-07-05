@@ -1,4 +1,3 @@
-// @ts-nocheck
 export type AdminRole = 'owner' | 'admin' | 'manager' | 'viewer'
 
 const PAGE_ACCESS: Record<AdminRole, string[]> = {

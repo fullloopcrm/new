@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SERVICES } from '@/app/site/sunnyside-clean-nyc/_lib/seo/services'

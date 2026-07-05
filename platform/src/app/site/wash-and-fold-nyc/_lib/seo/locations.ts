@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { AREAS, type Area } from './data/areas'
 import { MANHATTAN_NEIGHBORHOODS } from './data/manhattan'
 import { BROOKLYN_NEIGHBORHOODS } from './data/brooklyn'

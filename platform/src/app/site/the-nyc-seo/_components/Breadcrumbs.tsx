@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { getBreadcrumbSchema } from "@/app/site/the-nyc-seo/_lib/seo";
 

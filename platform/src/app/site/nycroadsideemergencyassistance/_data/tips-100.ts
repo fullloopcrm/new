@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Auto-generated: 100 NYC Towing & Roadside Tips series.
 // Generator: scripts/generate-tips-100.py
 // Note: shape defined locally (matches BlogPost in blog-posts.ts) to avoid a circular import.

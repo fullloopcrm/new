@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import LeadForm from "@/app/site/nyc-mobile-salon/_components/LeadForm";
 import { breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";

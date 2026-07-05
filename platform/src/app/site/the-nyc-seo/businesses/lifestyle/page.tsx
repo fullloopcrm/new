@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getServicesByCategorySlug, getRegions } from "@/app/site/the-nyc-seo/_lib/data";

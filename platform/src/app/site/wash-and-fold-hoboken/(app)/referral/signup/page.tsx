@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client'
 
 import {useState, useEffect } from 'react'
@@ -72,7 +71,7 @@ export default function ReferralSignupPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-[#1E2A4A] mb-2">You're In! 🎉</h1>
+          <h1 className="text-2xl font-bold text-[#1E2A4A] mb-2">You&apos;re In! 🎉</h1>
           <p className="text-gray-600 mb-6">Welcome to The NYC Maid referral program</p>
 
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -80,7 +79,7 @@ export default function ReferralSignupPage() {
             <p className="text-2xl font-bold text-[#1E2A4A]">{refCode}</p>
           </div>
 
-          <p className="text-xs text-gray-400 mt-4">📧 Please check your spam/junk folder if you don't see our email in your inbox.</p>
+          <p className="text-xs text-gray-400 mt-4">📧 Please check your spam/junk folder if you don&apos;t see our email in your inbox.</p>
           <div className="bg-[#A8F0DC]/20 rounded-lg p-4 mb-6">
             <p className="text-sm text-[#1E2A4A] mb-2">Your referral link</p>
             <p className="text-sm font-mono text-[#1E2A4A] break-all">https://www.thenycmaid.com/book?ref={refCode}</p>
@@ -234,7 +233,7 @@ export default function ReferralSignupPage() {
                 placeholder={form.preferred_payout === 'zelle' ? 'Same as email if blank' : 'Your Apple Cash phone number'}
               />
               <p className="text-xs text-gray-500 mt-1">
-                We'll send your commissions here
+                We&apos;ll send your commissions here
               </p>
             </div>
 

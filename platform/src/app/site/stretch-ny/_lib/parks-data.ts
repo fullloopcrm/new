@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Park } from "./siteData";
 
 export const allParks: Park[] = [

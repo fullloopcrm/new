@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/toll-trucks-near-me/_data/content";

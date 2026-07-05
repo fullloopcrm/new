@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ImageResponse } from "next/og";
 import { getRoadwayBySlug, KIND_LABEL, type RoadwayKind } from "@/app/site/nycroadsideemergencyassistance/_data/roadways";
 

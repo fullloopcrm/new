@@ -1,4 +1,3 @@
-// @ts-nocheck
 import crypto from "crypto";
 
 const COOKIE_NAME = "nyce_admin";

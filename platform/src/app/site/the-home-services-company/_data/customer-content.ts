@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { PHONE } from "./content";
 import type { CustomerType } from "./customer-types";
 import { SERVICES } from "./services";

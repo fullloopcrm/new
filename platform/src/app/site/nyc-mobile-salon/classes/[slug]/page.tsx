@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -260,7 +259,7 @@ export default async function ClassPage({ params }: Props) {
                 {slug === "braiding-basics-class" && (
                   <>
                     <p>Our braiding class teaches four to five distinct braid styles, building progressively from simple to complex. You will start with the classic three-strand braid to establish proper hand positioning and tension control, then advance to French braids (adding hair from each side as you go), Dutch braids (the inverted technique that makes braids pop off the head), fishtails (the two-strand technique that looks intricate but is surprisingly simple once you get the rhythm), and rope braids (the twisted style that holds beautifully and works on almost any hair length).</p>
-                    <p>For each style, we break down the technique into small, manageable steps. You will learn how to start a braid at different points on the head (center part, side part, crown, nape), how to braid your own hair versus braiding someone else's, and how to finish and secure braids so they last all day. We also cover styling variations: how to pancake braids for a fuller, more textured look, how to incorporate braids into updos and half-up styles, and how to braid with different hair textures and lengths.</p>
+                    <p>For each style, we break down the technique into small, manageable steps. You will learn how to start a braid at different points on the head (center part, side part, crown, nape), how to braid your own hair versus braiding someone else&apos;s, and how to finish and secure braids so they last all day. We also cover styling variations: how to pancake braids for a fuller, more textured look, how to incorporate braids into updos and half-up styles, and how to braid with different hair textures and lengths.</p>
                   </>
                 )}
                 {slug === "everyday-makeup-masterclass" && (
@@ -300,8 +299,8 @@ export default async function ClassPage({ params }: Props) {
                 )}
                 {slug === "braiding-basics-class" && (
                   <>
-                    <p>This class is perfect for mothers and caregivers who want to do their children's hair beautifully without struggling through confusing online tutorials at seven in the morning before school. It is ideal for bridesmaids and bridal parties who want to bond over learning a new skill together while potentially saving on wedding-day hair costs. And it is great for anyone who has always admired braided hairstyles and wanted to learn how to create them.</p>
-                    <p>We welcome all ages and experience levels. Whether you are a teenager who wants to braid your own hair for school, a college student planning a creative girls' night, or a grandmother who wants to learn new styles for your grandchildren, this class meets you where you are and takes your skills to the next level.</p>
+                    <p>This class is perfect for mothers and caregivers who want to do their children&apos;s hair beautifully without struggling through confusing online tutorials at seven in the morning before school. It is ideal for bridesmaids and bridal parties who want to bond over learning a new skill together while potentially saving on wedding-day hair costs. And it is great for anyone who has always admired braided hairstyles and wanted to learn how to create them.</p>
+                    <p>We welcome all ages and experience levels. Whether you are a teenager who wants to braid your own hair for school, a college student planning a creative girls&apos; night, or a grandmother who wants to learn new styles for your grandchildren, this class meets you where you are and takes your skills to the next level.</p>
                   </>
                 )}
                 {slug === "everyday-makeup-masterclass" && (
@@ -313,7 +312,7 @@ export default async function ClassPage({ params }: Props) {
                 {slug === "skincare-routine-workshop" && (
                   <>
                     <p>This workshop is designed for anyone who is confused by the overwhelming world of skincare products and wants a clear, personalized routine that actually works. If you have spent hundreds of dollars on serums and creams that promised miracles and delivered nothing, this class will show you why and help you start over with a routine that is built on science rather than marketing.</p>
-                    <p>It is especially valuable for people dealing with specific skin concerns like acne, aging, hyperpigmentation, redness, sensitivity, or chronic dryness. Our esthetician addresses each person's unique concerns individually and recommends targeted solutions. We also frequently host this workshop for bridal parties (great skin starts months before the wedding), corporate wellness events, and friend groups who want to invest in their skin together.</p>
+                    <p>It is especially valuable for people dealing with specific skin concerns like acne, aging, hyperpigmentation, redness, sensitivity, or chronic dryness. Our esthetician addresses each person&apos;s unique concerns individually and recommends targeted solutions. We also frequently host this workshop for bridal parties (great skin starts months before the wedding), corporate wellness events, and friend groups who want to invest in their skin together.</p>
                   </>
                 )}
                 {slug === "group-nail-art-class" && (

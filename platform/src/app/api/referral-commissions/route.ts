@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 
 export async function GET(request: Request) {
   try {
@@ -110,6 +111,10 @@ export async function POST(request: Request) {
       .single()
     if (error) throw error
 
+    // Accrue the commission expense/payable to the ledger.
+    postCommissionAccrual({ tenantId, commissionId: commissionRow.id })
+      .catch(err => console.error('[ref-comm] accrual post failed:', err))
+
     await supabaseAdmin
       .from('referrers')
       .update({ total_earned: (ref.total_earned || 0) + commission })
@@ -182,6 +187,12 @@ export async function PUT(request: Request) {
       .select()
       .single()
     if (error) throw error
+
+    // Marking paid clears the payable against cash in the ledger.
+    if (status === 'paid' && data?.id) {
+      postCommissionPayment({ tenantId, commissionId: data.id })
+        .catch(err => console.error('[ref-comm] payment post failed:', err))
+    }
 
     return NextResponse.json(data)
   } catch (err) {

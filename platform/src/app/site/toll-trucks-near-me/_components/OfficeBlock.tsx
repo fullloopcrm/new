@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/toll-trucks-near-me/_data/content";
 import type { Office } from "@/app/site/toll-trucks-near-me/_data/offices";

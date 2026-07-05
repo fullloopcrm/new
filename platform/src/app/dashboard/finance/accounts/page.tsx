@@ -86,7 +86,7 @@ export default function BankAccountsPage() {
       <div className="flex items-start justify-between flex-wrap gap-3 mt-1 mb-6">
         <div>
           <h1 className="font-heading text-2xl font-bold text-slate-900">Bank Accounts</h1>
-          <p className="text-sm text-slate-500">Add the bank accounts you'll import statements from.</p>
+          <p className="text-sm text-slate-500">Add the bank accounts you&apos;ll import statements from.</p>
         </div>
         <div className="flex gap-2">
           <Link href="/dashboard/finance/import" className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-slate-300 hover:bg-slate-50">

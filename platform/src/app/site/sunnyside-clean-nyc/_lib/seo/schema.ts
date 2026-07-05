@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Neighborhood } from './locations'
 import type { Service } from './services'
 import type { Area } from './data/areas'

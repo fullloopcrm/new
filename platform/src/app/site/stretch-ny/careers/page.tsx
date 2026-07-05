@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import Logo from "@/app/site/stretch-ny/_components/Logo";
 import type { Metadata } from "next";

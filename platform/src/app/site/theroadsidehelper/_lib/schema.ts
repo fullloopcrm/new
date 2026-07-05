@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { PHONE, EMAIL, RATING, REVIEW_COUNT, TESTIMONIALS } from "@/app/site/theroadsidehelper/_data/content";
 import { SERVICES } from "@/app/site/theroadsidehelper/_data/services";
 

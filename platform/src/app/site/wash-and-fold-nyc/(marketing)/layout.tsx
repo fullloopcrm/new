@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Bebas_Neue, Inter } from 'next/font/google'
 
 const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' })

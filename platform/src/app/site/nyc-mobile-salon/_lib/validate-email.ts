@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Validates email and catches common typos in domains/TLDs.
  * Returns null if valid, or a suggestion string if a typo is detected.

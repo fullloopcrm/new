@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import FoundingCEOApplicationForm from "@/app/site/nyc-mobile-salon/_components/FoundingCEOApplicationForm";
 import { breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";

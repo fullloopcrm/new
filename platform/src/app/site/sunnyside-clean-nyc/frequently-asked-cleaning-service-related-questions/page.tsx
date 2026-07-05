@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema, reviewSchemas } from '@/app/site/sunnyside-clean-nyc/_lib/seo/schema'

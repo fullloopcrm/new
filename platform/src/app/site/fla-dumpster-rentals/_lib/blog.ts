@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface BlogPost {
   letter: string;
   title: string;

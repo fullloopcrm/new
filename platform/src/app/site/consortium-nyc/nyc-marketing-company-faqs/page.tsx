@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema, faqSchema } from "@/app/site/consortium-nyc/_lib/schema";
 import FAQPageClient from "./FAQPageClient";

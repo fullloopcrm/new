@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface Office {
   state: string;
   stateAbbr: string;

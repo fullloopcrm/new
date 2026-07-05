@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getSupabaseServer } from "./supabase";
 
 export interface Lead {

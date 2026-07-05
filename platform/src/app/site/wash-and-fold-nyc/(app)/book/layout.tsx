@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Script from 'next/script'
 import FeedbackWidget from '@/app/site/wash-and-fold-nyc/_components/FeedbackWidget'
 

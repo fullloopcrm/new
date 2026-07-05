@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EMAIL, CITY_COUNT, PHONE, PHONE_HREF } from "@/app/site/the-home-services-company/_data/content";

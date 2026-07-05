@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/nycroadsideemergencyassistance/_components/CtaButtons";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Compute fresh JobPosting dates at build / ISR-regeneration time so Google
 // never sees a stale `datePosted`. Combined with `export const revalidate`
 // on the page, this gives a rolling refresh without a cron job.

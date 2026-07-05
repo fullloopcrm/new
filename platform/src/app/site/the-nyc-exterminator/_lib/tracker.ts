@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Browser-side tracker. Persists a session id and ships events to /api/track.
 
 const SESSION_KEY = "nyce_sid";

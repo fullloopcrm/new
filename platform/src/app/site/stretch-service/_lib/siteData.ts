@@ -1,4 +1,3 @@
-// @ts-nocheck
 /* ─── Stretch Service Types (11 total) ─── */
 
 export interface Service {

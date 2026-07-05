@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { IMG, unsplash } from "./images";
 
 /** Map each blog post slug to a contextually appropriate Unsplash photo. */

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { breadcrumbSchema, localBusinessSchema } from '@/app/site/sunnyside-clean-nyc/_lib/seo/schema'

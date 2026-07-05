@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { industries, services, serviceCategories, areas, h1Label } from "@/app/site/the-nyc-marketing-company/_lib/siteData";

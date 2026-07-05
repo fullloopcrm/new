@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import { breadcrumbSchema, localBusinessSchema, faqSchema } from '@/app/site/wash-and-fold-hoboken/_lib/seo/schema'
 import JsonLd from '@/app/site/wash-and-fold-hoboken/_components/marketing/JsonLd'

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import { buildMetadata, breadcrumbSchema, SITE_NAME, SITE_URL } from '@/app/site/nyc-classifieds/_lib/seo'
 import { blogPosts, BLOG_CATEGORIES } from '@/app/site/nyc-classifieds/_lib/blog-posts'

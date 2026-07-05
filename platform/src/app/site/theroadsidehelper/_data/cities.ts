@@ -1,4 +1,3 @@
-// @ts-nocheck
 // National roadside assistance city data — 50 states, 902+ cities
 
 export interface City {

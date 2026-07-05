@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from 'next/link'
 import { getNeighborhood } from '@/app/site/wash-and-fold-hoboken/_lib/seo/locations'
 

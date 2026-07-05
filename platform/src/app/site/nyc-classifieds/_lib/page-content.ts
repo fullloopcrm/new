@@ -1,4 +1,3 @@
-// @ts-nocheck
 export const pageContent: Record<string, unknown> = {}
 export function getPageContent(_key: string) { return null }
 

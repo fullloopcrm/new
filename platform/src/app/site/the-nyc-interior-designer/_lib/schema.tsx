@@ -1,4 +1,3 @@
-// @ts-nocheck
 const DOMAIN = "https://www.thenycinteriordesigner.com";
 const BIZ_NAME = "The NYC Interior Designer";
 const PHONE = "+1-917-473-2013";

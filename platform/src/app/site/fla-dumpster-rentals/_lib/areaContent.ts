@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Neighborhood } from "./data";
 
 interface AreaContent {

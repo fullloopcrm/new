@@ -1,4 +1,3 @@
-// @ts-nocheck
 export const ALL_DOMAINS = [
   'thenycmobilesalon.com',
 ]

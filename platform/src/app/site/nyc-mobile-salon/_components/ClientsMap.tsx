@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'

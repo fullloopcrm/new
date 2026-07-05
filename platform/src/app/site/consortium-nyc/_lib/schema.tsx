@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Comprehensive JSON-LD Schema Generator for every page type
 
 export const organizationSchema = {

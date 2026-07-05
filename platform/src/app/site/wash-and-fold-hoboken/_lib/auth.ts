@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createHmac, randomBytes } from 'crypto'

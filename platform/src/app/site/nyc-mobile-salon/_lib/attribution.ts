@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Zip code → Neighborhood mapping for NYC Mobile Salon service areas
 
 export const ZIP_TO_NEIGHBORHOOD: Record<string, string> = {

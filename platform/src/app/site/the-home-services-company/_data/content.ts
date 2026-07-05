@@ -1,4 +1,3 @@
-// @ts-nocheck
 export const SITE_URL = "https://www.thehomeservicescompany.com";
 export const PHONE = "(888) 700-4001";
 export const PHONE_HREF = "tel:+18887004001";

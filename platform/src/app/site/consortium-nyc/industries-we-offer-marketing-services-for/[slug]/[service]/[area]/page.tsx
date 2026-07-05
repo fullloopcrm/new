@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { notFound } from "next/navigation";
 import { services, areas, industries, serviceCategories, h1Label } from "@/app/site/consortium-nyc/_lib/siteData";
 import {

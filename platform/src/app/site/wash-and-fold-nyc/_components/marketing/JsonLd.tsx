@@ -1,4 +1,3 @@
-// @ts-nocheck
 export default function JsonLd({ data }: { data: Record<string, unknown> | Record<string, unknown>[] }) {
   const schemas = Array.isArray(data) ? data : [data]
   return (

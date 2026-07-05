@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { PHONE } from "@/app/site/the-nyc-seo/_lib/seo";
 import { getCategories, getRegions, getNeighborhoodsByRegion } from "@/app/site/the-nyc-seo/_lib/data";

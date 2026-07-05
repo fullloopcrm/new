@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/theroadsidehelper/_components/CtaButtons";
 import { ValuationHint } from "@/app/site/theroadsidehelper/_components/ValuationHint";

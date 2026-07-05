@@ -117,9 +117,9 @@ export default function AlertsClient() {
 
   return (
     <main style={{ maxWidth: '680px', margin: '0 auto', padding: '2rem 1.5rem' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>I'm Looking For...</h1>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>I&apos;m Looking For...</h1>
       <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '2rem' }}>
-        Tell us what you want and we'll notify you when it's posted.
+        Tell us what you want and we&apos;ll notify you when it&apos;s posted.
       </p>
 
       {/* Create Alert Form */}
@@ -235,7 +235,7 @@ export default function AlertsClient() {
           </div>
         ) : alerts.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', border: '1px dashed #e2e8f0', borderRadius: '0.75rem' }}>
-            No alerts yet. Tell us what you're looking for above.
+            No alerts yet. Tell us what you&apos;re looking for above.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Format phone to (XXX) XXX-XXXX
 export function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '')

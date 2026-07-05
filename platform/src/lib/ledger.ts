@@ -28,6 +28,8 @@ export const DEFAULT_CHART: Array<{
   { code: '2100', name: 'Credit Card Payable', type: 'liability', subtype: 'credit_card' },
   { code: '2200', name: 'Sales Tax Payable', type: 'liability', subtype: 'tax' },
   { code: '2300', name: 'Payroll Liabilities', type: 'liability', subtype: 'payroll' },
+  { code: '2350', name: 'Customer Deposits', type: 'liability', subtype: 'deposits' },
+  { code: '2400', name: 'Commissions Payable', type: 'liability', subtype: 'payable' },
   // Equity
   { code: '3000', name: 'Owner Equity', type: 'equity' },
   { code: '3100', name: "Owner's Draw", type: 'equity' },
@@ -38,6 +40,7 @@ export const DEFAULT_CHART: Array<{
   { code: '4900', name: 'Other Income', type: 'income' },
   // Cost of services
   { code: '5000', name: 'Contractor Pay', type: 'expense', subtype: 'cogs' },
+  { code: '5010', name: 'Wages (W-2)', type: 'expense', subtype: 'cogs' },
   { code: '5100', name: 'Materials & Supplies', type: 'expense', subtype: 'cogs' },
   // Operating expenses
   { code: '6000', name: 'Rent', type: 'expense', subtype: 'operating' },
@@ -45,12 +48,14 @@ export const DEFAULT_CHART: Array<{
   { code: '6020', name: 'Utilities', type: 'expense', subtype: 'operating' },
   { code: '6030', name: 'Software & Subscriptions', type: 'expense', subtype: 'operating' },
   { code: '6040', name: 'Marketing & Advertising', type: 'expense', subtype: 'operating' },
+  { code: '6045', name: 'Referral Commissions', type: 'expense', subtype: 'operating' },
   { code: '6050', name: 'Vehicle & Fuel', type: 'expense', subtype: 'operating' },
   { code: '6060', name: 'Travel', type: 'expense', subtype: 'operating' },
   { code: '6070', name: 'Meals', type: 'expense', subtype: 'operating' },
   { code: '6080', name: 'Office Supplies', type: 'expense', subtype: 'operating' },
   { code: '6090', name: 'Professional Fees', type: 'expense', subtype: 'operating' },
   { code: '6100', name: 'Bank & Payment Fees', type: 'expense', subtype: 'operating' },
+  { code: '6110', name: 'Chargebacks', type: 'expense', subtype: 'operating' },
   { code: '6900', name: 'Other Expenses', type: 'expense' },
 ]
 

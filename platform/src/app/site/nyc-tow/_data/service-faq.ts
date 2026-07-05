@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { SERVICES } from "./services";
 
 export interface ServiceFAQ {

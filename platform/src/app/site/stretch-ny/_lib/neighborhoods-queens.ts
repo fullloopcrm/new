@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Neighborhood } from "./siteData";
 
 export const queensNeighborhoods: Neighborhood[] = [

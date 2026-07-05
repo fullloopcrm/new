@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { buildMetadata, breadcrumbSchema, collectionPageSchema } from '@/app/site/nyc-classifieds/_lib/seo'

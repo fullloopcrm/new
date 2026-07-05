@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/theroadsidehelper/_data/content";
 import { BookingForm } from "@/app/site/theroadsidehelper/_components/BookingForm";
 import { ValuationHint } from "@/app/site/theroadsidehelper/_components/ValuationHint";

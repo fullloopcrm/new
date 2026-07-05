@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site/theroadsidehelper/_data/content";
 import { pageSeo } from "@/app/site/theroadsidehelper/_lib/seo";
@@ -28,8 +27,8 @@ export default function CareersPage() {
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-emerald-700 font-cta">The Role</p>
           <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">Roadside Technician</h2>
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-base leading-relaxed text-slate-700">
-            <p>As a roadside technician, you'll be dispatched to drivers who need help — jump-starts, tire changes, lockouts, fuel delivery, towing, and winch-outs. You'll work from a service vehicle equipped with commercial-grade tools, follow proper safety procedures for highway-side work, and get drivers moving again as fast as possible.</p>
-            <p>This is a physical, hands-on job. You'll be lifting, kneeling, working around traffic, dealing with weather, and handling stressful situations professionally. It's also a skilled job — knowing the difference between a one-time battery drain and a failing battery, knowing which lockout tools fit which makes, knowing when a flat tire can be plugged vs. when it needs the spare. We train on all of it.</p>
+            <p>As a roadside technician, you&apos;ll be dispatched to drivers who need help — jump-starts, tire changes, lockouts, fuel delivery, towing, and winch-outs. You&apos;ll work from a service vehicle equipped with commercial-grade tools, follow proper safety procedures for highway-side work, and get drivers moving again as fast as possible.</p>
+            <p>This is a physical, hands-on job. You&apos;ll be lifting, kneeling, working around traffic, dealing with weather, and handling stressful situations professionally. It&apos;s also a skilled job — knowing the difference between a one-time battery drain and a failing battery, knowing which lockout tools fit which makes, knowing when a flat tire can be plugged vs. when it needs the spare. We train on all of it.</p>
           </div>
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
@@ -54,9 +53,9 @@ export default function CareersPage() {
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-emerald-700 font-cta">Why Work With Us</p>
           <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">Why Drivers Like Working Here</h2>
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-base leading-relaxed text-slate-700">
-            <p>The roadside industry has a reputation for high turnover and stressful work. We've structured the job to fix the worst parts. Flat-rate billing means you're not chasing volume or pressured to upsell — you fix the problem, document it, and move to the next call. Honest pricing means customers are usually relieved to see us, not braced for a fight.</p>
-            <p>You work from a properly-equipped service vehicle (not your own car), the dispatch system gives you full information about each call before you arrive, and the company handles billing — you handle the service work. Real human dispatchers means you're not arguing with an automated system when something unexpected comes up.</p>
-            <p>We're growing fast across {STATE_COUNT} states. That growth creates real opportunities — new market launches, new shift lead roles, new operations positions. If you want a roadside job that doesn't burn you out by year two, this is the place.</p>
+            <p>The roadside industry has a reputation for high turnover and stressful work. We&apos;ve structured the job to fix the worst parts. Flat-rate billing means you&apos;re not chasing volume or pressured to upsell — you fix the problem, document it, and move to the next call. Honest pricing means customers are usually relieved to see us, not braced for a fight.</p>
+            <p>You work from a properly-equipped service vehicle (not your own car), the dispatch system gives you full information about each call before you arrive, and the company handles billing — you handle the service work. Real human dispatchers means you&apos;re not arguing with an automated system when something unexpected comes up.</p>
+            <p>We&apos;re growing fast across {STATE_COUNT} states. That growth creates real opportunities — new market launches, new shift lead roles, new operations positions. If you want a roadside job that doesn&apos;t burn you out by year two, this is the place.</p>
           </div>
         </div>
       </section>
@@ -64,7 +63,7 @@ export default function CareersPage() {
       <section className="bg-section-white py-16">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-emerald-700 font-cta">Requirements</p>
-          <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">What You'll Need</h2>
+          <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">What You&apos;ll Need</h2>
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {[
               "Valid driver's license and clean 3-year driving record",
@@ -92,7 +91,7 @@ export default function CareersPage() {
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-base leading-relaxed text-slate-700">
             <p><strong>Shift start:</strong> Report to dispatch base or sign in remotely from your service vehicle. Review any active dispatch queue. Confirm equipment inventory on the truck.</p>
             <p><strong>Active dispatch:</strong> Calls route to you based on proximity. Each call comes with full info — customer name, location, vehicle make/model, problem description. You call the customer with your ETA before driving, then head out.</p>
-            <p><strong>On scene:</strong> Confirm safety, walk the customer through what you're about to do, perform the service, document the work, collect payment via tablet. Typical call: 30–60 minutes door-to-door including drive time.</p>
+            <p><strong>On scene:</strong> Confirm safety, walk the customer through what you&apos;re about to do, perform the service, document the work, collect payment via tablet. Typical call: 30–60 minutes door-to-door including drive time.</p>
             <p><strong>Between calls:</strong> Restock if needed, return to coverage zone, take meal breaks. Most technicians handle 4–8 calls per shift depending on geography and call mix.</p>
             <p><strong>End of shift:</strong> Return to base, sign off, log any equipment that needs replenishing for the next shift. Daily summary auto-generated.</p>
           </div>
@@ -102,7 +101,7 @@ export default function CareersPage() {
       <section className="bg-slate-900 py-16">
         <div className="mx-auto max-w-5xl px-6 text-center">
           <h2 className="text-3xl font-bold text-white sm:text-4xl font-heading">Ready to Apply?</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-white/80">Email us your name, city, and a brief note about your experience. We'll respond within 48 hours.</p>
+          <p className="mx-auto mt-4 max-w-2xl text-white/80">Email us your name, city, and a brief note about your experience. We&apos;ll respond within 48 hours.</p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <a href={`mailto:${EMAIL}?subject=Roadside Technician Application`}>
               <span className="inline-block rounded-lg bg-amber-400 px-8 py-3.5 text-base font-semibold text-slate-900 shadow-lg transition-colors hover:bg-amber-300 font-cta">Email {EMAIL}</span>

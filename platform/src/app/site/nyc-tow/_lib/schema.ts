@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * JSON-LD schema builders for The NYC Towing Service.
  *

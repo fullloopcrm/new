@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { TIPS_100 } from "./tips-100";
 
 export interface BlogPost {

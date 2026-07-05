@@ -1,4 +1,3 @@
-// @ts-nocheck
 import webpush from 'web-push'
 import { supabaseAdmin } from '@/app/site/nyc-mobile-salon/_lib/supabase'
 

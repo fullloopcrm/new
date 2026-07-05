@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import FeedbackWidget from '@/app/site/wash-and-fold-hoboken/_components/FeedbackWidget'
 

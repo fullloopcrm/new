@@ -1,4 +1,3 @@
-// @ts-nocheck
 export const interiorDesignFAQs = [
   // ── General ──
   { question: "What interior design services do you offer in NYC?", answer: "We offer 18 professional interior design services including full-home design, kitchen design, bathroom design, living room design, bedroom design, home office design, commercial interior design, space planning, color consultation, furniture selection, lighting design, custom closet design, renovation management, window treatment design, art curation, staging, wallpaper and wall treatments, and smart home integration.", category: "General" },

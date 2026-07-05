@@ -20,7 +20,16 @@ const STEPS = [
   { key: 'brand', title: 'Brand', blurb: 'How your business looks and sounds across your site and AI.' },
   { key: 'compliance', title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
   { key: 'social', title: 'Social & Reviews', blurb: 'Public profiles for your site footer, schema, and review flow.' },
+  { key: 'import', title: 'Import your business', blurb: 'Bring your existing clients, schedule, and books into Full Loop.' },
 ] as const
+
+// Data importers surfaced in the final onboarding step. Clients first — schedules
+// match appointments to imported clients.
+const IMPORTS: Array<{ href: string; title: string; desc: string }> = [
+  { href: '/dashboard/clients/import', title: '1. Client list', desc: 'Upload a CSV of your customers. We map columns and skip duplicates.' },
+  { href: '/dashboard/schedules/import', title: '2. Schedule', desc: 'Existing & recurring appointments, matched to your clients.' },
+  { href: '/dashboard/finance/import', title: '3. Finance', desc: 'Import bank transactions to seed your books.' },
+]
 
 export default function OnboardingProfilePage() {
   const router = useRouter()
@@ -172,6 +181,21 @@ export default function OnboardingProfilePage() {
               <input type="checkbox" checked={!!form.bonded} onChange={(e) => set('bonded', e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
               We are bonded
             </label>
+          </div>
+        )}
+
+        {s.key === 'import' && (
+          <div className="space-y-3">
+            {IMPORTS.map((imp) => (
+              <a key={imp.href} href={imp.href} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-teal-400">
+                <span>
+                  <span className="block text-sm font-semibold text-slate-900">{imp.title}</span>
+                  <span className="block text-xs text-slate-500">{imp.desc}</span>
+                </span>
+                <span className="shrink-0 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white">Open</span>
+              </a>
+            ))}
+            <p className="text-xs text-slate-400">Each opens its own importer. Come back and hit Finish when you&apos;re done — you can always import more later.</p>
           </div>
         )}
 

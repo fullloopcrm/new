@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import Image from "next/image";
 import { PHONE, PHONE_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/theroadsidehelper/_data/content";
@@ -132,7 +131,7 @@ export default function ServicesPage() {
         <div className="mx-auto max-w-4xl px-6 text-center">
           <h2 className="text-3xl font-bold text-white sm:text-4xl font-heading">Need Help Right Now?</h2>
           <p className="mx-auto mt-4 max-w-2xl text-white/80">
-            Call <a href={PHONE_HREF} className="text-amber-300 hover:underline">{PHONE}</a> for the fastest dispatch. We're picking up 24 hours a day.
+            Call <a href={PHONE_HREF} className="text-amber-300 hover:underline">{PHONE}</a> for the fastest dispatch. We&apos;re picking up 24 hours a day.
           </p>
           <CtaButtons variant="dark" />
         </div>

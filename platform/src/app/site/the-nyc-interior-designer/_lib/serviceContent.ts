@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { ServiceContent } from "./serviceContentTypes";
 import { batch1 } from "./serviceContent-batch1";
 import { batch2 } from "./serviceContent-batch2";

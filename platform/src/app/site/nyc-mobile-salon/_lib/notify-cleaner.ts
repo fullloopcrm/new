@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { supabaseAdmin } from '@/app/site/nyc-mobile-salon/_lib/supabase'
 import { sendPushToCleaner } from '@/app/site/nyc-mobile-salon/_lib/push'
 import { sendSMS } from '@/app/site/nyc-mobile-salon/_lib/sms'

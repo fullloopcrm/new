@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import Image from "next/image";
 import { CtaButtons } from "@/app/site/toll-trucks-near-me/_components/CtaButtons";
@@ -108,13 +107,13 @@ export default function HomePage() {
           </p>
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-base leading-relaxed text-slate-700">
             <p>
-              Here is what the tow industry does not want you to learn the hard way: a phone quote of "$85 to hook up" becomes $340 on the invoice after "mileage escalators," "after-hours premiums," "dolly fees," "winch fees," and "storage holds" are stacked on. Accident-scene tows get routed to whichever yard the officer on duty called first — not YOUR chosen shop. Then your vehicle sits in a predatory storage yard racking up $65/day fees while your insurance adjuster tries to release it.
+              Here is what the tow industry does not want you to learn the hard way: a phone quote of &quot;$85 to hook up&quot; becomes $340 on the invoice after &quot;mileage escalators,&quot; &quot;after-hours premiums,&quot; &quot;dolly fees,&quot; &quot;winch fees,&quot; and &quot;storage holds&quot; are stacked on. Accident-scene tows get routed to whichever yard the officer on duty called first — not YOUR chosen shop. Then your vehicle sits in a predatory storage yard racking up $65/day fees while your insurance adjuster tries to release it.
             </p>
             <p>
               <strong>Toll Trucks Near Me does none of that.</strong> We quote the full price on the phone before any truck rolls — hookup fee plus per-mile, confirmed before dispatch. That price is final on the invoice. No surprises. You pick the destination shop. We tow there.
             </p>
             <p>
-              Live dispatchers answer in under 3 rings, 24/7/365. No IVR, no phone tree, no "the next available operator will be with you shortly." A human takes your call at 2 AM on Tuesday the same way they take it at 10 AM on Monday. You receive a text with your driver's name, truck number, and live ETA within 60 seconds of hanging up.
+              Live dispatchers answer in under 3 rings, 24/7/365. No IVR, no phone tree, no &quot;the next available operator will be with you shortly.&quot; A human takes your call at 2 AM on Tuesday the same way they take it at 10 AM on Monday. You receive a text with your driver&apos;s name, truck number, and live ETA within 60 seconds of hanging up.
             </p>
             <p>
               We dispatch the right truck the first time. Flatbeds for AWD, low-clearance, and electric vehicles. Wheel-lifts for parking decks and tight spaces. Medium-duty for cargo vans and box trucks. Heavy wreckers (50-ton and 75-ton) for semis, buses, and RVs. Motorcycle-rated flatbeds for bikes. No repeat trips because someone guessed wrong.

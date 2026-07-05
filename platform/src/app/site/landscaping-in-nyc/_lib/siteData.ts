@@ -1,4 +1,3 @@
-// @ts-nocheck
 /* ─── Site Constants ─── */
 
 export const SITE_NAME = "Landscaping In NYC";

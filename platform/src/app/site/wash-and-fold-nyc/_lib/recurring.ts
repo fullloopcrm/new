@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Shared recurring date generation logic
 // Used by both RecurringOptions.tsx (client) and cron/generate-recurring (server)
 import { filterHolidays } from '@/app/site/wash-and-fold-nyc/_lib/holidays'

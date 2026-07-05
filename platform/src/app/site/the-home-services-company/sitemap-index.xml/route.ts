@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { NextResponse } from "next/server";
 
 const SITE = "https://www.thehomeservicescompany.com";

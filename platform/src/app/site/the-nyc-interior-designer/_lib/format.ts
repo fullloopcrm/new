@@ -1,4 +1,3 @@
-// @ts-nocheck
 export function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '')
   if (digits.length === 10) {

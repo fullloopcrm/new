@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { pageSeo } from "@/app/site/theroadsidehelper/_lib/seo";
 
 export const metadata = pageSeo({

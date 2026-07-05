@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { SITE_URL, SITE_NAME, SITE_PHONE, SITE_EMAIL } from "./siteData";
 
 /* ─── Core Organization Schema (HealthAndBeautyBusiness + ProfessionalService) ─── */

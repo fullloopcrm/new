@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { boroughs, categories, neighborhoodSlug, slugify } from '@/app/site/nyc-classifieds/_lib/data'
 import { buildMetadata, collectionPageSchema, speakableSchema } from '@/app/site/nyc-classifieds/_lib/seo'
 import Link from 'next/link'

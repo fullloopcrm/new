@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Role-Based Access Control for Admin Users
 
 export type AdminRole = 'owner' | 'admin' | 'manager' | 'viewer'

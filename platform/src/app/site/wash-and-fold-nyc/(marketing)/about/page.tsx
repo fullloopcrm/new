@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import CTABlock from '@/app/site/wash-and-fold-nyc/_components/marketing/CTABlock'

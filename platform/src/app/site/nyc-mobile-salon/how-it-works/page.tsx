@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { faqSchema, breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Auto-generated photo manifest sourced from Pexels API.
 // Regenerate by running the fetch script in scripts/fetch-photos.py (one-off).
 import data from "./photos.json";

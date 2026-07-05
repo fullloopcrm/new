@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState } from "react";
@@ -105,7 +104,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
         </div>
       </div>
       <div className="mt-4">
-        <label className={`block text-sm font-semibold mb-1 font-cta ${isDark ? "text-white/80" : "text-slate-700"}`}>What's the situation?</label>
+        <label className={`block text-sm font-semibold mb-1 font-cta ${isDark ? "text-white/80" : "text-slate-700"}`}>What&apos;s the situation?</label>
         <textarea
           name="details"
           rows={3}

@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface Tip {
   slug: string;
   title: string;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Repurposed from the original "assessment hint" component.
 // Now surfaces a roadside-specific tip so existing imports stay valid.
 export function ValuationHint({ className = "" }: { className?: string }) {

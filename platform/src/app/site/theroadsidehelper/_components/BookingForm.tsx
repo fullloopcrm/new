@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -456,7 +455,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
               required
               className={inputClass}
             />
-            <p className={tipClass}>Pick a time when you'll be with the vehicle.</p>
+            <p className={tipClass}>Pick a time when you&apos;ll be with the vehicle.</p>
           </div>
         )}
       </div>
@@ -488,7 +487,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             className="hidden"
           />
         </div>
-        <p className={tipClass}>A photo of the vehicle, flat tire, or how you're stuck helps us dispatch the right equipment.</p>
+        <p className={tipClass}>A photo of the vehicle, flat tire, or how you&apos;re stuck helps us dispatch the right equipment.</p>
 
         {files.length > 0 && (
           <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -540,7 +539,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
           className={inputClass}
         />
         <p className={tipClass}>
-          Useful: which side of the road you're on, whether you have a spare or jack, any safety concerns, accessibility notes for the technician.
+          Useful: which side of the road you&apos;re on, whether you have a spare or jack, any safety concerns, accessibility notes for the technician.
         </p>
       </div>
 

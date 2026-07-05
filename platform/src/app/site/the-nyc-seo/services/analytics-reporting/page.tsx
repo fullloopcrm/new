@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import type { Metadata } from "next";
 import Breadcrumbs from "@/app/site/the-nyc-seo/_components/Breadcrumbs";
@@ -710,7 +709,7 @@ export default function AnalyticsReportingPage() {
               ))}
             </div>
             <blockquote className="mt-4 text-zinc-300 leading-relaxed italic">
-              &ldquo;Our previous agency sent us a PDF every month with traffic numbers. That was it. The NYC SEO set up call tracking, connected everything to their CRM, and within the first week I could see exactly how many calls each page was generating. Turns out our 'About' page was generating more leads than our 'Services' page — something no amount of traffic data would have revealed. The level of visibility they provide is on another level.&rdquo;
+              &ldquo;Our previous agency sent us a PDF every month with traffic numbers. That was it. The NYC SEO set up call tracking, connected everything to their CRM, and within the first week I could see exactly how many calls each page was generating. Turns out our &apos;About&apos; page was generating more leads than our &apos;Services&apos; page — something no amount of traffic data would have revealed. The level of visibility they provide is on another level.&rdquo;
             </blockquote>
             <p className="mt-4 text-sm font-semibold text-white">— Rachel M., Personal Injury Attorney, Manhattan</p>
           </div>

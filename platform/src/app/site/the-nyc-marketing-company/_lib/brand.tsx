@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Combined brand identity. Plain string for metadata, schema, alt text, and any
 // non-JSX context where a link is impossible.
 export const BRAND_NAME = "Consortium NYC (Now The NYC Marketing Company)";

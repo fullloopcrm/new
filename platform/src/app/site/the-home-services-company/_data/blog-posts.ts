@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Know Before You Hire — the series for homeowners getting help.
 // 100 posts. No dates. 2,500-word minimum target for published posts.
 //

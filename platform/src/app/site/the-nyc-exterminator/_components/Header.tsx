@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { PHONE } from "@/app/site/the-nyc-exterminator/_lib/seo";
 import { getCategories } from "@/app/site/the-nyc-exterminator/_lib/data";

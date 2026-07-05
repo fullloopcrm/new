@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { MetadataRoute } from "next";
 import { STATES } from "@/app/site/theroadsidehelper/_data/cities";
 import { SERVICES } from "@/app/site/theroadsidehelper/_data/services";

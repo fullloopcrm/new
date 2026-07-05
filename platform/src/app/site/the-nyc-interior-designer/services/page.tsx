@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { services, getServiceUrl, SITE_DOMAIN, PHONE, PHONE_HREF, SMS_HREF, areas } from "@/app/site/the-nyc-interior-designer/_lib/siteData";

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { clearAdminSession } from "@/app/site/the-home-services-company/_lib/admin-auth";

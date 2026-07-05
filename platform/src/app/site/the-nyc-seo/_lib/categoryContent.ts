@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface CategoryContent {
   whySEOMatters: string[];
   seoProcess: { step: string; detail: string }[];

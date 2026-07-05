@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Topic-matched Pexels photos for roadside assistance scenes.
 // Each URL was fetched from the Pexels search API and manually picked for
 // topical accuracy. Pexels permits hot-linking; photographers credited inline.

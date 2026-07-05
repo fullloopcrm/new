@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { BlogPost } from "./blogPosts";
 
 export const blogBatch1: BlogPost[] = [

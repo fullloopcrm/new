@@ -1,4 +1,3 @@
-// @ts-nocheck
 /* State-specific data for DSCR loan content */
 
 export interface StateInfo {

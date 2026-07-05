@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface BlogSection {
   heading?: string
   paragraphs: string[]

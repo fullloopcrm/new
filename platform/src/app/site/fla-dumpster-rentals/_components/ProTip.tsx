@@ -1,4 +1,3 @@
-// @ts-nocheck
 interface ProTipProps {
   tips: { title: string; body: string }[];
 }

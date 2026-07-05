@@ -1,4 +1,3 @@
-// @ts-nocheck
 import servicesData from "@/app/site/the-nyc-seo/_data/services.json";
 import neighborhoodsData from "@/app/site/the-nyc-seo/_data/neighborhoods.json";
 

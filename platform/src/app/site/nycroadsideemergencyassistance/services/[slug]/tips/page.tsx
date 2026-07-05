@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -173,7 +172,7 @@ export default async function ServiceTipsPage({ params }: { params: Promise<{ sl
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-xs font-semibold uppercase tracking-widest text-teal-700 font-cta">Common Mistakes</p>
           <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">
-            Do's and Don'ts for {service.title}
+            Do&apos;s and Don&apos;ts for {service.title}
           </h2>
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border-2 border-teal-400 bg-white p-6 shadow-sm">
@@ -188,7 +187,7 @@ export default async function ServiceTipsPage({ params }: { params: Promise<{ sl
               </ul>
             </div>
             <div className="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm">
-              <p className="text-sm font-bold uppercase tracking-widest text-slate-600 font-cta">Don't</p>
+              <p className="text-sm font-bold uppercase tracking-widest text-slate-600 font-cta">Don&apos;t</p>
               <ul className="mt-4 space-y-3">
                 {tips.donts.map((d, i) => (
                   <li key={i} className="flex gap-3 text-base text-slate-700">

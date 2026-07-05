@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface Area {
   slug: string
   urlSlug: string

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import { JsonLd, organizationSchema, websiteSchema, faqSchema, breadcrumbSchema, allOfficesSchema } from "@/app/site/debt-service-ratio-loan/_lib/schema";
 import { homeFAQs } from "@/app/site/debt-service-ratio-loan/_lib/siteData";

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'

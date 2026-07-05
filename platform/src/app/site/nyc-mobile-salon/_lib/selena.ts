@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/app/site/nyc-mobile-salon/_lib/supabase'
 import { checkAvailability, getSmartSuggestions, checkCleanerAvailability } from '@/app/site/nyc-mobile-salon/_lib/availability'

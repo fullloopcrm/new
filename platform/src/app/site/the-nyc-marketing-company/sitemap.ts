@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { MetadataRoute } from "next";
 import { serviceCategories, areas, industries } from "@/app/site/the-nyc-marketing-company/_lib/siteData";
 

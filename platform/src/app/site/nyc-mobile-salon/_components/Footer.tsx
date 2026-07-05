@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { mainNav, moreNav, neighborhoods, boroughNames } from "@/app/site/nyc-mobile-salon/_lib/constants";
 

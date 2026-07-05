@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import { SITE_NAME, SITE_DOMAIN } from "@/app/site/landscaping-in-nyc/_lib/siteData";
 import ApplyClient from "./ApplyClient";

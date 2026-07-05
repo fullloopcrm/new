@@ -1,4 +1,3 @@
-// @ts-nocheck
 export default function TrustBadges() {
   const badges = [
     { icon: '\u{1F6E1}', label: 'Licensed & Insured' },

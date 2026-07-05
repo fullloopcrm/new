@@ -1,4 +1,3 @@
-// @ts-nocheck
 // National home services city data — 50 states, 990 cities
 
 export interface City {

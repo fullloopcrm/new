@@ -1,4 +1,3 @@
-// @ts-nocheck
 export const SERVICE_ZONES = [
   { id: 'manhattan_downtown', label: 'Manhattan — Downtown (below 34th)', labelES: 'Manhattan — Centro (debajo de 34th)', car_required: false },
   { id: 'manhattan_midtown', label: 'Manhattan — Midtown (34th to 90th)', labelES: 'Manhattan — Midtown (34th a 90th)', car_required: false },

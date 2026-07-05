@@ -1,4 +1,3 @@
-// @ts-nocheck
 export default function VerifiedBadge({ size = 'sm' }: { size?: 'sm' | 'md' }) {
   const px = size === 'md' ? '0.5rem 0.75rem' : '0.25rem 0.5rem'
   const fontSize = size === 'md' ? '0.875rem' : '0.75rem'

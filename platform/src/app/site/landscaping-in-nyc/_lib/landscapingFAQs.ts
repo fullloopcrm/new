@@ -1,4 +1,3 @@
-// @ts-nocheck
 export const landscapingFAQs = [
   { question: "How much does landscaping cost in NYC?", answer: "NYC landscaping costs vary widely based on scope. Basic lawn care and maintenance runs $200-$500/month. Garden design and installation starts at $5,000-$15,000 for small spaces. Full backyard transformations range from $15,000-$75,000+. Rooftop gardens and terrace builds can run $50,000-$200,000+ depending on structural requirements and access." },
   { question: "Do I need a permit for landscaping in New York City?", answer: "Most standard landscaping (planting, mulching, lawn care) does not require a permit. However, you need permits from the NYC Department of Buildings for structural work like retaining walls over 4 feet, decks, pergolas, fences over 6 feet, and any work affecting drainage or grading. Rooftop gardens almost always require engineering approval and permits." },

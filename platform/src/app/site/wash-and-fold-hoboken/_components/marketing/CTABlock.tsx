@@ -1,4 +1,3 @@
-// @ts-nocheck
 export default function CTABlock({ title, subtitle }: { title?: string; subtitle?: string }) {
   return (
     <section className="bg-[#A8F0DC] py-20">

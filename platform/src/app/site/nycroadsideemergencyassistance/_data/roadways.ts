@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { STREETS } from "./streets";
 import { HIGHWAYS } from "./highways";
 import { BRIDGES } from "./bridges";

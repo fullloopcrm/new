@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Script from 'next/script'
 import { Bebas_Neue, Inter } from 'next/font/google'
 

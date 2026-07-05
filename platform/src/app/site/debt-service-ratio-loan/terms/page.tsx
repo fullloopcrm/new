@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, breadcrumbSchema } from "@/app/site/debt-service-ratio-loan/_lib/schema";

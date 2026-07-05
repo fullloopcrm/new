@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface Job {
   title: string;
   slug: string;

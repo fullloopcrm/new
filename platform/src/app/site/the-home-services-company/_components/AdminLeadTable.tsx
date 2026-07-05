@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { redirect } from "next/navigation";
 import type { Lead } from "@/app/site/the-home-services-company/_lib/admin-data";
 import { updateLeadStatus, updateLeadNotes } from "@/app/site/the-home-services-company/_lib/admin-data";

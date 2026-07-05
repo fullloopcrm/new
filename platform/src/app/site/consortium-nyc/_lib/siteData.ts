@@ -1,4 +1,3 @@
-// @ts-nocheck
 // All services, areas, and data for programmatic page generation
 
 export interface SubService {

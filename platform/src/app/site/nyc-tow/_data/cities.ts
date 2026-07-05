@@ -1,4 +1,3 @@
-// @ts-nocheck
 // NYC towing service coverage — 5 boroughs, 200+ neighborhoods
 // NOTE: We kept the `State` interface name for compatibility with existing routes.
 // In this codebase, "state" means NYC borough and "city" means NYC neighborhood.

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Stub: nycmaid source had nyc-classifieds as scaffold-only.
 // Replace with real data when nyc-classifieds becomes a live tenant.
 

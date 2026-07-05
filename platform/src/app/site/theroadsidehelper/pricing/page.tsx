@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/theroadsidehelper/_components/CtaButtons";
 import { PricingCalculator } from "@/app/site/theroadsidehelper/_components/PricingCalculator";
@@ -53,9 +52,9 @@ export default function PricingPage() {
           <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">The Rate Structure — Plain and Simple</h2>
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-base leading-relaxed text-slate-700">
             <p><strong>The base rate:</strong> $149 per hour. 1-hour minimum. Most roadside calls — jump-starts, tire changes, lockouts — finish inside that minimum, which means the minimum is also the maximum for the typical job. If your situation is more complex, the technician quotes the additional time before continuing.</p>
-            <p><strong>What's included:</strong> the dispatch and arrival, the time on scene to perform the service, standard equipment (commercial jump pack, breaker bar, lockout tools, fuel container — whatever fits the service), and the post-service confirmation that the vehicle is running.</p>
-            <p><strong>What's billed separately at cost:</strong> tow mileage past 5 miles (billed at the local per-mile rate, no markup), fuel for fuel-delivery calls (billed at pump price), replacement batteries (billed at retail price plus install time). Nothing inflated.</p>
-            <p><strong>When you call:</strong> the dispatcher confirms the rate before the technician rolls. When the tech arrives, they confirm the rate again before starting work. Nothing is added to your bill that wasn't agreed to first.</p>
+            <p><strong>What&apos;s included:</strong> the dispatch and arrival, the time on scene to perform the service, standard equipment (commercial jump pack, breaker bar, lockout tools, fuel container — whatever fits the service), and the post-service confirmation that the vehicle is running.</p>
+            <p><strong>What&apos;s billed separately at cost:</strong> tow mileage past 5 miles (billed at the local per-mile rate, no markup), fuel for fuel-delivery calls (billed at pump price), replacement batteries (billed at retail price plus install time). Nothing inflated.</p>
+            <p><strong>When you call:</strong> the dispatcher confirms the rate before the technician rolls. When the tech arrives, they confirm the rate again before starting work. Nothing is added to your bill that wasn&apos;t agreed to first.</p>
           </div>
         </div>
       </section>
@@ -191,7 +190,7 @@ export default function PricingPage() {
       {/* No surcharges */}
       <section className="bg-section-teal py-16">
         <div className="mx-auto max-w-5xl px-6">
-          <p className="text-center text-sm font-semibold uppercase tracking-widest text-emerald-700 font-cta">What's Not on the Bill</p>
+          <p className="text-center text-sm font-semibold uppercase tracking-widest text-emerald-700 font-cta">What&apos;s Not on the Bill</p>
           <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">No Surcharges, Ever</h2>
           <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
             {[

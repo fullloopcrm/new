@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface ServiceSection {
   id: string;
   title: string;

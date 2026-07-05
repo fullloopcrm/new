@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Rich SEO descriptions per service slug. Used on individual service pages. */
 export const serviceContent: Record<string, { intro: string; details: string; ideal: string; includes: string[]; duration: string; price: string }> = {
   // ── Women's Hair ──
