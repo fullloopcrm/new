@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
+import { registerCarryingDomain } from '@/lib/vercel-domains'
 
 export async function GET() {
   const authError = await requireAdmin()
@@ -96,10 +97,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Register the tenant's live website (<slug>.fullloopcrm.com) as a Vercel
+  // project domain so the site exists the moment the business is created — not
+  // only later via Activate. Best-effort: never throws, no-ops if Vercel env is
+  // unset. The result is surfaced so the form can show the live URL / any issue.
+  const carrying = await registerCarryingDomain(slug)
+
   // Services, selena_config, guidelines, etc. are seeded by
   // POST /api/admin/businesses/[id]/provision (called by the onboarding form
   // when Auto-seed is checked). Keeps seeding logic in one place.
-  return NextResponse.json({ business: tenant })
+  return NextResponse.json({ business: tenant, carrying })
 }
 
 function zipToTimezone(zip: string): string {
