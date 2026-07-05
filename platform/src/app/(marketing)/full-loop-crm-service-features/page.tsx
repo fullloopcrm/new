@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, webPageSchema, breadcrumbSchema, serviceSchema, localBusinessSchema } from "@/lib/schema";
+import { features } from "@/lib/marketing/features";
 
 export const metadata: Metadata = {
   title:
@@ -947,6 +948,49 @@ export default function FeaturesPage() {
             </Link>
             .
           </p>
+        </div>
+      </section>
+
+      {/* ── Explore every feature in depth (inner-link hub) ── */}
+      <section className="bg-white py-20 px-6 sm:px-8 lg:px-12" id="feature-deep-dives">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-12">
+            <p className="font-mono text-sm uppercase tracking-widest text-teal-600 mb-4">
+              Go Deeper
+            </p>
+            <h2 className="font-heading text-3xl sm:text-4xl font-extrabold text-slate-900 mb-6">
+              Explore Every Feature In Depth
+            </h2>
+            <p className="text-lg text-slate-600 max-w-3xl mx-auto">
+              Each capability has its own detailed breakdown — how it works, the problem it
+              solves, and the results it drives for home service businesses.
+            </p>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((f) => (
+              <Link
+                key={f.slug}
+                href={`/feature/${f.slug}`}
+                className="group rounded-xl border border-slate-200 p-6 transition-colors hover:border-teal-300 hover:bg-teal-50/30"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="font-mono text-xs uppercase tracking-widest text-teal-600">
+                    {f.category}
+                  </p>
+                  {f.status === "in-progress" && (
+                    <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-700">
+                      Soon
+                    </span>
+                  )}
+                </div>
+                <h3 className="font-heading text-lg font-bold text-slate-900 group-hover:text-teal-700 mb-2">
+                  {f.name}
+                </h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{f.heroSub}</p>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 

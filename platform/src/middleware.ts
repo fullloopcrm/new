@@ -72,6 +72,7 @@ const isPublicRoute = createRouteMatcher([
   '/businesses',
   '/full-loop-crm-service-business-industries',
   '/industry(.*)',
+  '/feature(.*)',           // Per-feature SEO landing pages
   '/(.*)-business-crm',
   '/crm-for-(.*)',
   '/locations(.*)',
