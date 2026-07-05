@@ -58,10 +58,10 @@ const n = (v: number) => (v ?? 0).toLocaleString('en-US')
 const pct = (v: number) => `${((v ?? 0) * 100).toFixed(1)}%`
 
 function positionColor(p: number | null): string {
-  if (p == null) return 'text-zinc-500'
-  if (p <= 10) return 'text-emerald-400'
-  if (p <= 20) return 'text-amber-400'
-  return 'text-rose-400'
+  if (p == null) return 'text-slate-400'
+  if (p <= 10) return 'text-emerald-600'
+  if (p <= 20) return 'text-amber-600'
+  return 'text-rose-600'
 }
 
 export default function AdminSeoPage() {
@@ -104,37 +104,39 @@ export default function AdminSeoPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-zinc-400">Loading fleet…</div>
-  if (error) return <div className="p-8 text-rose-400">Couldn’t load SEO data: {error}</div>
+  if (loading) return <div className="text-sm text-slate-500">Loading fleet…</div>
+  if (error) return <div className="text-sm text-rose-600">Couldn’t load SEO data: {error}</div>
   if (!data) return null
 
   const { properties, totals, windowDays } = data
   const avgCtr = totals.impressions > 0 ? totals.clicks / totals.impressions : 0
 
   return (
-    <div className="p-6 md:p-8 max-w-[1200px]">
-      <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.22em] text-teal-400">
-        SIGNAL · Fleet · last {windowDays} days
+    <div className="max-w-[1200px]">
+      <div className="mb-5">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-400">
+          SIGNAL · Fleet · last {windowDays} days
+        </p>
+        <h1 className="text-2xl font-heading font-bold text-slate-900">SEO — Portfolio</h1>
+        <p className="text-sm text-slate-500">
+          Every granted Search Console property, one screen. Search data lags ~2–3 days.
+        </p>
       </div>
-      <h1 className="text-2xl font-bold tracking-tight text-zinc-100">SEO — Portfolio</h1>
-      <p className="mt-1 text-sm text-zinc-400">
-        Every granted Search Console property, one screen. Search data lags ~2–3 days.
-      </p>
 
       {/* KPI tiles */}
-      <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-zinc-800 bg-zinc-800 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {[
           { l: 'Impressions', v: n(totals.impressions) },
           { l: 'Clicks', v: n(totals.clicks) },
           { l: 'Avg CTR', v: pct(avgCtr) },
-          { l: 'Applicant impressions', v: n(totals.applicant_impressions), hint: 'labor funnel' },
+          { l: 'Applicant impr.', v: n(totals.applicant_impressions), hint: 'labor funnel' },
           { l: 'Properties', v: n(properties.length) },
         ].map((k) => (
-          <div key={k.l} className="bg-zinc-950 p-4">
-            <div className="font-mono text-xl font-semibold tabular-nums text-zinc-100">{k.v}</div>
-            <div className="mt-1 text-xs text-zinc-500">
+          <div key={k.l} className="rounded-lg border border-slate-200 border-l-4 border-l-teal-500 bg-white p-4">
+            <div className="font-mono text-xl font-semibold tabular-nums text-slate-900">{k.v}</div>
+            <div className="mt-1 text-xs text-slate-500">
               {k.l}
-              {k.hint ? <span className="ml-1 text-teal-500">· {k.hint}</span> : null}
+              {k.hint ? <span className="ml-1 text-teal-600">· {k.hint}</span> : null}
             </div>
           </div>
         ))}
@@ -143,39 +145,39 @@ export default function AdminSeoPage() {
       {/* Proposed fixes — review & apply */}
       {data.proposals.length > 0 && (
         <div className="mt-8">
-          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-teal-400">
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-teal-600">
             Proposed fixes · {data.proposals.length} awaiting review
-          </div>
+          </p>
           <div className="flex flex-col gap-3">
             {data.proposals.map((p) => (
-              <div key={p.url} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+              <div key={p.url} className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex items-start justify-between gap-4">
-                  <a href={p.url} target="_blank" rel="noreferrer" className="truncate font-mono text-xs text-zinc-400 hover:text-teal-400">
+                  <a href={p.url} target="_blank" rel="noreferrer" className="truncate font-mono text-xs text-slate-500 hover:text-teal-600">
                     {p.url.replace(/^https?:\/\/(www\.)?/, '')}
                   </a>
                   <button
                     onClick={() => act(p, false)}
                     disabled={busy === p.url}
-                    className="shrink-0 rounded-md bg-teal-600 px-3 py-1 text-xs font-semibold text-white hover:bg-teal-500 disabled:opacity-50"
+                    className="shrink-0 rounded-lg bg-teal-600 px-3 py-1 text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
                   >
                     {busy === p.url ? 'Applying…' : 'Apply'}
                   </button>
                 </div>
                 {p.title && (
                   <div className="mt-3 text-sm">
-                    <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Title</div>
-                    <div className="text-rose-400/80 line-through decoration-zinc-700">{p.title.before || '(none)'}</div>
-                    <div className="text-emerald-300">{p.title.after}</div>
+                    <div className="font-mono text-[10px] uppercase tracking-wide text-slate-400">Title</div>
+                    <div className="text-slate-400 line-through decoration-slate-300">{p.title.before || '(none)'}</div>
+                    <div className="font-medium text-emerald-700">{p.title.after}</div>
                   </div>
                 )}
                 {p.description && (
                   <div className="mt-2 text-sm">
-                    <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Meta</div>
-                    <div className="text-rose-400/70 line-through decoration-zinc-700">{p.description.before || '(none)'}</div>
-                    <div className="text-emerald-300/90">{p.description.after}</div>
+                    <div className="font-mono text-[10px] uppercase tracking-wide text-slate-400">Meta</div>
+                    <div className="text-slate-400 line-through decoration-slate-300">{p.description.before || '(none)'}</div>
+                    <div className="text-emerald-700">{p.description.after}</div>
                   </div>
                 )}
-                {p.rationale && <div className="mt-2 text-xs text-zinc-500">{p.rationale}</div>}
+                {p.rationale && <div className="mt-2 text-xs text-slate-400">{p.rationale}</div>}
               </div>
             ))}
           </div>
@@ -185,21 +187,21 @@ export default function AdminSeoPage() {
       {/* Opportunity — detected issues */}
       {data.issues.length > 0 && (
         <div className="mt-8">
-          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-amber-400">
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-amber-600">
             Opportunity · {n(data.issues.reduce((s, i) => s + i.issues, 0))} pages ·{' '}
             {n(data.issues.reduce((s, i) => s + i.impressions_at_stake, 0))} impressions at stake
-          </div>
-          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-zinc-800 bg-zinc-800 md:grid-cols-3">
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {data.issues.map((i) => (
-              <div key={i.type} className="bg-zinc-950 p-4">
+              <div key={i.type} className="rounded-lg border border-slate-200 border-l-4 border-l-amber-500 bg-white p-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="font-mono text-2xl font-semibold tabular-nums text-zinc-100">{n(i.issues)}</span>
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Tier {i.tier}</span>
+                  <span className="font-mono text-2xl font-semibold tabular-nums text-slate-900">{n(i.issues)}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wide text-slate-400">Tier {i.tier}</span>
                 </div>
-                <div className="mt-1 text-xs font-medium text-zinc-300">{ISSUE_LABEL[i.type] ?? i.type}</div>
-                <div className="mt-1 text-xs text-zinc-500">
+                <div className="mt-1 text-xs font-medium text-slate-700">{ISSUE_LABEL[i.type] ?? i.type}</div>
+                <div className="mt-1 text-xs text-slate-500">
                   {n(i.impressions_at_stake)} impr. at stake
-                  {i.applicant_issues > 0 ? <span className="ml-1 text-teal-500">· {n(i.applicant_issues)} jobs</span> : null}
+                  {i.applicant_issues > 0 ? <span className="ml-1 text-teal-600">· {n(i.applicant_issues)} jobs</span> : null}
                 </div>
               </div>
             ))}
@@ -208,10 +210,10 @@ export default function AdminSeoPage() {
       )}
 
       {/* Fleet table */}
-      <div className="mt-6 overflow-x-auto rounded-xl border border-zinc-800">
+      <div className="mt-8 overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full min-w-[820px] border-collapse text-sm">
           <thead>
-            <tr className="bg-zinc-900 text-left font-mono text-[10.5px] uppercase tracking-wider text-zinc-500">
+            <tr className="bg-slate-50 text-left font-mono text-[10.5px] uppercase tracking-wide text-slate-400">
               <th className="p-3 font-semibold">Property</th>
               <th className="p-3 text-right font-semibold">Impr.</th>
               <th className="p-3 text-right font-semibold">Clicks</th>
@@ -222,19 +224,19 @@ export default function AdminSeoPage() {
               <th className="p-3 text-right font-semibold">Ingested</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800 text-zinc-300">
+          <tbody className="divide-y divide-slate-100 text-slate-600">
             {properties.map((r) => (
-              <tr key={r.property} className="bg-zinc-950 hover:bg-zinc-900/60">
-                <td className="p-3 font-medium text-zinc-100">{r.domain || r.property}</td>
+              <tr key={r.property} className="hover:bg-slate-50">
+                <td className="p-3 font-medium text-slate-900">{r.domain || r.property}</td>
                 <td className="p-3 text-right tabular-nums">{n(r.impressions)}</td>
                 <td className="p-3 text-right tabular-nums">{n(r.clicks)}</td>
-                <td className="p-3 text-right tabular-nums text-zinc-400">{pct(r.ctr)}</td>
+                <td className="p-3 text-right tabular-nums text-slate-400">{pct(r.ctr)}</td>
                 <td className={`p-3 text-right font-semibold tabular-nums ${positionColor(r.avg_position)}`}>
                   {r.avg_position ?? '—'}
                 </td>
-                <td className="p-3 text-right tabular-nums text-teal-400/90">{n(r.applicant_impressions)}</td>
-                <td className="p-3 text-right tabular-nums text-zinc-400">{n(r.queries)}</td>
-                <td className="p-3 text-right font-mono text-xs text-zinc-500">
+                <td className="p-3 text-right tabular-nums text-teal-600">{n(r.applicant_impressions)}</td>
+                <td className="p-3 text-right tabular-nums text-slate-400">{n(r.queries)}</td>
+                <td className="p-3 text-right font-mono text-xs text-slate-400">
                   {r.last_ingest_at ? new Date(r.last_ingest_at).toLocaleDateString('en-US') : '—'}
                 </td>
               </tr>
@@ -243,7 +245,7 @@ export default function AdminSeoPage() {
         </table>
       </div>
 
-      <p className="mt-4 text-xs text-zinc-600">
+      <p className="mt-4 text-xs text-slate-400">
         Green ≤ 10 · amber ≤ 20 · red &gt; 20 average position. “Jobs impr.” = applicant-intent search demand (free labor funnel).
       </p>
     </div>
