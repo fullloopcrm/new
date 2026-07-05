@@ -16,6 +16,11 @@ type Row = {
   applicant_clicks: number
   queries: number
   last_date: string | null
+  grade: string | null
+  score: number | null
+  at_goal: number
+  on_page1: number
+  targets: number
 }
 
 type IssueSummary = {
@@ -101,6 +106,18 @@ function positionColor(p: number | null): string {
   if (p <= 10) return 'text-emerald-600'
   if (p <= 20) return 'text-amber-600'
   return 'text-rose-600'
+}
+
+// Grade badge — the at-a-glance health signal for the fleet.
+function gradeBadge(g: string | null): string {
+  switch (g) {
+    case 'A': return 'bg-emerald-100 text-emerald-700 ring-emerald-200'
+    case 'B': return 'bg-lime-100 text-lime-700 ring-lime-200'
+    case 'C': return 'bg-amber-100 text-amber-700 ring-amber-200'
+    case 'D': return 'bg-orange-100 text-orange-700 ring-orange-200'
+    case 'F': return 'bg-rose-100 text-rose-700 ring-rose-200'
+    default: return 'bg-slate-100 text-slate-400 ring-slate-200'
+  }
 }
 
 export default function AdminSeoPage() {
@@ -332,10 +349,12 @@ export default function AdminSeoPage() {
 
       {/* Fleet table */}
       <div className="mt-8 overflow-x-auto rounded-xl border border-slate-200">
-        <table className="w-full min-w-[820px] border-collapse text-sm">
+        <table className="w-full min-w-[980px] border-collapse text-sm">
           <thead>
             <tr className="bg-slate-50 text-left font-mono text-[10.5px] uppercase tracking-wide text-slate-400">
               <th className="p-3 font-semibold">Property</th>
+              <th className="p-3 text-center font-semibold">Grade</th>
+              <th className="p-3 text-right font-semibold">At goal</th>
               <th className="p-3 text-right font-semibold">Impr.</th>
               <th className="p-3 text-right font-semibold">Clicks</th>
               <th className="p-3 text-right font-semibold">CTR</th>
@@ -349,6 +368,24 @@ export default function AdminSeoPage() {
             {properties.map((r) => (
               <tr key={r.property} className="hover:bg-slate-50">
                 <td className="p-3 font-medium text-slate-900">{r.domain || r.property}</td>
+                <td className="p-3 text-center">
+                  <span
+                    className={`inline-flex min-w-[2.1rem] items-center justify-center rounded-md px-2 py-0.5 text-xs font-bold ring-1 ring-inset tabular-nums ${gradeBadge(r.grade)}`}
+                    title={r.score != null ? `score ${r.score}/100` : 'no data'}
+                  >
+                    {r.grade ?? '—'}
+                  </span>
+                </td>
+                <td className="p-3 text-right tabular-nums text-slate-500">
+                  {r.targets > 0 ? (
+                    <span>
+                      <span className="font-semibold text-slate-700">{n(r.at_goal)}</span>
+                      <span className="text-slate-400">/{n(r.targets)}</span>
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </td>
                 <td className="p-3 text-right tabular-nums">{n(r.impressions)}</td>
                 <td className="p-3 text-right tabular-nums">{n(r.clicks)}</td>
                 <td className="p-3 text-right tabular-nums text-slate-400">{pct(r.ctr)}</td>
@@ -367,7 +404,7 @@ export default function AdminSeoPage() {
       </div>
 
       <p className="mt-4 text-xs text-slate-400">
-        Green ≤ 10 · amber ≤ 20 · red &gt; 20 average position. “Jobs impr.” = applicant-intent search demand (free labor funnel).
+        Grade = demand-weighted rank on money keywords (goal = top 3); sorted worst-first. “At goal” = money keywords ranking top 3. “Jobs impr.” = applicant-intent search demand (free labor funnel).
       </p>
     </div>
   )

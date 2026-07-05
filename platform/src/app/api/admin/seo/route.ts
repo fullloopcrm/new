@@ -10,8 +10,14 @@ export async function GET() {
   const authError = await requireAdmin()
   if (authError) return authError
 
-  const [{ data, error }, { data: issues }, { data: changes }, { data: competitors }, { data: gaps }] =
-    await Promise.all([
+  const [
+    { data, error },
+    { data: issues },
+    { data: changes },
+    { data: competitors },
+    { data: gaps },
+    { data: scores },
+  ] = await Promise.all([
       supabaseAdmin.from('seo_fleet_summary').select('*').order('impressions', { ascending: false }),
       supabaseAdmin.from('seo_issue_summary').select('*').order('impressions_at_stake', { ascending: false }),
       supabaseAdmin
@@ -33,6 +39,7 @@ export async function GET() {
         .eq('type', 'competitor_gap')
         .order('value', { ascending: false })
         .limit(20),
+      supabaseAdmin.from('seo_site_score').select('property,grade,score,at_goal,on_page1,targets'),
     ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -51,7 +58,25 @@ export async function GET() {
   }
   const proposals = [...byUrl.values()]
 
-  const properties = data ?? []
+  // Merge the money-keyword grade onto each property, then sort worst-first so a
+  // human scanning the fleet lands on the sites that need help.
+  const scoreByProperty = new Map(
+    (scores ?? []).map((s) => [s.property, s]),
+  )
+  const properties = (data ?? [])
+    .map((r) => {
+      const s = scoreByProperty.get(r.property)
+      return {
+        ...r,
+        grade: s?.grade ?? null,
+        score: s?.score ?? null,
+        at_goal: s?.at_goal ?? 0,
+        on_page1: s?.on_page1 ?? 0,
+        targets: s?.targets ?? 0,
+      }
+    })
+    .sort((a, b) => (a.score ?? 999) - (b.score ?? 999))
+
   const totals = properties.reduce(
     (t, r) => ({
       impressions: t.impressions + Number(r.impressions || 0),
