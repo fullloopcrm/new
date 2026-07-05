@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import CalendarBoard from './CalendarBoard'
+import KanbanView from './KanbanView'
 
 // The multi-view scheduling surface. One job model, four projections; the switcher
 // picks the axis. Month is today's proven board (nycmaid). Timeline / Kanban /
@@ -14,7 +15,7 @@ type View = 'month' | 'timeline' | 'kanban' | 'projects'
 const VIEWS: { key: View; label: string; hint: string; ready: boolean }[] = [
   { key: 'month', label: 'Month', hint: 'Overview + recurring + long-job spans', ready: true },
   { key: 'timeline', label: 'Timeline', hint: 'Dispatch by team member × time', ready: false },
-  { key: 'kanban', label: 'Kanban', hint: 'Jobs by stage — drag to advance', ready: false },
+  { key: 'kanban', label: 'Kanban', hint: 'Jobs by status — drag to advance', ready: true },
   { key: 'projects', label: 'Projects', hint: 'Long jobs as spans + milestones', ready: false },
 ]
 
@@ -59,7 +60,7 @@ export default function CalendarShell() {
         })}
       </div>
 
-      {view === 'month' ? <CalendarBoard /> : <Scaffold view={active} />}
+      {view === 'month' ? <CalendarBoard /> : view === 'kanban' ? <KanbanView /> : <Scaffold view={active} />}
     </div>
   )
 }
