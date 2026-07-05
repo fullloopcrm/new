@@ -19,6 +19,11 @@ import { registerCarryingDomain, registerCustomDomain, type CustomDomainResult }
 import { hashAdminPin } from './admin-pin'
 import crypto from 'crypto'
 
+// Default contact used when a tenant is created name-only (common for process
+// testing). Owner login + founding team member fall back to this so a bare
+// tenant can be driven all the way to active from one click.
+const DEFAULT_OWNER_EMAIL = 'fullloopcrm@gmail.com'
+
 export type StepStatus = 'done' | 'skipped' | 'action_needed' | 'failed'
 
 export interface ActivationStep {
@@ -125,9 +130,73 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   }
   await crumb(tenantId, 'after_seed_tasks')
 
-  // 5. Owner login — idempotent: create an owner member with a PIN only if none
-  // exists. Requires an owner_email/name to attach to; otherwise it's an action
-  // the operator must take before the tenant can be logged into.
+  // 4. Founding team member — the schedule spine needs at least one ACTIVE team
+  // member. A solo operator is their own first worker, so seed one (idempotent)
+  // named after the owner/business. This lets a name-only tenant clear the
+  // schedule gate instead of stalling amber forever.
+  try {
+    const { count: activeTeam } = await supabaseAdmin
+      .from('team_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+
+    if ((activeTeam || 0) === 0) {
+      const teamPin = String(crypto.randomInt(100000, 1000000))
+      const { error: tmErr } = await supabaseAdmin.from('team_members').insert({
+        tenant_id: tenantId,
+        name: tenant.owner_name || tenant.name || 'Owner',
+        email: tenant.owner_email || DEFAULT_OWNER_EMAIL,
+        role: 'lead',
+        status: 'active',
+        pin: teamPin,
+        working_days: ['1', '2', '3', '4', '5'],
+        working_start: '08:00:00',
+        working_end: '18:00:00',
+      })
+      steps.push({
+        key: 'team',
+        label: 'Founding team member',
+        status: tmErr ? 'failed' : 'done',
+        detail: tmErr ? tmErr.message : 'Seeded owner as first active team member',
+      })
+    } else {
+      steps.push({ key: 'team', label: 'Founding team member', status: 'done', detail: `${activeTeam} active member(s)` })
+    }
+  } catch (e) {
+    steps.push({ key: 'team', label: 'Founding team member', status: 'failed', detail: msg(e) })
+  }
+
+  // Review destination — the review spine needs somewhere to send review
+  // requests. If neither a Google place nor a review link is set, seed a
+  // sensible default (a Google search for the business) so the gate can pass.
+  // Stored in selena_config.google_review_link, which getSettings reads.
+  try {
+    const { data: tRow } = await supabaseAdmin
+      .from('tenants')
+      .select('google_place_id, selena_config')
+      .eq('id', tenantId)
+      .single()
+    const selena = (tRow?.selena_config || {}) as Record<string, unknown>
+    const hasReview = !!(tRow?.google_place_id || selena.google_review_link)
+    if (!hasReview) {
+      const link = `https://www.google.com/search?q=${encodeURIComponent((tenant.name || 'business') + ' reviews')}`
+      await supabaseAdmin
+        .from('tenants')
+        .update({ selena_config: { ...selena, google_review_link: link } })
+        .eq('id', tenantId)
+      steps.push({ key: 'review_dest', label: 'Review destination', status: 'done', detail: 'Seeded default review link' })
+    } else {
+      steps.push({ key: 'review_dest', label: 'Review destination', status: 'done', detail: 'Review destination already set' })
+    }
+  } catch (e) {
+    steps.push({ key: 'review_dest', label: 'Review destination', status: 'failed', detail: msg(e) })
+  }
+
+  // 5. Owner login — idempotent: create an owner member with a PIN if none
+  // exists. Name-only tenants have no owner_email, so fall back to the default
+  // contact; the login is what makes the tenant reachable, and one click should
+  // produce it rather than parking the tenant on "set an email first".
   try {
     const { data: existingOwner } = await supabaseAdmin
       .from('tenant_members')
@@ -138,11 +207,12 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
 
     if (existingOwner) {
       steps.push({ key: 'owner_login', label: 'Owner login', status: 'done', detail: 'Owner member exists' })
-    } else if (tenant.owner_email || tenant.owner_name) {
+    } else {
+      const ownerEmail = tenant.owner_email || DEFAULT_OWNER_EMAIL
       ownerPin = String(crypto.randomInt(100000, 1000000))
       const { error: memErr } = await supabaseAdmin.from('tenant_members').insert({
         tenant_id: tenantId,
-        email: tenant.owner_email || null,
+        email: ownerEmail,
         name: tenant.owner_name || tenant.name || 'Owner',
         role: 'owner',
         pin_hash: hashAdminPin(ownerPin),
@@ -152,15 +222,8 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
         ownerPin = null
         steps.push({ key: 'owner_login', label: 'Owner login', status: 'failed', detail: memErr.message })
       } else {
-        steps.push({ key: 'owner_login', label: 'Owner login', status: 'done', detail: 'Owner created — PIN issued once' })
+        steps.push({ key: 'owner_login', label: 'Owner login', status: 'done', detail: `Owner created (${ownerEmail}) — PIN issued once` })
       }
-    } else {
-      steps.push({
-        key: 'owner_login',
-        label: 'Owner login',
-        status: 'action_needed',
-        detail: 'Set an owner email, then re-activate to create the login',
-      })
     }
   } catch (e) {
     steps.push({ key: 'owner_login', label: 'Owner login', status: 'failed', detail: msg(e) })
