@@ -39,6 +39,12 @@ export interface CreateFromLeadOptions {
   /** Override seat counts; defaults to the lead's accepted proposal. */
   admins?: number
   teamMembers?: number
+  /**
+   * Stripe subscription id from the paid proposal checkout. When set, the tenant
+   * is born billing-active with the subscription linked, so seat changes on the
+   * board re-sync per-seat quantities. Omitted for manual/comp conversions.
+   */
+  stripeSubscriptionId?: string | null
 }
 
 export interface CreateFromLeadResult {
@@ -105,10 +111,13 @@ export async function createTenantFromLead(
       industry,
       status,
       timezone: zipToTimezone(lead.billing_zip),
-      billing_status: 'setup',
+      // Paid proposal (subscription linked) → billing-active so seat edits sync to
+      // Stripe. Manual/comp conversions stay in setup until billing is wired.
+      billing_status: opts.stripeSubscriptionId ? 'active' : 'setup',
       monthly_rate: monthly,
       admin_seats: admins,
       team_seats: teamMembers,
+      ...(opts.stripeSubscriptionId && { stripe_subscription_id: opts.stripeSubscriptionId }),
       owner_name: lead.contact_name || null,
       owner_email: lead.email || null,
       owner_phone: lead.phone || null,

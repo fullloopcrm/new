@@ -77,7 +77,15 @@ type Payload = {
   competitors: CompetitorRow[]
   competitorGaps: GapRow[]
   notIndexed: NotIndexedRow[]
+  enrichments: EnrichmentRow[]
   windowDays: number
+}
+
+type EnrichmentRow = {
+  id: string
+  target_url: string | null
+  after_value: string | null
+  rationale: string | null
 }
 
 type NotIndexedRow = {
@@ -352,6 +360,30 @@ export default function AdminSeoPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Content enrichment drafts — deep-underperformer pages, human review */}
+      {data.enrichments.length > 0 && (
+        <div className="mt-8">
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-violet-600">
+            Content drafts · {n(data.enrichments.length)} awaiting review · grounded in tenant facts, not yet applied
+          </p>
+          <div className="flex flex-col gap-3">
+            {data.enrichments.map((e) => (
+              <details key={e.id} className="rounded-xl border border-violet-200 bg-white p-4">
+                <summary className="cursor-pointer list-none">
+                  <span className="font-mono text-xs text-slate-500 hover:text-violet-600">
+                    {(e.target_url ?? '').replace(/^https?:\/\/(www\.)?/, '')}
+                  </span>
+                  {e.rationale ? <span className="ml-2 text-xs text-slate-400">— {e.rationale}</span> : null}
+                </summary>
+                <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">
+                  {decode(e.after_value)}
+                </pre>
+              </details>
+            ))}
+          </div>
         </div>
       )}
 

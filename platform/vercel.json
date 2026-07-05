@@ -61,6 +61,10 @@
       "schedule": "0 7 * * 2"
     },
     {
+      "path": "/api/cron/seo-enrich",
+      "schedule": "0 9 * * 3"
+    },
+    {
       "path": "/api/cron/seo-autopilot",
       "schedule": "0 9 * * *"
     },

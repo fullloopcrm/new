@@ -9,9 +9,11 @@ export async function GET(request: NextRequest) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
+  // Return the full pricing model, not just the legacy hourly columns, so the
+  // portal can render flat / per-unit / hourly prices per the tenant's trade.
   const { data, error } = await supabaseAdmin
     .from('service_types')
-    .select('id, name, description, default_duration_hours, default_hourly_rate, active')
+    .select('id, name, description, default_duration_hours, default_hourly_rate, pricing_model, price_cents, per_unit, unit_label, min_charge_cents, active')
     .eq('tenant_id', auth.tid)
     .eq('active', true)
     .order('sort_order')

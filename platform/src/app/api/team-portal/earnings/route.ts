@@ -30,6 +30,14 @@ export async function GET(request: NextRequest) {
 
   const hourlyRate = member?.pay_rate || 25
 
+  // Model-agnostic pay: if a job carries an explicit flat pay (team_member_pay,
+  // stored in cents — set for per-job/flat trades), use it verbatim regardless of
+  // hours. Otherwise fall back to the hourly model (hours × job/member rate).
+  const jobPay = (b: { team_member_pay?: number | null; pay_rate?: number | null }, hours: number): number =>
+    b.team_member_pay && b.team_member_pay > 0
+      ? b.team_member_pay / 100
+      : hours * (b.pay_rate || hourlyRate)
+
   const now = new Date()
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
@@ -37,7 +45,7 @@ export async function GET(request: NextRequest) {
   // Today's potential earnings (scheduled hours for today)
   const { data: todayJobs } = await supabaseAdmin
     .from('bookings')
-    .select('id, start_time, end_time, status')
+    .select('id, start_time, end_time, status, pay_rate, team_member_pay')
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .gte('start_time', todayStart.toISOString())
@@ -45,11 +53,13 @@ export async function GET(request: NextRequest) {
     .neq('status', 'cancelled')
 
   let todayPotentialHours = 0
+  let todayPotentialPay = 0
   for (const job of todayJobs || []) {
-    if (job.end_time) {
-      const hours = (new Date(job.end_time).getTime() - new Date(job.start_time).getTime()) / 3600000
-      todayPotentialHours += hours
-    }
+    const hours = job.end_time
+      ? (new Date(job.end_time).getTime() - new Date(job.start_time).getTime()) / 3600000
+      : 0
+    todayPotentialHours += hours
+    todayPotentialPay += jobPay(job, hours)
   }
 
   // Weekly earnings (Mon-Sun)
@@ -62,7 +72,7 @@ export async function GET(request: NextRequest) {
 
   const { data: weekJobs } = await supabaseAdmin
     .from('bookings')
-    .select('id, service_type, start_time, pay_rate, check_in_time, check_out_time, status')
+    .select('id, service_type, start_time, pay_rate, team_member_pay, check_in_time, check_out_time, status')
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
@@ -74,12 +84,13 @@ export async function GET(request: NextRequest) {
   let weeklyHours = 0
   const weekJobDetails = (weekJobs || []).map((b) => {
     let hours = 0
-    let pay = 0
     if (b.check_in_time && b.check_out_time) {
       const rawHours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
       hours = roundToHalfHour(rawHours)
-      pay = hours * (b.pay_rate || hourlyRate)
     }
+    // Flat per-job pay is earned on completion even without check-in/out times;
+    // hourly pay needs the worked hours.
+    const pay = jobPay(b, hours)
     weeklyHours += hours
     weeklyPay += pay
     return { ...b, hours: Math.round(hours * 100) / 100, pay: Math.round(pay * 100) / 100 }
@@ -91,7 +102,7 @@ export async function GET(request: NextRequest) {
 
   const { data: monthJobs } = await supabaseAdmin
     .from('bookings')
-    .select('id, service_type, start_time, pay_rate, check_in_time, check_out_time, status')
+    .select('id, service_type, start_time, pay_rate, team_member_pay, check_in_time, check_out_time, status')
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
@@ -103,12 +114,13 @@ export async function GET(request: NextRequest) {
   let monthlyHours = 0
   const monthJobDetails = (monthJobs || []).map((b) => {
     let hours = 0
-    let pay = 0
     if (b.check_in_time && b.check_out_time) {
       const rawHours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
       hours = roundToHalfHour(rawHours)
-      pay = hours * (b.pay_rate || hourlyRate)
     }
+    // Flat per-job pay is earned on completion even without check-in/out times;
+    // hourly pay needs the worked hours.
+    const pay = jobPay(b, hours)
     monthlyHours += hours
     monthlyPay += pay
     return { ...b, hours: Math.round(hours * 100) / 100, pay: Math.round(pay * 100) / 100 }
@@ -119,7 +131,7 @@ export async function GET(request: NextRequest) {
 
   const { data: yearJobs } = await supabaseAdmin
     .from('bookings')
-    .select('id, service_type, start_time, pay_rate, check_in_time, check_out_time, status')
+    .select('id, service_type, start_time, pay_rate, team_member_pay, check_in_time, check_out_time, status')
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
@@ -131,12 +143,13 @@ export async function GET(request: NextRequest) {
   let yearlyHours = 0
   const yearJobDetails = (yearJobs || []).map((b) => {
     let hours = 0
-    let pay = 0
     if (b.check_in_time && b.check_out_time) {
       const rawHours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
       hours = roundToHalfHour(rawHours)
-      pay = hours * (b.pay_rate || hourlyRate)
     }
+    // Flat per-job pay is earned on completion even without check-in/out times;
+    // hourly pay needs the worked hours.
+    const pay = jobPay(b, hours)
     yearlyHours += hours
     yearlyPay += pay
     return { ...b, hours: Math.round(hours * 100) / 100, pay: Math.round(pay * 100) / 100 }
@@ -160,7 +173,7 @@ export async function GET(request: NextRequest) {
     earnings: {
       hourlyRate,
       todayPotentialHours: Math.round(todayPotentialHours * 10) / 10,
-      todayPotentialPay: Math.round(todayPotentialHours * hourlyRate * 100) / 100,
+      todayPotentialPay: Math.round(todayPotentialPay * 100) / 100,
       weeklyHours: Math.round(weeklyHours * 10) / 10,
       weeklyPay: Math.round(weeklyPay * 100) / 100,
       monthlyHours: Math.round(monthlyHours * 10) / 10,

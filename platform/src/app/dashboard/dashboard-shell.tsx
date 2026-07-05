@@ -52,7 +52,10 @@ const navMain: Array<{
     { letter: 'A', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
   { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
-  { num: '06', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
+  { num: '06', label: 'HR', href: '/dashboard/hr', fold: 'hr', perm: 'team.view', subs: [
+    { letter: 'A', label: 'People', href: '/dashboard/hr' },
+    { letter: 'B', label: 'Roster & Schedule', href: '/dashboard/team' },
+  ] },
   { num: '07', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
@@ -73,7 +76,7 @@ const foldMap: Record<string, string[]> = {
   sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/schedules'],
   production: ['/dashboard/jobs', '/dashboard/jobs/crews'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
-  hr: ['/dashboard/team', '/dashboard/team/crews'],
+  hr: ['/dashboard/hr', '/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
   marketing: [
     '/dashboard/campaigns', '/dashboard/reviews', '/dashboard/referrals',
@@ -85,6 +88,7 @@ const foldMap: Record<string, string[]> = {
 }
 
 const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
+  { label: 'Business Profile', href: '/dashboard/onboarding', perm: 'settings.edit' },
   { label: 'Settings', href: '/dashboard/settings', perm: 'settings.view' },
   { label: 'Users', href: '/dashboard/users', perm: 'settings.edit' },
   { label: 'Selena', href: '/dashboard/selena', perm: 'settings.view' },

@@ -19,6 +19,7 @@ import { sendSMS } from './sms'
 import { smsAdmins } from './admin-contacts'
 import { notify } from './notify'
 import { decryptSecret } from './secret-crypto'
+import { postPaymentRevenue } from './finance/post-revenue'
 import type { Tenant } from './tenant'
 
 type TenantPaymentFields = Pick<
@@ -139,8 +140,9 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   const tipCents = !isPartial && expectedCents > 0 ? Math.max(0, totalReceivedCents - expectedCents) : 0
   const tipAmount = (tipCents / 100).toFixed(2)
 
-  // Record payment (tenant-scoped)
-  await supabaseAdmin
+  // Record payment (tenant-scoped). Capture the id so revenue can post to the
+  // ledger immediately (idempotent; safe for both partial and full).
+  const { data: paymentRow, error: paymentInsertErr } = await supabaseAdmin
     .from('payments')
     .insert({
       tenant_id: tenantId,
@@ -153,10 +155,13 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       payment_sender_name: input.senderName || null,
       reference_id: referenceId,
     })
-    .then(
-      () => {},
-      err => console.error(`[payment-processor] ${label} insert failed:`, err),
-    )
+    .select('id')
+    .single()
+  if (paymentInsertErr) console.error(`[payment-processor] ${label} insert failed:`, paymentInsertErr)
+  if (paymentRow?.id) {
+    postPaymentRevenue({ tenantId, paymentId: paymentRow.id })
+      .catch(err => console.error('[payment-processor] revenue post failed:', err))
+  }
 
   if (isPartial) {
     const shortfallCents = expectedCents - totalReceivedCents

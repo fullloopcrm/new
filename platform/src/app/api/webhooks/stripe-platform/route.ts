@@ -36,10 +36,15 @@ export async function POST(request: Request) {
   }
 
   if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as { metadata?: Record<string, string> | null }
+    const session = event.data.object as {
+      metadata?: Record<string, string> | null
+      subscription?: string | { id: string } | null
+    }
     const meta = session.metadata || {}
     if (meta.kind === 'platform_proposal' && meta.lead_id) {
-      const result = await createTenantFromLead(meta.lead_id, { status: 'new' })
+      const stripeSubscriptionId =
+        typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null
+      const result = await createTenantFromLead(meta.lead_id, { status: 'new', stripeSubscriptionId })
       if (!result.ok) {
         console.error('[stripe-platform] tenant create failed:', result.error)
         // Return 500 so Stripe retries — better than silently dropping a paid sale.

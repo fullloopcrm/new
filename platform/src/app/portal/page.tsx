@@ -61,6 +61,17 @@ export default function PortalHomePage() {
   // DNS (do-not-service) blocking
   const [doNotService, setDoNotService] = useState(false)
 
+  // Trade funnel: 'booking' tenants self-serve a time slot (cleanings, appts);
+  // 'pipeline'/'lead_only' tenants (most trades) request a quote/appointment that
+  // drops into the sales pipeline instead of self-booking.
+  const [cfg, setCfg] = useState<{ funnel_mode: string; booking_mode: string; has_hourly: boolean; currency_symbol: string } | null>(null)
+  const [showRequest, setShowRequest] = useState(false)
+  const [requestService, setRequestService] = useState('')
+  const [requestDate, setRequestDate] = useState('')
+  const [requestNotes, setRequestNotes] = useState('')
+  const [submittingRequest, setSubmittingRequest] = useState(false)
+  const [requestSuccess, setRequestSuccess] = useState(false)
+
   const tenantPhone = auth?.tenant && 'phone' in auth.tenant ? (auth.tenant as { phone?: string }).phone : ''
 
   useEffect(() => {
@@ -68,8 +79,47 @@ export default function PortalHomePage() {
     loadBookings()
     loadNotes()
     loadServices()
+    loadConfig()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth])
+
+  async function loadConfig() {
+    if (!auth) return
+    const res = await fetch('/api/portal/config', {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (res.ok) setCfg(await res.json())
+  }
+
+  const isBookingFunnel = !cfg || cfg.funnel_mode === 'booking'
+
+  // Route the "book" CTAs: self-serve panel for booking tenants, request-a-quote
+  // panel for pipeline/lead_only trades.
+  function startBooking(preselectedDate?: string) {
+    if (isBookingFunnel) {
+      openBookingPanel(preselectedDate)
+    } else {
+      setShowRequest(true)
+      setRequestSuccess(false)
+      if (preselectedDate) setRequestDate(preselectedDate)
+    }
+  }
+
+  async function submitRequest() {
+    if (!auth) return
+    setSubmittingRequest(true)
+    const res = await fetch('/api/portal/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({
+        service_name: requestService || null,
+        preferred_date: requestDate || null,
+        notes: requestNotes || null,
+      }),
+    })
+    if (res.ok) setRequestSuccess(true)
+    setSubmittingRequest(false)
+  }
 
   async function loadBookings() {
     if (!auth) return
@@ -303,10 +353,10 @@ export default function PortalHomePage() {
               </Link>
             )}
             <button
-              onClick={() => openBookingPanel()}
+              onClick={() => startBooking()}
               className="flex-1 py-2.5 bg-slate-800 text-white rounded-lg font-medium text-sm"
             >
-              Book Another
+              {isBookingFunnel ? 'Book Another' : 'Request Service'}
             </button>
           </div>
         </div>
@@ -314,12 +364,102 @@ export default function PortalHomePage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
           <p className="text-slate-400 mb-1">No upcoming appointments</p>
           <button
-            onClick={() => openBookingPanel()}
+            onClick={() => startBooking()}
             className="mt-3 px-6 py-3 bg-slate-800 text-white rounded-lg font-medium text-sm"
           >
-            Book an Appointment
+            {isBookingFunnel ? 'Book an Appointment' : 'Request an Appointment'}
           </button>
-          <p className="text-xs text-slate-400 mt-1">(Book here directly)</p>
+          {isBookingFunnel && <p className="text-xs text-slate-400 mt-1">(Book here directly)</p>}
+        </div>
+      )}
+
+      {/* Request-a-Quote Panel (pipeline / lead_only trades) */}
+      {showRequest && !doNotService && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-slate-800">Request Service</h2>
+            <button onClick={() => setShowRequest(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">
+              &times;
+            </button>
+          </div>
+
+          {requestSuccess ? (
+            <div className="text-center py-6">
+              <div className="text-3xl mb-2">&#10003;</div>
+              <p className="text-lg font-semibold text-slate-800">Request sent!</p>
+              <p className="text-slate-500 text-sm mt-2">We&apos;ll reach out to schedule and quote your service shortly.</p>
+              <button
+                onClick={() => { setShowRequest(false); setRequestSuccess(false); setRequestService(''); setRequestDate(''); setRequestNotes('') }}
+                className="mt-4 px-6 py-2 bg-slate-800 text-white rounded-lg font-medium"
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {services.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">What do you need?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {services.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setRequestService(s.name)}
+                        className={`p-2.5 rounded-lg border text-xs font-medium ${
+                          requestService === s.name
+                            ? 'border-slate-800 bg-slate-800 text-white'
+                            : 'border-gray-200 text-slate-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Preferred date (optional)</label>
+                <input
+                  type="date"
+                  value={requestDate}
+                  onChange={(e) => setRequestDate(e.target.value)}
+                  min={minDate}
+                  className="w-full border border-gray-300 rounded-lg p-3 text-slate-800 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Details</label>
+                <textarea
+                  value={requestNotes}
+                  onChange={(e) => setRequestNotes(e.target.value.slice(0, 1000))}
+                  placeholder="Describe what you need, address details, timing..."
+                  className="w-full border border-gray-300 rounded-lg p-3 text-slate-800 text-sm resize-none"
+                  rows={4}
+                />
+              </div>
+
+              {tenantPhone && (
+                <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-sm">
+                  <p className="text-slate-700"><span className="font-medium">Need it urgently?</span> Contact us directly:</p>
+                  <div className="flex gap-3 mt-2">
+                    <a href={`tel:${tenantPhone}`} className="flex-1 py-2 bg-slate-800 text-white rounded-lg text-center font-medium text-sm">Call</a>
+                    <a href={`sms:${tenantPhone}`} className="flex-1 py-2 bg-slate-800 text-white rounded-lg text-center font-medium text-sm">Text</a>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={submitRequest}
+                disabled={submittingRequest || (!requestService && !requestNotes)}
+                className="w-full py-3 bg-slate-800 text-white rounded-lg font-medium disabled:opacity-50"
+              >
+                {submittingRequest ? 'Sending...' : 'Send Request'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -696,11 +836,11 @@ export default function PortalHomePage() {
                       <button
                         onClick={() => {
                           const bDate = new Date(booking.start_time).toISOString().split('T')[0]
-                          openBookingPanel(bDate >= minDate ? bDate : undefined)
+                          startBooking(bDate >= minDate ? bDate : undefined)
                         }}
                         className="w-full py-2.5 bg-green-600 text-white rounded-lg font-medium text-sm"
                       >
-                        Book Again
+                        {isBookingFunnel ? 'Book Again' : 'Request Again'}
                       </button>
                     )}
                     {tenantPhone && (

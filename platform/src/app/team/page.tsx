@@ -387,8 +387,12 @@ export default function TeamHomePage() {
   const [claimingJob, setClaimingJob] = useState<string | null>(null)
   const [sendingHeadsUp, setSendingHeadsUp] = useState<string | null>(null)
 
+  // Trade-agnostic config: whether this tenant pays hourly, and the payout rails.
+  const [cfg, setCfg] = useState<{ has_hourly: boolean; payment_label: string; funnel_mode: string } | null>(null)
+
   const payRate = auth?.member?.pay_rate || 0
   const tenantPhone = auth?.tenant?.phone || ''
+  const isHourly = cfg?.has_hourly ?? true
 
   // ---- Fetch all data ----
   const fetchData = useCallback(() => {
@@ -458,6 +462,12 @@ export default function TeamHomePage() {
           }
         }
       })
+      .catch(() => {})
+
+    // Trade config (hourly vs per-job, payout rails)
+    fetch('/api/team-portal/config', { headers })
+      .then((r) => r.json())
+      .then((data) => { if (data && !data.error) setCfg(data) })
       .catch(() => {})
 
     // Notification preferences
@@ -700,12 +710,16 @@ export default function TeamHomePage() {
       <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium opacity-90">{t('My Rate', 'Mi Tarifa')}</p>
-            <p className="text-3xl font-bold mt-1">${payRate}/hr</p>
+            <p className="text-sm font-medium opacity-90">{isHourly ? t('My Rate', 'Mi Tarifa') : t('My Pay', 'Mi Pago')}</p>
+            {isHourly ? (
+              <p className="text-3xl font-bold mt-1">${payRate}/hr</p>
+            ) : (
+              <p className="text-3xl font-bold mt-1">{t('Per job', 'Por trabajo')}</p>
+            )}
           </div>
           <div className="text-right">
             <p className="text-sm font-medium opacity-90">{t('Paid via', 'Pago por')}</p>
-            <p className="text-sm mt-1 opacity-90">Zelle / Apple Pay</p>
+            <p className="text-sm mt-1 opacity-90">{cfg?.payment_label || t('Ask office', 'Preguntar')}</p>
           </div>
         </div>
       </div>
@@ -714,13 +728,24 @@ export default function TeamHomePage() {
       {todayStats.count > 0 && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-5">
           <p className="text-sm font-medium text-green-800">{t('Today', 'Hoy')}</p>
-          <p className="text-3xl font-bold text-green-700 mt-1">${todayStats.earnings.toFixed(0)}</p>
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-sm text-green-600">
-              {todayStats.hours}hrs {t('scheduled', 'programadas')} &middot; {todayStats.count} {t('jobs', 'trabajos')}
+          {/* An hours×rate estimate is only meaningful for hourly tenants. For
+              per-job trades, show the job count and let the earnings summary
+              (server-computed from each job's pay) carry the money. */}
+          {isHourly ? (
+            <>
+              <p className="text-3xl font-bold text-green-700 mt-1">${todayStats.earnings.toFixed(0)}</p>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-sm text-green-600">
+                  {todayStats.hours}hrs {t('scheduled', 'programadas')} &middot; {todayStats.count} {t('jobs', 'trabajos')}
+                </p>
+                <p className="text-xs text-green-500">{t('Complete all to earn', 'Completa todo para ganar')} &uarr;</p>
+              </div>
+            </>
+          ) : (
+            <p className="text-3xl font-bold text-green-700 mt-1">
+              {todayStats.count} {t('jobs', 'trabajos')}
             </p>
-            <p className="text-xs text-green-500">{t('Complete all to earn', 'Completa todo para ganar')} &uarr;</p>
-          </div>
+          )}
         </div>
       )}
 

@@ -14,6 +14,8 @@
 import { supabaseAdmin } from './supabase'
 import { provisionTenant } from './provision-tenant'
 import { seedOnboardingTasks } from './onboarding-tasks'
+import { seedChartOfAccounts } from './ledger'
+import { seedHrDefaults } from './hr'
 import { runOnboardingGate, type GateResult } from './onboarding-gate'
 import { registerCarryingDomain, registerCustomDomain, type CustomDomainResult } from './vercel-domains'
 import { resolveCoverage } from './geo/coverage'
@@ -171,6 +173,24 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     steps.push({ key: 'onboarding_tasks', label: 'Onboarding checklist seeded', status: 'failed', detail: msg(e) })
   }
   await crumb(tenantId, 'after_seed_tasks')
+
+  // 3b. Auto-finance + auto-HR — every tenant is born with a bookkeeping ledger
+  // (chart of accounts) and an HR foundation (doc-requirement template + an HR
+  // profile per team member). Both idempotent: no-op when already seeded, so
+  // this is safe on repeat activations. Best-effort — never block activation.
+  try {
+    const accounts = await seedChartOfAccounts(tenantId)
+    const hr = await seedHrDefaults(tenantId)
+    steps.push({
+      key: 'finance_hr',
+      label: 'Bookkeeping + HR seeded',
+      status: 'done',
+      detail: `Ledger: ${accounts > 0 ? `${accounts} accounts` : 'already set'} · HR: ${hr.requirementsSeeded} doc rule(s), ${hr.profilesBackfilled} profile(s)`,
+    })
+  } catch (e) {
+    steps.push({ key: 'finance_hr', label: 'Bookkeeping + HR seeded', status: 'failed', detail: msg(e) })
+  }
+  await crumb(tenantId, 'after_finance_hr')
 
   // 4. Founding team member — the schedule spine needs at least one ACTIVE team
   // member. A solo operator is their own first worker, so seed one (idempotent)

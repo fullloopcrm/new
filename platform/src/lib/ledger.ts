@@ -17,6 +17,10 @@ export const DEFAULT_CHART: Array<{
   { code: '1000', name: 'Cash', type: 'asset', subtype: 'cash' },
   { code: '1010', name: 'Operating Checking', type: 'asset', subtype: 'bank', is_bank_account: true },
   { code: '1020', name: 'Savings', type: 'asset', subtype: 'bank', is_bank_account: true },
+  // Clearing account: revenue is recognized here the moment a payment lands, then
+  // the bank-deposit match moves it 1050 → 1010 (bank). Keeps revenue from being
+  // counted twice (once on payment, once on bank categorization).
+  { code: '1050', name: 'Undeposited Funds', type: 'asset', subtype: 'clearing' },
   { code: '1100', name: 'Accounts Receivable', type: 'asset', subtype: 'ar' },
   { code: '1500', name: 'Equipment', type: 'asset', subtype: 'fixed' },
   // Liabilities
@@ -137,4 +141,54 @@ export function transactionFingerprint(date: string, amountCents: number, descri
 
 export function sha256File(bytes: Buffer | Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex')
+}
+
+/**
+ * Ensure every account in DEFAULT_CHART exists for a tenant, inserting only the
+ * missing ones. Idempotent (unique index on tenant_id+code). This lets new chart
+ * codes (e.g. 1050 Undeposited Funds) propagate to tenants seeded before the code
+ * existed, lazily on first use — no backfill migration needed.
+ */
+export async function ensureChartAccounts(tenantId: string): Promise<void> {
+  const { data: existing } = await supabaseAdmin
+    .from('chart_of_accounts')
+    .select('code')
+    .eq('tenant_id', tenantId)
+  const have = new Set((existing || []).map((r) => r.code as string))
+  const missing = DEFAULT_CHART.filter((a) => !have.has(a.code))
+  if (missing.length === 0) return
+  const rows = missing.map((a) => ({
+    tenant_id: tenantId,
+    code: a.code,
+    name: a.name,
+    type: a.type,
+    subtype: a.subtype || null,
+    is_bank_account: !!a.is_bank_account,
+  }))
+  // ignoreDuplicates guards a race where a concurrent request seeds the same code.
+  await supabaseAdmin.from('chart_of_accounts').upsert(rows, { onConflict: 'tenant_id,code', ignoreDuplicates: true })
+}
+
+/** Resolve a tenant's chart-of-accounts row id by its code (e.g. '4000'). */
+export async function getAccountIdByCode(tenantId: string, code: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('chart_of_accounts')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('code', code)
+    .maybeSingle()
+  return (data?.id as string) || null
+}
+
+/** Has a journal entry already been posted for this (source, source_id)? */
+export async function journalEntryExists(tenantId: string, source: string, sourceId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('journal_entries')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('source', source)
+    .eq('source_id', sourceId)
+    .limit(1)
+    .maybeSingle()
+  return !!data
 }

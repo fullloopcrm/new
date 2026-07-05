@@ -10,6 +10,7 @@ import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { cleanerPaidHours } from '@/lib/billing-hours'
 import { signupPricing } from '@/lib/tier-prices'
+import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
@@ -213,7 +214,7 @@ export async function POST(request: Request) {
         if (existing && existing.length > 0) {
           return NextResponse.json({ received: true, idempotent: true })
         }
-        await supabaseAdmin.from('payments').insert({
+        const { data: invPayment } = await supabaseAdmin.from('payments').insert({
           tenant_id: tenantId,
           invoice_id: invoiceId,
           amount_cents: session.amount_total || 0,
@@ -222,8 +223,12 @@ export async function POST(request: Request) {
           stripe_session_id: session.id,
           stripe_payment_intent_id:
             typeof session.payment_intent === 'string' ? session.payment_intent : null,
-        })
+        }).select('id').single()
         // DB trigger recomputes invoice.amount_paid_cents and status.
+        if (invPayment?.id) {
+          postPaymentRevenue({ tenantId, paymentId: invPayment.id })
+            .catch(err => console.error('[stripe] invoice revenue post failed:', err))
+        }
         return NextResponse.json({ received: true, invoice_paid: true })
       }
 
@@ -314,8 +319,8 @@ export async function POST(request: Request) {
         }
       }
 
-      // 1. Insert payment row
-      await supabaseAdmin.from('payments').insert({
+      // 1. Insert payment row (capture id → post revenue to ledger immediately)
+      const { data: bookingPayment } = await supabaseAdmin.from('payments').insert({
         tenant_id: tenantId,
         booking_id: bookingId,
         client_id: booking.client_id,
@@ -325,7 +330,11 @@ export async function POST(request: Request) {
         status: isPartial ? 'partial' : 'completed',
         stripe_session_id: session.id,
         stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
-      })
+      }).select('id').single()
+      if (bookingPayment?.id) {
+        postPaymentRevenue({ tenantId, paymentId: bookingPayment.id })
+          .catch(err => console.error('[stripe] booking revenue post failed:', err))
+      }
 
       // 2. Update booking
       await supabaseAdmin

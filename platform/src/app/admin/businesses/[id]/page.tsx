@@ -66,7 +66,8 @@ type Business = {
   address: string | null
   tagline: string | null
   service_radius_miles: number | null
-  selena_config: { service_areas?: string[] } & Record<string, unknown> | null
+  selena_config: { service_areas?: string[]; social?: Record<string, string> } & Record<string, unknown> | null
+  compliance: Record<string, unknown> | null
 }
 
 type Invite = { id: string; email: string; role: string; accepted: boolean; expires_at: string; created_at: string }
@@ -972,6 +973,34 @@ export default function BusinessDetailPage() {
             }`}>
             {biz?.setup_fee_paid_at ? `Setup fee paid ${new Date(biz.setup_fee_paid_at).toLocaleDateString()}` : 'Mark setup fee as paid'}
           </button>
+
+          <div className="pt-6 border-t border-slate-200">
+            <h3 className="font-heading font-semibold text-slate-900 mb-3">Submitted Business Profile</h3>
+            <p className="text-xs text-slate-500 mb-3">Collected via the tenant&apos;s Business Profile wizard. Legal name / EIN live in Finance › Entities.</p>
+            {(() => {
+              const c = (biz?.compliance || {}) as Record<string, string | boolean>
+              const social = (biz?.selena_config?.social || {}) as Record<string, string>
+              const rows: Array<[string, string]> = [
+                ['Trade license', [c.license_number, c.license_state].filter(Boolean).join(' · ') as string],
+                ['License expiry', (c.license_expiry as string) || ''],
+                ['Insurance', [c.insurance_carrier, c.insurance_policy, c.insurance_coverage].filter(Boolean).join(' · ') as string],
+                ['Bonded', c.bonded ? 'Yes' : ''],
+                ...Object.entries(social).map(([k, v]) => [k[0].toUpperCase() + k.slice(1), v] as [string, string]),
+              ]
+              const filled = rows.filter(([, v]) => v)
+              if (filled.length === 0) return <p className="text-sm text-slate-400">Nothing submitted yet.</p>
+              return (
+                <div className="space-y-1.5 text-sm">
+                  {filled.map(([label, value]) => (
+                    <div key={label} className="grid grid-cols-[130px_1fr] gap-x-3">
+                      <span className="text-slate-500">{label}</span>
+                      <span className="text-slate-800 break-words">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
 
           <div className="pt-6 border-t border-slate-200">
             <h3 className="font-heading font-semibold text-slate-900 mb-3">Activate Business</h3>
