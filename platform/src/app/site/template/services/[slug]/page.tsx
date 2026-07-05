@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { SERVICES, getServiceByUrlSlug } from '@/app/site/template/_lib/seo/services'
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export const dynamicParams = true
+export const dynamic = 'force-dynamic' // gate reads headers(); avoid static-to-dynamic 500
 
 export async function generateStaticParams() { return [] }
 
@@ -70,6 +72,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ServicePage({ params }: Props) {
+  await requireCleaningTenant()
   const { slug } = await params
   const service = getServiceByUrlSlug(slug)
   if (!service) notFound()

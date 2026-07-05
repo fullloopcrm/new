@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
@@ -147,7 +148,8 @@ function jobPostingSchema(region: string, locations: string) {
   }
 }
 
-export default function CareersPage() {
+export default async function CareersPage() {
+  await requireCleaningTenant()
   return (
     <>
       <JsonLd data={[

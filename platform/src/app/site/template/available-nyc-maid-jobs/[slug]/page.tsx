@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
@@ -10,6 +11,7 @@ import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 
 export const dynamicParams = true
+export const dynamic = 'force-dynamic' // gate reads headers(); avoid static-to-dynamic 500
 export const revalidate = 1296000
 
 export function generateStaticParams() { return [] }
@@ -58,6 +60,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function NeighborhoodJobPage({ params }: { params: Promise<{ slug: string }> }) {
+  await requireCleaningTenant()
   const { slug } = await params
   const n = getNeighborhood(slug)
   if (!n) notFound()

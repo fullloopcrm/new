@@ -29,6 +29,8 @@ export interface BrandContext {
   city: string
   /** ISO region code, e.g. "US-NY" */
   region: string
+  /** Tenant trade (e.g. 'cleaning', 'plumbing'); drives industry-aware copy. */
+  industry: string
 }
 
 /** Neutral fallback so un-threaded call sites still render. */
@@ -40,6 +42,7 @@ export const DEFAULT_BRAND: BrandContext = {
   phoneDigits: '5555555555',
   city: 'your area',
   region: 'US-NY',
+  industry: 'general',
 }
 
 /** Map a resolved SiteConfig onto the BrandContext the SEO layer consumes. */
@@ -52,5 +55,6 @@ export function toBrand(config: SiteConfig): BrandContext {
     phoneDigits: config.contact.phoneDigits,
     city: config.geo.placename,
     region: config.geo.region,
+    industry: config.industry,
   }
 }

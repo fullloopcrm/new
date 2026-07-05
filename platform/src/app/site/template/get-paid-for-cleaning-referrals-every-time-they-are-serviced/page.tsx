@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import { breadcrumbSchema, localBusinessSchema, faqSchema } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
@@ -26,7 +27,8 @@ const referralFAQs = [
   { question: 'How long do I earn commissions for each referral?', answer: 'You earn commissions for as long as the person you referred remains a customer. If they book weekly cleanings for a year, you earn 10% on every single one.' },
 ]
 
-export default function ReferralPage() {
+export default async function ReferralPage() {
+  await requireCleaningTenant()
   return (
     <>
       <JsonLd data={[

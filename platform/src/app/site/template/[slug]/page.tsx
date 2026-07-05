@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -75,6 +76,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function SlugPage({ params }: Props) {
+  await requireCleaningTenant()
   const { slug } = await params
   const brand = toBrand(await getSiteConfig())
 

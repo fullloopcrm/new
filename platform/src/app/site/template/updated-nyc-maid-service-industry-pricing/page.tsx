@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, pricingOffersSchema, howToBookSchema, breadcrumbSchema, faqSchema } from '@/app/site/template/_lib/seo/schema'
@@ -38,7 +39,8 @@ const pricingFaqs = [
   { question: 'Can I get a quote without booking?', answer: 'Absolutely. Text (555) 555-5555 with your apartment details and we\'ll send a quote. No commitment required. Most quotes are delivered within 15 minutes.' },
 ]
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  await requireCleaningTenant()
   return (
     <>
       <JsonLd data={[

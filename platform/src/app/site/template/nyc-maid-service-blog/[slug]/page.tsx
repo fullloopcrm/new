@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { BLOG_POSTS, getBlogPost, getAllBlogSlugs } from '@/app/site/template/_lib/seo/blog-data'
@@ -10,6 +11,7 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 
 export const dynamicParams = true
+export const dynamic = 'force-dynamic' // gate reads headers(); avoid static-to-dynamic 500
 
 export function generateStaticParams() { return [] }
 
@@ -38,6 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  await requireCleaningTenant()
   const { slug } = await params
   const post = getBlogPost(slug)
   if (!post) notFound()

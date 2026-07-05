@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { SiteConfig } from '@/app/site/template/_config/types'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 
 const manhattanLinks = [
   { name: 'Upper East Side', href: '/upper-east-side-maid-service' },
@@ -51,6 +52,9 @@ const serviceFooterLinks = [
 ]
 
 export default function MarketingFooter({ config }: { config: SiteConfig }) {
+  // The neighborhood/service link grid is cleaning-only and points at gated
+  // pages — non-cleaning tenants get a minimal footer instead.
+  const isCleaning = industryProfile(config.industry).isCleaning
   return (
     <footer className="bg-[var(--brand)] text-gray-400">
       {/* Main footer brand */}
@@ -67,7 +71,8 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
         </div>
       </div>
 
-      {/* Links grid */}
+      {/* Links grid — cleaning only (neighborhood/service pages are gated for other trades) */}
+      {isCleaning ? (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-10">
           <div>
@@ -124,6 +129,16 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
           </div>
         </div>
       </div>
+      ) : (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm">
+          <Link href="/book/new" className="hover:text-white transition-colors">Book</Link>
+          <Link href="/contact-the-nyc-maid-service-today" className="hover:text-white transition-colors">Contact</Link>
+          <Link href="/reviews" className="hover:text-white transition-colors">Reviews</Link>
+          <a href={`sms:${config.contact.phoneDigits}`} className="hover:text-white transition-colors">Text {config.contact.phone}</a>
+        </div>
+      </div>
+      )}
 
       {/* Bottom bar */}
       <div className="border-t border-white/10">
