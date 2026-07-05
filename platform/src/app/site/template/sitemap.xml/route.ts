@@ -3,8 +3,12 @@ import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { BLOG_POSTS } from '@/app/site/template/_lib/seo/blog-data'
 import { pickLifestylePhoto, pickTeamPhoto, pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
+import { getSiteConfig } from '@/app/site/template/_config/load'
 
-const BASE_URL = 'https://www.example.com'
+// Reads the tenant from request headers (getSiteConfig) to emit their real
+// domain, so it must render dynamically — a static route reading headers() 500s
+// ("static to dynamic at runtime"). See [slug]/page.tsx for the same fix.
+export const dynamic = 'force-dynamic'
 
 const SERVICE_PHOTO_CATEGORY: Record<string, PhotoCategory> = {
   'deep-cleaning': 'kitchen',
@@ -19,11 +23,10 @@ const SERVICE_PHOTO_CATEGORY: Record<string, PhotoCategory> = {
   'office-cleaning': 'team',
 }
 
-function absoluteImageUrl(path: string): string {
-  return `${BASE_URL}${path}`
-}
-
 export async function GET() {
+  const config = await getSiteConfig()
+  const BASE_URL = config.identity.url.replace(/\/+$/, '')
+  const absoluteImageUrl = (path: string): string => `${BASE_URL}${path}`
   const now = new Date().toISOString()
 
   interface ImageEntry { loc: string; title?: string; caption?: string }
