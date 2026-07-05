@@ -138,6 +138,7 @@ export default function BusinessDetailPage() {
   const [cl, setCl] = useState<Checklist | null>(null)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState<'contact' | 'users' | 'integrations' | 'billing' | 'onboarding' | 'launch' | 'notes'>('contact')
 
   const [ownerName, setOwnerName] = useState('')
@@ -195,8 +196,19 @@ export default function BusinessDetailPage() {
   const [businessHours, setBusinessHours] = useState('')
 
   const fetchData = useCallback(() => {
-    fetch(`/api/admin/businesses/${id}`)
-      .then((r) => r.json())
+    fetch(`/api/admin/businesses/${id}`, { credentials: 'include' })
+      .then(async (r) => {
+        // Never let a bad response leave the page stuck on "Loading…" with no
+        // error. A 401 (session) or a non-JSON body (redirect) both surface here
+        // instead of hanging silently.
+        if (r.status === 401) throw new Error('Not signed in as admin (401) — sign out and back in.')
+        const text = await r.text()
+        try {
+          return JSON.parse(text)
+        } catch {
+          throw new Error(`Profile data came back non-JSON (HTTP ${r.status}).`)
+        }
+      })
       .then((data) => {
         const b = data.business
         setBiz(b)
@@ -245,6 +257,10 @@ export default function BusinessDetailPage() {
           setSecondaryColor(b.secondary_color || '')
           setBusinessHours(b.business_hours || '')
         }
+        setLoading(false)
+      })
+      .catch((err) => {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load this business.')
         setLoading(false)
       })
   }, [id])
@@ -334,6 +350,12 @@ export default function BusinessDetailPage() {
   }
 
   if (loading) return <p className="text-slate-500">Loading...</p>
+  if (loadError) return (
+    <div className="max-w-lg">
+      <Link href="/admin/businesses" className="text-sm text-teal-600 hover:text-teal-700 mb-4 inline-block">&larr; All Businesses</Link>
+      <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{loadError}</div>
+    </div>
+  )
   if (!biz) return <p className="text-slate-500">Not found</p>
 
   const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
