@@ -90,6 +90,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       selena?.['funnel_mode'] === 'pipeline' ? 'pipeline'
       : selena?.['funnel_mode'] === 'lead_only' ? 'lead_only'
       : 'booking',
+    industry: str(tenant, 'industry') ?? defaultConfig.industry,
   }
 }
 

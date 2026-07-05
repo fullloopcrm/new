@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { BLOG_POSTS } from '@/app/site/template/_lib/seo/blog-data'
 import { breadcrumbSchema, localBusinessSchema } from '@/app/site/template/_lib/seo/schema'
@@ -22,7 +23,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function BlogIndexPage() {
+export default async function BlogIndexPage() {
+  await requireCleaningTenant()
   const featured = BLOG_POSTS[0]
   const rest = BLOG_POSTS.slice(1)
 

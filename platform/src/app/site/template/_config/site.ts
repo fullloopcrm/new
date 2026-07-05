@@ -47,4 +47,5 @@ export const siteConfig: SiteConfig = {
     { value: 'Same-Day Emergency', label: 'Same-Day', hours: 2, emergency: true },
   ],
   funnelMode: 'booking',
+  industry: 'general',
 }

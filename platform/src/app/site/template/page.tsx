@@ -12,6 +12,8 @@ import Image from 'next/image'
 import VideoReviews from '@/app/site/template/_components/VideoReviews'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { toBrand } from '@/app/site/template/_lib/seo/brand'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
+import GenericLanding from '@/app/site/template/_components/GenericLanding'
 
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -125,6 +127,14 @@ const homepageFAQs = [
 export default async function HomePage() {
   const siteConfig = await getSiteConfig()
   const content = homepageContent(toBrand(siteConfig))
+
+  // Non-cleaning tenants get a clean, config-driven landing instead of the
+  // cleaning-editorial homepage (which links to gated pages). No cleaning
+  // structured data is emitted for them either.
+  if (!industryProfile(siteConfig.industry).isCleaning) {
+    return <GenericLanding config={siteConfig} h1={content.h1} subtitle={content.subtitle} />
+  }
+
   const schemas = [...homepageSchemas(), faqSchema(homepageFAQs), ...videoReviewsSchemas()]
   const homepagePhoto = pickLifestylePhoto('homepage')
 

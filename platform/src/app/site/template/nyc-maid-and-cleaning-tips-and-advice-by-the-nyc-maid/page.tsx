@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { breadcrumbSchema, localBusinessSchema } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -160,7 +161,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function TipsPage() {
+export default async function TipsPage() {
+  await requireCleaningTenant()
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',

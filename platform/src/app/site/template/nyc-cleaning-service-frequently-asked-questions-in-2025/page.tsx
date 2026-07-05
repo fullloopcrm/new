@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -74,7 +75,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function FAQPage() {
+export default async function FAQPage() {
+  await requireCleaningTenant()
   const sections = [
     { label: 'Pricing & Payment', faqs: pricingFAQs },
     { label: 'Services & What\'s Included', faqs: serviceFAQs },

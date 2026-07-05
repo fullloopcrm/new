@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
@@ -192,7 +193,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function EmergencyCleaningPage() {
+export default async function EmergencyCleaningPage() {
+  await requireCleaningTenant()
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',

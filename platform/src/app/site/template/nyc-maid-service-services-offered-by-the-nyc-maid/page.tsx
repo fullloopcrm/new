@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { breadcrumbSchema, localBusinessSchema, serviceItemListSchema } from '@/app/site/template/_lib/seo/schema'
@@ -18,7 +19,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function ServicesIndexPage() {
+export default async function ServicesIndexPage() {
+  await requireCleaningTenant()
   return (
     <>
       <JsonLd data={[

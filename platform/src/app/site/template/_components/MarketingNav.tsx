@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import type { SiteConfig } from '@/app/site/template/_config/types'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 
 const serviceLinks = [
   { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-nyc' },
@@ -26,6 +27,9 @@ const moreLinks = [
 ]
 
 export default function MarketingNav({ config }: { config: SiteConfig }) {
+  // Cleaning-specific nav (services dropdown, area strip, pricing) links to
+  // pages that are gated for non-cleaning tenants — hide them to avoid dead nav.
+  const isCleaning = industryProfile(config.industry).isCleaning
   const [mobileOpen, setMobileOpen] = useState(false)
   const [servicesOpen, setServicesOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -45,6 +49,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
         <div className="bg-[var(--brand)] text-gray-300 text-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center lg:justify-between h-9">
             <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] tracking-widest uppercase">
+              {isCleaning && (<>
               <span className="text-white/80 font-semibold hidden sm:inline">Maid Service:</span>
               <Link href="/service-areas-served-by-the-nyc-maid" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">NYC</Link>
               <span className="text-white/20 hidden sm:inline">|</span>
@@ -55,7 +60,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <Link href="/new-jersey-maid-service" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">NJ</Link>
               <span className="text-white/20 hidden sm:inline">-</span>
               <span className="text-white/80 font-semibold hidden sm:inline">Open 24/7</span>
-              <span className="text-white/20 hidden sm:inline">·</span>
+              <span className="text-white/20 hidden sm:inline">·</span></>)}
               <a href={`sms:${config.contact.phoneDigits}`} className="inline-flex items-center gap-1 text-[var(--accent)] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">
                 <svg aria-hidden="true" className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12zM7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>
                 <span>Sales: {config.contact.phone}</span>
@@ -86,6 +91,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <Link href="/" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Home</Link>
 
               {/* Services Dropdown */}
+              {isCleaning && (
               <div className="relative group">
                 <button aria-expanded="false" aria-haspopup="true" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide flex items-center gap-1 py-2">
                   Services
@@ -101,8 +107,11 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                   </div>
                 </div>
               </div>
+              )}
 
+              {isCleaning && (
               <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Pricing</Link>
+              )}
               <Link href="/reviews" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide flex items-center gap-1.5">
                 Reviews
                 <span className="text-yellow-400 text-xs">&#9733; 5.0</span>
@@ -110,6 +119,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <Link href="/contact-the-nyc-maid-service-today" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Contact</Link>
 
               {/* More Dropdown */}
+              {isCleaning && (
               <div className="relative group">
                 <button aria-expanded="false" aria-haspopup="true" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide flex items-center gap-1 py-2">
                   More
@@ -125,6 +135,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                   </div>
                 </div>
               </div>
+              )}
             </nav>
 
             <div className="hidden lg:flex items-center gap-2">
@@ -178,6 +189,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
             <div className="space-y-1">
               <Link href="/" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Home</Link>
 
+              {isCleaning && (<>
               <button onClick={() => setServicesOpen(!servicesOpen)} aria-expanded={servicesOpen} className="w-full flex items-center justify-between py-3 text-white font-medium text-lg">
                 Services
                 <svg aria-hidden="true" className={`w-4 h-4 transition-transform ${servicesOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -193,11 +205,13 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               )}
 
               <Link href="/updated-nyc-maid-service-industry-pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
+              </>)}
               <Link href="/reviews" onClick={closeMenu} className="flex items-center gap-2 py-3 text-white font-medium text-lg">
                 Reviews <span className="text-yellow-400 text-sm">&#9733; 5.0</span>
               </Link>
               <Link href="/contact-the-nyc-maid-service-today" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Contact</Link>
 
+              {isCleaning && (<>
               <button onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen} className="w-full flex items-center justify-between py-3 text-white font-medium text-lg">
                 More
                 <svg aria-hidden="true" className={`w-4 h-4 transition-transform ${moreOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -211,11 +225,12 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                   ))}
                 </div>
               )}
+              </>)}
 
               <div className="border-t border-white/10 mt-4 pt-4 space-y-1">
                 <Link href="/book" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Client Login</Link>
                 <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Pay Now</a>
-                <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Referral Program</Link>
+                {isCleaning && <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Referral Program</Link>}
               </div>
 
               <div className="border-t border-white/10 mt-4 pt-6 space-y-3 text-center">
