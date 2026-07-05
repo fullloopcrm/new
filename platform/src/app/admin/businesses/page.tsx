@@ -20,6 +20,7 @@ type Business = {
   billing_status: string
   monthly_rate: number
   setup_fee: number
+  setup_fee_paid_at: string | null
   payment_method: string | null
   last_active_at: string | null
   created_at: string
@@ -85,7 +86,22 @@ export default function BusinessesPage() {
   // Stats
   const activeCount = businesses.filter(b => b.status === 'active').length
   const setupCount = businesses.filter(b => b.status === 'setup').length
-  const mrr = businesses.filter(b => b.billing_status === 'active').reduce((s, b) => s + (b.monthly_rate || 0), 0)
+
+  // Revenue reflects the seat plans ($1,000/admin + $100/team). Recurring MRR counts
+  // every live (active, non-cancelled) tenant's monthly_rate. Monthly Revenue also adds
+  // any $25k setup fees actually collected in the current calendar month, so a tenant's
+  // first month shows setup + monthly and later months show just the monthly.
+  const now = new Date()
+  const paidThisMonth = (iso: string | null) => {
+    if (!iso) return false
+    const d = new Date(iso)
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+  }
+  const liveTenants = businesses.filter(b => b.status === 'active' && b.billing_status !== 'cancelled')
+  const mrrRecurring = liveTenants.reduce((s, b) => s + (b.monthly_rate || 0), 0)
+  const setupThisMonth = businesses.reduce((s, b) => s + (paidThisMonth(b.setup_fee_paid_at) ? (b.setup_fee || 0) : 0), 0)
+  const monthlyRevenue = mrrRecurring + setupThisMonth
+  const annualRevenue = mrrRecurring * 12
 
   if (loading) return <p className="text-slate-500">Loading businesses...</p>
 
@@ -107,8 +123,8 @@ export default function BusinessesPage() {
         {[
           { label: 'Total', value: businesses.length, color: 'border-l-gray-500' },
           { label: 'Active', value: activeCount, color: 'border-l-green-500' },
-          { label: 'In Setup', value: setupCount, color: 'border-l-teal-500' },
-          { label: 'MRR', value: `$${mrr.toLocaleString()}`, color: 'border-l-purple-500' },
+          { label: 'Monthly Revenue', value: `$${monthlyRevenue.toLocaleString()}`, color: 'border-l-teal-500' },
+          { label: 'Total Revenue (ARR)', value: `$${annualRevenue.toLocaleString()}`, color: 'border-l-purple-500' },
         ].map((card) => (
           <div key={card.label} className={`border-l-4 ${card.color} pl-4 py-3`}>
             <p className="text-[11px] text-slate-500 uppercase tracking-wide">{card.label}</p>

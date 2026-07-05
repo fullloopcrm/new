@@ -58,6 +58,42 @@ export async function ensurePlatformPrices(): Promise<SeatPrices> {
   return { adminPriceId: admin.id, memberPriceId: member.id, setupPriceId: setup.id }
 }
 
+/**
+ * Sync a live subscription's per-seat quantities to the tenant's current seat
+ * counts. Stripe prorates the difference automatically. Admin seats are clamped
+ * to a minimum of 1; team seats of 0 remove the team line item. No-op-safe:
+ * callers should only invoke this when the tenant actually has a subscription.
+ */
+export async function syncSubscriptionSeats(
+  subscriptionId: string,
+  admins: number,
+  teamMembers: number,
+): Promise<void> {
+  const stripe = getStripe()
+  const { adminPriceId, memberPriceId } = await ensurePlatformPrices()
+  const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items.data.price'] })
+  const items = sub.items.data
+  const adminItem = items.find(i => i.price.id === adminPriceId)
+  const memberItem = items.find(i => i.price.id === memberPriceId)
+
+  const updateItems: Stripe.SubscriptionUpdateParams.Item[] = []
+
+  const adminQty = Math.max(1, Math.floor(admins || 0))
+  updateItems.push(adminItem ? { id: adminItem.id, quantity: adminQty } : { price: adminPriceId, quantity: adminQty })
+
+  const teamQty = Math.max(0, Math.floor(teamMembers || 0))
+  if (teamQty > 0) {
+    updateItems.push(memberItem ? { id: memberItem.id, quantity: teamQty } : { price: memberPriceId, quantity: teamQty })
+  } else if (memberItem) {
+    updateItems.push({ id: memberItem.id, deleted: true })
+  }
+
+  await stripe.subscriptions.update(subscriptionId, {
+    items: updateItems,
+    proration_behavior: 'create_prorations',
+  })
+}
+
 export async function createProposalCheckout(opts: {
   leadId: string
   email?: string | null

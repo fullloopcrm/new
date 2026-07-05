@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { registerCarryingDomain } from '@/lib/vercel-domains'
+import { PRICING } from '@/lib/billing-pricing'
 
 export async function GET() {
   const authError = await requireAdmin()
@@ -75,8 +76,8 @@ export async function POST(request: Request) {
       owner_email: owner_email || null,
       owner_phone: owner_phone || null,
       payment_method: payment_method || null,
-      monthly_rate: monthly_rate || 0,
-      setup_fee: setup_fee || 0,
+      monthly_rate: monthly_rate ?? PRICING.adminMonthly,
+      setup_fee: setup_fee ?? PRICING.setupFee,
       billing_status: 'setup',
       domain: cleanDomain,
       domain_name: domain_name || null,

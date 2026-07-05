@@ -4,6 +4,7 @@ import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
 import { removeDomain } from '@/lib/vercel-domains'
 import { encryptSecret, isEncrypted, ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
+import { computeMonthly } from '@/lib/billing-pricing'
 
 // Vendor API-key fields that must be encrypted at rest — shared single source
 // of truth so write paths can't drift (see secret-crypto.ts).
@@ -284,6 +285,24 @@ export async function PUT(
     }
   }
 
+  // Seats are authoritative for the monthly rate. If seat counts change, recompute
+  // monthly_rate server-side (never trust a client-sent rate) from the new seats
+  // merged over the tenant's current values.
+  let seatChange: { admins: number; teamMembers: number } | null = null
+  if (updates.admin_seats !== undefined || updates.team_seats !== undefined) {
+    const { data: cur } = await supabaseAdmin
+      .from('tenants')
+      .select('admin_seats, team_seats')
+      .eq('id', id)
+      .single()
+    const admins = Math.max(1, Number(updates.admin_seats ?? cur?.admin_seats ?? 1))
+    const teamMembers = Math.max(0, Number(updates.team_seats ?? cur?.team_seats ?? 0))
+    updates.admin_seats = admins
+    updates.team_seats = teamMembers
+    updates.monthly_rate = computeMonthly(admins, teamMembers)
+    seatChange = { admins, teamMembers }
+  }
+
   const { error } = await supabaseAdmin
     .from('tenants')
     .update(updates)
@@ -291,6 +310,24 @@ export async function PUT(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Push new seat counts to the live Stripe subscription (Stripe prorates). Safe
+  // no-op when the tenant isn't billing yet; never block the save if Stripe errors.
+  if (seatChange) {
+    const { data: sub } = await supabaseAdmin
+      .from('tenants')
+      .select('stripe_subscription_id, billing_status')
+      .eq('id', id)
+      .single()
+    if (sub?.stripe_subscription_id && sub.billing_status === 'active') {
+      try {
+        const { syncSubscriptionSeats } = await import('@/lib/platform-billing')
+        await syncSubscriptionSeats(sub.stripe_subscription_id, seatChange.admins, seatChange.teamMembers)
+      } catch (e) {
+        console.error(`[billing] seat sync failed for tenant ${id}:`, e)
+      }
+    }
   }
 
   // Bust Selena config cache if selena_config was touched so persona

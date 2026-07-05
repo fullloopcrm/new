@@ -3,13 +3,8 @@
 import { useEffect, useState } from 'react'
 import { PLAN_COLORS } from '@/lib/constants'
 
-const PLAN_PRICES: Record<string, number> = {
-  free: 0,
-  starter: 49,
-  pro: 99,
-  enterprise: 249,
-}
-
+// 'plan' is a non-pricing segment label only. Real revenue is seat-based
+// ($1,000/admin + $100/team) via each tenant's monthly_rate — see billing-pricing.ts.
 const PLAN_OPTIONS = ['free', 'starter', 'pro', 'enterprise']
 
 const planColors = PLAN_COLORS
@@ -35,6 +30,7 @@ type BillingTenant = {
 type BillingData = {
   mrr: number
   totalAccounts: number
+  paidAccounts: number
   byPlan: { free: number; starter: number; pro: number; enterprise: number }
   recentChanges: { tenantId: string; name: string; plan: string; updatedAt: string }[]
   tenants: BillingTenant[]
@@ -92,7 +88,7 @@ export default function BillingPage() {
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Paid Accounts</p>
           <p className="text-2xl font-bold text-teal-600">
-            {data.byPlan.starter + data.byPlan.pro + data.byPlan.enterprise}
+            {data.paidAccounts}
           </p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4">
@@ -121,9 +117,6 @@ export default function BillingPage() {
                 </div>
                 <span className="w-16 text-right text-xs text-slate-500">
                   {count} ({data.totalAccounts > 0 ? Math.round((count / data.totalAccounts) * 100) : 0}%)
-                </span>
-                <span className="w-20 text-right text-xs font-medium text-slate-700">
-                  ${(count * PLAN_PRICES[plan]).toLocaleString()}/mo
                 </span>
               </div>
             )
@@ -163,7 +156,7 @@ export default function BillingPage() {
                         className="bg-white border border-slate-300 rounded px-2 py-1 text-xs"
                       >
                         {PLAN_OPTIONS.map((p) => (
-                          <option key={p} value={p}>{p} (${PLAN_PRICES[p]}/mo)</option>
+                          <option key={p} value={p}>{p}</option>
                         ))}
                       </select>
                       <button

@@ -9,7 +9,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { cleanerPaidHours } from '@/lib/billing-hours'
-import { TIER_PRICES } from '@/lib/tier-prices'
+import { signupPricing } from '@/lib/tier-prices'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
@@ -96,24 +96,14 @@ export async function POST(request: Request) {
 
         const { data: prospect } = await supabaseAdmin.from('prospects').select('*').eq('id', prospectId).single()
         if (prospect && !prospect.tenant_id) {
-          // Tier resolution order:
-          //   (1) prospect.paid_tier — set by admin approve flow
-          //   (2) session.metadata.tier — Payment Link path (Jeff sets metadata
-          //       on each tier's Payment Link, Stripe propagates it to session)
-          const tier = (prospect.paid_tier || session.metadata?.tier) as string | undefined
-          // Derive pricing from server-side TIER_PRICES, not prospect row, so a
-          // corrupted prospect row can't mint a tenant with $0 monthly.
-          const pricing = tier ? TIER_PRICES[tier as keyof typeof TIER_PRICES] : undefined
-          if (!pricing) {
-            console.error(`[stripe] unknown tier for prospect ${prospectId} (paid_tier=${prospect.paid_tier}, session.metadata.tier=${session.metadata?.tier})`)
-            return NextResponse.json({ received: true, error: 'unknown_tier' })
-          }
-          // If tier came from session metadata (Payment Link path), persist it
-          // on the prospect so the webhook is idempotent and the tenant row
-          // below gets the right plan.
-          if (!prospect.paid_tier && tier) {
-            prospect.paid_tier = tier
-          }
+          // Seat-based signup pricing, recomputed server-side from checkout
+          // metadata (never from $ stored on the prospect row) so a corrupted
+          // row can't mint a $0 tenant. Defaults to 1 admin ($1,000/mo) when a
+          // legacy Payment Link supplies no seat metadata.
+          const pricing = signupPricing({
+            admins: Number(session.metadata?.admins) || 1,
+            teamMembers: Number(session.metadata?.team_members) || 0,
+          })
 
           const slug = prospect.business_name
             .toLowerCase()
@@ -132,10 +122,18 @@ export async function POST(request: Request) {
               owner_email: prospect.owner_email,
               owner_phone: prospect.owner_phone,
               status: 'active',
-              plan: prospect.paid_tier,
+              // 'plan' is a non-pricing segment label; billing is seat-based (monthly_rate).
+              plan: prospect.paid_tier || session.metadata?.tier || 'pro',
               monthly_rate: Math.round(pricing.monthly_cents / 100),
               setup_fee: Math.round(pricing.setup_cents / 100),
-              setup_fee_paid_at: new Date().toISOString(),
+              // Setup is paid by bank wire out of band — mark it paid via the admin
+              // "Mark setup fee as paid" action when the wire lands, not at card checkout.
+              setup_fee_paid_at: null,
+              // Store the subscription id so seat changes can re-sync per-seat quantities.
+              stripe_subscription_id: typeof session.subscription === 'string' ? session.subscription : null,
+              // Persist the seat counts so the tenant board / rate stay seat-driven.
+              admin_seats: pricing.admins,
+              team_seats: pricing.teamMembers,
               billing_status: 'active',
               address: prospect.primary_city && prospect.primary_state
                 ? `${prospect.primary_city}, ${prospect.primary_state} ${prospect.primary_zip || ''}`.trim()

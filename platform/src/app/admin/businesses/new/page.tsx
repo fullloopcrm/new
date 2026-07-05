@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { PRICING } from '@/lib/billing-pricing'
 
 const industries = [
   { value: 'cleaning', label: 'Cleaning' },
@@ -77,8 +78,8 @@ export default function NewBusinessPage() {
 
   // Billing
   const [paymentMethod, setPaymentMethod] = useState('')
-  const [monthlyRate, setMonthlyRate] = useState(299)
-  const [setupFee, setSetupFee] = useState(499)
+  const [monthlyRate, setMonthlyRate] = useState<number>(PRICING.adminMonthly)
+  const [setupFee, setSetupFee] = useState<number>(PRICING.setupFee)
 
   // Provision
   const [autoProvision, setAutoProvision] = useState(true)

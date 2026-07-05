@@ -30,8 +30,8 @@ async function provision(idx: number): Promise<Result> {
   const businessName = `Stress ${idx} ${runId}`
 
   try {
-    const { TIER_PRICES } = await import('../src/lib/tier-prices')
-    const p = TIER_PRICES[tier]
+    const { signupPricing } = await import('../src/lib/tier-prices')
+    const p = signupPricing()
     const slug = businessName.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,48) + '-' + runId.slice(0,6)
     const email = `jeff+${runId}@thenycmaid.com`
 

@@ -2,12 +2,9 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 
-const PLAN_PRICES: Record<string, number> = {
-  free: 0,
-  starter: 49,
-  pro: 99,
-  enterprise: 249,
-}
+// 'plan' is retained only as a non-pricing segment label (filtering / announcement targeting).
+// Real revenue is seat-based: monthly_rate ($1,000/admin + $100/team) lives on each tenant row.
+const PLAN_OPTIONS = ['free', 'starter', 'pro', 'enterprise']
 
 export async function GET() {
   const authError = await requireAdmin()
@@ -15,7 +12,7 @@ export async function GET() {
 
   const { data: tenants, error } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, plan, status, email, created_at, updated_at')
+    .select('id, name, slug, plan, status, email, monthly_rate, created_at, updated_at')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -31,11 +28,9 @@ export async function GET() {
     else byPlan.free++
   }
 
-  const mrr =
-    byPlan.free * PLAN_PRICES.free +
-    byPlan.starter * PLAN_PRICES.starter +
-    byPlan.pro * PLAN_PRICES.pro +
-    byPlan.enterprise * PLAN_PRICES.enterprise
+  // Real MRR = sum of each tenant's seat-based monthly_rate.
+  const mrr = all.reduce((sum, t) => sum + (t.monthly_rate || 0), 0)
+  const paidAccounts = all.filter((t) => (t.monthly_rate || 0) > 0).length
 
   // Recent plan changes — tenants updated in last 30 days where plan is not free
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString()
@@ -52,6 +47,7 @@ export async function GET() {
   return NextResponse.json({
     mrr,
     totalAccounts: all.length,
+    paidAccounts,
     byPlan,
     recentChanges,
     tenants: all.map((t) => ({
@@ -61,7 +57,7 @@ export async function GET() {
       plan: t.plan || 'free',
       status: t.status,
       email: t.email,
-      mrr: PLAN_PRICES[t.plan || 'free'] || 0,
+      mrr: t.monthly_rate || 0,
       created_at: t.created_at,
     })),
   })
@@ -78,9 +74,9 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
   }
 
-  // Update plan on tenants table
+  // Update plan on tenants table (plan is a segment label only — does not affect billing)
   if (plan) {
-    if (!Object.keys(PLAN_PRICES).includes(plan)) {
+    if (!PLAN_OPTIONS.includes(plan)) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
     }
 

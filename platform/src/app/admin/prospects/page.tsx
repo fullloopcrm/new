@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { PRICING } from '@/lib/billing-pricing'
 
 type P = {
   id: string
@@ -34,6 +35,14 @@ export default function ProspectsAdminPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
+  // Per-prospect seat selection for approval. Default 1 admin, 0 team members.
+  const [seats, setSeats] = useState<Record<string, { admins: number; team: number }>>({})
+  const seatFor = (id: string) => seats[id] || { admins: 1, team: 0 }
+  const setSeat = (id: string, key: 'admins' | 'team', val: number) =>
+    setSeats(s => {
+      const cur = s[id] || { admins: 1, team: 0 }
+      return { ...s, [id]: { ...cur, [key]: Math.max(key === 'admins' ? 1 : 0, Math.floor(val || 0)) } }
+    })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -43,10 +52,10 @@ export default function ProspectsAdminPage() {
 
   useEffect(() => { load() }, [load])
 
-  async function act(id: string, action: 'approve' | 'reject' | 'review', tier?: string) {
+  async function act(id: string, action: 'approve' | 'reject' | 'review', seatsArg?: { admins: number; team: number }) {
     setBusy(id); setMsg('')
     const body: Record<string, unknown> = { action }
-    if (action === 'approve') body.tier = tier
+    if (action === 'approve') { body.admins = seatsArg?.admins ?? 1; body.team_members = seatsArg?.team ?? 0 }
     if (action === 'reject') body.reject_reason = prompt('Reason (internal):') || ''
     const res = await fetch(`/api/admin/prospects/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -112,8 +121,19 @@ export default function ProspectsAdminPage() {
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[p.status]}`}>{p.status}</span></td>
                   <td className="px-4 py-3">
                     {['new','reviewing'].includes(p.status) && (
-                      <div className="flex gap-1">
-                        <button disabled={busy === p.id} onClick={() => act(p.id, 'approve', p.tier_interest || 'growth')}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <label className="text-[10px] text-slate-500">Admins</label>
+                        <input type="number" min={1} value={seatFor(p.id).admins}
+                          onChange={e => setSeat(p.id, 'admins', Number(e.target.value))}
+                          className="w-12 border border-slate-300 rounded px-1 py-0.5 text-xs" />
+                        <label className="text-[10px] text-slate-500">Team</label>
+                        <input type="number" min={0} value={seatFor(p.id).team}
+                          onChange={e => setSeat(p.id, 'team', Number(e.target.value))}
+                          className="w-12 border border-slate-300 rounded px-1 py-0.5 text-xs" />
+                        <span className="text-[10px] font-medium text-slate-600">
+                          ${(seatFor(p.id).admins * PRICING.adminMonthly + seatFor(p.id).team * PRICING.teamMemberMonthly).toLocaleString()}/mo
+                        </span>
+                        <button disabled={busy === p.id} onClick={() => act(p.id, 'approve', seatFor(p.id))}
                           className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
                           Approve
                         </button>

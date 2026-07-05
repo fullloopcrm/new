@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { parseServiceArea, withServiceArea } from '@/lib/service-area'
+import { PRICING } from '@/lib/billing-pricing'
 
 export async function POST(request: Request) {
   const { userId } = await auth()
@@ -63,6 +64,9 @@ export async function POST(request: Request) {
       zip_code: zip_code || null,
       team_size: team_size || 'solo',
       timezone: tz,
+      // Seat-based default: 1 admin ($1,000/mo) + $25,000 setup. No tenant is born at $0.
+      monthly_rate: PRICING.adminMonthly,
+      setup_fee: PRICING.setupFee,
       ...(selenaConfig ? { selena_config: selenaConfig } : {}),
     })
     .select()

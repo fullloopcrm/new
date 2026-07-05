@@ -102,9 +102,9 @@ async function runScenario(scenario: Scenario, runIdx: number): Promise<Scenario
 
   try {
     // 2. tenant
-    const { TIER_PRICES } = await import('../src/lib/tier-prices')
-    const pricing = TIER_PRICES[scenario.tier]
-    localTrack('TIER_PRICES lookup', !!pricing, `tier=${scenario.tier}`)
+    const { signupPricing } = await import('../src/lib/tier-prices')
+    const pricing = signupPricing()
+    localTrack('signupPricing lookup', !!pricing, `admins=${pricing.admins}`)
 
     const slug = (prospect.business_name as string)
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) + '-' + (prospect.id as string).slice(0, 6)
