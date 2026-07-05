@@ -1,6 +1,7 @@
 import type { Neighborhood } from './locations'
 import type { Service } from './services'
 import type { Area } from './data/areas'
+import { type BrandContext, DEFAULT_BRAND } from './brand'
 
 // Deterministic hash for consistent but varied content selection
 function hashCode(str: string): number {
@@ -19,10 +20,10 @@ function pick<T>(arr: T[], seed: string, offset = 0): T {
 
 // ============ HOMEPAGE ============
 
-export function homepageContent() {
+export function homepageContent(brand: BrandContext = DEFAULT_BRAND) {
   return {
-    title: 'Your Business Service & House Cleaning From $59/hr | 5-Star Rated | Your Business',
-    metaDescription: 'NYC\'s top-rated maid service from $59/hr. House cleaning across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. Licensed, insured. 5.0★ Rated. (555) 555-5555',
+    title: `${brand.name} Service & House Cleaning From $59/hr | 5-Star Rated | ${brand.siteName}`,
+    metaDescription: `NYC's top-rated maid service from $59/hr. House cleaning across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. Licensed, insured. 5.0★ Rated. ${brand.phone}`,
     h1: 'NYC\'s #1 Rated Maid Service & House Cleaning — From $59/hr',
     subtitle: 'Professional house cleaning across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & New Jersey. Licensed, insured, and loved by thousands of clients.',
   }

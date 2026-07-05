@@ -11,12 +11,12 @@ import FAQSection from '@/app/site/template/_components/FAQSection'
 import Image from 'next/image'
 import VideoReviews from '@/app/site/template/_components/VideoReviews'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { toBrand } from '@/app/site/template/_lib/seo/brand'
 
-
-const content = homepageContent()
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteConfig = await getSiteConfig()
+  const content = homepageContent(toBrand(siteConfig))
   return {
   title: { absolute: content.title },
   description: content.metaDescription,
@@ -124,6 +124,7 @@ const homepageFAQs = [
 
 export default async function HomePage() {
   const siteConfig = await getSiteConfig()
+  const content = homepageContent(toBrand(siteConfig))
   const schemas = [...homepageSchemas(), faqSchema(homepageFAQs), ...videoReviewsSchemas()]
   const homepagePhoto = pickLifestylePhoto('homepage')
 
