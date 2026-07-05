@@ -118,79 +118,111 @@ export default function NewBusinessPage() {
     setError('')
     setProvisionStatus('Creating tenant...')
 
-    const serviceAreasList = serviceAreas
-      .split(/[\n,]/)
-      .map(a => a.trim())
-      .filter(Boolean)
-    const businessHoursStr = `${businessDays.join('/')} ${businessHoursStart}–${businessHoursEnd}`
+    // Everything runs inside try/finally so the button can NEVER get stuck gray
+    // on "Creating…". Any failure — network, non-JSON response (e.g. an auth
+    // redirect), unexpected shape — surfaces on screen instead of silently
+    // hanging, and `saving` is always reset in finally.
+    try {
+      const serviceAreasList = serviceAreas
+        .split(/[\n,]/)
+        .map(a => a.trim())
+        .filter(Boolean)
+      const businessHoursStr = `${businessDays.join('/')} ${businessHoursStart}–${businessHoursEnd}`
 
-    const res = await fetch('/api/admin/businesses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: name.trim(),
-        industry,
-        zip_code: zipCode || null,
-        team_size: teamSize,
-        owner_name: ownerName || null,
-        owner_email: ownerEmail || null,
-        owner_phone: ownerPhone || null,
-        payment_method: paymentMethod || null,
-        monthly_rate: monthlyRate,
-        setup_fee: setupFee,
-        domain_name: domainName || null,
-        website_url: websiteUrl || null,
-        phone: businessPhone || null,
-        email: businessEmail || null,
-        tagline: tagline || null,
-        primary_color: primaryColor,
-        business_hours: businessHoursStr,
-        business_hours_start: businessHoursStart,
-        business_hours_end: businessHoursEnd,
-        payment_methods: paymentMethodsList,
-      }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      setError(data.error || 'Failed to create business')
-      setSaving(false)
-      setProvisionStatus('')
-      return
-    }
-
-    const tenantId = data.business.id
-
-    if (autoProvision) {
-      setProvisionStatus('Seeding services, Selena config, guidelines...')
-      const customServices = parseServicesOverride()
-      const overrides: Record<string, unknown> = {}
-      if (customServices.length > 0) overrides.services = customServices
-      if (serviceAreasList.length > 0) {
-        overrides.selena_config = { service_areas: serviceAreasList }
-      }
+      let res: Response
       try {
-        const provRes = await fetch(`/api/admin/businesses/${tenantId}/provision`, {
+        res = await fetch('/api/admin/businesses', {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            name: name.trim(),
             industry,
-            ...(Object.keys(overrides).length > 0 && { overrides }),
+            zip_code: zipCode || null,
+            team_size: teamSize,
+            owner_name: ownerName || null,
+            owner_email: ownerEmail || null,
+            owner_phone: ownerPhone || null,
+            payment_method: paymentMethod || null,
+            monthly_rate: monthlyRate,
+            setup_fee: setupFee,
+            domain_name: domainName || null,
+            website_url: websiteUrl || null,
+            phone: businessPhone || null,
+            email: businessEmail || null,
+            tagline: tagline || null,
+            primary_color: primaryColor,
+            business_hours: businessHoursStr,
+            business_hours_start: businessHoursStart,
+            business_hours_end: businessHoursEnd,
+            payment_methods: paymentMethodsList,
           }),
         })
-        const provData = await provRes.json()
-        if (provRes.ok) {
-          setProvisionStatus(`Seeded ${provData.seeded?.services ?? 0} services + defaults`)
-        } else {
-          setProvisionStatus(`Provisioning warning: ${provData.error || 'partial failure'}`)
-        }
-      } catch (err) {
-        setProvisionStatus(`Provisioning failed: ${err instanceof Error ? err.message : 'unknown'}`)
+      } catch (netErr) {
+        setError(`Request never reached the server: ${netErr instanceof Error ? netErr.message : 'network error'}`)
+        return
       }
-    }
 
-    router.push(`/admin/businesses/${tenantId}`)
+      if (res.status === 401) {
+        setError('Not signed in as admin (401). Sign out and back in, then try again.')
+        return
+      }
+
+      const rawBody = await res.text()
+      let data: { business?: { id?: string }; error?: string } = {}
+      try {
+        data = rawBody ? JSON.parse(rawBody) : {}
+      } catch {
+        setError(`Server returned a non-JSON response (HTTP ${res.status}). First 300 chars:\n${rawBody.slice(0, 300)}`)
+        return
+      }
+
+      if (!res.ok) {
+        setError(data.error || `Failed to create business (HTTP ${res.status})`)
+        return
+      }
+
+      const tenantId = data.business?.id
+      if (!tenantId) {
+        setError(`Create returned no tenant id. Raw response: ${rawBody.slice(0, 300)}`)
+        return
+      }
+
+      if (autoProvision) {
+        setProvisionStatus('Seeding services, Selena config, guidelines...')
+        const customServices = parseServicesOverride()
+        const overrides: Record<string, unknown> = {}
+        if (customServices.length > 0) overrides.services = customServices
+        if (serviceAreasList.length > 0) {
+          overrides.selena_config = { service_areas: serviceAreasList }
+        }
+        try {
+          const provRes = await fetch(`/api/admin/businesses/${tenantId}/provision`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              industry,
+              ...(Object.keys(overrides).length > 0 && { overrides }),
+            }),
+          })
+          const provData = await provRes.json().catch(() => ({}))
+          if (provRes.ok) {
+            setProvisionStatus(`Seeded ${provData.seeded?.services ?? 0} services + defaults`)
+          } else {
+            setProvisionStatus(`Provisioning warning: ${provData.error || 'partial failure'}`)
+          }
+        } catch (err) {
+          // Tenant is already created — provisioning is idempotent and re-runnable
+          // from the detail page, so don't block navigation on it.
+          setProvisionStatus(`Provisioning failed (re-run from detail page): ${err instanceof Error ? err.message : 'unknown'}`)
+        }
+      }
+
+      router.push(`/admin/businesses/${tenantId}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
