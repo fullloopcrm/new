@@ -378,7 +378,8 @@ export default function BusinessDetailPage() {
       <div className="flex items-center justify-between gap-4 mb-6">
         <Link href="/admin/businesses" className="text-sm text-teal-600 hover:text-teal-700 inline-block">&larr; All Businesses</Link>
         <a href={`https://${biz.slug}.fullloopcrm.com`} target="_blank" rel="noopener noreferrer"
-          className="text-sm text-teal-600 hover:text-teal-700 font-mono inline-flex items-center gap-1">
+          className="inline-flex items-center gap-2 bg-teal-50 hover:bg-teal-100 border border-teal-300 text-teal-700 font-mono text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
           {biz.slug}.fullloopcrm.com ↗
         </a>
       </div>
