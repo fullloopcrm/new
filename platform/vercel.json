@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/finance-post",
+      "schedule": "0 4 * * *"
+    },
+    {
       "path": "/api/cron/release-due-payments",
       "schedule": "0 7 * * *"
     },

@@ -9,6 +9,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from './supabase'
 import { normalizeDescription } from './ledger'
 import { decryptSecret } from './secret-crypto'
+import { clearingTargets, type ClearingTargets } from './finance/reconcile'
 
 let _client: Anthropic | null = null
 function getClient(apiKey?: string | null): Anthropic {
@@ -20,7 +21,7 @@ function getClient(apiKey?: string | null): Anthropic {
 export interface Suggestion {
   coa_id: string
   confidence: number
-  source: 'exact' | 'substring' | 'llm'
+  source: 'exact' | 'substring' | 'llm' | 'reconcile'
   reason?: string
 }
 
@@ -48,8 +49,24 @@ export async function suggestCoa(opts: {
   coas: CoARow[]
   patterns: PatternRow[]
   anthropicKey?: string | null
+  clearing?: ClearingTargets
 }): Promise<Suggestion | null> {
   const norm = normalizeDescription(opts.description)
+
+  // 0. Reconciliation-first: a bank line that matches money we already recorded
+  //    should drain a clearing account (revenue/expense-neutral), never re-post
+  //    income/expense. This is what makes it self-driving instead of QuickBooks-
+  //    style "categorize every line".
+  const c = opts.clearing
+  if (c) {
+    const amt = Math.abs(opts.amount_cents)
+    if (opts.amount_cents > 0 && c.undepositedId && c.undepositedBalanceCents > 0 && amt <= c.undepositedBalanceCents + 1) {
+      return { coa_id: c.undepositedId, confidence: 0.97, source: 'reconcile', reason: 'Reconciles payments already recorded (Undeposited Funds)' }
+    }
+    if (opts.amount_cents < 0 && c.payoutsInTransitId && c.payoutsInTransitBalanceCents > 0 && amt <= c.payoutsInTransitBalanceCents + 1) {
+      return { coa_id: c.payoutsInTransitId, confidence: 0.97, source: 'reconcile', reason: 'Reconciles payouts already recorded (Payouts in Transit)' }
+    }
+  }
 
   // 1. Exact pattern match
   const exact = opts.patterns.find(p => p.pattern === norm)
@@ -139,6 +156,10 @@ export async function suggestPending(tenant_id: string): Promise<{ processed: nu
   const anthropicKey = tenantRes.data?.anthropic_api_key ? decryptSecret(tenantRes.data.anthropic_api_key as string) : null
   const txns = txnsRes.data || []
 
+  // Live clearing balances for reconciliation-first suggestions. Decremented as
+  // we suggest so we never drain more clearing than actually exists.
+  const clearing = await clearingTargets(tenant_id)
+
   let suggestedCount = 0
   let skipped = 0
   for (const t of txns) {
@@ -152,6 +173,7 @@ export async function suggestPending(tenant_id: string): Promise<{ processed: nu
         coas,
         patterns,
         anthropicKey,
+        clearing,
       })
       if (s) {
         await supabaseAdmin
@@ -159,6 +181,11 @@ export async function suggestPending(tenant_id: string): Promise<{ processed: nu
           .update({ suggested_coa_id: s.coa_id, suggested_confidence: s.confidence })
           .eq('id', t.id)
         suggestedCount++
+        if (s.source === 'reconcile') {
+          const amt = Math.abs(t.amount_cents)
+          if (t.amount_cents > 0) clearing.undepositedBalanceCents -= amt
+          else clearing.payoutsInTransitBalanceCents -= amt
+        }
       }
     } catch (e) {
       console.warn('[categorize-ai] suggest failed for', t.id, e)
