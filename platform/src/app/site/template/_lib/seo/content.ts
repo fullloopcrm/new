@@ -69,11 +69,11 @@ const areaIntros: Record<string, string[]> = {
   ],
 }
 
-export function areaContent(area: Area) {
+export function areaContent(area: Area, brand: BrandContext = DEFAULT_BRAND) {
   const intros = areaIntros[area.slug] || areaIntros['manhattan']
   return {
     title: `House Cleaning Services in ${area.name}`,
-    metaDescription: `Professional cleaning in ${area.name} from $59/hr. Deep cleaning, weekly service, move-in/out & more. 5.0★ Rated. (555) 555-5555`,
+    metaDescription: `Professional cleaning in ${area.name} from $59/hr. Deep cleaning, weekly service, move-in/out & more. 5.0★ Rated. ${brand.phone}`,
     h1: `Professional Cleaning Services in ${area.name}`,
     intro: pick(intros, area.slug),
   }
@@ -103,14 +103,14 @@ const h1Templates = [
   (n: Neighborhood) => `${n.name} Home Cleaning From $59/hr`,
 ]
 
-export function neighborhoodContent(neighborhood: Neighborhood, area: Area) {
+export function neighborhoodContent(neighborhood: Neighborhood, area: Area, brand: BrandContext = DEFAULT_BRAND) {
   const seed = neighborhood.slug
-  const intro = pick(introTemplates, seed)(neighborhood)
+  const intro = pick(introTemplates, seed)(neighborhood).replace(/Your Business/g, brand.name)
   const h1 = pick(h1Templates, seed, 1)(neighborhood)
 
   return {
     title: `${h1} | ${area.name}`,
-    metaDescription: `Professional cleaning in ${neighborhood.name}, ${area.name} from $59/hr. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. 5.0★ Rated. (555) 555-5555`,
+    metaDescription: `Professional cleaning in ${neighborhood.name}, ${area.name} from $59/hr. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. 5.0★ Rated. ${brand.phone}`,
     h1,
     intro,
   }

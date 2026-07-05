@@ -12,6 +12,8 @@ import {
 } from '@/app/site/template/_lib/seo/locations'
 import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { areaContent, neighborhoodContent, neighborhoodFAQs, commonServiceFAQs, neighborhoodVibe, neighborhoodKnownFor, neighborhoodFunFacts } from '@/app/site/template/_lib/seo/content'
+import { getSiteConfig } from '@/app/site/template/_config/load'
+import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { areaPageSchemas, neighborhoodPageSchemas, faqSchema } from '@/app/site/template/_lib/seo/schema'
 import { pickLifestylePhoto } from '@/app/site/template/_lib/seo/photos'
 import Image from 'next/image'
@@ -31,17 +33,17 @@ export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
+  const brand = toBrand(await getSiteConfig())
   const area = getAreaByUrlSlug(slug)
   if (area) {
-    const content = areaContent(area)
-    const url = `https://www.example.com/${slug}`
-    const title = `${area.name} Maid Service & House Cleaning From $59/hr | Your Business`
-    const description = `Professional house cleaning in ${area.name} from $59/hr. Deep cleaning, weekly maid service, move-in/out & more. Licensed, insured, 5.0★ Rated. (555) 555-5555`
+    const url = `${brand.url}/${slug}`
+    const title = `${area.name} Maid Service & House Cleaning From $59/hr | ${brand.name}`
+    const description = `Professional house cleaning in ${area.name} from $59/hr. Deep cleaning, weekly maid service, move-in/out & more. Licensed, insured, 5.0★ Rated. ${brand.phone}`
     return {
       title: { absolute: title },
       description,
       alternates: { canonical: url },
-      openGraph: { title, description, url, type: 'website', siteName: 'Your Business', locale: 'en_US' },
+      openGraph: { title, description, url, type: 'website', siteName: brand.siteName, locale: 'en_US' },
       twitter: { card: 'summary_large_image', title, description },
       other: { 'geo.region': `US-${area.state}`, 'geo.placename': area.name, 'geo.position': `${area.lat};${area.lng}`, 'ICBM': `${area.lat}, ${area.lng}` },
     }
@@ -50,15 +52,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const neighborhood = getNeighborhoodByUrlSlug(slug)
   if (neighborhood) {
     const neighborhoodArea = getArea(neighborhood.area)!
-    const content = neighborhoodContent(neighborhood, neighborhoodArea)
-    const url = `https://www.example.com/${slug}`
-    const title = `${neighborhood.name} Maid Service & House Cleaning From $59/hr | Your Business`
-    const description = `Professional cleaning in ${neighborhood.name}, ${neighborhoodArea.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $59/hr. 5.0★ Rated. (555) 555-5555`
+    const url = `${brand.url}/${slug}`
+    const title = `${neighborhood.name} Maid Service & House Cleaning From $59/hr | ${brand.name}`
+    const description = `Professional cleaning in ${neighborhood.name}, ${neighborhoodArea.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $59/hr. 5.0★ Rated. ${brand.phone}`
     return {
       title: { absolute: title },
       description,
       alternates: { canonical: url },
-      openGraph: { title, description, url, type: 'website', siteName: 'Your Business', locale: 'en_US' },
+      openGraph: { title, description, url, type: 'website', siteName: brand.siteName, locale: 'en_US' },
       twitter: { card: 'summary_large_image', title, description },
       other: { 'geo.region': `US-${neighborhoodArea.state}`, 'geo.placename': neighborhood.name, 'geo.position': `${neighborhood.lat};${neighborhood.lng}`, 'ICBM': `${neighborhood.lat}, ${neighborhood.lng}` },
     }
@@ -69,11 +70,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SlugPage({ params }: Props) {
   const { slug } = await params
+  const brand = toBrand(await getSiteConfig())
 
   // ============ AREA PAGE ============
   const area = getAreaByUrlSlug(slug)
   if (area) {
-    const content = areaContent(area)
+    const content = areaContent(area, brand)
     const neighborhoods = getNeighborhoodsByArea(area.slug)
     const areaPhoto = pickLifestylePhoto(area.slug)
 
@@ -250,7 +252,7 @@ export default async function SlugPage({ params }: Props) {
   const neighborhood = getNeighborhoodByUrlSlug(slug)
   if (neighborhood) {
     const neighborhoodArea = getArea(neighborhood.area)!
-    const content = neighborhoodContent(neighborhood, neighborhoodArea)
+    const content = neighborhoodContent(neighborhood, neighborhoodArea, brand)
     const baseFaqs = neighborhoodFAQs(neighborhood, neighborhoodArea)
     const common = commonServiceFAQs(SERVICES[0])
     const seen = new Set(baseFaqs.map(f => f.question))
