@@ -134,6 +134,16 @@ function Item({ done, label, detail, onClick, auto }: {
 export default function BusinessDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const [showCreated, setShowCreated] = useState(false)
+
+  // Show the post-create guidance modal when redirected from the create form
+  // (?created=1). Read from window in an effect so this client page never needs
+  // a useSearchParams Suspense boundary (which would break the build).
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('created') === '1') {
+      setShowCreated(true)
+    }
+  }, [])
   const [biz, setBiz] = useState<Business | null>(null)
   const [invites, setInvites] = useState<Invite[]>([])
   const [cl, setCl] = useState<Checklist | null>(null)
@@ -1030,6 +1040,40 @@ export default function BusinessDetailPage() {
           Delete this business
         </button>
       </div>
+
+      {/* Post-create guidance — shown once after Create Business + Provision so
+          any operator (not just the founder) knows the next steps. */}
+      {showCreated && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={() => setShowCreated(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                <span className="text-green-600 text-lg">✓</span>
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-heading font-bold text-lg text-slate-900">Tenant created</h3>
+                <a href={`https://${biz.slug}.fullloopcrm.com`} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-teal-600 hover:text-teal-700 font-mono">{biz.slug}.fullloopcrm.com ↗</a>
+              </div>
+            </div>
+            <ol className="text-sm text-slate-600 space-y-2 mb-5 list-decimal list-inside">
+              <li><strong>Fill in all profile fields</strong> — address, service radius, phone, hours, branding (Integrations tab).</li>
+              <li><strong>Hit Activate</strong> — runs the full auto-setup: settings, domains, owner login, SEO link, and a live smoke test.</li>
+            </ol>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => { setShowCreated(false); setTab('integrations') }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+                Fill profile fields
+              </button>
+              <button onClick={() => { setShowCreated(false); setTab('launch') }}
+                className="px-4 py-2 rounded-lg text-sm font-cta font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors">
+                Go to Activate →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation modal */}
       {showDelete && (

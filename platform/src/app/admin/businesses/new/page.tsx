@@ -219,7 +219,7 @@ export default function NewBusinessPage() {
         }
       }
 
-      router.push(`/admin/businesses/${tenantId}`)
+      router.push(`/admin/businesses/${tenantId}?created=1`)
     } finally {
       setSaving(false)
     }
