@@ -26,6 +26,7 @@ const COLUMNS: { key: string; label: string; accent: string }[] = [
   { key: 'scheduled', label: 'Scheduled', accent: 'border-t-teal-500' },
   { key: 'in_progress', label: 'In Progress', accent: 'border-t-blue-500' },
   { key: 'completed', label: 'Completed', accent: 'border-t-slate-400' },
+  { key: 'no_show', label: 'No-show', accent: 'border-t-orange-400' },
 ]
 
 const CLASS_BADGE: Record<string, string> = {
@@ -106,7 +107,7 @@ export default function KanbanView() {
           <button onClick={() => setError('')} className="ml-2 underline">Dismiss</button>
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
         {COLUMNS.map((col) => (
           <div
             key={col.key}
@@ -145,6 +146,12 @@ export default function KanbanView() {
           </div>
         ))}
       </div>
+      {(() => {
+        const hidden = bookings.filter((b) => !COLUMNS.some((c) => c.key === b.status)).length
+        return hidden > 0 ? (
+          <p className="mt-3 text-xs text-slate-400">{hidden} cancelled / other status not shown on the board.</p>
+        ) : null
+      })()}
     </div>
   )
 }
