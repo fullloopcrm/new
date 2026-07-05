@@ -76,7 +76,8 @@ export async function POST(req: Request) {
         headers: { ...auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({ alias: host }),
       })
-      results.push({ host, ok: r.ok, status: r.status })
+      // 409 = alias already points at this deployment (idempotent no-op) = success.
+      results.push({ host, ok: r.ok || r.status === 409, status: r.status })
     } catch {
       results.push({ host, ok: false, status: 0 })
     }
