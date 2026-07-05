@@ -65,6 +65,7 @@ type Business = {
   business_hours: string | null
   address: string | null
   tagline: string | null
+  service_radius_miles: number | null
 }
 
 type Invite = { id: string; email: string; role: string; accepted: boolean; expires_at: string; created_at: string }
@@ -194,6 +195,7 @@ export default function BusinessDetailPage() {
   const [primaryColor, setPrimaryColor] = useState('#0d9488')
   const [secondaryColor, setSecondaryColor] = useState('')
   const [businessHours, setBusinessHours] = useState('')
+  const [serviceRadius, setServiceRadius] = useState<number | ''>('')
 
   const fetchData = useCallback(() => {
     fetch(`/api/admin/businesses/${id}`, { credentials: 'include' })
@@ -256,6 +258,7 @@ export default function BusinessDetailPage() {
           setPrimaryColor(b.primary_color || '#0d9488')
           setSecondaryColor(b.secondary_color || '')
           setBusinessHours(b.business_hours || '')
+          setServiceRadius(b.service_radius_miles ?? '')
         }
         setLoading(false)
       })
@@ -606,7 +609,14 @@ export default function BusinessDetailPage() {
                 <input value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)}
                   placeholder="123 Main St, City, ST 12345" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
               </div>
-              <div className="col-span-2">
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Service Radius (miles)</label>
+                <input type="number" min={0} value={serviceRadius}
+                  onChange={(e) => setServiceRadius(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="25" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+                <p className="text-[11px] text-slate-400 mt-1">How far from the address you serve. Drives geo + job page coverage.</p>
+              </div>
+              <div>
                 <label className="text-xs text-slate-400 uppercase">Website URL</label>
                 <input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)}
                   placeholder="https://business.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
@@ -833,6 +843,7 @@ export default function BusinessDetailPage() {
               address: businessAddress || null,
               tagline: tagline || null,
               business_hours: businessHours || null,
+              service_radius_miles: serviceRadius === '' ? null : serviceRadius,
               logo_url: logoUrl || null,
               primary_color: primaryColor,
               secondary_color: secondaryColor || null,
