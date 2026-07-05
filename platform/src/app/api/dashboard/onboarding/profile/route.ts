@@ -17,6 +17,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { normalizeEntityType } from '@/lib/tenant-profile'
 
 type Json = Record<string, unknown>
 
@@ -160,7 +161,10 @@ export async function POST(request: Request) {
       name: str(d.businessName) || str(d.legalName) || 'Business',
       legal_name: str(d.legalName),
       ein: str(d.ein),
-      entity_type: str(d.entityType),
+      // entity_type is CHECK-constrained lowercase ('llc','s_corp',…). The wizard
+      // sends 'LLC'/'S-Corp', which would violate the constraint and silently drop
+      // the row. Normalize to a valid enum value.
+      entity_type: normalizeEntityType(d.entityType),
       address: str(d.address),
       city: str(d.city),
       state: str(d.state),
