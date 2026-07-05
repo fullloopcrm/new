@@ -66,6 +66,7 @@ type Business = {
   address: string | null
   tagline: string | null
   service_radius_miles: number | null
+  selena_config: { service_areas?: string[] } & Record<string, unknown> | null
 }
 
 type Invite = { id: string; email: string; role: string; accepted: boolean; expires_at: string; created_at: string }
@@ -206,6 +207,9 @@ export default function BusinessDetailPage() {
   const [secondaryColor, setSecondaryColor] = useState('')
   const [businessHours, setBusinessHours] = useState('')
   const [serviceRadius, setServiceRadius] = useState<number | ''>('')
+  const [serviceAreasText, setServiceAreasText] = useState('')
+  const [savingArea, setSavingArea] = useState(false)
+  const [savedArea, setSavedArea] = useState(false)
 
   const fetchData = useCallback(() => {
     fetch(`/api/admin/businesses/${id}`, { credentials: 'include' })
@@ -269,6 +273,7 @@ export default function BusinessDetailPage() {
           setSecondaryColor(b.secondary_color || '')
           setBusinessHours(b.business_hours || '')
           setServiceRadius(b.service_radius_miles ?? '')
+          setServiceAreasText((b.selena_config?.service_areas || []).join('\n'))
         }
         setLoading(false)
       })
@@ -601,6 +606,57 @@ export default function BusinessDetailPage() {
       {tab === 'integrations' && (
         <div className="max-w-2xl space-y-8">
 
+          {/* Service Area — drives the geo automation. Address geocodes to a
+              center on Activate; radius + areas decide which geo/job pages
+              generate. Grouped + prominent because it powers the whole site. */}
+          <div className="border-2 border-teal-200 bg-teal-50/40 rounded-xl p-5">
+            <h3 className="font-heading font-semibold text-slate-900 mb-1">Service Area <span className="text-teal-600">— powers the site</span></h3>
+            <p className="text-xs text-slate-500 mb-4">Address geocodes on Activate; radius + areas decide which geo & job pages generate.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Business Address</label>
+                <input value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)}
+                  placeholder="123 Main St, City, ST 12345" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-slate-400 uppercase">Service Radius (miles)</label>
+                  <input type="number" min={0} value={serviceRadius}
+                    onChange={(e) => setServiceRadius(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="25" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase">Service Areas (one per line)</label>
+                <textarea value={serviceAreasText} onChange={(e) => setServiceAreasText(e.target.value)} rows={4}
+                  placeholder={'Manhattan\nBrooklyn\nQueens\nHoboken'}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+                <p className="text-[11px] text-slate-400 mt-1">Named areas the tenant serves. Seeds geo pages alongside the radius-based coverage.</p>
+              </div>
+              <button
+                onClick={async () => {
+                  setSavingArea(true)
+                  await fetch(`/api/admin/businesses/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      address: businessAddress || null,
+                      service_radius_miles: serviceRadius === '' ? null : serviceRadius,
+                      service_areas: serviceAreasText.split('\n').map(s => s.trim()).filter(Boolean),
+                    }),
+                  })
+                  setSavingArea(false)
+                  setSavedArea(true)
+                  setTimeout(() => setSavedArea(false), 2000)
+                  fetchData()
+                }}
+                disabled={savingArea}
+                className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
+                {savingArea ? 'Saving...' : savedArea ? 'Saved!' : 'Save Service Area'}
+              </button>
+            </div>
+          </div>
+
           {/* Business Info */}
           <div>
             <h3 className="font-heading font-semibold text-slate-900 mb-4 pb-2 border-b border-slate-200">Business Info</h3>
@@ -616,18 +672,6 @@ export default function BusinessDetailPage() {
                   placeholder="hello@business.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
               </div>
               <div className="col-span-2">
-                <label className="text-xs text-slate-400 uppercase">Address</label>
-                <input value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)}
-                  placeholder="123 Main St, City, ST 12345" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 uppercase">Service Radius (miles)</label>
-                <input type="number" min={0} value={serviceRadius}
-                  onChange={(e) => setServiceRadius(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="25" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
-                <p className="text-[11px] text-slate-400 mt-1">How far from the address you serve. Drives geo + job page coverage.</p>
-              </div>
-              <div>
                 <label className="text-xs text-slate-400 uppercase">Website URL</label>
                 <input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)}
                   placeholder="https://business.com" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />

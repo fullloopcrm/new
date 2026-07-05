@@ -248,6 +248,23 @@ export async function PUT(
     updates.setup_progress = { ...(current?.setup_progress || {}), ...body.setup_progress }
   }
 
+  // service_areas lives inside selena_config. Merge it in rather than letting a
+  // caller overwrite the whole blob (which would wipe persona/pricing/checklist).
+  // Drives activation coverage + the template's geo/service/job page generation.
+  if (body.service_areas !== undefined) {
+    let base = updates.selena_config as Record<string, unknown> | undefined
+    if (!base) {
+      const { data } = await supabaseAdmin.from('tenants').select('selena_config').eq('id', id).single()
+      base = (data?.selena_config as Record<string, unknown>) || {}
+    }
+    updates.selena_config = {
+      ...base,
+      service_areas: Array.isArray(body.service_areas)
+        ? body.service_areas.map((s: unknown) => String(s).trim()).filter(Boolean)
+        : [],
+    }
+  }
+
   // Capture the RAW telegram bot token before encryption — needed to register
   // the webhook with Telegram so the new bot goes live on save.
   const rawTelegramToken =
