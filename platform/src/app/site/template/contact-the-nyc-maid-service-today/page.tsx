@@ -45,7 +45,7 @@ export default function ContactPage() {
       ]} />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-16 md:py-24">
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-16 md:py-24">
         <div className="max-w-5xl mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-3 mb-5">
             <span className="text-yellow-400">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
@@ -58,10 +58,10 @@ export default function ContactPage() {
             Text is fastest. Call if you prefer. Email works too. We respond to everything within 15 minutes during business hours.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
-            <a href="sms:5555555555" className="inline-block font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#A8F0DC] tracking-wide hover:text-white transition-colors">
+            <a href="sms:5555555555" className="inline-block font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--accent)] tracking-wide hover:text-white transition-colors">
               Sales: (555) 555-5555
             </a>
-            <a href="sms:5555555556" className="inline-block font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#A8F0DC] tracking-wide hover:text-white transition-colors">
+            <a href="sms:5555555556" className="inline-block font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--accent)] tracking-wide hover:text-white transition-colors">
               Support: (555) 555-5556
             </a>
           </div>
@@ -77,44 +77,44 @@ export default function ContactPage() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Text / Call */}
-            <div className="border border-gray-200 rounded-2xl p-8 text-center hover:border-[#A8F0DC] hover:shadow-lg transition-all">
-              <div className="w-14 h-14 bg-[#A8F0DC] rounded-full flex items-center justify-center mx-auto mb-5">
-                <span className="text-[#1E2A4A] text-2xl">&#9742;</span>
+            <div className="border border-gray-200 rounded-2xl p-8 text-center hover:border-[var(--accent)] hover:shadow-lg transition-all">
+              <div className="w-14 h-14 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-5">
+                <span className="text-[var(--brand)] text-2xl">&#9742;</span>
               </div>
-              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">Text Us</h2>
+              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-2">Text Us</h2>
               <p className="text-gray-500 text-sm mt-3">Fastest way to reach us. Most quotes delivered within 15 minutes.</p>
               <div className="flex flex-col gap-2 mt-5">
-                <a href="sms:5555555555" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                <a href="sms:5555555555" className="bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                   Sales: (555) 555-5555
                 </a>
-                <a href="sms:5555555556" className="bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+                <a href="sms:5555555556" className="bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
                   Support: (555) 555-5556
                 </a>
               </div>
             </div>
 
             {/* Email */}
-            <div className="border border-gray-200 rounded-2xl p-8 text-center hover:border-[#A8F0DC] hover:shadow-lg transition-all">
+            <div className="border border-gray-200 rounded-2xl p-8 text-center hover:border-[var(--accent)] hover:shadow-lg transition-all">
               <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-5">
-                <span className="text-[#1E2A4A] text-2xl">&#9993;</span>
+                <span className="text-[var(--brand)] text-2xl">&#9993;</span>
               </div>
-              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">Email Us</h2>
-              <a href="mailto:hi@example.com" className="text-[#1E2A4A] text-lg font-bold hover:underline underline-offset-4">hi@example.com</a>
+              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-2">Email Us</h2>
+              <a href="mailto:hi@example.com" className="text-[var(--brand)] text-lg font-bold hover:underline underline-offset-4">hi@example.com</a>
               <p className="text-gray-500 text-sm mt-3">For detailed requests, photos, or questions. We respond within 2 hours.</p>
-              <a href="mailto:hi@example.com" className="inline-block mt-5 bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+              <a href="mailto:hi@example.com" className="inline-block mt-5 bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
                 Send Email
               </a>
             </div>
 
             {/* Client Portal */}
-            <div className="border border-gray-200 rounded-2xl p-8 text-center hover:border-[#A8F0DC] hover:shadow-lg transition-all">
+            <div className="border border-gray-200 rounded-2xl p-8 text-center hover:border-[var(--accent)] hover:shadow-lg transition-all">
               <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-5">
-                <span className="text-[#1E2A4A] text-2xl">&#128197;</span>
+                <span className="text-[var(--brand)] text-2xl">&#128197;</span>
               </div>
-              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">Existing Client?</h2>
-              <p className="text-[#1E2A4A] text-lg font-bold">example.com/book</p>
+              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-2">Existing Client?</h2>
+              <p className="text-[var(--brand)] text-lg font-bold">example.com/book</p>
               <p className="text-gray-500 text-sm mt-3">Log in to view your bookings, reschedule, or manage your account.</p>
-              <Link href="/book" className="inline-block mt-5 bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+              <Link href="/book" className="inline-block mt-5 bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
                 Client Login
               </Link>
             </div>
@@ -128,30 +128,30 @@ export default function ContactPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             {/* Hours + address */}
             <div className="bg-white border border-gray-200 rounded-2xl p-8">
-              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-6">Hours &amp; Location</h2>
+              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-6">Hours &amp; Location</h2>
               <div className="space-y-4 mb-4">
                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
                   <span className="text-gray-700 font-medium">Monday – Saturday</span>
-                  <span className="text-[#1E2A4A] font-bold">7:00 AM – 7:00 PM</span>
+                  <span className="text-[var(--brand)] font-bold">7:00 AM – 7:00 PM</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
                   <span className="text-gray-700 font-medium">Sunday</span>
                   <span className="text-gray-400">Closed</span>
                 </div>
               </div>
-              <div className="bg-[#A8F0DC]/15 rounded-lg p-3 mb-8">
-                <p className="text-[#1E2A4A] text-sm font-semibold">Sales &amp; Booking: Available 24/7</p>
+              <div className="bg-[rgb(var(--accent-rgb)/0.15)] rounded-lg p-3 mb-8">
+                <p className="text-[var(--brand)] text-sm font-semibold">Sales &amp; Booking: Available 24/7</p>
                 <p className="text-gray-500 text-xs">Text sales (555) 555-5555 anytime. Support: (555) 555-5556.</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-5">
                 <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-2">Main Office</p>
-                <p className="text-[#1E2A4A] font-medium">150 W 47th St, New York, NY 10036</p>
+                <p className="text-[var(--brand)] font-medium">150 W 47th St, New York, NY 10036</p>
                 <p className="text-gray-500 text-sm mt-1">Serving Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; NJ</p>
               </div>
             </div>
 
             {/* What to include */}
-            <div className="bg-gradient-to-br from-[#1E2A4A] to-[#243352] rounded-2xl p-8">
+            <div className="bg-gradient-to-br from-[var(--brand)] to-[var(--brand-alt)] rounded-2xl p-8">
               <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-white tracking-wide mb-2">What to Include in Your Message</h2>
               <p className="text-blue-200/50 text-sm mb-6">Help us quote you faster by including these details:</p>
               <div className="space-y-4">
@@ -163,7 +163,7 @@ export default function ContactPage() {
                   { n: '05', t: 'Any special requests (inside fridge, pets, allergies)' },
                 ].map(item => (
                   <div key={item.n} className="flex items-start gap-4">
-                    <span className="font-[family-name:var(--font-bebas)] text-xl text-[#A8F0DC]/40 leading-none mt-0.5">{item.n}</span>
+                    <span className="font-[family-name:var(--font-bebas)] text-xl text-[rgb(var(--accent-rgb)/0.4)] leading-none mt-0.5">{item.n}</span>
                     <span className="text-blue-100/70 text-sm">{item.t}</span>
                   </div>
                 ))}
@@ -183,16 +183,16 @@ export default function ContactPage() {
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Where We Serve</h2>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-4">Same Rates Across Every Location</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide text-center mb-4">Same Rates Across Every Location</p>
           <p className="text-gray-500 text-center max-w-2xl mx-auto mb-10">No travel fees, no zone surcharges. Manhattan to Long Island — you pay the same flat hourly rate.</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {AREAS.map(area => (
               <Link
                 key={area.slug}
                 href={`/${area.urlSlug}`}
-                className="bg-gray-50 border border-gray-200 rounded-xl p-5 text-center hover:border-[#A8F0DC] hover:shadow-sm transition-all"
+                className="bg-gray-50 border border-gray-200 rounded-xl p-5 text-center hover:border-[var(--accent)] hover:shadow-sm transition-all"
               >
-                <p className="font-[family-name:var(--font-bebas)] text-lg text-[#1E2A4A] tracking-wide">{area.name}</p>
+                <p className="font-[family-name:var(--font-bebas)] text-lg text-[var(--brand)] tracking-wide">{area.name}</p>
                 <p className="text-gray-400 text-xs mt-1">{getNeighborhoodsByArea(area.slug).length} neighborhoods</p>
               </Link>
             ))}
@@ -201,16 +201,16 @@ export default function ContactPage() {
       </section>
 
       {/* Mint band — response time promise */}
-      <section className="py-12 bg-[#A8F0DC]">
+      <section className="py-12 bg-[var(--accent)]">
         <div className="max-w-4xl mx-auto px-4 flex flex-col md:flex-row items-start gap-6">
           <div className="flex-shrink-0">
-            <div className="w-14 h-14 bg-[#1E2A4A] rounded-full flex items-center justify-center">
+            <div className="w-14 h-14 bg-[var(--brand)] rounded-full flex items-center justify-center">
               <span className="text-white text-xl">&#9889;</span>
             </div>
           </div>
           <div>
-            <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-2">Our Response Time Promise</h3>
-            <p className="text-[#1E2A4A]/80 leading-relaxed">
+            <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-2">Our Response Time Promise</h3>
+            <p className="text-[rgb(var(--brand-rgb)/0.8)] leading-relaxed">
               Text messages get a response within 15 minutes during business hours. Emails within 2 hours. We don&apos;t use bots or auto-responders — you&apos;re always talking to a real person who can answer your questions and book your cleaning on the spot.
             </p>
           </div>
@@ -221,11 +221,11 @@ export default function ContactPage() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Common Questions</h2>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-12">Contact FAQ</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide text-center mb-12">Contact FAQ</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
             {contactFaqs.map(faq => (
               <div key={faq.question}>
-                <h3 className="font-semibold text-[#1E2A4A] mb-2">{faq.question}</h3>
+                <h3 className="font-semibold text-[var(--brand)] mb-2">{faq.question}</h3>
                 <p className="text-gray-600 text-sm leading-relaxed">{faq.answer}</p>
               </div>
             ))}

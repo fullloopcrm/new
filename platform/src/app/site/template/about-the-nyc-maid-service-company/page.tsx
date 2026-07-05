@@ -46,7 +46,7 @@ export default function AboutPage() {
       ]} />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-16 md:py-24">
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-16 md:py-24">
         <div className="max-w-5xl mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-3 mb-5">
             <span className="text-yellow-400">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
@@ -71,7 +71,7 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-16 items-start">
             <div className="lg:col-span-3">
               <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">Our Story</h2>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide leading-tight mb-6">Built on a Simple Idea: Show Up, Do Great Work, Charge Fair Prices</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide leading-tight mb-6">Built on a Simple Idea: Show Up, Do Great Work, Charge Fair Prices</p>
               <div className="space-y-5 text-gray-600 leading-relaxed">
                 <p>
                   We started Your Business in 2018 because we were frustrated with the cleaning industry in New York. Prices were inflated, quality was inconsistent, and companies treated cleaners and clients like numbers. We knew there had to be a better way.
@@ -90,37 +90,37 @@ export default function AboutPage() {
 
             {/* Right — stats */}
             <div className="lg:col-span-2 space-y-4">
-              <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-2xl p-8">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-6">By the Numbers</h3>
+              <div className="bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-2xl p-8">
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-6">By the Numbers</h3>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">2018</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">2018</p>
                     <p className="text-gray-500 text-sm">Founded</p>
                   </div>
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">5.0</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">5.0</p>
                     <p className="text-gray-500 text-sm">Client rating</p>
                   </div>
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">{ALL_NEIGHBORHOODS.length}+</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">{ALL_NEIGHBORHOODS.length}+</p>
                     <p className="text-gray-500 text-sm">Neighborhoods</p>
                   </div>
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">{SERVICES.length}</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">{SERVICES.length}</p>
                     <p className="text-gray-500 text-sm">Service types</p>
                   </div>
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">$59</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">$59</p>
                     <p className="text-gray-500 text-sm">Starting rate/hr</p>
                   </div>
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">27</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">27</p>
                     <p className="text-gray-500 text-sm">5-star reviews</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-[#1E2A4A] to-[#243352] rounded-2xl p-8">
+              <div className="bg-gradient-to-br from-[var(--brand)] to-[var(--brand-alt)] rounded-2xl p-8">
                 <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-white tracking-wide mb-5">What We Believe</h3>
                 <ul className="space-y-4">
                   {[
@@ -131,7 +131,7 @@ export default function AboutPage() {
                     'Reliability is the most underrated quality in this industry',
                   ].map(belief => (
                     <li key={belief} className="flex items-start gap-3">
-                      <span className="text-[#A8F0DC] mt-0.5 text-lg flex-shrink-0">&#10003;</span>
+                      <span className="text-[var(--accent)] mt-0.5 text-lg flex-shrink-0">&#10003;</span>
                       <span className="text-blue-100/70 text-sm leading-relaxed">{belief}</span>
                     </li>
                   ))}
@@ -146,7 +146,7 @@ export default function AboutPage() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">What Sets Us Apart</h2>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-12">Why Thousands of New Yorkers Trust Us</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide text-center mb-12">Why Thousands of New Yorkers Trust Us</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               { title: 'Truly Affordable', detail: 'Our rates start at $59/hr — well below the NYC average for licensed, insured cleaning. No surge pricing, no hidden fees, no travel charges. Manhattan to Long Island, same rate.' },
@@ -156,8 +156,8 @@ export default function AboutPage() {
               { title: 'Licensed & Insured', detail: 'Full general liability insurance and bonding on every job. Every cleaner is background-checked before their first assignment. Your home, your belongings, and your peace of mind are protected.' },
               { title: 'No Contracts', detail: 'No long-term commitments and no pressure to upsell or upgrade. Recurring services can be discontinued with 7 days notice. We don\'t lock you in — we earn your business every visit.' },
             ].map(item => (
-              <div key={item.title} className="bg-white border border-gray-200 rounded-2xl p-7 hover:border-[#A8F0DC] hover:shadow-lg transition-all">
-                <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-3">{item.title}</h3>
+              <div key={item.title} className="bg-white border border-gray-200 rounded-2xl p-7 hover:border-[var(--accent)] hover:shadow-lg transition-all">
+                <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-3">{item.title}</h3>
                 <p className="text-gray-600 text-sm leading-relaxed">{item.detail}</p>
               </div>
             ))}
@@ -166,9 +166,9 @@ export default function AboutPage() {
       </section>
 
       {/* How we work — dark section */}
-      <section className="py-16 bg-gradient-to-b from-[#1E2A4A] to-[#243352]">
+      <section className="py-16 bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)]">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-xs font-semibold text-[#A8F0DC]/60 tracking-[0.25em] uppercase mb-3 text-center">How We Work</h2>
+          <h2 className="text-xs font-semibold text-[rgb(var(--accent-rgb)/0.6)] tracking-[0.25em] uppercase mb-3 text-center">How We Work</h2>
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-4">Your Business Difference</p>
           <p className="text-blue-200/50 text-center max-w-2xl mx-auto mb-12">Here&apos;s what happens when you book with us — no surprises, no fine print.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -183,7 +183,7 @@ export default function AboutPage() {
                   'You pay after, when you\'re satisfied',
                 ].map((step, i) => (
                   <div key={step} className="flex items-start gap-3">
-                    <span className="font-[family-name:var(--font-bebas)] text-lg text-[#A8F0DC]/40 leading-none mt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="font-[family-name:var(--font-bebas)] text-lg text-[rgb(var(--accent-rgb)/0.4)] leading-none mt-0.5">{String(i + 1).padStart(2, '0')}</span>
                     <span className="text-blue-100/70 text-sm">{step}</span>
                   </div>
                 ))}
@@ -200,7 +200,7 @@ export default function AboutPage() {
                   'Pay after each cleaning — no auto-billing',
                 ].map((step, i) => (
                   <div key={step} className="flex items-start gap-3">
-                    <span className="font-[family-name:var(--font-bebas)] text-lg text-[#A8F0DC]/40 leading-none mt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="font-[family-name:var(--font-bebas)] text-lg text-[rgb(var(--accent-rgb)/0.4)] leading-none mt-0.5">{String(i + 1).padStart(2, '0')}</span>
                     <span className="text-blue-100/70 text-sm">{step}</span>
                   </div>
                 ))}
@@ -214,15 +214,15 @@ export default function AboutPage() {
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Where We Serve</h2>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-10">{ALL_NEIGHBORHOODS.length}+ Neighborhoods, One Flat Rate</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide text-center mb-10">{ALL_NEIGHBORHOODS.length}+ Neighborhoods, One Flat Rate</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {AREAS.map(area => (
               <Link
                 key={area.slug}
                 href={`/${area.urlSlug}`}
-                className="bg-gray-50 border border-gray-200 rounded-xl p-5 text-center hover:border-[#A8F0DC] hover:shadow-sm transition-all"
+                className="bg-gray-50 border border-gray-200 rounded-xl p-5 text-center hover:border-[var(--accent)] hover:shadow-sm transition-all"
               >
-                <p className="font-[family-name:var(--font-bebas)] text-lg text-[#1E2A4A] tracking-wide">{area.name}</p>
+                <p className="font-[family-name:var(--font-bebas)] text-lg text-[var(--brand)] tracking-wide">{area.name}</p>
                 <p className="text-gray-400 text-xs mt-1">{getNeighborhoodsByArea(area.slug).length} neighborhoods</p>
               </Link>
             ))}
@@ -231,19 +231,19 @@ export default function AboutPage() {
       </section>
 
       {/* Mint band — hiring note */}
-      <section className="py-12 bg-[#A8F0DC]">
+      <section className="py-12 bg-[var(--accent)]">
         <div className="max-w-4xl mx-auto px-4 flex flex-col md:flex-row items-start gap-6">
           <div className="flex-shrink-0">
-            <div className="w-14 h-14 bg-[#1E2A4A] rounded-full flex items-center justify-center">
+            <div className="w-14 h-14 bg-[var(--brand)] rounded-full flex items-center justify-center">
               <span className="text-white text-xl">&#128075;</span>
             </div>
           </div>
           <div>
-            <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-2">We&apos;re Always Looking for Great Cleaners</h3>
-            <p className="text-[#1E2A4A]/80 leading-relaxed">
+            <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-2">We&apos;re Always Looking for Great Cleaners</h3>
+            <p className="text-[rgb(var(--brand-rgb)/0.8)] leading-relaxed">
               If you&apos;re an experienced cleaner who takes pride in their work, we&apos;d love to hear from you. Competitive pay, flexible hours, respectful management, and steady work.
             </p>
-            <Link href="/available-nyc-maid-jobs" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">See open positions &rarr;</Link>
+            <Link href="/available-nyc-maid-jobs" className="inline-block mt-3 text-[var(--brand)] font-semibold text-sm underline underline-offset-4">See open positions &rarr;</Link>
           </div>
         </div>
       </section>
@@ -252,11 +252,11 @@ export default function AboutPage() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Common Questions</h2>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-12">About Your Business</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide text-center mb-12">About Your Business</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
             {aboutFaqs.map(faq => (
               <div key={faq.question}>
-                <h3 className="font-semibold text-[#1E2A4A] mb-2">{faq.question}</h3>
+                <h3 className="font-semibold text-[var(--brand)] mb-2">{faq.question}</h3>
                 <p className="text-gray-600 text-sm leading-relaxed">{faq.answer}</p>
               </div>
             ))}

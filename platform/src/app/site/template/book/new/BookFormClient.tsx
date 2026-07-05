@@ -344,20 +344,20 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
   if (done) {
     return (
       <>
-      <div className="min-h-screen bg-gradient-to-b from-[#1E2A4A] to-[#243352] flex items-center justify-center px-4 py-16">
+      <div className="min-h-screen bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] flex items-center justify-center px-4 py-16">
         <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">✓</div>
           <div className="inline-block bg-amber-100 text-amber-900 text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full mb-3">Pending Owner Review</div>
-          <h1 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Request Submitted — Awaiting Confirmation.</h1>
+          <h1 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-2">Request Submitted — Awaiting Confirmation.</h1>
           <p className="text-gray-600 text-sm mb-6">This is <strong>not finalized yet</strong>. The owner reviews + confirms within the hour. You&rsquo;ll get a second text/email locking in your date, time, and cleaner — until then please don&rsquo;t plan around this slot. {selfBookingDiscount > 0 ? <>Your <strong>$10 self-booking discount</strong> is locked in &mdash; it&rsquo;ll show on your final bill once confirmed</> : <>This is a {isMultiCleaner ? 'multi-cleaner' : 'same-day / emergency'} booking, so no discounts apply{isMultiCleaner ? ' and a 4-hour minimum is in effect' : ''}</>}{pin ? '. A confirmation email with your client portal PIN is on its way' : ''}.</p>
           {pin && (
-            <div className="bg-[#A8F0DC]/30 border border-[#A8F0DC] rounded-lg p-4 mb-6">
-              <p className="text-xs text-[#1E2A4A]/60 tracking-widest uppercase mb-1">Your PIN</p>
-              <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-widest">{pin}</p>
-              <p className="text-xs text-[#1E2A4A]/60 mt-2">Save this — log in at <Link href="/book" className="underline">example.com/book</Link></p>
+            <div className="bg-[rgb(var(--accent-rgb)/0.3)] border border-[var(--accent)] rounded-lg p-4 mb-6">
+              <p className="text-xs text-[rgb(var(--brand-rgb)/0.6)] tracking-widest uppercase mb-1">Your PIN</p>
+              <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-widest">{pin}</p>
+              <p className="text-xs text-[rgb(var(--brand-rgb)/0.6)] mt-2">Save this — log in at <Link href="/book" className="underline">example.com/book</Link></p>
             </div>
           )}
-          <Link href="/" className="inline-block bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90">Back home</Link>
+          <Link href="/" className="inline-block bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)]">Back home</Link>
         </div>
       </div>
       </>
@@ -366,12 +366,12 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
 
   return (
     <>
-    <div className="min-h-screen bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-10 md:py-16 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-10 md:py-16 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
-          <div className="inline-block bg-[#A8F0DC] text-[#1E2A4A] text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full mb-4">Your Business Self-Booking System</div>
+          <div className="inline-block bg-[var(--accent)] text-[var(--brand)] text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full mb-4">Your Business Self-Booking System</div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide mb-3">You&rsquo;re one of the smart ones.</h1>
-          <p className="text-blue-200/60 text-sm">Self-bookers save <span className="text-[#A8F0DC] font-semibold">$10</span> off the final bill. Skip the call, fill it out below, you&rsquo;re booked.</p>
+          <p className="text-blue-200/60 text-sm">Self-bookers save <span className="text-[var(--accent)] font-semibold">$10</span> off the final bill. Skip the call, fill it out below, you&rsquo;re booked.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-5">
@@ -388,7 +388,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                   onClick={() => pickServiceType(s.value)}
                   className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${
                     form.service_type === s.value
-                      ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white'
+                      ? 'border-[var(--brand)] bg-[var(--brand)] text-white'
                       : 'border-gray-200 text-gray-700 hover:border-gray-400'
                   }`}
                 >
@@ -427,7 +427,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                 min={isSameDay ? new Date().toISOString().split('T')[0] : minDate}
                 value={form.date}
                 onChange={(e) => update('date', e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"
               />
             </div>
             <div>
@@ -435,7 +435,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
               <select
                 value={form.time}
                 onChange={(e) => update('time', e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"
               >
                 {TIME_SLOTS.map(t => {
                   // No day data yet (or same-day) → leave every slot pickable.
@@ -467,7 +467,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                 placeholder="First and last"
                 value={form.name}
                 onChange={(e) => update('name', e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"
               />
             </div>
             <div>
@@ -478,7 +478,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                 placeholder="(212) 555-1234"
                 value={form.phone}
                 onChange={(e) => update('phone', formatPhone(e.target.value))}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"
               />
             </div>
           </div>
@@ -492,7 +492,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
               placeholder="you@example.com"
               value={form.email}
               onChange={(e) => { update('email', e.target.value); setEmailErr('') }}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"
             />
             {emailErr && <p className="text-red-600 text-xs mt-1">{emailErr}</p>}
           </div>
@@ -504,14 +504,14 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
               value={form.address}
               onChange={(v) => update('address', v)}
               placeholder="Start typing your street..."
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"
             />
             <input
               type="text"
               placeholder="Apt / Unit (optional)"
               value={form.unit}
               onChange={(e) => update('unit', e.target.value)}
-              className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+              className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"
             />
           </div>
 
@@ -519,7 +519,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
               Hidden by default to keep the form short. State stays populated with
               defaults (we_bring / 1 cleaner / service-derived hours / no notes). */}
           <details className="group rounded-lg border border-gray-200 bg-gray-50/40">
-            <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm font-medium text-[#1E2A4A]">
+            <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm font-medium text-[var(--brand)]">
               <span>More options <span className="text-gray-400 font-normal">(supplies, hours, cleaner pick, notes, referrer)</span></span>
               <span className="text-gray-400 group-open:rotate-180 transition">▾</span>
             </summary>
@@ -529,11 +529,11 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Supplies</label>
                   <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => update('supplies', 'we_bring')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${form.supplies === 'we_bring' ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>
+                    <button type="button" onClick={() => update('supplies', 'we_bring')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${form.supplies === 'we_bring' ? 'border-[var(--brand)] bg-[var(--brand)] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>
                       <div>We bring</div>
                       <div className="text-xs opacity-70">$69/hr</div>
                     </button>
-                    <button type="button" onClick={() => update('supplies', 'client')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${form.supplies === 'client' ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>
+                    <button type="button" onClick={() => update('supplies', 'client')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${form.supplies === 'client' ? 'border-[var(--brand)] bg-[var(--brand)] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>
                       <div>I provide</div>
                       <div className="text-xs opacity-70">$59/hr</div>
                     </button>
@@ -545,7 +545,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Hours <span className="normal-case font-normal text-gray-400">(estimate — billed for actual time)</span></label>
                 <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
                   {[2, 3, 4, 5, 6, 7, 8].map(h => (
-                    <button key={h} type="button" onClick={() => update('estimated_hours', h)} className={`px-2 py-2 rounded-lg border text-sm font-medium transition ${form.estimated_hours === h ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>{h}hr</button>
+                    <button key={h} type="button" onClick={() => update('estimated_hours', h)} className={`px-2 py-2 rounded-lg border text-sm font-medium transition ${form.estimated_hours === h ? 'border-[var(--brand)] bg-[var(--brand)] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>{h}hr</button>
                   ))}
                 </div>
               </div>
@@ -554,7 +554,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Cleaners <span className="normal-case font-normal text-gray-400">(default 1 — billed × team size)</span></label>
                 <div className="grid grid-cols-4 gap-2">
                   {[1, 2, 3, 4].map(n => (
-                    <button key={n} type="button" onClick={() => { update('team_size', n); update('extra_cleaner_ids', form.extra_cleaner_ids.slice(0, Math.max(0, n - 1))) }} className={`px-2 py-2 rounded-lg border text-sm font-medium transition ${form.team_size === n ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>{n}</button>
+                    <button key={n} type="button" onClick={() => { update('team_size', n); update('extra_cleaner_ids', form.extra_cleaner_ids.slice(0, Math.max(0, n - 1))) }} className={`px-2 py-2 rounded-lg border text-sm font-medium transition ${form.team_size === n ? 'border-[var(--brand)] bg-[var(--brand)] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>{n}</button>
                   ))}
                 </div>
                 <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-[11px] text-blue-900 leading-relaxed">
@@ -582,7 +582,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                                 key={s.time24}
                                 type="button"
                                 onClick={() => update('time', slot)}
-                                className="px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-sm font-medium text-[#1E2A4A]"
+                                className="px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-sm font-medium text-[var(--brand)]"
                               >
                                 {slotWindow(slot)}
                               </button>
@@ -599,7 +599,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                           type="button"
                           onClick={joinWaitlist}
                           disabled={waitlistState === 'sending'}
-                          className="px-3 py-1.5 rounded-lg bg-[#1E2A4A] text-white text-sm font-semibold hover:bg-[#28365c] disabled:opacity-60"
+                          className="px-3 py-1.5 rounded-lg bg-[var(--brand)] text-white text-sm font-semibold hover:bg-[#28365c] disabled:opacity-60"
                         >
                           {waitlistState === 'sending' ? 'Adding…' : 'Join the waitlist'}
                         </button>
@@ -616,7 +616,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                 )}
                 {!loadingCleaners && availableCleaners.length > 0 && (
                   <div className="space-y-1">
-                    <button type="button" onClick={() => { update('cleaner_id', ''); update('extra_cleaner_ids', []) }} className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${!form.cleaner_id ? 'border-indigo-500 bg-indigo-50 font-medium text-[#1E2A4A]' : 'border-gray-200 hover:border-gray-300 text-[#1E2A4A]'}`}>
+                    <button type="button" onClick={() => { update('cleaner_id', ''); update('extra_cleaner_ids', []) }} className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${!form.cleaner_id ? 'border-indigo-500 bg-indigo-50 font-medium text-[var(--brand)]' : 'border-gray-200 hover:border-gray-300 text-[var(--brand)]'}`}>
                       Any available cleaner
                     </button>
                     {availableCleaners.map(c => {
@@ -641,7 +641,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                         }
                       }
                       return (
-                        <button key={c.id} type="button" onClick={onClick} className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${isLead ? 'border-indigo-500 bg-indigo-50' : isExtra ? 'border-indigo-300 bg-indigo-50/60' : c.is_preferred ? 'border-amber-300 bg-amber-50/40' : 'border-gray-200 hover:border-gray-300'} text-[#1E2A4A]`}>
+                        <button key={c.id} type="button" onClick={onClick} className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${isLead ? 'border-indigo-500 bg-indigo-50' : isExtra ? 'border-indigo-300 bg-indigo-50/60' : c.is_preferred ? 'border-amber-300 bg-amber-50/40' : 'border-gray-200 hover:border-gray-300'} text-[var(--brand)]`}>
                           <div className="flex items-center justify-between">
                             <span>
                               {c.name}
@@ -660,14 +660,14 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Notes</label>
-                <textarea placeholder="Doorman, pet, focus areas, allergies..." rows={2} value={form.notes} onChange={(e) => update('notes', e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] resize-none" />
+                <textarea placeholder="Doorman, pet, focus areas, allergies..." rows={2} value={form.notes} onChange={(e) => update('notes', e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)] resize-none" />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Were you referred? <span className="normal-case font-normal text-gray-400">(they earn 10%)</span></label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <input type="text" placeholder="Their name" value={form.referrer_name} onChange={(e) => update('referrer_name', e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
-                  <input type="tel" placeholder="Their phone" value={form.referrer_phone} onChange={(e) => update('referrer_phone', formatPhone(e.target.value))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
+                  <input type="text" placeholder="Their name" value={form.referrer_name} onChange={(e) => update('referrer_name', e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]" />
+                  <input type="tel" placeholder="Their phone" value={form.referrer_phone} onChange={(e) => update('referrer_phone', formatPhone(e.target.value))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]" />
                 </div>
               </div>
             </div>
@@ -684,7 +684,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
                   : <p className="text-xs text-amber-700 font-semibold mt-1">{isMultiCleaner ? `Multi-cleaner booking — no discounts apply · 4-hour minimum${isEmergency ? ' · under-48hr emergency rate' : ''}` : 'Same-day / emergency booking — no discounts apply'}</p>}
               </div>
               <div className="text-right">
-                <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">~${Math.max(0, estimatedTotal - selfBookingDiscount)}</p>
+                <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">~${Math.max(0, estimatedTotal - selfBookingDiscount)}</p>
                 {selfBookingDiscount > 0 && <p className="text-xs text-gray-400 line-through">${estimatedTotal}</p>}
               </div>
             </div>
@@ -724,15 +724,15 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
             disabled={submitting}
             className={`w-full py-4 rounded-lg font-bold text-sm tracking-widest uppercase transition disabled:opacity-50 disabled:cursor-not-allowed ${
               policyAccepted
-                ? 'bg-[#A8F0DC] text-[#1E2A4A] hover:bg-[#8DE8CC]'
-                : 'bg-[#A8F0DC]/50 text-[#1E2A4A]/70 hover:bg-[#A8F0DC]/70'
+                ? 'bg-[var(--accent)] text-[var(--brand)] hover:bg-[var(--accent-hover)]'
+                : 'bg-[rgb(var(--accent-rgb)/0.5)] text-[rgb(var(--brand-rgb)/0.7)] hover:bg-[rgb(var(--accent-rgb)/0.7)]'
             }`}
           >
             {submitting ? 'Submitting…' : policyAccepted ? 'Book my cleaning' : 'Check the box above, then book'}
           </button>
 
           <p className="text-center text-xs text-gray-400 mt-3">
-            No payment now &middot; You&apos;ll review &amp; confirm the recap on the next step &middot; Or text us at <a href="sms:5555555555" className="text-[#1E2A4A] underline">(555) 555-5555</a>
+            No payment now &middot; You&apos;ll review &amp; confirm the recap on the next step &middot; Or text us at <a href="sms:5555555555" className="text-[var(--brand)] underline">(555) 555-5555</a>
           </p>
         </form>
       </div>
@@ -741,10 +741,10 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
     {showRecap && (
       <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4 py-8 overflow-y-auto" role="dialog" aria-modal="true">
         <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 my-auto">
-          <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-1">Confirm your booking</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-1">Confirm your booking</h2>
           <p className="text-xs text-gray-500 mb-4">Review the details and the policy below — clicking Confirm locks it in.</p>
 
-          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 mb-4 text-sm space-y-1.5 text-[#1E2A4A]">
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 mb-4 text-sm space-y-1.5 text-[var(--brand)]">
             <div><span className="text-gray-500">Service:</span> {form.service_type}</div>
             <div><span className="text-gray-500">When:</span> {form.date} @ {form.time}</div>
             <div><span className="text-gray-500">Address:</span> {form.address}{form.unit ? `, ${form.unit}` : ''}</div>
@@ -773,7 +773,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
               type="button"
               onClick={() => setShowRecap(false)}
               disabled={submitting}
-              className="flex-1 bg-gray-100 text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-gray-200 transition disabled:opacity-50"
+              className="flex-1 bg-gray-100 text-[var(--brand)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-gray-200 transition disabled:opacity-50"
             >
               Back
             </button>
@@ -781,7 +781,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
               type="button"
               onClick={handleConfirmSubmit}
               disabled={submitting}
-              className="flex-1 bg-[#A8F0DC] text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition disabled:opacity-50"
+              className="flex-1 bg-[var(--accent)] text-[var(--brand)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition disabled:opacity-50"
             >
               {submitting ? 'Confirming…' : 'Confirm'}
             </button>
@@ -796,7 +796,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
 
 export default function BookFormClient({ services }: { services: ServiceOption[] }) {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#1E2A4A] flex items-center justify-center text-white">Loading…</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--brand)] flex items-center justify-center text-white">Loading…</div>}>
       <BookFormContent services={services} />
     </Suspense>
   )

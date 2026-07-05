@@ -27,7 +27,7 @@ function FeedbackForm() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-md">
-        <h1 className="text-2xl font-semibold text-[#1E2A4A] mb-1">Anonymous Feedback</h1>
+        <h1 className="text-2xl font-semibold text-[var(--brand)] mb-1">Anonymous Feedback</h1>
         <p className="text-gray-500 text-sm mb-6">Your feedback is completely anonymous and helps us improve.</p>
 
         {submitted ? (
@@ -41,14 +41,14 @@ function FeedbackForm() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="What's on your mind? Suggestions, concerns, compliments — anything helps..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-[#1E2A4A] text-sm resize-none focus:outline-none focus:border-[#1E2A4A]"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-[var(--brand)] text-sm resize-none focus:outline-none focus:border-[var(--brand)]"
               rows={5}
               required
             />
             <button
               type="submit"
               disabled={sending || !message.trim()}
-              className="w-full mt-4 py-3 bg-[#1E2A4A] text-white rounded-xl font-medium disabled:bg-gray-300"
+              className="w-full mt-4 py-3 bg-[var(--brand)] text-white rounded-xl font-medium disabled:bg-gray-300"
             >
               {sending ? 'Sending...' : 'Submit Feedback'}
             </button>

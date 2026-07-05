@@ -64,18 +64,18 @@ export default function ServiceGrid() {
         <Link
           key={service.slug}
           href={`/services/${service.urlSlug}`}
-          className="group border border-gray-200 rounded-2xl p-7 hover:border-[#A8F0DC] hover:shadow-lg transition-all bg-white"
+          className="group border border-gray-200 rounded-2xl p-7 hover:border-[var(--accent)] hover:shadow-lg transition-all bg-white"
         >
-          <div className="w-12 h-12 bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-xl flex items-center justify-center text-[#1E2A4A] mb-5 group-hover:bg-[#A8F0DC]/20 transition-colors">
+          <div className="w-12 h-12 bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-xl flex items-center justify-center text-[var(--brand)] mb-5 group-hover:bg-[rgb(var(--accent-rgb)/0.2)] transition-colors">
             {serviceIcons[service.slug]}
           </div>
-          <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-2">
+          <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-2">
             {service.name}
           </h3>
           <p className="text-gray-500 text-sm leading-relaxed mb-4">{service.description.slice(0, 120)}...</p>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#1E2A4A] tracking-wide">From {service.priceRange.split('–')[0]}</span>
-            <span className="text-[#1E2A4A] text-sm font-medium group-hover:underline underline-offset-4">Learn More &rarr;</span>
+            <span className="text-xs font-semibold text-[var(--brand)] tracking-wide">From {service.priceRange.split('–')[0]}</span>
+            <span className="text-[var(--brand)] text-sm font-medium group-hover:underline underline-offset-4">Learn More &rarr;</span>
           </div>
         </Link>
       ))}

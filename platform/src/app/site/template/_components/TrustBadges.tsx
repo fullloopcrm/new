@@ -9,7 +9,7 @@ export default function TrustBadges() {
 
   return (
     <div className="border border-gray-200 rounded-xl p-8 my-12">
-      <h3 className="text-center text-[#1E2A4A] font-[family-name:var(--font-bebas)] text-2xl tracking-wide mb-6">Why We&apos;re Trusted</h3>
+      <h3 className="text-center text-[var(--brand)] font-[family-name:var(--font-bebas)] text-2xl tracking-wide mb-6">Why We&apos;re Trusted</h3>
       <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
         {badges.map(badge => (
           <div key={badge.label} className="flex items-center gap-2.5">

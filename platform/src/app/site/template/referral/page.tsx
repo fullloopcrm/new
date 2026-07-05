@@ -98,19 +98,19 @@ function ReferrerPortalContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-[#1E2A4A]">Referrer Portal</h1>
+            <h1 className="text-2xl font-bold text-[var(--brand)]">Referrer Portal</h1>
             <p className="text-gray-500 mt-1">View your referral earnings</p>
           </div>
           {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchByEmail()} className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]" placeholder="Enter your email" />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchByEmail()} className="w-full px-4 py-3 border rounded-lg text-[var(--brand)]" placeholder="Enter your email" />
             </div>
-            <button onClick={fetchByEmail} className="w-full py-3 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90">View My Earnings</button>
+            <button onClick={fetchByEmail} className="w-full py-3 bg-[var(--brand)] text-white rounded-lg font-medium hover:bg-[rgb(var(--brand-rgb)/0.9)]">View My Earnings</button>
           </div>
           <div className="mt-6 pt-6 border-t text-center">
-            <p className="text-sm text-gray-500">Not a referrer yet? <Link href="/referral/signup" className="text-[#1E2A4A] hover:underline">Join the program</Link></p>
+            <p className="text-sm text-gray-500">Not a referrer yet? <Link href="/referral/signup" className="text-[var(--brand)] hover:underline">Join the program</Link></p>
           </div>
         </div>
       </div>
@@ -121,7 +121,7 @@ function ReferrerPortalContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-[#1E2A4A] text-white py-4 px-6">
+      <header className="bg-[var(--brand)] text-white py-4 px-6">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div><h1 className="text-xl font-bold">Your Business</h1><p className="text-gray-400 text-sm">Referral Portal</p></div>
           <div className="text-right"><p className="font-medium">{referrer?.name}</p><p className="text-gray-400 text-sm">{referrer?.ref_code}</p></div>
@@ -129,31 +129,31 @@ function ReferrerPortalContent() {
       </header>
       <main className="max-w-4xl mx-auto p-6">
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-sm text-gray-500">Total Earned</p><p className="text-3xl font-bold text-[#1E2A4A]">{formatMoney(referrer?.total_earned || 0)}</p></div>
+          <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-sm text-gray-500">Total Earned</p><p className="text-3xl font-bold text-[var(--brand)]">{formatMoney(referrer?.total_earned || 0)}</p></div>
           <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-sm text-gray-500">Paid Out</p><p className="text-3xl font-bold text-green-600">{formatMoney(referrer?.total_paid || 0)}</p></div>
           <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-sm text-gray-500">Pending</p><p className="text-3xl font-bold text-yellow-600">{formatMoney(pendingAmount)}</p></div>
         </div>
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="font-semibold text-[#1E2A4A] mb-3">Your Referral Link</h2>
+          <h2 className="font-semibold text-[var(--brand)] mb-3">Your Referral Link</h2>
           <div className="flex gap-3">
             <input type="text" value={'https://www.example.com/book/new?ref=' + referrer?.ref_code} readOnly className="flex-1 px-4 py-2 bg-gray-50 border rounded-lg text-gray-600 text-sm" />
-            <button onClick={copyLink} className="px-4 py-2 bg-[#1E2A4A] text-white rounded-lg hover:bg-[#1E2A4A]/90">Copy</button>
+            <button onClick={copyLink} className="px-4 py-2 bg-[var(--brand)] text-white rounded-lg hover:bg-[rgb(var(--brand-rgb)/0.9)]">Copy</button>
           </div>
           <p className="text-sm text-gray-500 mt-2">Share this link. You earn 10% of every cleaning!</p>
         </div>
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="font-semibold text-[#1E2A4A] mb-4">📊 Link Performance</h2>
+          <h2 className="font-semibold text-[var(--brand)] mb-4">📊 Link Performance</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-50 rounded-lg p-4 text-center"><p className="text-sm text-gray-500">Total Clicks</p><p className="text-2xl font-bold text-[#1E2A4A]">{linkStats.clicks}</p></div>
-            <div className="bg-gray-50 rounded-lg p-4 text-center"><p className="text-sm text-gray-500">Unique Visitors</p><p className="text-2xl font-bold text-[#1E2A4A]">{linkStats.uniqueVisitors}</p></div>
-            <div className="bg-[#A8F0DC]/20 rounded-lg p-4 text-center"><p className="text-sm text-gray-500">This Week</p><p className="text-2xl font-bold text-[#1E2A4A]">{linkStats.thisWeek}</p></div>
+            <div className="bg-gray-50 rounded-lg p-4 text-center"><p className="text-sm text-gray-500">Total Clicks</p><p className="text-2xl font-bold text-[var(--brand)]">{linkStats.clicks}</p></div>
+            <div className="bg-gray-50 rounded-lg p-4 text-center"><p className="text-sm text-gray-500">Unique Visitors</p><p className="text-2xl font-bold text-[var(--brand)]">{linkStats.uniqueVisitors}</p></div>
+            <div className="bg-[rgb(var(--accent-rgb)/0.2)] rounded-lg p-4 text-center"><p className="text-sm text-gray-500">This Week</p><p className="text-2xl font-bold text-[var(--brand)]">{linkStats.thisWeek}</p></div>
             <div className="bg-purple-50 rounded-lg p-4 text-center"><p className="text-sm text-gray-500">Book Clicks</p><p className="text-2xl font-bold text-purple-600">{linkStats.bookClicks}</p></div>
           </div>
         </div>
 
         {/* Activity Feed */}
         <div className="bg-white rounded-lg shadow mb-6">
-          <div className="p-4 border-b"><h2 className="font-semibold text-[#1E2A4A]">📈 Recent Activity</h2></div>
+          <div className="p-4 border-b"><h2 className="font-semibold text-[var(--brand)]">📈 Recent Activity</h2></div>
           {recentActivity.length === 0 ? (
             <div className="p-6 text-center text-gray-500"><p>No activity yet. Share your link!</p></div>
           ) : (
@@ -172,14 +172,14 @@ function ReferrerPortalContent() {
         </div>
 
         <div className="bg-white rounded-lg shadow">
-          <div className="p-4 border-b"><h2 className="font-semibold text-[#1E2A4A]">💰 Your Referrals ({commissions.length})</h2></div>
+          <div className="p-4 border-b"><h2 className="font-semibold text-[var(--brand)]">💰 Your Referrals ({commissions.length})</h2></div>
           {commissions.length === 0 ? (
             <div className="p-8 text-center text-gray-500"><p>No referrals yet</p><p className="text-sm mt-1">Share your link to start earning!</p></div>
           ) : (
             <div className="divide-y">
               {commissions.map(c => (
                 <div key={c.id} className="p-4 flex items-center justify-between">
-                  <div><p className="font-medium text-[#1E2A4A]">{c.client_name}</p><p className="text-sm text-gray-500">{formatDate(c.created_at)}</p></div>
+                  <div><p className="font-medium text-[var(--brand)]">{c.client_name}</p><p className="text-sm text-gray-500">{formatDate(c.created_at)}</p></div>
                   <div className="text-right"><p className="font-bold text-green-600">{formatMoney(c.commission_amount)}</p><p className={'text-xs ' + (c.status === 'paid' ? 'text-green-500' : 'text-yellow-500')}>{c.status === 'paid' ? 'Paid via ' + c.paid_via : 'Pending'}</p></div>
                 </div>
               ))}

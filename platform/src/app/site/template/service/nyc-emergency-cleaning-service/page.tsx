@@ -266,7 +266,7 @@ export default function EmergencyCleaningPage() {
       ]} />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-16 md:py-24">
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-16 md:py-24">
         <div className="max-w-5xl mx-auto px-4 text-center">
           <p className="text-xs font-semibold text-red-400 tracking-[0.25em] uppercase mb-4">24/7 Emergency Response</p>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">Emergency Cleaning Service in NYC</h1>
@@ -291,7 +291,7 @@ export default function EmergencyCleaningPage() {
 
         {/* Quick reference: is it an emergency? */}
         <section className="mb-20">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-6">Is It an Emergency?</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-6">Is It an Emergency?</h2>
           <p className="text-gray-600 text-lg mb-8">Not every mess is an emergency. Here&apos;s a quick guide to help you determine what needs immediate professional response and what can wait for a scheduled appointment.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border-2 border-red-200 bg-red-50/50 rounded-xl p-6">
@@ -306,11 +306,11 @@ export default function EmergencyCleaningPage() {
               </ul>
             </div>
             <div className="border-2 border-gray-200 rounded-xl p-6">
-              <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-4">Can Schedule Within 24–48 Hours</h3>
+              <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-4">Can Schedule Within 24–48 Hours</h3>
               <ul className="space-y-2">
                 {['Small mold patches on bathroom caulking', 'Post-break-in cleanup (after police clear scene)', 'Hoarding cleanup', 'Vandalism cleanup', 'Post-storm debris (no standing water)', 'Heavy-duty deep cleaning after neglect'].map(item => (
                   <li key={item} className="flex items-start gap-2 text-gray-700">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <span className="text-sm">{item}</span>
                   </li>
                 ))}
@@ -321,27 +321,27 @@ export default function EmergencyCleaningPage() {
 
         {/* Emergency types — detailed guides */}
         <section className="mb-20">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-4">Emergency Types: What to Do (and What Not to Do)</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-4">Emergency Types: What to Do (and What Not to Do)</h2>
           <p className="text-gray-600 text-lg mb-10">Each emergency is different. We&apos;ve put together detailed guides for every type of cleaning emergency so you know exactly what steps to take — even before we arrive.</p>
 
           {emergencyTypes.map(type => (
             <div key={type.name} className="border border-gray-200 rounded-xl p-6 md:p-8 mb-8">
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-2xl">{type.icon}</span>
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide">{type.name}</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide">{type.name}</h3>
                 {type.isEmergency && <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full uppercase">Urgent</span>}
               </div>
               <p className="text-gray-600 mb-6">{type.description}</p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h4 className="font-semibold text-[#1E2A4A] mb-3 flex items-center gap-2">
-                    <span className="text-[#A8F0DC]">&#10003;</span> What to Do
+                  <h4 className="font-semibold text-[var(--brand)] mb-3 flex items-center gap-2">
+                    <span className="text-[var(--accent)]">&#10003;</span> What to Do
                   </h4>
                   <ol className="space-y-2">
                     {type.whatToDo.map((step, i) => (
                       <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#1E2A4A]/10 text-[#1E2A4A] text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[rgb(var(--brand-rgb)/0.1)] text-[var(--brand)] text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
                         <span>{step}</span>
                       </li>
                     ))}
@@ -376,14 +376,14 @@ export default function EmergencyCleaningPage() {
 
         {/* Our process */}
         <section className="mb-20">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-4">Our Emergency Response Process</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-4">Our Emergency Response Process</h2>
           <p className="text-gray-600 text-lg mb-8">Here&apos;s exactly what happens from the moment you call to the final walkthrough.</p>
           <div className="space-y-6">
             {process.map(p => (
               <div key={p.step} className="flex gap-6 items-start">
-                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#1E2A4A] text-white font-[family-name:var(--font-bebas)] text-xl flex items-center justify-center">{p.step}</div>
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[var(--brand)] text-white font-[family-name:var(--font-bebas)] text-xl flex items-center justify-center">{p.step}</div>
                 <div>
-                  <h3 className="font-semibold text-[#1E2A4A] text-lg">{p.title}</h3>
+                  <h3 className="font-semibold text-[var(--brand)] text-lg">{p.title}</h3>
                   <p className="text-gray-600 mt-1">{p.description}</p>
                 </div>
               </div>
@@ -394,21 +394,21 @@ export default function EmergencyCleaningPage() {
         {/* Pricing */}
         <section className="mb-20">
           <div className="bg-gray-50 rounded-xl p-8 md:p-10">
-            <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-6 text-center">Emergency Cleaning Pricing</h2>
+            <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-6 text-center">Emergency Cleaning Pricing</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="text-center">
                 <p className="text-sm text-gray-500 uppercase tracking-widest mb-2">Minor Emergency</p>
-                <p className="text-3xl font-bold text-[#1E2A4A]">$500–$800</p>
+                <p className="text-3xl font-bold text-[var(--brand)]">$500–$800</p>
                 <p className="text-sm text-gray-500 mt-2">Small water leak, minor mold, localized damage</p>
               </div>
               <div className="text-center border-x border-gray-200">
                 <p className="text-sm text-gray-500 uppercase tracking-widest mb-2">Standard Emergency</p>
-                <p className="text-3xl font-bold text-[#1E2A4A]">$800–$1,500</p>
+                <p className="text-3xl font-bold text-[var(--brand)]">$800–$1,500</p>
                 <p className="text-sm text-gray-500 mt-2">Flooding cleanup, smoke damage, sewage (1–2 rooms)</p>
               </div>
               <div className="text-center">
                 <p className="text-sm text-gray-500 uppercase tracking-widest mb-2">Major Emergency</p>
-                <p className="text-3xl font-bold text-[#1E2A4A]">$1,500–$3,000+</p>
+                <p className="text-3xl font-bold text-[var(--brand)]">$1,500–$3,000+</p>
                 <p className="text-sm text-gray-500 mt-2">Full-apartment water damage, extensive fire/biohazard</p>
               </div>
             </div>
@@ -418,26 +418,26 @@ export default function EmergencyCleaningPage() {
 
         {/* Insurance */}
         <section className="mb-20">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">Working With Your Insurance</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-4">Working With Your Insurance</h2>
           <p className="text-gray-600 mb-6">Most emergency cleaning is covered by renter&apos;s or homeowner&apos;s insurance. Here&apos;s how to make the process smooth:</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <h3 className="font-semibold text-[#1E2A4A]">Before We Arrive</h3>
+              <h3 className="font-semibold text-[var(--brand)]">Before We Arrive</h3>
               <ul className="space-y-2">
                 {['Document all damage with photos and video', 'Call your insurance company to open a claim', 'Get your claim number — we\'ll reference it in our documentation', 'Don\'t throw anything away until the adjuster approves (photograph first)'].map(item => (
                   <li key={item} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
             <div className="space-y-4">
-              <h3 className="font-semibold text-[#1E2A4A]">What We Provide</h3>
+              <h3 className="font-semibold text-[var(--brand)]">What We Provide</h3>
               <ul className="space-y-2">
                 {['Detailed scope-of-work report', 'Before and after photo documentation', 'Itemized invoice with labor and materials breakdown', 'Professional assessment of damage severity', 'Direct communication with your adjuster if needed'].map(item => (
                   <li key={item} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -448,11 +448,11 @@ export default function EmergencyCleaningPage() {
 
         {/* FAQ */}
         <section className="mb-20">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-8">Frequently Asked Questions</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-8">Frequently Asked Questions</h2>
           <div className="space-y-6">
             {faqData.map(f => (
               <div key={f.q} className="border-b border-gray-200 pb-6">
-                <h3 className="font-semibold text-[#1E2A4A] text-lg mb-2">{f.q}</h3>
+                <h3 className="font-semibold text-[var(--brand)] text-lg mb-2">{f.q}</h3>
                 <p className="text-gray-600">{f.a}</p>
               </div>
             ))}
@@ -461,16 +461,16 @@ export default function EmergencyCleaningPage() {
 
         {/* Coverage */}
         <section className="mb-16">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-6">Emergency Service Coverage</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-6">Emergency Service Coverage</h2>
           <p className="text-gray-600 mb-8">We cover Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey for emergency cleaning. Response times are fastest in Manhattan and Brooklyn.</p>
           {AREAS.map(area => {
             const neighborhoods = getNeighborhoodsByArea(area.slug)
             return (
               <div key={area.slug} className="mb-6">
-                <h3 className="font-semibold text-lg text-[#1E2A4A] mb-3">{area.name}</h3>
+                <h3 className="font-semibold text-lg text-[var(--brand)] mb-3">{area.name}</h3>
                 <div className="flex flex-wrap gap-2">
                   {neighborhoods.map(n => (
-                    <Link key={n.slug} href={`/${n.urlSlug}`} className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
+                    <Link key={n.slug} href={`/${n.urlSlug}`} className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[rgb(var(--accent-rgb)/0.2)] hover:text-[var(--brand)] transition-colors">
                       {n.name}
                     </Link>
                   ))}

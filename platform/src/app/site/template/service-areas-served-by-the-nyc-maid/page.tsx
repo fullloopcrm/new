@@ -78,7 +78,7 @@ export default function AreasIndexPage() {
       ]} />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-20 md:py-28">
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-20 md:py-28">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex flex-wrap items-center gap-4 mb-6">
             <span className="text-yellow-400 text-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
@@ -91,23 +91,23 @@ export default function AreasIndexPage() {
             Professional house cleaning from $59/hr in every neighborhood we serve. Same rates, same quality, same background-checked cleaners — whether you&apos;re in Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, or New Jersey.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <span className="text-[#A8F0DC] text-sm font-medium">&#10003; From $59/hr</span>
-            <span className="text-[#A8F0DC] text-sm font-medium">&#10003; Same rate everywhere</span>
-            <span className="text-[#A8F0DC] text-sm font-medium">&#10003; No travel fees</span>
-            <span className="text-[#A8F0DC] text-sm font-medium">&#10003; All services available</span>
+            <span className="text-[var(--accent)] text-sm font-medium">&#10003; From $59/hr</span>
+            <span className="text-[var(--accent)] text-sm font-medium">&#10003; Same rate everywhere</span>
+            <span className="text-[var(--accent)] text-sm font-medium">&#10003; No travel fees</span>
+            <span className="text-[var(--accent)] text-sm font-medium">&#10003; All services available</span>
           </div>
         </div>
       </section>
 
       {/* Area summary strip */}
-      <section className="bg-[#A8F0DC] py-6">
+      <section className="bg-[var(--accent)] py-6">
         <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center gap-x-10 gap-y-3">
           {AREAS.map(area => {
             const count = getNeighborhoodsByArea(area.slug).length
             return (
-              <a key={area.slug} href={`#${area.slug}`} className="flex items-center gap-2 text-[#1E2A4A] hover:underline underline-offset-2">
+              <a key={area.slug} href={`#${area.slug}`} className="flex items-center gap-2 text-[var(--brand)] hover:underline underline-offset-2">
                 <span className="font-semibold">{area.name}</span>
-                <span className="text-[#1E2A4A]/50 text-sm">({count})</span>
+                <span className="text-[rgb(var(--brand-rgb)/0.5)] text-sm">({count})</span>
               </a>
             )
           })}
@@ -125,23 +125,23 @@ export default function AreasIndexPage() {
               <div className="flex items-end justify-between mb-2">
                 <Link href={`/${area.urlSlug}`} className="group">
                   <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-1">{neighborhoods.length} Neighborhoods</p>
-                  <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide group-hover:underline underline-offset-4">{area.name}</h2>
+                  <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide group-hover:underline underline-offset-4">{area.name}</h2>
                 </Link>
-                <Link href={`/${area.urlSlug}`} className="text-[#1E2A4A] text-sm font-medium hover:underline underline-offset-2 hidden md:inline">
+                <Link href={`/${area.urlSlug}`} className="text-[var(--brand)] text-sm font-medium hover:underline underline-offset-2 hidden md:inline">
                   View {area.name} &rarr;
                 </Link>
               </div>
               <p className="text-gray-500 text-sm mb-6 max-w-2xl">{area.description}</p>
-              <div className="w-10 h-[2px] bg-[#A8F0DC] mb-6" />
+              <div className="w-10 h-[2px] bg-[var(--accent)] mb-6" />
 
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {neighborhoods.map(n => (
                   <Link
                     key={n.slug}
                     href={`/${n.urlSlug}`}
-                    className="group p-4 bg-white border border-gray-200 rounded-xl hover:border-[#A8F0DC] hover:shadow-md transition-all"
+                    className="group p-4 bg-white border border-gray-200 rounded-xl hover:border-[var(--accent)] hover:shadow-md transition-all"
                   >
-                    <h3 className="font-semibold text-[#1E2A4A] group-hover:underline underline-offset-2 text-sm mb-1">{n.name}</h3>
+                    <h3 className="font-semibold text-[var(--brand)] group-hover:underline underline-offset-2 text-sm mb-1">{n.name}</h3>
                     <p className="text-xs text-gray-400">{n.zip_codes.slice(0, 2).join(', ')}</p>
                   </Link>
                 ))}
@@ -151,8 +151,8 @@ export default function AreasIndexPage() {
         })}
 
         {/* Services available everywhere */}
-        <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-8 md:p-14 mb-20">
-          <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-2">Available in Every Neighborhood</p>
+        <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] rounded-2xl p-8 md:p-14 mb-20">
+          <p className="text-[var(--accent)] text-xs font-semibold tracking-[0.2em] uppercase mb-2">Available in Every Neighborhood</p>
           <p className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-8">All 10 Services — Same Rate Everywhere</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {SERVICES.map(service => (
@@ -165,7 +165,7 @@ export default function AreasIndexPage() {
                   <p className="text-white font-semibold text-sm group-hover:underline underline-offset-2">{service.name}</p>
                   <p className="text-blue-200/50 text-xs">{service.duration}</p>
                 </div>
-                <span className="text-[#A8F0DC] font-bold text-sm whitespace-nowrap ml-3">{service.priceRange}</span>
+                <span className="text-[var(--accent)] font-bold text-sm whitespace-nowrap ml-3">{service.priceRange}</span>
               </Link>
             ))}
           </div>
@@ -174,14 +174,14 @@ export default function AreasIndexPage() {
         {/* FAQ */}
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Common Questions</p>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Service Area FAQ</p>
-          <div className="w-10 h-[2px] bg-[#A8F0DC] mb-8" />
+          <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-2">Service Area FAQ</p>
+          <div className="w-10 h-[2px] bg-[var(--accent)] mb-8" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
             {areaFAQs.map((faq, i) => (
               <details key={i} className="group border border-gray-200 rounded-xl overflow-hidden">
                 <summary className="flex items-center justify-between p-5 cursor-pointer hover:bg-gray-50 transition-colors">
-                  <h2 className="font-semibold text-[#1E2A4A] text-sm text-left pr-4">{faq.question}</h2>
+                  <h2 className="font-semibold text-[var(--brand)] text-sm text-left pr-4">{faq.question}</h2>
                   <span className="text-gray-400 group-open:rotate-45 transition-transform text-xl flex-shrink-0">+</span>
                 </summary>
                 <div className="px-5 pb-5 text-gray-600 text-sm leading-relaxed">
@@ -193,16 +193,16 @@ export default function AreasIndexPage() {
         </section>
 
         {/* Don't see your neighborhood */}
-        <section className="bg-[#A8F0DC] rounded-2xl p-8 md:p-12 text-center mb-16">
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">Don&apos;t See Your Neighborhood?</p>
-          <p className="text-[#1E2A4A]/60 max-w-xl mx-auto mb-8">
+        <section className="bg-[var(--accent)] rounded-2xl p-8 md:p-12 text-center mb-16">
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-3">Don&apos;t See Your Neighborhood?</p>
+          <p className="text-[rgb(var(--brand-rgb)/0.6)] max-w-xl mx-auto mb-8">
             We&apos;re always expanding. Text us with your address and we&apos;ll let you know if we cover your area — we probably do.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
-            <a href="sms:5555555555" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+            <a href="sms:5555555555" className="bg-[var(--brand)] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
               Text (555) 555-5555
             </a>
-            <a href="sms:5555555555" className="text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
+            <a href="sms:5555555555" className="text-[var(--brand)] font-semibold underline underline-offset-4 hover:no-underline">
               or Text (555) 555-5555
             </a>
           </div>

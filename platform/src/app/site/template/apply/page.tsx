@@ -122,13 +122,13 @@ export default function ApplyPage() {
   if (done) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
-        <div className="bg-[#1E2A4A] px-6 py-4">
+        <div className="bg-[var(--brand)] px-6 py-4">
           <h1 className="text-white text-xl font-bold">Your Business</h1>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-sm">
             <div className="text-5xl mb-4">✓</div>
-            <h2 className="text-2xl font-bold text-[#1E2A4A] mb-2">Application Received! / ¡Solicitud Recibida!</h2>
+            <h2 className="text-2xl font-bold text-[var(--brand)] mb-2">Application Received! / ¡Solicitud Recibida!</h2>
             <p className="text-gray-600">Thanks, {form.name.split(' ')[0]}. We&apos;ll review your application and reach out soon.</p>
             <p className="text-gray-600 mt-2">Gracias, {form.name.split(' ')[0]}. Revisaremos su solicitud y nos comunicaremos pronto.</p>
             <p className="text-gray-500 text-sm mt-4">Questions? / ¿Preguntas? (555) 555-5555</p>
@@ -140,7 +140,7 @@ export default function ApplyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-[#1E2A4A] px-6 py-4">
+      <div className="bg-[var(--brand)] px-6 py-4">
         <h1 className="text-white text-xl font-bold">Your Business</h1>
         <p className="text-gray-400 text-sm">Join Our Team / Únete a Nuestro Equipo</p>
       </div>
@@ -148,18 +148,18 @@ export default function ApplyPage() {
       <div className="max-w-lg mx-auto p-4 pt-6">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
           <div>
-            <h2 className="text-xl font-bold text-[#1E2A4A]">Apply to Join Our Team / Solicite Unirse a Nuestro Equipo</h2>
+            <h2 className="text-xl font-bold text-[var(--brand)]">Apply to Join Our Team / Solicite Unirse a Nuestro Equipo</h2>
             <p className="text-gray-500 text-sm mt-1">We&apos;re looking for reliable, detail-oriented cleaners in NYC.</p>
             <p className="text-gray-500 text-sm">Buscamos limpiadores confiables y detallistas en NYC.</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Preferred Language / Idioma / Язык *</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Preferred Language / Idioma / Язык *</label>
             <select
               required
               value={form.preferred_language}
               onChange={(e) => setForm({ ...form, preferred_language: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base bg-white"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base bg-white"
             >
               <option value="en">English</option>
               <option value="es">Español</option>
@@ -169,47 +169,47 @@ export default function ApplyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Full Name / Nombre Completo *</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Full Name / Nombre Completo *</label>
             <input
               type="text"
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
               placeholder="Your full name / Su nombre completo"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Phone / Teléfono *</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Phone / Teléfono *</label>
             <input
               type="tel"
               required
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
               placeholder="(212) 555-1234"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Email / Correo Electrónico</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Email / Correo Electrónico</label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => { setForm({ ...form, email: e.target.value }); setEmailSuggestion('') }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
               placeholder="your@email.com / su@correo.com"
             />
             {emailSuggestion && (
-              <button type="button" onClick={() => { setForm({ ...form, email: emailSuggestion }); setEmailSuggestion(''); setError('') }} className="mt-1 text-sm text-[#1E2A4A] hover:underline">
+              <button type="button" onClick={() => { setForm({ ...form, email: emailSuggestion }); setEmailSuggestion(''); setError('') }} className="mt-1 text-sm text-[var(--brand)] hover:underline">
                 Use {emailSuggestion}?
               </button>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Photo of You Smiling / Foto Suya Sonriendo *</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Photo of You Smiling / Foto Suya Sonriendo *</label>
             <p className="text-xs text-gray-500 mb-2">This photo will be shared with clients / Esta foto se compartirá con los clientes</p>
             <div className="flex items-center gap-4">
               {photoPreview ? (
@@ -222,7 +222,7 @@ export default function ApplyPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-[#1E2A4A] text-sm hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-[var(--brand)] text-sm hover:bg-gray-50"
               >
                 {photoPreview ? 'Change Photo / Cambiar Foto' : 'Upload Photo / Subir Foto'}
               </button>
@@ -237,32 +237,32 @@ export default function ApplyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Your Address / Su Dirección *</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Your Address / Su Dirección *</label>
             <AddressAutocomplete
               value={form.address}
               onChange={(val) => setForm({ ...form, address: val })}
               placeholder="Start typing address... / Comience a escribir la dirección..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Apt / Unit / Apto</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Apt / Unit / Apto</label>
             <input
               type="text"
               value={form.unit}
               onChange={(e) => setForm({ ...form, unit: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
               placeholder="Apt 4B"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Cleaning Experience / Experiencia de Limpieza</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Cleaning Experience / Experiencia de Limpieza</label>
             <select
               value={form.experience}
               onChange={(e) => setForm({ ...form, experience: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
             >
               <option value="">Select... / Seleccionar...</option>
               <option value="none">No professional experience / Sin experiencia profesional</option>
@@ -273,11 +273,11 @@ export default function ApplyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Availability / Disponibilidad</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Availability / Disponibilidad</label>
             <select
               value={form.availability}
               onChange={(e) => setForm({ ...form, availability: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
             >
               <option value="">Select... / Seleccionar...</option>
               <option value="full-time">Full-time (5+ days/week) / Tiempo completo (5+ días/semana)</option>
@@ -288,7 +288,7 @@ export default function ApplyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Where can you work? / ¿Dónde puede trabajar? *</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Where can you work? / ¿Dónde puede trabajar? *</label>
             <p className="text-xs text-gray-500 mb-2">Select all areas you can service / Seleccione todas las áreas donde puede dar servicio</p>
             <div className="grid grid-cols-1 gap-2">
               {SERVICE_ZONES.map(zone => (
@@ -302,9 +302,9 @@ export default function ApplyPage() {
                         : form.service_zones.filter(z => z !== zone.id)
                       setForm({ ...form, service_zones: zones })
                     }}
-                    className="w-4 h-4 rounded border-gray-300 text-[#1E2A4A]"
+                    className="w-4 h-4 rounded border-gray-300 text-[var(--brand)]"
                   />
-                  <span className="text-sm text-[#1E2A4A]">{zone.label} / {zone.labelES}</span>
+                  <span className="text-sm text-[var(--brand)]">{zone.label} / {zone.labelES}</span>
                   {zone.car_required && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">Car needed</span>}
                 </label>
               ))}
@@ -317,10 +317,10 @@ export default function ApplyPage() {
                 type="checkbox"
                 checked={form.has_car}
                 onChange={(e) => setForm({ ...form, has_car: e.target.checked })}
-                className="w-4 h-4 rounded border-gray-300 text-[#1E2A4A]"
+                className="w-4 h-4 rounded border-gray-300 text-[var(--brand)]"
               />
               <div>
-                <span className="text-sm font-medium text-[#1E2A4A]">Do you have a car? / ¿Tiene auto?</span>
+                <span className="text-sm font-medium text-[var(--brand)]">Do you have a car? / ¿Tiene auto?</span>
                 <p className="text-xs text-gray-500">Required for Long Island, Staten Island, Westchester, and some outer borough areas</p>
                 <p className="text-xs text-gray-500">Requerido para Long Island, Staten Island, Westchester, y algunas áreas exteriores</p>
                 <p className="text-xs text-green-600 font-medium mt-1">+$5/hr bonus for car-required locations (Staten Island, Long Island, Westchester, NJ) / +$5/hr bonificación para ubicaciones que requieren auto</p>
@@ -330,9 +330,9 @@ export default function ApplyPage() {
 
           <div>
             <div>
-              <label className="block text-sm font-medium text-[#1E2A4A] mb-2">Do you bring your own cleaning supplies &amp; equipment? / ¿Trae sus propios suministros y equipo de limpieza? *</label>
+              <label className="block text-sm font-medium text-[var(--brand)] mb-2">Do you bring your own cleaning supplies &amp; equipment? / ¿Trae sus propios suministros y equipo de limpieza? *</label>
               <div className="grid grid-cols-2 gap-3">
-                <label className={`flex items-center gap-3 px-3 py-3 border rounded-lg cursor-pointer ${!form.labor_only ? 'border-[#1E2A4A] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <label className={`flex items-center gap-3 px-3 py-3 border rounded-lg cursor-pointer ${!form.labor_only ? 'border-[var(--brand)] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
                   <input
                     type="radio"
                     name="supplies"
@@ -341,11 +341,11 @@ export default function ApplyPage() {
                     className="w-4 h-4"
                   />
                   <div>
-                    <span className="text-sm font-medium text-[#1E2A4A]">Yes / Sí</span>
+                    <span className="text-sm font-medium text-[var(--brand)]">Yes / Sí</span>
                     <p className="text-xs text-green-600 font-medium">$30/hr</p>
                   </div>
                 </label>
-                <label className={`flex items-center gap-3 px-3 py-3 border rounded-lg cursor-pointer ${form.labor_only ? 'border-[#1E2A4A] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <label className={`flex items-center gap-3 px-3 py-3 border rounded-lg cursor-pointer ${form.labor_only ? 'border-[var(--brand)] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
                   <input
                     type="radio"
                     name="supplies"
@@ -354,7 +354,7 @@ export default function ApplyPage() {
                     className="w-4 h-4"
                   />
                   <div>
-                    <span className="text-sm font-medium text-[#1E2A4A]">No — labor only / Solo mano de obra</span>
+                    <span className="text-sm font-medium text-[var(--brand)]">No — labor only / Solo mano de obra</span>
                     <p className="text-xs text-blue-600 font-medium">$25/hr</p>
                   </div>
                 </label>
@@ -363,11 +363,11 @@ export default function ApplyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">How far will you travel? / ¿Qué tan lejos viajará?</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">How far will you travel? / ¿Qué tan lejos viajará?</label>
             <select
               value={form.max_travel_minutes}
               onChange={(e) => setForm({ ...form, max_travel_minutes: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
             >
               <option value="">Select... / Seleccionar...</option>
               <option value="30">Up to 30 min / Hasta 30 min</option>
@@ -379,7 +379,7 @@ export default function ApplyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">References / Referencias *</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">References / Referencias *</label>
             <p className="text-xs text-gray-500 mb-3">Please provide 3 references / Por favor proporcione 3 referencias</p>
             {form.references.map((ref, i) => (
               <div key={i} className="flex gap-3 mb-3">
@@ -392,7 +392,7 @@ export default function ApplyPage() {
                     updated[i] = { ...updated[i], name: e.target.value }
                     setForm({ ...form, references: updated })
                   }}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
                   placeholder={`Name / Nombre #${i + 1}`}
                 />
                 <input
@@ -404,7 +404,7 @@ export default function ApplyPage() {
                     updated[i] = { ...updated[i], phone: formatPhone(e.target.value) }
                     setForm({ ...form, references: updated })
                   }}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
                   placeholder={`Phone / Teléfono #${i + 1}`}
                 />
               </div>
@@ -412,23 +412,23 @@ export default function ApplyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">How did you hear about us? / ¿Cómo se enteró de nosotros? *</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">How did you hear about us? / ¿Cómo se enteró de nosotros? *</label>
             <input
               type="text"
               required
               value={form.referral_source}
               onChange={(e) => setForm({ ...form, referral_source: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
               placeholder="e.g. Google, friend, Indeed... / ej. Google, amigo, Indeed..."
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Anything else? / ¿Algo más?</label>
+            <label className="block text-sm font-medium text-[var(--brand)] mb-1">Anything else? / ¿Algo más?</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[var(--brand)] text-base"
               rows={3}
               placeholder="Tell us about yourself... / Cuéntenos sobre usted..."
             />
@@ -446,7 +446,7 @@ export default function ApplyPage() {
                 <br /><br />
                 Al marcar esta casilla, doy mi consentimiento para recibir mensajes de texto de <strong>Your Business</strong> para confirmaciones de citas, recordatorios y atención al cliente. Responda STOP para cancelar. Responda HELP para ayuda.
                 <br /><br />
-                <a href="https://www.example.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href="https://www.example.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a>
+                <a href="https://www.example.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[var(--brand)] hover:underline">Privacy Policy</a> | <a href="https://www.example.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[var(--brand)] hover:underline">Terms &amp; Conditions</a>
               </span>
             </label>
           </div>
@@ -454,7 +454,7 @@ export default function ApplyPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-[#1E2A4A] text-white rounded-lg text-lg font-semibold hover:bg-[#1E2A4A]/90 disabled:opacity-50"
+            className="w-full py-4 bg-[var(--brand)] text-white rounded-lg text-lg font-semibold hover:bg-[rgb(var(--brand-rgb)/0.9)] disabled:opacity-50"
           >
             {loading ? 'Submitting... / Enviando...' : 'Submit Application / Enviar Solicitud'}
           </button>

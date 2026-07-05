@@ -72,7 +72,7 @@ export default function ReviewsList() {
       {/* Widget header */}
       <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#1E2A4A] rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-[var(--brand)] rounded-full flex items-center justify-center">
             <span className="text-white text-lg font-bold">M</span>
           </div>
           <div>
@@ -86,7 +86,7 @@ export default function ReviewsList() {
             <span className="text-yellow-400 text-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
             <span className="text-gray-400 text-sm">({totalCount})</span>
           </div>
-          <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="hidden sm:inline-block bg-[#1E2A4A] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[#243352] transition-colors">
+          <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="hidden sm:inline-block bg-[var(--brand)] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[var(--brand-alt)] transition-colors">
             Write a Review
           </Link>
         </div>
@@ -110,7 +110,7 @@ export default function ReviewsList() {
                     <div className="flex items-center gap-1">
                       <p className="text-sm font-semibold text-gray-900 truncate">{review.name}</p>
                       {review.verified && (
-                        <svg className="w-3.5 h-3.5 text-[#1E2A4A] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" /></svg>
+                        <svg className="w-3.5 h-3.5 text-[var(--brand)] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" /></svg>
                       )}
                     </div>
                     <p className="text-xs text-gray-400">{timeAgo(review.created_at)}</p>

@@ -284,10 +284,10 @@ export default function OperationsCoordinatorPage() {
       ]} />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-20 md:py-28">
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-20 md:py-28">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center gap-3 mb-4 flex-wrap">
-            <p className="text-[#A8F0DC] text-sm font-semibold tracking-[0.2em] uppercase">Now Hiring</p>
+            <p className="text-[var(--accent)] text-sm font-semibold tracking-[0.2em] uppercase">Now Hiring</p>
             <span className="text-white/30">&middot;</span>
             <p className="text-white/60 text-sm">Part-Time</p>
             <span className="text-white/30">&middot;</span>
@@ -311,15 +311,15 @@ export default function OperationsCoordinatorPage() {
             March would have paid you ~$1,700 for about 40 hours of total work &mdash; 10% averaged out to about $40/hr. We&apos;re aiming for 100 services per week, which would be $80K/month in revenue. That&apos;s more time &mdash; but it&apos;s also around $8,000/month for you. It starts part-time, but it grows into something real if you want it to.
           </p>
           <div className="flex flex-wrap items-center gap-3 mb-10">
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">10% Per Completed Job</span>
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">~$40/hr Last Month</span>
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">Paid Per Job via Zelle</span>
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">2-5 Services/Day</span>
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">Bilingual Preferred</span>
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">1099 Independent Contractor</span>
+            <span className="bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)] text-xs font-semibold px-4 py-2 rounded-full">10% Per Completed Job</span>
+            <span className="bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)] text-xs font-semibold px-4 py-2 rounded-full">~$40/hr Last Month</span>
+            <span className="bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)] text-xs font-semibold px-4 py-2 rounded-full">Paid Per Job via Zelle</span>
+            <span className="bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)] text-xs font-semibold px-4 py-2 rounded-full">2-5 Services/Day</span>
+            <span className="bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)] text-xs font-semibold px-4 py-2 rounded-full">Bilingual Preferred</span>
+            <span className="bg-[rgb(var(--accent-rgb)/0.2)] text-[var(--accent)] text-xs font-semibold px-4 py-2 rounded-full">1099 Independent Contractor</span>
           </div>
           <div className="flex flex-col sm:flex-row items-start gap-5">
-            <Link href="/apply/operations-coordinator" data-track="coord-hero-apply" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+            <Link href="/apply/operations-coordinator" data-track="coord-hero-apply" className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               Apply Now
             </Link>
             <a href="sms:5555555555" data-track="coord-hero-text" className="text-blue-200/70 font-medium text-lg py-4 hover:text-white transition-colors underline underline-offset-4">
@@ -330,33 +330,33 @@ export default function OperationsCoordinatorPage() {
       </section>
 
       {/* Numbers Bar */}
-      <section className="bg-[#A8F0DC] py-12">
+      <section className="bg-[var(--accent)] py-12">
         <div className="max-w-5xl mx-auto px-4">
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 text-center">
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">~$40/hr</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">Averaged Last Month</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Promedio el mes pasado</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">~$40/hr</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.6)] text-sm font-medium">Averaged Last Month</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.4)] text-xs italic">Promedio el mes pasado</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">36 &rarr; 81</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">Feb &rarr; Mar Jobs</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Trabajos feb &rarr; mar</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">36 &rarr; 81</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.6)] text-sm font-medium">Feb &rarr; Mar Jobs</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.4)] text-xs italic">Trabajos feb &rarr; mar</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">100+</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">April Target</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Meta de abril</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">100+</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.6)] text-sm font-medium">April Target</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.4)] text-xs italic">Meta de abril</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">~40 hrs</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">Per Month</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Por mes</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">~40 hrs</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.6)] text-sm font-medium">Per Month</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.4)] text-xs italic">Por mes</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">Zelle</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">Paid Per Job</p>
-              <p className="text-[#1E2A4A]/40 text-xs italic">Pago por trabajo</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--brand)] tracking-wide">Zelle</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.6)] text-sm font-medium">Paid Per Job</p>
+              <p className="text-[rgb(var(--brand-rgb)/0.4)] text-xs italic">Pago por trabajo</p>
             </div>
           </div>
         </div>
@@ -370,18 +370,18 @@ export default function OperationsCoordinatorPage() {
 
         {/* The Three Jobs */}
         <section className="mb-20">
-          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-2">What You Own</p>
+          <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.2em] uppercase mb-2">What You Own</p>
           <p className="text-gray-400 text-xs italic mb-2">Lo que tú controlas</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">You Own the Calendar, the Cleaners, and the Collections</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-3">You Own the Calendar, the Cleaners, and the Collections</h2>
           <p className="text-gray-400 text-sm italic mb-3">Tú controlas el calendario, los limpiadores y los cobros</p>
-          <p className="text-gray-500 max-w-3xl mb-3">The owner sells the jobs and adds them to the schedule. From that moment on, <strong className="text-[#1E2A4A]">everything is yours</strong>. You make sure the cleaner shows up, the client is happy, and the money comes in. You are paid the same way the cleaners are paid &mdash; per job, via Zelle, within minutes of completion.</p>
+          <p className="text-gray-500 max-w-3xl mb-3">The owner sells the jobs and adds them to the schedule. From that moment on, <strong className="text-[var(--brand)]">everything is yours</strong>. You make sure the cleaner shows up, the client is happy, and the money comes in. You are paid the same way the cleaners are paid &mdash; per job, via Zelle, within minutes of completion.</p>
           <p className="text-gray-500 max-w-3xl mb-10">This is not a task list. This is ownership. If a job falls through, that&apos;s on you. If a client doesn&apos;t pay, that&apos;s on you. If a cleaner no-shows, that&apos;s on you to fix. You run the operation. The platform gives you every tool you need &mdash; you just have to use them.</p>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Clients */}
             <div className="border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] p-6">
-                <p className="font-[family-name:var(--font-bebas)] text-5xl text-[#A8F0DC] tracking-wide mb-1">1</p>
+              <div className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] p-6">
+                <p className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--accent)] tracking-wide mb-1">1</p>
                 <h3 className="font-[family-name:var(--font-bebas)] text-xl text-white tracking-wide">Clients</h3>
                 <p className="text-blue-200/30 text-xs italic">Clientes</p>
               </div>
@@ -394,7 +394,7 @@ export default function OperationsCoordinatorPage() {
                   'Keep clients happy so they keep coming back',
                 ].map(item => (
                   <div key={item} className="flex gap-3">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <p className="text-gray-600 text-sm leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -403,8 +403,8 @@ export default function OperationsCoordinatorPage() {
 
             {/* Cleaners */}
             <div className="border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] p-6">
-                <p className="font-[family-name:var(--font-bebas)] text-5xl text-[#A8F0DC] tracking-wide mb-1">2</p>
+              <div className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] p-6">
+                <p className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--accent)] tracking-wide mb-1">2</p>
                 <h3 className="font-[family-name:var(--font-bebas)] text-xl text-white tracking-wide">Cleaners</h3>
                 <p className="text-blue-200/30 text-xs italic">Limpiadores</p>
               </div>
@@ -417,7 +417,7 @@ export default function OperationsCoordinatorPage() {
                   'Keep the schedule full so nothing sits empty',
                 ].map(item => (
                   <div key={item} className="flex gap-3">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <p className="text-gray-600 text-sm leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -426,8 +426,8 @@ export default function OperationsCoordinatorPage() {
 
             {/* Payments */}
             <div className="border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] p-6">
-                <p className="font-[family-name:var(--font-bebas)] text-5xl text-[#A8F0DC] tracking-wide mb-1">3</p>
+              <div className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] p-6">
+                <p className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--accent)] tracking-wide mb-1">3</p>
                 <h3 className="font-[family-name:var(--font-bebas)] text-xl text-white tracking-wide">Payments</h3>
                 <p className="text-blue-200/30 text-xs italic">Pagos</p>
               </div>
@@ -440,7 +440,7 @@ export default function OperationsCoordinatorPage() {
                   'You only get paid when they pay — so you will chase it',
                 ].map(item => (
                   <div key={item} className="flex gap-3">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <p className="text-gray-600 text-sm leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -453,7 +453,7 @@ export default function OperationsCoordinatorPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">How Every Job Works</p>
           <p className="text-gray-400 text-xs italic mb-2">Cómo funciona cada trabajo</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">The Full Lifecycle of a Cleaning Job</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-3">The Full Lifecycle of a Cleaning Job</h2>
           <p className="text-gray-400 text-sm italic mb-3">El ciclo completo de un trabajo de limpieza</p>
           <p className="text-gray-500 max-w-3xl mb-10">This is exactly what happens from the moment a job is booked to the moment you get paid. Every step. No surprises.</p>
 
@@ -502,12 +502,12 @@ export default function OperationsCoordinatorPage() {
                 descEs: 'Eso es un trabajo. Haces esto 2-5 veces al día. El ciclo completo toma minutos por trabajo porque la plataforma maneja las automatizaciones. Tú eres la persona asegurándose de que todo funcione bien.',
               },
             ].map(item => (
-              <div key={item.step} className="flex gap-5 p-5 border border-gray-200 rounded-xl hover:border-[#A8F0DC] transition-colors">
+              <div key={item.step} className="flex gap-5 p-5 border border-gray-200 rounded-xl hover:border-[var(--accent)] transition-colors">
                 <div className="flex-shrink-0 w-12">
-                  <span className="font-[family-name:var(--font-bebas)] text-3xl text-[#A8F0DC]">{item.step}</span>
+                  <span className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--accent)]">{item.step}</span>
                 </div>
                 <div>
-                  <p className="font-semibold text-[#1E2A4A] mb-1">{item.title}</p>
+                  <p className="font-semibold text-[var(--brand)] mb-1">{item.title}</p>
                   <p className="text-gray-400 text-xs italic mb-1">{item.titleEs}</p>
                   <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
                   <p className="text-gray-400 text-xs italic mt-1">{item.descEs}</p>
@@ -519,24 +519,24 @@ export default function OperationsCoordinatorPage() {
 
         {/* Beyond the Jobs */}
         <section className="mb-20">
-          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-2">The Rest</p>
+          <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.2em] uppercase mb-2">The Rest</p>
           <p className="text-gray-400 text-xs italic mb-2">Lo demás</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">Beyond the Daily Jobs</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-3">Beyond the Daily Jobs</h2>
           <p className="text-gray-400 text-sm italic mb-3">Más allá de los trabajos diarios</p>
           <p className="text-gray-500 max-w-3xl mb-10">The job cycle is the core. But you also own these:</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-2">Communication with Jeff</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-2">Communication with Jeff</h3>
               <p className="text-gray-400 text-xs italic mb-2">Comunicación con Jeff</p>
               <p className="text-gray-500 text-sm leading-relaxed">Great, steady communication. Jeff needs to know what&apos;s happening without having to ask. Issues, wins, suggestions &mdash; proactive, not reactive. If something is off with the system or a process could be better, say it.</p>
             </div>
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-2">Client &amp; Cleaner Issues</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-2">Client &amp; Cleaner Issues</h3>
               <p className="text-gray-400 text-xs italic mb-2">Problemas con clientes y limpiadores</p>
               <p className="text-gray-500 text-sm leading-relaxed">Complaints, no-shows, scheduling conflicts, late arrivals, quality issues. You handle them. You solve them. You don&apos;t wait for Jeff to tell you what to do. If a client is unhappy, you fix it before it becomes a cancellation.</p>
             </div>
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-2">Onboarding New Cleaners</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-2">Onboarding New Cleaners</h3>
               <p className="text-gray-400 text-xs italic mb-2">Incorporación de nuevos limpiadores</p>
               <p className="text-gray-500 text-sm leading-relaxed">Cleaners apply through the website. You check their references, add them to the system, and give them access to the team portal. As the business grows, you build the team that supports it.</p>
             </div>
@@ -547,16 +547,16 @@ export default function OperationsCoordinatorPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">The Time Commitment</p>
           <p className="text-gray-400 text-xs italic mb-2">El compromiso de tiempo</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">~40 Hours a Month. Not 40 Hours a Week.</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-3">~40 Hours a Month. Not 40 Hours a Week.</h2>
           <p className="text-gray-400 text-sm italic mb-3">~40 horas al mes. No 40 horas a la semana.</p>
           <p className="text-gray-500 max-w-3xl mb-3">Average is 2-5 services per day. Each one takes minutes of your time &mdash; not hours. The platform sends the reminders, the cleaners check themselves in, the Zelle confirmation comes to your email. You&apos;re responding to texts and clicking buttons in a dashboard, not scrubbing floors.</p>
           <p className="text-gray-500 max-w-3xl mb-3">Most of your day, you&apos;re doing your other job, living your life, or sitting on the couch. The work comes in bursts. A text here, a dashboard check there. You need to be responsive during business hours &mdash; but responsive means 15 minutes, not glued to a screen.</p>
-          <p className="text-gray-500 max-w-3xl"><strong className="text-[#1E2A4A]">But it could become more if you want it to.</strong> The business is doubling. If you want to grow with it into a full-time role, that path is there. If you want to keep it as the best side gig you&apos;ve ever had, that works too.</p>
+          <p className="text-gray-500 max-w-3xl"><strong className="text-[var(--brand)]">But it could become more if you want it to.</strong> The business is doubling. If you want to grow with it into a full-time role, that path is there. If you want to keep it as the best side gig you&apos;ve ever had, that works too.</p>
         </section>
 
         {/* The Math */}
-        <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-8 md:p-14 mb-20">
-          <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-2">The Math</p>
+        <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] rounded-2xl p-8 md:p-14 mb-20">
+          <p className="text-[var(--accent)] text-xs font-semibold tracking-[0.2em] uppercase mb-2">The Math</p>
           <p className="text-blue-200/30 text-xs italic mb-2">Los números</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-3">You Earn More When the Business Does More</h2>
           <p className="text-blue-200/30 text-xs italic mb-3">Ganas más cuando el negocio crece</p>
@@ -572,10 +572,10 @@ export default function OperationsCoordinatorPage() {
               <p className="text-blue-200/40 text-sm">Your 10% = $756</p>
               <p className="text-blue-200/30 text-xs mt-2">~20 hrs/mo</p>
             </div>
-            <div className="border border-[#A8F0DC]/30 rounded-2xl p-6">
-              <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-3">March</p>
+            <div className="border border-[rgb(var(--accent-rgb)/0.3)] rounded-2xl p-6">
+              <p className="text-[var(--accent)] text-xs font-semibold tracking-[0.2em] uppercase mb-3">March</p>
               <p className="text-blue-200/30 text-xs italic mb-3">Marzo</p>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#A8F0DC] tracking-wide mb-1">$1,700</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--accent)] tracking-wide mb-1">$1,700</p>
               <p className="text-blue-200/60 text-sm">81 jobs &times; ~$210 avg = $17K</p>
               <p className="text-blue-200/60 text-sm">Your 10% = <strong className="text-white">$1,700</strong></p>
               <p className="text-blue-200/40 text-xs mt-2">~40 hrs/mo &mdash; about $40/hr</p>
@@ -583,7 +583,7 @@ export default function OperationsCoordinatorPage() {
             <div className="border border-white/10 rounded-2xl p-6">
               <p className="text-blue-200/40 text-xs font-semibold tracking-[0.2em] uppercase mb-3">April Target (100+)</p>
               <p className="text-blue-200/30 text-xs italic mb-3">Meta de abril</p>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#A8F0DC] tracking-wide mb-1">$2,100+</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--accent)] tracking-wide mb-1">$2,100+</p>
               <p className="text-blue-200/60 text-sm">100 jobs &times; ~$210 avg = $21K</p>
               <p className="text-blue-200/60 text-sm">Your 10% = <strong className="text-white">$2,100</strong></p>
               <p className="text-blue-200/40 text-xs mt-2">~45 hrs/mo &mdash; still part-time</p>
@@ -591,7 +591,7 @@ export default function OperationsCoordinatorPage() {
             <div className="border border-white/10 rounded-2xl p-6">
               <p className="text-blue-200/40 text-xs font-semibold tracking-[0.2em] uppercase mb-3">Goal: 100/wk ($80K/mo)</p>
               <p className="text-blue-200/30 text-xs italic mb-3">Meta: 100/sem ($80K/mes)</p>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#A8F0DC] tracking-wide mb-1">$8,000</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[var(--accent)] tracking-wide mb-1">$8,000</p>
               <p className="text-blue-200/60 text-sm">400 jobs/mo &times; ~$200 avg = $80K</p>
               <p className="text-blue-200/60 text-sm">Your 10% = <strong className="text-white">$8,000/mo</strong></p>
               <p className="text-blue-200/40 text-xs mt-2">More time &mdash; but real money</p>
@@ -601,44 +601,44 @@ export default function OperationsCoordinatorPage() {
 
         {/* Who This Is For */}
         <section className="mb-20">
-          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-2">Is This You?</p>
+          <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.2em] uppercase mb-2">Is This You?</p>
           <p className="text-gray-400 text-xs italic mb-2">¿Eres tú?</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">The Perfect Second Job For</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-3">The Perfect Second Job For</h2>
           <p className="text-gray-400 text-sm italic mb-10">El segundo trabajo perfecto para</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-2">Stay-at-Home Parents</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-2">Stay-at-Home Parents</h3>
               <p className="text-gray-400 text-xs italic mb-2">Padres que están en casa</p>
               <p className="text-gray-500 text-sm leading-relaxed">You&apos;re home with the kids. You can check your phone between school runs and nap times. An extra $1,700/mo for responding to texts during the day? That&apos;s real money for real families.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-2">Virtual Assistants &amp; Freelancers</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-2">Virtual Assistants &amp; Freelancers</h3>
               <p className="text-gray-400 text-xs italic mb-2">Asistentes virtuales y freelancers</p>
               <p className="text-gray-500 text-sm leading-relaxed">You already manage multiple clients from your laptop. Adding one more &mdash; with a dashboard that does most of the work &mdash; is easy. And this one pays you more when you do it well.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-2">Customer Service Reps</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-2">Customer Service Reps</h3>
               <p className="text-gray-400 text-xs italic mb-2">Representantes de servicio al cliente</p>
               <p className="text-gray-500 text-sm leading-relaxed">You already spend your day answering people. This is the same skill set, but on your own terms, from your phone, with commission instead of an hourly wage. Better work, better pay.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-2">Dispatchers &amp; Coordinators</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-2">Dispatchers &amp; Coordinators</h3>
               <p className="text-gray-400 text-xs italic mb-2">Despachadores y coordinadores</p>
               <p className="text-gray-500 text-sm leading-relaxed">You&apos;ve dispatched drivers, technicians, or field workers before. Same energy, smaller scale, from your couch. And you get 10% of every job instead of a flat hourly.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-2">Anyone Who Wants Extra Income</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-2">Anyone Who Wants Extra Income</h3>
               <p className="text-gray-400 text-xs italic mb-2">Cualquiera que quiera ingresos extra</p>
               <p className="text-gray-500 text-sm leading-relaxed">You have a full-time job but can check your phone during the day. It starts at $1,700/mo and the business is aiming for $8,000/mo. No second commute, no second boss breathing down your neck, no second uniform. This is that.</p>
             </div>
 
-            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] transition-colors">
-              <h3 className="font-semibold text-[#1E2A4A] mb-2">Bilingual Professionals</h3>
+            <div className="border border-gray-200 rounded-2xl p-6 hover:border-[var(--accent)] transition-colors">
+              <h3 className="font-semibold text-[var(--brand)] mb-2">Bilingual Professionals</h3>
               <p className="text-gray-400 text-xs italic mb-2">Profesionales bilingües</p>
               <p className="text-gray-500 text-sm leading-relaxed">You speak English and Spanish. Here, that&apos;s not a nice-to-have &mdash; it&apos;s a superpower. Our cleaning team is primarily Spanish-speaking. You bridge the gap and make the whole operation smoother.</p>
             </div>
@@ -649,13 +649,13 @@ export default function OperationsCoordinatorPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Your Tools</p>
           <p className="text-gray-400 text-xs italic mb-2">Tus herramientas</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">The Platform Does the Heavy Lifting</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-3">The Platform Does the Heavy Lifting</h2>
           <p className="text-gray-400 text-sm italic mb-3">La plataforma hace el trabajo pesado</p>
           <p className="text-gray-500 max-w-3xl mb-10">You are not building systems or managing spreadsheets. The entire operation runs on a custom-built platform. Automated reminders, recurring booking generation, cleaner notifications, payment tracking &mdash; all handled. You are the human making sure the human parts work.</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">What the Platform Handles</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">What the Platform Handles</h3>
               <p className="text-gray-400 text-xs italic mb-3">Lo que maneja la plataforma</p>
               <div className="space-y-2">
                 {[
@@ -667,7 +667,7 @@ export default function OperationsCoordinatorPage() {
                   'Finance tracking — revenue, cleaner pay, and your commission all tracked',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -675,7 +675,7 @@ export default function OperationsCoordinatorPage() {
             </div>
 
             <div className="border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-[#1E2A4A] mb-3">What You Handle</h3>
+              <h3 className="font-semibold text-[var(--brand)] mb-3">What You Handle</h3>
               <p className="text-gray-400 text-xs italic mb-3">Lo que tú manejas</p>
               <div className="space-y-2">
                 {[
@@ -687,7 +687,7 @@ export default function OperationsCoordinatorPage() {
                   'Keeping cleaners coordinated so jobs run smooth',
                 ].map(item => (
                   <div key={item} className="flex gap-2">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0 text-xs">&#10003;</span>
                     <p className="text-gray-500 text-xs leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -698,19 +698,19 @@ export default function OperationsCoordinatorPage() {
 
         {/* FAQ */}
         <section className="mb-20">
-          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-2">Questions</p>
+          <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.2em] uppercase mb-2">Questions</p>
           <p className="text-gray-400 text-xs italic mb-2">Preguntas</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-8">Frequently Asked Questions</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-8">Frequently Asked Questions</h2>
           <p className="text-gray-400 text-sm italic mb-8">Preguntas frecuentes</p>
           <div className="space-y-3">
             {faqs.map(faq => (
-              <details key={faq.question} className="group border border-gray-200 rounded-xl overflow-hidden hover:border-[#A8F0DC] transition-colors">
+              <details key={faq.question} className="group border border-gray-200 rounded-xl overflow-hidden hover:border-[var(--accent)] transition-colors">
                 <summary className="cursor-pointer px-5 py-4 flex items-center justify-between gap-4">
                   <div>
-                    <span className="font-medium text-[#1E2A4A] text-sm">{faq.question}</span>
+                    <span className="font-medium text-[var(--brand)] text-sm">{faq.question}</span>
                     <span className="block text-gray-400 text-xs italic mt-0.5">{faq.questionEs}</span>
                   </div>
-                  <span className="text-[#A8F0DC] text-lg flex-shrink-0 group-open:rotate-45 transition-transform">+</span>
+                  <span className="text-[var(--accent)] text-lg flex-shrink-0 group-open:rotate-45 transition-transform">+</span>
                 </summary>
                 <div className="px-5 pb-5">
                   <p className="text-gray-600 text-sm leading-relaxed">{faq.answer}</p>
@@ -721,17 +721,17 @@ export default function OperationsCoordinatorPage() {
         </section>
 
         {/* Apply CTA */}
-        <section className="bg-[#A8F0DC] rounded-2xl p-8 md:p-12 text-center mb-16">
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-2">10% Per Job. Averaged ~$40/hr Last Month. Paid via Zelle in Minutes.</p>
-          <p className="text-[#1E2A4A]/40 text-sm italic mb-2">10% por trabajo. Promedio ~$40/hr el mes pasado. Pagado por Zelle en minutos.</p>
-          <p className="text-[#1E2A4A]/60 max-w-xl mx-auto mb-6">
+        <section className="bg-[var(--accent)] rounded-2xl p-8 md:p-12 text-center mb-16">
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-2">10% Per Job. Averaged ~$40/hr Last Month. Paid via Zelle in Minutes.</p>
+          <p className="text-[rgb(var(--brand-rgb)/0.4)] text-sm italic mb-2">10% por trabajo. Promedio ~$40/hr el mes pasado. Pagado por Zelle en minutos.</p>
+          <p className="text-[rgb(var(--brand-rgb)/0.6)] max-w-xl mx-auto mb-6">
             Apply in 2 minutes. Upload a photo and a 60-second video. We review applications within 48 hours.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/apply/operations-coordinator" data-track="coord-bottom-apply" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+            <Link href="/apply/operations-coordinator" data-track="coord-bottom-apply" className="bg-[var(--brand)] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
               Apply Now
             </Link>
-            <a href="sms:5555555555" data-track="coord-bottom-text" className="text-[#1E2A4A]/60 font-medium text-sm hover:text-[#1E2A4A] transition-colors underline underline-offset-4">
+            <a href="sms:5555555555" data-track="coord-bottom-text" className="text-[rgb(var(--brand-rgb)/0.6)] font-medium text-sm hover:text-[var(--brand)] transition-colors underline underline-offset-4">
               or Text (555) 555-5555
             </a>
           </div>

@@ -161,12 +161,12 @@ export default function ReviewForm() {
   if (submitted) {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl p-8 md:p-12 mt-8 text-center">
-        <div className="w-16 h-16 bg-[#A8F0DC] rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg className="w-8 h-8 text-[#1E2A4A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <div className="w-16 h-16 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-8 h-8 text-[var(--brand)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 6L9 17l-5-5" />
           </svg>
         </div>
-        <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-4">
+        <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-4">
           Thank You for Your Review
         </h2>
         <p className="text-gray-600 text-lg mb-2">
@@ -175,7 +175,7 @@ export default function ReviewForm() {
         <p className="text-gray-400 text-sm mb-8">
           Your review will be published shortly after a quick review.
         </p>
-        <Link href="/reviews" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#243352] transition-colors">
+        <Link href="/reviews" className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand-alt)] transition-colors">
           Read Other Reviews
         </Link>
       </div>
@@ -187,7 +187,7 @@ export default function ReviewForm() {
       {/* Header */}
       <div className="px-6 md:px-8 py-6 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#1E2A4A] rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-[var(--brand)] rounded-full flex items-center justify-center">
             <span className="text-white text-lg font-bold">M</span>
           </div>
           <div>
@@ -237,7 +237,7 @@ export default function ReviewForm() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="First and last name"
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E2A4A] focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-transparent"
             required
           />
         </div>
@@ -253,7 +253,7 @@ export default function ReviewForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E2A4A] focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-transparent"
           />
         </div>
 
@@ -267,7 +267,7 @@ export default function ReviewForm() {
             placeholder="Tell us about your experience — the cleaning, your cleaner, anything that stood out..."
             rows={5}
             maxLength={2000}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E2A4A] focus:border-transparent resize-none"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-transparent resize-none"
             required
           />
           <p className="text-xs text-gray-400 mt-1">{text.length}/2000</p>
@@ -360,7 +360,7 @@ export default function ReviewForm() {
               id="service"
               value={serviceType}
               onChange={(e) => setServiceType(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1E2A4A] focus:border-transparent bg-white"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-transparent bg-white"
             >
               {SERVICE_TYPES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -375,7 +375,7 @@ export default function ReviewForm() {
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
               placeholder="e.g. Hell's Kitchen"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E2A4A] focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-transparent"
             />
           </div>
           <div>
@@ -386,7 +386,7 @@ export default function ReviewForm() {
               value={cleanerName}
               onChange={(e) => setCleanerName(e.target.value)}
               placeholder="e.g. Karina"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E2A4A] focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:border-transparent"
             />
           </div>
         </div>
@@ -401,7 +401,7 @@ export default function ReviewForm() {
         <button
           type="submit"
           disabled={submitting || uploading}
-          className="w-full bg-[#1E2A4A] text-white py-4 rounded-xl font-bold text-sm tracking-widest uppercase hover:bg-[#243352] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-[var(--brand)] text-white py-4 rounded-xl font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand-alt)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? 'Submitting...' : 'Submit Your Review'}
         </button>

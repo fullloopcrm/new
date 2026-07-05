@@ -144,7 +144,7 @@ export default function HeroChat() {
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-[#A8F0DC] text-[#1E2A4A] rounded-br-md'
+                    ? 'bg-[var(--accent)] text-[var(--brand)] rounded-br-md'
                     : 'bg-white/10 text-white rounded-bl-md'
                 }`}>
                   {msg.content}
@@ -167,7 +167,7 @@ export default function HeroChat() {
               <div className="flex flex-wrap gap-2 pt-2">
                 {quickReplies.map(qr => (
                   <button key={qr} onClick={() => send(qr)}
-                    className="bg-[#A8F0DC]/20 border border-[#A8F0DC]/40 text-[#A8F0DC] text-sm px-4 py-2 rounded-full hover:bg-[#A8F0DC]/30 hover:text-white transition-all">
+                    className="bg-[rgb(var(--accent-rgb)/0.2)] border border-[rgb(var(--accent-rgb)/0.4)] text-[var(--accent)] text-sm px-4 py-2 rounded-full hover:bg-[rgb(var(--accent-rgb)/0.3)] hover:text-white transition-all">
                     {qr}
                   </button>
                 ))}
@@ -180,7 +180,7 @@ export default function HeroChat() {
       {/* Pre-chat intro + quick prompts */}
       {!open && quickReplies.length > 0 && (
         <>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide mb-1">Chat with <span className="text-[#A8F0DC]">Selena</span> <span className="text-[#A8F0DC]">+$10</span></p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide mb-1">Chat with <span className="text-[var(--accent)]">Selena</span> <span className="text-[var(--accent)]">+$10</span></p>
           <p className="text-blue-200/70 text-base mb-4 max-w-[85%]">Ask a question, get a quote, book an appointment, reschedule, or manage your account — all in one chat. Bookings via Selena get the $10 self-booking discount automatically.</p>
           <div className="flex flex-wrap gap-2 mb-3">
             {quickReplies.map(qr => (
@@ -198,11 +198,11 @@ export default function HeroChat() {
         <div className="flex-1">
           <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)}
             placeholder={open ? 'Type a message...' : PLACEHOLDERS[placeholderIdx]}
-            className="w-full bg-white border-2 border-yellow-400 rounded-xl px-5 py-4 text-[#1E2A4A] placeholder-gray-400 text-base font-medium focus:outline-none focus:border-yellow-300 focus:ring-2 focus:ring-yellow-400/50 transition-all shadow-lg shadow-yellow-400/20"
+            className="w-full bg-white border-2 border-yellow-400 rounded-xl px-5 py-4 text-[var(--brand)] placeholder-gray-400 text-base font-medium focus:outline-none focus:border-yellow-300 focus:ring-2 focus:ring-yellow-400/50 transition-all shadow-lg shadow-yellow-400/20"
             disabled={loading} />
         </div>
         <button type="submit" disabled={loading || !input.trim()}
-          className="bg-transparent px-10 py-4 rounded-xl font-black text-base tracking-widest uppercase hover:bg-yellow-400 hover:text-[#1E2A4A] transition-all disabled:text-white/50 disabled:border-yellow-400/50 disabled:cursor-not-allowed shrink-0 shadow-xl shadow-yellow-400/20 border-2 border-yellow-400 text-white">
+          className="bg-transparent px-10 py-4 rounded-xl font-black text-base tracking-widest uppercase hover:bg-yellow-400 hover:text-[var(--brand)] transition-all disabled:text-white/50 disabled:border-yellow-400/50 disabled:cursor-not-allowed shrink-0 shadow-xl shadow-yellow-400/20 border-2 border-yellow-400 text-white">
           Chat
         </button>
       </form>

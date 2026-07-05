@@ -97,13 +97,13 @@ export default async function NeighborhoodServicePage({ params }: Props) {
       <JsonLd data={[...neighborhoodServicePageSchemas(neighborhood, service, area), faqSchema(faqs)]} />
 
       {/* Hero — dark gradient with stat row at bottom */}
-      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] pt-14 md:pt-20 pb-0">
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] pt-14 md:pt-20 pb-0">
         <div className="max-w-6xl mx-auto px-4">
           {/* Inline breadcrumb trail */}
           <div className="flex items-center gap-2 mb-6">
-            <Link href={`/${area.urlSlug}`} className="text-xs font-semibold text-[#A8F0DC]/70 tracking-[0.15em] uppercase hover:text-[#A8F0DC] transition-colors">{area.name}</Link>
+            <Link href={`/${area.urlSlug}`} className="text-xs font-semibold text-[rgb(var(--accent-rgb)/0.7)] tracking-[0.15em] uppercase hover:text-[var(--accent)] transition-colors">{area.name}</Link>
             <span className="text-white/20">/</span>
-            <Link href={`/${neighborhood.urlSlug}`} className="text-xs font-semibold text-[#A8F0DC]/70 tracking-[0.15em] uppercase hover:text-[#A8F0DC] transition-colors">{neighborhood.name}</Link>
+            <Link href={`/${neighborhood.urlSlug}`} className="text-xs font-semibold text-[rgb(var(--accent-rgb)/0.7)] tracking-[0.15em] uppercase hover:text-[var(--accent)] transition-colors">{neighborhood.name}</Link>
             <span className="text-white/20">/</span>
             <span className="text-xs font-semibold text-white/40 tracking-[0.15em] uppercase">{service.shortName}</span>
           </div>
@@ -112,7 +112,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
           </h1>
           <p className="text-blue-200/60 text-lg max-w-3xl leading-relaxed mb-8">{content.intro}</p>
           <div className="flex flex-col sm:flex-row items-start gap-4 mb-12">
-            <Link href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+            <Link href="/book/new" className="bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               Self Booking $10 OFF
             </Link>
             <a href="sms:5555555555" className="bg-white/10 border border-white/30 text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-white/20 transition-colors">
@@ -129,7 +129,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
                 <p className="text-blue-200/40 text-xs">Typical cost</p>
               </div>
               <div>
-                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#A8F0DC] tracking-wide">{service.duration}</p>
+                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--accent)] tracking-wide">{service.duration}</p>
                 <p className="text-blue-200/40 text-xs">Average duration</p>
               </div>
               <div>
@@ -174,11 +174,11 @@ export default async function NeighborhoodServicePage({ params }: Props) {
             {/* Left — numbered feature checklist */}
             <div className="lg:col-span-3">
               <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">What&apos;s Included</h2>
-              <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-6">{service.name} Checklist</p>
+              <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-6">{service.name} Checklist</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {service.features.map((f, i) => (
                   <div key={f} className="flex items-start gap-4 bg-gray-50 border border-gray-100 rounded-xl p-4">
-                    <span className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A]/30 leading-none mt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="font-[family-name:var(--font-bebas)] text-2xl text-[rgb(var(--brand-rgb)/0.3)] leading-none mt-0.5">{String(i + 1).padStart(2, '0')}</span>
                     <span className="text-gray-700 text-sm leading-relaxed">{f}</span>
                   </div>
                 ))}
@@ -187,30 +187,30 @@ export default async function NeighborhoodServicePage({ params }: Props) {
 
             {/* Right — stacked: Why Us dark card + pricing mini card */}
             <div className="lg:col-span-2 space-y-4">
-              <div className="bg-gradient-to-br from-[#1E2A4A] to-[#243352] rounded-2xl p-7">
+              <div className="bg-gradient-to-br from-[var(--brand)] to-[var(--brand-alt)] rounded-2xl p-7">
                 <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-white tracking-wide mb-5">Why {neighborhood.name} Residents Choose Us</h2>
                 <ul className="space-y-4">
                   {content.whyUs.map(reason => (
                     <li key={reason} className="flex items-start gap-3">
-                      <span className="text-[#A8F0DC] mt-0.5 text-lg flex-shrink-0">&#10003;</span>
+                      <span className="text-[var(--accent)] mt-0.5 text-lg flex-shrink-0">&#10003;</span>
                       <span className="text-blue-100/70 text-sm leading-relaxed">{reason}</span>
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-2xl p-6 text-center">
+              <div className="bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-2xl p-6 text-center">
                 <div className="flex items-center justify-center gap-4 mb-3">
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide leading-none">{service.priceRange}</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide leading-none">{service.priceRange}</p>
                     <p className="text-gray-400 text-xs mt-1">Typical cost</p>
                   </div>
-                  <div className="w-px h-10 bg-[#A8F0DC]/30" />
+                  <div className="w-px h-10 bg-[rgb(var(--accent-rgb)/0.3)]" />
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide leading-none">{service.duration}</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide leading-none">{service.duration}</p>
                     <p className="text-gray-400 text-xs mt-1">Duration</p>
                   </div>
                 </div>
-                <a href="sms:5555555555" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-xs tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors w-full">
+                <a href="sms:5555555555" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-xs tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors w-full">
                   Text (555) 555-5555
                 </a>
               </div>
@@ -220,9 +220,9 @@ export default async function NeighborhoodServicePage({ params }: Props) {
       </section>
 
       {/* Neighborhood expertise — service × housing types */}
-      <section className="py-16 bg-gradient-to-b from-[#1E2A4A] to-[#243352]">
+      <section className="py-16 bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)]">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-xs font-semibold text-[#A8F0DC]/60 tracking-[0.25em] uppercase mb-3 text-center">{service.shortName} Expertise</h2>
+          <h2 className="text-xs font-semibold text-[rgb(var(--accent-rgb)/0.6)] tracking-[0.25em] uppercase mb-3 text-center">{service.shortName} Expertise</h2>
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-4">{service.name} Tailored for {neighborhood.name} Homes</p>
           <p className="text-blue-200/50 text-center max-w-2xl mx-auto mb-12">
             Our cleaners are experienced with the housing types and cleaning challenges specific to {neighborhood.name}. No learning curve — just expert {service.name.toLowerCase()} from day one.
@@ -233,7 +233,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {neighborhood.housing_types.map(t => (
                   <div key={t} className="flex items-start gap-2.5">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <span className="text-blue-100/70 text-sm">{t.charAt(0).toUpperCase() + t.slice(1)}</span>
                   </div>
                 ))}
@@ -244,7 +244,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {neighborhood.cleaning_challenges.map(c => (
                   <div key={c} className="flex items-start gap-2.5">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <span className="text-blue-100/70 text-sm">{c.charAt(0).toUpperCase() + c.slice(1)}</span>
                   </div>
                 ))}
@@ -255,19 +255,19 @@ export default async function NeighborhoodServicePage({ params }: Props) {
       </section>
 
       {/* Pricing — mint band */}
-      <section className="py-12 bg-[#A8F0DC]">
+      <section className="py-12 bg-[var(--accent)]">
         <div className="max-w-4xl mx-auto px-4 flex flex-col md:flex-row items-start gap-6">
           <div className="flex-shrink-0">
-            <div className="w-14 h-14 bg-[#1E2A4A] rounded-full flex items-center justify-center">
+            <div className="w-14 h-14 bg-[var(--brand)] rounded-full flex items-center justify-center">
               <span className="text-white text-xl">$</span>
             </div>
           </div>
           <div>
-            <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-2">{service.name} Pricing in {neighborhood.name}</h3>
-            <p className="text-[#1E2A4A]/80 leading-relaxed">
+            <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-2">{service.name} Pricing in {neighborhood.name}</h3>
+            <p className="text-[rgb(var(--brand-rgb)/0.8)] leading-relaxed">
               {service.name} in {neighborhood.name} typically costs {service.priceRange} and takes {service.duration}. We charge a flat hourly rate — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), or $89/hr for same-day emergency service. No travel fees, no surge pricing, no hidden costs. {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
             </p>
-            <Link href="/updated-nyc-maid-service-industry-pricing" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
+            <Link href="/updated-nyc-maid-service-industry-pricing" className="inline-block mt-3 text-[var(--brand)] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
           </div>
         </div>
       </section>
@@ -276,11 +276,11 @@ export default async function NeighborhoodServicePage({ params }: Props) {
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Perfect For</h2>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide text-center mb-10">Who Books {service.name} in {neighborhood.name}?</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide text-center mb-10">Who Books {service.name} in {neighborhood.name}?</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
             {service.idealFor.map(item => (
               <div key={item} className="bg-white border border-gray-200 rounded-xl p-5 text-center">
-                <p className="text-sm font-medium text-[#1E2A4A]">{item}</p>
+                <p className="text-sm font-medium text-[var(--brand)]">{item}</p>
               </div>
             ))}
           </div>
@@ -291,23 +291,23 @@ export default async function NeighborhoodServicePage({ params }: Props) {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">More Services</h2>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-4">Other Cleaning Services in {neighborhood.name}</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide text-center mb-4">Other Cleaning Services in {neighborhood.name}</p>
           <p className="text-gray-500 text-center max-w-2xl mx-auto mb-12">Same rates, same quality — pick the service that fits your needs.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {SERVICES.filter(s => s.slug !== service.slug).map(s => (
               <Link
                 key={s.slug}
                 href={`/${neighborhood.urlSlug}/${s.slug}`}
-                className="group border border-gray-200 rounded-2xl p-6 hover:border-[#A8F0DC] hover:shadow-lg transition-all bg-white"
+                className="group border border-gray-200 rounded-2xl p-6 hover:border-[var(--accent)] hover:shadow-lg transition-all bg-white"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 transition-colors">{s.name}</h3>
-                  <span className="text-[#1E2A4A] font-bold text-sm whitespace-nowrap ml-3">From {s.priceRange.split('–')[0]}</span>
+                  <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] transition-colors">{s.name}</h3>
+                  <span className="text-[var(--brand)] font-bold text-sm whitespace-nowrap ml-3">From {s.priceRange.split('–')[0]}</span>
                 </div>
                 <p className="text-gray-500 text-sm leading-relaxed mb-4 line-clamp-2">{s.description}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400 text-xs">{s.duration}</span>
-                  <span className="text-[#1E2A4A] text-sm font-medium group-hover:underline underline-offset-4">View Details &rarr;</span>
+                  <span className="text-[var(--brand)] text-sm font-medium group-hover:underline underline-offset-4">View Details &rarr;</span>
                 </div>
               </Link>
             ))}
@@ -316,9 +316,9 @@ export default async function NeighborhoodServicePage({ params }: Props) {
       </section>
 
       {/* Book in 3 Steps */}
-      <section className="py-20 bg-[#1E2A4A]">
+      <section className="py-20 bg-[var(--brand)]">
         <div className="max-w-7xl mx-auto px-4">
-          <p className="text-xs font-semibold text-[#A8F0DC]/60 tracking-[0.25em] uppercase mb-3 text-center">How It Works</p>
+          <p className="text-xs font-semibold text-[rgb(var(--accent-rgb)/0.6)] tracking-[0.25em] uppercase mb-3 text-center">How It Works</p>
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">Book {service.name} in {neighborhood.name} — 3 Steps</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
@@ -327,14 +327,14 @@ export default async function NeighborhoodServicePage({ params }: Props) {
               { n: '03', t: 'Pay After', d: `Your cleaner arrives on time, completes the ${service.name.toLowerCase()}, and you pay only when you're satisfied. No deposits.` },
             ].map(s => (
               <div key={s.n} className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-2xl p-7 text-center">
-                <span className="font-[family-name:var(--font-bebas)] text-5xl text-[#A8F0DC]/30 leading-none">{s.n}</span>
+                <span className="font-[family-name:var(--font-bebas)] text-5xl text-[rgb(var(--accent-rgb)/0.3)] leading-none">{s.n}</span>
                 <p className="font-[family-name:var(--font-bebas)] text-xl text-white tracking-wide mt-3 mb-2">{s.t}</p>
                 <p className="text-blue-200/50 text-sm leading-relaxed">{s.d}</p>
               </div>
             ))}
           </div>
           <div className="flex justify-center mt-10">
-            <a href="sms:5555555555" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+            <a href="sms:5555555555" className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               Text (555) 555-5555
             </a>
           </div>
@@ -346,7 +346,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4">
             <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Also Serving</h2>
-            <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-4">{service.name} Near {neighborhood.name}</p>
+            <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide text-center mb-4">{service.name} Near {neighborhood.name}</p>
             <p className="text-gray-500 text-center max-w-2xl mx-auto mb-12">Same rates, same quality — we offer {service.name.toLowerCase()} across all of {area.name}.</p>
             <NearbyNeighborhoods slugs={neighborhood.nearby} />
           </div>

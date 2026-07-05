@@ -52,18 +52,18 @@ const serviceFooterLinks = [
 
 export default function MarketingFooter({ config }: { config: SiteConfig }) {
   return (
-    <footer className="bg-[#1E2A4A] text-gray-400">
+    <footer className="bg-[var(--brand)] text-gray-400">
       {/* Main footer brand */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
         <h2 className="font-[family-name:var(--font-bebas)] text-white text-3xl md:text-4xl tracking-wide text-center mb-2">{config.identity.name}</h2>
-        <div className="w-16 h-[2px] bg-[#A8F0DC] mx-auto mb-6" />
+        <div className="w-16 h-[2px] bg-[var(--accent)] mx-auto mb-6" />
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
           <Link href="/reviews" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
             <span className="text-yellow-400">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
             <span className="text-gray-300 text-sm font-medium">{config.rating.toFixed(1)} from {config.reviewCount} verified reviews</span>
           </Link>
           <span className="text-white/20 hidden sm:inline">|</span>
-          <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="text-[#A8F0DC] text-sm font-semibold hover:text-white transition-colors">Write a Review</Link>
+          <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="text-[var(--accent)] text-sm font-semibold hover:text-white transition-colors">Write a Review</Link>
         </div>
       </div>
 
@@ -135,7 +135,7 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
             <Link href="/legal" className="hover:text-gray-300 transition-colors">Legal</Link>
             <Link href="/do-not-share-policy" className="hover:text-gray-300 transition-colors">Do Not Share</Link>
           </div>
-          <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} {config.identity.name} &middot; Sales: <a href={`sms:${config.contact.phoneDigits}`} className="text-[#A8F0DC]/70 hover:text-[#A8F0DC]">{config.contact.phone}</a>{config.contact.supportPhone && (<> &middot; Support: <a href={`sms:${config.contact.supportPhoneDigits}`} className="text-[#A8F0DC]/70 hover:text-[#A8F0DC]">{config.contact.supportPhone}</a></>)}</p>
+          <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} {config.identity.name} &middot; Sales: <a href={`sms:${config.contact.phoneDigits}`} className="text-[rgb(var(--accent-rgb)/0.7)] hover:text-[var(--accent)]">{config.contact.phone}</a>{config.contact.supportPhone && (<> &middot; Support: <a href={`sms:${config.contact.supportPhoneDigits}`} className="text-[rgb(var(--accent-rgb)/0.7)] hover:text-[var(--accent)]">{config.contact.supportPhone}</a></>)}</p>
         </div>
       </div>
 
@@ -144,7 +144,7 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 text-center">
           <p className="text-[11px] text-gray-500">
             CRM by{' '}
-            <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC]/70 hover:text-[#A8F0DC] font-semibold underline underline-offset-2 decoration-[#A8F0DC]/40">
+            <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-[rgb(var(--accent-rgb)/0.7)] hover:text-[var(--accent)] font-semibold underline underline-offset-2 decoration-[rgb(var(--accent-rgb)/0.4)]">
               Full Loop CRM
             </a>
           </p>

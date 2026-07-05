@@ -132,7 +132,7 @@ export default async function HomePage() {
       <JsonLd data={schemas} />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] pt-12 md:pt-16 pb-14 md:pb-20">
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] pt-12 md:pt-16 pb-14 md:pb-20">
         <div className="max-w-6xl mx-auto px-4">
           {/* Social proof bar */}
           <div className="flex flex-wrap items-center gap-4 mb-8">
@@ -154,10 +154,10 @@ export default async function HomePage() {
 
           {/* Trust points */}
           <div className="flex flex-wrap gap-x-6 gap-y-2 mb-5">
-            <span className="text-[#A8F0DC] text-sm font-medium">&#10003; No money upfront</span>
-            <span className="text-[#A8F0DC] text-sm font-medium">&#10003; Payment upon completion</span>
-            <span className="text-[#A8F0DC] text-sm font-medium">&#10003; No contracts</span>
-            <span className="text-[#A8F0DC] text-sm font-medium">&#10003; Flat hourly pricing</span>
+            <span className="text-[var(--accent)] text-sm font-medium">&#10003; No money upfront</span>
+            <span className="text-[var(--accent)] text-sm font-medium">&#10003; Payment upon completion</span>
+            <span className="text-[var(--accent)] text-sm font-medium">&#10003; No contracts</span>
+            <span className="text-[var(--accent)] text-sm font-medium">&#10003; Flat hourly pricing</span>
           </div>
 
           {/* Divider */}
@@ -167,7 +167,7 @@ export default async function HomePage() {
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide mb-1">Book Your Cleaning</p>
           <p className="text-blue-200/70 text-sm mb-5 max-w-[75%]">One page. Quick. We&apos;ll confirm by text within 15 minutes.</p>
           <div className="flex flex-wrap gap-3 mb-8">
-            <Link href="/book/new" className="inline-flex items-center gap-2 bg-[#A8F0DC] text-[#1E2A4A] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+            <Link href="/book/new" className="inline-flex items-center gap-2 bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               Self Booking $10 OFF
             </Link>
             <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
@@ -178,20 +178,20 @@ export default async function HomePage() {
           {/* Pricing tiers */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white/[0.08] backdrop-blur-sm border border-white/15 rounded-2xl p-8">
-              <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-3">Client Supplies &amp; Equipment</p>
+              <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.2em] uppercase mb-3">Client Supplies &amp; Equipment</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$59<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">You provide the cleaning supplies and equipment. We bring the expertise.</p>
-              <p className="text-[#A8F0DC]/80 text-xs mt-2 font-medium">10% off weekly &middot; 5% off biweekly &amp; monthly</p>
+              <p className="text-[rgb(var(--accent-rgb)/0.8)] text-xs mt-2 font-medium">10% off weekly &middot; 5% off biweekly &amp; monthly</p>
             </div>
-            <div className="bg-[#A8F0DC]/10 backdrop-blur-sm border border-[#A8F0DC]/30 rounded-2xl p-8 relative">
-              <div className="absolute -top-3 left-6 bg-[#A8F0DC] text-[#1E2A4A] text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
-              <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
+            <div className="bg-[rgb(var(--accent-rgb)/0.1)] backdrop-blur-sm border border-[rgb(var(--accent-rgb)/0.3)] rounded-2xl p-8 relative">
+              <div className="absolute -top-3 left-6 bg-[var(--accent)] text-[var(--brand)] text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
+              <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$69<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">We bring all supplies and professional-grade equipment. Just open the door.</p>
-              <p className="text-[#A8F0DC]/80 text-xs mt-2 font-medium">20% off weekly &middot; 10% off biweekly &amp; monthly</p>
+              <p className="text-[rgb(var(--accent-rgb)/0.8)] text-xs mt-2 font-medium">20% off weekly &middot; 10% off biweekly &amp; monthly</p>
             </div>
             <div className="bg-white/[0.08] backdrop-blur-sm border border-white/15 rounded-2xl p-8">
-              <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-3">Same-Day / Emergency</p>
+              <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.2em] uppercase mb-3">Same-Day / Emergency</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$89<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">Need it today? We dispatch a professional cleaner to your door within hours.</p>
             </div>
@@ -226,31 +226,31 @@ export default async function HomePage() {
             {/* Left — story */}
             <div>
               <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">New York City&apos;s Trusted Home Cleaning Company Since 2018</p>
-              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide leading-tight mb-4">Welcome to Your Business</h2>
-              <div className="w-12 h-[2px] bg-[#A8F0DC] mb-6" />
+              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide leading-tight mb-4">Welcome to Your Business</h2>
+              <div className="w-12 h-[2px] bg-[var(--accent)] mb-6" />
               <p className="text-gray-600 text-lg leading-relaxed mb-5">
                 We&apos;re a small, dedicated cleaning company that treats every home like our own. No apps, no algorithms, no random strangers — just experienced, professional cleaners who show up on time, do beautiful work, and earn your trust visit after visit.
               </p>
               <p className="text-gray-600 leading-relaxed mb-5">
-                Whether it&apos;s a <Link href="/services/weekly-maid-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">weekly cleaning</Link> for your <Link href="/upper-east-side-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Upper East Side</Link> apartment, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">deep clean</Link> before guests arrive in <Link href="/park-slope-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Park Slope</Link>, or a <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">move-out clean</Link> in <Link href="/hoboken-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Hoboken</Link> — we handle it all with care, attention to detail, and genuine pride in what we do.
+                Whether it&apos;s a <Link href="/services/weekly-maid-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">weekly cleaning</Link> for your <Link href="/upper-east-side-maid-service" className="text-[var(--brand)] underline underline-offset-2">Upper East Side</Link> apartment, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">deep clean</Link> before guests arrive in <Link href="/park-slope-maid-service" className="text-[var(--brand)] underline underline-offset-2">Park Slope</Link>, or a <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">move-out clean</Link> in <Link href="/hoboken-maid-service" className="text-[var(--brand)] underline underline-offset-2">Hoboken</Link> — we handle it all with care, attention to detail, and genuine pride in what we do.
               </p>
               <p className="text-gray-600 leading-relaxed mb-5">
-                We serve hundreds of <Link href="/service-areas-served-by-the-nyc-maid" className="text-[#1E2A4A] underline underline-offset-2">neighborhoods</Link> across <Link href="/manhattan-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Manhattan</Link>, <Link href="/brooklyn-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Brooklyn</Link>, <Link href="/queens-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Queens</Link>, the <Link href="/bronx-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Bronx</Link>, <Link href="/staten-island-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Staten Island</Link>, <Link href="/long-island-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, <Link href="/westchester-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Westchester</Link>, and <Link href="/new-jersey-maid-service" className="text-[#1E2A4A] underline underline-offset-2">New Jersey</Link>. Every cleaner is background-checked, insured, and paid fairly. We don&apos;t cut corners — on your home or on our people.
+                We serve hundreds of <Link href="/service-areas-served-by-the-nyc-maid" className="text-[var(--brand)] underline underline-offset-2">neighborhoods</Link> across <Link href="/manhattan-maid-service" className="text-[var(--brand)] underline underline-offset-2">Manhattan</Link>, <Link href="/brooklyn-maid-service" className="text-[var(--brand)] underline underline-offset-2">Brooklyn</Link>, <Link href="/queens-maid-service" className="text-[var(--brand)] underline underline-offset-2">Queens</Link>, the <Link href="/bronx-maid-service" className="text-[var(--brand)] underline underline-offset-2">Bronx</Link>, <Link href="/staten-island-maid-service" className="text-[var(--brand)] underline underline-offset-2">Staten Island</Link>, <Link href="/long-island-maid-service" className="text-[var(--brand)] underline underline-offset-2">Long Island</Link>, <Link href="/westchester-maid-service" className="text-[var(--brand)] underline underline-offset-2">Westchester</Link>, and <Link href="/new-jersey-maid-service" className="text-[var(--brand)] underline underline-offset-2">New Jersey</Link>. Every cleaner is background-checked, insured, and paid fairly. We don&apos;t cut corners — on your home or on our people.
               </p>
               <p className="text-gray-600 leading-relaxed mb-5">
-                Our clients aren&apos;t looking for the cheapest option — they&apos;re looking for someone they can rely on. Someone who remembers how they like their kitchen cleaned, who notices the details, and who treats their space with respect. That&apos;s what we do. It&apos;s why families in <Link href="/chelsea-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Chelsea</Link>, <Link href="/williamsburg-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Williamsburg</Link>, <Link href="/forest-hills-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Forest Hills</Link>, and <Link href="/great-neck-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Great Neck</Link> keep us coming back week after week.
+                Our clients aren&apos;t looking for the cheapest option — they&apos;re looking for someone they can rely on. Someone who remembers how they like their kitchen cleaned, who notices the details, and who treats their space with respect. That&apos;s what we do. It&apos;s why families in <Link href="/chelsea-maid-service" className="text-[var(--brand)] underline underline-offset-2">Chelsea</Link>, <Link href="/williamsburg-maid-service" className="text-[var(--brand)] underline underline-offset-2">Williamsburg</Link>, <Link href="/forest-hills-maid-service" className="text-[var(--brand)] underline underline-offset-2">Forest Hills</Link>, and <Link href="/great-neck-maid-service" className="text-[var(--brand)] underline underline-offset-2">Great Neck</Link> keep us coming back week after week.
               </p>
               <p className="text-gray-500 leading-relaxed mb-8">
-                We started in 2018 with one cleaner and a commitment to doing things the right way. Today we&apos;re one of the highest-rated cleaning companies in New York — not because we&apos;re the biggest, but because we care the most. Read our <Link href="/reviews" className="text-[#1E2A4A] underline underline-offset-2">customer reviews</Link> and see for yourself.
+                We started in 2018 with one cleaner and a commitment to doing things the right way. Today we&apos;re one of the highest-rated cleaning companies in New York — not because we&apos;re the biggest, but because we care the most. Read our <Link href="/reviews" className="text-[var(--brand)] underline underline-offset-2">customer reviews</Link> and see for yourself.
               </p>
               <div className="flex flex-wrap items-center gap-4">
-                <Link href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                   Self Booking $10 OFF
                 </Link>
-                <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+                <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
                   Text 555.555.5555
                 </a>
-                <Link href="/about-the-nyc-maid-service-company" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
+                <Link href="/about-the-nyc-maid-service-company" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">
                   Learn more &rarr;
                 </Link>
               </div>
@@ -258,30 +258,30 @@ export default async function HomePage() {
 
             {/* Right — at a glance + quick stats */}
             <div className="space-y-6">
-              <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-2xl p-8">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-5">Your Business at a Glance</h3>
+              <div className="bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-2xl p-8">
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-5">Your Business at a Glance</h3>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">2018</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">2018</p>
                     <p className="text-gray-500 text-sm">Founded</p>
                   </div>
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">5.0</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">5.0</p>
                     <p className="text-gray-500 text-sm">Client Rating</p>
                   </div>
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">225+</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">225+</p>
                     <p className="text-gray-500 text-sm">Neighborhoods</p>
                   </div>
                   <div>
-                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">$59</p>
+                    <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">$59</p>
                     <p className="text-gray-500 text-sm">Starting Rate/Hr</p>
                   </div>
                 </div>
               </div>
 
               <div className="border border-gray-200 rounded-2xl p-8">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-5">What You Can Expect</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-5">What You Can Expect</h3>
                 <ul className="space-y-3.5">
                   {[
                     'Same cleaner on every visit — someone you know and trust',
@@ -292,7 +292,7 @@ export default async function HomePage() {
                     'Responsive support — text us anytime, we answer fast',
                   ].map(item => (
                     <li key={item} className="flex items-start gap-3">
-                      <span className="text-[#A8F0DC] mt-0.5 text-lg">&#10003;</span>
+                      <span className="text-[var(--accent)] mt-0.5 text-lg">&#10003;</span>
                       <span className="text-gray-700 text-[15px]">{item}</span>
                     </li>
                   ))}
@@ -305,12 +305,12 @@ export default async function HomePage() {
       </section>
 
       {/* Pricing Deep Dive */}
-      <section className="py-20 bg-[#A8F0DC]">
+      <section className="py-20 bg-[var(--accent)]">
         <div className="max-w-7xl mx-auto px-4">
-          <p className="text-xs font-semibold text-[#1E2A4A]/50 tracking-[0.25em] uppercase mb-3 text-center">Your Business Service Pricing Explained — Hourly Rates, Average Costs &amp; What to Expect</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide text-center mb-4">How Much Does House Cleaning Cost in New York City?</h2>
-          <p className="text-[#1E2A4A]/70 text-center max-w-3xl mx-auto mb-14">
-            We keep it simple: flat hourly rates, no hidden fees, no contracts. Choose the option that fits your situation. Every tier includes the same professional, <Link href="/about-the-nyc-maid-service-company" className="text-[#1E2A4A] font-semibold underline underline-offset-2">background-checked cleaners</Link> — the only difference is who brings the supplies. See our full <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] font-semibold underline underline-offset-2">pricing page</Link> for more details.
+          <p className="text-xs font-semibold text-[rgb(var(--brand-rgb)/0.5)] tracking-[0.25em] uppercase mb-3 text-center">Your Business Service Pricing Explained — Hourly Rates, Average Costs &amp; What to Expect</p>
+          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide text-center mb-4">How Much Does House Cleaning Cost in New York City?</h2>
+          <p className="text-[rgb(var(--brand-rgb)/0.7)] text-center max-w-3xl mx-auto mb-14">
+            We keep it simple: flat hourly rates, no hidden fees, no contracts. Choose the option that fits your situation. Every tier includes the same professional, <Link href="/about-the-nyc-maid-service-company" className="text-[var(--brand)] font-semibold underline underline-offset-2">background-checked cleaners</Link> — the only difference is who brings the supplies. See our full <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] font-semibold underline underline-offset-2">pricing page</Link> for more details.
           </p>
 
           {/* 3 pricing cards */}
@@ -318,12 +318,12 @@ export default async function HomePage() {
             {/* Tier 1 */}
             <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col">
               <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Client Supplies &amp; Equipment</p>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[#1E2A4A] tracking-wide leading-none mb-1">$59<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
-              <div className="w-10 h-[2px] bg-[#A8F0DC] mt-4 mb-5" />
+              <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[var(--brand)] tracking-wide leading-none mb-1">$59<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
+              <div className="w-10 h-[2px] bg-[var(--accent)] mt-4 mb-5" />
               <p className="text-gray-600 text-sm leading-relaxed mb-5">
                 You provide all cleaning supplies, equipment, and products. We bring an experienced, background-checked professional cleaner who does the work.
               </p>
-              <p className="text-[#1E2A4A] text-xs font-semibold tracking-wide mb-5">Save 10% on weekly &middot; 5% on biweekly &amp; monthly</p>
+              <p className="text-[var(--brand)] text-xs font-semibold tracking-wide mb-5">Save 10% on weekly &middot; 5% on biweekly &amp; monthly</p>
               <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-3">Best For</p>
               <ul className="space-y-2 mb-6">
                 {[
@@ -333,7 +333,7 @@ export default async function HomePage() {
                   'Small studios and one-bedrooms where a vacuum and basics are enough',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2.5">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <span className="text-gray-600 text-sm">{item}</span>
                   </li>
                 ))}
@@ -341,23 +341,23 @@ export default async function HomePage() {
               <div className="mt-auto bg-gray-50 rounded-xl p-5">
                 <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-2">Average Cost Examples</p>
                 <ul className="space-y-1.5 text-sm text-gray-600">
-                  <li>Studio / 1BR: <strong className="text-[#1E2A4A]">$98–$147</strong> (2–3 hrs)</li>
-                  <li>2BR apartment: <strong className="text-[#1E2A4A]">$147–$196</strong> (3–4 hrs)</li>
-                  <li>3BR apartment: <strong className="text-[#1E2A4A]">$196–$294</strong> (4–6 hrs)</li>
+                  <li>Studio / 1BR: <strong className="text-[var(--brand)]">$98–$147</strong> (2–3 hrs)</li>
+                  <li>2BR apartment: <strong className="text-[var(--brand)]">$147–$196</strong> (3–4 hrs)</li>
+                  <li>3BR apartment: <strong className="text-[var(--brand)]">$196–$294</strong> (4–6 hrs)</li>
                 </ul>
               </div>
             </div>
 
             {/* Tier 2 — Most Popular */}
-            <div className="bg-[#1E2A4A] rounded-2xl p-8 pt-10 relative flex flex-col lg:-my-4 shadow-xl">
-              <div className="absolute -top-3.5 left-6 bg-[#A8F0DC] text-[#1E2A4A] text-xs font-bold tracking-widest uppercase px-5 py-1.5 rounded-full">Most Popular</div>
-              <p className="text-xs font-semibold text-[#A8F0DC]/70 tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
+            <div className="bg-[var(--brand)] rounded-2xl p-8 pt-10 relative flex flex-col lg:-my-4 shadow-xl">
+              <div className="absolute -top-3.5 left-6 bg-[var(--accent)] text-[var(--brand)] text-xs font-bold tracking-widest uppercase px-5 py-1.5 rounded-full">Most Popular</div>
+              <p className="text-xs font-semibold text-[rgb(var(--accent-rgb)/0.7)] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <p className="font-[family-name:var(--font-bebas)] text-6xl sm:text-7xl lg:text-8xl text-white tracking-wide leading-none mb-1">$69<span className="text-2xl sm:text-3xl text-blue-200/40">/hr</span></p>
-              <div className="w-10 h-[2px] bg-[#A8F0DC] mt-4 mb-5" />
+              <div className="w-10 h-[2px] bg-[var(--accent)] mt-4 mb-5" />
               <p className="text-blue-200/60 text-sm leading-relaxed mb-5">
                 We bring all professional-grade supplies, equipment, vacuums, mops, and cleaning products. Just open the door — we handle everything from start to finish.
               </p>
-              <p className="text-[#A8F0DC] text-xs font-semibold tracking-wide mb-5">Save 20% on weekly &middot; 10% on biweekly &amp; monthly</p>
+              <p className="text-[var(--accent)] text-xs font-semibold tracking-wide mb-5">Save 20% on weekly &middot; 10% on biweekly &amp; monthly</p>
               <p className="text-xs font-semibold text-blue-200/40 tracking-[0.15em] uppercase mb-3">Best For</p>
               <ul className="space-y-2 mb-6">
                 {[
@@ -367,7 +367,7 @@ export default async function HomePage() {
                   'Clients who want consistent, professional-grade results',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2.5">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <span className="text-blue-100/70 text-sm">{item}</span>
                   </li>
                 ))}
@@ -385,10 +385,10 @@ export default async function HomePage() {
             {/* Tier 3 */}
             <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col">
               <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Same-Day &amp; Emergency</p>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[#1E2A4A] tracking-wide leading-none mb-1">$89<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
-              <div className="w-10 h-[2px] bg-[#A8F0DC] mt-4 mb-5" />
+              <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[var(--brand)] tracking-wide leading-none mb-1">$89<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
+              <div className="w-10 h-[2px] bg-[var(--accent)] mt-4 mb-5" />
               <p className="text-gray-600 text-sm leading-relaxed mb-5">
-                Need a cleaner today? We dispatch a professional to your door within hours. Includes all supplies and equipment — <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">same-day cleaning</Link> when you need it most.
+                Need a cleaner today? We dispatch a professional to your door within hours. Includes all supplies and equipment — <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">same-day cleaning</Link> when you need it most.
               </p>
               <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-3">Best For</p>
               <ul className="space-y-2 mb-6">
@@ -399,7 +399,7 @@ export default async function HomePage() {
                   'Airbnb hosts with a same-day turnover',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2.5">
-                    <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                     <span className="text-gray-600 text-sm">{item}</span>
                   </li>
                 ))}
@@ -407,9 +407,9 @@ export default async function HomePage() {
               <div className="mt-auto bg-gray-50 rounded-xl p-5">
                 <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-2">Average Cost Examples</p>
                 <ul className="space-y-1.5 text-sm text-gray-600">
-                  <li>Studio / 1BR: <strong className="text-[#1E2A4A]">$200–$300</strong> (2–3 hrs)</li>
-                  <li>2BR apartment: <strong className="text-[#1E2A4A]">$300–$400</strong> (3–4 hrs)</li>
-                  <li>3BR apartment: <strong className="text-[#1E2A4A]">$400–$600</strong> (4–6 hrs)</li>
+                  <li>Studio / 1BR: <strong className="text-[var(--brand)]">$200–$300</strong> (2–3 hrs)</li>
+                  <li>2BR apartment: <strong className="text-[var(--brand)]">$300–$400</strong> (3–4 hrs)</li>
+                  <li>3BR apartment: <strong className="text-[var(--brand)]">$400–$600</strong> (4–6 hrs)</li>
                 </ul>
               </div>
             </div>
@@ -418,7 +418,7 @@ export default async function HomePage() {
           {/* Tips + Education */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
             <div className="bg-white border border-gray-200 rounded-2xl p-8">
-              <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-5">NYC Cleaning Cost Tips — How to Get the Best Value</h3>
+              <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-5">NYC Cleaning Cost Tips — How to Get the Best Value</h3>
               <ul className="space-y-4">
                 {[
                   { tip: 'Book recurring service for the best rate', detail: 'Recurring discounts vary by tier. $69/hr (we supply): 20% weekly, 10% biweekly/monthly. $59/hr (you supply): 10% weekly, 5% biweekly/monthly. A weekly 2-hour clean at $59/hr drops to ~$106/visit with the recurring discount.' },
@@ -428,7 +428,7 @@ export default async function HomePage() {
                   { tip: 'Bundle services for new apartments', detail: 'Moving in? Book a move-in deep clean at $69/hr, then transition to weekly or biweekly at $59/hour with your own supplies for ongoing maintenance — and stack the recurring discount on top.' },
                 ].map(item => (
                   <li key={item.tip}>
-                    <p className="text-[#1E2A4A] font-semibold text-sm mb-1">{item.tip}</p>
+                    <p className="text-[var(--brand)] font-semibold text-sm mb-1">{item.tip}</p>
                     <p className="text-gray-500 text-sm leading-relaxed">{item.detail}</p>
                   </li>
                 ))}
@@ -436,7 +436,7 @@ export default async function HomePage() {
             </div>
 
             <div className="bg-white border border-gray-200 rounded-2xl p-8">
-              <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-5">What Affects the Cost of House Cleaning in NYC?</h3>
+              <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-5">What Affects the Cost of House Cleaning in NYC?</h3>
               <ul className="space-y-4">
                 {[
                   { factor: 'Apartment size', detail: 'A studio takes 2 hours. A 3-bedroom may take 5–6. We charge by the hour so you only pay for the time your space actually needs — no inflated flat rates.' },
@@ -446,7 +446,7 @@ export default async function HomePage() {
                   { factor: 'Urgency', detail: 'Same-day and emergency service is $89/hr because we prioritize your booking and dispatch immediately. Plan ahead to save — most clients book 2–3 days in advance.' },
                 ].map(item => (
                   <li key={item.factor}>
-                    <p className="text-[#1E2A4A] font-semibold text-sm mb-1">{item.factor}</p>
+                    <p className="text-[var(--brand)] font-semibold text-sm mb-1">{item.factor}</p>
                     <p className="text-gray-500 text-sm leading-relaxed">{item.detail}</p>
                   </li>
                 ))}
@@ -456,7 +456,7 @@ export default async function HomePage() {
 
           {/* Quick comparison + CTA */}
           <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-            <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">How Your Business Pricing Compares to the Industry</h3>
+            <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-2">How Your Business Pricing Compares to the Industry</h3>
             <p className="text-gray-500 text-sm max-w-2xl mx-auto mb-6">
               Most NYC cleaning companies charge $79–$120/hr or use opaque flat-rate quotes that hide the true cost. We publish our rates, charge by the hour, and never surprise you with add-on fees. What you see is what you pay.
             </p>
@@ -465,23 +465,23 @@ export default async function HomePage() {
                 <p className="text-xs text-gray-400 font-semibold tracking-wide uppercase mb-1">NYC Average</p>
                 <p className="font-[family-name:var(--font-bebas)] text-2xl text-gray-400 tracking-wide">$79–$120/hr</p>
               </div>
-              <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-xl p-4">
-                <p className="text-xs text-[#A8F0DC] font-semibold tracking-wide uppercase mb-1">Your Business</p>
-                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide">$59–$89/hr</p>
+              <div className="bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-xl p-4">
+                <p className="text-xs text-[var(--accent)] font-semibold tracking-wide uppercase mb-1">Your Business</p>
+                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide">$59–$89/hr</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="text-xs text-gray-400 font-semibold tracking-wide uppercase mb-1">You Save</p>
-                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#A8F0DC] tracking-wide">25–45%</p>
+                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--accent)] tracking-wide">25–45%</p>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                 Self Booking $10 OFF
               </Link>
-              <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+              <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
                 Text 555.555.5555
               </a>
-              <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4 text-sm">
+              <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4 text-sm">
                 View pricing &rarr;
               </Link>
             </div>
@@ -493,9 +493,9 @@ export default async function HomePage() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Real NYC House Cleaning Reviews From Verified Clients</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide text-center mb-4">5-Star Rated Maid Service in New York City — Read What Our Clients Say</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide text-center mb-4">5-Star Rated Maid Service in New York City — Read What Our Clients Say</h2>
           <p className="text-gray-500 text-center max-w-3xl mx-auto mb-12">
-            Every review is from a verified client. From <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">deep cleaning</Link> and <Link href="/services/apartment-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">apartment cleaning</Link> to <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">move-in/move-out</Link> and <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">same-day emergency service</Link> — see why New Yorkers across <Link href="/manhattan-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Manhattan</Link>, <Link href="/brooklyn-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Brooklyn</Link>, <Link href="/queens-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Queens</Link>, the <Link href="/bronx-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Bronx</Link>, <Link href="/staten-island-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Staten Island</Link>, <Link href="/long-island-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, <Link href="/westchester-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Westchester</Link> &amp; <Link href="/new-jersey-maid-service" className="text-[#1E2A4A] underline underline-offset-2">New Jersey</Link> rate us 5 stars.
+            Every review is from a verified client. From <Link href="/services/deep-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">deep cleaning</Link> and <Link href="/services/apartment-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">apartment cleaning</Link> to <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">move-in/move-out</Link> and <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">same-day emergency service</Link> — see why New Yorkers across <Link href="/manhattan-maid-service" className="text-[var(--brand)] underline underline-offset-2">Manhattan</Link>, <Link href="/brooklyn-maid-service" className="text-[var(--brand)] underline underline-offset-2">Brooklyn</Link>, <Link href="/queens-maid-service" className="text-[var(--brand)] underline underline-offset-2">Queens</Link>, the <Link href="/bronx-maid-service" className="text-[var(--brand)] underline underline-offset-2">Bronx</Link>, <Link href="/staten-island-maid-service" className="text-[var(--brand)] underline underline-offset-2">Staten Island</Link>, <Link href="/long-island-maid-service" className="text-[var(--brand)] underline underline-offset-2">Long Island</Link>, <Link href="/westchester-maid-service" className="text-[var(--brand)] underline underline-offset-2">Westchester</Link> &amp; <Link href="/new-jersey-maid-service" className="text-[var(--brand)] underline underline-offset-2">New Jersey</Link> rate us 5 stars.
           </p>
 
           {/* Reviews widget */}
@@ -503,7 +503,7 @@ export default async function HomePage() {
             {/* Widget header */}
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#1E2A4A] rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 bg-[var(--brand)] rounded-full flex items-center justify-center">
                   <span className="text-white text-lg font-bold">M</span>
                 </div>
                 <div>
@@ -517,7 +517,7 @@ export default async function HomePage() {
                   <span className="text-yellow-400 text-base sm:text-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
                   <span className="text-gray-400 text-xs sm:text-sm">(50+)</span>
                 </div>
-                <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="hidden sm:inline-block bg-[#1E2A4A] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[#243352] transition-colors">
+                <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="hidden sm:inline-block bg-[var(--brand)] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[var(--brand-alt)] transition-colors">
                   Write a Review
                 </Link>
               </div>
@@ -560,7 +560,7 @@ export default async function HomePage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-1">
                           <p className="text-sm font-semibold text-gray-900 truncate">{review.name}</p>
-                          <svg className="w-3.5 h-3.5 text-[#1E2A4A] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" /></svg>
+                          <svg className="w-3.5 h-3.5 text-[var(--brand)] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" /></svg>
                         </div>
                         <p className="text-xs text-gray-400">{review.time}</p>
                       </div>
@@ -574,22 +574,22 @@ export default async function HomePage() {
           </div>
 
           <div className="text-center mt-10">
-            <Link href="/reviews" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">Read All Reviews &rarr;</Link>
+            <Link href="/reviews" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">Read All Reviews &rarr;</Link>
           </div>
         </div>
       </section>
 
       {/* Services */}
-      <section className="py-20 bg-gradient-to-b from-[#1E2A4A] to-[#243352]">
+      <section className="py-20 bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)]">
         <div className="max-w-7xl mx-auto px-4">
-          <p className="text-xs font-semibold text-[#A8F0DC]/70 tracking-[0.25em] uppercase mb-3 text-center">Professional NYC Apartment &amp; House Cleaning Services</p>
+          <p className="text-xs font-semibold text-[rgb(var(--accent-rgb)/0.7)] tracking-[0.25em] uppercase mb-3 text-center">Professional NYC Apartment &amp; House Cleaning Services</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide text-center mb-4">Deep Cleaning, Regular Maid Service &amp; More in New York City</h2>
           <p className="text-blue-200/60 text-center max-w-3xl mx-auto mb-14">
-            From <Link href="/services/weekly-maid-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">weekly maid service</Link> and <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">deep cleaning</Link> to <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">move-in/move-out cleaning</Link>, <Link href="/services/post-construction-cleanup-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">post-renovation cleanup</Link>, and <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">same-day emergency cleaning</Link> — we handle every type of residential cleaning across the NYC metro area. All cleaners are background-checked, licensed, and insured.
+            From <Link href="/services/weekly-maid-service-in-nyc" className="text-[var(--accent)] underline underline-offset-2">weekly maid service</Link> and <Link href="/services/deep-cleaning-service-in-nyc" className="text-[var(--accent)] underline underline-offset-2">deep cleaning</Link> to <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[var(--accent)] underline underline-offset-2">move-in/move-out cleaning</Link>, <Link href="/services/post-construction-cleanup-service-in-nyc" className="text-[var(--accent)] underline underline-offset-2">post-renovation cleanup</Link>, and <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[var(--accent)] underline underline-offset-2">same-day emergency cleaning</Link> — we handle every type of residential cleaning across the NYC metro area. All cleaners are background-checked, licensed, and insured.
           </p>
           <ServiceGrid />
           <div className="text-center mt-10">
-            <Link href="/nyc-maid-service-services-offered-by-the-nyc-maid" className="text-[#A8F0DC] font-semibold hover:underline underline-offset-4">Browse All NYC Cleaning Services &rarr;</Link>
+            <Link href="/nyc-maid-service-services-offered-by-the-nyc-maid" className="text-[var(--accent)] font-semibold hover:underline underline-offset-4">Browse All NYC Cleaning Services &rarr;</Link>
           </div>
         </div>
       </section>
@@ -599,25 +599,25 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           <div>
             <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Insured Up To $1,000,000 NYC Cleaning Company</p>
-            <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide leading-tight mb-6">Why Thousands of New Yorkers Trust Your Business</h2>
-            <div className="w-12 h-[2px] bg-[#A8F0DC] mb-6" />
+            <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide leading-tight mb-6">Why Thousands of New Yorkers Trust Your Business</h2>
+            <div className="w-12 h-[2px] bg-[var(--accent)] mb-6" />
             <p className="text-gray-600 text-lg leading-relaxed mb-4">
-              We provide personalized, hourly <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] underline underline-offset-2">cleaning service pricing</Link> for each unique space — ensuring high-quality cleaning tailored to your needs. No contracts, no hidden fees, no surprises.
+              We provide personalized, hourly <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] underline underline-offset-2">cleaning service pricing</Link> for each unique space — ensuring high-quality cleaning tailored to your needs. No contracts, no hidden fees, no surprises.
             </p>
             <p className="text-gray-600 leading-relaxed mb-6">
-              Every cleaner on our team is fully background-checked and insured. Whether you need a <Link href="/services/apartment-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">regular apartment cleaning</Link> in <Link href="/manhattan-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Manhattan</Link>, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">deep clean</Link> in <Link href="/brooklyn-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Brooklyn</Link>, or <Link href="/services/airbnb-cleaning-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">Airbnb turnover cleaning</Link> in <Link href="/queens-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Queens</Link> — we&apos;ve got you covered. <Link href="/about-the-nyc-maid-service-company" className="text-[#1E2A4A] underline underline-offset-2">Learn more about our company</Link>.
+              Every cleaner on our team is fully background-checked and insured. Whether you need a <Link href="/services/apartment-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">regular apartment cleaning</Link> in <Link href="/manhattan-maid-service" className="text-[var(--brand)] underline underline-offset-2">Manhattan</Link>, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">deep clean</Link> in <Link href="/brooklyn-maid-service" className="text-[var(--brand)] underline underline-offset-2">Brooklyn</Link>, or <Link href="/services/airbnb-cleaning-in-nyc" className="text-[var(--brand)] underline underline-offset-2">Airbnb turnover cleaning</Link> in <Link href="/queens-maid-service" className="text-[var(--brand)] underline underline-offset-2">Queens</Link> — we&apos;ve got you covered. <Link href="/about-the-nyc-maid-service-company" className="text-[var(--brand)] underline underline-offset-2">Learn more about our company</Link>.
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-4">
-              <Link href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                 Self Booking $10 OFF
               </Link>
-              <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+              <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
                 Text 555.555.5555
               </a>
             </div>
           </div>
           <div className="border border-gray-200 rounded-2xl p-8">
-            <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-6">Background-Checked, Insured &amp; 5-Star Rated</h3>
+            <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-6">Background-Checked, Insured &amp; 5-Star Rated</h3>
             <ul className="space-y-4">
               {[
                 { icon: '\u{1F6E1}', text: 'Full general liability insurance and bonding on every visit' },
@@ -634,22 +634,22 @@ export default async function HomePage() {
               ))}
             </ul>
             <div className="mt-6 pt-6 border-t border-gray-200">
-              <Link href="/reviews" className="text-[#1E2A4A] font-semibold text-sm hover:underline underline-offset-4">Read Our Customer Reviews &rarr;</Link>
+              <Link href="/reviews" className="text-[var(--brand)] font-semibold text-sm hover:underline underline-offset-4">Read Our Customer Reviews &rarr;</Link>
             </div>
           </div>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section className="bg-[#A8F0DC] py-20">
+      <section className="bg-[var(--accent)] py-20">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <p className="text-xs font-semibold text-[#1E2A4A]/50 tracking-[0.25em] uppercase mb-6">Real NYC Cleaning Service Reviews From Verified Customers</p>
-          <p className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[#1E2A4A] tracking-wide leading-relaxed mb-6">
+          <p className="text-xs font-semibold text-[rgb(var(--brand-rgb)/0.5)] tracking-[0.25em] uppercase mb-6">Real NYC Cleaning Service Reviews From Verified Customers</p>
+          <p className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[var(--brand)] tracking-wide leading-relaxed mb-6">
             &ldquo;{testimonials[0].text}&rdquo;
           </p>
-          <p className="text-[#1E2A4A]/70 font-medium tracking-wide">&mdash; {testimonials[0].name}, {testimonials[0].location}</p>
+          <p className="text-[rgb(var(--brand-rgb)/0.7)] font-medium tracking-wide">&mdash; {testimonials[0].name}, {testimonials[0].location}</p>
           <div className="mt-8">
-            <Link href="/reviews" className="text-[#1E2A4A] font-semibold text-sm tracking-wide hover:underline underline-offset-4">Read All Your Business Service Reviews &rarr;</Link>
+            <Link href="/reviews" className="text-[var(--brand)] font-semibold text-sm tracking-wide hover:underline underline-offset-4">Read All Your Business Service Reviews &rarr;</Link>
           </div>
         </div>
       </section>
@@ -658,14 +658,14 @@ export default async function HomePage() {
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">What Makes Your Business Different From Other NYC Cleaning Services</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide text-center mb-4">Why Clients Choose Your Business Over Every Other Cleaning Company</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide text-center mb-4">Why Clients Choose Your Business Over Every Other Cleaning Company</h2>
           <p className="text-gray-500 text-center max-w-3xl mx-auto mb-14">
-            No money upfront — you pay only after your cleaning is complete. Flat <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] underline underline-offset-2">hourly pricing</Link> with no surprise fees. Experienced, professional cleaners — not random gig workers. <Link href="/services/weekly-maid-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">Weekly</Link> and <Link href="/services/bi-weekly-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">bi-weekly recurring service</Link> available. No contracts — stay because you&apos;re happy.
+            No money upfront — you pay only after your cleaning is complete. Flat <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] underline underline-offset-2">hourly pricing</Link> with no surprise fees. Experienced, professional cleaners — not random gig workers. <Link href="/services/weekly-maid-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">Weekly</Link> and <Link href="/services/bi-weekly-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">bi-weekly recurring service</Link> available. No contracts — stay because you&apos;re happy.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="border border-gray-200 rounded-2xl p-8">
               <h3 className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Transparent NYC Cleaning Service Scheduling</h3>
-              <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">How Scheduling Works</p>
+              <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-4">How Scheduling Works</p>
               <ul className="space-y-3">
                 {[
                   'All appointments are confirmed in advance',
@@ -675,7 +675,7 @@ export default async function HomePage() {
                   'We value consistency over chaos',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2.5">
-                    <span className="text-[#A8F0DC] mt-0.5">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5">&#10003;</span>
                     <span className="text-gray-600 text-sm">{item}</span>
                   </li>
                 ))}
@@ -683,7 +683,7 @@ export default async function HomePage() {
             </div>
             <div className="border border-gray-200 rounded-2xl p-8">
               <h3 className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">No Upfront Payment — Pay After Your Cleaning</h3>
-              <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">Payment &amp; Completion</p>
+              <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-4">Payment &amp; Completion</p>
               <ul className="space-y-3">
                 {[
                   'Payment is requested when the cleaning is nearly complete',
@@ -693,7 +693,7 @@ export default async function HomePage() {
                   'Cleaner remains on site until payment is completed',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2.5">
-                    <span className="text-[#A8F0DC] mt-0.5">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5">&#10003;</span>
                     <span className="text-gray-600 text-sm">{item}</span>
                   </li>
                 ))}
@@ -701,7 +701,7 @@ export default async function HomePage() {
             </div>
             <div className="border border-gray-200 rounded-2xl p-8">
               <h3 className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Consistent Quality NYC Home Cleaning Standards</h3>
-              <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">Quality &amp; Expectations</p>
+              <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-4">Quality &amp; Expectations</p>
               <ul className="space-y-3">
                 {[
                   'Clear scope agreed upfront — no vague promises',
@@ -711,7 +711,7 @@ export default async function HomePage() {
                   'We don\'t overbook or rush our cleaners',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2.5">
-                    <span className="text-[#A8F0DC] mt-0.5">&#10003;</span>
+                    <span className="text-[var(--accent)] mt-0.5">&#10003;</span>
                     <span className="text-gray-600 text-sm">{item}</span>
                   </li>
                 ))}
@@ -726,8 +726,8 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-16">
           <div>
             <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Professional Background-Checked NYC House Cleaners</p>
-            <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-6">Our Cleaners Are Paid Well, Equipped &amp; Treated Right</h2>
-            <div className="w-12 h-[2px] bg-[#A8F0DC] mb-6" />
+            <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-6">Our Cleaners Are Paid Well, Equipped &amp; Treated Right</h2>
+            <div className="w-12 h-[2px] bg-[var(--accent)] mb-6" />
             <p className="text-gray-600 leading-relaxed mb-5">
               We don&apos;t cut corners on the people who do the work. Our cleaners are experienced professionals — not gig workers pulled from an app. They bring their own professional supplies and equipment, they&apos;re paid well, and they&apos;re paid immediately. Happy cleaners do better work, every time.
             </p>
@@ -735,14 +735,14 @@ export default async function HomePage() {
               Every cleaner goes through a thorough background check and vetting process before they ever step foot in your home. We don&apos;t use staffing agencies or subcontractors — our team is built on trust, consistency, and pride in the work. When you book with us, you get someone who genuinely cares about doing a great job.
             </p>
             <p className="text-gray-600 leading-relaxed mb-6">
-              That&apos;s why our clients in <Link href="/upper-west-side-maid-service" className="text-[#1E2A4A] underline underline-offset-2">the Upper West Side</Link>, <Link href="/park-slope-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Park Slope</Link>, <Link href="/long-island-city-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island City</Link>, and <Link href="/jersey-city-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Jersey City</Link> keep rebooking — they know exactly who&apos;s coming, and they trust them completely.
+              That&apos;s why our clients in <Link href="/upper-west-side-maid-service" className="text-[var(--brand)] underline underline-offset-2">the Upper West Side</Link>, <Link href="/park-slope-maid-service" className="text-[var(--brand)] underline underline-offset-2">Park Slope</Link>, <Link href="/long-island-city-maid-service" className="text-[var(--brand)] underline underline-offset-2">Long Island City</Link>, and <Link href="/jersey-city-maid-service" className="text-[var(--brand)] underline underline-offset-2">Jersey City</Link> keep rebooking — they know exactly who&apos;s coming, and they trust them completely.
             </p>
-            <Link href="/available-nyc-maid-jobs" className="text-[#1E2A4A] font-semibold text-sm hover:underline underline-offset-4">Join Our Cleaning Team &rarr;</Link>
+            <Link href="/available-nyc-maid-jobs" className="text-[var(--brand)] font-semibold text-sm hover:underline underline-offset-4">Join Our Cleaning Team &rarr;</Link>
           </div>
           <div>
             <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">The Ideal Your Business Service Client</p>
-            <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-6">Who We&apos;re Best For</h2>
-            <div className="w-12 h-[2px] bg-[#A8F0DC] mb-6" />
+            <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-6">Who We&apos;re Best For</h2>
+            <div className="w-12 h-[2px] bg-[var(--accent)] mb-6" />
             <ul className="space-y-4">
               {[
                 'Clients who value reliability and consistency over the cheapest price',
@@ -751,13 +751,13 @@ export default async function HomePage() {
                 'Clients who respect professional service and treat cleaners well',
               ].map(item => (
                 <li key={item} className="flex items-start gap-3">
-                  <span className="text-[#A8F0DC] mt-1 text-lg">&#10003;</span>
+                  <span className="text-[var(--accent)] mt-1 text-lg">&#10003;</span>
                   <span className="text-gray-700">{item}</span>
                 </li>
               ))}
             </ul>
-            <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-2xl p-6 mt-8">
-              <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-3">Our Standards</h3>
+            <div className="bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-2xl p-6 mt-8">
+              <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-3">Our Standards</h3>
               <ul className="space-y-2">
                 {[
                   'Respectful homes and respectful clients only',
@@ -766,7 +766,7 @@ export default async function HomePage() {
                   'Clear expectations on both sides',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2.5">
-                    <span className="text-[#1E2A4A]/40 mt-0.5">&#8226;</span>
+                    <span className="text-[rgb(var(--brand-rgb)/0.4)] mt-0.5">&#8226;</span>
                     <span className="text-gray-600 text-sm">{item}</span>
                   </li>
                 ))}
@@ -780,16 +780,16 @@ export default async function HomePage() {
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Maid Service Across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; NJ</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide text-center mb-4">Hundreds of Neighborhoods Across NYC Metro Served by Professional Cleaners</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide text-center mb-4">Hundreds of Neighborhoods Across NYC Metro Served by Professional Cleaners</h2>
           <p className="text-gray-500 text-center max-w-3xl mx-auto mb-14">
-            From the <Link href="/upper-east-side-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Upper East Side</Link> and <Link href="/tribeca-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Tribeca</Link> to <Link href="/brooklyn-heights-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Brooklyn Heights</Link>, <Link href="/astoria-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Astoria</Link>, <Link href="/great-neck-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Great Neck</Link>, and <Link href="/hoboken-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Hoboken</Link> — our insured, background-checked cleaners are already in your neighborhood. Same rates everywhere, no travel fees.
+            From the <Link href="/upper-east-side-maid-service" className="text-[var(--brand)] underline underline-offset-2">Upper East Side</Link> and <Link href="/tribeca-maid-service" className="text-[var(--brand)] underline underline-offset-2">Tribeca</Link> to <Link href="/brooklyn-heights-maid-service" className="text-[var(--brand)] underline underline-offset-2">Brooklyn Heights</Link>, <Link href="/astoria-maid-service" className="text-[var(--brand)] underline underline-offset-2">Astoria</Link>, <Link href="/great-neck-maid-service" className="text-[var(--brand)] underline underline-offset-2">Great Neck</Link>, and <Link href="/hoboken-maid-service" className="text-[var(--brand)] underline underline-offset-2">Hoboken</Link> — our insured, background-checked cleaners are already in your neighborhood. Same rates everywhere, no travel fees.
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6 text-center">
             {/* Manhattan */}
             <div>
               <Link href="/manhattan-maid-service" className="block mb-4 group">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 transition-colors">Manhattan</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] transition-colors">Manhattan</h3>
                 <p className="text-xs text-gray-400 tracking-[0.15em] uppercase">New York</p>
               </Link>
               <ul className="space-y-2">
@@ -806,17 +806,17 @@ export default async function HomePage() {
                   { name: 'East Village', slug: 'east-village-maid-service' },
                 ].map(n => (
                   <li key={n.slug}>
-                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[#1E2A4A] transition-colors">{n.name}</Link>
+                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[var(--brand)] transition-colors">{n.name}</Link>
                   </li>
                 ))}
-                <li><Link href="/manhattan-maid-service" className="text-sm text-[#1E2A4A] font-semibold hover:underline underline-offset-4">All Manhattan &rarr;</Link></li>
+                <li><Link href="/manhattan-maid-service" className="text-sm text-[var(--brand)] font-semibold hover:underline underline-offset-4">All Manhattan &rarr;</Link></li>
               </ul>
             </div>
 
             {/* Brooklyn */}
             <div>
               <Link href="/brooklyn-maid-service" className="block mb-4 group">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 transition-colors">Brooklyn</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] transition-colors">Brooklyn</h3>
                 <p className="text-xs text-gray-400 tracking-[0.15em] uppercase">New York</p>
               </Link>
               <ul className="space-y-2">
@@ -833,17 +833,17 @@ export default async function HomePage() {
                   { name: 'Red Hook', slug: 'red-hook-maid-service' },
                 ].map(n => (
                   <li key={n.slug}>
-                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[#1E2A4A] transition-colors">{n.name}</Link>
+                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[var(--brand)] transition-colors">{n.name}</Link>
                   </li>
                 ))}
-                <li><Link href="/brooklyn-maid-service" className="text-sm text-[#1E2A4A] font-semibold hover:underline underline-offset-4">All Brooklyn &rarr;</Link></li>
+                <li><Link href="/brooklyn-maid-service" className="text-sm text-[var(--brand)] font-semibold hover:underline underline-offset-4">All Brooklyn &rarr;</Link></li>
               </ul>
             </div>
 
             {/* Queens */}
             <div>
               <Link href="/queens-maid-service" className="block mb-4 group">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 transition-colors">Queens</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] transition-colors">Queens</h3>
                 <p className="text-xs text-gray-400 tracking-[0.15em] uppercase">New York</p>
               </Link>
               <ul className="space-y-2">
@@ -860,17 +860,17 @@ export default async function HomePage() {
                   { name: 'Ditmars Steinway', slug: 'ditmars-steinway-maid-service' },
                 ].map(n => (
                   <li key={n.slug}>
-                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[#1E2A4A] transition-colors">{n.name}</Link>
+                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[var(--brand)] transition-colors">{n.name}</Link>
                   </li>
                 ))}
-                <li><Link href="/queens-maid-service" className="text-sm text-[#1E2A4A] font-semibold hover:underline underline-offset-4">All Queens &rarr;</Link></li>
+                <li><Link href="/queens-maid-service" className="text-sm text-[var(--brand)] font-semibold hover:underline underline-offset-4">All Queens &rarr;</Link></li>
               </ul>
             </div>
 
             {/* Bronx */}
             <div>
               <Link href="/bronx-maid-service" className="block mb-4 group">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 transition-colors">Bronx</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] transition-colors">Bronx</h3>
                 <p className="text-xs text-gray-400 tracking-[0.15em] uppercase">New York</p>
               </Link>
               <ul className="space-y-2">
@@ -887,17 +887,17 @@ export default async function HomePage() {
                   { name: 'Parkchester', slug: 'parkchester-maid-service' },
                 ].map(n => (
                   <li key={n.slug}>
-                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[#1E2A4A] transition-colors">{n.name}</Link>
+                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[var(--brand)] transition-colors">{n.name}</Link>
                   </li>
                 ))}
-                <li><Link href="/bronx-maid-service" className="text-sm text-[#1E2A4A] font-semibold hover:underline underline-offset-4">All Bronx &rarr;</Link></li>
+                <li><Link href="/bronx-maid-service" className="text-sm text-[var(--brand)] font-semibold hover:underline underline-offset-4">All Bronx &rarr;</Link></li>
               </ul>
             </div>
 
             {/* Staten Island */}
             <div>
               <Link href="/staten-island-maid-service" className="block mb-4 group">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 transition-colors">Staten Island</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] transition-colors">Staten Island</h3>
                 <p className="text-xs text-gray-400 tracking-[0.15em] uppercase">New York</p>
               </Link>
               <ul className="space-y-2">
@@ -914,17 +914,17 @@ export default async function HomePage() {
                   { name: 'West Brighton', slug: 'west-brighton-maid-service' },
                 ].map(n => (
                   <li key={n.slug}>
-                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[#1E2A4A] transition-colors">{n.name}</Link>
+                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[var(--brand)] transition-colors">{n.name}</Link>
                   </li>
                 ))}
-                <li><Link href="/staten-island-maid-service" className="text-sm text-[#1E2A4A] font-semibold hover:underline underline-offset-4">All Staten Island &rarr;</Link></li>
+                <li><Link href="/staten-island-maid-service" className="text-sm text-[var(--brand)] font-semibold hover:underline underline-offset-4">All Staten Island &rarr;</Link></li>
               </ul>
             </div>
 
             {/* Long Island */}
             <div>
               <Link href="/long-island-maid-service" className="block mb-4 group">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 transition-colors">Long Island</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] transition-colors">Long Island</h3>
                 <p className="text-xs text-gray-400 tracking-[0.15em] uppercase">New York</p>
               </Link>
               <ul className="space-y-2">
@@ -941,17 +941,17 @@ export default async function HomePage() {
                   { name: 'Garden City', slug: 'garden-city-maid-service' },
                 ].map(n => (
                   <li key={n.slug}>
-                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[#1E2A4A] transition-colors">{n.name}</Link>
+                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[var(--brand)] transition-colors">{n.name}</Link>
                   </li>
                 ))}
-                <li><Link href="/long-island-maid-service" className="text-sm text-[#1E2A4A] font-semibold hover:underline underline-offset-4">All Long Island &rarr;</Link></li>
+                <li><Link href="/long-island-maid-service" className="text-sm text-[var(--brand)] font-semibold hover:underline underline-offset-4">All Long Island &rarr;</Link></li>
               </ul>
             </div>
 
             {/* Westchester */}
             <div>
               <Link href="/westchester-maid-service" className="block mb-4 group">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 transition-colors">Westchester</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] transition-colors">Westchester</h3>
                 <p className="text-xs text-gray-400 tracking-[0.15em] uppercase">New York</p>
               </Link>
               <ul className="space-y-2">
@@ -968,17 +968,17 @@ export default async function HomePage() {
                   { name: 'Chappaqua', slug: 'chappaqua-maid-service' },
                 ].map(n => (
                   <li key={n.slug}>
-                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[#1E2A4A] transition-colors">{n.name}</Link>
+                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[var(--brand)] transition-colors">{n.name}</Link>
                   </li>
                 ))}
-                <li><Link href="/westchester-maid-service" className="text-sm text-[#1E2A4A] font-semibold hover:underline underline-offset-4">All Westchester &rarr;</Link></li>
+                <li><Link href="/westchester-maid-service" className="text-sm text-[var(--brand)] font-semibold hover:underline underline-offset-4">All Westchester &rarr;</Link></li>
               </ul>
             </div>
 
             {/* New Jersey */}
             <div>
               <Link href="/new-jersey-maid-service" className="block mb-4 group">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 transition-colors">New Jersey</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] transition-colors">New Jersey</h3>
                 <p className="text-xs text-gray-400 tracking-[0.15em] uppercase">NJ</p>
               </Link>
               <ul className="space-y-2">
@@ -995,16 +995,16 @@ export default async function HomePage() {
                   { name: 'West New York', slug: 'west-new-york-maid-service' },
                 ].map(n => (
                   <li key={n.slug}>
-                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[#1E2A4A] transition-colors">{n.name}</Link>
+                    <Link href={`/${n.slug}`} className="text-sm text-gray-600 hover:text-[var(--brand)] transition-colors">{n.name}</Link>
                   </li>
                 ))}
-                <li><Link href="/new-jersey-maid-service" className="text-sm text-[#1E2A4A] font-semibold hover:underline underline-offset-4">All New Jersey &rarr;</Link></li>
+                <li><Link href="/new-jersey-maid-service" className="text-sm text-[var(--brand)] font-semibold hover:underline underline-offset-4">All New Jersey &rarr;</Link></li>
               </ul>
             </div>
           </div>
 
           <div className="text-center mt-12">
-            <Link href="/service-areas-served-by-the-nyc-maid" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">Browse All Neighborhoods &rarr;</Link>
+            <Link href="/service-areas-served-by-the-nyc-maid" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">Browse All Neighborhoods &rarr;</Link>
           </div>
         </div>
       </section>
@@ -1013,11 +1013,11 @@ export default async function HomePage() {
       <section className="py-16 bg-white">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">Earn Passive Income With Our NYC Cleaning Referral Program</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-4">Get Paid 10% Every Time Your Referral Books a Cleaning</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-4">Get Paid 10% Every Time Your Referral Books a Cleaning</h2>
           <p className="text-gray-500 max-w-2xl mx-auto mb-8">
             Refer friends, family, or neighbors to Your Business and earn 10% recurring commission on every cleaning they book — not just the first. Paid via Zelle or Apple Cash after each completed visit. No limit on referrals, no cap on earnings.
           </p>
-          <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+          <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
             Join the Referral Program &rarr;
           </Link>
         </div>

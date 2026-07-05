@@ -18,7 +18,7 @@ export default function LegalPage() {
         { name: 'Legal', url: 'https://www.example.com/legal' },
       ])} />
 
-      <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-16 md:py-20">
+      <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-16 md:py-20">
         <div className="max-w-5xl mx-auto px-4 text-center">
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide">Legal Information</h1>
           <p className="text-blue-200/60 mt-3">Policies and terms for Your Business</p>
@@ -35,15 +35,15 @@ export default function LegalPage() {
             { title: 'Refund Policy', href: '/refund-policy', desc: 'We don\'t take money upfront — so there\'s nothing to refund. Plus our satisfaction guarantee.' },
             { title: 'Do Not Share Policy', href: '/do-not-share-policy', desc: 'We don\'t sell or share your personal information with anyone. Your rights under CCPA.' },
           ].map(item => (
-            <Link key={item.href} href={item.href} className="block p-6 border border-gray-200 rounded-xl hover:border-[#A8F0DC] hover:shadow-md transition-all group">
-              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide group-hover:text-[#1E2A4A]/70 mb-2">{item.title}</h2>
+            <Link key={item.href} href={item.href} className="block p-6 border border-gray-200 rounded-xl hover:border-[var(--accent)] hover:shadow-md transition-all group">
+              <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide group-hover:text-[rgb(var(--brand-rgb)/0.7)] mb-2">{item.title}</h2>
               <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
             </Link>
           ))}
         </div>
 
-        <div className="mt-12 bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-xl p-6">
-          <h2 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-3">The Short Version</h2>
+        <div className="mt-12 bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-xl p-6">
+          <h2 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-3">The Short Version</h2>
           <ul className="space-y-2.5">
             {[
               'We never take money upfront — you pay only after your cleaning is done',
@@ -55,7 +55,7 @@ export default function LegalPage() {
               'Not happy? Contact us within 24 hours and we\'ll send someone back at no charge',
             ].map(item => (
               <li key={item} className="flex items-start gap-3">
-                <span className="text-[#A8F0DC] mt-0.5 flex-shrink-0">&#10003;</span>
+                <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                 <span className="text-gray-600 text-sm">{item}</span>
               </li>
             ))}
@@ -64,7 +64,7 @@ export default function LegalPage() {
 
         <div className="mt-8 text-center">
           <p className="text-gray-500 text-sm">
-            Questions? Contact us at <a href="mailto:hi@example.com" className="text-[#1E2A4A] underline underline-offset-2">hi@example.com</a> or text <a href="sms:5555555556" className="text-[#1E2A4A] underline underline-offset-2">(555) 555-5556</a>.
+            Questions? Contact us at <a href="mailto:hi@example.com" className="text-[var(--brand)] underline underline-offset-2">hi@example.com</a> or text <a href="sms:5555555556" className="text-[var(--brand)] underline underline-offset-2">(555) 555-5556</a>.
           </p>
         </div>
       </div>
