@@ -382,7 +382,7 @@ export default function TeamHomePage() {
   const [showNotifPanel, setShowNotifPanel] = useState(false)
   const [showGuidelines, setShowGuidelines] = useState(false)
   const [guidelines, setGuidelines] = useState<{ en: string; es: string } | null>(null)
-  const [checkingIn, setCheckingIn] = useState<string | null>(null)
+  const [checkingIn] = useState<string | null>(null)
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
   const [claimingJob, setClaimingJob] = useState<string | null>(null)
   const [sendingHeadsUp, setSendingHeadsUp] = useState<string | null>(null)
@@ -521,24 +521,11 @@ export default function TeamHomePage() {
   }, [todayJobs, payRate])
 
   // ---- Handlers ----
-  async function handleCheckIn(jobId: string) {
-    if (!auth) return
-    setCheckingIn(jobId)
-    let lat: number | undefined, lng: number | undefined
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 })
-      )
-      lat = pos.coords.latitude; lng = pos.coords.longitude
-    } catch { /* continue without GPS */ }
-
-    const res = await fetch('/api/team-portal/checkin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ booking_id: jobId, lat, lng }),
-    })
-    if (res.ok) fetchData()
-    setCheckingIn(null)
+  // Check-in must confirm GPS. Route to the dedicated geo-confirm page
+  // (Get GPS → shows coords → Confirm) instead of a best-effort background
+  // check-in that silently succeeded without coordinates.
+  function handleCheckIn(jobId: string) {
+    router.push(`/team/checkin/${jobId}`)
   }
 
   async function handleCheckOut(jobId: string) {
