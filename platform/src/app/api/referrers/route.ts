@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
   // Duplicate email — scoped to this tenant (same email may refer for two brands)
   const { data: existing } = await supabaseAdmin
-    .from('referrals')
+    .from('referrers')
     .select('id')
     .eq('tenant_id', tenant.id)
     .ilike('email', email)
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
   const referralCode = generateRefCode(name)
 
   const { data, error } = await supabaseAdmin
-    .from('referrals')
+    .from('referrers')
     .insert({
       tenant_id: tenant.id,
       name,
@@ -125,7 +125,10 @@ export async function POST(request: NextRequest) {
       phone: phone || null,
       referral_code: referralCode,
       preferred_payout: preferred_payout || 'zelle',
-      commission_rate: 10,
+      // Stored as a fraction (0.10 = 10%), matching the schema default and the
+      // existing rows. The old code wrote `10` here (into the wrong table), which
+      // would read as 1000% wherever commission_rate is applied to a gross amount.
+      commission_rate: 0.10,
       total_earned: 0,
       total_paid: 0,
       status: 'active',

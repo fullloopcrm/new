@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 type ReferralData = {
@@ -19,6 +19,7 @@ type ReferralData = {
     slug: string
     primary_color: string
   }
+  share_url?: string | null
   stats: {
     total_clicks: number
     total_referrals: number
@@ -78,6 +79,7 @@ function timeAgo(d: string): string {
 
 export default function ReferralDashboardPage() {
   const { code } = useParams<{ code: string }>()
+  const router = useRouter()
   const [data, setData] = useState<ReferralData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -85,30 +87,50 @@ export default function ReferralDashboardPage() {
   const [tab, setTab] = useState<'overview' | 'history'>('overview')
 
   useEffect(() => {
-    fetch(`/api/referrers/${code}`)
-      .then((r) => r.json())
+    let token = ''
+    try {
+      const stored = localStorage.getItem('referrer_auth')
+      if (stored) token = JSON.parse(stored).token || ''
+    } catch { /* ignore */ }
+    if (!token) { router.replace('/referral'); return }
+
+    fetch(`/api/referrers/${code}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (r) => {
+        if (r.status === 401 || r.status === 403) {
+          localStorage.removeItem('referrer_auth')
+          router.replace('/referral')
+          return null
+        }
+        return r.json()
+      })
       .then((d) => {
+        if (!d) return
         if (d.error) setError(d.error)
         else setData(d)
       })
       .catch(() => setError('Failed to load'))
       .finally(() => setLoading(false))
-  }, [code])
+  }, [code, router])
+
+  // The link a referrer shares is the tenant's BOOKING page with ?ref=CODE —
+  // the URL that actually attributes a booking. It is NOT this dashboard URL
+  // (which shows earnings + client names and is now login-gated).
+  const shareUrl = data?.share_url || ''
 
   function copyLink() {
-    const url = `${window.location.origin}/referral/${code}`
-    navigator.clipboard.writeText(url)
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   function shareLink() {
-    const url = `${window.location.origin}/referral/${code}`
+    if (!shareUrl) return
     if (navigator.share) {
       navigator.share({
-        title: `Referral from ${data?.tenant.name}`,
+        title: `Book with ${data?.tenant.name}`,
         text: `Use my referral link to book with ${data?.tenant.name}!`,
-        url,
+        url: shareUrl,
       })
     } else {
       copyLink()
@@ -178,13 +200,13 @@ export default function ReferralDashboardPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-sm font-medium text-slate-800 mb-2">Your Referral Link</p>
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-slate-500 font-mono break-all mb-3">
-            {typeof window !== 'undefined' ? `${window.location.origin}/referral/${code}` : `/referral/${code}`}
+            {shareUrl || 'Link unavailable — contact the business'}
           </div>
           <div className="flex gap-2">
-            <button onClick={copyLink} className="flex-1 bg-slate-800 text-white py-2.5 rounded-lg text-sm font-medium">
+            <button onClick={copyLink} disabled={!shareUrl} className="flex-1 bg-slate-800 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
               {copied ? 'Copied!' : 'Copy Link'}
             </button>
-            <button onClick={shareLink} className="flex-1 border border-gray-300 text-slate-700 py-2.5 rounded-lg text-sm font-medium">
+            <button onClick={shareLink} disabled={!shareUrl} className="flex-1 border border-gray-300 text-slate-700 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
               Share
             </button>
           </div>
