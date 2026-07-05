@@ -27,9 +27,16 @@ export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
     setError('')
     try {
       const res = await fetch(`/api/admin/businesses/${tenantId}/activate`, { method: 'POST' })
-      const data = await res.json()
+      // 401 = admin session expired. This is the #1 cause of a silent "it just
+      // stopped" — the request never reaches the activation logic. Say so plainly
+      // instead of showing a bare "Activation failed" that reads like a real bug.
+      if (res.status === 401) {
+        setError('Your admin session expired — reload the page and log in again, then re-run activation.')
+        return
+      }
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error || 'Activation failed')
+        setError(data.error || `Activation failed (HTTP ${res.status})`)
         return
       }
       setResult(data as ActivationResult)
