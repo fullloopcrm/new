@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 
 // Projects projection — long jobs (multiday / project duration-class) as spans on
 // a horizon, Gantt-style. This is where a weeks-to-year job lives instead of
@@ -36,6 +36,10 @@ function fmt(iso: string): string {
 export default function ProjectsView() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ title: '', start_date: '', end_date: '', service_type: '' })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
 
   const load = useCallback(async () => {
     const now = new Date()
@@ -75,52 +79,92 @@ export default function ProjectsView() {
     return { longJobs: jobs, startDay: s, totalDays: total, months: ticks }
   }, [bookings])
 
-  if (loading) return <p className="py-16 text-center text-sm text-slate-400">Loading projects…</p>
-
-  if (longJobs.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-16 text-center">
-        <p className="text-sm font-semibold text-slate-700">No long jobs yet</p>
-        <p className="mt-1 text-xs text-slate-500">Multi-day and project jobs (dumpster rentals, installs, builds) appear here as spans.</p>
-        <p className="mt-1 text-xs text-slate-500">Same-day jobs live in Month &amp; Timeline.</p>
-      </div>
-    )
+  async function createProject(e: FormEvent) {
+    e.preventDefault()
+    if (!form.title.trim() || !form.start_date || !form.end_date) { setErr('Title, start and end date are required'); return }
+    if (form.end_date < form.start_date) { setErr('End date must be on or after start date'); return }
+    setSaving(true); setErr('')
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+    setSaving(false)
+    if (res.ok) {
+      setShowForm(false)
+      setForm({ title: '', start_date: '', end_date: '', service_type: '' })
+      load()
+    } else {
+      const d = await res.json().catch(() => ({}))
+      setErr(d.error || 'Could not create project')
+    }
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      {/* Month scale */}
-      <div className="relative mb-2 h-4 border-b border-slate-200">
-        {months.map((m, i) => (
-          <span key={i} className="absolute -top-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400" style={{ left: `${m.left}%` }}>{m.label}</span>
-        ))}
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs text-slate-500">Long jobs (multi-day / project) as spans.</p>
+        <button onClick={() => setShowForm((s) => !s)} className="rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700">
+          {showForm ? 'Cancel' : '+ New Project'}
+        </button>
       </div>
-      <div className="space-y-2">
-        {longJobs.map((b) => {
-          const bs = toDay(b.start_time)
-          const be = Math.max(bs + 1, toDay(b.end_time))
-          const left = ((bs - startDay) / totalDays) * 100
-          const width = Math.max(1.5, ((be - bs) / totalDays) * 100)
-          const color = b.duration_class === 'project' ? 'bg-purple-500' : 'bg-amber-500'
-          return (
-            <div key={b.id} className="grid grid-cols-[160px_1fr] items-center gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-900">{b.clients?.name || 'Client'}</p>
-                <p className="truncate text-[11px] text-slate-500">{fmt(b.start_time)} – {fmt(b.end_time)}</p>
-              </div>
-              <div className="relative h-6">
-                <div
-                  className={`absolute top-0 h-6 rounded ${color} flex items-center overflow-hidden px-2`}
-                  style={{ left: `${Math.max(0, left)}%`, width: `${width}%` }}
-                  title={`${b.service_type || 'Job'} · ${b.team_members?.name || 'Unassigned'}`}
-                >
-                  <span className="cal-chip-sm truncate text-[10px] font-medium text-white">{b.service_type || 'Job'}</span>
+
+      {showForm && (
+        <form onSubmit={createProject} className="mb-4 grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:grid-cols-2 lg:grid-cols-5">
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Project title" className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm lg:col-span-2" />
+          <input value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })} placeholder="Service (optional)" className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
+          <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
+          <input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
+          <button type="submit" disabled={saving} className="rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50 sm:col-span-2 lg:col-span-5">
+            {saving ? 'Creating…' : 'Create project'}
+          </button>
+          {err && <p className="text-xs text-red-600 sm:col-span-2 lg:col-span-5">{err}</p>}
+        </form>
+      )}
+
+      {loading ? (
+        <p className="py-16 text-center text-sm text-slate-400">Loading projects…</p>
+      ) : longJobs.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-16 text-center">
+          <p className="text-sm font-semibold text-slate-700">No long jobs yet</p>
+          <p className="mt-1 text-xs text-slate-500">Create one above, or any booking spanning multiple days lands here as a span.</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          {/* Month scale */}
+          <div className="relative mb-2 h-4 border-b border-slate-200">
+            {months.map((m, i) => (
+              <span key={i} className="absolute -top-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400" style={{ left: `${m.left}%` }}>{m.label}</span>
+            ))}
+          </div>
+          <div className="space-y-2">
+            {longJobs.map((b) => {
+              const bs = toDay(b.start_time)
+              const be = Math.max(bs + 1, toDay(b.end_time))
+              const left = ((bs - startDay) / totalDays) * 100
+              const width = Math.max(1.5, ((be - bs) / totalDays) * 100)
+              const color = b.duration_class === 'project' ? 'bg-purple-500' : 'bg-amber-500'
+              return (
+                <div key={b.id} className="grid grid-cols-[160px_1fr] items-center gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-900">{b.clients?.name || 'Client'}</p>
+                    <p className="truncate text-[11px] text-slate-500">{fmt(b.start_time)} – {fmt(b.end_time)}</p>
+                  </div>
+                  <div className="relative h-6">
+                    <div
+                      className={`absolute top-0 h-6 rounded ${color} flex items-center overflow-hidden px-2`}
+                      style={{ left: `${Math.max(0, left)}%`, width: `${width}%` }}
+                      title={`${b.service_type || 'Job'} · ${b.team_members?.name || 'Unassigned'}`}
+                    >
+                      <span className="cal-chip-sm truncate text-[10px] font-medium text-white">{b.service_type || 'Job'}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
