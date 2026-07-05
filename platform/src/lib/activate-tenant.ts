@@ -16,6 +16,7 @@ import { provisionTenant } from './provision-tenant'
 import { seedOnboardingTasks } from './onboarding-tasks'
 import { runOnboardingGate, type GateResult } from './onboarding-gate'
 import { registerCarryingDomain, registerCustomDomain, type CustomDomainResult } from './vercel-domains'
+import { resolveCoverage } from './geo/coverage'
 import { hashAdminPin } from './admin-pin'
 import crypto from 'crypto'
 
@@ -70,7 +71,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
 
   const { data: tenant, error } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, industry, status, owner_email, owner_name, domain, domain_name')
+    .select('id, name, slug, industry, status, owner_email, owner_name, domain, domain_name, address, service_area_lat, service_area_lng, service_radius_miles')
     .eq('id', tenantId)
     .single()
 
@@ -109,6 +110,47 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     steps.push({ key: 'settings', label: 'Global settings applied', status: 'failed', detail: msg(e) })
   }
   await crumb(tenantId, 'after_settings')
+
+  // 2b. Service-area geo — geocode the business address to a center (once) and
+  // report how many neighborhoods/areas fall inside the service radius. This is
+  // the spine the geo/service/job page generation (Phase 3) iterates. Best-
+  // effort: a name-only tenant with no address just skips, never blocks.
+  try {
+    const radius = typeof tenant.service_radius_miles === 'number' ? tenant.service_radius_miles : 25
+    const haveCenter = typeof tenant.service_area_lat === 'number' && typeof tenant.service_area_lng === 'number'
+    const coverage = await resolveCoverage({
+      lat: tenant.service_area_lat as number | null,
+      lng: tenant.service_area_lng as number | null,
+      address: tenant.address as string | null,
+      radiusMiles: radius,
+    })
+    // Persist a freshly geocoded center so we don't re-hit Nominatim next run.
+    if (!haveCenter && coverage.center) {
+      await supabaseAdmin
+        .from('tenants')
+        .update({ service_area_lat: coverage.center.lat, service_area_lng: coverage.center.lng })
+        .eq('id', tenantId)
+    }
+    if (!coverage.center) {
+      steps.push({
+        key: 'service_area',
+        label: 'Service area geocoded',
+        status: 'action_needed',
+        detail: (tenant.address as string | null)?.trim()
+          ? 'Address could not be geocoded — check the address'
+          : 'Set a business address to map the service area',
+      })
+    } else {
+      steps.push({
+        key: 'service_area',
+        label: 'Service area geocoded',
+        status: 'done',
+        detail: `${coverage.neighborhoods.length} neighborhood(s), ${coverage.areas.length} area(s) within ${radius} mi`,
+      })
+    }
+  } catch (e) {
+    steps.push({ key: 'service_area', label: 'Service area geocoded', status: 'failed', detail: msg(e) })
+  }
 
   let customDomain: CustomDomainResult | undefined
 
