@@ -29,6 +29,7 @@ export async function applyOverride(
   url: string,
   fields: { title?: string | null; description?: string | null },
   changeIds: string[] = [],
+  appliedBy: 'admin' | 'autopilot' = 'admin',
 ): Promise<void> {
   await supabaseAdmin.from('seo_overrides').upsert(
     {
@@ -45,7 +46,7 @@ export async function applyOverride(
   if (changeIds.length) {
     await supabaseAdmin
       .from('seo_changes')
-      .update({ status: 'applied', applied_at: new Date().toISOString() })
+      .update({ status: 'applied', applied_at: new Date().toISOString(), applied_by: appliedBy })
       .in('id', changeIds)
   }
 }

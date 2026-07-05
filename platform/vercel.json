@@ -57,6 +57,14 @@
       "schedule": "0 8 * * 1"
     },
     {
+      "path": "/api/cron/seo-autopilot",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/seo-verify-revert",
+      "schedule": "0 10 * * 1"
+    },
+    {
       "path": "/api/cron/auto-reply-reviews",
       "schedule": "30 */6 * * *"
     },
