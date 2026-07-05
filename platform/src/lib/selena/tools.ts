@@ -198,6 +198,8 @@ export async function runTool(
       return await handleGetSmartSuggestion(input as { booking_id: string }, tid)
     case 'suggest_times':
       return await handleSuggestTimes(input as { date: string; duration_hours: number; client_address?: string; client_id?: string; hourly_rate?: number; team_size?: number; requested_time?: string; exclude_booking_id?: string }, tid)
+    case 'seo_status':
+      return await handleSeoStatus(tid)
     default:
       return JSON.stringify({ error: `unknown tool: ${name}` })
   }
@@ -1314,6 +1316,77 @@ async function handleProcessStripeRefund(input: { booking_id: string; amount_dol
   } catch (err) {
     return JSON.stringify({ error: err instanceof Error ? err.message : String(err) })
   }
+}
+
+// SIGNAL SEO health for THIS tenant — read-only. Lets the owner ask Selena
+// "how's my SEO?" and get real numbers instead of a guess. Tenant-scoped by tid;
+// returns nothing sensitive cross-tenant.
+async function handleSeoStatus(tid: string): Promise<string> {
+  const { data: props } = await supabaseAdmin
+    .from('seo_properties')
+    .select('property,domain')
+    .eq('tenant_id', tid)
+
+  if (!props || props.length === 0) {
+    return JSON.stringify({
+      ok: true,
+      note: 'No Google Search Console property is linked to this business yet, so there is no SEO data to report.',
+    })
+  }
+
+  const properties = props.map((p) => p.property as string)
+  const domainOf = new Map(props.map((p) => [p.property as string, (p.domain as string) ?? p.property]))
+
+  const [{ data: scores }, { data: issues }, { data: gaps }, { data: changes }] = await Promise.all([
+    supabaseAdmin
+      .from('seo_site_score')
+      .select('property,grade,score,at_goal,on_page1,targets')
+      .in('property', properties),
+    supabaseAdmin.from('seo_issues').select('type').eq('tenant_id', tid).eq('status', 'open'),
+    supabaseAdmin
+      .from('seo_issues')
+      .select('detail')
+      .eq('tenant_id', tid)
+      .eq('status', 'open')
+      .eq('type', 'competitor_gap')
+      .order('value', { ascending: false })
+      .limit(3),
+    supabaseAdmin.from('seo_changes').select('status').eq('tenant_id', tid),
+  ])
+
+  const openIssues: Record<string, number> = {}
+  for (const i of issues ?? []) openIssues[i.type as string] = (openIssues[i.type as string] ?? 0) + 1
+
+  const changeCounts: Record<string, number> = {}
+  for (const c of changes ?? []) changeCounts[c.status as string] = (changeCounts[c.status as string] ?? 0) + 1
+
+  const sites = (scores ?? []).map((s) => ({
+    site: domainOf.get(s.property as string) ?? s.property,
+    grade: s.grade,
+    score: s.score,
+    money_keywords_at_goal: `${s.at_goal}/${s.targets}`,
+    on_page_one: s.on_page1,
+  }))
+
+  const competitor_gaps = (gaps ?? []).map((g) => {
+    const d = (g.detail ?? {}) as { query?: string; our_position?: number; top_competitor_domain?: string }
+    return { query: d.query, you_rank: d.our_position, beaten_by: d.top_competitor_domain }
+  })
+
+  return JSON.stringify({
+    ok: true,
+    sites,
+    open_issues: openIssues,
+    competitor_gaps,
+    automated_fixes: changeCounts,
+    legend: {
+      deep_underperformer: 'ranks poorly, needs content',
+      striking_distance: 'one push from page 1 (title/meta)',
+      low_ctr: 'ranks ok but few clicks — title/meta rewrite',
+      competitor_gap: 'a rival outranks you on a money keyword',
+      not_indexed: "Google isn't showing this page at all — fix first",
+    },
+  })
 }
 
 async function handleTriggerCron(input: { name: string }): Promise<string> {
