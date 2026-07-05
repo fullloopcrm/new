@@ -8,6 +8,7 @@ import ToastProvider from './toast-provider'
 // import AutoPageSettings from './auto-page-settings' // gear removed for now
 import SelenaBar from './selena-bar'
 import AnnouncementBanner from './announcement-banner'
+import { WorkerLabelProvider } from './worker-label-context'
 
 type SidebarCounts = {
   clients: number
@@ -172,6 +173,7 @@ function formatBadge(count: number): string {
 export default function DashboardShell({
   tenantName,
   primaryColor: _primaryColor,
+  industry,
   agentName = 'Selena',
   impersonationBanner,
   isAdminImpersonation,
@@ -179,6 +181,7 @@ export default function DashboardShell({
 }: {
   tenantName: string
   primaryColor: string
+  industry?: string | null
   agentName?: string
   impersonationBanner: React.ReactNode | null
   isAdminImpersonation?: boolean
@@ -508,7 +511,7 @@ export default function DashboardShell({
           </div>
 
           {/* Settings gear removed for now (was <AutoPageSettings />) */}
-          {children}
+          <WorkerLabelProvider industry={industry}>{children}</WorkerLabelProvider>
         </div>
       </main>
 

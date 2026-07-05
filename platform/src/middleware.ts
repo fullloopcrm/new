@@ -254,7 +254,17 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
           p.startsWith('/api/send-booking-emails') || p.startsWith('/api/selena') ||
           p.startsWith('/api/quotes') || p.startsWith('/api/quote-templates') ||
           p.startsWith('/api/jobs') || p.startsWith('/api/catalog') || p.startsWith('/api/crews') ||
-          p.startsWith('/api/referral-commissions')) {
+          p.startsWith('/api/referral-commissions') ||
+          // H-01: these owner APIs were missing, so super-admin impersonation
+          // fell through to Clerk → 404 (Sales Pipeline, sidebar badges, invoices,
+          // payments, schedule, routes, etc.). Tenant scope is still enforced in-route.
+          p.startsWith('/api/pipeline') || p.startsWith('/api/sidebar-counts') ||
+          p.startsWith('/api/invoices') || p.startsWith('/api/documents') ||
+          p.startsWith('/api/payments') || p.startsWith('/api/recurring-expenses') ||
+          p.startsWith('/api/routes') || p.startsWith('/api/schedule') ||
+          p.startsWith('/api/service-area') || p.startsWith('/api/sales-applications') ||
+          p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
+          p.startsWith('/api/tenant/public')) {
         return
       }
     }

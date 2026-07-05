@@ -1,6 +1,7 @@
 'use client'
 
 import SidePanel from '@/components/SidePanel'
+import { useWorkerLabel } from '../worker-label-context'
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
@@ -153,6 +154,7 @@ function SuggestionStrip({ suggestions, onPick, variant }: { suggestions: SlotSu
 
 function BookingsPage() {
   const searchParams = useSearchParams()
+  const worker = useWorkerLabel()
   useEffect(() => { document.title = 'Bookings | The NYC Maid' }, []);
   const formatPhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
@@ -1304,7 +1306,7 @@ function BookingsPage() {
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
-          <input type="text" placeholder="Search client, cleaner, address..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-[#1E2A4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E2A4A]/10 focus:border-[#1E2A4A] transition-all" />
+          <input type="text" placeholder={`Search client, ${worker.singular.toLowerCase()}, address...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-[#1E2A4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E2A4A]/10 focus:border-[#1E2A4A] transition-all" />
         </div>
 
         {/* Status Filter Pills */}
@@ -1343,7 +1345,7 @@ function BookingsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Cleaner</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{worker.singular}</label>
                 <select value={filters.cleaner_id} onChange={(e) => setFilters({ ...filters, cleaner_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[#1E2A4A] text-sm bg-white focus:outline-none focus:border-[#1E2A4A]">
                   <option value="">All</option>
                   {cleaners.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -1657,7 +1659,7 @@ function BookingsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Service</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date & Time</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Cleaner</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{worker.singular}</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Rate</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Recurring</th>
@@ -2168,7 +2170,7 @@ function BookingsPage() {
             {/* ── CLEANER / TEAM ── */}
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[10px] text-gray-400 uppercase">Cleaner{form.team_size > 1 ? 's' : ''}</label>
+                <label className="block text-[10px] text-gray-400 uppercase">{form.team_size > 1 ? worker.plural : worker.singular}</label>
                 <div className="flex items-center gap-2">
                   <label className="text-[10px] text-gray-500">Team size</label>
                   <select
@@ -2507,7 +2509,7 @@ function BookingsPage() {
                 ) : (
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-[#1E2A4A]">Cleaner{createForm.team_size > 1 ? 's' : ''} *</label>
+                      <label className="block text-sm font-medium text-[#1E2A4A]">{createForm.team_size > 1 ? worker.plural : worker.singular} *</label>
                       <div className="flex items-center gap-2">
                         <label className="text-xs text-gray-600">Team size</label>
                         <select

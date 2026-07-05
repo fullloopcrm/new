@@ -377,7 +377,17 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
 
   if ((existingServices || 0) === 0) {
     const services = opts.overrides?.services || SERVICE_PRESETS[industry] || SERVICE_PRESETS.general
-    const rows = services.map(s => ({ ...s, tenant_id: tenantId, active: true }))
+    // Seed BOTH the old booking columns (default_hourly_rate/duration) and the
+    // SKU columns the quote builder reads (price_cents/item_type/per_unit) so
+    // seeded services don't render as $0 in proposals. Presets are hourly.
+    const rows = services.map(s => ({
+      ...s,
+      tenant_id: tenantId,
+      active: true,
+      item_type: 'service',
+      per_unit: 'hour',
+      price_cents: Math.round(s.default_hourly_rate * 100),
+    }))
     const { data: inserted } = await supabaseAdmin.from('service_types').insert(rows).select('id')
     result.seeded.services = inserted?.length || 0
   } else {

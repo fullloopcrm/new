@@ -19,6 +19,7 @@ type Totals = { contracted: number; paid: number; due: number; overdue: number }
 function money(c: number) { return ((c || 0) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) }
 
 const STATUS_STYLE: Record<string, string> = {
+  unscheduled: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
   scheduled: 'bg-blue-50 text-blue-600', in_progress: 'bg-amber-50 text-amber-700',
   completed: 'bg-green-50 text-green-600', cancelled: 'bg-slate-100 text-slate-500',
 }

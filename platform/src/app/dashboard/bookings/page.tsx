@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useWorkerLabel } from '../worker-label-context'
 import './schedule.css'
 import BookingsAdmin from './BookingsAdmin'
 
@@ -99,6 +100,7 @@ function monthLabel(month: string): { name: string; year: string } {
 }
 
 export default function SchedulePage() {
+  const worker = useWorkerLabel()
   const [data, setData] = useState<CalendarData | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('calendar')
@@ -322,7 +324,7 @@ export default function SchedulePage() {
                 <button className="sched-view-btn active" type="button">Month</button>
                 <button className="sched-view-btn" type="button" disabled>Week</button>
                 <button className="sched-view-btn" type="button" disabled>Day</button>
-                <button className="sched-view-btn" type="button" disabled>Cleaner</button>
+                <button className="sched-view-btn" type="button" disabled>{worker.singular}</button>
                 <button className="sched-view-btn" type="button" disabled>Zone</button>
               </div>
             </div>

@@ -80,6 +80,7 @@ export default async function DashboardLayout({
       <DashboardShell
         tenantName={tenant.name}
         primaryColor={tenant.primary_color}
+        industry={tenant.industry}
         agentName={tenant.agent_name || 'Selena'}
         impersonationBanner={impersonating ? <ImpersonationBanner tenantName={tenant.name} /> : null}
         isAdminImpersonation={isAdminImpersonation}

@@ -25,11 +25,25 @@ export async function GET() {
     const { tenantId } = await getTenantForRequest()
     const { data, error } = await supabaseAdmin
       .from('service_types')
-      .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
+      .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_hourly_rate, active, sort_order')
       .eq('tenant_id', tenantId)
       .order('sort_order', { ascending: true })
     if (error) throw error
-    return NextResponse.json({ items: data || [] })
+    // Legacy/seeded rows carry the hourly rate in the OLD booking column
+    // (default_hourly_rate) but leave the SKU column (price_cents) NULL, which
+    // renders every seeded service as $0 in the quote builder. Fall back to the
+    // hourly rate so existing tenants can quote without retyping prices.
+    const items = (data || []).map((row) => {
+      const { default_hourly_rate, ...rest } = row as typeof row & { default_hourly_rate: number | null }
+      const priceCents =
+        rest.price_cents ?? (default_hourly_rate != null ? Math.round(default_hourly_rate * 100) : null)
+      return {
+        ...rest,
+        price_cents: priceCents,
+        per_unit: rest.per_unit ?? (rest.price_cents == null && default_hourly_rate != null ? 'hour' : rest.per_unit),
+      }
+    })
+    return NextResponse.json({ items })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('GET /api/catalog error:', err)
