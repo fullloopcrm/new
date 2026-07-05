@@ -87,7 +87,13 @@ function setAdminCookie(res: NextResponse, token: string): void {
   res.cookies.set('admin_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    // 'lax' (not 'strict'): the admin panel is reached through a cross-domain
+    // redirect chain (fullloopcrm.com → homeservicesbusinesscrm.com), and
+    // 'strict' withholds the cookie on any navigation that crosses sites — so a
+    // logged-in admin gets treated as logged out and every admin POST 401s.
+    // 'lax' still sends the cookie on same-site requests (including the
+    // Activate fetch) and still blocks cross-site POSTs, so CSRF stays covered.
+    sameSite: 'lax',
     path: '/',
     maxAge: 24 * 60 * 60,
   })

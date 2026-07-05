@@ -159,6 +159,11 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   // next.config.ts was removed alongside this; keeping it would infinite-loop.
   const canonicalHost = hostname.split(':')[0].toLowerCase()
   if (
+    // Never canonical-redirect API routes. A 301 on a POST is downgraded to GET
+    // with the body dropped, so an apex-host admin POST (e.g. Activate) gets
+    // bounced to another host as a bodiless GET and 405s. Canonicalization is
+    // for pages/SEO, not APIs.
+    !req.nextUrl.pathname.startsWith('/api/') &&
     !canonicalHost.startsWith('www.') &&
     canonicalHost !== 'localhost' &&
     canonicalHost.includes('.') &&
