@@ -29,6 +29,12 @@ interface Props {
 
 export const dynamicParams = true
 
+// This route resolves the tenant from request headers (getSiteConfig → headers())
+// to personalize per-tenant, so it must render dynamically. Without this, Next
+// tries to statically optimize (generateStaticParams returns []) and throws
+// "Page changed from static to dynamic at runtime, reason: headers" → 500.
+export const dynamic = 'force-dynamic'
+
 export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
