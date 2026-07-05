@@ -45,6 +45,8 @@ export default function TimelineView() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [day, setDay] = useState<string>(() => localYMD(new Date()))
   const [loading, setLoading] = useState(true)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [err, setErr] = useState('')
 
   useEffect(() => {
     fetch('/api/team').then((r) => (r.ok ? r.json() : null)).then((d) => {
@@ -79,6 +81,44 @@ export default function TimelineView() {
     return r
   }, [team, bookings])
 
+  // Drop a job block onto a member row at an x-position → new start time (+ new
+  // member if the row changed). Preserves duration, snaps to 15 min. Writes via
+  // the same PUT the calendar uses, so the overlap trigger + day-off guard still
+  // apply — a rejected move rolls back and surfaces the reason.
+  async function reschedule(bookingId: string, newMemberId: string | null, xRatio: number) {
+    const b = bookings.find((x) => x.id === bookingId)
+    if (!b) return
+    const durMin = Math.max(15, toMin(b.end_time) - toMin(b.start_time))
+    let startMin = DAY_START_MIN + Math.round((xRatio * RANGE) / 15) * 15
+    startMin = Math.max(DAY_START_MIN, Math.min(startMin, DAY_END_MIN - durMin))
+    const endMin = startMin + durMin
+    const memberChanged = (b.team_member_id || null) !== newMemberId
+    const timeChanged = toMin(b.start_time) !== startMin
+    if (!memberChanged && !timeChanged) return
+
+    const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+    const newStart = `${day}T${hhmm(startMin)}:00`
+    const newEnd = `${day}T${hhmm(endMin)}:00`
+    const h = Math.floor(startMin / 60), mm = startMin % 60
+    const timeLabel = `${h % 12 || 12}:${String(mm).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+    const memberName = newMemberId ? (team.find((m) => m.id === newMemberId)?.name || 'member') : 'Unassigned'
+    if (!confirm(`Move ${b.clients?.name || 'job'} to ${timeLabel} · ${memberName}?`)) return
+
+    const prev = bookings
+    setBookings((cur) => cur.map((x) => (x.id === bookingId ? { ...x, start_time: newStart, end_time: newEnd, team_member_id: newMemberId } : x)))
+    setErr('')
+    const res = await fetch(`/api/bookings/${bookingId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start_time: newStart, end_time: newEnd, team_member_id: newMemberId }),
+    })
+    if (!res.ok) {
+      setBookings(prev)
+      const d = await res.json().catch(() => ({}))
+      setErr(d.error || 'Move rejected (overlap or day off)')
+    }
+  }
+
   function shiftDay(delta: number) {
     const [y, mo, d] = day.split('-').map(Number)
     const nd = new Date(y, mo - 1, d + delta)
@@ -99,6 +139,13 @@ export default function TimelineView() {
         <span className="ml-2 text-sm font-semibold text-slate-900">{dayLabel}</span>
         {loading && <span className="text-xs text-slate-400">loading…</span>}
       </div>
+
+      {err && (
+        <div className="mb-3 rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+          {err}
+          <button onClick={() => setErr('')} className="ml-2 underline">Dismiss</button>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <div className="min-w-[720px]">
@@ -121,7 +168,17 @@ export default function TimelineView() {
                   {row.id && <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: colorFor[row.id] }} />}
                   <span className="truncate text-xs font-medium text-slate-700">{row.name}</span>
                 </div>
-                <div className="relative h-12 flex-1">
+                <div
+                  className="relative h-12 flex-1"
+                  onDragOver={(e) => { if (dragId) e.preventDefault() }}
+                  onDrop={(e) => {
+                    if (!dragId) return
+                    const r = e.currentTarget.getBoundingClientRect()
+                    const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))
+                    reschedule(dragId, row.id, ratio)
+                    setDragId(null)
+                  }}
+                >
                   {/* hour gridlines */}
                   {HOURS.map((h) => (
                     <div key={h} className="absolute top-0 bottom-0 w-px bg-slate-50" style={{ left: `${((h * 60 - DAY_START_MIN) / RANGE) * 100}%` }} />
@@ -135,9 +192,12 @@ export default function TimelineView() {
                     return (
                       <div
                         key={b.id}
-                        className="absolute top-1.5 flex h-9 items-center overflow-hidden rounded px-1.5 text-white"
+                        draggable
+                        onDragStart={() => setDragId(b.id)}
+                        onDragEnd={() => setDragId(null)}
+                        className={`absolute top-1.5 flex h-9 cursor-grab items-center overflow-hidden rounded px-1.5 text-white active:cursor-grabbing ${dragId === b.id ? 'opacity-40' : ''}`}
                         style={{ left: `${left}%`, width: `${Math.max(2, width)}%`, background: bg }}
-                        title={`${b.clients?.name || 'Client'} · ${b.service_type || 'Job'}`}
+                        title={`${b.clients?.name || 'Client'} · ${b.service_type || 'Job'} — drag to move`}
                       >
                         <span className="truncate text-[10px] font-medium">{b.clients?.name || 'Client'}</span>
                       </div>
