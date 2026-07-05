@@ -37,6 +37,14 @@ const groups: { title: string; jobs: Job[] }[] = [
     ],
   },
   {
+    title: "Growth & SEO",
+    jobs: [
+      { name: "SEO opportunity scan", detail: "reads Google Search Console daily, finds pages a click from page one" },
+      { name: "Auto title & meta rewrites", detail: "drafts higher-ranking titles and descriptions, ranked by commercial value" },
+      { name: "Winner protection", detail: "freezes pages already ranking so nothing that works gets touched" },
+    ],
+  },
+  {
     title: "Field operations",
     jobs: [
       { name: "Late check-in alerts", detail: "flags crews not on site on time" },
@@ -76,8 +84,9 @@ export default function Automations() {
             ones proven on{" "}
             <Link href="/case-study/the-nyc-maid" style={link}>The NYC Maid</Link> &mdash; that
             chase payments, rebook recurring clients, request reviews, monitor the schedule,
-            and keep the whole operation healthy without anyone pressing a button. Here is a
-            sample of what&apos;s running while you&apos;re on a job or asleep.
+            optimize your search rankings, and keep the whole operation healthy without anyone
+            pressing a button. Here is a sample of what&apos;s running while you&apos;re on a job
+            or asleep.
           </p>
         </div>
 

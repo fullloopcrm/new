@@ -1,0 +1,44 @@
+name: CI
+
+# The machine enforces the gates so no single dev can merge a regression:
+# type errors, failing tests, or a NEW cross-tenant query all block the PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+defaults:
+  run:
+    working-directory: platform
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (tsc --noEmit)
+        run: npx tsc --noEmit --pretty false
+
+      - name: Unit tests (vitest)
+        run: npx vitest run
+
+      - name: Tenant-isolation guard
+        # Fails if a NEW tenant-owned query is added without .eq('tenant_id', …).
+        # The 91 baselined legacy candidates are triaged separately; new leaks can't merge.
+        run: node scripts/audit-tenant-scope.mjs
+
+      - name: Lint
+        # Blocking: `eslint src --quiet` is error-clean today (verified 2026-07-04),
+        # so this catches any NEW eslint error. Warnings are suppressed by --quiet.
+        run: npx eslint src --quiet

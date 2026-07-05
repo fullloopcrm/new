@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { cookies, headers } from 'next/headers'
 import { auth } from '@clerk/nextjs/server'
+import { ClerkProvider } from '@clerk/nextjs'
 import { getCurrentTenant, isImpersonating } from '@/lib/tenant'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
@@ -75,14 +76,16 @@ export default async function DashboardLayout({
   }
 
   return (
-    <DashboardShell
-      tenantName={tenant.name}
-      primaryColor={tenant.primary_color}
-      agentName={tenant.agent_name || 'Selena'}
-      impersonationBanner={impersonating ? <ImpersonationBanner tenantName={tenant.name} /> : null}
-      isAdminImpersonation={isAdminImpersonation}
-    >
-      {children}
-    </DashboardShell>
+    <ClerkProvider>
+      <DashboardShell
+        tenantName={tenant.name}
+        primaryColor={tenant.primary_color}
+        agentName={tenant.agent_name || 'Selena'}
+        impersonationBanner={impersonating ? <ImpersonationBanner tenantName={tenant.name} /> : null}
+        isAdminImpersonation={isAdminImpersonation}
+      >
+        {children}
+      </DashboardShell>
+    </ClerkProvider>
   )
 }

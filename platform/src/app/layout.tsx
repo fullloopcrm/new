@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { Sora, DM_Sans, Space_Grotesk, JetBrains_Mono, Fraunces } from 'next/font/google'
-import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 
 const sora = Sora({ subsets: ['latin'], weight: ['600', '800'], variable: '--font-sora', display: 'swap' })
@@ -51,20 +50,20 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Don't mount ClerkProvider when the publishable key isn't set — the
-  // static SEO /site/* pages prerender at build time and shouldn't crash
-  // when Clerk envs are missing. Pages that actually need auth are all
-  // dynamic and gated separately.
-  const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-  const Wrapper = hasClerk ? ClerkProvider : ({ children }: { children: React.ReactNode }) => <>{children}</>
+  // ClerkProvider is intentionally NOT mounted here. Clerk's production key is
+  // bound to the custom frontend-API domain clerk.fullloopcrm.com; when that
+  // domain fails to serve clerk-js, ClerkProvider throws after a ~4s timeout and
+  // takes the WHOLE page down. Admin, /site, team, and client portals are all
+  // PIN/phone-auth and never touch Clerk, so they must not depend on it. Clerk is
+  // now mounted only in the four segments that actually use it (dashboard,
+  // sign-in, sign-up, join) via their own layouts.
   return (
-    <Wrapper>
-      <html lang="en">
-        <body className={`${sora.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${jetbrains.variable} ${fraunces.variable} antialiased`}>
-          {children}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
+    <html lang="en">
+      <body className={`${sora.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${jetbrains.variable} ${fraunces.variable} antialiased`}>
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
                 window.addEventListener('error', function(e) {
                   if (e.message && (e.message.includes('Failed to fetch dynamically imported module') ||
                       e.message.includes('ChunkLoadError') ||
@@ -83,10 +82,9 @@ export default function RootLayout({
                   }
                 });
               `,
-            }}
-          />
-        </body>
-      </html>
-    </Wrapper>
+          }}
+        />
+      </body>
+    </html>
   )
 }

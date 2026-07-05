@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { checkActivationReadiness } from '@/lib/onboarding-tasks'
+import { registerCarryingDomain } from '@/lib/vercel-domains'
 
 export async function POST() {
   try {
@@ -31,7 +32,7 @@ export async function POST() {
       .from('tenants')
       .update({ status: 'active' })
       .eq('id', tenantId)
-      .select('id, name, status')
+      .select('id, name, status, slug')
       .single()
     if (error || !tenant) return NextResponse.json({ error: 'Activation failed' }, { status: 500 })
 
@@ -43,7 +44,20 @@ export async function POST() {
       message: `${tenant.name} completed onboarding and is now active.`,
     }).then(() => {}, () => {})
 
-    return NextResponse.json({ activated: true, tenant })
+    // Auto-register the carrying domain (<slug>.fullloopcrm.com) as a Vercel
+    // PROJECT domain so it auto-follows prod deploys and never strands. Does not
+    // block activation — a failure just surfaces a notification to fix manually.
+    const domainResult = await registerCarryingDomain(tenant.slug)
+    if (!domainResult.ok && domainResult.status !== 'skipped') {
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: tenantId,
+        type: 'carrying_domain_failed',
+        title: 'Carrying domain not auto-registered',
+        message: `${domainResult.domain}: ${domainResult.detail ?? 'error'} — add it manually in Vercel.`,
+      }).then(() => {}, () => {})
+    }
+
+    return NextResponse.json({ activated: true, tenant, domain: domainResult })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('POST /api/dashboard/onboarding/activate', err)

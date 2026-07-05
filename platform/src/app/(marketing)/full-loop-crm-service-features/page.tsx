@@ -6,12 +6,15 @@ export const metadata: Metadata = {
   title:
     "Home Service CRM Features | AI-Powered Field Service Platform — Full Loop CRM",
   description:
-    "Explore every feature of Full Loop CRM — the all-in-one home service CRM with AI lead generation, automated sales, smart scheduling, GPS field operations, invoicing, review management, and client retargeting. Replace 9+ tools with one platform.",
+    "Explore every feature of Full Loop CRM — the all-in-one home service CRM with AI lead generation, an autonomous SEO engine, automated sales, smart scheduling, GPS field operations, invoicing, review management, and client retargeting. Replace 9+ tools with one platform.",
   keywords: [
     "home service CRM features",
     "field service CRM",
     "automated CRM platform",
     "AI-powered CRM",
+    "autonomous SEO software",
+    "automated SEO for home services",
+    "AI SEO engine",
     "service business software",
     "home service scheduling software",
     "GPS field operations CRM",
@@ -83,7 +86,7 @@ const dashboardSections = [
   {
     num: "07",
     name: "Marketing",
-    desc: "Campaigns · Reviews · Referrals · Social (FB + IG) · Google Business Profile · Websites · Analytics · Map.",
+    desc: "Campaigns · Reviews · Referrals · Social (FB + IG) · Google Business Profile · Websites · Autonomous SEO engine · Analytics · Map.",
   },
   {
     num: "—",
@@ -222,6 +225,24 @@ export default function FeaturesPage() {
                 Every lead is tagged with its source domain, landing page, and search query so you
                 know exactly what brought them in. Connect the dots from first click to closed deal
                 — no guesswork, no wasted budget.
+              </p>
+            </div>
+            <div className="rounded-xl border-2 border-teal-200 bg-teal-50/40 p-6 sm:col-span-2">
+              <div className="mb-2 font-mono text-xs uppercase tracking-widest text-teal-600">
+                Automated · runs daily
+              </div>
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                Autonomous SEO Engine
+              </h3>
+              <p className="text-slate-600">
+                Full Loop runs a self-improving SEO engine across your entire domain network — no
+                agency retainer, no manual keyword research. Every day it reads your Google Search
+                Console data, finds the pages sitting just off page one, and ranks each opportunity
+                by <em>commercial</em> value so the highest-revenue keywords get worked first. It
+                drafts sharper, higher-ranking titles and meta descriptions, applies the approved
+                ones with instant re-indexing, and <strong>freezes any page that already ranks</strong>{" "}
+                so a winner is never disturbed. Your search visibility compounds on its own, in the
+                background, while you run jobs.
               </p>
             </div>
           </div>
@@ -777,6 +798,71 @@ export default function FeaturesPage() {
                 <p className="text-sm text-slate-400">{page.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── On the Roadmap ── */}
+      <section className="bg-white py-20 px-6 sm:px-8 lg:px-12" id="roadmap">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-4 text-center">
+            <span className="font-mono text-sm uppercase tracking-widest text-teal-600">
+              Rolling Out Now
+            </span>
+          </div>
+          <h2 className="font-heading text-3xl sm:text-4xl font-extrabold text-slate-900 mb-6 text-center">
+            The Back Office Is Automating Next
+          </h2>
+          <p className="text-lg text-slate-600 mb-12 max-w-3xl mx-auto text-center">
+            Lead gen, sales, scheduling, field ops, payments, reviews, and SEO already run
+            themselves. The next wave takes the last manual corner of a service business — HR and
+            the books — and puts it on the same autopilot. These are actively in development and
+            roll out to partner accounts as they ship, included in your subscription.
+          </p>
+
+          <div className="grid gap-8 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 p-6">
+              <div className="mb-2 font-mono text-xs uppercase tracking-widest text-slate-400">
+                In development
+              </div>
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                HR Automation
+              </h3>
+              <p className="text-slate-600">
+                Hiring, onboarding, and compliance for your field team without a paper trail:
+                application-to-payroll onboarding, PIN and portal provisioning, time-off tracking,
+                document collection, and 1099/W-2 readiness — automated end to end so growing your
+                crew never means growing your admin load.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-6">
+              <div className="mb-2 font-mono text-xs uppercase tracking-widest text-slate-400">
+                In development
+              </div>
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                Automated Bookkeeping
+              </h3>
+              <p className="text-slate-600">
+                Every payment, payout, and expense already flows through Full Loop — so the ledger
+                writes itself. Automated transaction categorization, bank reconciliation, and a
+                monthly close that&apos;s CPA-ready without you touching a spreadsheet. Your books
+                stay current in real time instead of piling up for tax season.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-6">
+              <div className="mb-2 font-mono text-xs uppercase tracking-widest text-slate-400">
+                In development
+              </div>
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                Finance Automation
+              </h3>
+              <p className="text-slate-600">
+                Beyond today&apos;s real-time finance dashboard: automated P&amp;L, cash-flow
+                forecasting, AR follow-up sequences, and tax set-aside — so you always know what
+                you made, what&apos;s coming, and what to keep on hand, without a bookkeeper or a
+                second app.
+              </p>
+            </div>
           </div>
         </div>
       </section>
