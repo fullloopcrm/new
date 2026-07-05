@@ -57,6 +57,18 @@ const ISSUE_LABEL: Record<string, string> = {
 const n = (v: number) => (v ?? 0).toLocaleString('en-US')
 const pct = (v: number) => `${((v ?? 0) * 100).toFixed(1)}%`
 
+// Decode HTML entities from fetched page titles/metas (e.g. &amp; -> &).
+const decode = (s: string | null | undefined) =>
+  (s ?? '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&#x27;|&apos;/g, "'")
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&nbsp;/g, ' ')
+
 function positionColor(p: number | null): string {
   if (p == null) return 'text-slate-400'
   if (p <= 10) return 'text-emerald-600'
@@ -166,15 +178,15 @@ export default function AdminSeoPage() {
                 {p.title && (
                   <div className="mt-3 text-sm">
                     <div className="font-mono text-[10px] uppercase tracking-wide text-slate-400">Title</div>
-                    <div className="text-slate-400 line-through decoration-slate-300">{p.title.before || '(none)'}</div>
-                    <div className="font-medium text-emerald-700">{p.title.after}</div>
+                    <div className="text-slate-400 line-through decoration-slate-300">{decode(p.title.before) || '(none)'}</div>
+                    <div className="font-medium text-emerald-700">{decode(p.title.after)}</div>
                   </div>
                 )}
                 {p.description && (
                   <div className="mt-2 text-sm">
                     <div className="font-mono text-[10px] uppercase tracking-wide text-slate-400">Meta</div>
-                    <div className="text-slate-400 line-through decoration-slate-300">{p.description.before || '(none)'}</div>
-                    <div className="text-emerald-700">{p.description.after}</div>
+                    <div className="text-slate-400 line-through decoration-slate-300">{decode(p.description.before) || '(none)'}</div>
+                    <div className="text-emerald-700">{decode(p.description.after)}</div>
                   </div>
                 )}
                 {p.rationale && <div className="mt-2 text-xs text-slate-400">{p.rationale}</div>}
