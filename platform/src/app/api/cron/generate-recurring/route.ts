@@ -5,12 +5,29 @@ import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { getBookingAddress } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
+import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // NYC Maid parity: auto-resume paused schedules whose pause window elapsed
+  // (tenant-scoped). Safe no-op if the column/rows don't exist.
+  const todayStr = new Date().toISOString().split('T')[0]
+  const { data: resumable } = await supabaseAdmin
+    .from('recurring_schedules')
+    .select('id')
+    .eq('tenant_id', NYCMAID_TENANT_ID)
+    .eq('status', 'paused')
+    .lte('paused_until', todayStr)
+  for (const s of resumable || []) {
+    await supabaseAdmin
+      .from('recurring_schedules')
+      .update({ status: 'active', paused_until: null, updated_at: new Date().toISOString() })
+      .eq('id', s.id)
   }
 
   const { data: schedules } = await supabaseAdmin
@@ -199,8 +216,32 @@ export async function GET(request: Request) {
       })
     }
 
-    await supabaseAdmin.from('bookings').insert(bookings)
-    totalGenerated += bookings.length
+    // The fn_block_booking_overlap trigger fires BEFORE INSERT. A single
+    // overlapping occurrence aborts the WHOLE batch statement, so a batch insert
+    // could silently drop every occurrence for this schedule. Check the error and,
+    // on failure, fall back to per-row inserts so non-conflicting occurrences still
+    // land — and surface the ones that couldn't instead of reporting a false count.
+    const { error: batchErr } = await supabaseAdmin.from('bookings').insert(bookings)
+    if (!batchErr) {
+      totalGenerated += bookings.length
+    } else {
+      let inserted = 0
+      const skipped: string[] = []
+      for (const row of bookings) {
+        const { error: rowErr } = await supabaseAdmin.from('bookings').insert(row)
+        if (rowErr) skipped.push(String(row.start_time)); else inserted++
+      }
+      totalGenerated += inserted
+      if (skipped.length > 0) {
+        await supabaseAdmin.from('notifications').insert({
+          type: 'recurring_generation_conflict',
+          title: 'cron:generate-recurring skipped occurrences',
+          message: `schedule ${schedule.id}: ${skipped.length} occurrence(s) skipped (overlap/insert error) — needs manual scheduling`,
+          channel: 'system',
+          recipient_type: 'admin',
+        }).then(() => {}, () => {})
+      }
+    }
   }
 
   // Health-monitor marker.

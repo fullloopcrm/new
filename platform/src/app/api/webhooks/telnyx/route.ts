@@ -4,6 +4,8 @@ import { sendSMS } from '@/lib/sms'
 import { askSelena } from '@/lib/selena-legacy'
 import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 
 export const maxDuration = 60
 
@@ -352,6 +354,16 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ received: true, action: 'team_confirmed' })
       }
+    }
+
+    // ============================================
+    // NYC MAID review engine (tenant-scoped parity — rating capture + review
+    // generation). FL bills up front in the 30-min alert, so this does NOT
+    // re-bill. $10 written-review credit only. Gated to the NYC Maid tenant.
+    // ============================================
+    if (isNycMaid(tenantId)) {
+      const nmReview = await handleNycMaidReview({ tenantId, from, text })
+      if (nmReview) return nmReview
     }
 
     // ============================================

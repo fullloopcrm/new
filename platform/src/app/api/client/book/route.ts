@@ -17,6 +17,8 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 
 function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
@@ -181,6 +183,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
     }
 
+    // ===== PRICING =====
+    // Generic default; the NYC Maid tenant layers its supplies/emergency/
+    // self-book rules on top (tenant-scoped parity, not global).
+    let bkHourlyRate = Number(body.hourly_rate) || 75
+    let bkPrice = applyRecurringDiscount(Number(body.price) || bkHourlyRate * (Number(body.estimated_hours) || 2) * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
+    let bkNotes = (body.notes as string) || ''
+    const bkTeamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1))
+    let bkIsEmergency = false
+    const bkMaxHours = typeof body.max_hours === 'number' && body.max_hours > 0 ? (body.max_hours as number) : null
+
+    if (isNycMaid(tenant.id)) {
+      // Emergency = same-day, OR a multi-cleaner booking under 48hr notice.
+      // Emergency rate ($89) overrides the supplies-based rate ($59 client-
+      // supplies / $69 we-bring). 2hr min (single) / 4hr min (2+ cleaners).
+      // The $10 self-booking promo (applied at billing in the 30-min alert) is
+      // suppressed for emergency + multi-cleaner. Faithful port of NYC Maid.
+      const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+      const isSameDay = bookingDate === todayET
+      const hoursUntilBooking = (new Date(startTime).getTime() - Date.now()) / 3_600_000
+      const isUnder48 = hoursUntilBooking < 48
+      const isMultiCleaner = bkTeamSize >= 2
+      bkIsEmergency = isSameDay || (isUnder48 && isMultiCleaner)
+      const effectiveRate = bkIsEmergency ? 89 : (Number(body.hourly_rate) || 69)
+      const minHours = isMultiCleaner ? 4 : 2
+      const billableHours = Math.max(Number(body.estimated_hours) || 2, minHours)
+      bkHourlyRate = effectiveRate
+      bkPrice = Math.round(effectiveRate * billableHours * bkTeamSize * 100)
+      const discountEligible = !bkIsEmergency && !isMultiCleaner
+      bkNotes = ((body.notes as string) || '') + (discountEligible
+        ? '\n\n[Promo: $10 self-booking discount applies at billing]'
+        : isMultiCleaner
+          ? `\n\n[Multi-cleaner booking — no discount, 4-hour minimum${bkIsEmergency ? ', under-48hr emergency $89/hr' : ''}]`
+          : '\n\n[Same-day emergency booking — no discount, $89/hr]')
+
+      // Form-recap consent: when the client clicks Confirm in the recap modal we
+      // record an audit line so the confirmation-reminder cron knows terms were
+      // accepted at submit time and skips the CONFIRM-reply re-ask.
+      if (body.client_confirmed === true) {
+        const confirmedAt = typeof body.confirmed_at === 'string' ? body.confirmed_at : new Date().toISOString()
+        const ua = typeof body.user_agent === 'string' ? (body.user_agent as string).slice(0, 200) : 'unknown'
+        bkNotes += `\n\n[Client confirmed terms ${confirmedAt} from IP ${ip} via /book/new (UA: ${ua})]`
+      }
+    }
+
     // Create booking
     const { data, error } = await supabaseAdmin
       .from('bookings')
@@ -192,9 +238,12 @@ export async function POST(request: Request) {
         end_time: endTime,
         service_type: (body.service_type as string) || 'Standard Cleaning',
         status: 'pending',
-        price: applyRecurringDiscount(Number(body.price) || (Number(body.hourly_rate) || 75) * (Number(body.estimated_hours) || 2) * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined)),
-        hourly_rate: Number(body.hourly_rate) || 75,
-        notes: (body.notes as string) || '',
+        price: bkPrice,
+        hourly_rate: bkHourlyRate,
+        team_size: bkTeamSize,
+        is_emergency: bkIsEmergency,
+        max_hours: bkMaxHours,
+        notes: bkNotes,
         recurring_type: body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined),
         team_member_token: cleanerToken,
         token_expires_at: tokenExpiresAt.toISOString(),
@@ -239,6 +288,13 @@ export async function POST(request: Request) {
       message: bookingMsg,
       booking_id: data.id,
     })
+
+    // NYC Maid emergency alert — same-day / under-48hr bookings need a cleaner ASAP.
+    if (isNycMaid(tenant.id) && bkIsEmergency) {
+      await nmSmsAdmins(
+        `🚨 EMERGENCY: ${data.clients?.name || 'Client'} booked ${data.service_type || 'cleaning'} for ${bookingDate}. $89/hr, no discount${bkTeamSize > 1 ? `, ${bkTeamSize} cleaners` : ''}. Assign a cleaner ASAP.`,
+      ).catch(() => {})
+    }
 
     // Attribution
     try {

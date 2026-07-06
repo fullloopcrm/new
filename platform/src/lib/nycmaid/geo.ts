@@ -4,6 +4,13 @@ const RADAR_API_KEY = process.env.RADAR_API_KEY || process.env.NEXT_PUBLIC_RADAR
 
 export const MAX_DISTANCE_MILES = 0.1
 
+// Two-tier check-in geofence (NYC Maid parity). A cleaner beyond CLEAN radius
+// but within HARD_BLOCK is allowed but flagged (NYC GPS drift); beyond HARD_BLOCK
+// is a hard block. GPS can be toggled off via env for incident recovery.
+export const CHECK_IN_MAX_MILES = Number(process.env.CHECK_IN_MAX_MILES) || 0.5
+export const CHECK_IN_HARD_BLOCK_MILES = Number(process.env.CHECK_IN_HARD_BLOCK_MILES) || 2
+export const CHECK_IN_GPS_ENABLED = process.env.CHECK_IN_GPS_ENABLED !== 'off'
+
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
     const res = await fetch(

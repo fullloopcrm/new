@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { sendSMS } from '@/lib/sms'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { sendPushToClient } from '@/lib/push'
 import type {
   BookingWithClientAndTeam,
   BookingWith2HourReminder,
@@ -106,20 +108,72 @@ export async function GET(request: Request) {
               }
             }
 
+            // NYC Maid parity: web-push the client alongside the reminder.
+            if (isNycMaid(tenantId) && booking.client_id) {
+              sendPushToClient(booking.client_id, daysOut === 1 ? 'Cleaning Tomorrow' : `Cleaning ${label}`, `Your cleaning is ${label}`, '/book/dashboard').catch(() => {})
+            }
+
             // Team member reminder (day before only)
             if (daysOut === 1 && booking.team_member_id) {
               const member = booking.team_members
               if (member) {
-                await notify({
-                  tenantId,
-                  type: 'booking_reminder',
-                  title: 'Job Tomorrow',
-                  message: `${client?.name || 'Client'} - ${label} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
-                  channel: 'sms',
-                  recipientType: 'team_member',
-                  recipientId: booking.team_member_id,
-                  bookingId: booking.id,
-                })
+                let teamMsg = `${client?.name || 'Client'} - ${label} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+
+                // NYC Maid parity: send the cleaner their FULL next-day route with
+                // travel times (property-aware coords). Only the earliest job of the
+                // day sends it, so a multi-job cleaner gets one route text, not N.
+                if (isNycMaid(tenantId)) {
+                  const { calculateDistance, estimateTransitMinutes, geocodeAddress } = await import('@/lib/nycmaid/geo')
+                  const dateStr = booking.start_time.split('T')[0]
+                  const { data: dayJobs } = await supabaseAdmin
+                    .from('bookings')
+                    .select('id, start_time, clients(name, address, latitude, longitude), client_properties(address, latitude, longitude)')
+                    .eq('tenant_id', tenantId).eq('team_member_id', booking.team_member_id)
+                    .gte('start_time', `${dateStr}T00:00:00`).lte('start_time', `${dateStr}T23:59:59`)
+                    .not('status', 'in', '("cancelled")').order('start_time', { ascending: true })
+                  const jobs = dayJobs || []
+                  if (jobs.length && jobs[0].id === booking.id) {
+                    const { data: tm } = await supabaseAdmin.from('team_members').select('has_car').eq('id', booking.team_member_id).single()
+                    const hasCar = Boolean(tm?.has_car)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const coordsOf = async (j: any): Promise<{ lat: number; lng: number } | null> => {
+                      const cp = j.client_properties, c = j.clients
+                      const src = (cp?.latitude != null && cp?.longitude != null) ? cp : (c?.latitude != null && c?.longitude != null) ? c : null
+                      if (src) return { lat: Number(src.latitude), lng: Number(src.longitude) }
+                      const addr = cp?.address || c?.address
+                      if (addr) { const co = await geocodeAddress(addr).catch(() => null); if (co) return co }
+                      return null
+                    }
+                    const lines: string[] = []
+                    for (let i = 0; i < jobs.length; i++) {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const j = jobs[i] as any
+                      const t = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                      lines.push(`${t} ${j.clients?.name?.split(' ')[0] || 'Client'}`)
+                      if (i < jobs.length - 1) {
+                        const a = await coordsOf(j); const b = await coordsOf(jobs[i + 1])
+                        if (a && b) { const mins = estimateTransitMinutes(calculateDistance(a.lat, a.lng, b.lat, b.lng), hasCar); lines.push(`  ${hasCar ? '🚗' : '🚇'} ~${mins} min`) }
+                      }
+                    }
+                    teamMsg = `Tomorrow's schedule:\n${lines.join('\n')}`
+                  } else if (jobs.length) {
+                    // A later job — the earliest already sent the full route; skip.
+                    teamMsg = ''
+                  }
+                }
+
+                if (teamMsg) {
+                  await notify({
+                    tenantId,
+                    type: 'booking_reminder',
+                    title: 'Job Tomorrow',
+                    message: teamMsg,
+                    channel: 'sms',
+                    recipientType: 'team_member',
+                    recipientId: booking.team_member_id,
+                    bookingId: booking.id,
+                  })
+                }
               }
             }
 
@@ -185,6 +239,11 @@ export async function GET(request: Request) {
             failed++
             errors.push(`2hr SMS to team ${booking.team_member_id}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
           }
+        }
+
+        // NYC Maid parity: web-push the client for the 2-hour reminder.
+        if (isNycMaid(tenantId) && booking.client_id) {
+          sendPushToClient(booking.client_id, 'Cleaning in 2 hours', 'Your cleaner arrives soon', '/book/dashboard').catch(() => {})
         }
 
         // Log as notification for dedup
