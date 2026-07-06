@@ -15,11 +15,9 @@ export interface RelatedGroup {
 }
 
 function funnelCta(config: SiteConfig): { label: string; href: string } {
-  return config.funnelMode === 'lead_only'
-    ? { label: 'Get started', href: '/contact-the-nyc-maid-service-today' }
-    : config.funnelMode === 'pipeline'
-      ? { label: 'Request an assistant', href: '/book/new' }
-      : { label: 'Get an assistant', href: '/book/new' }
+  // VA SEO pages: the cleaning booking/contact funnels are wrong for a VA lead,
+  // so the CTA texts the business directly until a VA lead form exists.
+  return { label: 'Get an Assistant', href: `sms:${config.contact.phoneDigits}` }
 }
 
 export default function VASeoPage({

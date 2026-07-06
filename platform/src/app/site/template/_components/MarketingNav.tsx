@@ -124,7 +124,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               )}
               <Link href="/reviews" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide flex items-center gap-1.5">
                 Reviews
-                <span className="text-yellow-400 text-xs">&#9733; 5.0</span>
+                {config.reviewCount && <span className="text-yellow-400 text-xs">&#9733; {config.rating.toFixed(1)}</span>}
               </Link>
               <Link href="/contact-the-nyc-maid-service-today" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Contact</Link>
 
@@ -221,7 +221,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <Link href="/updated-nyc-maid-service-industry-pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
               </>)}
               <Link href="/reviews" onClick={closeMenu} className="flex items-center gap-2 py-3 text-white font-medium text-lg">
-                Reviews <span className="text-yellow-400 text-sm">&#9733; 5.0</span>
+                Reviews {config.reviewCount && <span className="text-yellow-400 text-sm">&#9733; {config.rating.toFixed(1)}</span>}
               </Link>
               <Link href="/contact-the-nyc-maid-service-today" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Contact</Link>
 

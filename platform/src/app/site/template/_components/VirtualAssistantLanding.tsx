@@ -2,7 +2,6 @@ import Link from 'next/link'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { CITIES } from '@/app/site/template/_data/us-locations'
-import { HOME_GUIDE } from '@/app/site/template/_data/va-home-guide'
 
 /**
  * Dedicated landing for virtual-assistant tenants. Unlike the local-trade
@@ -44,12 +43,11 @@ export default function VirtualAssistantLanding({ config }: { config: SiteConfig
   const smsHref = `sms:${config.contact.phoneDigits}`
   const telHref = `tel:${config.contact.phoneDigits}`
 
-  const cta =
-    config.funnelMode === 'lead_only'
-      ? { label: 'Get started', href: '/contact-the-nyc-maid-service-today' }
-      : config.funnelMode === 'pipeline'
-        ? { label: 'Request an assistant', href: '/book/new' }
-        : { label: 'Get an assistant', href: '/book/new' }
+  // Both the cleaning booking funnel (/book/new) and the cleaning contact page
+  // are cleaning-shaped and wrong for a VA lead. Until a dedicated VA lead form
+  // exists, the CTA texts the business directly — an action that actually works
+  // (matches the "Text us" secondary button). TODO: replace with a VA lead form.
+  const cta = { label: 'Get an Assistant', href: `sms:${config.contact.phoneDigits}` }
 
   return (
     <main>
@@ -57,8 +55,10 @@ export default function VirtualAssistantLanding({ config }: { config: SiteConfig
       <section className="bg-[var(--brand)] text-[var(--brand-fg)]">
         <div className="max-w-6xl mx-auto px-6 py-20 md:py-28">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-7 text-sm text-[var(--brand-fg)]/70">
+            {config.reviewCount && (<>
             <span className="text-[var(--accent)] font-semibold">★ {config.rating.toFixed(1)}</span>
             <span className="hidden sm:inline text-[var(--brand-fg)]/25">|</span>
+            </>)}
             <span>100+ U.S. businesses served</span>
             <span className="hidden sm:inline text-[var(--brand-fg)]/25">|</span>
             <span>American-owned &amp; managed · NYC</span>
@@ -295,24 +295,6 @@ export default function VirtualAssistantLanding({ config }: { config: SiteConfig
               </summary>
               <p className="text-gray-500 leading-relaxed mt-3">{f.a}</p>
             </details>
-          ))}
-        </div>
-      </section>
-
-      {/* Long-form guide — SEO depth */}
-      <section className="bg-white border-t border-black/5">
-        <div className="max-w-3xl mx-auto px-6 py-16 md:py-24">
-          {HOME_GUIDE.map((g) => (
-            <article key={g.heading} className="mb-12 last:mb-0">
-              <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">
-                {g.heading}
-              </h2>
-              <div className="space-y-4">
-                {g.paragraphs.map((p, i) => (
-                  <p key={i} className="text-gray-600 leading-relaxed">{p}</p>
-                ))}
-              </div>
-            </article>
           ))}
         </div>
       </section>

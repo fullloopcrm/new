@@ -35,9 +35,11 @@ export default function GenericLanding({
       <section className="bg-[var(--brand)] text-white">
         <div className="max-w-6xl mx-auto px-6 py-20 md:py-28">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-6 text-sm text-white/70">
+            {config.reviewCount && (<>
             <span className="text-[var(--accent)] font-semibold">★ {config.rating.toFixed(1)}</span>
             <span>{config.reviewCount} reviews</span>
             <span className="hidden sm:inline text-white/20">|</span>
+            </>)}
             <span>Licensed &amp; insured</span>
             <span className="hidden sm:inline text-white/20">|</span>
             <span>Serving {config.geo.placename}</span>

@@ -63,14 +63,18 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
         <h2 className="font-[family-name:var(--font-bebas)] text-white text-3xl md:text-4xl tracking-wide text-center mb-2">{config.identity.name}</h2>
         <div className="w-16 h-[2px] bg-[var(--accent)] mx-auto mb-6" />
+        {config.reviewCount ? (
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
           <Link href="/reviews" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
             <span className="text-yellow-400">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
             <span className="text-gray-300 text-sm font-medium">{config.rating.toFixed(1)} from {config.reviewCount} verified reviews</span>
           </Link>
+          {isCleaning && (<>
           <span className="text-white/20 hidden sm:inline">|</span>
           <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="text-[var(--accent)] text-sm font-semibold hover:text-white transition-colors">Write a Review</Link>
+          </>)}
         </div>
+        ) : <div className="mb-12" />}
       </div>
 
       {/* Links grid — cleaning only (neighborhood/service pages are gated for other trades) */}

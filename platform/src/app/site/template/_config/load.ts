@@ -1,6 +1,7 @@
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { supabaseAdmin } from '@/lib/supabase'
 import { siteConfig as defaultConfig } from './site'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import type { SiteConfig } from './types'
 
 /**
@@ -72,6 +73,11 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       ? { ...defaultConfig.geo, placename: areas[0] }
       : defaultConfig.geo
 
+  const industry = str(tenant, 'industry') ?? defaultConfig.industry
+  const isCleaningTenant = industryProfile(industry).isCleaning
+  const reviewStats = await loadReviewStats(str(tenant, 'id'))
+  const hasReviews = reviewStats.count !== ''
+
   return {
     identity: {
       name,
@@ -97,15 +103,36 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       surface: defaultConfig.theme.surface,
     },
     agent: { name: agentName },
-    rating: defaultConfig.rating,
-    reviewCount: defaultConfig.reviewCount,
+    // Reviews come from the tenant's REAL google_reviews. A brand-new tenant
+    // with none must not display fabricated "5.0 / 50+"; cleaning tenants keep
+    // the existing default so their live sites don't regress.
+    rating: hasReviews ? reviewStats.rating : isCleaningTenant ? defaultConfig.rating : 0,
+    reviewCount: hasReviews ? reviewStats.count : isCleaningTenant ? defaultConfig.reviewCount : '',
     services: (await loadServices(str(tenant, 'id'))) ?? defaultConfig.services,
     funnelMode:
       selena?.['funnel_mode'] === 'pipeline' ? 'pipeline'
       : selena?.['funnel_mode'] === 'lead_only' ? 'lead_only'
       : 'booking',
-    industry: str(tenant, 'industry') ?? defaultConfig.industry,
+    industry,
   }
+}
+
+/**
+ * Real review stats from google_reviews. Returns empty count when the tenant has
+ * no reviews so the marketing site can hide the rating instead of inventing one.
+ */
+async function loadReviewStats(tenantId: string | undefined): Promise<{ rating: number; count: string }> {
+  if (!tenantId) return { rating: 0, count: '' }
+  const { data } = await supabaseAdmin
+    .from('google_reviews')
+    .select('rating')
+    .eq('tenant_id', tenantId)
+  if (!data || data.length === 0) return { rating: 0, count: '' }
+  const rated = data
+    .map((r) => (typeof r.rating === 'number' ? r.rating : Number(r.rating)))
+    .filter((n) => !Number.isNaN(n) && n > 0)
+  const avg = rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : 0
+  return { rating: Math.round(avg * 10) / 10, count: String(data.length) }
 }
 
 /**
