@@ -5,12 +5,29 @@ import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { getBookingAddress } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
+import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // NYC Maid parity: auto-resume paused schedules whose pause window elapsed
+  // (tenant-scoped). Safe no-op if the column/rows don't exist.
+  const todayStr = new Date().toISOString().split('T')[0]
+  const { data: resumable } = await supabaseAdmin
+    .from('recurring_schedules')
+    .select('id')
+    .eq('tenant_id', NYCMAID_TENANT_ID)
+    .eq('status', 'paused')
+    .lte('paused_until', todayStr)
+  for (const s of resumable || []) {
+    await supabaseAdmin
+      .from('recurring_schedules')
+      .update({ status: 'active', paused_until: null, updated_at: new Date().toISOString() })
+      .eq('id', s.id)
   }
 
   const { data: schedules } = await supabaseAdmin

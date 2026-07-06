@@ -6,6 +6,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { runNycMaidPaymentReminder } from '@/lib/nycmaid/payment-reminder'
 
 export const maxDuration = 60
 
@@ -32,6 +34,16 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+
+    // NYC Maid runs the faithful 2-stage flow (+15 nudge / +60 escalate) with
+    // the correct "still owes" filter (excludes partial + payment_method set).
+    // Tenant-scoped parity; other tenants keep the generic logic below.
+    if (isNycMaid(tenantId)) {
+      const r = await runNycMaidPaymentReminder(tenantId)
+      reminded += r.nudges
+      escalated += r.flagged
+      continue
+    }
 
     try {
       // Bookings where alert fired 15-60 min ago and still unpaid.

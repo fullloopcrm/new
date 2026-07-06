@@ -6,7 +6,7 @@
  *   cleaners(name, hourly_rate) -> team_members(name, pay_rate)
  *   booking.cleaner_pay_rate    -> booking.pay_rate
  *   smsAdmins(msg)              -> smsAdmins(tenantId, msg)   (tenant-aware)
- *   hardcoded Stripe PAY_LINK   -> tenant.stripe_pay_link     (per-tenant)
+ *   hardcoded Stripe PAY_LINK   -> tenant.payment_link     (per-tenant)
  *
  * Intentionally NOT ported: the IMAP email-monitor trigger — retired in nycmaid
  * 2026-06-25 (client payments are Stripe-only; the webhook is the confirm path).
@@ -18,6 +18,8 @@ import { smsAdmins } from '@/lib/admin-contacts'
 import { parseTimestamp, formatET } from '@/lib/dates'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
+import { effectiveCleanerRate } from '@/lib/cleaner-pay'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 export const maxDuration = 300
 
@@ -28,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email), team_members(name, pay_rate)')
+      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members(name, pay_rate)')
       .eq('id', bookingId)
       .single()
 
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
     const tenantId = booking.tenant_id as string
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, telnyx_api_key, telnyx_phone, stripe_pay_link')
+      .select('name, telnyx_api_key, telnyx_phone, payment_link')
       .eq('id', tenantId)
       .single()
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
@@ -100,7 +102,11 @@ export async function POST(req: NextRequest) {
     const clientOwes = Math.max(0, Number(grossOwed) - selfBookingDiscount).toFixed(2)
 
     const teamMember = booking.team_members as unknown as { name: string; pay_rate: number | null } | null
-    const cleanerRate = teamMember?.pay_rate || booking.pay_rate || 25
+    const baseCleanerRate = teamMember?.pay_rate || booking.pay_rate || 25
+    // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY.
+    const cleanerRate = isNycMaid(tenantId)
+      ? effectiveCleanerRate(baseCleanerRate, (booking.clients as unknown as { address?: string | null } | null)?.address ?? null)
+      : baseCleanerRate
     const cleanerOwed = (Math.round(cleanerEstHours * cleanerRate * 100) / 100).toFixed(2)
 
     const client = booking.clients as unknown as { name: string; phone: string; email: string } | null
@@ -155,8 +161,8 @@ export async function POST(req: NextRequest) {
     // The rating ask rides along; a 1-5 reply routes through the pre_payment_rating
     // flow. Pay link is the tenant's own Stripe link + client_reference_id so the
     // Stripe webhook ties the payment back to this booking.
-    const payLink = tenant.stripe_pay_link
-      ? `${tenant.stripe_pay_link}${tenant.stripe_pay_link.includes('?') ? '&' : '?'}client_reference_id=${bookingId}`
+    const payLink = tenant.payment_link
+      ? `${tenant.payment_link}${tenant.payment_link.includes('?') ? '&' : '?'}client_reference_id=${bookingId}`
       : ''
     const payLines = payLink
       ? [
