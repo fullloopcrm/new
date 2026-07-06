@@ -256,4 +256,34 @@ export const HOME_GUIDE: GuideSection[] = [
       'The honest answer is that the best way to know is to try it, which is precisely why there is no long-term contract. Start with your single most painful task, give it a few weeks, and judge it by the result. If reclaiming those hours is worth more than eight dollars an hour to you — and for almost any business owner, it is — the decision makes itself.',
     ],
   },
+  {
+    heading: 'The ROI, in Real Numbers',
+    paragraphs: [
+      'It helps to run the break-even math, because it is almost comically favorable. Suppose you take a Part-Time plan of twenty hours a week — a dedicated assistant for roughly six hundred and forty dollars a month. For that arrangement to pay for itself, those twenty hours only need to free up enough of your time to generate six hundred and forty dollars of additional value. If your time is worth even fifty dollars an hour, twenty reclaimed hours are worth a thousand dollars — before the assistant has closed a single extra deal or saved a single lost lead.',
+      'Now layer in the revenue an assistant protects rather than just the time they save. A single call answered instead of missed can be a booked job worth hundreds or thousands of dollars. A single lead followed up instead of forgotten can be a new client worth far more than a year of the assistant’s cost. In businesses where the phone and the pipeline drive revenue, the assistant frequently pays for itself not through saved hours but through captured sales that would otherwise have leaked away.',
+      'This is why virtual assistants tend to be sticky: owners try one, see the math play out in their own numbers, and quickly wonder how they operated without one. The return is not a rounding error you have to squint at — it is large, obvious, and compounding, which is exactly what you want from any investment in your business.',
+    ],
+  },
+  {
+    heading: 'How Assistants Are Hired and Vetted',
+    paragraphs: [
+      'The quality of a virtual assistant service comes down to how carefully it selects and supports its people, so it is worth understanding what stands behind the assistant you work with. Fluent, professional English comes first — it is the non-negotiable foundation for anything customer-facing, and it is screened for rigorously. Beyond language, the traits that matter most are reliability, judgment, and a genuine service ethic: the instinct to notice what needs doing, follow through without being chased, and care about the outcome.',
+      'From there, the knowledge panel does the heavy lifting on ramp-up. Rather than dropping a new person into your business cold, we document how you operate — your services, pricing, tone, and process — so your assistant answers like an insider from the first day and stays consistent as the work grows. And because the whole arrangement is managed by an American-owned company, there is a real manager who owns the relationship and a bench of talent so a sick day or a departure never leaves you exposed. You are not gambling on a single freelancer; you are working with a supported professional inside a system built for continuity.',
+    ],
+  },
+  {
+    heading: 'What to Ask Before Choosing a Virtual Assistant Service',
+    paragraphs: [
+      'Not all virtual assistant services are the same, and a few pointed questions will quickly separate the serious ones from the rest. Ask whether the assistants are real, dedicated people or a rotating pool reading scripts — dedication is what lets someone actually learn your business. Ask how English fluency is screened, because for customer-facing work it is everything. Ask how the work is tracked, because transparency is the foundation of trusting someone remotely.',
+      'Ask who owns and manages the service, and where — an American-owned, American-managed company gives you accountability and recourse that an anonymous marketplace freelancer never can. Ask how your assistant will learn your business, because a service without a real onboarding and documentation process will lean on you to train from scratch. And ask about continuity: what happens when your assistant is sick or moves on. A serious service has an answer that does not involve your front desk going dark. Judged against those questions, the difference between a cheap gamble and a real partner becomes obvious fast.',
+    ],
+  },
+  {
+    heading: 'Virtual Assistants as a Growth Strategy',
+    paragraphs: [
+      'It is tempting to think of a virtual assistant purely as a cost-saver — a cheaper way to get the busywork done. That is true, but it undersells what the model actually unlocks. The real prize is leverage: the ability to take everything that does not require your specific expertise off your plate, so that your time, energy, and focus go entirely toward the work that grows the business.',
+      'Businesses do not stall because their owners are not working hard enough; they stall because their owners are trapped doing work that does not scale. Answering every call, handling every email, and entering every record yourself puts a hard ceiling on how big the business can get, because there are only so many hours in your week. A virtual assistant lifts that ceiling. It converts your time from the constraint into the strategy — and it does so affordably enough that you can start today and scale it exactly as fast as your growth allows.',
+      'That is the quiet reason virtual assistants have become standard equipment for modern small businesses. They are not just a way to save money on admin. They are how a capable owner stops being the bottleneck and starts building something bigger than themselves — one delegated task at a time, starting at eight dollars an hour.',
+    ],
+  },
 ]
