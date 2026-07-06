@@ -103,7 +103,7 @@ export async function handleNycMaidReview(
 
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id, team_member_id, team_members(name)')
+    .select('id, client_id, team_member_id, team_members!bookings_team_member_id_fkey(name)')
     .eq('id', prompt.booking_id)
     .eq('tenant_id', tenantId)
     .maybeSingle()

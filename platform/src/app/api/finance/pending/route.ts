@@ -11,7 +11,7 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, price, team_member_pay, actual_hours, payment_status, team_member_paid, clients(name), team_members(name)')
+      .select('id, start_time, price, team_member_pay, actual_hours, payment_status, team_member_paid, clients(name), team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .or('payment_status.neq.paid,team_member_paid.is.null,team_member_paid.eq.false')

@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, clients(name, phone), team_members(name, phone)')
+        .select('id, start_time, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .lte('start_time', tenMinAgo.toISOString())
@@ -116,7 +116,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateCheckouts } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members(name, phone)')
+        .select('id, start_time, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
         .not('fifteen_min_alert_time', 'is', null)

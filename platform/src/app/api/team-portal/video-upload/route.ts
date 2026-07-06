@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, team_member_id, start_time, service_type, clients(name), team_members(name)')
+        .select('id, team_member_id, start_time, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
         .eq('id', booking_id)
         .eq('tenant_id', auth.tid)
         .single()
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, team_member_id, start_time, service_type, clients(name), team_members(name)')
+      .select('id, team_member_id, start_time, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
       .eq('tenant_id', auth.tid)
       .single()

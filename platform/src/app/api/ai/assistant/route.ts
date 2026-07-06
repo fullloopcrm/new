@@ -188,7 +188,7 @@ async function executeTool(name: string, input: Record<string, unknown>, tenantI
     case 'query_bookings': {
       let query = supabaseAdmin
         .from('bookings')
-        .select('id, start_time, end_time, status, price, payment_status, notes, service_type_id, schedule_id, clients(name), team_members(name)')
+        .select('id, start_time, end_time, status, price, payment_status, notes, service_type_id, schedule_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .order('start_time', { ascending: true })
 
@@ -258,7 +258,7 @@ async function executeTool(name: string, input: Record<string, unknown>, tenantI
 
       const { data, error } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, end_time, status, price, clients(name, address), team_members(name)')
+        .select('id, start_time, end_time, status, price, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .gte('start_time', `${date}T00:00:00`)
         .lte('start_time', `${dateTo}T23:59:59`)
@@ -280,7 +280,7 @@ async function executeTool(name: string, input: Record<string, unknown>, tenantI
 
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, status, price, payment_status, team_members(name)')
+        .select('id, start_time, status, price, payment_status, team_members!bookings_team_member_id_fkey(name)')
         .eq('client_id', input.client_id as string)
         .eq('tenant_id', tenantId)
         .order('start_time', { ascending: false })

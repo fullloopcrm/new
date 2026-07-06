@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members(name, pay_rate)')
+      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
       .eq('id', bookingId)
       .single()
 

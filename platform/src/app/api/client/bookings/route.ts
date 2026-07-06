@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 
   const { data: upcoming } = await supabaseAdmin
     .from('bookings')
-    .select('*, team_members(name)')
+    .select('*, team_members!bookings_team_member_id_fkey(name)')
     .eq('tenant_id', tenant.id)
     .in('client_id', clientIds)
     .gte('start_time', now)
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
 
   const { data: past } = await supabaseAdmin
     .from('bookings')
-    .select('*, team_members(name)')
+    .select('*, team_members!bookings_team_member_id_fkey(name)')
     .eq('tenant_id', tenant.id)
     .in('client_id', clientIds)
     .lt('start_time', now)

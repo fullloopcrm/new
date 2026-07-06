@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, clients(id, name, address), team_members(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
+        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
         .eq('tenant_id', tenantId)
         .gte('start_time', todayStr + 'T00:00:00')
         .lte('start_time', toDateStr(endDate) + 'T23:59:59')
@@ -182,7 +182,7 @@ export async function GET(request: Request) {
         // no_show — scheduled, past end_time, never checked in.
         const { data: noShows } = await supabaseAdmin
           .from('bookings')
-          .select('id, team_member_id, clients(name), team_members(name)')
+          .select('id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId).eq('status', 'scheduled')
           .lte('end_time', nowT.toISOString()).gte('start_time', todayStr + 'T00:00:00').is('check_in_time', null)
         for (const b of noShows || []) {
@@ -211,7 +211,7 @@ export async function GET(request: Request) {
         const twoDayIso = new Date(nowT.getTime() - 48 * 60 * 60 * 1000).toISOString()
         const { data: unpaidCleaner } = await supabaseAdmin
           .from('bookings')
-          .select('id, team_member_id, clients(name), team_members(name)')
+          .select('id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId).eq('status', 'completed').gt('price', 0)
           .or('team_member_paid.is.null,team_member_paid.eq.false').lte('end_time', twoDayIso)
         for (const b of unpaidCleaner || []) {

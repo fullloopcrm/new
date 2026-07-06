@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, team_member_id, referrer_id, client_id, clients(name, address), team_members(pay_rate)')
+    .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()

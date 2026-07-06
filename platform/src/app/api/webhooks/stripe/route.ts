@@ -336,7 +336,7 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()

@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
   }
 
   const tenantId = tenant.tenantId
-  const sel = 'id, start_time, end_time, team_member_id, clients(id, name, address, latitude, longitude), team_members(id, name, has_car)'
+  const sel = 'id, start_time, end_time, team_member_id, clients(id, name, address, latitude, longitude), team_members!bookings_team_member_id_fkey(id, name, has_car)'
 
   if (date) {
     const { data: bookings } = await supabaseAdmin

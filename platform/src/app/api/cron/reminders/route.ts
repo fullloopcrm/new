@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 
           const { data: bookings } = await supabaseAdmin
             .from('bookings')
-            .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email), team_members(name, phone, email)')
+            .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
             .eq('tenant_id', tenantId)
             .in('status', ['scheduled', 'confirmed'])
             .gte('start_time', target.toISOString())
@@ -194,7 +194,7 @@ export async function GET(request: Request) {
 
       const { data: hourBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email), team_members(name, phone)')
+        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .gte('start_time', hourWindowStart.toISOString())
@@ -270,7 +270,7 @@ export async function GET(request: Request) {
 
       const { data: endingSoon } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, start_time, end_time, hourly_rate, clients(name), team_members(name)')
+        .select('id, client_id, start_time, end_time, hourly_rate, clients(name), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
         .gte('end_time', payWindowStart.toISOString())
@@ -469,7 +469,7 @@ export async function GET(request: Request) {
 
         const { data: todayBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, start_time, end_time, price, payment_status, service_type, clients(name), team_members(name)')
+          .select('id, start_time, end_time, price, payment_status, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .gte('start_time', todayStart.toISOString())
           .lte('start_time', todayEnd.toISOString())
@@ -479,7 +479,7 @@ export async function GET(request: Request) {
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, start_time, end_time, price, service_type, clients(name), team_members(name)')
+          .select('id, start_time, end_time, price, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .gte('start_time', tomorrowStart.toISOString())
           .lte('start_time', tomorrowEnd.toISOString())

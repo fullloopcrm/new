@@ -33,7 +33,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const { data: oldBooking } = await supabaseAdmin
     .from('bookings')
-    .select('*, clients(*), team_members(*)')
+    .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
     .eq('id', id)
     .eq('tenant_id', tenant.id)
     .single()
@@ -55,7 +55,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     })
     .eq('id', id)
     .eq('tenant_id', tenant.id)
-    .select('*, clients(*), team_members(*)')
+    .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
     .single()
   if (error || !updated) return NextResponse.json({ error: error?.message || 'Update failed' }, { status: 500 })
 
