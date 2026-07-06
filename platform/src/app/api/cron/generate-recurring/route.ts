@@ -199,8 +199,32 @@ export async function GET(request: Request) {
       })
     }
 
-    await supabaseAdmin.from('bookings').insert(bookings)
-    totalGenerated += bookings.length
+    // The fn_block_booking_overlap trigger fires BEFORE INSERT. A single
+    // overlapping occurrence aborts the WHOLE batch statement, so a batch insert
+    // could silently drop every occurrence for this schedule. Check the error and,
+    // on failure, fall back to per-row inserts so non-conflicting occurrences still
+    // land — and surface the ones that couldn't instead of reporting a false count.
+    const { error: batchErr } = await supabaseAdmin.from('bookings').insert(bookings)
+    if (!batchErr) {
+      totalGenerated += bookings.length
+    } else {
+      let inserted = 0
+      const skipped: string[] = []
+      for (const row of bookings) {
+        const { error: rowErr } = await supabaseAdmin.from('bookings').insert(row)
+        if (rowErr) skipped.push(String(row.start_time)); else inserted++
+      }
+      totalGenerated += inserted
+      if (skipped.length > 0) {
+        await supabaseAdmin.from('notifications').insert({
+          type: 'recurring_generation_conflict',
+          title: 'cron:generate-recurring skipped occurrences',
+          message: `schedule ${schedule.id}: ${skipped.length} occurrence(s) skipped (overlap/insert error) — needs manual scheduling`,
+          channel: 'system',
+          recipient_type: 'admin',
+        }).then(() => {}, () => {})
+      }
+    }
   }
 
   // Health-monitor marker.
