@@ -58,6 +58,20 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     (selena && typeof selena['agent_name'] === 'string' && selena['agent_name']) ||
     defaultConfig.agent.name
 
+  // Geo comes from the tenant's declared service_areas, not a hardcoded NYC
+  // default. A national/remote business (service_areas includes "United States"
+  // / "Nationwide") should never render as "New York City". Falls back to the
+  // neutral default when the tenant has not declared areas.
+  const areas: string[] = Array.isArray(selena?.['service_areas'])
+    ? (selena!['service_areas'] as unknown[]).filter((a): a is string => typeof a === 'string')
+    : []
+  const isNational = areas.some((a) => /united states|nationwide|\bnational\b|\bu\.?s\.?a?\b/i.test(a))
+  const geo: SiteConfig['geo'] = isNational
+    ? { region: 'US', placename: 'the United States', lat: 39.8283, lng: -98.5795 }
+    : areas.length > 0
+      ? { ...defaultConfig.geo, placename: areas[0] }
+      : defaultConfig.geo
+
   return {
     identity: {
       name,
@@ -74,7 +88,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       supportPhone,
       supportPhoneDigits,
     },
-    geo: defaultConfig.geo,
+    geo,
     theme: {
       primary: str(tenant, 'primary_color') ?? defaultConfig.theme.primary,
       primaryAlt: defaultConfig.theme.primaryAlt,

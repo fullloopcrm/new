@@ -10,6 +10,14 @@ export interface IndustryProfile {
   key: string
   /** True for cleaning/maid tenants — content generators keep legacy copy. */
   isCleaning: boolean
+  /**
+   * True for virtual-assistant tenants. These are remote + national, so they get
+   * a dedicated landing (VirtualAssistantLanding) rather than the local-trade
+   * GenericLanding, and skip geo/address/"licensed & insured" framing.
+   */
+  isVirtualAssistant: boolean
+  /** True for remote verticals (no service address, not geo-local). */
+  isRemote: boolean
   /** Title-case service label, e.g. "House Cleaning", "Plumbing", "Home Services". */
   serviceLabel: string
   /** Lowercase noun for mid-sentence use, e.g. "plumbing", "home services". */
@@ -19,9 +27,15 @@ export interface IndustryProfile {
 export function industryProfile(industry?: string | null): IndustryProfile {
   const key = (industry || '').toLowerCase()
   const isCleaning = key.includes('clean') || key.includes('maid')
+  const isVirtualAssistant =
+    key.includes('virtual assist') ||
+    key.includes('virtual-assist') ||
+    key === 'va' ||
+    key.includes('assistant')
 
   let serviceLabel = 'Home Services'
   if (isCleaning) serviceLabel = 'House Cleaning'
+  else if (isVirtualAssistant) serviceLabel = 'Virtual Assistant Services'
   else if (key.includes('plumb')) serviceLabel = 'Plumbing'
   else if (key.includes('hvac')) serviceLabel = 'HVAC'
   else if (key.includes('electric')) serviceLabel = 'Electrical'
@@ -34,5 +48,12 @@ export function industryProfile(industry?: string | null): IndustryProfile {
   else if (key.includes('laundry') || key.includes('wash')) serviceLabel = 'Laundry & Wash'
   else if (key.includes('handyman') || key.includes('repair')) serviceLabel = 'Handyman Services'
 
-  return { key, isCleaning, serviceLabel, serviceNoun: serviceLabel.toLowerCase() }
+  return {
+    key,
+    isCleaning,
+    isVirtualAssistant,
+    isRemote: isVirtualAssistant,
+    serviceLabel,
+    serviceNoun: serviceLabel.toLowerCase(),
+  }
 }

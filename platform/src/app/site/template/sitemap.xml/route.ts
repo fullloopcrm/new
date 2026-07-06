@@ -4,6 +4,9 @@ import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { BLOG_POSTS } from '@/app/site/template/_lib/seo/blog-data'
 import { pickLifestylePhoto, pickTeamPhoto, pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
+import { VA_SERVICES } from '@/app/site/template/_data/va-services'
+import { ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
 
 // Reads the tenant from request headers (getSiteConfig) to emit their real
 // domain, so it must render dynamically — a static route reading headers() 500s
@@ -28,6 +31,33 @@ export async function GET() {
   const BASE_URL = config.identity.url.replace(/\/+$/, '')
   const absoluteImageUrl = (path: string): string => `${BASE_URL}${path}`
   const now = new Date().toISOString()
+
+  // Virtual-assistant tenants get a national VA sitemap (services + geo hubs).
+  // The 1,500 geo×service combos are noindex, so they are intentionally excluded.
+  if (industryProfile(config.industry).isVirtualAssistant) {
+    const vaUrls: { loc: string; pri: string; freq: string }[] = [
+      { loc: BASE_URL, pri: '1.0', freq: 'weekly' },
+      { loc: `${BASE_URL}/virtual-assistant-services`, pri: '0.9', freq: 'weekly' },
+      ...VA_SERVICES.map((s) => ({ loc: `${BASE_URL}/virtual-assistant-services/${s.slug}`, pri: '0.8', freq: 'weekly' })),
+      ...ALL_LOCATIONS.map((l) => ({ loc: `${BASE_URL}/virtual-assistant/${l.slug}`, pri: '0.7', freq: 'weekly' })),
+    ]
+    const vaXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${vaUrls
+  .map(
+    (u) => `  <url>
+    <loc>${u.loc}</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>${u.freq}</changefreq>
+    <priority>${u.pri}</priority>
+  </url>`,
+  )
+  .join('\n')}
+</urlset>`
+    return new Response(vaXml, {
+      headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=3600, s-maxage=3600' },
+    })
+  }
 
   interface ImageEntry { loc: string; title?: string; caption?: string }
   const urls: { loc: string; lastmod: string; changefreq: string; priority: string; images?: ImageEntry[] }[] = []
