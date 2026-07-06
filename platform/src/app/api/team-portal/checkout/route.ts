@@ -25,13 +25,33 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
+    .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
 
   if (!booking || booking.team_member_id !== auth.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  // Resolve the service's pricing model. ONLY hourly services recompute the
+  // client price from elapsed time; flat/per-unit keep the price fixed at
+  // booking/quote time. (NYC Maid = all hourly → path below is unchanged.)
+  let pricingModel = 'hourly'
+  let servicePriceCents: number | null = null
+  let minChargeCents: number | null = null
+  if (booking.service_type_id) {
+    const { data: st } = await supabaseAdmin
+      .from('service_types')
+      .select('pricing_model, price_cents, min_charge_cents')
+      .eq('id', booking.service_type_id as string)
+      .eq('tenant_id', auth.tid)
+      .single()
+    if (st) {
+      pricingModel = (st.pricing_model as string) || 'hourly'
+      servicePriceCents = (st.price_cents as number | null) ?? null
+      minChargeCents = (st.min_charge_cents as number | null) ?? null
+    }
   }
 
   // Compute the bill at checkout (the 30-min alert + Stripe webhook rely on these
@@ -63,7 +83,18 @@ export async function POST(request: Request) {
     const clientRate = (booking.hourly_rate as number) || 69
     const teamSize = Math.max(1, (booking.team_size as number) || 1)
     teamMemberPayCents = Math.round(billableCleaner * cleanerRate * 100)
-    updatedPriceCents = Math.round(billableClient * clientRate * teamSize * 100)
+    if (pricingModel === 'hourly') {
+      // Time-and-materials: actual hours × rate × crew (NYC Maid path, unchanged).
+      updatedPriceCents = Math.round(billableClient * clientRate * teamSize * 100)
+    } else {
+      // Flat / per-unit: price was fixed at booking/quote time — elapsed hours
+      // must NOT rewrite it. Fall back to the service's configured price.
+      updatedPriceCents = (booking.price as number) ?? servicePriceCents ?? updatedPriceCents
+    }
+    // Minimum-charge floor (no-op for hourly cleaning where min_charge is unset).
+    if (minChargeCents && updatedPriceCents != null && updatedPriceCents < minChargeCents) {
+      updatedPriceCents = minChargeCents
+    }
   }
 
   const { data, error } = await supabaseAdmin
