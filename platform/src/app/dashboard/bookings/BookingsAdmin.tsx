@@ -155,7 +155,7 @@ function SuggestionStrip({ suggestions, onPick, variant }: { suggestions: SlotSu
 function BookingsPage() {
   const searchParams = useSearchParams()
   const worker = useWorkerLabel()
-  useEffect(() => { document.title = 'Bookings | The NYC Maid' }, []);
+  useEffect(() => { document.title = 'Bookings' }, []);
   const formatPhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
     if (cleaned.length <= 3) return cleaned
