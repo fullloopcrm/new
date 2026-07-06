@@ -9,6 +9,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
+import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 
 function monthStart(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)) }
 function monthEnd(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0, 23, 59, 59)) }
@@ -25,6 +26,14 @@ export async function GET(request: Request) {
     const toTs = `${to}T23:59:59Z`
     const entityId = entityIdFromUrl(url)
 
+    // Ledger is now the source of truth (validated to the cent against real
+    // data). It also fixes the raw path's cents/dollars ×100 revenue bug.
+    // Raw is retained only as an explicit `?source=raw` escape hatch.
+    if (url.searchParams.get('source') !== 'raw') {
+      const pnl = await ledgerProfitAndLoss(tenantId, from, to, entityId)
+      return NextResponse.json(pnl)
+    }
+
     // Revenue: paid bookings in window (by payment_date), or completed bookings with price
     let bookingsQ = supabaseAdmin
       .from('bookings')
@@ -40,8 +49,8 @@ export async function GET(request: Request) {
     let bookingsCount = 0
     let unpaidCents = 0
     for (const b of bookings || []) {
-      const priceCents = Math.round(Number(b.price || 0) * 100)
-      const payCents = Math.round(Number(b.team_member_pay || 0) * 100)
+      const priceCents = Math.round(Number(b.price || 0)) // already cents
+      const payCents = Math.round(Number(b.team_member_pay || 0)) // already cents
       if (b.payment_status === 'paid' || b.payment_status === 'partial') {
         revenueCents += priceCents
         bookingsCount += 1

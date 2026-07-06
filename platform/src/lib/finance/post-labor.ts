@@ -10,9 +10,11 @@
  *
  * Posting (cash-basis):
  *   DR 5000/5010 Labor   (amount + tip passed through)
- *     CR 1010 Operating Checking
- * Tip passthrough nets against the 4100 Tips income booked on the payment, so
- * pass-through tips wash out on the P&L.
+ *     CR 2450 Payouts in Transit   (clearing)
+ * The bank-withdrawal match later moves 2450 → 1010 (bank), so the payout is
+ * symmetric with revenue's 1050 clearing and can't be double-counted when the
+ * bank line is categorized. Tip passthrough nets against the 4100 Tips income
+ * booked on the payment, so pass-through tips wash out on the P&L.
  *
  * Idempotent by (source, source_id): 'payout' for Stripe/auto payouts,
  * 'payroll' for manual payroll runs. Safe to call from multiple sites + backfill.
@@ -68,15 +70,15 @@ async function postLabor(opts: {
   }
   if (amountCents <= 0) return { posted: false, reason: 'zero_amount' }
 
-  const [laborAcct, cashAcct] = await Promise.all([
+  const [laborAcct, transitAcct] = await Promise.all([
     laborAccountId(tenantId, teamMemberId),
-    getAccountIdByCode(tenantId, '1010'),
+    getAccountIdByCode(tenantId, '2450'),
   ])
-  if (!laborAcct || !cashAcct) return { posted: false, reason: 'accounts_missing' }
+  if (!laborAcct || !transitAcct) return { posted: false, reason: 'accounts_missing' }
 
   const lines: JournalLineInput[] = [
     { coa_id: laborAcct, debit_cents: amountCents, memo },
-    { coa_id: cashAcct, credit_cents: amountCents, memo },
+    { coa_id: transitAcct, credit_cents: amountCents, memo },
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,

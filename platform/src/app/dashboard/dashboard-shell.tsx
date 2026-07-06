@@ -50,7 +50,8 @@ const navMain: Array<{
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
   ]},
   { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
-    { letter: 'A', label: 'Crews', href: '/dashboard/jobs/crews' },
+    { letter: 'A', label: 'Calendar', href: '/dashboard/calendar' },
+    { letter: 'B', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
   { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
   { num: '06', label: 'HR', href: '/dashboard/hr', fold: 'hr', perm: 'team.view', subs: [
@@ -74,8 +75,8 @@ const navMain: Array<{
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/schedules'],
-  production: ['/dashboard/jobs', '/dashboard/jobs/crews'],
+  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/bookings', '/dashboard/schedules'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/calendar'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   hr: ['/dashboard/hr', '/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],

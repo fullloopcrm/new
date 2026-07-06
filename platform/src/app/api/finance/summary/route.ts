@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 
 export async function GET() {
   try {
@@ -37,15 +38,24 @@ export async function GET() {
     const sumPaidLabor = (arr: { team_member_pay?: number | null; team_member_paid?: boolean | null }[] | null) =>
       (arr || []).filter(b => b.team_member_paid).reduce((s, b) => s + (b.team_member_pay || 0), 0)
 
-    const weekRevenue = sum(weekBookings, 'price')
+    // Revenue from the LEDGER (single source of truth, matches the books).
+    // Labor stays from bookings — it's operational owed/paid tracking.
+    const d = (x: Date) => x.toISOString().slice(0, 10)
+    const [ledgerWeek, ledgerMonth, ledgerYear] = await Promise.all([
+      ledgerProfitAndLoss(tenantId, d(weekStart), d(weekEnd)),
+      ledgerProfitAndLoss(tenantId, d(monthStart), d(monthEnd)),
+      ledgerProfitAndLoss(tenantId, d(yearStart), d(yearEnd)),
+    ])
+
+    const weekRevenue = ledgerWeek.revenue_cents
     const weekLabor = sum(weekBookings, 'team_member_pay')
     const weekLaborPaid = sumPaidLabor(weekBookings)
 
-    const monthRevenue = sum(monthBookings, 'price')
+    const monthRevenue = ledgerMonth.revenue_cents
     const monthLabor = sum(monthBookings, 'team_member_pay')
     const monthLaborPaid = sumPaidLabor(monthBookings)
 
-    const yearRevenue = sum(yearBookings, 'price')
+    const yearRevenue = ledgerYear.revenue_cents
     const yearLabor = sum(yearBookings, 'team_member_pay')
     const yearLaborPaid = sumPaidLabor(yearBookings)
 
@@ -53,15 +63,15 @@ export async function GET() {
     const pendingCleanerPayments = (pendingBookings || []).filter(b => !b.team_member_paid).reduce((s, b) => s + (b.team_member_pay || 0), 0)
 
     const [{ data: monthCommissions }, { data: yearCommissions }, { data: cleanerPayroll }, { data: monthStripePayments }, { data: monthPayouts }] = await Promise.all([
-      supabaseAdmin.from('referral_commissions').select('commission_amount').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
-      supabaseAdmin.from('referral_commissions').select('commission_amount').eq('tenant_id', tenantId).gte('created_at', yearStart.toISOString()).lte('created_at', yearEnd.toISOString()),
+      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
+      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', yearStart.toISOString()).lte('created_at', yearEnd.toISOString()),
       supabaseAdmin.from('bookings').select('team_member_id, team_member_pay, team_members(name)').eq('tenant_id', tenantId).eq('status', 'completed').or('team_member_paid.is.null,team_member_paid.eq.false').not('team_member_pay', 'is', null),
-      supabaseAdmin.from('payments').select('amount, tip, method').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
-      supabaseAdmin.from('team_member_payouts').select('amount, instant').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
+      supabaseAdmin.from('payments').select('amount_cents, tip_cents, method').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
+      supabaseAdmin.from('team_member_payouts').select('amount_cents, instant').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
     ])
 
-    const monthReferralCommissions = (monthCommissions || []).reduce((s, c) => s + (c.commission_amount || 0), 0)
-    const yearReferralCommissions = (yearCommissions || []).reduce((s, c) => s + (c.commission_amount || 0), 0)
+    const monthReferralCommissions = (monthCommissions || []).reduce((s, c) => s + (c.commission_cents || 0), 0)
+    const yearReferralCommissions = (yearCommissions || []).reduce((s, c) => s + (c.commission_cents || 0), 0)
 
     const cleanerTotals: Record<string, { name: string; total: number; count: number }> = {}
     for (const b of cleanerPayroll || []) {
@@ -73,12 +83,12 @@ export async function GET() {
     }
 
     const allPayments = monthStripePayments || []
-    const stripeCollected = allPayments.reduce((s, p) => s + (p.amount || 0), 0)
-    const monthTips = allPayments.reduce((s, p) => s + (p.tip || 0), 0)
-    const monthZelle = allPayments.filter(p => p.method === 'zelle').reduce((s, p) => s + (p.amount || 0), 0)
-    const monthVenmo = allPayments.filter(p => p.method === 'venmo').reduce((s, p) => s + (p.amount || 0), 0)
-    const monthStripe = allPayments.filter(p => p.method === 'stripe').reduce((s, p) => s + (p.amount || 0), 0)
-    const stripePaidOut = (monthPayouts || []).reduce((s, p) => s + (p.amount || 0), 0)
+    const stripeCollected = allPayments.reduce((s, p) => s + (p.amount_cents || 0), 0)
+    const monthTips = allPayments.reduce((s, p) => s + (p.tip_cents || 0), 0)
+    const monthZelle = allPayments.filter(p => p.method === 'zelle').reduce((s, p) => s + (p.amount_cents || 0), 0)
+    const monthVenmo = allPayments.filter(p => p.method === 'venmo').reduce((s, p) => s + (p.amount_cents || 0), 0)
+    const monthStripe = allPayments.filter(p => p.method === 'stripe').reduce((s, p) => s + (p.amount_cents || 0), 0)
+    const stripePaidOut = (monthPayouts || []).reduce((s, p) => s + (p.amount_cents || 0), 0)
     const instantPayouts = (monthPayouts || []).filter(p => p.instant).length
     const totalPayouts = (monthPayouts || []).length
 

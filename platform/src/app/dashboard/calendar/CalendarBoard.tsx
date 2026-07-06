@@ -500,6 +500,14 @@ export default function CalendarBoard() {
         <style>{`
           .fc .fc-icon-chevron-left::before { content: '\\2039' !important; }
           .fc .fc-icon-chevron-right::before { content: '\\203A' !important; }
+          /* Compact, clean toolbar buttons — no oversized dark blocks. */
+          .fc .fc-toolbar.fc-header-toolbar { margin-bottom: 10px !important; }
+          .fc .fc-button { height: 34px !important; min-width: 0 !important; padding: 0 12px !important; font-size: 13px !important; line-height: 1 !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; box-shadow: none !important; border-radius: 8px !important; background: #334155 !important; border-color: #334155 !important; text-transform: capitalize !important; }
+          .fc .fc-button:hover { background: #1e293b !important; border-color: #1e293b !important; }
+          .fc .fc-button:focus { box-shadow: none !important; }
+          .fc .fc-button-primary:not(:disabled).fc-button-active { background: #0d9488 !important; border-color: #0d9488 !important; }
+          .fc .fc-prev-button, .fc .fc-next-button { padding: 0 10px !important; }
+          .fc .fc-prev-button .fc-icon, .fc .fc-next-button .fc-icon { font-size: 20px !important; width: auto !important; height: auto !important; line-height: 1 !important; }
           .fc-daygrid-day-number { font-size: 12px !important; font-weight: 600 !important; padding: 2px 4px !important; color: #666 !important; }
           .fc-daygrid-day-events { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 1px !important; padding: 0 2px !important; }
           .fc-daygrid-event-harness { margin-top: 0 !important; margin-bottom: 0 !important; min-width: 0 !important; }

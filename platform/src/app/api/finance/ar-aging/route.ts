@@ -83,7 +83,7 @@ export async function GET(request: Request) {
     }
 
     for (const b of bookings || []) {
-      const priceCents = Math.round(Number(b.price || 0) * 100)
+      const priceCents = Math.round(Number(b.price || 0)) // price is already cents
       if (priceCents <= 0) continue
       const daysPast = b.start_time ? Math.max(0, Math.floor((today.getTime() - new Date(b.start_time as string).getTime()) / 86400000)) : 0
       const bucket = BUCKETS.find(bu => daysPast >= bu.minDays && daysPast <= bu.maxDays)?.label || 'Current'

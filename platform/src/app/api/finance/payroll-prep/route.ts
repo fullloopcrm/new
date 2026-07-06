@@ -93,7 +93,7 @@ export async function GET(request: Request) {
       if (!row) continue
       row.hours += Number(b.actual_hours) || 0
       row.jobs += 1
-      row.gross_pay_cents += Math.round(Number(b.team_member_pay || 0) * 100)
+      row.gross_pay_cents += Math.round(Number(b.team_member_pay || 0)) // already cents
     }
 
     for (const p of payouts || []) {

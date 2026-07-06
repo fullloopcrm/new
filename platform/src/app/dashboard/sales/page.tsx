@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import './sales.css'
-import CalendarBoard from '../calendar/CalendarBoard'
+import CalendarShell from '../calendar/CalendarShell'
 
 // The sales process IS the tabs, left→right. Deals move between them via the
 // stage dropdown on each card. Schedule is the calendar. (The Master Catalog is
@@ -334,7 +334,7 @@ function SalesPageInner() {
         {tab === 'leads' && <button type="button" className="sl-newlead-btn" onClick={() => setShowNewLead(true)}>+ New Lead</button>}
       </div>
 
-      {tab === 'schedule' && <CalendarBoard />}
+      {tab === 'schedule' && <CalendarShell />}
 
       {tab !== 'schedule' && (
         <>
