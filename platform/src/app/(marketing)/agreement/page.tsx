@@ -252,10 +252,11 @@ export default function AgreementPage() {
           {/* ── 10. Territory ── */}
           <h2>10. Territory</h2>
           <p>
-            Full Loop CRM does not offer exclusive territories. We may serve
-            other businesses in your market and industry. Your success depends on
-            the quality of our platform and the quality of your execution, not on
-            blocking competitors from using the same tools.
+            Full Loop CRM is licensed to one operator per trade per city. While
+            you are a partner, we will not sign another business in your trade in
+            your market &mdash; the territory is yours and off the board to
+            competitors. If you cancel, the territory is released and made
+            available to the next operator in your trade.
           </p>
 
           {/* ── 11. Communication ── */}
