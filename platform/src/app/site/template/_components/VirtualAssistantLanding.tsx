@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { CITIES } from '@/app/site/template/_data/us-locations'
+import { HOME_GUIDE } from '@/app/site/template/_data/va-home-guide'
 
 /**
  * Dedicated landing for virtual-assistant tenants. Unlike the local-trade
@@ -294,6 +295,24 @@ export default function VirtualAssistantLanding({ config }: { config: SiteConfig
               </summary>
               <p className="text-gray-500 leading-relaxed mt-3">{f.a}</p>
             </details>
+          ))}
+        </div>
+      </section>
+
+      {/* Long-form guide — SEO depth */}
+      <section className="bg-white border-t border-black/5">
+        <div className="max-w-3xl mx-auto px-6 py-16 md:py-24">
+          {HOME_GUIDE.map((g) => (
+            <article key={g.heading} className="mb-12 last:mb-0">
+              <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">
+                {g.heading}
+              </h2>
+              <div className="space-y-4">
+                {g.paragraphs.map((p, i) => (
+                  <p key={i} className="text-gray-600 leading-relaxed">{p}</p>
+                ))}
+              </div>
+            </article>
           ))}
         </div>
       </section>
