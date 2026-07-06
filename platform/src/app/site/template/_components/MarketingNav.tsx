@@ -29,7 +29,12 @@ const moreLinks = [
 export default function MarketingNav({ config }: { config: SiteConfig }) {
   // Cleaning-specific nav (services dropdown, area strip, pricing) links to
   // pages that are gated for non-cleaning tenants — hide them to avoid dead nav.
-  const isCleaning = industryProfile(config.industry).isCleaning
+  const profile = industryProfile(config.industry)
+  const isCleaning = profile.isCleaning
+  const isVa = profile.isVirtualAssistant
+  // Primary CTA label is industry-aware: the "$10 OFF self booking" promo is
+  // cleaning-specific and must not show on other trades.
+  const primaryCta = isCleaning ? 'Self Booking $10 OFF' : isVa ? 'Get an Assistant' : 'Get Started'
   const [mobileOpen, setMobileOpen] = useState(false)
   const [servicesOpen, setServicesOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -71,8 +76,9 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               </a>
             </div>
             <div className="hidden lg:flex items-center gap-4">
+              {isCleaning && (<>
               <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Pay Now</a>
-              <span className="text-white/30">|</span>
+              <span className="text-white/30">|</span></>)}
               <a href="/book" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Client Login</a>
               <span className="text-white/30">|</span>
               <a href="/referral" className="text-[var(--accent)] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Referrer Login</a>
@@ -89,6 +95,10 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
 
             <nav className="hidden lg:flex items-center justify-center flex-1 gap-8 mx-8">
               <Link href="/" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Home</Link>
+
+              {isVa && (
+              <Link href="/virtual-assistant-services" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Services</Link>
+              )}
 
               {/* Services Dropdown */}
               {isCleaning && (
@@ -143,7 +153,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                 Text {config.contact.phone}
               </a>
               <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors whitespace-nowrap">
-                Self Booking $10 OFF
+                {primaryCta}
               </Link>
             </div>
 
@@ -153,7 +163,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                 Text
               </a>
               <Link href="/book/new" className="bg-[var(--accent)] text-[var(--brand)] px-3 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
-                Self Booking $10 OFF
+                {primaryCta}
               </Link>
               <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Open navigation menu" aria-expanded={mobileOpen} className="p-2 text-[var(--brand)]">
                 <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -188,6 +198,10 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
           <div className="overflow-y-auto h-[calc(100%-72px)] px-5 py-6">
             <div className="space-y-1">
               <Link href="/" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Home</Link>
+
+              {isVa && (
+              <Link href="/virtual-assistant-services" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Services</Link>
+              )}
 
               {isCleaning && (<>
               <button onClick={() => setServicesOpen(!servicesOpen)} aria-expanded={servicesOpen} className="w-full flex items-center justify-between py-3 text-white font-medium text-lg">
@@ -229,12 +243,12 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
 
               <div className="border-t border-white/10 mt-4 pt-4 space-y-1">
                 <Link href="/book" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Client Login</Link>
-                <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Pay Now</a>
+                {isCleaning && <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Pay Now</a>}
                 {isCleaning && <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Referral Program</Link>}
               </div>
 
               <div className="border-t border-white/10 mt-4 pt-6 space-y-3 text-center">
-                <Link href="/book/new" onClick={closeMenu} className="block bg-[var(--accent)] text-[var(--brand)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Self Booking $10 OFF</Link>
+                <Link href="/book/new" onClick={closeMenu} className="block bg-[var(--accent)] text-[var(--brand)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">{primaryCta}</Link>
                 <a href={`sms:${config.contact.phoneDigits}`} className="block bg-[var(--brand)] text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase border border-white/20">Text {config.contact.phone}</a>
                 {config.contact.supportPhone && (
                   <a href={`sms:${config.contact.supportPhoneDigits}`} className="block bg-white/10 text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Text Support: {config.contact.supportPhone}</a>
