@@ -5,7 +5,7 @@ import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { getLocationBySlug, STATES, CITIES, ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
-import type { Section } from '@/app/site/template/_lib/va-content'
+import { locationHubSections } from '@/app/site/template/_lib/va-content'
 import VASeoPage, { type RelatedGroup } from '@/app/site/template/_components/VASeoPage'
 
 interface Props {
@@ -42,29 +42,7 @@ export default async function LocationHubPage({ params }: Props) {
   const where = loc.type === 'state' ? loc.name : `${loc.shortName}, ${loc.stateCode}`
   const name = config.identity.name
 
-  const sections: Section[] = [
-    {
-      heading: `Virtual Assistant Services in ${where}`,
-      paragraphs: [
-        `${name} gives businesses in ${where} a dedicated, English-speaking virtual assistant starting at $8/hour — a real professional who answers your calls, runs your admin, manages your CRM, and takes the busywork off your plate.`,
-        `We are an American-owned and American-managed company based in New York City, serving over 100 businesses across the United States. You get a U.S. company held to U.S. standards, with world-class remote talent from the Philippines doing the work.`,
-      ],
-    },
-    {
-      heading: `Why ${where} Businesses Hire a Remote Assistant`,
-      paragraphs: [
-        `Hiring in ${where} means salary, benefits, payroll tax, and a desk. A remote assistant at $8/hour delivers the same work — often more consistently — without the overhead. Every hour is tracked transparently through Quo, and the work flows straight into your tools, including FullLoop CRM.`,
-        `Whether you are a solo operator or running a growing team in ${where}, you only pay for the hours you use: pay-as-you-go at $8/hour ($50/week minimum), or a monthly plan from $320/mo.`,
-      ],
-    },
-    {
-      heading: 'What Your Assistant Can Do',
-      paragraphs: [
-        `From the front desk to the back office, our ${where} clients delegate:`,
-        ...VA_SERVICES.map((s) => `• ${s.name} — ${s.tagline}`),
-      ],
-    },
-  ]
+  const sections = locationHubSections(loc, name)
 
   const otherLocations = (loc.type === 'city' ? STATES : CITIES).slice(0, 12)
 
