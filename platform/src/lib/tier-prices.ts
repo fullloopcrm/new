@@ -1,6 +1,6 @@
 /**
  * Full Loop signup pricing — seat-based, derived from the single source of truth
- * (billing-pricing.ts): $1,000/admin/mo + $100/field-portal team member/mo, plus a
+ * (billing-pricing.ts): $2,500/admin/mo + $250/field-portal team member/mo, plus a
  * $25,000 one-time setup fee.
  *
  * Both the admin approve endpoint and the Stripe webhook derive pricing from here —

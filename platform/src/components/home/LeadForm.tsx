@@ -264,7 +264,7 @@ export default function LeadForm() {
         <p style={{ fontFamily: body, fontSize: "13px", color: C.graphite, lineHeight: 1.55 }}>
           Full Loop is built for operators investing in growth:{" "}
           <strong style={{ color: C.ink }}>$25,000 one-time setup</strong>, then{" "}
-          <strong style={{ color: C.ink }}>$1,000/mo per admin + $100/mo per team member</strong>.
+          <strong style={{ color: C.ink }}>$2,500/mo per admin + $250/mo per team member</strong>.
           It is not the cheapest option &mdash; by design.
         </p>
       </div>

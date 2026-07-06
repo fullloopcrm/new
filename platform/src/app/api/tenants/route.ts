@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       zip_code: zip_code || null,
       team_size: team_size || 'solo',
       timezone: tz,
-      // Seat-based default: 1 admin ($1,000/mo) + $25,000 setup. No tenant is born at $0.
+      // Seat-based default: 1 admin ($2,500/mo) + $25,000 setup. No tenant is born at $0.
       monthly_rate: PRICING.adminMonthly,
       setup_fee: PRICING.setupFee,
       ...(selenaConfig ? { selena_config: selenaConfig } : {}),

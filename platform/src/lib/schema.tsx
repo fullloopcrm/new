@@ -254,7 +254,7 @@ export function softwareApplicationSchema(
     "@id": "https://homeservicesbusinesscrm.com/#software",
     name: "Full Loop CRM",
     description:
-      "The only full-cycle CRM for home service businesses proven by a real business it built and operates ~99% via AI — The NYC Maid. AI lead generation, AI sales over SMS/web/email, scheduling, GPS field operations, payments, bookkeeping, reviews, and retargeting in one platform. $1,000/mo per admin + $100/mo per team member, $25,000 one-time setup.",
+      "The only full-cycle CRM for home service businesses proven by a real business it built and operates ~99% via AI — The NYC Maid. AI lead generation, AI sales over SMS/web/email, scheduling, GPS field operations, payments, bookkeeping, reviews, and retargeting in one platform. $2,500/mo per admin + $250/mo per team member, $25,000 one-time setup.",
     url: "https://homeservicesbusinesscrm.com",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",

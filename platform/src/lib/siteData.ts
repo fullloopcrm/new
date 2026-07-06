@@ -1246,15 +1246,15 @@ export const faqs = {
     },
     {
       question: "Who owns what in a Full Loop CRM partnership?",
-      answer: "100% transparent from day one. You own: your Telnyx phone number, your Resend email account, your business name/LLC, and any microsites you purchase. Full Loop owns: the CRM platform, Yinez AI, the full SEO site and domain (unless you complete the buyout), any Google Business Profiles we create, and all website code and templates.",
+      answer: "100% transparent from day one. You own everything we build for you: your full SEO website, its code and domain, every microsite, your Google Business Profile, your Telnyx phone number, your Resend email account, and your business name/LLC. Full Loop owns only the software you subscribe to — the CRM platform, Yinez AI, and the shared infrastructure it runs on.",
     },
     {
       question: "What happens if I cancel my partnership?",
-      answer: "You keep everything that's yours — your phone number (Telnyx), your email account (Resend), your business name, and any microsites you purchased. Full Loop retains the CRM platform access, the full SEO site, the Google Business Profiles, and the lead generation network. Buyout details for the full SEO site are shared with active partners.",
+      answer: "You keep everything we built for you — your full SEO website, its code and domain, your microsites, your Google Business Profile, your phone number (Telnyx), your email account (Resend), and your business name. There's no buyout: it's already yours. The only thing that ends is access to the CRM platform and Yinez AI.",
     },
     {
       question: "Can I buy the full SEO site that Full Loop builds for my business?",
-      answer: "Yes. The full Next.js SEO site is included in your partnership — you get all the leads it generates exclusively. If you want to own the site and domain outright, the buyout starts at $25,000 in year one and increases $10,000 annually to reflect the SEO value invested. Year 2: $35K. Year 3: $45K. Year 5: $65K. Once purchased, the site and domain are 100% yours.",
+      answer: "There's nothing to buy — it's already yours. The full Next.js SEO site, its code, and its domain are included in your partnership and owned by you from day one. You get all the leads it generates exclusively, and if you ever cancel, the site and domain go with you. No buyout, ever.",
     },
     {
       question: "Can Full Loop CRM replace Jobber, Housecall Pro, or ServiceTitan?",

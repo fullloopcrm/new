@@ -67,19 +67,19 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "How much does Full Loop CRM cost?",
-    answer: <span>$1,000/mo per admin seat + $100/mo per field team member. Every feature, no tiers, no upgrades, no caps. Solo operator at $1,000/mo, operator + 5-person crew at $1,500/mo, operator + 10 at $2,000/mo. Every operator gets the complete platform — CRM, Yinez AI, custom website, SEO, GPS team portal, e-signature, route optimization, full bookkeeping with 1099-ready exports, hiring pages, reviews, referrals. $25,000 one-time setup &amp; onboarding. No contracts, cancel anytime. Full details on our <L href="/full-loop-crm-pricing">pricing page</L>.</span>,
+    answer: <span>$2,500/mo per admin seat + $250/mo per field team member. Every feature, no tiers, no upgrades, no caps. Solo operator at $2,500/mo, operator + 5-person crew at $3,750/mo, operator + 10 at $5,000/mo. Every operator gets the complete platform — CRM, Yinez AI, custom website, SEO, GPS team portal, e-signature, route optimization, full bookkeeping with 1099-ready exports, hiring pages, reviews, referrals. $25,000 one-time setup &amp; onboarding. You own everything we build. No contracts, cancel anytime. Full details on our <L href="/full-loop-crm-pricing">pricing page</L>.</span>,
   },
   {
     question: "Who owns what in a Full Loop CRM partnership?",
-    answer: <span>100% transparent from day one. You own: your Telnyx phone number, your Resend email account, your business name/LLC, and any $500 microsites you purchase. Full Loop owns: the CRM platform, Yinez AI, the full SEO site and domain (unless you complete the buyout), any Google Business Profiles we create, and all website code and templates. Everything is detailed in the partnership agreement before you sign. No surprises. No fine print.</span>,
+    answer: <span>100% transparent from day one. You own everything we build for you: your full SEO website, its code and domain, every microsite, your Google Business Profile, your Telnyx phone number, your Resend email account, and your business name/LLC. Full Loop owns only the software you subscribe to — the CRM platform, Yinez AI, and the shared infrastructure it runs on. Everything is detailed in the partnership agreement before you sign. No surprises. No fine print.</span>,
   },
   {
     question: "What happens if I cancel my partnership?",
-    answer: <span>You keep everything that&apos;s yours — your phone number (Telnyx), your email account (Resend), your business name, and any microsites you purchased for $500 each. Full Loop retains the CRM platform access, the full SEO site, the Google Business Profiles, and the lead generation network. If you want to take the full SEO site with you, the buyout price starts at $25,000 and increases $10,000 per year of accrued SEO value. The territory opens up for a new partner.</span>,
+    answer: <span>You keep everything we built for you — your full SEO website, its code and domain, your microsites, your Google Business Profile, your phone number (Telnyx), your email account (Resend), and your business name. There&apos;s no buyout: it&apos;s already yours. The only thing that ends is your access to the CRM platform and Yinez AI. The territory opens up for a new partner.</span>,
   },
   {
     question: "Can I buy the full SEO site that Full Loop builds for my business?",
-    answer: <span>Yes. The full Next.js SEO site is included in your partnership — you get all the leads it generates exclusively. If you want to own the site and domain outright, the buyout starts at $25,000 in year one and increases $10,000 annually to reflect the SEO value we&apos;ve invested. Year 2: $35K. Year 3: $45K. Year 5: $65K. Once purchased, the site and domain are 100% yours.</span>,
+    answer: <span>There&apos;s nothing to buy — it&apos;s already yours. The full Next.js SEO site, its code, and its domain are included in your partnership and owned by you from day one. You get all the leads it generates exclusively, and if you ever cancel, the site and domain go with you. No buyout, ever.</span>,
   },
   {
     question: "Can Full Loop CRM replace Jobber, Housecall Pro, or ServiceTitan?",

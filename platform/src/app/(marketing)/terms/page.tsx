@@ -50,7 +50,7 @@ export default function TermsPage() {
             Terms of Service
           </h1>
           <p className="text-slate-300">
-            Last updated: March 9, 2026
+            Last updated: July 6, 2026
           </p>
         </div>
       </section>
@@ -79,46 +79,52 @@ export default function TermsPage() {
             geographic city. Partnership terms include:
           </p>
           <ul>
-            <li>Monthly fee of $1,000 per admin + $100 per team member, billed monthly (no tiers)</li>
+            <li>Monthly fee of $2,500 per admin + $250 per team member, billed monthly (no tiers)</li>
             <li>One-time setup &amp; onboarding fee of $25,000</li>
-            <li>90-day minimum commitment</li>
-            <li>Month-to-month after the initial 90 days</li>
+            <li>Month-to-month from day one &mdash; no minimum commitment, no lock-in</li>
+            <li>Cancel anytime; you keep everything we built for you, website included</li>
             <li>30-day written notice required for cancellation</li>
           </ul>
 
           <h2>4. Ownership &amp; Intellectual Property</h2>
           <h3>You Own:</h3>
           <ul>
+            <li>Your full SEO website, its code, and its domain</li>
+            <li>Every microsite we build for you ($500 each)</li>
+            <li>Google Business Profiles created for you</li>
             <li>Your Telnyx phone account and number</li>
             <li>Your Resend email account</li>
             <li>Your business name and LLC</li>
-            <li>Any microsites you purchase ($500 each)</li>
-            <li>Your customer data (exportable upon request)</li>
+            <li>Your customer data (exportable anytime)</li>
           </ul>
+          <p>
+            Everything we build for you is yours from day one, at no extra
+            charge. If you cancel, all of it stays with you.
+          </p>
           <h3>Full Loop Owns:</h3>
           <ul>
-            <li>The CRM platform and Yinez AI engine</li>
-            <li>The full SEO site and domain (unless buyout is completed)</li>
-            <li>Google Business Profiles created by Full Loop</li>
-            <li>All website code, templates, and SEO architecture</li>
+            <li>The CRM software platform and the Yinez AI engine</li>
+            <li>The shared platform infrastructure</li>
+            <li>The reusable code library and templates our tools are built from</li>
           </ul>
 
-          <h2>5. SEO Site Buyout</h2>
+          <h2>5. Website Ownership</h2>
           <p>
-            Partners may purchase their full SEO site and domain at the
-            following schedule: Year 1 — $25,000; Year 2 — $35,000; Year 3 —
-            $45,000; Year 4 — $55,000; Year 5+ — $65,000. The increasing
-            price reflects the compounding SEO value of aged domains,
-            backlink profiles, and organic rankings.
+            Your website is yours &mdash; free, from day one. There is no buyout
+            and no ownership schedule. While you are a partner, Full Loop builds,
+            hosts, optimizes, and manages the site. If you cancel, the site, its
+            code, and its domain transfer to you at no charge.
           </p>
 
           <h2>6. Cancellation &amp; Data Export</h2>
           <p>Upon cancellation, you retain:</p>
           <ul>
+            <li>Your full SEO website, its code, and its domain</li>
+            <li>All microsites we built for you</li>
+            <li>Your Google Business Profile</li>
             <li>Your phone number (Telnyx account)</li>
             <li>Your email account (Resend account)</li>
             <li>Your business name and LLC</li>
-            <li>Any microsites purchased</li>
             <li>Exported customer list and job history (CSV format)</li>
           </ul>
           <p>

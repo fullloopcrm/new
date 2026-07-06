@@ -78,7 +78,7 @@ export default function AgreementPage() {
             <strong>Setup fee:</strong> $25,000 one-time (setup &amp; onboarding).
           </p>
           <p>
-            <strong>Monthly subscription:</strong> $1,000 per admin / month + $100 per team member / month.
+            <strong>Monthly subscription:</strong> $2,500 per admin / month + $250 per team member / month.
             No tiers, no feature gates, no revenue caps. Every operator on every
             team size gets the complete platform. Add a seat in your Team page
             and the next monthly invoice picks up the additional charge. Remove
@@ -135,54 +135,49 @@ export default function AgreementPage() {
           {/* ── 3. What You Own ── */}
           <h2>3. What You Own</h2>
           <p>
-            Your client data is yours. Period. You can export it as a CSV
-            anytime you want, no questions asked, no fees, no hoops to jump
-            through.
+            <strong>You own everything we build for you</strong> &mdash;
+            including your website, its code, and its domain. Yours from day one,
+            at no extra charge. No buyout, no clawback, no holding your site
+            hostage.
           </p>
           <p>
-            If you purchase EMD micro site domains ($500 each), you own those
-            domains outright.
+            Your client data is yours. Period. You can export it as a CSV anytime
+            you want, no questions asked, no fees, no hoops to jump through.
           </p>
           <p>
-            Any content you provide &mdash; photos, bios, service descriptions
-            &mdash; remains your property.
+            You also own any EMD micro site domains ($500 each), your Google
+            Business Profile, and any content you provide &mdash; photos, bios,
+            service descriptions.
           </p>
 
           {/* ── 4. What Full Loop Owns ── */}
           <h2>4. What Full Loop Owns</h2>
-          <p>We own the tools we build and the technology that powers them:</p>
+          <p>
+            We own the software product you subscribe to &mdash; not the assets
+            we build for you:
+          </p>
           <ul>
             <li>The Full Loop CRM platform and software</li>
+            <li>The Yinez AI engine and its underlying models</li>
             <li>
-              The website we build for you (unless you purchase it &mdash; see
-              below)
+              The shared platform infrastructure and the reusable code library
+              our tools are built from
             </li>
-            <li>The website template and codebase</li>
-            <li>The Yinez AI system</li>
           </ul>
 
-          {/* ── 5. Website Ownership Options ── */}
-          <h2>5. Website Ownership Options</h2>
-          <p>You have three paths when it comes to your website:</p>
+          {/* ── 5. Website Ownership ── */}
+          <h2>5. Website Ownership</h2>
           <p>
-            <strong>Buy now for $5,000.</strong> You own the site and domain from
-            day one. It is yours regardless of whether you stay with Full Loop or
-            not.
+            <strong>Your website is yours &mdash; free, from day one.</strong> No
+            buy-in, no buyout, no ownership tiers. While you&apos;re a partner we
+            build, host, optimize, and manage the site for you. If you cancel, the
+            site, its code, and its domain transfer to you &mdash; they go dark on
+            our infrastructure only until you move them.
           </p>
           <p>
-            <strong>Don&apos;t buy.</strong> The website is part of your monthly
-            service. If you cancel, the site goes dark.
-          </p>
-          <p>
-            <strong>Buy out later.</strong> The buyout price starts at $20,000
-            and increases 10% per month. This reflects the SEO equity, content,
-            and domain authority we build over time. The longer you wait, the
-            more that site is worth.
-          </p>
-          <p>
-            Your monthly subscription stays the same whether you buy the site or
-            not. The subscription covers the CRM, Yinez, SEO management, and
-            ongoing support.
+            Your monthly subscription covers the CRM, Yinez, SEO management,
+            hosting, and ongoing support &mdash; not the ownership of the site.
+            You already own that.
           </p>
 
           {/* ── 6. Google Business Profile ── */}
@@ -197,10 +192,9 @@ export default function AgreementPage() {
             with posts, photos, and review responses.
           </p>
           <p>
-            If you cancel, the GBP buyout starts at $999 and increases 10% per
-            month to reflect the reviews, ranking signals, and optimization work
-            we put in. If the GBP was originally created under your own Google
-            account, it remains yours regardless.
+            The Google Business Profile is yours. If you cancel, it stays with you
+            &mdash; there is no buyout. You keep the profile, its reviews, and its
+            ranking signals.
           </p>
 
           {/* ── 7. EMD Micro Sites ── */}
@@ -226,7 +220,7 @@ export default function AgreementPage() {
             <li>Your CRM access ends at the end of your billing period</li>
             <li>Yinez stops responding to your leads</li>
             <li>
-              Your website goes dark (unless you purchased it)
+              Your website, its code, and domain transfer to you &mdash; you keep it
             </li>
             <li>
               We export your client data and send it to you free of charge
@@ -290,7 +284,7 @@ export default function AgreementPage() {
             questions now than deal with misunderstandings later.
           </p>
           <p className="text-slate-500 text-sm">
-            Last updated: March 24, 2026
+            Last updated: July 6, 2026
           </p>
         </div>
       </section>

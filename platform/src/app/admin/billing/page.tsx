@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { PLAN_COLORS } from '@/lib/constants'
 
 // 'plan' is a non-pricing segment label only. Real revenue is seat-based
-// ($1,000/admin + $100/team) via each tenant's monthly_rate — see billing-pricing.ts.
+// ($2,500/admin + $250/team) via each tenant's monthly_rate — see billing-pricing.ts.
 const PLAN_OPTIONS = ['free', 'starter', 'pro', 'enterprise']
 
 const planColors = PLAN_COLORS

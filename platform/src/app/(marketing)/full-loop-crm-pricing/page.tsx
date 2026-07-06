@@ -14,9 +14,9 @@ import {
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
   title:
-    "$1,000/admin + $100/team member | Full Loop CRM — One Trade Per City",
+    "$2,500/admin + $250/team member | Full Loop CRM — One Trade Per City",
   description:
-    "$1,000/mo per admin + $100/mo per field team member. $25,000 one-time setup. Every feature included. One operator per trade per city holds the license. AI sales (Yinez), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO. The category doesn't have a comparison.",
+    "$2,500/mo per admin + $250/mo per field team member. $25,000 one-time setup. You own everything we build — your website, its code, and your domain are yours from day one. Cancel anytime and keep it all. AI sales (Yinez), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO.",
   keywords: [
     "Full Loop CRM pricing",
     "home service CRM per admin pricing",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
   openGraph: {
-    title: "$1,000/admin + $100/team member — One Trade Per City",
+    title: "$2,500/admin + $250/team member — One Trade Per City",
     description:
       "Flat per-user pricing. Every feature, every tier. Exclusive territory in your city. The first full-cycle CRM with an AI receptionist that books while you sleep.",
     url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "$1,000/admin + $100/team member — One Trade Per City",
+    title: "$2,500/admin + $250/team member — One Trade Per City",
     description:
       "One operator per trade per city. Flat per-user pricing, every feature included. Claim the license before a competitor does.",
   },
@@ -50,8 +50,8 @@ const breadcrumbs = [
   { name: "Pricing", url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
 ];
 
-const PRICE_PER_USER = 1000; // admin / office seat
-const PRICE_PER_TEAM = 100;  // field team-member seat
+const PRICE_PER_USER = 2500; // admin / office seat
+const PRICE_PER_TEAM = 250;  // field team-member seat
 const SETUP_FEE = 25000;
 
 const seatExamples = [
@@ -83,9 +83,9 @@ const includedFeatures = [
 
 const pricingFaqs = [
   {
-    question: "Why $1,000 per admin + $100 per team member?",
+    question: "Why $2,500 per admin + $250 per team member?",
     answer:
-      "The $1,000 admin seat is where the platform lives — the AI receptionist that books leads at 11pm, the automated bookkeeping engine, the CRM, dispatch, e-signature, route optimizer, review machine, and per-tenant SEO website network. Yinez alone replaces a $300–$400/mo answering service. Field team members don't need all that — they need the GPS portal, video walkthroughs, and earnings tracker, so they're just $100/mo each. You only pay the big number once (per admin), and add your whole crew for $100 a head.",
+      "The $2,500 admin seat is where the platform lives — the AI receptionist that books leads at 11pm, the automated bookkeeping engine, the CRM, dispatch, e-signature, route optimizer, review machine, and per-tenant SEO website network. Yinez alone replaces a $300–$400/mo answering service. Field team members don't need all that — they need the GPS portal, video walkthroughs, and earnings tracker, so they're just $250/mo each. You only pay the big number once (per admin), and add your whole crew for $250 a head.",
   },
   {
     question: "Is there a contract?",
@@ -95,12 +95,12 @@ const pricingFaqs = [
   {
     question: "What if I cancel?",
     answer:
-      "Give us 30 days notice. We export all your client data for free (CSV format, always yours). Your website goes dark and your Yinez AI stops responding, but your data walks out the door with you — no fees, no games.",
+      "Give us 30 days notice and walk away clean — no fees, no penalties, no hard feelings. Everything we built for you is yours to keep: your website, its code, and your domain go with you. We export all your client data for free (CSV, always yours). The only thing that stops is the CRM platform and Yinez AI — that's the software you were subscribing to.",
   },
   {
-    question: "Can I buy my website?",
+    question: "Do I own my website?",
     answer:
-      "Yes. You can buy your custom Next.js site from day one for $5,000 and own it outright. If you don't buy upfront, the site is included in your subscription. You can buy it later at a buyout price of $20,000 + 10%/mo compound — this reflects the accrued SEO value we build over time (aged domain, backlinks, rankings).",
+      "Yes — completely, from day one, at no extra charge. Your custom Next.js site, its code, and its domain are yours. There's no buyout, no ransom, no clawback. If you ever cancel, the website and everything we built for you stays with you. You're paying for the platform and the people running it — not renting your own site back from us.",
   },
   {
     question: "What's the setup fee?",
@@ -115,7 +115,7 @@ const pricingFaqs = [
   {
     question: "What happens when I add a new team member?",
     answer:
-      "Add them in your Team page and the next month's invoice picks up the additional $100 team-member seat. No tier upgrades, no renegotiation, no feature gates. Remove a seat the same way and your invoice drops the next cycle.",
+      "Add them in your Team page and the next month's invoice picks up the additional $250 team-member seat. No tier upgrades, no renegotiation, no feature gates. Remove a seat the same way and your invoice drops the next cycle.",
   },
 ];
 
@@ -129,7 +129,7 @@ export default function PricingPage() {
       <JsonLd
         data={webPageSchema(
           "Pricing | Full Loop CRM",
-          "$1,000/mo per admin + $100/mo per field team member. $25,000 one-time setup. Every feature included. One operator per trade per city. The category doesn't have a comparison.",
+          "$2,500/mo per admin + $250/mo per field team member. $25,000 one-time setup. You own everything we build — website, code, and domain are yours from day one. Cancel anytime and keep it all. One operator per trade per city.",
           "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
           breadcrumbs
         )}
@@ -146,15 +146,19 @@ export default function PricingPage() {
             One Trade. One City. One License.
           </p>
           <h1 className="text-4xl font-extrabold font-heading text-white sm:text-5xl lg:text-6xl">
-            $1,000 per admin.{" "}
-            <span className="text-yellow-300">+ $100 per team member.</span>
+            $2,500 per admin.{" "}
+            <span className="text-yellow-300">+ $250 per team member.</span>
           </h1>
           <p className="mt-6 text-lg text-slate-300 sm:text-xl max-w-2xl mx-auto">
-            One simple model: $1,000/mo per admin seat (the operator running the
-            business) and just $100/mo per field team member. The whole platform
+            One simple model: $2,500/mo per admin seat (the operator running the
+            business) and just $250/mo per field team member. The whole platform
             from day one — Yinez AI, full CRM, GPS field operations, bookkeeping,
             e-signature, routes, reviews, referrals, and your custom site network.
-            Add a crew member, it&apos;s $100. No tiers, no feature gates.
+            Add a crew member, it&apos;s $250. No tiers, no feature gates.
+          </p>
+          <p className="mt-4 text-base text-white font-semibold max-w-2xl mx-auto">
+            You own everything we build — your website, its code, and your domain
+            are yours from day one. Cancel anytime and you keep all of it.
           </p>
           <p className="mt-4 text-sm font-mono text-teal-400 tracking-wide">
             No contracts. Month to month. But once a territory is claimed it&apos;s off the board.
@@ -385,7 +389,7 @@ export default function PricingPage() {
                     &#10003;
                   </span>
                   <span>
-                    Buyout: $999 + 10%/mo compound if you leave
+                    Yours to keep even if you cancel
                   </span>
                 </li>
               </ul>
@@ -420,20 +424,19 @@ export default function PricingPage() {
                 <li className="flex items-start gap-2">
                   <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
                   <span>
-                    <strong>Buy now: $5,000</strong> — own it from day one
+                    <strong>Yours from day one</strong> — no buyout, no extra fee
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
                   <span>
-                    Included in subscription — we build, host &amp; manage
+                    We build, host &amp; manage it while you&apos;re with us
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-slate-400 mt-0.5" aria-hidden="true">&#8594;</span>
+                  <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
                   <span>
-                    Later buyout: $20,000 + 10%/mo compound (reflects accrued
-                    SEO value)
+                    Cancel anytime — the site, code &amp; domain go with you
                   </span>
                 </li>
               </ul>
@@ -452,9 +455,9 @@ export default function PricingPage() {
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-slate-400 mt-0.5" aria-hidden="true">&#8594;</span>
+                  <span className="text-teal-600 mt-0.5 font-bold" aria-hidden="true">&#10003;</span>
                   <span>
-                    Buyout if you leave: $999 + 10%/mo compound
+                    Yours to keep if you leave — it&apos;s your profile
                   </span>
                 </li>
               </ul>
@@ -530,7 +533,7 @@ export default function PricingPage() {
 
             <div className="rounded-xl border border-slate-700 bg-slate-800 p-8">
               <p className="text-sm font-mono uppercase tracking-widest text-teal-400 mb-3">
-                What each $100 field seat unlocks
+                What each $250 field seat unlocks
               </p>
               <ul className="space-y-3 text-slate-300 text-sm">
                 <li>📍 GPS-verified field portal (528ft validation)</li>
@@ -556,13 +559,13 @@ export default function PricingPage() {
               Yinez + the website + GPS + bookkeeping + e-sign + routes + reviews + referrals + Google + social — in one platform, with exclusive territory — doesn&apos;t exist anywhere else, at any price.
             </p>
             <p className="mt-4 text-yellow-300 font-cta uppercase tracking-widest text-sm">
-              $1,000 per admin + $100 per head is the floor.
+              $2,500 per admin + $250 per head is the floor.
             </p>
           </div>
         </div>
       </section>
 
-      {/* -- 7. How $1,000 Pays for Itself --------------------------- */}
+      {/* -- 7. How $2,500 Pays for Itself --------------------------- */}
       <section className="py-20 px-6 bg-white" id="cheap-math">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-14">
@@ -611,7 +614,7 @@ export default function PricingPage() {
                 </tr>
                 <tr className="bg-teal-50">
                   <td className="px-5 py-3 font-bold text-teal-700">Full Loop CRM — 1 admin + 5 field, all of it included</td>
-                  <td className="px-5 py-3 text-right font-mono font-bold text-teal-700">$1,500/mo</td>
+                  <td className="px-5 py-3 text-right font-mono font-bold text-teal-700">$3,750/mo</td>
                 </tr>
               </tfoot>
             </table>
@@ -660,10 +663,10 @@ export default function PricingPage() {
           {/* Closing line */}
           <div className="mt-12 text-center">
             <p className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 max-w-3xl mx-auto leading-snug">
-              The real question isn&apos;t <em className="text-slate-500 font-normal">&quot;why $1,000?&quot;</em>
+              The real question isn&apos;t <em className="text-slate-500 font-normal">&quot;why $2,500?&quot;</em>
             </p>
             <p className="mt-3 text-2xl sm:text-3xl font-extrabold font-heading text-teal-600 max-w-3xl mx-auto leading-snug">
-              It&apos;s how is it not $2,000.
+              It&apos;s how is it not $5,000.
             </p>
           </div>
         </div>

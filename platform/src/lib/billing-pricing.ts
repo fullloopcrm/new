@@ -5,8 +5,8 @@
  */
 export const PRICING = {
   setupFee: 25000, // one-time, paid by ACH (avoids ~$725 card fee)
-  adminMonthly: 1000, // per admin seat / month
-  teamMemberMonthly: 100, // per portal team member / month
+  adminMonthly: 2500, // per admin seat / month
+  teamMemberMonthly: 250, // per portal team member / month
 } as const
 
 export function computeMonthly(admins: number, teamMembers: number): number {

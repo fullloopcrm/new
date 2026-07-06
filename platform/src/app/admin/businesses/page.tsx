@@ -87,7 +87,7 @@ export default function BusinessesPage() {
   const activeCount = businesses.filter(b => b.status === 'active').length
   const setupCount = businesses.filter(b => b.status === 'setup').length
 
-  // Revenue reflects the seat plans ($1,000/admin + $100/team). Recurring MRR counts
+  // Revenue reflects the seat plans ($2,500/admin + $250/team). Recurring MRR counts
   // every live (active, non-cancelled) tenant's monthly_rate. Monthly Revenue also adds
   // any $25k setup fees actually collected in the current calendar month, so a tenant's
   // first month shows setup + monthly and later months show just the monthly.

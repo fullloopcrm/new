@@ -524,6 +524,10 @@ export default async function IndustryPage({
               <ul className="space-y-2 text-slate-700 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="text-teal-600 font-bold mt-0.5">&#10003;</span>
+                  Your website, its code &amp; your domain
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 font-bold mt-0.5">&#10003;</span>
                   Your client list, contact info & full history
                 </li>
                 <li className="flex items-start gap-2">
@@ -551,7 +555,7 @@ export default async function IndustryPage({
               <ul className="space-y-2 text-slate-700 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="text-slate-400 font-bold mt-0.5">&bull;</span>
-                  The SEO lead-generation domains & content
+                  The shared platform infrastructure
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-slate-400 font-bold mt-0.5">&bull;</span>
