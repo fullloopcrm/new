@@ -33,7 +33,7 @@ export async function POST() {
 
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, end_time, team_member_id, hourly_rate, check_in_time, check_out_time, team_members(hourly_rate)')
+      .select('id, start_time, end_time, team_member_id, hourly_rate, check_in_time, check_out_time, team_members!bookings_team_member_id_fkey(hourly_rate)')
       .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .is('team_member_pay', null)

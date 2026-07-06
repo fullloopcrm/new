@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   const { data: pastJobs } = await supabaseAdmin
     .from('bookings')
-    .select('team_member_id, team_members(id, name)')
+    .select('team_member_id, team_members!bookings_team_member_id_fkey(id, name)')
     .eq('tenant_id', client.tenant_id)
     .eq('client_id', clientId)
     .not('team_member_id', 'is', null)

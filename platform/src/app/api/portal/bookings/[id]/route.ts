@@ -17,7 +17,7 @@ export async function GET(
 
   const { data, error } = await supabaseAdmin
     .from('bookings')
-    .select('*, team_members(name, phone)')
+    .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
     .eq('id', id)
     .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
@@ -70,7 +70,7 @@ export async function PUT(
     .eq('id', id)
     .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
-    .select('*, team_members(name, phone)')
+    .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
     .single()
 
   if (error) {

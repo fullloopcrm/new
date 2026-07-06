@@ -20,7 +20,7 @@ export async function GET(
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('*, clients(name, phone, address, email), team_members(name, phone, email)')
+      .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()
@@ -88,7 +88,7 @@ export async function PUT(
       .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .select('*, clients(name, phone, address, email), team_members(name, phone)')
+      .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .single()
 
     if (error) {
@@ -184,7 +184,7 @@ export async function DELETE(
     // Get booking details before deleting for notifications
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('*, clients(name, phone, email), team_members(name, phone)')
+      .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()

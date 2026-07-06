@@ -91,7 +91,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       check_in_time,
       start_time,
       clients:clients(name, phone),
-      team_members:team_members(name, phone, sms_consent, stripe_account_id, hourly_rate, pay_rate, preferred_language)
+      team_members:team_members!bookings_team_member_id_fkey(name, phone, sms_consent, stripe_account_id, hourly_rate, pay_rate, preferred_language)
     `)
     .eq('id', bookingId)
     .eq('tenant_id', tenantId)

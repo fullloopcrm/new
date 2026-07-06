@@ -41,7 +41,7 @@ async function fetchYearBookings(tenantId: string, startISO: string, endISO: str
   for (let from = 0; ; from += page) {
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('id,start_time,price,status,payment_status,service_type,schedule_id,team_member_id,clients(name),team_members(name)')
+      .select('id,start_time,price,status,payment_status,service_type,schedule_id,team_member_id,clients(name),team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
       .gte('start_time', startISO)
       .lte('start_time', endISO)
@@ -86,7 +86,7 @@ export default async function DashboardPage() {
   // Map jobs — this month, with client address for geocoding.
   const { data: mapRows } = await supabaseAdmin
     .from('bookings')
-    .select('id,start_time,status,service_type,team_member_id,clients(name,address),team_members(name)')
+    .select('id,start_time,status,service_type,team_member_id,clients(name,address),team_members!bookings_team_member_id_fkey(name)')
     .eq('tenant_id', tenant.id)
     .gte('start_time', startOfMonth.toISOString())
     .lte('start_time', endOfMonth.toISOString())

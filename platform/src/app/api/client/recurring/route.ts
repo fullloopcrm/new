@@ -148,7 +148,7 @@ export async function POST(request: Request) {
   const { data: bookings, error: bookErr } = await supabaseAdmin
     .from('bookings')
     .insert(rows)
-    .select('*, clients(*), team_members(*)')
+    .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 
   if (bookErr) return NextResponse.json({ error: bookErr.message, schedule }, { status: 500 })
 

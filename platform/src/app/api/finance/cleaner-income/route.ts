@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabaseAdmin
       .from('bookings')
-      .select('id, start_time, actual_hours, team_member_pay, team_member_paid, team_member_id, clients(name), team_members(name)')
+      .select('id, start_time, actual_hours, team_member_pay, team_member_paid, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .not('team_member_pay', 'is', null)

@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       // not just Stripe payouts (contractors paid by any method are captured).
       supabaseAdmin
         .from('bookings')
-        .select('team_member_id, team_member_pay, team_members(name, tax_business_name, tax_ein, tax_ssn_last4)')
+        .select('team_member_id, team_member_pay, team_members!bookings_team_member_id_fkey(name, tax_business_name, tax_ein, tax_ssn_last4)')
         .eq('tenant_id', tenantId)
         .gte('start_time', from)
         .lte('start_time', to)

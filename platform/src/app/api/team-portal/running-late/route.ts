@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, tenant_id, start_time, team_member_id, client_id, clients(name, phone), team_members(name)')
+      .select('id, tenant_id, start_time, team_member_id, client_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
       .eq('team_member_id', teamMemberId)
       .single()

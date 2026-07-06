@@ -89,7 +89,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     client = c
     const { data: bks } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, end_time, service_type, status, payment_status, hourly_rate, actual_hours, price, partial_payment_cents, team_member_id, team_members(name)')
+      .select('id, start_time, end_time, service_type, status, payment_status, hourly_rate, actual_hours, price, partial_payment_cents, team_member_id, team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
       .eq('client_id', clientId)
       .order('start_time', { ascending: false })

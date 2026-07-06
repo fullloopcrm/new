@@ -76,7 +76,7 @@ export async function handleGetAccount(tenantId: string, conversationId: string)
 
     const { data: upcoming } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, status, service_type, hourly_rate, payment_status, team_members(name)')
+      .select('id, start_time, status, service_type, hourly_rate, payment_status, team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId).eq('client_id', clientId)
       .in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])
       .gte('start_time', new Date().toISOString())
@@ -194,7 +194,7 @@ export async function handleResendConfirmation(tenantId: string, input: Record<s
     if (!bookingId) return JSON.stringify({ error: 'No upcoming booking found' })
 
     const { data: booking } = await supabaseAdmin.from('bookings')
-      .select('start_time, service_type, hourly_rate, clients(name, email, pin), team_members(name), tenants(name)')
+      .select('start_time, service_type, hourly_rate, clients(name, email, pin), team_members!bookings_team_member_id_fkey(name), tenants(name)')
       .eq('id', bookingId).eq('tenant_id', tenantId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
 
@@ -363,7 +363,7 @@ export async function handleLookupBookings(tenantId: string, input: Record<strin
     const filter = (input.status_filter as string) || 'upcoming'
     const now = new Date().toISOString()
     let query = supabaseAdmin.from('bookings')
-      .select('id, start_time, end_time, status, service_type, hourly_rate, price, payment_status, team_members(name), actual_hours, recurring_type')
+      .select('id, start_time, end_time, status, service_type, hourly_rate, price, payment_status, team_members!bookings_team_member_id_fkey(name), actual_hours, recurring_type')
       .eq('tenant_id', tenantId).eq('client_id', clientId)
       .order('start_time', { ascending: filter === 'upcoming' }).limit(5)
     if (filter === 'upcoming') {
@@ -600,7 +600,7 @@ export async function handleBookingDetails(tenantId: string, input: Record<strin
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, check_in_lat, check_in_lng, check_out_lat, check_out_lng, actual_hours, hourly_rate, price, team_member_pay, payment_status, payment_method, status, service_type, team_members(name), clients(name, address)')
+      .select('id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, check_in_lat, check_in_lng, check_out_lat, check_out_lng, actual_hours, hourly_rate, price, team_member_pay, payment_status, payment_method, status, service_type, team_members!bookings_team_member_id_fkey(name), clients(name, address)')
       .eq('id', bookingId).eq('tenant_id', tenantId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
 

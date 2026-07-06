@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data, error } = await supabaseAdmin
     .from('bookings')
-    .select('*, team_members(name)')
+    .select('*, team_members!bookings_team_member_id_fkey(name)')
     .eq('id', id)
     .eq('tenant_id', tenant.id)
     .single()

@@ -843,7 +843,7 @@ export async function getClientProfile(tenantId: string, phone: string): Promise
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
     const { data: recentBookings } = await supabaseAdmin.from('bookings')
-      .select('id, start_time, service_type, price, status, team_members(name)')
+      .select('id, start_time, service_type, price, status, team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId).eq('client_id', client.id)
       .in('status', ['completed', 'scheduled', 'in_progress', 'pending'])
       .order('start_time', { ascending: false }).limit(5)

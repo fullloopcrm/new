@@ -11,7 +11,7 @@ export async function GET() {
     // "Fully closed" = payment_status is paid AND team_paid is true
     const { data: needsCloseout } = await supabaseAdmin
       .from('bookings')
-      .select('id, service_type, start_time, end_time, status, price, hourly_rate, pay_rate, actual_hours, team_pay, payment_status, payment_method, team_paid, discount_enabled, check_in_time, check_out_time, clients(name, phone, address), team_members(name)')
+      .select('id, service_type, start_time, end_time, status, price, hourly_rate, pay_rate, actual_hours, team_pay, payment_status, payment_method, team_paid, discount_enabled, check_in_time, check_out_time, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
       .in('status', ['completed', 'in_progress', 'paid'])
       .or('payment_status.neq.paid,team_paid.is.null,team_paid.eq.false')
@@ -22,7 +22,7 @@ export async function GET() {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const { data: recentlyClosed } = await supabaseAdmin
       .from('bookings')
-      .select('id, service_type, start_time, price, payment_method, team_pay, clients(name), team_members(name)')
+      .select('id, service_type, start_time, price, payment_method, team_pay, clients(name), team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
       .eq('payment_status', 'paid')
       .eq('team_paid', true)
