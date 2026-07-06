@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+
+// Columns an owner may edit on a service. Whitelist prevents mass-assignment
+// of id / tenant_id / created_at via a crafted request body.
+const EDITABLE_SERVICE_FIELDS = [
+  'name', 'description', 'default_duration_hours', 'default_hourly_rate',
+  'pricing_model', 'price_cents', 'per_unit', 'min_charge_cents',
+  'unit_label', 'item_type', 'category', 'taxable', 'cost_cents', 'mode',
+  'active', 'sort_order',
+]
 
 export async function PUT(
   request: Request,
@@ -11,10 +21,11 @@ export async function PUT(
     const { tenantId } = await getTenantForRequest()
     const { id } = await params
     const body = await request.json()
+    const updates = pick(body, EDITABLE_SERVICE_FIELDS)
 
     const { data, error } = await supabaseAdmin
       .from('service_types')
-      .update(body)
+      .update(updates)
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()
