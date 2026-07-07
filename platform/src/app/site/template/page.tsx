@@ -13,7 +13,7 @@ import VideoReviews from '@/app/site/template/_components/VideoReviews'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
-import GenericLanding from '@/app/site/template/_components/GenericLanding'
+import GenericHome from '@/app/site/template/_components/GenericHome'
 import VirtualAssistantLanding from '@/app/site/template/_components/VirtualAssistantLanding'
 
 
@@ -136,11 +136,12 @@ export default async function HomePage() {
     return <VirtualAssistantLanding config={siteConfig} />
   }
 
-  // Other non-cleaning tenants get a clean, config-driven landing instead of the
-  // cleaning-editorial homepage (which links to gated pages). No cleaning
-  // structured data is emitted for them either.
+  // Other non-cleaning tenants get the config-driven long-form homepage
+  // (GenericHome) instead of the cleaning-editorial homepage (which links to
+  // gated pages). Hero + real services grid + long-form body + FAQ, all from
+  // SiteConfig. No cleaning copy, no dead links, no cleaning structured data.
   if (!profile.isCleaning) {
-    return <GenericLanding config={siteConfig} h1={content.h1} subtitle={content.subtitle} />
+    return <GenericHome config={siteConfig} />
   }
 
   const schemas = [...homepageSchemas(), faqSchema(homepageFAQs), ...videoReviewsSchemas()]
