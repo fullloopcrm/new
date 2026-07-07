@@ -1443,3 +1443,168 @@ export function homeContent(config: SiteConfig): LongformPage {
     faq,
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REVIEWS — floor 3,000 words. Long-form context that sits alongside the real
+// per-tenant review list. About reputation, feedback, and earning trust.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function reviewsContent(config: SiteConfig): LongformPage {
+  const v = vars(config)
+  const here = v.isRemote ? 'wherever we work' : `in ${v.place}`
+
+  const sections: ContentSection[] = [
+    {
+      heading: `Why Reviews Matter to Us`,
+      paragraphs: [
+        `Reviews aren't a vanity metric for ${v.brand} — they're the scoreboard. In ${v.noun}, a company lives or dies on whether the people it served would recommend it, and there's nowhere to hide from that anymore. A single honest review, good or bad, travels further than any advertisement we could buy. That reality keeps us honest, and we wouldn't have it any other way.`,
+        `We pay attention to what clients say because it's the truest measure of whether we're actually doing our job. Anyone can claim to be reliable, fair, and skilled; only the people who've hired you can confirm it. When you read reviews of our work, you're getting exactly that — unfiltered accounts from people with no reason to flatter us, which is worth far more than anything we could say about ourselves.`,
+      ],
+    },
+    {
+      heading: `Real Reviews From Real Clients`,
+      paragraphs: [
+        `The reviews you'll find here come from actual clients who hired us for ${v.noun} ${here}. We don't fabricate reviews, we don't cherry-pick only the glowing ones, and we don't bury the ones that point out where we could do better. That kind of manipulation might dress up a profile in the short term, but it poisons the one thing reviews are supposed to provide: honest information you can actually trust.`,
+        `Authenticity is the entire value of a review. A page full of suspiciously perfect five-star blurbs tells you nothing; a genuine mix of real experiences tells you everything. We'd rather you read honest feedback and make an informed decision than be lured in by a manufactured wall of praise. Trust built on a lie doesn't survive the first real job, and we're playing a much longer game than that.`,
+      ],
+    },
+    {
+      heading: `How We Earn Good Reviews`,
+      paragraphs: [
+        `There's no trick to earning good reviews — you earn them by doing good work, consistently, and treating people well. We show up when we said we would, do ${v.noun} to a standard we're proud of, charge exactly what we quoted, and make it right when something's off. Do that reliably and the reviews take care of themselves; skip any part of it and no amount of asking will produce them.`,
+        `We never pressure clients for reviews or dangle incentives to inflate our rating. If someone had a great experience and wants to share it, we're grateful, and we make it easy. But a review should reflect genuine satisfaction, not a transaction. The reviews that mean the most — and the ones potential clients can actually trust — are the ones people leave freely because the work genuinely earned them.`,
+      ],
+    },
+    {
+      heading: `What Clients Tell Us Most`,
+      paragraphs: [
+        `The theme we hear over and over isn't about any single impressive feat — it's relief. Relief at finally finding a ${v.noun} company that answers the phone, shows up on time, charges what it quoted, and does solid work without drama. People are so accustomed to being let down that plain reliability strikes them as remarkable, and that reaction comes up again and again.`,
+        `Clients also tell us they appreciate being treated like people rather than transactions — that we listened, communicated clearly, and didn't make them chase us for answers. Those aren't flashy compliments, but they're the ones that matter, because they describe exactly the experience we set out to create. When the feedback keeps circling back to reliability and respect, we know we're building the right kind of company.`,
+      ],
+    },
+    {
+      heading: `We Read Every Review`,
+      paragraphs: [
+        `Feedback only helps if you actually listen to it, so we read every review that comes in — the enthusiastic ones and the critical ones alike. The praise tells us what to keep doing; the criticism tells us where to get better. Both are gifts, even when the second kind stings, because a company that only wants to hear applause never improves.`,
+        `When a client points out something we could have done better, we take it seriously rather than getting defensive. Often it's a chance to make an individual situation right; always it's information we can use to raise the standard for everyone. The companies that dismiss criticism are the ones that keep making the same mistakes. We'd rather hear it, learn from it, and be better on the next job.`,
+      ],
+    },
+    {
+      heading: `How We Respond to Criticism`,
+      paragraphs: [
+        `No company gets everything right every time, and when a client isn't happy, how we respond is the real test. Our approach is simple: we listen, we take responsibility where it's ours, and we make it right. We don't argue in public, we don't blame the customer, and we don't pretend a legitimate concern isn't legitimate. That's not just good manners — it's how you keep the trust that took years to build.`,
+        `A thoughtful response to criticism often earns more respect than a flawless job would have, because it shows people who you are when things get hard. Anyone can be gracious when everything goes perfectly. The companies worth hiring are the ones that stay accountable when they've fallen short — and that's exactly the standard we hold ourselves to, whether the conversation is public or private.`,
+      ],
+    },
+    {
+      heading: `Reputation Is Accountability`,
+      paragraphs: [
+        `Working ${here}, our reputation is public and permanent in a way that keeps us accountable every single day. We can't afford to phone in a job and hope nobody notices, because in a connected world, people notice. That pressure is genuinely good for you: it means the quality of your job is protected by the same force that protects everyone else's — our need to keep earning the trust our reviews represent.`,
+        `Reputation is the one asset a service company can't fake and can't buy. It's earned slowly, one honest job at a time, and it can be damaged quickly by cutting a single corner. Knowing that shapes how we operate. Every job is a deposit into or a withdrawal from a reputation we've worked hard to build, and we treat it with exactly that level of care.`,
+      ],
+    },
+    {
+      heading: `The Power of Word of Mouth`,
+      paragraphs: [
+        `Most of our best clients didn't find us through an ad — they found us because someone they trusted said "call these people." Word of mouth is the highest compliment a ${v.noun} company can receive, because people don't stake their own reputation on a recommendation unless they genuinely mean it. Every referral is someone vouching for us personally, and we don't take that lightly.`,
+        `That's why we treat every job as an opportunity to earn the next recommendation. A happy client isn't the end of a transaction; they're the beginning of a relationship that might bring us their neighbor, their coworker, their family. Reviews and referrals are two sides of the same coin — both are people telling the truth about their experience — and both are the engine that lets a business like ours grow the honest way.`,
+      ],
+    },
+    {
+      heading: `Verified, Not Manufactured`,
+      paragraphs: [
+        `In an era where fake reviews are a genuine problem, the authenticity of ours matters. The feedback you see reflects real clients and real jobs, not purchased praise or invented testimonials. We'd rather have a smaller number of honest reviews than a mountain of fabricated ones, because the whole point is to give you information you can rely on when you're deciding who to trust with your ${v.noun}.`,
+        `You can usually spot the difference. Manufactured reviews are vague, interchangeable, and relentlessly perfect; real ones mention specifics, describe actual experiences, and occasionally note something that could have gone better. We're comfortable with that honesty because our work holds up to it. A real, verifiable track record is worth infinitely more than a polished illusion, and it's the only kind we're interested in building.`,
+      ],
+    },
+    {
+      heading: `Leaving Your Own Review`,
+      paragraphs: [
+        `If we've done ${v.noun} for you and you're willing to share your experience, we're genuinely grateful — honest reviews from real clients are the lifeblood of a company like ours. It helps the next person deciding whether to trust us, and it helps us by telling us what we're getting right and where we can improve. Either way, your candid feedback is valuable.`,
+        `And if your experience fell short in any way, we especially want to hear it — ideally directly, so we can make it right, but honestly however you're comfortable sharing it. We're not looking for only the good; we're looking for the truth, because the truth is what makes us better. However you choose to share your feedback, know that it's read, appreciated, and taken seriously.`,
+      ],
+    },
+    {
+      heading: `Consistency Across the Reviews`,
+      paragraphs: [
+        `One review is an anecdote; a pattern is evidence. What we're proudest of isn't any single glowing comment but the consistency across what clients say — the same themes of reliability, honesty, and quality coming up again and again from different people who never spoke to each other. That kind of consistency is very hard to fake and very telling when it's real.`,
+        `When you read through feedback and notice the same strengths mentioned repeatedly, you're seeing something dependable rather than a lucky one-off. That's exactly what you want to know before hiring a ${v.noun} company: not whether they can have one good day, but whether they deliver the same experience over and over. We work hard to make sure the answer is yes, and the reviews are where that shows.`,
+      ],
+    },
+    {
+      heading: `What a Good Review Actually Reveals`,
+      paragraphs: [
+        `A genuinely useful review does more than assign a star rating — it describes an experience. It tells you whether the company communicated well, showed up on time, charged fairly, and handled the unexpected with grace. Those details are what let you picture how your own job would go, which is worth far more than a number floating free of any context.`,
+        `We value detailed, specific feedback for exactly that reason, and we think you should too. When a client explains what we did and how it felt to work with us, the next person gets real information they can use. That's the whole purpose of reviews — not to inflate an ego or pad a profile, but to help people make good decisions about who to trust with their ${v.noun}.`,
+      ],
+    },
+    {
+      heading: `Reviews Are a Promise We Have to Keep`,
+      paragraphs: [
+        `Every positive review raises the bar for us, because it becomes a promise to the next client. When someone reads that we're reliable and then hires us, they're expecting exactly what the reviews described — and we have to deliver it. That's a healthy kind of pressure, and it's part of why our standard doesn't slip: our own track record won't let it.`,
+        `We'd rather carry that weight than coast on past praise. A reputation is only as good as your last job, and resting on old reviews is the fastest way to lose the trust that earned them. So we treat every booking as a chance to live up to what people already say about us — and, ideally, to give the next client a reason to say it too.`,
+      ],
+    },
+    {
+      heading: `Why We Don't Hide Criticism`,
+      paragraphs: [
+        `It might seem safer to bury any less-than-perfect feedback, but we think that's exactly backward. A profile with nothing but flawless reviews reads as suspicious to anyone paying attention, and rightly so — no real company pleases everyone every time. Honest feedback, including the occasional critical note, is what makes the positive reviews believable in the first place.`,
+        `We're comfortable letting our full record speak because we stand behind our work and behind how we handle the rare miss. If a piece of criticism is fair, it's information we can use; if we've addressed it, that response is part of the story too. Transparency about the whole picture builds more trust than a manicured illusion ever could, and trust is the only thing we're actually trying to build here.`,
+      ],
+    },
+    {
+      heading: `Ratings Versus Real Feedback`,
+      paragraphs: [
+        `A star rating is a useful shorthand, but it's the written feedback that carries the real signal. Two companies can share the same average score and offer completely different experiences — one consistently solid, the other wildly hit-or-miss. The words behind the number are where you learn which is which, and we encourage you to read them rather than stopping at the rating.`,
+        `We care more about the substance of what clients say than about chasing a perfect score, because the substance is what actually helps people. A high rating built on genuine, detailed, satisfied feedback means something; a high rating built on thin or manufactured praise means nothing. We'd rather earn the former slowly than fake the latter quickly, and our reviews reflect that choice.`,
+      ],
+    },
+    {
+      heading: `Our Commitment to Getting Better`,
+      paragraphs: [
+        `Reviews aren't just a report card — they're a roadmap for improvement, and we use them that way. When we notice a recurring suggestion or a repeated frustration, we treat it as a signal to change something on our end. The goal isn't to be defensive about where we are; it's to keep getting better at ${v.noun} so that future reviews are even stronger than the ones already here.`,
+        `A company that stops listening stops improving, and in a competitive field that's the beginning of the end. We'd rather stay a little uncomfortable — always asking how we could have done better — than get complacent because the reviews are already good. That commitment to improvement is itself something clients notice and appreciate, and it's a big part of why the relationships we build tend to last.`,
+      ],
+    },
+    {
+      heading: `The Long Game of Reputation`,
+      paragraphs: [
+        `Building a reputation the honest way is slow. It means doing good work, job after job, and letting the trust accumulate one satisfied client at a time. There's no shortcut, and frankly we're glad there isn't — because a reputation that takes years to build is one that competitors can't easily copy or buy, and one we have every incentive to protect.`,
+        `We're playing that long game on purpose. The reviews you see aren't the product of a clever campaign; they're the residue of years of showing up and doing right by people. That's exactly why they're worth reading, and exactly why we guard them carefully. Every job either strengthens that reputation or chips away at it, and we'd never trade the long-term trust for a short-term shortcut.`,
+      ],
+    },
+    {
+      heading: `Trust Built One Job at a Time`,
+      paragraphs: [
+        `No one hands out trust automatically, and we've never expected them to. It's earned in the doing — in a job done well, a promise kept, a problem handled gracefully. Every review here represents one more instance of that trust being earned, and stacked together they tell the story of a company that has done it consistently enough for people to keep vouching for us.`,
+        `That's the foundation we build every new relationship on. Whether you found us through a review, a referral, or a search, you're starting where thousands of clients started: cautiously, on the strength of what others have said. Our job is to prove them right all over again with your ${v.noun}, and to give you your own reason to become one more voice in the record.`,
+      ],
+    },
+    {
+      heading: `Judge Us for Yourself`,
+      paragraphs: [
+        `At the end of the day, we'd rather you judge us on evidence than take our word for anything. That's exactly what reviews are for. Read what real clients have said, weigh it honestly, and decide whether we sound like the kind of ${v.noun} company you want to work with. We're confident in what you'll find, because we've worked hard to earn it.`,
+        `And when you're ready, the best way to form your own opinion is to give us a job and see for yourself. Nearly all of our long-term clients started exactly there — cautiously, on the strength of a review or a referral — and stayed because the experience matched the promise. Text ${v.phone} whenever you'd like to find out firsthand why people ${here} keep recommending us.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = [
+    { q: `Are these reviews real?`, a: `Yes. They come from actual clients who hired us for ${v.noun} ${here}. We don't fabricate reviews or cherry-pick only the perfect ones — authenticity is the whole point.` },
+    { q: `How do you get so many good reviews?`, a: `By doing good work consistently and treating people well — showing up on time, charging what we quoted, and making it right when something's off. We never pressure clients or offer incentives for reviews.` },
+    { q: `What do you do about negative feedback?`, a: `We read it, take responsibility where it's ours, and make it right. Criticism tells us where to improve, and how we respond to it says more about us than a flawless job would.` },
+    { q: `Can I leave a review?`, a: `Please do — honest feedback from real clients is invaluable to us and to the next person deciding whether to trust us. And if anything fell short, tell us directly so we can make it right.` },
+    { q: `Why should I trust your reviews over a competitor's?`, a: `Because ours are verified and honest, not manufactured. Read them, weigh them, and judge for yourself — we're confident in what you'll find. Then give us one job and see firsthand.` },
+    { q: `Do you show negative reviews too?`, a: `We don't hide honest criticism. A profile of nothing but flawless reviews reads as suspicious, and rightly so — no real company pleases everyone every time. Honest feedback is what makes the positive reviews believable, and we stand behind how we handle the rare miss.` },
+    { q: `Do you offer anything in exchange for a review?`, a: `No. We never pay for reviews or dangle incentives to inflate our rating. A review should reflect genuine satisfaction, not a transaction — those are the only reviews worth having and the only ones potential clients can actually trust.` },
+  ]
+
+  return {
+    title: `${v.brand} Reviews — Real Client Feedback | ${v.label} in ${v.place}`,
+    metaDescription: `Real, verified reviews from ${v.brand} clients for ${v.noun} ${here}. Honest feedback, no fakes, no cherry-picking. See why clients keep recommending us. Text ${v.phone}.`,
+    h1: `${v.brand} Reviews`,
+    intro: `Real, verified feedback from clients who hired us for ${v.noun} — no fakes, no cherry-picking. Read what people say, then judge us for yourself.`,
+    sections,
+    faq,
+  }
+}
