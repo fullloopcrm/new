@@ -10,6 +10,8 @@ import './tenants/the-florida-maid'
 import './tenants/the-home-services-company'
 import './tenants/we-pay-you-junk'
 import './tenants/nyc-tow'
+import './tenants/nycroadsideemergencyassistance'
+import './tenants/theroadsidehelper'
 
 export { TENANT_SEO, buildTenantSitemap, registerTenantSeo } from './tenant-sitemap'
 export type { TenantSeoDescriptor, UrlSpec, ChangeFreq } from './tenant-sitemap'
