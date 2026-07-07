@@ -21,6 +21,9 @@ import { notify } from './notify'
 import { decryptSecret } from './secret-crypto'
 import { postPaymentRevenue } from './finance/post-revenue'
 import { postPayoutToLedger } from './finance/post-labor'
+import { effectiveCleanerRate } from './cleaner-pay'
+import { isNycMaid } from './nycmaid/tenant'
+import { parseTimestamp } from './dates'
 import type { Tenant } from './tenant'
 
 type TenantPaymentFields = Pick<
@@ -90,7 +93,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       price,
       check_in_time,
       start_time,
-      clients:clients(name, phone),
+      clients:clients(name, phone, address),
       team_members:team_members!bookings_team_member_id_fkey(name, phone, sms_consent, stripe_account_id, hourly_rate, pay_rate, preferred_language)
     `)
     .eq('id', bookingId)
@@ -99,7 +102,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
 
   if (!booking) return null
 
-  const clientJoin = booking.clients as unknown as { name: string; phone?: string } | null
+  const clientJoin = booking.clients as unknown as { name: string; phone?: string; address?: string | null } | null
   const teamMember = booking.team_members as unknown as {
     name: string
     phone: string | null
@@ -114,14 +117,18 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
 
   // Expected balance in cents — mirror nycmaid logic:
   //   actual_hours × hourly_rate  OR  (now - check_in) rounded up to .5h buffer
-  const clientRate = (booking.hourly_rate as number | null) || 75
+  const clientRate = (booking.hourly_rate as number | null) || 69
   let expectedCents = 0
-  if (booking.price && booking.price > 0) {
-    expectedCents = booking.price as number
-  } else if (booking.actual_hours) {
+  // Bill ACTUAL hours worked first (matches standalone nycmaid). Only fall back
+  // to the booked estimate (price) when actual isn't known yet, then to
+  // check-in-elapsed. Previously `price` won first → long jobs billed the
+  // estimate (under-billed overruns). parseTimestamp: check_in_time is naive.
+  if (booking.actual_hours) {
     expectedCents = Math.round((booking.actual_hours as number) * clientRate * 100)
+  } else if (booking.price && booking.price > 0) {
+    expectedCents = booking.price as number
   } else if (booking.check_in_time) {
-    const checkIn = new Date(booking.check_in_time as string)
+    const checkIn = parseTimestamp(booking.check_in_time as string) || new Date(booking.check_in_time as string)
     const rawMinutes = Math.max(0, (Date.now() - checkIn.getTime()) / (1000 * 60))
     // Round up to next 30 min with a 30 min buffer (nycmaid rule)
     const estHours = Math.max(0.5, Math.ceil((rawMinutes + 30) / 30) * 0.5)
@@ -213,11 +220,14 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     try {
       let payAmountCents: number | null = (booking.team_member_pay as number | null) || null
       if (!payAmountCents) {
-        const rate = teamMember.pay_rate || teamMember.hourly_rate || (booking.pay_rate as number | null) || 25
+        let rate = teamMember.pay_rate || teamMember.hourly_rate || (booking.pay_rate as number | null) || 25
+        // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY
+        // (parity with team-portal/checkout + stripe webhook payout paths).
+        if (isNycMaid(tenantId)) rate = effectiveCleanerRate(rate, clientJoin?.address ?? null)
         if (booking.actual_hours) {
           payAmountCents = Math.round((booking.actual_hours as number) * rate * 100)
         } else if (booking.check_in_time) {
-          const checkIn = new Date(booking.check_in_time as string)
+          const checkIn = parseTimestamp(booking.check_in_time as string) || new Date(booking.check_in_time as string)
           const rawMinutes = Math.max(0, (Date.now() - checkIn.getTime()) / (1000 * 60))
           const estHours = Math.max(0.5, Math.round(rawMinutes / 30) * 0.5)
           payAmountCents = Math.round(estHours * rate * 100)

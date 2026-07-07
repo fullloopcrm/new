@@ -35,7 +35,7 @@ export const emailWrapper = (content: string) => `
                 <tr>
                   <td style="padding: 12px 16px; background-color: #f9fafb; border-radius: 8px;">
                     <p style="margin: 0 0 4px 0; font-size: 13px; color: #1E2A4A; font-weight: 600;">&#9733;&#9733;&#9733;&#9733;&#9733; 5.0 from 50+ verified reviews</p>
-                    <p style="margin: 0; font-size: 12px;"><a href="https://www.thenycmaid.com/reviews" style="color: #2563eb; text-decoration: underline;">Read reviews</a> · <a href="https://www.thenycmaid.com/reviews/submit" style="color: #2563eb; text-decoration: underline;">Write a review</a></p>
+                    <p style="margin: 0; font-size: 12px;"><a href="https://www.thenycmaid.com/reviews" style="color: #2563eb; text-decoration: underline;">Read reviews</a> · <a href="https://g.page/r/CSX9IqciUG9SEAE/review" style="color: #2563eb; text-decoration: underline;">Write a review</a></p>
                   </td>
                 </tr>
               </table>
@@ -188,7 +188,7 @@ export function clientRatingPromptEmail(booking: any) {
 export function clientReviewRequestEmail(booking: any) {
   const clientFirst = booking.clients?.name?.split(' ')[0] || 'there'
   const cleanerFirst = (booking.cleaners?.name || 'your cleaner').split(' ')[0]
-  const reviewUrl = 'https://share.google/rZI6VgG0BYd3A2Lsn'
+  const reviewUrl = 'https://g.page/r/CSX9IqciUG9SEAE/review'
   const subject = `Thank you, ${clientFirst}! 5 stars + a $10 or $25 thank-you 🎉`
   const html = `
   <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #1E2A4A;">
@@ -203,7 +203,6 @@ export function clientReviewRequestEmail(booking: any) {
       <p style="margin: 0 0 8px 0; font-weight: 600; font-size: 15px;">Our thank-you to you:</p>
       <ul style="margin: 0; padding-left: 20px; color: #444; font-size: 14px; line-height: 1.7;">
         <li><strong>$10 Zelle payment</strong> for a written Google review</li>
-        <li><strong>$25 Zelle payment</strong> for a short selfie video review (mention ${cleanerFirst} and the service)</li>
       </ul>
     </div>
     <div style="text-align: center; margin: 28px 0;">
@@ -244,6 +243,15 @@ export function clientConfirmationEmail(booking: any) {
     : ''
   const teamSize = booking.team_size || 1
   const teamLabel = teamSize > 1 ? `Your team of ${teamSize} (lead: <strong>${cleanerFirst}</strong>)` : `Your cleaner: <strong>${cleanerFirst}</strong>`
+
+  // Discounts to surface on the confirmation: (1) any reduction already baked into
+  // price vs the full hours×rate×team estimate (e.g. recurring discount), and
+  // (2) the $10 self-booking promo, which is applied at billing (not in price yet).
+  const fullEstimateCents = Math.round(exactHours * hourlyRate * teamSize * 100)
+  const priceCents = typeof booking.price === 'number' ? booking.price : 0
+  const discountCents = priceCents > 0 && fullEstimateCents > priceCents ? fullEstimateCents - priceCents : 0
+  const discountPct = discountCents > 0 ? Math.round((discountCents / fullEstimateCents) * 100) : 0
+  const hasSelfBookingPromo = typeof booking.notes === 'string' && /self-?booking discount/i.test(booking.notes)
   const cleanerPhotoHtml = cleanerPhotoUrl ? `
     <div style="text-align: left; margin: 0 0 24px 0;">
       <img src="${cleanerPhotoUrl}" alt="${cleanerFirst}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #eee;" />
@@ -273,6 +281,8 @@ export function clientConfirmationEmail(booking: any) {
       ${infoRow('Cleaner', cleanerName)}
       ${isRecurring ? infoRow('Schedule', booking.recurring_type) : ''}
       ${infoRow('Estimate', `${estimatedHoursLabel} hrs × $${hourlyRate}/hr`)}
+      ${discountCents > 0 ? infoRow('Discount', `<span style="color:#15803d;font-weight:600;">−$${(discountCents / 100).toFixed(0)} (${discountPct}% off)</span>`) : ''}
+      ${hasSelfBookingPromo ? infoRow('Promo', `<span style="color:#15803d;font-weight:600;">$10 self-booking discount — applied to your final bill</span>`) : ''}
     `)}
 
     ${divider()}
@@ -305,10 +315,17 @@ export function clientConfirmationEmail(booking: any) {
 
     ${noteBox(`<strong>Tipping:</strong> Tips are always appreciated but never required. 100% of all tips go directly to your cleaner.`, 'info')}
 
-    ${noteBox(`<strong>Cancellation &amp; Reschedule Policy:</strong> ${isRecurring
-      ? 'Recurring (weekly, bi-weekly, monthly) services require <strong>7 days notice</strong> to reschedule. Cancellations are not permitted on recurring services unless the service is being discontinued entirely with 7 days notice.'
-      : 'First-time and one-time services <strong>cannot be cancelled or rescheduled</strong>.'
-    } We do not collect payment upfront — we hold your spot on our busy schedule, turning away other clients. Late cancellations and no-shows directly affect our team members who depend on this income.`, 'warning')}
+    <div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:10px;padding:18px;margin:16px 0;">
+      <p style="margin:0 0 8px 0;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#991b1b;">⚠️ No-Cancellation Policy — Please Read</p>
+      <p style="margin:0 0 6px 0;font-size:14px;line-height:1.6;color:#7f1d1d;">
+        ${isRecurring
+          ? '<strong>Recurring service</strong> (weekly / biweekly / monthly): requires <strong>7 days notice</strong> to reschedule or cancel. No exceptions.'
+          : '<strong>First-time and one-time bookings CANNOT be cancelled or rescheduled.</strong> No exceptions.'}
+      </p>
+      <p style="margin:6px 0 0 0;font-size:13px;line-height:1.6;color:#7f1d1d;">
+        We don\'t collect payment upfront. We hold your slot, turn other clients away, and our team plans around it. Late changes hurt the people who do the work.
+      </p>
+    </div>
 
     ${booking.clients?.pin ? `
     ${divider()}
@@ -339,7 +356,7 @@ export function clientConfirmationEmail(booking: any) {
 
 export function clientReminderEmail(booking: any, daysOut: string) {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
-  const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const startTime = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name || 'Your cleaner'
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
   const isRecurring = booking.recurring_type ? true : false
@@ -350,7 +367,7 @@ export function clientReminderEmail(booking: any, daysOut: string) {
 
     ${infoTable(`
       ${infoRow('Date', date)}
-      ${infoRow('Time', startTime)}
+      ${infoRow('Arrival window', startTime)}
       ${infoRow('Cleaner', cleanerName)}
     `)}
 
@@ -426,7 +443,7 @@ export function clientThankYouEmail(clientName: string) {
       <p style="margin: 0 0 12px 0; font-size: 14px; color: #92400e; line-height: 1.5;">
         Your honest review helps other New Yorkers find cleaning services they can trust — and it means the world to our team.
       </p>
-      <a href="https://www.thenycmaid.com/reviews/submit" style="display: inline-block; background-color: #1E2A4A; color: #ffffff !important; -webkit-text-fill-color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Leave a Review</a>
+      <a href="https://g.page/r/CSX9IqciUG9SEAE/review" style="display: inline-block; background-color: #1E2A4A; color: #ffffff !important; -webkit-text-fill-color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Leave a Review</a>
     </div>
 
     ${divider()}
@@ -456,11 +473,12 @@ export function clientPaymentDueEmail(booking: any, amount: string) {
       <p style="margin: 0; font-size: 36px; font-weight: 700; color: #1e40af;">$${amount}</p>
     </div>
 
-    <h2 style="font-size: 18px; font-weight: 600; color: #000; margin: 0 0 16px 0;">Payment methods</h2>
+    <h2 style="font-size: 18px; font-weight: 600; color: #000; margin: 0 0 16px 0;">How to pay</h2>
 
-    ${infoTable(`
-      ${infoRow('Stripe', 'Secure link sent by text — pay by card, Apple Pay, or Cash App')}
-    `)}
+    <p style="margin: 0 0 16px 0; color: #1a1a1a; font-size: 14px; line-height: 1.7;">Pay securely online — Apple Pay, card, or Cash App:</p>
+    <p style="margin: 0 0 8px 0;">
+      <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03?client_reference_id=${booking.id}" style="display: inline-block; background: #1e40af; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: 600;">Pay $${amount} now</a>
+    </p>
 
     ${noteBox('<strong>Important:</strong> Our team cannot leave until payment has been processed. Thank you for your prompt payment!', 'warning')}
 
@@ -484,7 +502,7 @@ export function cleanerAssignmentEmail(booking: any) {
   const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
   const address = booking.clients?.address || 'TBD'
   const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`
-  const hourlyRate = booking.hourly_rate || 79
+  const hourlyRate = booking.hourly_rate || 69
   const firstName = booking.cleaners?.name?.split(' ')[0] || ''
   
   const content = `
@@ -543,7 +561,7 @@ export function cleanerDailySummaryEmail(cleanerName: string, bookings: any[]) {
       const startTime = new Date(b.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
       const address = b.clients?.address || 'TBD'
       const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`
-      const hourlyRate = b.hourly_rate || 79
+      const hourlyRate = b.hourly_rate || 69
       jobsList += `
         <div style="border: 1px solid #eee; border-radius: 8px; padding: 16px; margin: 8px 0;">
           <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: #000;">${startTime} – ${b.clients?.name || 'Client'}</p>
@@ -1009,7 +1027,7 @@ export function adminDailyOpsRecapEmail(data: {
 
 export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: string) {
   const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const newTime = clientArrivalWindow(booking.start_time)
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
   const cleanerName = booking.cleaners?.name || 'Your cleaner'
 
@@ -1019,7 +1037,7 @@ export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: st
 
     ${infoTable(`
       ${infoRow('New Date', newDate)}
-      ${infoRow('New Time', newTime)}
+      ${infoRow('New arrival window', newTime)}
       ${infoRow('Previous', `${oldDate} at ${oldTime}`)}
       ${infoRow('Cleaner', cleanerName)}
       ${infoRow('Service', booking.service_type)}
