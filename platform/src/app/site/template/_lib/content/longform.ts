@@ -442,6 +442,55 @@ export function servicesContent(config: SiteConfig): LongformPage {
       ],
     },
     {
+      heading: `Attention to the Details That Last`,
+      paragraphs: [
+        `The difference between adequate ${v.noun} and genuinely excellent ${v.noun} lives in the details — the parts of the job that don't jump out at first glance but reveal themselves over time. We pay attention to those precisely because most companies skip them when no one's watching. Doing the small things properly is what separates work that merely looks finished from work that actually holds up.`,
+        `That focus on detail is deliberate and trained, not accidental. Our team is taught to check their work before calling it done, to handle the parts of a job that are easy to overlook, and to leave your ${v.isRemote ? 'project in a state you can rely on' : 'property the way a professional should'}. It rarely costs more than a few extra minutes of care, and it makes all the difference in a result you can genuinely count on.`,
+      ],
+    },
+    {
+      heading: `Experience That Prevents Problems`,
+      paragraphs: [
+        `One of the quiet advantages of hiring experienced people for ${v.noun} is everything that doesn't go wrong. Our team has seen the situations that catch less-seasoned providers off guard, and they arrive knowing what to anticipate rather than improvising once they're on site. That foresight prevents the mistakes, delays, and do-overs that turn a simple job into an ordeal.`,
+        `Experience also brings judgment — knowing when a job needs more time, when a shortcut would come back to bite you, and when the straightforward approach is genuinely the best one. Those calls are invisible when they go right and painfully obvious when they go wrong. With us, the experience that makes them go right comes standard on every job, whatever its size.`,
+      ],
+    },
+    {
+      heading: `Clear Communication at Every Step`,
+      paragraphs: [
+        `Good ${v.noun} isn't only about the work itself — it's about never leaving you in the dark. From your first message to ${v.phone} through the finished job, you'll know what's happening, what it costs, and when to expect us. We treat clear communication as part of the service, because a job done well means little if you spent the whole time wondering what was going on.`,
+        `If anything changes or a question comes up, you hear about it from us promptly rather than discovering it after the fact. That openness runs in both directions: the more clearly you tell us what you need, the more precisely we can deliver it. Communication is where trust is built or broken in this work, and we've chosen to make it a strength rather than an afterthought.`,
+      ],
+    },
+    {
+      heading: `Respect for Your Space and Time`,
+      paragraphs: [
+        `Every job is handled with respect for your ${v.isRemote ? 'time and your priorities' : 'home, your property, and your time'}. Our team is expected to be courteous, careful, and professional throughout — to treat your ${v.isRemote ? 'project' : 'space'} the way they'd want their own treated. That respect isn't a nice-to-have; it's a basic standard, and it shapes every interaction you'll have with us.`,
+        `Respecting your time means showing up when we said we would and not dragging a job out unnecessarily. Respecting your space means leaving it in a state you're happy with. These sound obvious, yet they're exactly where so many providers fall short. We hold to them on every job because you're not an interruption to our day — you're the entire reason we have one.`,
+      ],
+    },
+    {
+      heading: `Our Guarantee, Applied to Every Job`,
+      paragraphs: [
+        `The guarantee behind our ${v.noun} isn't reserved for big jobs or special cases — it applies to every single one. If the work doesn't meet the standard, you tell us and we make it right. No arguing, no fine print, no making you feel like a problem for raising it. That commitment holds whether the job was large or small, one-time or recurring.`,
+        `We can offer that guarantee freely because we rarely have to use it, and we take it seriously precisely because it's rare. Getting ${v.noun} right the vast majority of the time is what lets us stand behind every job without hesitation. High standards and a real guarantee reinforce each other — and you get the benefit of both on everything we do.`,
+      ],
+    },
+    {
+      heading: `Flexible to Whatever You Need`,
+      paragraphs: [
+        `No two ${v.noun} jobs are identical, and we'd rather adapt to what you actually need than force you into a rigid, one-size-fits-all box. Whether your situation is straightforward or has some wrinkles to it, we'll listen, adjust, and find an approach that fits. Flexibility is part of treating you like a person rather than a ticket number.`,
+        `That flexibility extends to scheduling, scope, and the specific ways you like things done. If you have particular requests or constraints, tell us and we'll do our best to accommodate them honestly — and if something isn't possible, we'll say so plainly rather than promising and disappointing. The goal is ${v.noun} that genuinely fits your needs, not a template applied without regard for them.`,
+      ],
+    },
+    {
+      heading: `Built Around Doing It Right`,
+      paragraphs: [
+        `Everything about how we deliver ${v.noun} traces back to a single priority: doing it right. Not fastest, not cheapest at any cost, but right — done to a standard we're proud to put our name on, by people who care, backed by a company that stands behind it. Every other feature of our service flows from that core commitment.`,
+        `That's ultimately what you're hiring when you choose ${v.brand}: not just a task completed, but a job done properly and honestly, with none of the games that make hiring anyone for ${v.noun} such a gamble elsewhere. It's a simple promise, but keeping it consistently is genuinely rare — and it's exactly what we've built the whole company to deliver, on every job, every time.`,
+      ],
+    },
+    {
       heading: `Getting Started Is Easy`,
       paragraphs: [
         `The fastest way to get moving is to text ${v.phone} with what you need — we'll take it from there. Prefer to call or book online? Those work too. We built the front door to be simple on purpose, because the last thing anyone needs is a booking process more painful than the problem they're trying to solve.`,
