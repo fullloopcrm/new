@@ -18,11 +18,42 @@
  */
 import { supabaseAdmin } from './supabase'
 
-type IndustryKey =
+export type IndustryKey =
   | 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest'
   | 'towing' | 'junk_removal' | 'dumpster' | 'mobile_salon' | 'laundry'
   | 'interior_design' | 'fitness'
   | 'general'
+
+/**
+ * Map a free-text trade/category string onto a canonical IndustryKey. This is
+ * the SINGLE source of truth for vertical detection across every creation door
+ * (lead conversion, direct provision, admin create), so a tenant's whole
+ * vertical — services, pricing, booking questions — is chosen the same way no
+ * matter how it was born. Falls back to 'general'.
+ *
+ * Order matters: more specific patterns are tested before broad ones (e.g. a
+ * "drain repair" must resolve to plumbing before the broad "repair" → handyman
+ * rule; "junk/dumpster" must never fall through to pest).
+ */
+export function mapIndustry(raw: string | null | undefined): IndustryKey {
+  const s = (raw || '').toLowerCase()
+  if (!s.trim()) return 'general'
+  if (/clean|maid|janitor|housekeep/.test(s)) return 'cleaning'
+  if (/pest|extermin|termite|rodent|bed ?bug|mosquito|roach/.test(s)) return 'pest'
+  if (/dumpster|roll ?off|container rental/.test(s)) return 'dumpster'
+  if (/junk|debris|\bhaul|\bwaste\b|cleanout/.test(s)) return 'junk_removal'
+  if (/tow|roadside|wrecker|recovery|jumpstart|lockout/.test(s)) return 'towing'
+  if (/landscap|lawn|garden|\btree\b|mulch|\bsnow|hardscape|mowing/.test(s)) return 'landscaping'
+  if (/hvac|heating|cooling|air ?condition|furnace|\bhvac\b/.test(s)) return 'hvac'
+  if (/plumb|drain|sewer|water ?heater/.test(s)) return 'plumbing'
+  if (/electric|\bev charger\b/.test(s)) return 'electrical'
+  if (/salon|barber|\bhair\b|beauty|makeup|\bnail|blowout/.test(s)) return 'mobile_salon'
+  if (/laundry|wash.*fold|dry ?clean|linen/.test(s)) return 'laundry'
+  if (/interior ?design|decorat|home ?stag|\bstager\b|\bstaging\b/.test(s)) return 'interior_design'
+  if (/fitness|trainer|\bgym\b|personal train|\byoga\b|pilates/.test(s)) return 'fitness'
+  if (/handy|\brepair\b|assembly/.test(s)) return 'handyman'
+  return 'general'
+}
 
 interface DefaultService {
   name: string

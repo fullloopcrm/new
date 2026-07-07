@@ -8,26 +8,12 @@
  * Idempotent: a lead already converted returns its existing tenant.
  */
 import { supabaseAdmin } from './supabase'
-import { provisionTenant } from './provision-tenant'
+import { provisionTenant, mapIndustry } from './provision-tenant'
 import { seedOnboardingTasks } from './onboarding-tasks'
 import { computeMonthly } from './billing-pricing'
 import { zipToTimezone } from './timezone'
 import { hashAdminPin } from './admin-pin'
 import crypto from 'crypto'
-
-type IndustryKey = 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general'
-
-function mapIndustry(raw: string | null | undefined): IndustryKey {
-  const s = (raw || '').toLowerCase()
-  if (/clean|maid|janitor|housekeep/.test(s)) return 'cleaning'
-  if (/landscap|lawn|garden|tree|snow|mulch/.test(s)) return 'landscaping'
-  if (/hvac|heating|cooling|\bair\b/.test(s)) return 'hvac'
-  if (/plumb|drain|water heater/.test(s)) return 'plumbing'
-  if (/handy|repair/.test(s)) return 'handyman'
-  if (/electric/.test(s)) return 'electrical'
-  if (/pest|extermin|waste|removal|junk/.test(s)) return 'pest'
-  return 'general'
-}
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -124,7 +110,6 @@ export async function createTenantFromLead(
       phone: lead.phone || null,
       email: lead.email || null,
       address: lead.billing_address || null,
-      primary_color: '#0d9488',
       ...(adminNotes && { admin_notes: adminNotes }),
     })
     .select('id, slug, name, status')

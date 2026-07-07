@@ -2,12 +2,27 @@
 
 import { useState } from 'react'
 import type { ActivationResult, StepStatus } from '@/lib/activate-tenant'
+import type { SiteReadinessResult, ReadinessCheck, CheckStatus } from '@/lib/site-readiness'
 
 const STATUS_STYLE: Record<StepStatus, { dot: string; text: string; label: string }> = {
   done: { dot: 'bg-green-500', text: 'text-green-600', label: 'Done' },
   skipped: { dot: 'bg-slate-300', text: 'text-slate-400', label: 'Skipped' },
   action_needed: { dot: 'bg-amber-500', text: 'text-amber-600', label: 'Action' },
   failed: { dot: 'bg-red-500', text: 'text-red-600', label: 'Failed' },
+}
+
+const CHECK_STYLE: Record<CheckStatus, { dot: string; text: string; label: string }> = {
+  pass: { dot: 'bg-green-500', text: 'text-green-600', label: 'Pass' },
+  fail: { dot: 'bg-red-500', text: 'text-red-600', label: 'Fail' },
+  action_needed: { dot: 'bg-amber-500', text: 'text-amber-600', label: 'Action' },
+}
+
+const GROUP_LABEL: Record<ReadinessCheck['group'], string> = {
+  content: 'Content depth',
+  seo: 'On-page SEO',
+  ops: 'Operational',
+  trust: 'Trust & brand',
+  compliance: 'Compliance',
 }
 
 interface LaunchPanelProps {
@@ -24,8 +39,34 @@ export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
   const [error, setError] = useState('')
   const [httpNote, setHttpNote] = useState('')
   const [showSummary, setShowSummary] = useState(false)
+  const [readiness, setReadiness] = useState<SiteReadinessResult | null>(null)
+  const [auditing, setAuditing] = useState(false)
+  const [readinessError, setReadinessError] = useState('')
 
   const carryingUrl = `https://${slug}.fullloopcrm.com`
+
+  async function runAudit() {
+    setAuditing(true)
+    setReadinessError('')
+    setReadiness(null)
+    try {
+      const res = await fetch(`/api/admin/businesses/${tenantId}/readiness`, { credentials: 'include' })
+      if (res.status === 401) {
+        setReadinessError('Not signed in as admin (401).')
+        return
+      }
+      const data = (await res.json().catch(() => null)) as SiteReadinessResult | { error?: string } | null
+      if (!res.ok || !data || 'error' in (data as object)) {
+        setReadinessError((data as { error?: string })?.error || `Audit failed (HTTP ${res.status})`)
+        return
+      }
+      setReadiness(data as SiteReadinessResult)
+    } catch (e) {
+      setReadinessError(e instanceof Error ? e.message : 'Audit never completed')
+    } finally {
+      setAuditing(false)
+    }
+  }
 
   async function activate() {
     setRunning(true)
@@ -230,6 +271,74 @@ export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
           )}
         </>
       )}
+
+      {/* Site-Readiness — the global new-tenant build standard, report-only. */}
+      <div className="border-t border-slate-200 pt-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 text-lg">Site readiness</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Audits the public site against the build standard: content word counts, on-page SEO,
+              and the ops/brand basics. Report-only — it never changes status.
+            </p>
+          </div>
+          <button onClick={runAudit} disabled={auditing}
+            className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-lg text-sm font-cta font-bold disabled:opacity-50 transition-colors shadow-sm flex-shrink-0">
+            {auditing ? 'Auditing…' : readiness ? 'Re-run audit' : 'Run site audit'}
+          </button>
+        </div>
+
+        {auditing && (
+          <div className="mt-4 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-500">
+            Fetching every page and counting words… can take up to a minute.
+          </div>
+        )}
+
+        {readinessError && (
+          <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 whitespace-pre-wrap">
+            {readinessError}
+          </div>
+        )}
+
+        {readiness && (
+          <div className="mt-4 space-y-4">
+            <div className={`rounded-lg px-4 py-3 text-sm font-semibold flex items-center justify-between ${
+              readiness.passed ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+            }`}>
+              <span>{readiness.passed ? 'Meets the build standard.' : 'Below standard — required checks failing.'}</span>
+              <span className="font-mono">{readiness.score}%</span>
+            </div>
+
+            {(['content', 'seo', 'ops', 'trust', 'compliance'] as const).map((group) => {
+              const rows = readiness.checks.filter((c) => c.group === group)
+              if (rows.length === 0) return null
+              return (
+                <div key={group}>
+                  <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1.5">{GROUP_LABEL[group]}</p>
+                  <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
+                    {rows.map((c) => {
+                      const st = CHECK_STYLE[c.status]
+                      return (
+                        <div key={c.key} className="flex items-start gap-3 px-4 py-2.5">
+                          <span className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${st.dot}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-800">
+                              {c.label}
+                              {c.severity === 'recommended' && <span className="text-[10px] uppercase tracking-wide text-slate-400 ml-2">optional</span>}
+                            </p>
+                            {c.detail && <p className="text-xs text-slate-500 mt-0.5">{c.detail}</p>}
+                          </div>
+                          <span className={`text-xs font-semibold ${st.text} flex-shrink-0`}>{st.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
