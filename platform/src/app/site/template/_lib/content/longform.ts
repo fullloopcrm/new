@@ -1608,3 +1608,330 @@ export function reviewsContent(config: SiteConfig): LongformPage {
     faq,
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAREERS — floor 3,000 words. Recruiting content: why work here, culture, what
+// we look for, how to apply. `here` in-scope.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function careersContent(config: SiteConfig): LongformPage {
+  const v = vars(config)
+  const here = v.isRemote ? 'wherever you are' : `in ${v.place}`
+
+  const sections: ContentSection[] = [
+    {
+      heading: `Build a Career With ${v.brand}`,
+      paragraphs: [
+        `${v.brand} is always interested in hearing from good people who take pride in their work. We're a ${v.noun} company that treats its team the way a company should — with fair pay, real respect, and the support to do the job well — because we know that the people doing the work are the entire business as far as our clients are concerned. If that sounds like the kind of place you'd want to work, we'd like to meet you.`,
+        `This isn't a pitch full of empty perks and buzzwords. It's a straightforward description of what it's actually like to work here and what we're looking for. We believe in being honest with our team the same way we're honest with our clients, so everything on this page is written to give you a real picture of the opportunity — not to dress it up into something it isn't.`,
+        `Whether you're experienced in ${v.noun} or looking for a solid place to build a career, we're worth a conversation. Good, reliable people are the hardest thing to find and the most valuable thing we have, and we treat them accordingly. Read on to understand who we are as an employer, and if it resonates, reach out — we're genuinely glad to hear from people who care about doing things right.`,
+      ],
+    },
+    {
+      heading: `Why People Like Working Here`,
+      paragraphs: [
+        `The thing our team members mention most is that we do what we say — for them, not just for clients. When we set a schedule, we honor it. When we promise pay, it arrives on time and correct. When someone needs support, they get it rather than being left to figure it out alone. Those basics sound simple, but plenty of employers in this field don't manage them, and our people notice the difference.`,
+        `We also keep the drama low and the respect high. Nobody here is treated as disposable or talked down to, and good work gets recognized rather than taken for granted. We'd rather build a stable, experienced team that wants to stay than churn through people chasing the cheapest possible labor — because a team that's treated well does better work, and everyone benefits from that, our clients most of all.`,
+      ],
+    },
+    {
+      heading: `How We Treat Our Team`,
+      paragraphs: [
+        `Fair treatment isn't a perk we advertise — it's the foundation of how we operate. We pay fairly for the work, we're clear about expectations, and we back our people up when they need it. We understand that the person doing a great job for a client is only able to do that when they're supported, respected, and not stretched to the breaking point, so we build the company around making that possible.`,
+        `This isn't charity, and we won't pretend it is — it's how you run a business that lasts. A team that's treated well shows up, takes pride in the result, and stays, and a stable, experienced team is the single biggest reason we can deliver consistent quality. Companies that treat their workers as interchangeable get interchangeable results. We'd rather invest in good people who make us better.`,
+      ],
+    },
+    {
+      heading: `Fair Pay for Honest Work`,
+      paragraphs: [
+        `We believe good work deserves fair pay, and we don't try to squeeze our team to pad our margins. Compensation is one of the clearest signals of how a company actually values its people, and we'd rather pay well and keep great workers than cut corners on pay and constantly be hiring replacements. The math works out better for everyone that way, including our clients.`,
+        `We're upfront about pay from the start — no vague promises, no bait-and-switch, no surprises after you've started. You'll know what you're earning and how it works before you commit to anything. That transparency is the same principle we apply to our clients' quotes, and it comes from the same place: we think people deserve to know exactly what they're getting into, whether they're hiring us or working for us.`,
+      ],
+    },
+    {
+      heading: `What We Look For`,
+      paragraphs: [
+        `Skill matters, but character matters more, because skill can be taught and character can't. We look for people who are reliable, honest, and respectful — the kind of person who shows up when they said they would, does the job properly even when no one's watching, and treats a client's ${v.isRemote ? 'time and trust' : 'home and property'} with genuine care. Those traits are the foundation everything else is built on.`,
+        `We can teach the technical side of ${v.noun} to someone with the right attitude far more easily than we can instill a good attitude in someone who's technically skilled but unreliable. So while relevant experience is always welcome, what we're really screening for is whether you're someone we'd trust to represent us — because when you're on a job, you are the company in the client's eyes, and that's a responsibility we take seriously.`,
+      ],
+    },
+    {
+      heading: `The Kind of Person Who Thrives Here`,
+      paragraphs: [
+        `People do well here when they take pride in their work and genuinely want to do a good job — not just get through the day. If you're the kind of person who's bothered by sloppy work, who'd rather do something right than fast, and who treats other people the way you'd want to be treated, you'll fit right in. Those are the values the whole company runs on.`,
+        `You'll also do well if you value reliability and honesty, because those are non-negotiable here. We're building something based on trust — our clients' trust in us, and our trust in each other — and that only works when everyone holds up their end. If that sounds like how you already operate, this is the kind of place where that approach is recognized and rewarded rather than taken advantage of.`,
+      ],
+    },
+    {
+      heading: `What the Work Involves`,
+      paragraphs: [
+        `The work is ${v.noun}, done to a high standard for real clients who are counting on us. It's honest, tangible work with a clear result you can be proud of at the end of the day. Depending on the role, you'll be handling jobs ${here}, representing ${v.brand} to clients, and delivering the quality and reliability our reputation is built on.`,
+        `It's not always easy — good work rarely is — but it's genuinely satisfying to do something well and see the difference it makes for the people you're serving. We'll make sure you have what you need to succeed: clear expectations, the support to meet them, and a team that has your back. What we ask in return is that you bring your best to every job, the same way we bring ours.`,
+      ],
+    },
+    {
+      heading: `Reliability Is Everything`,
+      paragraphs: [
+        `If there's one thing that matters most in this work, it's reliability. Our entire reputation rests on showing up when we said we would and doing what we promised, so we need people who take that as seriously as we do. Being dependable — showing up on time, ready to work, every time — is the single most important quality we look for, and it's the one that earns the most trust and the most opportunity here.`,
+        `That reliability cuts both ways. We ask our team to be dependable, and in return we're dependable for them: consistent work, on-time pay, and clear communication. It's a two-way street built on mutual respect, and it's a big part of why people who join us tend to stay. We honor our commitments to our team the same way we expect them to honor theirs to our clients.`,
+      ],
+    },
+    {
+      heading: `Room to Grow`,
+      paragraphs: [
+        `We'd rather promote and develop the good people we already have than constantly hire from outside, so there's real room to grow here for those who earn it. People who prove themselves reliable and skilled find that more responsibility, better opportunities, and greater trust come their way over time. We notice who's carrying their weight and then some, and we reward it.`,
+        `Growth here isn't about empty titles — it's about earning genuine trust and the opportunities that come with it. If you show up, do excellent work, and treat people right, you'll find a company that recognizes it and invests in your future. We're building something for the long term, and we want the people who help build it to grow right along with it.`,
+      ],
+    },
+    {
+      heading: `How We're Different as an Employer`,
+      paragraphs: [
+        `A lot of ${v.noun} companies treat their workers as a cost to be minimized — the cheapest labor they can get away with, churned through and replaced. We think that's both wrong and short-sighted, and we've built the opposite kind of company on purpose. Our people are an investment, not an expense, and we treat them like the valuable, hard-to-replace professionals they are.`,
+        `That difference shows up in everything: how we pay, how we communicate, how we handle problems, and how we back our team up when a situation gets difficult. We're not perfect, and we won't pretend to be, but we genuinely try to be the kind of employer we'd want to work for. If you've been treated as disposable elsewhere, we think you'll notice the difference here from day one.`,
+      ],
+    },
+    {
+      heading: `The Satisfaction of Doing It Well`,
+      paragraphs: [
+        `There's a real satisfaction in honest work done well — in finishing a ${v.noun} job and knowing you did it right, that the client is genuinely better off for it, and that you can stand behind the result. That sense of pride is something we try to protect, because it's what makes the work worth doing beyond just the paycheck. We'd rather have people who feel that pride than people just clocking in.`,
+        `When you're supported instead of stretched thin, given the time and tools to do the job properly, and trusted to take pride in the outcome, the work becomes something you can actually feel good about. That's the environment we work to create. It isn't always easy and it isn't always glamorous, but at the end of the day you've done something real and done it well, and that counts for a lot.`,
+      ],
+    },
+    {
+      heading: `We Don't Cut Corners — and Neither Will You`,
+      paragraphs: [
+        `Our whole reputation is built on doing the job right, which means we don't ask our team to cut corners to save time or money, and we don't reward the people who do. That's actually a relief for good workers, who so often find themselves pressured elsewhere to rush jobs and compromise quality. Here, doing it properly isn't just allowed — it's expected and supported.`,
+        `If you take pride in thorough, careful work, you'll never be told to hurry past the standard just to squeeze in one more job. We'd rather do fewer jobs well than more jobs badly, and we back that up in how we schedule and support our team. Good workers thrive in that environment because it lets them do what they already want to do: excellent work they can put their name behind.`,
+      ],
+    },
+    {
+      heading: `Part of Something That Matters`,
+      paragraphs: [
+        `Working here means being part of a company that's genuinely trying to do right by its clients and its people — not a faceless operation chasing the lowest cost at everyone's expense. There's a shared sense that what we do matters and that how we do it matters even more, and being part of that is a different experience from just having a job somewhere.`,
+        `Every team member contributes to a reputation we've all worked to build, and that shared ownership creates a kind of pride and accountability you don't find everywhere. When the whole team is pulling in the same direction — toward quality, honesty, and treating people right — the work is better and the days are better. That's the culture we protect, and we look for people who want to be part of it.`,
+      ],
+    },
+    {
+      heading: `Support When You Need It`,
+      paragraphs: [
+        `Nobody here is left to sink or swim alone. When a job gets complicated, when a situation is tricky, or when you simply have a question, there's real support to lean on. We'd rather you ask and get it right than guess and get it wrong, so we make sure help is available and that asking for it is never held against you.`,
+        `That support is part of how we get consistent results: a team that knows it has backup handles difficult situations better than a team that feels abandoned. We invest in setting our people up to succeed because their success is our success, and because it's simply how a decent employer should operate. You'll never be sent into a job unprepared or left to face a problem on your own.`,
+      ],
+    },
+    {
+      heading: `Honesty Goes Both Ways`,
+      paragraphs: [
+        `We're honest with our clients, and we're honest with our team — even when the truth isn't the easiest thing to say. You'll always know where you stand, what's expected, and how you're doing. We don't play games, we don't keep people guessing, and we don't dress up bad news as good. That directness is something our best people genuinely appreciate once they experience it.`,
+        `In return, we ask for the same honesty from you. If something's wrong, tell us. If you made a mistake, own it — we care far more about how you handle it than about the fact that it happened. A culture of honesty in both directions is what makes a team you can actually trust, and trust is the thing everything else here is built on, for clients and team members alike.`,
+      ],
+    },
+    {
+      heading: `A Stable Place to Build`,
+      paragraphs: [
+        `In an industry full of here-today-gone-tomorrow operations, we're building something meant to last. That stability matters for our team: it means steady work, a company that isn't going to vanish, and the chance to build a real career rather than bounce between short-term gigs. We're playing a long game, and we want people who want to play it with us.`,
+        `Stability comes from doing things the right way — treating clients well so they come back, treating our team well so they stay, and running a business that's built to endure rather than to cash out. If you're looking for a solid place to plant yourself and grow ${here}, that's exactly what we're trying to offer. The people who join us and commit tend to find it's worth it.`,
+      ],
+    },
+    {
+      heading: `What We Ask of You`,
+      paragraphs: [
+        `In fairness, here's what we expect in return for all of the above: show up reliably, do the work to our standard, treat clients and teammates with respect, and be honest. That's it. None of it is complicated, but all of it matters, and we hold everyone to it — because the whole thing only works when each person carries their weight.`,
+        `We're not looking for perfection; we're looking for people who genuinely try, who take the work seriously, and who care about doing right by the people we serve. If you bring that, we'll bring everything on our side of the bargain — fair pay, real support, respect, and room to grow. It's a straightforward deal, and it's one that's worked well for the people who've taken us up on it.`,
+      ],
+    },
+    {
+      heading: `How to Apply`,
+      paragraphs: [
+        `If this sounds like the kind of place you'd want to work, we'd love to hear from you. Getting in touch is simple — reach out at ${v.phone} or through our application, tell us a little about yourself and your experience, and we'll take it from there. You don't need a perfect résumé or a long list of credentials; we're most interested in who you are and how you work.`,
+        `We try to make the process straightforward and respectful of your time, because how a company treats you as an applicant is a preview of how it'll treat you as an employee. We'll be honest with you about the opportunity, answer your questions directly, and let you know where things stand. Whether or not it's the right fit, you'll be treated the way we'd want to be treated ourselves.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = [
+    { q: `What kind of positions are available?`, a: `We're always interested in reliable, hardworking people for our ${v.noun} team. Reach out at ${v.phone} or through our application and we'll tell you about current opportunities.` },
+    { q: `Do I need experience?`, a: `Relevant experience is welcome, but character matters more — we can teach the technical side to someone reliable and honest. If you take pride in your work, we want to hear from you.` },
+    { q: `How does pay work?`, a: `We pay fairly for good work and we're upfront about it from the start — no vague promises or surprises. You'll know what you're earning and how it works before you commit to anything.` },
+    { q: `What are you looking for in a team member?`, a: `Reliability, honesty, and respect above all. Someone who shows up when they said they would, does the job properly even when no one's watching, and treats clients with genuine care.` },
+    { q: `How do I apply?`, a: `Reach out at ${v.phone} or through our application, tell us about yourself, and we'll take it from there. The process is straightforward and respectful of your time.` },
+    { q: `What's the company culture like?`, a: `Low drama, high respect. We do what we say for our team the way we do for clients — honor schedules, pay on time and correctly, and support people instead of leaving them to figure it out alone. We'd rather build a stable team that wants to stay than churn through people.` },
+    { q: `Is there room to grow?`, a: `Yes. We'd rather promote and develop the good people we already have than hire from outside. Show up, do excellent work, and treat people right, and more responsibility and opportunity come your way over time.` },
+    { q: `Will I be supported on the job?`, a: `Always. Nobody here is left to sink or swim alone — when a job gets complicated or you have a question, there's real support to lean on, and asking for it is never held against you. We set our people up to succeed because their success is ours.` },
+  ]
+
+  return {
+    title: `Careers at ${v.brand} — Join Our ${v.label} Team in ${v.place}`,
+    metaDescription: `Work with ${v.brand}, a ${v.noun} company that treats its team right: fair pay, real respect, room to grow. We hire for reliability and character. Apply — text ${v.phone}.`,
+    h1: `Careers at ${v.brand}`,
+    intro: `We're always interested in good people who take pride in their work. Fair pay, real respect, and room to grow — here's what it's like to work at ${v.brand} and what we look for.`,
+    sections,
+    faq,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REFERRAL PROGRAM — floor 3,000 words. Marketing/explainer page. Generic (no
+// hardcoded reward amounts — those vary per tenant); points to the /referral
+// portal to actually participate. `here` in-scope.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function referralContent(config: SiteConfig): LongformPage {
+  const v = vars(config)
+  const here = v.isRemote ? 'wherever you are' : `in ${v.place}`
+
+  const sections: ContentSection[] = [
+    {
+      heading: `Refer a Friend, Everyone Wins`,
+      paragraphs: [
+        `Some of the best relationships we have started with a simple recommendation — one happy client telling someone they know to give us a call. Our referral program exists to say thank you for exactly that. When you refer someone to ${v.brand} for ${v.noun}, you're doing us the single biggest favor a client can, and we believe that deserves genuine appreciation.`,
+        `The idea is simple: if you've had a good experience with us and you know someone who could use ${v.noun}, send them our way. They get a ${v.noun} company they can actually trust, we get the chance to earn a new long-term client, and you get our thanks for making the connection. It's the kind of arrangement where everyone genuinely comes out ahead.`,
+        `Word of mouth is how good companies are supposed to grow, and it's how we prefer to grow. Rather than pour money into ads shouting at strangers, we'd rather earn recommendations from clients who mean them and reward the people who make them. This page explains how it all works and why we care so much about referrals in the first place.`,
+      ],
+    },
+    {
+      heading: `Why We Run a Referral Program`,
+      paragraphs: [
+        `A referral is the highest compliment a client can pay us, because you're putting your own reputation on the line when you recommend someone. People don't tell their friends and family to call a company unless they genuinely believe in it — the risk of a bad recommendation is too personal. So when you refer us, you're vouching for us in a way no advertisement ever could, and we don't take that lightly.`,
+        `Running a referral program is our way of recognizing that. We'd much rather invest in thanking the clients who spread the word than spend that same money trying to buy attention from strangers who don't know us. It aligns everyone's interests: it rewards the people who've supported us, it brings us clients who arrive already trusting us, and it keeps us honest, because you'd only refer us if we keep earning it.`,
+      ],
+    },
+    {
+      heading: `How It Works`,
+      paragraphs: [
+        `The mechanics are straightforward. When you refer someone to ${v.brand}, we track that connection so we can properly thank you once they become a client. There's no complicated hoop-jumping and no fine-print maze designed to make sure you never actually qualify — we want the process to be as simple and honest as everything else we do.`,
+        `To get started, just reach out or sign up through our referral page so we can set you up and give you what you need to make referrals. From there, whenever someone you send our way books ${v.noun} with us, the connection is recorded and your thanks follows. If you ever have a question about how it works or where a referral stands, you can simply ask — a real person will give you a straight answer.`,
+      ],
+    },
+    {
+      heading: `Who You Can Refer`,
+      paragraphs: [
+        `Anyone who could genuinely use ${v.noun} ${here} is a great person to refer — friends, family, neighbors, coworkers, or anyone you know who's been frustrated trying to find a company they can rely on. If you know someone who's mentioned needing this kind of work, or complained about a bad experience with someone else, that's exactly the person to send our way.`,
+        `The best referrals are the ones where you're genuinely doing your friend a favor by connecting them with someone trustworthy. That's the spirit of the program: it's not about spamming everyone you know, it's about making a real, useful connection when you know someone who'd benefit. When it's a good match, everyone's glad you made the introduction — including the person you referred.`,
+      ],
+    },
+    {
+      heading: `Thanking You for the Trust`,
+      paragraphs: [
+        `We believe a referral deserves real appreciation, not a token gesture. When you send someone our way and they become a client, we make a point of thanking you meaningfully for it, because we understand exactly how valuable that introduction is to a business like ours. The details are something we're always happy to walk you through — just reach out and ask.`,
+        `More than any specific reward, though, what we're really offering is a relationship where your support is genuinely recognized. Plenty of companies happily take referrals and never so much as say thank you. We think that's both ungracious and short-sighted. The people who go out of their way to recommend us are among our most valuable clients, and we treat them that way.`,
+      ],
+    },
+    {
+      heading: `Good for the Friend You Refer`,
+      paragraphs: [
+        `The referral program isn't just good for you and for us — it's genuinely good for the person you refer. They get connected with a ${v.noun} company that's already been vetted by someone they trust, which is worth a great deal when the alternative is rolling the dice on a stranger found through a random search. A personal recommendation takes the risk out of hiring.`,
+        `So when you refer a friend, you're not doing us a favor at their expense — you're doing them a favor too. They skip the anxiety of wondering whether they've hired someone reliable, because you've already answered that question for them. That's why referrals feel good to make: you're helping someone you care about avoid exactly the kind of bad experience that sent so many of our clients looking for a better option in the first place.`,
+      ],
+    },
+    {
+      heading: `The Power of a Personal Recommendation`,
+      paragraphs: [
+        `In a world full of advertising nobody trusts and reviews people aren't always sure are real, a personal recommendation from someone you know still cuts through everything. When a friend says "call these people, they're great," it carries a weight that no marketing campaign can match. That's the entire reason word of mouth remains the most powerful way for a company like ours to grow.`,
+        `We've built ${v.brand} to earn those recommendations, and the referral program is how we honor them. Every time a client vouches for us, it reinforces the standard we hold ourselves to, because we know we have to keep deserving it. A recommendation isn't a one-time thing — it's a continuing trust that we have to keep earning, job after job, and that's exactly the pressure we want on ourselves.`,
+      ],
+    },
+    {
+      heading: `No Catch, No Pressure`,
+      paragraphs: [
+        `We keep the referral program honest and simple, with no catch buried in the details. You're never obligated to refer anyone, there's no pressure, and there's no penalty for not participating. It's simply there as a way to say thank you if and when you feel like recommending us — entirely on your terms, whenever it feels natural to you.`,
+        `And we'd never want you to refer someone you're not genuinely comfortable recommending. The whole thing only works if the referrals are real, which means we'd rather you send someone our way because you truly believe we'll take good care of them than because you're chasing a reward. Refer us when you mean it, and we'll make sure both you and your friend are glad you did.`,
+      ],
+    },
+    {
+      heading: `Referrals Keep Us Independent`,
+      paragraphs: [
+        `There's a bigger reason we lean on referrals rather than heavy advertising, and it's worth being honest about: it keeps us independent and lets us stay focused on the work instead of the marketing. A company that has to spend enormous sums buying attention is a company under pressure to cut corners elsewhere to pay for it. Growing through referrals lets us put our energy and money where it belongs — into doing ${v.noun} well.`,
+        `When our growth comes from clients who are genuinely glad they hired us, our incentives stay clean. We don't have to chase volume at the expense of quality or oversell to fund an ad budget. We just have to keep doing right by the people in front of us so they keep sending their friends. That's a healthier way to run a business, and the referral program is a big part of what makes it possible.`,
+      ],
+    },
+    {
+      heading: `Referring Us to Businesses`,
+      paragraphs: [
+        `Referrals aren't only about friends and neighbors — if you know a business that could use dependable ${v.noun}, that's a valuable connection too. Businesses often need reliable, recurring service they can build a routine around, and they struggle to find a provider they can count on just as much as homeowners do. Connecting us with a business that needs us can be a genuine help to everyone involved.`,
+        `Whether it's a company you work with, a property manager, an office, or any operation that could use what we do, a personal introduction carries the same weight in the business world as it does anywhere else. If you know decision-makers who've been frustrated with unreliable providers, sending them our way is exactly the kind of referral we're grateful for — and exactly the kind that tends to turn into a long, steady relationship.`,
+      ],
+    },
+    {
+      heading: `Refer as Often as You Like`,
+      paragraphs: [
+        `There's no cap on how many people you can refer. If you know several people who could use ${v.noun}, send them all our way — each connection is genuinely appreciated, and there's no point at which we stop being grateful for them. Some of our most valued clients have referred us many times over the years, and that ongoing support means the world to a business built on trust.`,
+        `Every referral, whether it's your first or your tenth, gets the same appreciation and the same careful attention to the person you sent. We're never going to treat a repeat referrer as if they've done enough already — quite the opposite. The people who keep vouching for us are the backbone of how we grow, and we do our best to make sure they always feel that their trust in us is well placed.`,
+      ],
+    },
+    {
+      heading: `We Take Care of the People You Send`,
+      paragraphs: [
+        `When you refer someone to us, you're trusting us with your own reputation, and we treat that trust with real seriousness. The last thing we'd ever want is for someone you recommended to have a bad experience that reflects poorly on you. So we make a point of taking especially good care of referred clients — because letting them down would be letting you down too.`,
+        `That's part of why the referral relationship works so well: our interests and yours are perfectly aligned. You want your friend to be well taken care of; so do we. Every referred client is a chance to prove your recommendation right and to strengthen the relationship with the person who made it. We treat it as exactly that, and we work to make sure you never regret sending someone our way.`,
+      ],
+    },
+    {
+      heading: `Simple, Honest Tracking`,
+      paragraphs: [
+        `We keep track of referrals so we can properly credit and thank you, and we do it in a way that's simple and transparent. You won't have to jump through hoops or worry that a legitimate referral will somehow go unrecognized. When you send someone our way and they become a client, the connection is recorded, and you get what you're owed — no games, no runaround.`,
+        `If you ever want to know where a referral stands or have any question about how the tracking works, just ask — a real person will give you a straight answer, the same as with everything else we do. We built the program to be as honest as the rest of the company, because a referral program riddled with fine print and technicalities would undermine the very trust it's supposed to reward.`,
+      ],
+    },
+    {
+      heading: `A Thank You That Means Something`,
+      paragraphs: [
+        `We want the thanks you receive for a referral to feel genuine, not like a perfunctory gesture a company makes because it's expected. The details are something we're always glad to walk you through directly, but the spirit behind it is what matters most: real gratitude for a real favor. You've helped us grow the honest way, and we want you to feel that it was worth doing.`,
+        `Beyond any specific token of appreciation, we hope the biggest reward is simply knowing you connected someone you care about with a company that took great care of them. That's the kind of good deed that comes back around, and being the person who made a genuinely helpful introduction feels good in its own right. We're just glad to be the company worth recommending in the first place.`,
+      ],
+    },
+    {
+      heading: `Growing the Right Way`,
+      paragraphs: [
+        `Every business has to grow somehow, and the way a company chooses to grow tells you a lot about it. Some grow by outspending everyone on advertising; some grow by cutting prices to the bone and hoping to make it up on volume. We grow by earning recommendations from people who genuinely mean them — which is slower, but far more solid, and far better for everyone involved.`,
+        `Growing through referrals means our reputation has to stay spotless, because it's doing the work an ad budget would otherwise do. That keeps us sharp and keeps our clients' interests front and center, since one disappointed client is one fewer person recommending us. It's growth that has to be earned continuously rather than bought, and we wouldn't trade it for the fastest ad-fueled expansion in the world.`,
+      ],
+    },
+    {
+      heading: `Trust You Can Pass Along`,
+      paragraphs: [
+        `One of the nicest things about a company you can genuinely rely on is that it becomes something you can share. When you've found a ${v.noun} provider you trust, passing that along to someone who needs it is a small but real kindness — you're saving them the frustration, the risk, and the wasted time of finding a good one on their own. Trust, once earned, is worth spreading.`,
+        `That's really what the referral program comes down to: making it easy and rewarding to share something good. We've worked hard to be the kind of company people are glad to recommend, and the program simply honors the clients who do. Every time you pass that trust along, you're extending the same relief you felt when you found us to someone else who needs it — and we're grateful to be worth passing along.`,
+      ],
+    },
+    {
+      heading: `Built on Relationships, Not Transactions`,
+      paragraphs: [
+        `A referral only makes sense in a business built on relationships rather than one-off transactions, and that's exactly what we've set out to build. We're not interested in churning through customers and never seeing them again; we want clients who stay, who trust us, and who feel comfortable sending the people they care about our way. The referral program is a natural extension of that whole philosophy.`,
+        `When your business is about relationships, every referral is a sign you're doing it right — proof that people don't just tolerate you, they believe in you enough to attach their own name to a recommendation. We treat that as the meaningful vote of confidence it is. Reward or not, a referral tells us we've built the kind of relationship worth having, and that's the thing we're really after with every client we serve.`,
+      ],
+    },
+    {
+      heading: `Every Referral Is Personal`,
+      paragraphs: [
+        `We never think of referrals as just a number going up. Behind every one is a real person who trusted us enough to put their name on a recommendation, and another real person on the receiving end who's now counting on us to live up to it. We hold both of those relationships in mind on every referred job, because both of them matter, and both of them are the reason the program exists.`,
+        `That personal weight is exactly why we're so grateful for referrals and so careful with them. It's not an abstract marketing channel to us — it's individual people vouching for us to individual people they care about. Honoring that chain of trust, one connection at a time, is one of the most meaningful parts of building a business the way we're trying to build ${v.brand}.`,
+      ],
+    },
+    {
+      heading: `Sign Up to Start Referring`,
+      paragraphs: [
+        `Ready to start referring? Head to our referral page to sign up and get set up, or reach out at ${v.phone} and we'll help you get started. Once you're in, making referrals is easy, and we'll take care of tracking the connections and thanking you properly when someone you sent becomes a client. It only takes a moment to get going.`,
+        `Whether you refer one person or many, we're grateful for every single introduction. Each one is a vote of confidence in the work we do and a genuine help to a business built on trust and reputation. If you've had a good experience with ${v.brand} and know someone who'd benefit from ${v.noun}, there's no better way to help them — and us — than a simple recommendation.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = [
+    { q: `How does the referral program work?`, a: `When you refer someone to ${v.brand} and they become a client, we track the connection and thank you for it. Sign up through our referral page or text ${v.phone} to get started — it's simple and honest, with no fine-print maze.` },
+    { q: `Who can I refer?`, a: `Anyone who could genuinely use ${v.noun} ${here} — friends, family, neighbors, coworkers. The best referrals are ones where you're doing your friend a favor by connecting them with a company they can trust.` },
+    { q: `Do I have to participate?`, a: `Not at all. There's no obligation, no pressure, and no penalty for not participating. It's simply there to say thank you if and when you feel like recommending us, entirely on your terms.` },
+    { q: `Is it good for the person I refer?`, a: `Yes. They get connected with a vetted ${v.noun} company on the strength of someone they trust, which takes the risk out of hiring. You're doing them a favor as much as us.` },
+    { q: `How do I sign up?`, a: `Head to our referral page to sign up, or reach out at ${v.phone} and we'll help you get started. Once you're set up, making referrals and tracking them is easy.` },
+    { q: `Is there a limit on how many people I can refer?`, a: `No cap at all. If you know several people who could use ${v.noun}, send them all our way — each connection is genuinely appreciated, whether it's your first referral or your tenth.` },
+    { q: `How are referrals tracked?`, a: `Simply and transparently. When you send someone our way and they become a client, the connection is recorded so we can credit and thank you — no hoops, no fine print. Ask us anytime where a referral stands and you'll get a straight answer.` },
+  ]
+
+  return {
+    title: `${v.brand} Referral Program — Refer a Friend for ${v.label}`,
+    metaDescription: `Refer a friend to ${v.brand} for ${v.noun} ${here} and we'll thank you for it. Word of mouth done right — good for you, your friend, and us. Sign up: text ${v.phone}.`,
+    h1: `${v.brand} Referral Program`,
+    intro: `Know someone who could use ${v.noun}? Refer them to ${v.brand} and everyone wins — they get a company they can trust, and you get our genuine thanks. Here's how it works.`,
+    sections,
+    faq,
+  }
+}
