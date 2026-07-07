@@ -3,6 +3,7 @@ import type { SiteConfig } from '@/app/site/template/_config/types'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { CITIES } from '@/app/site/template/_data/us-locations'
 import { HOME_GUIDE } from '@/app/site/template/_data/va-home-guide'
+import VaLeadForm from '@/app/site/template/_components/VaLeadForm'
 
 /**
  * Dedicated landing for virtual-assistant tenants. Unlike the local-trade
@@ -48,7 +49,7 @@ export default function VirtualAssistantLanding({ config }: { config: SiteConfig
   // are cleaning-shaped and wrong for a VA lead. Until a dedicated VA lead form
   // exists, the CTA texts the business directly — an action that actually works
   // (matches the "Text us" secondary button). TODO: replace with a VA lead form.
-  const cta = { label: 'Get an Assistant', href: `sms:${config.contact.phoneDigits}` }
+  const cta = { label: 'Get an Assistant', href: '#get-started' }
 
   return (
     <main>
@@ -315,6 +316,20 @@ export default function VirtualAssistantLanding({ config }: { config: SiteConfig
               </div>
             </article>
           ))}
+        </div>
+      </section>
+
+      {/* Lead form */}
+      <section id="get-started" className="bg-[var(--surface)] border-t border-black/5 scroll-mt-20">
+        <div className="max-w-3xl mx-auto px-6 py-16 md:py-24">
+          <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Get Started</p>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide text-center mb-3">
+            Tell Us What You Need Off Your Plate
+          </h2>
+          <p className="text-gray-500 text-center mb-10">
+            A real person will reach out to match you with your English-speaking assistant. Starting at $8/hour.
+          </p>
+          <VaLeadForm config={config} />
         </div>
       </section>
 

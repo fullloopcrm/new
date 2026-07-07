@@ -15,9 +15,8 @@ export interface RelatedGroup {
 }
 
 function funnelCta(config: SiteConfig): { label: string; href: string } {
-  // VA SEO pages: the cleaning booking/contact funnels are wrong for a VA lead,
-  // so the CTA texts the business directly until a VA lead form exists.
-  return { label: 'Get an Assistant', href: `sms:${config.contact.phoneDigits}` }
+  // VA SEO pages point at the lead form on the home page (#get-started).
+  return { label: 'Get an Assistant', href: '/#get-started' }
 }
 
 export default function VASeoPage({

@@ -35,8 +35,8 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
   // Primary CTA label is industry-aware: the "$10 OFF self booking" promo is
   // cleaning-specific and must not show on other trades.
   const primaryCta = isCleaning ? 'Self Booking $10 OFF' : isVa ? 'Get an Assistant' : 'Get Started'
-  // VA has no cleaning booking funnel; its CTA texts the business directly.
-  const primaryHref = isVa ? `sms:${config.contact.phoneDigits}` : '/book/new'
+  // VA has no cleaning booking funnel; its CTA goes to the on-page lead form.
+  const primaryHref = isVa ? '/#get-started' : '/book/new'
   const [mobileOpen, setMobileOpen] = useState(false)
   const [servicesOpen, setServicesOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
