@@ -30,6 +30,11 @@ const ALLOWED_TYPES: Record<string, { mimes: string[]; maxSize: number; folder: 
     maxSize: 10 * 1024 * 1024,
     folder: 'resumes',
   },
+  portfolio: {
+    mimes: ['application/pdf'],
+    maxSize: 50 * 1024 * 1024,
+    folder: 'portfolios',
+  },
 }
 
 export async function POST(request: NextRequest) {

@@ -2,8 +2,36 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
 import { jobs } from "@/app/site/landscaping-in-nyc/_lib/jobs";
 import { PHONE, PHONE_HREF, EMAIL } from "@/app/site/landscaping-in-nyc/_lib/siteData";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// Upload a file directly to Supabase storage via a pre-signed URL (bypasses
+// Vercel's 4.5MB function body limit — required for the 100MB video).
+async function uploadFile(file: File, type: "resume" | "video"): Promise<string> {
+  const signedRes = await fetch("/api/apply/signed-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, filename: file.name, contentType: file.type }),
+  });
+  if (!signedRes.ok) {
+    const data = await signedRes.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to prepare ${type} upload.`);
+  }
+  const { path, token, publicUrl } = await signedRes.json();
+
+  const { error } = await supabase.storage
+    .from("uploads")
+    .uploadToSignedUrl(path, token, file, { contentType: file.type });
+  if (error) throw new Error(`Failed to upload ${type}. Please try again.`);
+
+  return publicUrl;
+}
 
 const boroughs = [
   "Manhattan",
@@ -68,16 +96,28 @@ export default function ApplyClient() {
     }
 
     try {
-      const formData = new FormData();
-      Object.entries(form).forEach(([key, val]) => {
-        if (val) formData.append(key, val);
-      });
-      if (resume) formData.append("resume", resume);
-      if (video) formData.append("video", video);
+      let resumeUrl: string | null = null;
+      let videoUrl: string | null = null;
+
+      if (video) videoUrl = await uploadFile(video, "video");
+      if (resume) resumeUrl = await uploadFile(resume, "resume");
 
       const res = await fetch("/api/apply", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          position: form.position,
+          borough: form.borough,
+          experience: form.experience,
+          availability: form.availability,
+          driversLicense: form.driversLicense,
+          message: form.about,
+          resumeUrl,
+          videoUrl,
+        }),
       });
 
       if (!res.ok) {
