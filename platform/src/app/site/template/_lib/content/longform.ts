@@ -1935,3 +1935,373 @@ export function referralContent(config: SiteConfig): LongformPage {
     faq,
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BLOG — 6 trade-parameterized posts, each ≥1,500 words. Static slugs (same for
+// every tenant); content is config-driven. `here` in-scope per post.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BlogPost {
+  slug: string
+  excerpt: string
+  page: LongformPage
+}
+
+export function blogPosts(config: SiteConfig): BlogPost[] {
+  const v = vars(config)
+  const here = v.isRemote ? 'wherever you are' : `in ${v.place}`
+  const Label = v.label
+
+  return [
+    {
+      slug: 'how-to-choose-a-company-you-can-trust',
+      excerpt: `Hiring ${v.noun} shouldn't be a gamble. Here's how to tell a company you can trust from one that'll let you down.`,
+      page: {
+        title: `How to Choose a ${Label} Company You Can Trust — ${v.brand}`,
+        metaDescription: `A practical guide to hiring ${v.noun} ${here}: what to look for, what to avoid, and how to tell a trustworthy company from a risky one before you commit.`,
+        h1: `How to Choose a ${Label} Company You Can Trust`,
+        intro: `Hiring the wrong ${v.noun} company costs you time, money, and peace of mind. Here's a practical guide to choosing one you can actually rely on — the things that matter and the red flags that don't get talked about enough.`,
+        sections: [
+          { heading: `Why the Choice Matters So Much`, paragraphs: [
+            `Choosing a ${v.noun} company isn't like buying a product you can return if it disappoints you. You're trusting a company with your ${v.isRemote ? 'project, your money, and your time' : 'home, your money, and your time'}, often before you've seen a shred of their work. That's why the decision deserves more thought than most people give it, and why knowing what to look for genuinely pays off.`,
+            `The gap between a great ${v.noun} company and a bad one is enormous, even though their ads and quotes can look nearly identical. One leaves you relieved and relaxed; the other leaves you paying twice, chasing callbacks, and wishing you'd chosen differently. Learning to tell them apart before you hire is the single most valuable thing you can do.`,
+          ]},
+          { heading: `Start With How They Communicate`, paragraphs: [
+            `The very first signal is how a company communicates before you've given them a dollar. Do they respond quickly? Do they answer your questions clearly, or dodge them? A company that's hard to reach or evasive during the sales stage — when they're supposed to be on their best behavior — will not magically become responsive after they have your money. Early communication is a preview of the whole experience.`,
+            `Pay attention to whether they actually listen. A good ${v.noun} company asks about your specific situation before quoting, because the details matter. One that throws out a number without understanding your job is either guessing or setting up a change order later. Thoughtful questions up front are a green flag; a rushed, generic pitch is a warning.`,
+          ]},
+          { heading: `Look at How They Quote`, paragraphs: [
+            `A trustworthy quote is specific and complete. It tells you what's included, what it costs, and what happens if the scope changes. A quote that's vague, suspiciously low, or padded with fees you don't understand is telling you something important. The cheapest number on paper is frequently the most expensive once the real costs surface.`,
+            `Ask directly: is this the final price, or an estimate that can change? How a company answers reveals a lot. The good ones commit to their number and explain how they'd handle a genuine change in scope — before doing any extra work. The risky ones hedge, because the low quote was bait and the real bill comes later. Clarity here protects you.`,
+          ]},
+          { heading: `Check for Real Accountability`, paragraphs: [
+            `Ask what happens if you're not satisfied. A company that stands behind its work will tell you plainly that they'll make it right, without hesitation. One that gets vague, defensive, or points to fine print is warning you about exactly the situation you most need protection in. The answer to "what if something goes wrong" matters more than any promise about things going right.`,
+            `Accountability also means being a real, reachable business rather than an individual who can vanish. ${v.isRemote ? 'Clear agreements and a company that stands behind them' : 'Being licensed and insured'} means there's genuine recourse if something goes wrong — not just a phone number that stops working. That baseline of legitimacy is non-negotiable when you're trusting someone with a job that matters.`,
+          ]},
+          { heading: `Read the Reviews the Right Way`, paragraphs: [
+            `Reviews are useful, but only if you read them well. Don't just glance at the star rating — read the words. Two companies with the same score can offer completely different experiences, and the written feedback is where you learn which is which. Look for specifics: real experiences, real details, and how the company responded to any criticism.`,
+            `Be skeptical of profiles that are suspiciously perfect. No real company pleases everyone every time, and a wall of identical five-star blurbs can be a sign of manufactured reviews. A genuine mix — mostly positive, with the occasional honest critique handled gracefully — is far more trustworthy than an impossible record of perfection. Authenticity is the signal you're looking for.`,
+          ]},
+          { heading: `Weigh Price Against Value`, paragraphs: [
+            `The cheapest quote is tempting, but cheap ${v.noun} is usually cheap for a reason — rushed work, unvetted labor, no insurance, and a much higher chance you end up paying someone else to redo it. When you factor in the cost of a job done twice, the lowest bid is often the most expensive path there is. Price matters, but value matters more.`,
+            `That doesn't mean the most expensive option is automatically best either. What you're looking for is fair pricing attached to genuine quality and accountability — a company that charges a reasonable rate and actually delivers. Judge the whole package, not just the number, and remember that the real cost of a job includes everything that happens after the invoice is paid.`,
+          ]},
+          { heading: `Trust Your Read on the People`, paragraphs: [
+            `Beyond all the checklists, pay attention to how a company makes you feel during the process. Do they seem honest and straightforward, or slick and evasive? Are they patient with your questions, or pushy about closing? Your instinct, informed by the signals above, is worth listening to. A company that pressures you before you're ready rarely improves once you've committed.`,
+            `The best ${v.noun} companies don't need high-pressure tactics because they're confident in their value. They give you the information, answer your questions, and let you decide — because they know that clients who choose freely are the ones who stay. If a company is comfortable letting you take your time, that comfort usually reflects a business that's earned it.`,
+          ]},
+          { heading: `Put It All Together`, paragraphs: [
+            `Choosing a ${v.noun} company you can trust comes down to paying attention: to how they communicate, how they quote, how they handle accountability, what their reviews really say, and how they treat you before you've paid. None of it requires special expertise — just a willingness to look past the ad and notice the signals that are usually right there.`,
+            `Do that, and you'll dramatically improve your odds of hiring someone who does the job right the first time and stands behind it. It's worth the small amount of effort up front, because the alternative — learning the hard way — costs far more. When you find a company that checks these boxes, hold onto them; a ${v.noun} provider you genuinely trust is worth a great deal.`,
+          ]},
+          { heading: `Beware the Pressure Close`, paragraphs: [
+            `One of the clearest warning signs is pressure. If a company pushes you to sign today, warns that the price will jump tomorrow, or makes you feel rushed into a decision, be cautious. High-pressure tactics are a tool companies reach for when they're worried you'll change your mind once you've had time to think — which is rarely a good sign about the offer itself.`,
+            `Good ${v.noun} companies don't operate that way, because they don't have to. They're confident enough in their value to give you the information and let you decide on your own timeline. A company comfortable with you taking your time is usually one that has earned that comfort. Pressure is about their needs; patience is a sign they're focused on yours.`,
+          ]},
+          { heading: `Who's Actually Doing the Work`, paragraphs: [
+            `It's worth asking who will actually show up to do your ${v.noun} job. Is it vetted, trained people, or whoever the company could find that week? A good company screens the people it sends and can tell you so plainly. The person at your ${v.isRemote ? 'project' : 'door'} represents the whole company, and the good ones take that seriously.`,
+            `Be wary of companies that get vague about this. If they can't or won't tell you whether their people are vetted, that silence is an answer. You're trusting someone with access to your ${v.isRemote ? 'business and information' : 'home and belongings'}, and you deserve to know they've been properly checked. A company proud of its team is happy to talk about them.`,
+          ]},
+          { heading: `Local Knowledge and Reputation`, paragraphs: [
+            `${v.isRemote ? 'Even for remote work, a company invested in its reputation behaves differently from one just chasing the next sale.' : `A company that actually knows the ${v.place} area brings an advantage — they understand local conditions and what your specific situation is likely to involve, rather than applying a generic playbook.`} Reputation ${here} is public and hard-won, which is exactly why an established company can't afford to phone in a job.`,
+            `That accountability works in your favor. A company whose reputation depends on word of mouth ${here} has every incentive to do right by you, because one disappointed client costs them far more than any single job is worth. When a company has real skin in the local game, you're protected by the same force that protects everyone else they serve.`,
+          ]},
+          { heading: `How We Measure Up`, paragraphs: [
+            `We wrote this guide the way we'd want it written for us, and we're comfortable being judged by it. At ${v.brand}, we answer quickly, quote transparently, stand behind our work, and let our real reviews speak for themselves. We put our answers up front precisely so you can hold us to the same standard you'd hold anyone else.`,
+            `If you're weighing your options for ${v.noun} ${here}, we'd welcome the scrutiny. Text ${v.phone} with your questions and see how we measure up against everything above. We're confident in what you'll find, because we built the company to pass exactly this kind of test — and we'd be glad to earn your trust the honest way.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'what-to-expect-when-you-hire-a-pro',
+      excerpt: `Not sure how the process works? Here's exactly what to expect from start to finish when you hire ${v.brand} for ${v.noun}.`,
+      page: {
+        title: `What to Expect When You Hire a ${Label} Pro — ${v.brand}`,
+        metaDescription: `A step-by-step look at what happens when you hire ${v.noun} ${here}: from first contact to finished job, so there are no surprises along the way.`,
+        h1: `What to Expect When You Hire a ${Label} Pro`,
+        intro: `Hiring someone for ${v.noun} is a lot less stressful when you know exactly how it's going to go. Here's the whole process from first message to finished job — what to expect at each step, and what a good company does that a bad one doesn't.`,
+        sections: [
+          { heading: `Step One: Reaching Out`, paragraphs: [
+            `It all starts with a simple message. You reach out — a text, a call, or an online booking — and describe what you need. A good ${v.noun} company makes this easy and responds quickly, because they know a slow or confusing first contact is where a lot of people give up. You shouldn't have to work hard just to get someone to take your money.`,
+            `At this stage, expect a few questions. A company that quotes without understanding your job is guessing, so the good ones ask about the specifics — the size, the scope, the timing, anything unusual. It's not stalling; it's how they give you a number you can actually trust. Thoughtful questions up front are a sign you're dealing with a real professional.`,
+          ]},
+          { heading: `Step Two: Getting Your Quote`, paragraphs: [
+            `Once they understand your job, you should get a clear quote — one that spells out what's included and what it costs, before you commit to anything. This is a moment to pay attention: a trustworthy quote is specific and complete, while a vague or suspiciously low one is a warning sign that the real cost will show up later.`,
+            `Expect the quote to be the price you'll actually pay. A good company commits to its number, and if a genuine change in scope comes up, they tell you before doing any extra work rather than surprising you on the invoice. If a quote comes with pressure to decide immediately, that's a red flag — you should have time to consider it without being rushed.`,
+          ]},
+          { heading: `Step Three: Scheduling`, paragraphs: [
+            `With the quote agreed, you'll settle on a time. A good ${v.noun} company works around your schedule as much as they reasonably can, rather than forcing you into a slot that doesn't fit. You should leave this step knowing exactly when to expect them — a specific window, not a vague "sometime next week."`,
+            `This is also where reliability starts to matter. The company should confirm the appointment clearly and, ideally, remind you as it approaches. How organized and communicative they are about scheduling is a preview of how the actual job will go. Disorganization here often signals disorganization everywhere.`,
+          ]},
+          { heading: `Step Four: The Day of Service`, paragraphs: [
+            `On the day, expect the team to arrive within the promised window, ready to work. If something genuinely unavoidable comes up on their end, a good company tells you before the window, not after it's passed in silence. Punctuality is one of the clearest signs of a professional operation, and its absence is one of the most common complaints about bad ones.`,
+            `The team should confirm the details with you — or follow your instructions precisely if you're not on site — and get to work. Expect them to treat your ${v.isRemote ? 'project and your time' : 'home and property'} with respect throughout. If a question comes up mid-job, a good company asks rather than assuming, because getting it right matters more than avoiding a two-minute conversation.`,
+          ]},
+          { heading: `Step Five: Finishing Up`, paragraphs: [
+            `When the work is done, a good company doesn't just vanish. They check the result, walk it with you where that makes sense, and make sure you're genuinely satisfied before calling the job complete. This final check is your chance to raise anything that isn't right while it can still be handled on the spot.`,
+            `Then comes the invoice, which should match your quote. No surprise charges, no mystery fees, no "it turned out to be more complicated" that wasn't discussed with you first. A clean, expected bill at the end is the final sign of a company that does business honestly — and it's exactly what you should insist on.`,
+          ]},
+          { heading: `Step Six: After the Job`, paragraphs: [
+            `A good ${v.noun} relationship doesn't end when the invoice is paid. If you have a question afterward, a concern about the work, or you're ready to book again, reaching out should be just as easy as it was the first time. Companies that go quiet the moment they've been paid are telling you how much they actually value you.`,
+            `And if something isn't right after the fact, expect a good company to make it right — no arguing, no runaround. This is where the guarantee you were promised gets tested, and where the difference between a company that stands behind its work and one that doesn't becomes crystal clear. The follow-through is part of the service, not an optional extra.`,
+          ]},
+          { heading: `What Good Looks Like`, paragraphs: [
+            `Put it all together and a good experience feels calm and predictable from start to finish: easy to reach, clear about pricing, on time, respectful, and accountable. You should never feel confused about what's happening, anxious about the bill, or unsure whether the company will stand behind its work. When it's done right, ${v.noun} is one less thing to worry about — not one more.`,
+            `If any step along the way feels off — evasive answers, a quote that shifts, a missed appointment with no explanation — trust that signal. The process is supposed to be smooth, and a company that stumbles through the easy parts will likely stumble through the hard ones too. Knowing what good looks like is how you recognize it, and how you spot the opposite.`,
+          ]},
+          { heading: `What You Can Do to Help It Go Smoothly`, paragraphs: [
+            `While a good company handles the hard parts, there are small things you can do to make your ${v.noun} job go smoothly. Be clear about what you need and any specifics that matter to you. Make sure the team can access the space or reach you. And if there's anything unusual about your situation, mention it up front so there are no surprises on the day.`,
+            `Clear communication in both directions is what keeps a job on track. You don't need to do much — a good company will tell you if there's anything specific that would help — but a little clarity from your side means the work gets done faster and more accurately. It's a partnership, and the best results come when both sides are straightforward with each other.`,
+          ]},
+          { heading: `Red Flags to Watch for Along the Way`, paragraphs: [
+            `As the process unfolds, stay alert to warning signs. A quote that shifts without explanation, an appointment missed with no communication, evasiveness about pricing or accountability, or pressure to pay in ways that feel off — any of these is a reason to pause. The early steps are a preview of the whole experience, and problems in the easy parts tend to predict problems in the hard ones.`,
+            `Trust your read. If something feels wrong during what should be a straightforward process, that instinct is worth listening to. A good ${v.noun} company makes each step feel calm and predictable; a bad one leaves you anxious and guessing. You're allowed to walk away at any point if the experience isn't matching what a professional operation should feel like.`,
+          ]},
+          { heading: `Why Knowing the Process Matters`, paragraphs: [
+            `Understanding how the whole thing is supposed to go puts you in control. When you know what good looks like at each step, you can recognize it when you see it — and spot the moment something veers off course. That knowledge turns hiring ${v.noun} from an anxious gamble into a manageable, even easy, decision.`,
+            `Most of the stress people feel about hiring someone comes from uncertainty: not knowing what to expect, whether they're being treated fairly, or whether it'll all work out. Take away the uncertainty and the stress goes with it. That's why we laid the whole process out — so that whoever you hire ${here}, you'll know exactly how it should feel.`,
+          ]},
+          { heading: `Our Process, Start to Finish`, paragraphs: [
+            `This is exactly how we've built the experience at ${v.brand}. From your first text to ${v.phone} through the final follow-up, every step is designed to be clear, fast, and free of the friction that makes hiring anyone for ${v.noun} such a chore elsewhere. We ask real questions, quote honestly, show up on time, and stand behind the work.`,
+            `If you'd like to see it firsthand, reaching out is the whole first step. We'll walk you through your specific situation, give you a clear quote, and take it from there — no pressure, no surprises. The process above isn't a wish list; it's simply how we operate, and we'd be glad to show you.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'how-pricing-works',
+      excerpt: `Confused about what ${v.noun} should cost? Here's how pricing actually works — and how to avoid getting overcharged.`,
+      page: {
+        title: `How ${Label} Pricing Works (and How to Avoid Overpaying) — ${v.brand}`,
+        metaDescription: `Understand how ${v.noun} pricing works ${here}: what drives the cost, why quotes vary so much, and how to avoid hidden fees and getting overcharged.`,
+        h1: `How ${Label} Pricing Works — and How to Avoid Overpaying`,
+        intro: `Few things are more confusing than trying to figure out what ${v.noun} should cost. Quotes vary wildly, fees appear from nowhere, and it's hard to know if you're being treated fairly. Here's a plain-English guide to how pricing actually works and how to protect yourself.`,
+        sections: [
+          { heading: `Why Quotes Vary So Much`, paragraphs: [
+            `If you've gotten a few quotes for the same ${v.noun} job and been shocked at how different they are, you're not alone. The variation comes from real differences — scope, quality, whether the company is insured, whether they use vetted labor — and from less honest ones, like lowball quotes designed to win the job and grow on the invoice later. Learning to tell those apart is half the battle.`,
+            `A wide spread in quotes usually means the companies aren't actually offering the same thing, even if it looks that way on paper. The lowest bid often quietly excludes things, cuts corners you can't see, or leaves out fees that surface later. Comparing prices only makes sense when you're comparing the same scope and the same standard — otherwise you're comparing apples to something that just looks like an apple.`,
+          ]},
+          { heading: `What Actually Drives the Price`, paragraphs: [
+            `The honest answer to "what does it cost?" is "it depends" — and any company that gives you a firm number before understanding your job is guessing. The real drivers are specific: the size and scope of the work, its condition or complexity, how much time it genuinely takes, and any access or timing factors. A good company asks about these before quoting for exactly this reason.`,
+            `Understanding these drivers helps you spot a fair quote. When a company can explain how they arrived at their number — this much for that, adjusted for these factors — you're dealing with someone transparent. When the number seems plucked from thin air with no explanation, be cautious. Pricing should follow logically from the work involved, not from how much they think they can get.`,
+          ]},
+          { heading: `The Hidden-Fee Trap`, paragraphs: [
+            `Hidden fees are the oldest trick in service pricing: quote low to win the job, then pad the final bill with "surcharges," "trip fees," "supply fees," and mystery line items you never agreed to. The quote looks great; the invoice tells a different story. This is one of the most common ways people get overcharged, and it's entirely avoidable if you know to watch for it.`,
+            `Protect yourself by asking directly, up front: is this the total price, or are there additional fees I should know about? Get the answer clearly before you commit. A company that quotes a complete, honest number the first time has nothing to hide; one that stays vague about fees is telling you exactly how the final bill will go. Insist on clarity, and walk away from anyone who won't give it.`,
+          ]},
+          { heading: `Why Cheapest Usually Costs More`, paragraphs: [
+            `The lowest quote feels like saving money right up until it doesn't. Cheap ${v.noun} is usually cheap for a reason — rushed work, unvetted labor, no insurance, and a much higher chance you end up hiring someone else to redo it. Factor in the cost of a job done twice, plus the wasted time and aggravation, and the bargain often turns out to be the most expensive option available.`,
+            `This doesn't mean you should always pay top dollar — it means you should judge value, not just price. The goal is fair pricing attached to real quality and accountability. A reasonable rate for work done right the first time, by a company that stands behind it, is the actual bargain. Chasing the rock-bottom number is how people end up paying for the same job twice.`,
+          ]},
+          { heading: `How to Compare Quotes Fairly`, paragraphs: [
+            `To compare quotes honestly, make sure you're comparing the same thing. Ask each company what's included, who does the work, whether they're insured, and what happens if you're not satisfied. A lower number often means less scope or undisclosed fees, so the quote that looks cheapest can easily become the most expensive once everything surfaces.`,
+            `Watch how each company answers your questions, too. Clear, confident, specific answers are a good sign; vague or evasive ones are a warning. The quote itself is only part of the picture — how transparent a company is about it tells you nearly as much as the number does. Fair comparison is about the whole package, not just the bottom line.`,
+          ]},
+          { heading: `Questions That Protect You`, paragraphs: [
+            `A few direct questions can save you a lot of money and frustration. Is the quote the final price, or an estimate that can change? Are there any additional fees? What happens if the job turns out to be different than expected? What's your policy if I'm not satisfied? The answers — and how readily they're given — tell you whether you're dealing with a straight shooter.`,
+            `Don't be shy about asking. It's your money, and a reputable company expects and welcomes these questions. Any company that gets impatient or cagey when you ask about pricing is showing you something important. The few minutes it takes to ask are among the best-spent minutes in the whole process, because they surface the problems before they cost you.`,
+          ]},
+          { heading: `Fair Pricing Is a Two-Way Street`, paragraphs: [
+            `Fair pricing cuts both ways, and a good company applies it in both directions. If a job turns out simpler than expected, that should be reflected honestly. If it's genuinely more involved than you described, they should tell you before doing the extra work — never spring it on you afterward. Fairness means the number tracks the actual work, in your favor as well as theirs.`,
+            `That kind of honesty is what you're really looking for. It's not about finding the company that will do the most work for the least money; it's about finding the one that charges fairly for good work and never makes you feel like you have to decode the bill. When you find that, the price stops being a source of anxiety and becomes just another part of a transaction you can trust.`,
+          ]},
+          { heading: `Deposits and Payment Terms`, paragraphs: [
+            `Depending on the job, a company may ask for a deposit to reserve your booking — that's a normal, fair practice that protects both sides. What matters is transparency: a good company tells you clearly up front how much any deposit is and how it applies to your total. A deposit request isn't a red flag; a vague or evasive one is.`,
+            `Pay attention to payment terms in general. How and when you're expected to pay, what methods are accepted, and whether the invoice will be clear are all worth knowing before you commit. Straightforward, secure payment with a clear bill is what you should expect. Anything convoluted or high-pressure around payment is worth questioning before money changes hands.`,
+          ]},
+          { heading: `Recurring Service and Ongoing Value`, paragraphs: [
+            `If your ${v.noun} need is ongoing, there's often real value in a recurring arrangement rather than one-off bookings. Beyond convenience, a provider who works with you regularly learns your preferences and situation, which makes each visit more efficient over time. That said, a good company recommends a frequency that fits your actual needs — not the maximum they can talk you into.`,
+            `Be wary of anyone pushing you toward an aggressive recurring schedule that seems more about their revenue than your needs. The right arrangement is one that genuinely serves you and that you're glad to keep because it's useful, not one you feel locked into. Recurring service should save you money and hassle over time, not become a subscription you resent.`,
+          ]},
+          { heading: `The Real Cost Is the Total Cost`, paragraphs: [
+            `The single most important shift in thinking about ${v.noun} pricing is this: the real cost isn't the number on the quote, it's the total cost once everything is accounted for. A cheap job that has to be redone, a low quote that balloons with fees, a provider you have to chase — those hidden costs are where "cheap" becomes expensive. Judge the total, not the sticker.`,
+            `When you think in terms of total cost, fair pricing from a reliable company almost always wins. You pay once, the job is done right, and you're not spending time, money, and stress cleaning up afterward. That's the frame that protects you from the false economy of the lowest bid, and it's the one worth carrying into any hiring decision you make.`,
+          ]},
+          { heading: `How We Price ${Label}`, paragraphs: [
+            `At ${v.brand}, we price the way this guide recommends because it's simply the honest way to do it. You get a clear, complete quote up front, the number you're quoted is the number you pay, and there are no hidden fees waiting on the invoice. If the scope genuinely changes, we tell you first and let you decide.`,
+            `If you want an honest number for your specific ${v.noun} job ${here}, the fastest way is to ask. Text ${v.phone} with a few details and we'll give you a straight quote — no games, no pressure. We're happy to explain exactly how we got to the number, because transparent pricing is only a real advantage when your pricing is fair, and ours is.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'diy-vs-hiring-a-professional',
+      excerpt: `Should you handle it yourself or hire a pro? Here's an honest look at when ${v.noun} is worth doing yourself and when it isn't.`,
+      page: {
+        title: `DIY vs. Hiring a Pro for ${Label}: When Each Makes Sense — ${v.brand}`,
+        metaDescription: `An honest guide to deciding between DIY and hiring a professional for ${v.noun}: the real costs, risks, and trade-offs, so you can make the right call.`,
+        h1: `DIY vs. Hiring a Pro: When Each Makes Sense`,
+        intro: `Not every ${v.noun} job needs a professional — but plenty of them do, and getting that call wrong can be costly. Here's an honest look at when doing it yourself makes sense and when hiring a pro is the smarter move, from a company that would honestly rather you make the right choice.`,
+        sections: [
+          { heading: `The Honest Starting Point`, paragraphs: [
+            `We'll be straight with you: not every job is worth hiring out, and a company that tells you otherwise is more interested in your money than your best interest. Some ${v.noun} tasks are genuinely doable yourself with a little time and effort, and if that's your situation, we'd rather tell you than oversell you. Knowing the difference is what this guide is about.`,
+            `That said, plenty of jobs really are better left to someone who does them for a living — not because you couldn't figure it out, but because the time, risk, and likelihood of a redo make DIY a false economy. The goal here isn't to talk you into or out of anything; it's to help you weigh the trade-offs honestly and make the call that's actually right for you.`,
+          ]},
+          { heading: `When DIY Makes Sense`, paragraphs: [
+            `Doing it yourself can be the right choice when the job is small, low-risk, and within your comfort zone. If the task is straightforward, the stakes of getting it slightly wrong are low, and you have the time and tools, there's nothing wrong with handling it yourself. Not every ${v.noun} situation calls for a professional, and we'd never pretend otherwise.`,
+            `DIY also makes sense when it's genuinely a learning experience you want, or when the cost of hiring out clearly exceeds the value for a minor job. If you enjoy the work, have the time, and the downside of a mistake is small, going it alone can be satisfying and economical. The key is being honest with yourself about the job's real difficulty and your own capacity to do it well.`,
+          ]},
+          { heading: `When to Call a Professional`, paragraphs: [
+            `Hiring a pro is the smarter move when the job is complex, when getting it wrong is costly or risky, or when the time and effort simply aren't worth it to you. If a mistake could cause real damage, if the work requires experience or equipment you don't have, or if the job is large enough that DIY would consume your weekends for weeks, a professional almost always comes out ahead.`,
+            `It's also worth hiring out when your time is genuinely more valuable spent elsewhere. There's no prize for doing everything yourself, and the hours you'd pour into a difficult ${v.noun} job might be better spent on work, family, or rest. A pro who does this daily will usually do it faster and better, and that efficiency has real value even before you factor in the risk.`,
+          ]},
+          { heading: `The Hidden Costs of DIY`, paragraphs: [
+            `DIY looks free, but it rarely is. There's the cost of tools and materials, which can add up fast for a one-time job. There's the value of your time, which is real even if no one's invoicing you for it. And there's the risk of mistakes — a botched job that has to be redone, or worse, one that causes damage costing far more than hiring a professional would have.`,
+            `These hidden costs are exactly what people underestimate when a project seems cheaper to handle themselves. Factor in the tools you had to buy, the weekend you lost, and the do-over when it didn't go as planned, and the "savings" often evaporate. An honest accounting of DIY includes all of it, not just the absence of a labor charge.`,
+          ]},
+          { heading: `What a Professional Actually Brings`, paragraphs: [
+            `When you hire a good ${v.noun} pro, you're paying for more than labor. You're paying for experience — the judgment that comes from having done the job many times and knowing what to anticipate. You're paying for the right tools and materials, already on hand. And you're paying for accountability: if something goes wrong, a real company stands behind it, which is something DIY can never offer.`,
+            `That combination is why professionals are worth it for the right jobs. They're faster because they're experienced, they're less likely to make costly mistakes, and they carry the risk that would otherwise fall entirely on you. For a complex or high-stakes job, that value far outweighs the cost — which is precisely why "just do it yourself" is bad advice for anything beyond the simple stuff.`,
+          ]},
+          { heading: `The Risk Factor`, paragraphs: [
+            `Risk is often the deciding factor. Some ${v.noun} jobs, done wrong, cause damage that dwarfs the cost of hiring out — and once that happens, you're paying a professional anyway, on top of the repair. When the downside of a mistake is significant, the math shifts decisively toward hiring someone who'll get it right the first time.`,
+            `Be honest about the stakes before you pick up a tool. If a mistake would be a minor inconvenience, DIY is low-risk. If a mistake could be expensive, dangerous, or hard to undo, that's exactly the kind of job where a professional earns their fee many times over. The riskier the job, the stronger the case for hiring a pro who carries that risk for you.`,
+          ]},
+          { heading: `Be Realistic About Your Time`, paragraphs: [
+            `A job that takes a pro a couple of hours might take you a full day or more, especially the first time. That's not a knock on you — it's just the reality of experience. Before committing to DIY, be honest about how long it'll actually take and whether you have that time to spare. Projects that drag on half-finished are their own kind of cost.`,
+            `Your time has value even when it isn't billed. The hours you'd spend on a difficult ${v.noun} job are hours not spent on the things you'd rather be doing. For some jobs that trade is worth it; for others, paying someone to handle it in a fraction of the time is one of the better deals available. Factor your time in honestly, and the right choice often becomes obvious.`,
+          ]},
+          { heading: `When You've Started and It's Not Going Well`, paragraphs: [
+            `Sometimes the right call becomes clear only after you've started — the job turned out harder than expected, or it's not coming together the way you hoped. There's no shame in calling a professional at that point. In fact, stopping before you make things worse is the smart move, and a good company won't judge you for it.`,
+            `If you find yourself in over your head on a ${v.noun} project, reaching out sooner rather than later usually saves money. The longer a struggling DIY job goes, the more there often is to fix. A pro can step in, sort it out, and get you to the result you wanted — and you'll have learned exactly where the line is between what's worth doing yourself and what isn't.`,
+          ]},
+          { heading: `Making the Right Call for You`, paragraphs: [
+            `There's no universal answer to DIY versus hiring a pro — it depends on the job, the risk, your skills, and your time. The right approach is to weigh those honestly rather than defaulting to "always do it myself to save money" or "always hire it out." Some jobs genuinely call for one, some for the other, and knowing which is which is the whole skill.`,
+            `The good news is that a trustworthy company will help you make that call honestly, even when the honest answer is "you can handle this one yourself." That's exactly the kind of company worth building a relationship with — one that tells you the truth about when you need them and when you don't, because they're playing the long game rather than chasing every possible invoice.`,
+          ]},
+          { heading: `How We Approach It`, paragraphs: [
+            `At ${v.brand}, we'd genuinely rather tell you a job is within your reach than talk you into hiring us for something you don't need. It costs us a little today and earns us your trust for the long haul, and that's a trade we'll make every time. When you do need a professional for ${v.noun} ${here}, we want to be the company you call — and honesty about when that is builds exactly that kind of relationship.`,
+            `So if you're on the fence about a job, feel free to ask us. Text ${v.phone} and describe what you're facing, and we'll give you a straight answer about whether it's worth hiring out. If it is, we'd be glad to help; if it isn't, we'll tell you that too. Either way, you get honest guidance rather than a sales pitch.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'questions-to-ask-before-you-hire',
+      excerpt: `The right questions before you hire ${v.noun} can save you money and headaches. Here are the ones that actually matter.`,
+      page: {
+        title: `Questions to Ask Before You Hire Any ${Label} Company — ${v.brand}`,
+        metaDescription: `The essential questions to ask before hiring ${v.noun} ${here} — the ones that reveal whether a company is trustworthy before you commit a single dollar.`,
+        h1: `Questions to Ask Before You Hire Any ${Label} Company`,
+        intro: `The right questions, asked before you commit, will tell you almost everything you need to know about a ${v.noun} company. Here are the ones that actually matter — and, just as importantly, what the answers should sound like.`,
+        sections: [
+          { heading: `Why the Questions Matter`, paragraphs: [
+            `Most bad ${v.noun} experiences could have been avoided with a few pointed questions up front. Companies are on their best behavior before you hire them, so the sales stage is your best chance to learn who you're really dealing with. How readily and clearly a company answers is often more revealing than the answers themselves.`,
+            `None of these questions require expertise to ask, and a reputable company will welcome them. In fact, watch how a company reacts: a straight shooter answers plainly and confidently, while an evasive or impatient response is itself a warning. The questions below are simple, but together they paint a clear picture of whether you can trust the company in front of you.`,
+          ]},
+          { heading: `"Is the Quote the Final Price?"`, paragraphs: [
+            `This might be the single most important question you can ask. Is the number you're being quoted the final price, or an estimate that can change? A trustworthy company commits to its quote and explains how it would handle a genuine change in scope — before doing any extra work. A vague or hedging answer is a warning that the low quote might be bait.`,
+            `Follow up by asking what would cause the price to change and how you'd be notified. The right answer is that any change would be discussed with you in advance, never sprung on the invoice. If a company can't give you that assurance clearly, you've learned something important about how the final bill is likely to go.`,
+          ]},
+          { heading: `"Are There Any Additional Fees?"`, paragraphs: [
+            `Hidden fees are one of the most common ways people get overcharged, so ask directly: are there any additional fees, surcharges, or costs beyond the quote? Get the answer clearly, before you commit. A company that quotes a complete, honest number has nothing to hide; one that stays vague about fees is telling you exactly how the final bill will surprise you.`,
+            `Don't accept a hand-wave here. "It depends" or "we'll see" about fees is not an acceptable answer for a company that wants your trust. The good ones can tell you plainly what's included and what, if anything, could cost extra. Insisting on that clarity up front is one of the simplest ways to protect yourself from an inflated invoice.`,
+          ]},
+          { heading: `"Who Will Actually Do the Work?"`, paragraphs: [
+            `Ask who will actually show up to do your ${v.noun} job, and whether they're vetted. You're trusting someone with access to your ${v.isRemote ? 'business and information' : 'home and belongings'}, so you deserve to know they've been properly screened. A company proud of its team answers this happily; one that gets vague is telling you something by its silence.`,
+            `A good answer describes vetted, trained people the company stands behind — not "whoever's available." The person who arrives represents the entire company, and the trustworthy ones take real care about who wears their name. If a company can't or won't speak clearly about who they send, treat that as a meaningful red flag.`,
+          ]},
+          { heading: `"Are You Licensed and Insured?"`, paragraphs: [
+            `${v.isRemote ? 'Even for remote work, ask what agreements are in place and what recourse you have if something goes wrong.' : 'Ask whether the company is licensed and insured for the work they do.'} This is the baseline of legitimacy, and it protects you: if something is damaged or goes wrong, there needs to be a real company standing behind the job, not an individual who can vanish without consequences.`,
+            `A legitimate company answers this without hesitation, because it's a normal and reasonable thing to ask. Evasiveness here is a serious warning sign. The whole point of accountability is that it kicks in exactly when things go wrong — which is precisely the situation you most need protection in — so never skip this question, however smoothly everything else is going.`,
+          ]},
+          { heading: `"What Happens If I'm Not Satisfied?"`, paragraphs: [
+            `Ask directly what the company does if you're not happy with the work. The answer reveals whether they truly stand behind what they do. A trustworthy company tells you plainly that they'll make it right, without hedging. One that gets defensive, vague, or points you to fine print is warning you about the exact situation you most need protection in.`,
+            `This question matters more than any promise about things going well, because anyone can be gracious when everything's perfect. What separates the good companies is how they respond when something falls short. A clear, confident commitment to make it right is one of the strongest signals you can get that you're dealing with a company worth hiring.`,
+          ]},
+          { heading: `"How Do You Handle Scheduling and Timing?"`, paragraphs: [
+            `Ask how scheduling works and what happens if timing needs to change. A good company gives you a specific window rather than a vague "sometime," communicates clearly, and lets you know promptly if anything shifts. How organized and communicative they are about scheduling is a reliable preview of how the actual job will go.`,
+            `Reliability around timing is one of the most common pain points in ${v.noun}, so it's worth probing. A company that treats your schedule as seriously as its own — showing up when promised and giving notice if plans change — is demonstrating exactly the respect you want. Disorganization or vagueness at this stage often signals it everywhere.`,
+          ]},
+          { heading: `"Can You Explain How You Got to This Price?"`, paragraphs: [
+            `A fair, transparent company can walk you through how it arrived at your quote — this much for that, adjusted for these factors. Asking for that explanation is entirely reasonable, and the response tells you a lot. Clarity and confidence are good signs; impatience or a number that seems plucked from nowhere are not.`,
+            `You're not being difficult by asking to understand your own quote — you're being a smart consumer. A company with fair pricing has no reason to keep it mysterious, and the good ones are happy to explain to the point of over-explaining. If understanding the number makes a company uncomfortable, that discomfort is telling you something worth knowing.`,
+          ]},
+          { heading: `Listen to How They Answer`, paragraphs: [
+            `Across all of these questions, pay as much attention to how a company answers as to what they say. Clear, patient, confident responses are the hallmark of a business that operates honestly. Evasiveness, impatience, or pressure in response to reasonable questions is a warning that outweighs any smooth sales pitch. The tone is often the real answer.`,
+            `A reputable company treats your questions as normal and welcome, because it has nothing to hide and genuinely wants an informed client. If asking basic questions gets you a cold or cagey reaction, imagine how you'll be treated once there's a problem to sort out. The way a company handles your curiosity is a preview of how it'll handle your concerns.`,
+          ]},
+          { heading: `"How Long Have You Been Doing This?"`, paragraphs: [
+            `Experience matters in ${v.noun}, so it's fair to ask how long a company has been doing the work. Experience brings judgment — the ability to anticipate problems and handle the unexpected — that a brand-new operation simply hasn't developed yet. It's not that newer companies can't be good, but a real track record is reassuring, and an established company should be glad to share it.`,
+            `The answer also tells you something about stability. A company that's been around and plans to stay is one you can build a relationship with, and one that has a reputation to protect. Fly-by-night operations come and go; an established company ${here} has every incentive to keep doing right by clients. Longevity isn't everything, but it's a meaningful data point worth asking about.`,
+          ]},
+          { heading: `"Can You Walk Me Through It?"`, paragraphs: [
+            `Ask a company to walk you through how the job will actually go — what they'll do, roughly how long it'll take, and what you should expect at each step. A company that knows its work can explain the process clearly and confidently. Fumbling or vagueness here can signal inexperience or a lack of real organization behind the pitch.`,
+            `A clear walk-through also sets accurate expectations, which prevents misunderstandings later. When you both understand what's going to happen, there's far less room for the job to go sideways or for surprises to crop up. A company happy to explain the process is one that operates with a plan — exactly the kind you want handling your ${v.noun}.`,
+          ]},
+          { heading: `Ask Us Anything`, paragraphs: [
+            `We wrote this list because we're comfortable answering every question on it, and we'd encourage you to ask us all of them. At ${v.brand}, the quote is the price, there are no hidden fees, our people are vetted, we're accountable, and if you're not satisfied, we make it right. We put our answers up front precisely so you can hold us to the same standard as anyone else.`,
+            `So put us to the test. Text ${v.phone} with whatever you want to know about ${v.noun} ${here}, and see how we answer. We think you'll find exactly the clarity and confidence this guide says to look for — because we built the company to pass this kind of scrutiny, and we'd rather earn your trust by answering honestly than win a job by dodging.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'red-flags-to-watch-for',
+      excerpt: `Some warning signs are easy to miss until it's too late. Here are the red flags that separate a risky ${v.noun} company from a reliable one.`,
+      page: {
+        title: `Red Flags to Watch for When Hiring ${Label} — ${v.brand}`,
+        metaDescription: `The warning signs that a ${v.noun} company will let you down — learn to spot the red flags ${here} before you hire, not after.`,
+        h1: `Red Flags to Watch for When Hiring ${Label}`,
+        intro: `Most bad ${v.noun} experiences come with warning signs you could have spotted beforehand — if you knew what to look for. Here are the red flags that separate a risky company from a reliable one, so you can walk away before it costs you.`,
+        sections: [
+          { heading: `Why Red Flags Get Missed`, paragraphs: [
+            `The frustrating thing about most bad experiences is that the warning signs were usually there all along. People miss them because they don't know what to watch for, or because a smooth sales pitch talks them past their instincts. Learning to recognize the red flags in advance is how you avoid the experience entirely rather than learning the hard way.`,
+            `None of these signs requires expertise to spot — just attention. A company reveals a lot about itself before you ever hire it, in how it communicates, quotes, and handles your questions. The signs below are the ones that most reliably predict trouble, and noticing even one of them is a reason to slow down and look more carefully.`,
+          ]},
+          { heading: `Red Flag: Hard to Reach`, paragraphs: [
+            `If a company is hard to reach, slow to respond, or evasive during the sales stage — when they should be on their best behavior — take it seriously. Communication only gets worse after they have your money, not better. A business that can't be bothered to respond promptly when it's trying to win your job is showing you exactly how it'll treat you once it has it.`,
+            `Responsiveness is one of the clearest early signals of how the whole experience will go. The good companies answer quickly and clearly because they've built their operation around being reachable. If you're already chasing a company for a reply before you've paid them a cent, that's a preview you should believe.`,
+          ]},
+          { heading: `Red Flag: A Quote That's Suspiciously Low`, paragraphs: [
+            `A quote dramatically lower than the others is tempting, but it's often a warning rather than a bargain. Lowball quotes are a classic tactic: win the job with a great number, then pad the invoice with fees and change orders once you're committed. If a price seems too good to be true, it usually is — and the difference tends to reappear on the final bill.`,
+            `A suspiciously low quote can also mean the company is cutting corners you can't see — unvetted labor, no insurance, or a scope that quietly excludes things you assumed were included. Either way, the cheapest number deserves scrutiny, not automatic trust. Ask what's included and what could change, and watch closely for a straight answer.`,
+          ]},
+          { heading: `Red Flag: Vagueness About Fees`, paragraphs: [
+            `If a company gets vague when you ask about fees or the final price, treat it as a serious warning. Hidden fees are one of the most common ways people get overcharged, and evasiveness about them up front is telling you exactly how the invoice will go. A trustworthy company gives you a complete, honest number and can tell you plainly what, if anything, could cost extra.`,
+            `"It depends" or "we'll figure it out later" about pricing is not acceptable from a company that wants your trust. You're entitled to know what you'll pay before you commit, and a business that won't give you that clarity is choosing to keep you in the dark. That choice, on its own, is reason enough to look elsewhere.`,
+          ]},
+          { heading: `Red Flag: High-Pressure Sales`, paragraphs: [
+            `Pressure is a major warning sign. If a company pushes you to decide today, warns that the price will jump tomorrow, or makes you feel rushed, be cautious. High-pressure tactics are what companies reach for when they're worried you'll change your mind once you've had time to think — which says a lot about the offer.`,
+            `Good ${v.noun} companies don't need to pressure you, because they're confident in their value and expect to earn your business honestly. A company comfortable with you taking your time is usually one that has earned that comfort. If you feel rushed or cornered during what should be a straightforward decision, trust that feeling and step back.`,
+          ]},
+          { heading: `Red Flag: Evasiveness About Accountability`, paragraphs: [
+            `When you ask what happens if you're not satisfied, or whether they're ${v.isRemote ? 'accountable if something goes wrong' : 'licensed and insured'}, the answer should be clear and confident. If a company gets defensive, vague, or dodges the question, that's a serious red flag. Accountability matters most exactly when something goes wrong, and evasiveness here leaves you exposed at the worst possible moment.`,
+            `A company that stands behind its work says so plainly, because it's the truth and they're proud of it. Hesitation or fine-print hedging around accountability is a warning that when a problem arises, you'll be on your own. Never skip these questions, and never ignore a shaky answer to them, however smooth everything else seems.`,
+          ]},
+          { heading: `Red Flag: No Real Track Record`, paragraphs: [
+            `Be cautious of a company with no verifiable track record — no real reviews, no references, nothing to show for itself. Everyone starts somewhere, but an established company should have evidence of satisfied clients you can actually check. An absence of any track record, or reviews that seem manufactured, is a reason to dig deeper before trusting them with your job.`,
+            `Just as telling is a track record that's suspiciously perfect. A wall of identical five-star reviews with no specifics can signal fakery, since no real company pleases everyone every time. What you want is a genuine, verifiable history — mostly positive, with the occasional honest critique handled well. Real evidence beats polished claims every time.`,
+          ]},
+          { heading: `Red Flag: They Won't Put It in Writing`, paragraphs: [
+            `If a company resists putting the important details — the scope, the price, the terms — in writing, be wary. A verbal promise is easy to forget or deny later, and a company that wants everything kept casual and undocumented may be leaving itself room to change the story. Clear, written terms protect both sides, and the good companies have no problem providing them.`,
+            `You don't need a stack of legal paperwork for every job, but the key facts should be clear and confirmable. A quote you can point to, terms you both understand, and a bill that matches — these are basic protections. Reluctance to document the essentials is a subtle but real warning that the details might get slippery when it matters.`,
+          ]},
+          { heading: `Trust Your Instincts`, paragraphs: [
+            `Beyond any specific sign, pay attention to how a company makes you feel. If something seems off — the answers don't add up, the pressure is high, the vibe is slick rather than straight — that instinct is worth listening to. It's usually your subconscious noticing the smaller signals before you've consciously named them. You're always allowed to walk away.`,
+            `No single red flag is necessarily fatal, but a cluster of them is a clear signal to look elsewhere. There are good ${v.noun} companies out there, and you don't have to settle for one that's giving you warning signs before you've even hired them. Trust the pattern you're seeing, and hold out for a company that gives you confidence instead of doubts.`,
+          ]},
+          { heading: `Red Flag: Unusual Payment Demands`, paragraphs: [
+            `Be cautious of a company that demands full payment upfront before any work is done, insists on cash only, or pushes payment methods that leave you with no recourse. While a reasonable deposit is normal and fair, an insistence on paying everything in advance — especially in ways that can't be traced or disputed — is a classic warning sign worth taking seriously.`,
+            `Legitimate companies use straightforward, secure payment and are transparent about their terms. If the payment arrangement feels designed to protect the company at your total expense, or to make it hard for you to push back if something goes wrong, that's a red flag. How a company handles money is a window into how it handles everything else.`,
+          ]},
+          { heading: `Red Flag: Overpromising`, paragraphs: [
+            `Watch out for a company that promises the impossible — the lowest price and the highest quality and the fastest turnaround, all at once. Those things involve real trade-offs, and a company claiming to defy all of them is usually overpromising to win the job, then underdelivering once you've committed. Honest companies are realistic about what they can and can't do.`,
+            `The same goes for guarantees that sound too good to be true or claims that seem exaggerated. A trustworthy ${v.noun} company sets accurate expectations rather than telling you whatever it thinks you want to hear. If the pitch sounds too perfect, be skeptical — reality has trade-offs, and a company that pretends otherwise is setting you up to be disappointed.`,
+          ]},
+          { heading: `The Opposite of a Red Flag`, paragraphs: [
+            `It's worth knowing what the good signs look like too, because they're the mirror image of the warnings above. A company that's easy to reach, quotes clearly and completely, answers your questions patiently, is upfront about accountability, and lets you decide without pressure is showing you green flags at every turn. That's exactly the profile you're looking for.`,
+            `At ${v.brand}, we've worked to be the opposite of every red flag on this list — reachable, transparent, accountable, and honest, with real reviews and no pressure. If you're hiring for ${v.noun} ${here}, text ${v.phone} and put us up against everything above. We're confident you'll find green flags where the risky companies show red, because we built the company precisely to be the one worth trusting.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+  ]
+}
