@@ -6,11 +6,10 @@ import { AREAS } from './data/areas'
 
 const BUSINESS = {
   name: 'Sunnyside Clean NYC',
-  legalName: 'Sunnyside Clean NYC — A NYC Maid Services Company',
+  legalName: 'Sunnyside Clean NYC — A NYC Maid Company Partner',
   url: 'https://www.cleaningservicesunnysideny.com',
-  phone: '+1-212-202-8400',
-  phoneDisplay: '(212) 202-8400',
-  email: 'hi@thenycmaid.com',
+  phone: '+1-212-202-9030',
+  phoneDisplay: '(212) 202-9030',
   logo: 'https://www.cleaningservicesunnysideny.com/opengraph-image',
   image: 'https://www.cleaningservicesunnysideny.com/opengraph-image',
   priceRange: '$$',
@@ -19,8 +18,8 @@ const BUSINESS = {
   reviewCount: '27',
   foundingDate: '2018',
   currenciesAccepted: 'USD',
-  paymentAccepted: 'Cash, Credit Card, Debit Card, Zelle (hi@thenycmaid.com), Venmo, Apple Pay',
-  description: 'Professional house cleaning services across New York City — Manhattan, Brooklyn & Queens. Deep cleaning, regular apartment cleaning, move-in/move-out, post-construction cleanup, weekly cleaning service, same-day cleaning, Airbnb turnover, and office cleaning. Licensed, insured, and background-checked cleaners. A NYC Maid Services Company — serving NYC since 2018.',
+  paymentAccepted: 'Cash, Credit Card, Debit Card, Zelle, Venmo, Apple Pay',
+  description: 'Professional house cleaning services across New York City — Manhattan, Brooklyn & Queens. Deep cleaning, regular apartment cleaning, move-in/move-out, post-construction cleanup, weekly cleaning service, same-day cleaning, Airbnb turnover, and office cleaning. Licensed, insured, and background-checked cleaners. A NYC Maid Company Partner — serving NYC since 2018.',
   slogan: "New York City's Most Trusted Cleaning Service",
   knowsLanguage: ['en', 'es'],
   numberOfEmployees: { '@type': 'QuantitativeValue' as const, minValue: 10, maxValue: 25 },
@@ -127,7 +126,6 @@ const contactPoints = [
   },
   {
     '@type': 'ContactPoint' as const,
-    email: BUSINESS.email,
     contactType: 'customer support',
     areaServed: 'US',
     availableLanguage: ['English', 'Spanish'],
@@ -167,7 +165,6 @@ export function organizationSchema() {
     url: BUSINESS.url,
     logo: logoObj,
     image: [BUSINESS.image],
-    email: BUSINESS.email,
     telephone: BUSINESS.phone,
     description: BUSINESS.description,
     slogan: BUSINESS.slogan,
@@ -322,7 +319,6 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
     legalName: BUSINESS.legalName,
     url: BUSINESS.url,
     telephone: BUSINESS.phone,
-    email: BUSINESS.email,
     description: BUSINESS.description,
     slogan: BUSINESS.slogan,
     logo: logoObj,
@@ -634,7 +630,7 @@ export function howToBookSchema() {
       {
         '@type': 'HowToStep',
         name: 'Contact Us',
-        text: 'Call (212) 202-8400, text us, or book online at cleaningservicesunnysideny.com',
+        text: 'Call (212) 202-9030, text us, or book online at cleaningservicesunnysideny.com',
         url: 'https://www.thenycmaid.com/book/new',
         position: 1,
       },
@@ -726,7 +722,6 @@ export function professionalServiceSchema(service: Service, neighborhood?: Neigh
     description: service.description,
     url: neighborhood ? `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}` : `${BUSINESS.url}/services/${service.urlSlug}`,
     telephone: BUSINESS.phone,
-    email: BUSINESS.email,
     priceRange: service.priceRange,
     address: addressObj,
     geo: neighborhood ? { '@type': 'GeoCoordinates', latitude: neighborhood.lat, longitude: neighborhood.lng } : geoObj,
@@ -762,7 +757,6 @@ export function homepageSchemas() {
     areaItemListSchema(),
     siteNavigationSchema(),
     howToBookSchema(),
-    ...reviewSchemas(),
     // FAQPage is rendered by FAQSection component
   ]
 }
@@ -789,9 +783,7 @@ export function areaPageSchemas(area: Area) {
       { name: area.name, url },
     ]),
     serviceItemListSchema(),
-    howToBookSchema(),
-    ...reviewSchemas(GOOGLE_REVIEWS.slice(0, 5)),
-  ]
+    howToBookSchema(),  ]
 }
 
 export function neighborhoodPageSchemas(neighborhood: Neighborhood, area: Area) {
@@ -829,9 +821,7 @@ export function neighborhoodPageSchemas(neighborhood: Neighborhood, area: Area) 
         url: `${BUSINESS.url}/${neighborhood.urlSlug}/${s.slug}`,
       })),
     },
-    howToBookSchema(),
-    ...reviewSchemas(GOOGLE_REVIEWS.slice(0, 5)),
-    // FAQPage is rendered by FAQSection component
+    howToBookSchema(),    // FAQPage is rendered by FAQSection component
   ]
 }
 
@@ -862,9 +852,7 @@ export function neighborhoodServicePageSchemas(neighborhood: Neighborhood, servi
       { name: neighborhood.name, url: `${BUSINESS.url}/service-areas/${neighborhood.urlSlug}` },
       { name: service.name, url },
     ]),
-    howToBookSchema(),
-    ...reviewSchemas(GOOGLE_REVIEWS.slice(0, 5)),
-    // FAQPage is rendered by FAQSection component
+    howToBookSchema(),    // FAQPage is rendered by FAQSection component
   ]
 }
 
@@ -893,8 +881,6 @@ export function servicePageSchemas(service: Service) {
       { name: 'Services', url: `${BUSINESS.url}/nyc-cleaning-services-offered` },
       { name: service.name, url },
     ]),
-    howToBookSchema(),
-    ...reviewSchemas(GOOGLE_REVIEWS.slice(0, 5)),
-    // FAQPage is rendered by FAQSection component
+    howToBookSchema(),    // FAQPage is rendered by FAQSection component
   ]
 }

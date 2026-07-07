@@ -13,6 +13,11 @@ export const BROOKLYN_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['historic brownstones', 'pre-war co-ops', 'luxury condos', 'landmark townhouses'],
     cleaning_challenges: ['multi-floor brownstones', 'historic preservation details', 'hardwood floor care', 'garden apartments'],
     nearby: ['dumbo', 'cobble-hill', 'downtown-brooklyn'],
+    editorial: [
+      `Brooklyn Heights is one of New York City's first designated historic districts, and it cleans like the landmark it is. The streets running toward the Promenade — Montague, Pierrepont, Remsen, and Willow — hold some of the oldest brownstones and Federal-style townhouses in the city, many with original 19th-century woodwork, plaster medallions, marble mantels, and wide-plank floors that predate the Brooklyn Bridge. These finishes are irreplaceable and easy to damage with the wrong product or too much water. Our cleaners treat historic woodwork and soft original floors with the care they require, dusting and hand-finishing rather than saturating.`,
+      `The homes themselves are typically multi-floor — full brownstones and duplex co-ops where cleaning means moving methodically across several levels — plus the garden apartments tucked below street level that pull in moisture and yard debris. Because so many Heights residents own long-term and want their homes protected, recurring service with a consistent cleaner is the norm here; the same person learns your home's quirks and keeps the delicate details in good shape visit after visit.`,
+      `Whether it's a landmark townhouse near the Promenade or a pre-war co-op off Montague Street, we serve 11201 and 11205 at a flat $59/hr, with no premium for the extra floors.`,
+    ],
   },
   {
     slug: 'dumbo',
@@ -75,6 +80,11 @@ export const BROOKLYN_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['brownstones', 'townhouses', 'garden apartments', 'charming row houses'],
     cleaning_challenges: ['brownstone multi-floor layouts', 'garden-level spaces', 'historic woodwork', 'narrow staircases'],
     nearby: ['brooklyn-heights', 'carroll-gardens', 'boerum-hill'],
+    editorial: [
+      `Cobble Hill is small, low-rise, and almost entirely residential — a pocket of 19th-century row houses and brownstones between Atlantic Avenue and Court Street where the scale rarely climbs above four stories. The homes here are intimate and detail-rich: narrow staircases, original banisters and moldings, garden-level floors, and the kind of tight, well-loved layouts that reward a careful cleaner and punish a careless one. Our team is used to working these compact multi-floor houses without banging up a narrow stairwell or rushing past the woodwork that gives them character.`,
+      `The neighborhood's rhythm is quietly domestic. Families near Cobble Hill Park keep steady households, the garden apartments off Smith Street pull in soil and pollen from the backyards behind them, and the antique-lined stretch of Atlantic Avenue means plenty of homes here mix vintage furniture and delicate surfaces that need a gentler touch. Many of our Cobble Hill clients keep a recurring weekly or bi-weekly clean so a small home with lots of detail stays effortless to maintain.`,
+      `From a garden-floor one-bedroom to a full row house, everything in 11201 is the same flat $59/hr — narrow stairs and all.`,
+    ],
   },
   {
     slug: 'carroll-gardens',
@@ -149,6 +159,11 @@ export const BROOKLYN_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['brownstones', 'limestone townhouses', 'co-ops', 'garden apartments'],
     cleaning_challenges: ['multi-level brownstones', 'family homes with kids', 'pet-friendly households', 'garden maintenance areas'],
     nearby: ['prospect-heights', 'windsor-terrace', 'south-slope', 'gowanus'],
+    editorial: [
+      `Park Slope is brownstone Brooklyn at its most classic, and the housing stock here shapes every cleaning. The blocks between Prospect Park West and 5th Avenue are rows of brownstones and limestone townhouses — three, four, and five stories, often a full or duplex home rather than a single-floor apartment. That means stairs, and a lot of them: a proper Park Slope clean is a multi-floor job where dust and pet hair migrate down the staircase all week. Our cleaners plan the route top-down so nothing gets tracked back onto finished floors, and they know how to care for the original parquet and stair treads these homes are prized for.`,
+      `It's also one of the most family-and-dog-dense neighborhoods in the borough. The apartments and garden-floor units near Grand Army Plaza and the Brooklyn Public Library take real wear — kids, strollers, muddy paws from Prospect Park — and garden levels pull in soil and pollen from the backyard. This is a neighborhood built for recurring service, and most of our Park Slope clients run weekly or bi-weekly with the same cleaner so a busy household never falls behind. The recurring discount makes maintaining a full brownstone genuinely affordable.`,
+      `From a garden apartment on a leafy side street to a whole townhouse near the park, we cover 11215, 11217, and 11231 at one flat $59/hr — every floor, same rate.`,
+    ],
   },
   {
     slug: 'south-slope',

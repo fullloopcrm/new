@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { AREAS } from '@/app/site/sunnyside-clean-nyc/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/sunnyside-clean-nyc/_lib/seo/locations'
 import { SERVICES } from '@/app/site/sunnyside-clean-nyc/_lib/seo/services'
-import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema, areaItemListSchema, reviewSchemas } from '@/app/site/sunnyside-clean-nyc/_lib/seo/schema'
+import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema, areaItemListSchema } from '@/app/site/sunnyside-clean-nyc/_lib/seo/schema'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
@@ -13,18 +13,18 @@ const totalNeighborhoods = allNeighborhoods.length
 
 const areaFAQs = [
   { question: 'What areas does Sunnyside Clean NYC serve?', answer: `We serve ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, and Queens. Same rates and same quality everywhere.` },
-  { question: 'Do you charge extra for certain neighborhoods?', answer: 'No. Our rates are the same regardless of neighborhood or borough — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $79/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). No travel fees, no surge pricing.' },
+  { question: 'Do you charge extra for certain neighborhoods?', answer: 'No. Our rates are the same regardless of neighborhood or borough — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). No travel fees, no surge pricing.' },
   { question: 'Are all services available in every area?', answer: 'Yes. Every service we offer — deep cleaning, regular cleaning, move-in/out, post-renovation, office, same-day — is available in all neighborhoods we serve.' },
-  { question: 'Do you serve areas outside of these neighborhoods?', answer: 'We may. If you don\'t see your neighborhood listed, call or text (212) 202-8400 and we\'ll let you know. We\'re always expanding.' },
+  { question: 'Do you serve areas outside of these neighborhoods?', answer: 'We may. If you don\'t see your neighborhood listed, call or text (212) 202-9030 and we\'ll let you know. We\'re always expanding.' },
   { question: 'Do I get the same cleaner in my area?', answer: 'Yes. For recurring clients, we assign a dedicated cleaner who lives near your area so they can arrive consistently and on time.' },
-  { question: 'How quickly can you schedule a cleaning in my area?', answer: 'We typically schedule within 24-48 hours for standard service. Same-day cleaning is available in most areas — call (212) 202-8400 for availability.' },
+  { question: 'How quickly can you schedule a cleaning in my area?', answer: 'We typically schedule within 24-48 hours for standard service. Same-day cleaning is available in most areas — call (212) 202-9030 for availability.' },
   { question: 'Do your cleaners use public transit or drive?', answer: 'It depends on the area. In Manhattan, Brooklyn, and Queens, many of our cleaners use public transit. Some cleaners drive depending on location.' },
   { question: 'What if I\'m on the border of two neighborhoods?', answer: 'We serve the entire area, not just specific blocks. If you\'re near any of our listed neighborhoods, we cover your location. Just give us your address and we\'ll confirm.' },
 ]
 
 const pageUrl = 'https://www.cleaningservicesunnysideny.com/service-areas'
 const pageTitle = `Service Areas — ${totalNeighborhoods}+ Neighborhoods in Manhattan, Brooklyn & Queens | Sunnyside Clean NYC`
-const pageDescription = `Sunnyside Clean NYC serves ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn & Queens. Same rates everywhere — $59/hr. Find professional cleaning in your neighborhood. (212) 202-8400`
+const pageDescription = `Sunnyside Clean NYC serves ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn & Queens. Same rates everywhere — $59/hr. Find professional cleaning in your neighborhood. (212) 202-9030`
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -74,9 +74,7 @@ export default function AreasIndexPage() {
           { name: 'Service Areas', url: pageUrl },
         ]),
         areaItemListSchema(),
-        faqSchema(areaFAQs),
-        ...reviewSchemas(undefined),
-      ]} />
+        faqSchema(areaFAQs),      ]} />
 
       {/* Hero */}
       <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-20 md:py-28">
@@ -88,7 +86,7 @@ export default function AreasIndexPage() {
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">
             {totalNeighborhoods}+ Neighborhoods Across Manhattan, Brooklyn &amp; Queens
           </h1>
-          <p className="text-[#A8F0DC]/80 text-sm font-medium tracking-wide uppercase mb-4">Sunnyside Clean NYC — A NYC Maid Services Company</p>
+          <p className="text-[#A8F0DC]/80 text-sm font-medium tracking-wide uppercase mb-4">Sunnyside Clean NYC — A NYC Maid Company Partner</p>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-10">
             Professional house cleaning from $59/hr in every neighborhood we serve. Same rates, same quality, same background-checked cleaners — whether you&apos;re in Manhattan, Brooklyn, or Queens.
           </p>
@@ -204,8 +202,8 @@ export default function AreasIndexPage() {
             <a href="https://www.thenycmaid.com/book/new" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
               Self Booking $10 OFF
             </a>
-            <a href="tel:2122028400" className="text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
-              or Call (212) 202-8400
+            <a href="tel:2122029030" className="text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
+              or Call (212) 202-9030
             </a>
           </div>
         </section>

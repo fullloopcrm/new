@@ -55,6 +55,7 @@ export default async function BlogPostPage({ params }: Props) {
     '@type': 'Article',
     headline: post.title,
     description: post.metaDescription,
+    image: ['https://www.cleaningservicesunnysideny.com/icon-512.png'],
     datePublished: post.date,
     dateModified: post.date,
     author: {
@@ -66,6 +67,10 @@ export default async function BlogPostPage({ params }: Props) {
       '@type': 'Organization',
       name: 'Sunnyside Clean NYC',
       url: 'https://www.cleaningservicesunnysideny.com',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://www.cleaningservicesunnysideny.com/icon-512.png',
+      },
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
@@ -104,7 +109,7 @@ export default async function BlogPostPage({ params }: Props) {
             {post.title}
           </h1>
           <p className="text-blue-200/60 text-lg leading-relaxed max-w-2xl mx-auto">{post.excerpt}</p>
-          <p className="text-[#A8F0DC]/60 text-sm font-medium tracking-wide uppercase mt-6">Sunnyside Clean NYC — A NYC Maid Services Company</p>
+          <p className="text-[#A8F0DC]/60 text-sm font-medium tracking-wide uppercase mt-6">Sunnyside Clean NYC — A NYC Maid Company Partner</p>
         </div>
       </section>
 
@@ -155,8 +160,8 @@ export default async function BlogPostPage({ params }: Props) {
             <a href="https://www.thenycmaid.com/book/new" className="bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
               Self Booking $10 OFF
             </a>
-            <a href="tel:2122028400" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
-              Call (212) 202-8400
+            <a href="tel:2122029030" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
+              Call (212) 202-9030
             </a>
           </div>
         </div>

@@ -15,6 +15,10 @@ export interface Neighborhood {
   housing_types: string[]
   cleaning_challenges: string[]
   nearby: string[]
+  // Hand-authored, neighborhood-specific long-form copy. When present it replaces
+  // the templated "Life in {name}" prose — real local detail is what separates
+  // these pages from thin programmatic ones. Optional; falls back to generated copy.
+  editorial?: string[]
 }
 
 export const ALL_NEIGHBORHOODS: Neighborhood[] = [

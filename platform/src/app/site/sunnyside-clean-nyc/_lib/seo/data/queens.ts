@@ -87,6 +87,11 @@ export const QUEENS_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['garden apartments', 'co-ops', 'pre-war buildings', 'historic garden complexes'],
     cleaning_challenges: ['historic garden apartments', 'co-op regulations', 'diverse household needs', 'older building systems'],
     nearby: ['astoria', 'woodside', 'elmhurst', 'corona', 'east-elmhurst'],
+    editorial: [
+      `Jackson Heights is defined by its garden apartments, and that architecture drives the cleaning. Much of the neighborhood sits inside a designated historic district, where 1910s–1930s co-op complexes are built around shared interior gardens — buildings like the ones near 74th Street and the Historic District's core, with prewar bones, original tile, steam-heat radiators, and older plumbing and electrical systems. These are handsome, solidly built homes, but they come with the quirks of century-old construction: fixtures that need a careful hand, plaster and tile that clean differently than modern finishes, and co-op house rules that often govern when and how work can be done. Our cleaners are comfortable working within that.`,
+      `It's also one of the most diverse neighborhoods in the world, and households here keep genuinely different standards and preferences for how a home should be cleaned. We treat that as the point, not a problem — the cleaning is tailored to what each family actually wants rather than a one-size checklist. Around Diversity Plaza and the 74th Street corridor, homes cook and gather often, so kitchens and entertaining spaces tend to need steady, recurring attention.`,
+      `From a studio in a garden co-op to a full prewar two-bedroom, we serve 11372 and 11370 at a flat $59/hr, with the same care for the historic details these buildings are known for.`,
+    ],
   },
   {
     slug: 'east-elmhurst',
@@ -197,6 +202,11 @@ export const QUEENS_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['Tudor-style homes', 'co-ops', 'garden apartments', 'luxury homes in Gardens section'],
     cleaning_challenges: ['historic Tudor home details', 'large family houses', 'garden maintenance areas', 'premium finish care'],
     nearby: ['rego-park', 'kew-gardens', 'kew-gardens-hills'],
+    editorial: [
+      `Forest Hills splits into two very different cleaning jobs, and we handle both. Around Austin Street and toward Queens Boulevard, the neighborhood is dominated by large prewar co-op buildings — spacious, solidly built apartments with real room counts and the crown molding, hardwood, and deep closets that come with 1930s construction. Then there's Forest Hills Gardens: the private, storybook enclave of Tudor-style homes near the West Side Tennis Club and Forest Hills Stadium, with leaded windows, slate and stucco exteriors, and interior finishes that need a gentle, informed hand. A cleaner who treats a landmark Tudor like a rental apartment does real damage; ours don't.`,
+      `Because so many Forest Hills homes are family-sized — full houses in the Gardens, three-bedroom co-ops off 108th Street — the cleanings here tend to be larger and benefit from a steady schedule. Yards and garden areas track soil and leaves indoors seasonally, and the premium finishes in the Gardens' homes reward consistent, careful upkeep over one-off deep cleans. Most of our clients here run weekly or bi-weekly with the same assigned cleaner.`,
+      `Whether it's a co-op near the LIRR station or a Tudor in the Gardens, all of 11375 is one flat $59/hr — house-sized homes included, no square-footage surcharge.`,
+    ],
   },
   {
     slug: 'kew-gardens',
@@ -319,6 +329,11 @@ export const QUEENS_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['condos', 'co-ops', 'multi-family homes', 'new development towers'],
     cleaning_challenges: ['diverse household preferences', 'high-rise apartments', 'kitchen grease cleaning', 'multi-generational homes'],
     nearby: ['kew-gardens-hills', 'whitestone', 'college-point', 'murray-hill-queens', 'fresh-meadows'],
+    editorial: [
+      `Flushing is one of the busiest, most built-up parts of Queens, and the cleaning here reflects that density. Around Main Street and the New World Mall, glass condo towers and new-development high-rises have gone up fast, while the surrounding blocks toward the Queens Botanical Garden and Flushing Meadows hold co-ops and multi-family houses. The high-rise units come with the usual tower issues — HVAC dust on every sill, floor-to-ceiling windows, tight galley kitchens — and the multi-family homes often mean more kitchens, more bathrooms, and more square footage per visit than a standard apartment.`,
+      `Kitchens are where Flushing homes ask the most of a cleaner. This is a neighborhood that genuinely cooks — daily, at volume — and that puts real grease on stovetops, backsplashes, range hoods, and cabinet fronts that a light wipe won't touch. Our cleaners come prepared to degrease properly. Many households here are also multi-generational, so we're used to larger family homes where consistency matters, and a recurring weekly or bi-weekly schedule keeps a full, active house manageable.`,
+      `From a new condo off Main Street to a multi-family house near the park, we serve 11354, 11355, and 11358 at a flat $59/hr — extra kitchens and all.`,
+    ],
   },
   {
     slug: 'murray-hill-queens',
@@ -367,6 +382,11 @@ export const QUEENS_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['detached houses', 'colonial homes', 'condos', 'co-ops'],
     cleaning_challenges: ['larger suburban homes', 'multi-floor houses', 'basement cleaning', 'outdoor area maintenance'],
     nearby: ['flushing', 'whitestone', 'douglaston', 'little-neck', 'oakland-gardens', 'bay-terrace', 'clearview'],
+    editorial: [
+      `Bayside feels more suburb than city, and it cleans that way. Off Bell Boulevard and out toward Fort Totten and Crocheron Park, the housing is largely detached single-family and colonial homes with driveways, front lawns, and finished basements — a different job entirely from a Manhattan apartment. These are multi-floor houses, often with a main level, upstairs bedrooms, and a basement den or laundry area, which means a real Bayside clean covers more ground and more stairs than a typical unit. Our cleaners are set up for whole-house work, not just a room or two.`,
+      `The basements and outdoor-adjacent spaces are what make Bayside distinct. Finished lower levels collect a particular kind of dust and can run humid, mudrooms and back entries track in dirt from the yard, and garage-adjacent spaces need attention that apartment cleaning never involves. Homeowners here tend to keep their properties for the long haul and want them maintained accordingly — so recurring service on a weekly or bi-weekly schedule is popular, and the recurring discount keeps a full-house clean sensible.`,
+      `Whether it's a colonial near Bay Terrace or a co-op off Bell Boulevard, we cover 11359, 11360, and 11361 at one flat $59/hr — basement, upstairs, and all.`,
+    ],
   },
   {
     slug: 'oakland-gardens',

@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const content = areaContent(area)
     const url = `https://www.cleaningservicesunnysideny.com/service-areas/${slug}`
     const title = `${area.name} Cleaning Service & House Cleaning From $59/hr | Sunnyside Clean NYC`
-    const description = `Professional house cleaning in ${area.name} from $59/hr. Deep cleaning, weekly cleaning service, move-in/out & more. Licensed, insured, 5.0★ Google. (212) 202-8400`
+    const description = `Professional house cleaning in ${area.name} from $59/hr. Deep cleaning, weekly cleaning service, move-in/out & more. Licensed, insured, 5.0★ Google. (212) 202-9030`
     return {
       title: { absolute: title },
       description,
@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const content = neighborhoodContent(neighborhood, neighborhoodArea)
     const url = `https://www.cleaningservicesunnysideny.com/service-areas/${slug}`
     const title = `${neighborhood.name} Cleaning Service & House Cleaning From $59/hr | Sunnyside Clean NYC`
-    const description = `Professional cleaning in ${neighborhood.name}, ${neighborhoodArea.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $59/hr. 5.0★ Google. (212) 202-8400`
+    const description = `Professional cleaning in ${neighborhood.name}, ${neighborhoodArea.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $59/hr. 5.0★ Google. (212) 202-9030`
     return {
       title: { absolute: title },
       description,
@@ -91,7 +91,7 @@ export default async function SlugPage({ params }: Props) {
                 <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-6xl text-white tracking-wide leading-[0.95] mb-5">
                   {area.name} Cleaning Service &amp; House Cleaning — From $59/hr
                 </h1>
-                <p className="text-[#A8F0DC]/80 text-sm font-medium tracking-wide uppercase mb-4">Sunnyside Clean NYC — A NYC Maid Services Company</p>
+                <p className="text-[#A8F0DC]/80 text-sm font-medium tracking-wide uppercase mb-4">Sunnyside Clean NYC — A NYC Maid Company Partner</p>
                 <p className="text-blue-200/60 text-lg leading-relaxed mb-6">{content.intro}</p>
                 <div className="flex flex-wrap gap-x-6 gap-y-2 mb-8">
                   <span className="text-[#A8F0DC] text-sm font-medium">&#10003; From $59/hr</span>
@@ -103,8 +103,8 @@ export default async function SlugPage({ params }: Props) {
                   <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                     Self Booking $10 OFF
                   </a>
-                  <a href="tel:2122028400" className="text-blue-200/60 font-medium py-3.5 hover:text-white transition-colors underline underline-offset-4">
-                    or Call (212) 202-8400
+                  <a href="tel:2122029030" className="text-blue-200/60 font-medium py-3.5 hover:text-white transition-colors underline underline-offset-4">
+                    or Call (212) 202-9030
                   </a>
                 </div>
               </div>
@@ -118,7 +118,7 @@ export default async function SlugPage({ params }: Props) {
                       <p className="text-gray-500 text-xs mt-2">Your supplies</p>
                     </div>
                     <div className="flex-1 bg-[#1E2A4A] rounded-xl py-5 px-4 text-center">
-                      <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide leading-none">$79<span className="text-xl text-blue-200/40">/hr</span></p>
+                      <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide leading-none">$69<span className="text-xl text-blue-200/40">/hr</span></p>
                       <p className="text-[#A8F0DC]/70 text-xs mt-2">We bring everything</p>
                     </div>
                   </div>
@@ -204,7 +204,7 @@ export default async function SlugPage({ params }: Props) {
             <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">Book {area.name} Cleaning in 3 Steps</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { n: '01', t: 'Book Online or Call', d: `Book online at cleaningservicesunnysideny.com or call (212) 202-8400 with your ${area.name} address, preferred date, and any special requests.` },
+                { n: '01', t: 'Book Online or Call', d: `Book online at cleaningservicesunnysideny.com or call (212) 202-9030 with your ${area.name} address, preferred date, and any special requests.` },
                 { n: '02', t: 'We Confirm', d: 'We match you with a background-checked, insured cleaner and lock in your appointment — usually within the hour.' },
                 { n: '03', t: 'Pay After', d: 'Your cleaner arrives on time, does the work, and you pay only after the cleaning is complete. No deposits ever.' },
               ].map(s => (
@@ -261,7 +261,7 @@ export default async function SlugPage({ params }: Props) {
             <h1 className="font-[family-name:var(--font-bebas)] text-5xl md:text-7xl lg:text-8xl text-[#1E2A4A] tracking-wide leading-[0.9] mb-3">
               {neighborhood.name} Cleaning Service &amp; House Cleaning
             </h1>
-            <p className="text-gray-400 text-sm font-medium tracking-wide uppercase mb-5">Sunnyside Clean NYC — A NYC Maid Services Company</p>
+            <p className="text-gray-400 text-sm font-medium tracking-wide uppercase mb-5">Sunnyside Clean NYC — A NYC Maid Company Partner</p>
             <p className="text-gray-500 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-8">{content.intro}</p>
             {/* Landmark pills */}
             <div className="flex flex-wrap justify-center gap-2 mb-10">
@@ -274,8 +274,8 @@ export default async function SlugPage({ params }: Props) {
               <a href="https://www.thenycmaid.com/book/new" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
                 Self Booking $10 OFF
               </a>
-              <a href="tel:2122028400" className="text-[#1E2A4A] font-semibold py-4 hover:underline underline-offset-4">
-                or Call (212) 202-8400
+              <a href="tel:2122029030" className="text-[#1E2A4A] font-semibold py-4 hover:underline underline-offset-4">
+                or Call (212) 202-9030
               </a>
             </div>
           </div>
@@ -319,10 +319,18 @@ export default async function SlugPage({ params }: Props) {
                 <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">Discover {neighborhood.name}, {neighborhoodArea.name}</h2>
                 <p className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide leading-tight mb-4">Life in {neighborhood.name}</p>
                 <div className="w-12 h-[2px] bg-[#A8F0DC] mb-6" />
-                <p className="text-gray-600 text-lg leading-relaxed mb-5">{vibe}</p>
-                <p className="text-gray-600 leading-relaxed mb-8">
-                  That&apos;s why we&apos;re proud to serve {neighborhood.name} with the same care and attention your neighborhood deserves. Our cleaners know the {neighborhood.housing_types[0]} and {neighborhood.housing_types[1]} here — and they know how to make them shine.
-                </p>
+                {neighborhood.editorial && neighborhood.editorial.length > 0 ? (
+                  neighborhood.editorial.map((para, i) => (
+                    <p key={i} className={`text-gray-600 leading-relaxed mb-5 ${i === 0 ? 'text-lg' : ''}`}>{para}</p>
+                  ))
+                ) : (
+                  <>
+                    <p className="text-gray-600 text-lg leading-relaxed mb-5">{vibe}</p>
+                    <p className="text-gray-600 leading-relaxed mb-8">
+                      That&apos;s why we&apos;re proud to serve {neighborhood.name} with the same care and attention your neighborhood deserves. Our cleaners know the {neighborhood.housing_types[0]} and {neighborhood.housing_types[1]} here — and they know how to make them shine.
+                    </p>
+                  </>
+                )}
                 {/* Landmark tags */}
                 <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-3">Local Landmarks</p>
                 <div className="flex flex-wrap gap-2 mb-8">
@@ -334,8 +342,8 @@ export default async function SlugPage({ params }: Props) {
                   <a href="https://www.thenycmaid.com/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                     Self Booking $10 OFF
                   </a>
-                  <a href="tel:2122028400" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
-                    or Call (212) 202-8400
+                  <a href="tel:2122029030" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
+                    or Call (212) 202-9030
                   </a>
                 </div>
               </div>
@@ -417,7 +425,7 @@ export default async function SlugPage({ params }: Props) {
             <div>
               <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-2">{neighborhood.name} Cleaning Costs</h3>
               <p className="text-[#1E2A4A]/80 leading-relaxed">
-                House cleaning in {neighborhood.name} starts at $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly) or $79/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). A typical {neighborhood.name} apartment cleaning runs $98–$260 depending on size and service type. Deep cleans, move-in/move-out, and post-renovation jobs take longer but use the same flat hourly rate. No travel fees, no surge pricing — {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
+                House cleaning in {neighborhood.name} starts at $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly) or $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). A typical {neighborhood.name} apartment cleaning runs $98–$260 depending on size and service type. Deep cleans, move-in/move-out, and post-renovation jobs take longer but use the same flat hourly rate. No travel fees, no surge pricing — {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
               </p>
               <Link href="/nyc-cleaning-service-pricing" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
             </div>
@@ -459,7 +467,7 @@ export default async function SlugPage({ params }: Props) {
             <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">Book {neighborhood.name} Cleaning in 3 Steps</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { n: '01', t: 'Book Online or Call', d: `Book online at cleaningservicesunnysideny.com or call (212) 202-8400 with your ${neighborhood.name} address, preferred date, and any special requests.` },
+                { n: '01', t: 'Book Online or Call', d: `Book online at cleaningservicesunnysideny.com or call (212) 202-9030 with your ${neighborhood.name} address, preferred date, and any special requests.` },
                 { n: '02', t: 'We Confirm', d: 'We match you with a background-checked, insured cleaner and lock in your appointment — usually within the hour.' },
                 { n: '03', t: 'Pay After', d: 'Your cleaner arrives on time, does the work, and you pay only after the cleaning is complete. No deposits ever.' },
               ].map(s => (

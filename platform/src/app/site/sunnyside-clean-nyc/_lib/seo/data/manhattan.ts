@@ -24,6 +24,11 @@ export const MANHATTAN_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['pre-war apartments', 'brownstones', 'luxury condos', 'classic six apartments'],
     cleaning_challenges: ['pre-war apartment details', 'hardwood floor maintenance', 'crown molding dust', 'large family apartments'],
     nearby: ['midtown', 'upper-east-side', 'harlem', 'hells-kitchen'],
+    editorial: [
+      `The Upper West Side is prewar country. The blocks between Central Park West and Riverside Park are lined with 1920s co-ops and the "classic six" and "classic seven" layouts that define the neighborhood — homes with real plaster crown molding, picture rails, herringbone parquet floors, and radiators that collect a season's worth of dust behind them. These details are what make a UWS apartment beautiful, and they're exactly what a rushed cleaner skips. Ours don't: we dust molding and picture rails by hand, care for hardwood without over-wetting it, and get behind and beneath the radiators where grime hides.`,
+      `It's also a family neighborhood — arguably Manhattan's most stroller-heavy — and the large multi-bedroom apartments near Lincoln Center and the American Museum of Natural History see real daily use. That means kitchens and bathrooms that need consistent attention and living rooms that reset from toys to tidy. Many of our UWS clients run a weekly or bi-weekly schedule with the same assigned cleaner so the apartment never gets ahead of them, and the recurring discount keeps a large home affordable to maintain.`,
+      `From a studio on Amsterdam to a full-floor co-op on Central Park West, we serve every UWS ZIP — 10023, 10024, 10025, and 10069 — at the same flat hourly rate, with no charge for the extra square footage.`,
+    ],
   },
   {
     slug: 'midtown',
@@ -144,6 +149,11 @@ export const MANHATTAN_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['cast-iron lofts', 'luxury loft apartments', 'artist studios', 'designer penthouses'],
     cleaning_challenges: ['massive open lofts', 'floor-to-ceiling windows', 'industrial finishes', 'high ceilings'],
     nearby: ['greenwich-village', 'tribeca', 'lower-east-side', 'nolita', 'noho'],
+    editorial: [
+      `SoHo is loft living in its purest form, and lofts clean differently than apartments. Inside the Cast Iron Historic District, the buildings off Greene, Mercer, and Wooster Streets were 19th-century manufacturing floors, and the homes carved out of them keep that DNA: 12-to-15-foot ceilings, oversized industrial windows, exposed brick, cast-iron columns, and hundreds of square feet of open, uninterrupted floor. That openness is stunning and unforgiving — dust travels across a wide-plank floor with nothing to stop it, and the tall windows show every streak in the afternoon light. Our cleaners bring the reach tools and the patience these spaces need, not a quick apartment-sized pass.`,
+      `The finishes here also demand a careful hand: polished concrete, reclaimed wood, and gallery-white walls near Prince Street's boutiques and the neighborhood's art spaces mark easily and can't be scrubbed like standard drywall. We match the method to the surface. And because so many SoHo homes double as studios or entertaining spaces, plenty of clients book a deep reset before an opening or a dinner and keep a recurring clean in between.`,
+      `Whether it's a designer penthouse or a working artist's loft in 10012, the rate holds at a flat $59/hr — square footage and ceiling height included, no loft surcharge.`,
+    ],
   },
   {
     slug: 'nolita',
@@ -216,6 +226,11 @@ export const MANHATTAN_NEIGHBORHOODS: Neighborhood[] = [
     housing_types: ['converted office towers', 'luxury high-rises', 'modern condos', 'pied-a-terre apartments'],
     cleaning_challenges: ['high-rise living', 'all-glass buildings', 'luxury finishes', 'building amenity coordination'],
     nearby: ['tribeca', 'battery-park', 'brooklyn-heights', 'south-street-seaport', 'civic-center'],
+    editorial: [
+      `The Financial District cleans like nowhere else in Manhattan. A large share of FiDi homes are converted office towers — buildings along Wall Street, Water Street, and Pine Street that were offices until the 2000s and now hold rental and condo units. Those conversions come with floor-to-ceiling glass, deep interior layouts that get very little natural light, and central HVAC that pushes a fine gray dust onto every windowsill and shelf. Our cleaners know how to keep all-glass walls and partitions streak-free, and how to reach the dust that collects in the windowless interior bedrooms these floor plans are known for.`,
+      `Living down here also means working around building protocol. The high-rises near Fulton Center and the South Street Seaport run tight freight-elevator and loading-dock schedules, and most require the management office to clear a cleaner in advance. We handle that coordination so your cleaning starts on time instead of stalling in the lobby. Weekends around the Seaport get crowded with visitors, so weekday mornings are usually the smoothest window to book a FiDi appointment.`,
+      `Whether you're in a pied-à-terre near One World Trade Center or a full-floor condo with harbor views, the rate is the same flat $59/hr — no downtown surcharge and no travel fee across the 10004, 10005, 10006, and 10038 ZIP codes.`,
+    ],
   },
   {
     slug: 'battery-park',

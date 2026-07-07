@@ -3,14 +3,14 @@ import Link from 'next/link'
 import { AREAS } from '@/app/site/sunnyside-clean-nyc/_lib/seo/data/areas'
 import { getNeighborhoodsByArea, ALL_NEIGHBORHOODS } from '@/app/site/sunnyside-clean-nyc/_lib/seo/locations'
 import { SERVICES } from '@/app/site/sunnyside-clean-nyc/_lib/seo/services'
-import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, reviewSchemas, faqSchema } from '@/app/site/sunnyside-clean-nyc/_lib/seo/schema'
+import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema } from '@/app/site/sunnyside-clean-nyc/_lib/seo/schema'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
 
 const url = 'https://www.cleaningservicesunnysideny.com/about-nyc-cleaning-service-sunnyside-clean-nyc'
 const title = 'About Sunnyside Clean NYC | Affordable, Reliable NYC Cleaning Since 2018'
-const description = 'Sunnyside Clean NYC is one of NYC\'s most trusted cleaning services — affordable rates from $59/hr, reliable background-checked cleaners, and consistent quality since 2018. A NYC Maid Services Company. Serving 267+ neighborhoods. 5.0★ Google. (212) 202-8400'
+const description = 'Sunnyside Clean NYC is one of NYC\'s most trusted cleaning services — affordable rates from $59/hr, reliable background-checked cleaners, and consistent quality since 2018. A NYC Maid Company Partner. Serving 267+ neighborhoods. 5.0★ Google. (212) 202-9030'
 
 export const metadata: Metadata = {
   title: { absolute: title },
@@ -42,9 +42,7 @@ export default function AboutPage() {
         localBusinessSchema(),
         howToBookSchema(),
         breadcrumbSchema([{ name: 'Home', url: 'https://www.cleaningservicesunnysideny.com' }, { name: 'About', url }]),
-        faqSchema(aboutFaqs),
-        ...reviewSchemas().slice(0, 5),
-      ]} />
+        faqSchema(aboutFaqs),      ]} />
 
       {/* Hero */}
       <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-16 md:py-24">
@@ -84,7 +82,10 @@ export default function AboutPage() {
                   What started in Sunnyside quickly grew across all five boroughs and beyond. That approach has earned us a perfect 5.0-star rating on Google with 27 verified reviews, thousands of completed cleanings, and a client base that includes everyone from studios in Astoria to brownstones in Park Slope to offices in Midtown. Many of our clients have been with us for years — and they stay because we deliver the same quality every single visit.
                 </p>
                 <p>
-                  Today we serve {ALL_NEIGHBORHOODS.length}+ neighborhoods across Manhattan, Brooklyn, and Queens. Our team is bilingual (English and Spanish), background-checked, licensed, and insured. Our pricing is straightforward — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $79/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly).
+                  Today we serve {ALL_NEIGHBORHOODS.length}+ neighborhoods across Manhattan, Brooklyn, and Queens. Our team is bilingual (English and Spanish), background-checked, licensed, and insured. Our pricing is straightforward — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly).
+                </p>
+                <p>
+                  Sunnyside Clean NYC is an independent brand and a proud <strong>NYC Maid Company Partner</strong>. That partnership is how we deliver big-company reliability at neighborhood prices: we tap into The NYC Maid&apos;s vetted cleaner network, booking system, and 24/7 support infrastructure, while operating under our own name, our own standards, and our own local relationships. When you book Sunnyside Clean NYC, you get our people and our promise — backed by the systems and scale of an established NYC cleaning operation.
                 </p>
               </div>
             </div>
@@ -244,7 +245,7 @@ export default function AboutPage() {
             <p className="text-[#1E2A4A]/80 leading-relaxed">
               If you&apos;re an experienced cleaner who takes pride in their work, we&apos;d love to hear from you. Competitive pay, flexible hours, respectful management, and steady work.
             </p>
-            <a href="mailto:hi@thenycmaid.com" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">Contact us about open positions &rarr;</a>
+            <a href="/contact-nyc-cleaning-service-sunnyside-clean-nyc" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">Contact us about open positions &rarr;</a>
           </div>
         </div>
       </section>

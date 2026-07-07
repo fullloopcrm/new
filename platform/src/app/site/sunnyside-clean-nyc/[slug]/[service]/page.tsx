@@ -33,12 +33,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const area = getArea(neighborhood.area)!
   const url = `https://www.cleaningservicesunnysideny.com/${slug}/${serviceSlug}`
   const title = `${service.name} in ${neighborhood.name}, ${area.name} From $59/hr | Sunnyside Clean NYC`
-  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Google. (212) 202-8400`
+  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Google. (212) 202-9030`
 
   return {
     title: { absolute: title },
     description,
     alternates: { canonical: url },
+    // Thin programmatic neighborhood×service combos — crawlable for internal link
+    // equity (follow) but out of the index to protect overall site quality.
+    robots: { index: false, follow: true },
     openGraph: { title, description, url, type: 'website', siteName: 'Sunnyside Clean NYC', locale: 'en_US' },
     twitter: { card: 'summary_large_image', title, description },
     other: { 'geo.region': `US-${area.state}`, 'geo.placename': neighborhood.name, 'geo.position': `${neighborhood.lat};${neighborhood.lng}`, 'ICBM': `${neighborhood.lat}, ${neighborhood.lng}` },
@@ -94,10 +97,10 @@ export default async function NeighborhoodServicePage({ params }: Props) {
           </h1>
           <p className="text-blue-200/60 text-lg max-w-3xl leading-relaxed mb-8">{content.intro}</p>
           <div className="flex flex-col sm:flex-row items-start gap-4 mb-12">
-            <a href="sms:2122028400" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-              Text (212) 202-8400
+            <a href="sms:2122029030" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              Text (212) 202-9030
             </a>
-            <a href="tel:2122028400" className="text-blue-200/60 font-medium py-3.5 hover:text-white transition-colors underline underline-offset-4">
+            <a href="tel:2122029030" className="text-blue-200/60 font-medium py-3.5 hover:text-white transition-colors underline underline-offset-4">
               or Call Us
             </a>
           </div>
@@ -177,7 +180,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
                     <p className="text-gray-400 text-xs mt-1">Duration</p>
                   </div>
                 </div>
-                <a href="sms:2122028400" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-xs tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors w-full">
+                <a href="sms:2122029030" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-xs tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors w-full">
                   Get a Free Quote
                 </a>
               </div>
@@ -232,7 +235,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
           <div>
             <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-2">{service.name} Pricing in {neighborhood.name}</h3>
             <p className="text-[#1E2A4A]/80 leading-relaxed">
-              {service.name} in {neighborhood.name} typically costs {service.priceRange} and takes {service.duration}. We charge a flat hourly rate — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly) or $79/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). No travel fees, no surge pricing, no hidden costs. {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
+              {service.name} in {neighborhood.name} typically costs {service.priceRange} and takes {service.duration}. We charge a flat hourly rate — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly) or $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). No travel fees, no surge pricing, no hidden costs. {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
             </p>
             <Link href="/nyc-cleaning-service-pricing" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
           </div>
@@ -289,7 +292,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">Book {service.name} in {neighborhood.name} — 3 Steps</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { n: '01', t: 'Text or Call', d: `Reach us at (212) 202-8400 with your ${neighborhood.name} address and tell us you need ${service.name.toLowerCase()}.` },
+              { n: '01', t: 'Text or Call', d: `Reach us at (212) 202-9030 with your ${neighborhood.name} address and tell us you need ${service.name.toLowerCase()}.` },
               { n: '02', t: 'We Confirm', d: `We match you with a cleaner experienced in ${service.name.toLowerCase()} for ${neighborhood.name} homes and lock in your appointment.` },
               { n: '03', t: 'Pay After', d: `Your cleaner arrives on time, completes the ${service.name.toLowerCase()}, and you pay only when you're satisfied. No deposits.` },
             ].map(s => (
@@ -301,8 +304,8 @@ export default async function NeighborhoodServicePage({ params }: Props) {
             ))}
           </div>
           <div className="flex justify-center mt-10">
-            <a href="sms:2122028400" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-              Text (212) 202-8400
+            <a href="sms:2122029030" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              Text (212) 202-9030
             </a>
           </div>
         </div>
