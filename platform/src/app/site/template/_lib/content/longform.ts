@@ -808,3 +808,182 @@ export function faqContent(config: SiteConfig): LongformPage {
     faq,
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTACT — floor 3,000 words. Unique prose on how to reach us and what to
+// expect. `here` declared in-scope (build-verified).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function contactContent(config: SiteConfig): LongformPage {
+  const v = vars(config)
+  const here = v.isRemote ? 'wherever you are' : `in ${v.place}`
+  const areaLine = v.isRemote ? 'clients across the country' : `${v.place} and the surrounding area`
+
+  const sections: ContentSection[] = [
+    {
+      heading: `Getting in Touch Is Easy`,
+      paragraphs: [
+        `Reaching ${v.brand} shouldn't be a chore, so we made it simple. The fastest way to get help is to text ${v.phone} — tell us what you need and we'll take it from there. You can also call or book online, whichever fits how you like to communicate. However you reach out, you'll deal with a company that actually responds, not one that leaves you chasing a callback that never comes.`,
+        `We built our whole front door around being reachable, because in ${v.label.toLowerCase()} that's shockingly rare and genuinely valuable. If you've ever left three voicemails for a company and never heard back, you already know why we treat responsiveness as a feature rather than an afterthought. When you contact us, you get a real person, real answers, and a clear next step — every time.`,
+      ],
+    },
+    {
+      heading: `Text Us — the Fastest Route`,
+      paragraphs: [
+        `Texting ${v.phone} is the quickest way to get moving. A quick message with what you need and roughly where you are is usually enough for us to help you right away — no phone tag, no waiting on hold, no navigating a menu of options that never includes the one you want. Most people find it's the least painful way to handle the whole thing.`,
+        `Text also gives you a written record of what was said, which people appreciate — the quote, the time, the details, all right there in your messages. We like it for the same reason: clarity in both directions means fewer misunderstandings and a smoother job. Send us a message whenever it's convenient, even outside normal hours, and we'll get back to you as soon as we can.`,
+      ],
+    },
+    {
+      heading: `Prefer to Call? We Pick Up`,
+      paragraphs: [
+        `Some things are just easier to talk through, and if you'd rather explain your situation out loud, call us. You'll reach a company that has your interests in mind and can actually answer your questions — not a call center reading from a script that's never seen your job. A quick conversation is often all it takes to get you a clear quote and a scheduled time.`,
+        `We know a phone call is a bigger ask of your time than a text, so we respect it. No endless hold music, no being bounced between departments, no repeating your story five times. You call, we listen, we help. That's the standard, and it's one more small way we try to make dealing with us genuinely pleasant instead of just tolerable.`,
+      ],
+    },
+    {
+      heading: `Book Online, Anytime`,
+      paragraphs: [
+        `If you'd rather handle everything without talking to anyone at all, you can book online at your own pace, day or night. Tell us what you need through the site and we'll follow up to confirm the details and lock in your time. It's built to be quick and clear, because a booking process more painful than the problem you're solving is a booking process no one should have to endure.`,
+        `Online booking is especially handy outside business hours, when you've got a moment to sort something out and don't want to wait until morning to start. Send it over whenever it suits you and it'll be waiting for us. However you choose to reach us — text, call, or online — the result is the same: a fast, honest response and a clear path to getting your ${v.noun} handled.`,
+      ],
+    },
+    {
+      heading: `How Quickly We Respond`,
+      paragraphs: [
+        `We aim to respond quickly, because we know that when you reach out about ${v.noun}, you usually want an answer sooner rather than later. Reach us during working hours and you'll typically hear back fast; message us after hours and we'll get to it as soon as we're able. Either way, you're not going to be left wondering whether your message vanished into a void.`,
+        `Fast, honest responses are a core part of how we operate, not a nice-to-have. A company that goes quiet the moment you need it has told you exactly how the rest of the relationship will go. We'd rather set the opposite expectation from your very first message: reach out, and you'll get a real reply from a real person who can actually help move things forward.`,
+      ],
+    },
+    {
+      heading: `What to Tell Us`,
+      paragraphs: [
+        `To help us help you fast, a few details go a long way. Let us know what kind of ${v.noun} you need, roughly the size or scope of the job, where you're located, and any timing that matters to you. The more specific you can be, the more accurate our quote will be — and the fewer back-and-forth messages it takes to get you a straight answer.`,
+        `That said, don't worry about getting it perfect. If you're not sure how to describe your situation, just tell us what you know and we'll ask the right follow-up questions to fill in the gaps. Part of our job is figuring out exactly what you need, so you don't have to be an expert in ${v.noun} to get a clear, honest quote from us.`,
+      ],
+    },
+    {
+      heading: `What Happens After You Reach Out`,
+      paragraphs: [
+        `Once you contact us, the process is simple and predictable. We'll ask a few questions to understand your job, give you a clear and honest quote, and — if you're happy with it — lock in a time that works for you. There's no drawn-out sales process, no pressure to decide on the spot, and no mystery about what comes next. You'll know exactly where things stand at every step.`,
+        `From there, our team shows up when we said we would, does the ${v.noun} to the standard we're proud of, and confirms you're satisfied before calling the job done. You get a clean invoice that matches your quote and an easy way to pay. It's a straightforward path from first message to finished job, and we work hard to keep it that way.`,
+      ],
+    },
+    {
+      heading: v.isRemote ? `Working With Clients Anywhere` : `Where We Work`,
+      paragraphs: [
+        v.isRemote
+          ? `We work with ${areaLine}, and your location isn't a limitation — everything is handled remotely, clearly, and on your schedule. Wherever you are, you get the same responsiveness and the same standard, so reach out and we'll confirm we're a fit for what you need.`
+          : `We serve ${areaLine}. If you're not sure whether you're within our range, the fastest way to find out is to text ${v.phone} with your address — we'll tell you right away, no runaround. We'd rather give you a straight yes or no than leave you guessing or string you along on a job we can't do well.`,
+        v.isRemote
+          ? `Being remote-first means we're organized in ways a location-bound company often isn't: clear communication, documented details, and reliable follow-through are the whole operation, not extras. That discipline benefits every client, no matter where they are.`
+          : `Knowing the ${v.place} area is part of doing the job well — we understand how to get around, what to expect locally, and the specific realities of doing ${v.noun} ${here} rather than applying a generic playbook. When you reach out, you're contacting a company that actually knows the territory you're in.`,
+      ],
+    },
+    {
+      heading: `When We're Available`,
+      paragraphs: [
+        `We keep hours that work for real people with real schedules, and we try to be reachable when you actually need us. You don't have to catch us in a narrow window to get help — send a text or book online anytime, and we'll respond as soon as we're able. For anything time-sensitive, tell us it's urgent and we'll treat it that way.`,
+        `If you're not sure whether we're available for what you need or when, the simplest thing is just to ask. Reach out at ${v.phone} and we'll give you a straight answer about timing rather than making you guess. We'd always rather tell you honestly what we can and can't do than leave you hanging or overpromise something we can't deliver.`,
+      ],
+    },
+    {
+      heading: `No Pressure, No Obligation`,
+      paragraphs: [
+        `Reaching out to us costs you nothing and commits you to nothing. Get a quote, ask a question, get a second opinion on a number someone else gave you — all of it is free and none of it obligates you to book. We're confident enough in our value that we don't need to pressure you into a decision, and we won't.`,
+        `You won't get hounded with pushy follow-up calls or made to feel guilty for shopping around. If we're the right fit, great; if not, no hard feelings and the door stays open. A no-pressure approach is deliberate on our part, because the clients who choose us freely are the ones who stay, refer their friends, and become the foundation of the business. Those are the only ones worth having.`,
+      ],
+    },
+    {
+      heading: `Need Help Urgently?`,
+      paragraphs: [
+        `If your ${v.noun} situation can't wait, tell us that up front when you reach out. We'll be honest and immediate about what we can do — if we can get to you fast, we'll say so; if we can't, we'll tell you that too, so you're not left waiting on a maybe while the problem gets worse. Either way you get a straight answer, quickly.`,
+        `And urgency won't cost you a penalty with us. There's no inflated "emergency" rate designed to squeeze you when you're stressed and short on options — urgent jobs are priced fairly, the same honest way as everything else. Text ${v.phone}, let us know it's time-sensitive, and we'll do our best to get you sorted as fast as we responsibly can.`,
+      ],
+    },
+    {
+      heading: `Getting a Quote`,
+      paragraphs: [
+        `The most useful thing you can get from reaching out is an honest quote for your specific job. Tell us the details and we'll give you a clear price — one that covers the work you actually need, with nothing hidden in the fine print. And the quote we give is the quote you pay, barring a genuine change in scope we'd flag with you first.`,
+        `We ask real questions before quoting rather than throwing out a number that changes later, because a quote you can trust is worth more than a fast guess that falls apart. If anything about the price is unclear once we've given it to you, just ask — we're happy to walk you through exactly how we got there. An informed client is exactly the kind of client we want.`,
+      ],
+    },
+    {
+      heading: `Already a Client?`,
+      paragraphs: [
+        `If you've worked with us before, reaching out again is even easier — we keep your details and preferences on file, so you don't have to re-explain everything from scratch. Text ${v.phone} and we can pick up right where we left off, whether you're booking another job, adjusting a recurring schedule, or just have a question.`,
+        `Existing clients are the heart of what we do, and we treat repeat business as something to be earned every single time, not taken for granted. If there's ever anything you need — a change, a follow-up, or a concern about past work — reach out and we'll take care of it. The relationship is meant to get easier over time, and staying reachable for our clients is a big part of how we keep it that way.`,
+      ],
+    },
+    {
+      heading: `For Businesses`,
+      paragraphs: [
+        `If you're reaching out on behalf of a business, we're glad to help and we understand your needs are a little different. Businesses often want ${v.noun} that's dependable and predictable enough to build a routine around, with clear pricing they can budget for. That's exactly what we provide — consistent, reliable service and honest numbers you can plan against, with no unwelcome surprises.`,
+        `Tell us about your situation when you reach out — the scale, the frequency, and what matters most to your operation — and we'll put together an arrangement that fits. We work with both homes and businesses to the same high standard, so whether you need a one-time job or an ongoing schedule, contacting us is the first step toward one less thing you have to worry about.`,
+      ],
+    },
+    {
+      heading: `We Actually Answer`,
+      paragraphs: [
+        `It's worth saying plainly, because it's so often not true elsewhere: when you contact ${v.brand}, we answer. Not a bot, not a queue that knows nothing about your job, not a "we'll get back to you" that quietly never happens. A real person who has your details and can genuinely help. That's the entire promise behind every way of reaching us.`,
+        `Staying reachable is one of the simplest things a company can do and one of the rarest to actually deliver, because it takes real commitment rather than a clever slogan. We've made it a core part of how we operate because it's what we'd want as customers ourselves. So reach out however suits you — the response you get is the whole point.`,
+      ],
+    },
+    {
+      heading: `After the Job`,
+      paragraphs: [
+        `Our relationship with you doesn't end the moment we've been paid. If you have a question after the job, a concern about the work, or you're ready to book again, reaching out is just as easy as it was the first time. We stay reachable after the sale precisely because so many companies go quiet then — and that difference is exactly where trust is either built or broken.`,
+        `If anything about a completed job isn't right, we want to hear it, and we'll make it right. Tell us what's off and we'll fix it — no arguing, no runaround. We'd genuinely rather spend the time to earn your repeat business than keep money we didn't fully earn, and that principle holds long after the work is done.`,
+      ],
+    },
+    {
+      heading: `Why We Make It This Easy`,
+      paragraphs: [
+        `We've put real thought into making contact simple because we know the alternative all too well. Everyone has a story about a company that was impossible to reach, quoted one price and charged another, or vanished the moment a problem came up. Those experiences are why so many people dread hiring anyone for ${v.noun} at all — and we set out to be the opposite from the very first message.`,
+        `Easy, honest contact is the front end of a company built on trust. If we're this straightforward before you've paid us a cent, that tells you something about how the rest of it goes. We can't promise the work is right for every situation, but we can promise that reaching us, understanding our pricing, and getting a real answer will never be the hard part. That much is entirely within our control, and we take it seriously.`,
+      ],
+    },
+    {
+      heading: `Directions, Access, and Details`,
+      paragraphs: [
+        v.isRemote
+          ? `Because we work remotely, there's no address to coordinate — just the details of your project and how you'd like to communicate. When you reach out, let us know your preferred way to stay in touch and any specifics about timing, and we'll build the rest of the process around what works for you.`
+          : `When you book, we'll confirm the address and any access details we need — a gate code, parking notes, where to find you, or anything unusual about getting to the job. Sorting that out up front means our team arrives ready to work instead of stuck outside figuring out how to get in, which respects everyone's time.`,
+        `If you won't be on site, that's no problem at all — just share the access instructions and any specifics when you reach out, and we'll follow the plan precisely and confirm the result when we're done. Many of our clients aren't present for the work, and it gets done to exactly the same standard. Clear details in, clean results out.`,
+      ],
+    },
+    {
+      heading: `What You Can Expect From Us`,
+      paragraphs: [
+        `When you contact ${v.brand}, here's the experience you can count on: a fast response, a real person, honest answers, and a clear quote — with no pressure attached to any of it. That's the standard for every inquiry, whether it turns into a booking or not, because how we treat you before you've hired us is the truest preview of how we'll treat you after.`,
+        `And once you do book, the same standard carries all the way through: we show up when we said, do ${v.noun} to a level we're proud of, charge exactly what we quoted, and make it right if anything falls short. Contacting us is simply the first step in a process designed, start to finish, to be clear, fair, and genuinely easy to deal with. Reach out and see for yourself.`,
+      ],
+    },
+    {
+      heading: `Reach Out Today`,
+      paragraphs: [
+        `Whatever ${v.noun} you need ${here}, the first step is simple: reach out. Text ${v.phone}, give us a call, or book online — whichever is easiest for you. You'll get a fast, honest response, a clear quote, and a straightforward path to getting the job done by a company that stands behind its work.`,
+        `There's nothing to lose by getting in touch — no cost, no obligation, no pressure. Just a straight answer from real people who actually want to help. If you've been putting off dealing with ${v.noun} because the last company made it a hassle, give us the chance to show you it doesn't have to be. We're ready whenever you are.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = [
+    { q: `What's the fastest way to reach you?`, a: `Text ${v.phone}. A quick message with what you need and roughly where you are is usually enough for us to help right away — no phone tag, no hold music.` },
+    { q: `Can I book without calling?`, a: `Yes. You can book online at your own pace, day or night, and we'll follow up to confirm the details. Text and phone work too — whichever you prefer.` },
+    { q: `How fast will you respond?`, a: `Quickly during working hours, and as soon as we're able after hours. Either way you won't be left wondering whether your message got through.` },
+    { q: `What information should I include?`, a: `What kind of ${v.noun} you need, the rough size or scope, your location, and any timing that matters. If you're unsure, just tell us what you know and we'll ask the rest.` },
+    { q: `Does reaching out obligate me to anything?`, a: `No. Getting a quote or asking a question costs nothing and commits you to nothing. We won't pressure you or hound you with follow-ups.` },
+    { q: `What if my job is urgent?`, a: `Tell us it's urgent when you reach out and we'll be honest and immediate about what we can do — with no inflated emergency pricing.` },
+    { q: `Do you serve my area?`, a: v.isRemote ? `We work with clients across the country — your location isn't a limitation.` : `We serve ${v.place} and the surrounding area. Text ${v.phone} with your address and we'll confirm right away.` },
+  ]
+
+  return {
+    title: `Contact ${v.brand} — ${v.label} in ${v.place} | Text ${v.phone}`,
+    metaDescription: `Get in touch with ${v.brand} for ${v.noun} ${here}. Text ${v.phone}, call, or book online — fast, honest response, no pressure. Serving ${areaLine}.`,
+    h1: `Contact ${v.brand}`,
+    intro: `Text, call, or book online — whichever suits you. You'll get a fast, honest response from a real person, a clear quote, and no pressure. Here's everything about reaching us and what to expect.`,
+    sections,
+    faq,
+  }
+}
