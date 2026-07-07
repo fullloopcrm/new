@@ -7,6 +7,7 @@
  * registerTenantSeo with that tenant's data) and one import line below.
  */
 import './tenants/the-florida-maid'
+import './tenants/the-home-services-company'
 
 export { TENANT_SEO, buildTenantSitemap, registerTenantSeo } from './tenant-sitemap'
 export type { TenantSeoDescriptor, UrlSpec, ChangeFreq } from './tenant-sitemap'
