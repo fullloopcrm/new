@@ -7,6 +7,7 @@ import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
+import { blogPosts } from '@/app/site/template/_lib/content/longform'
 
 // Reads the tenant from request headers (getSiteConfig) to emit their real
 // domain, so it must render dynamically — a static route reading headers() 500s
@@ -55,6 +56,46 @@ ${vaUrls
   .join('\n')}
 </urlset>`
     return new Response(vaXml, {
+      headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=3600, s-maxage=3600' },
+    })
+  }
+
+  // Non-cleaning, non-VA (generic) tenants get a sitemap of the config-driven
+  // long-form routes — NOT the NYC-Maid cleaning slugs / NYC geo pages below,
+  // which don't exist for them. Keeps their sitemap accurate + indexable.
+  if (!industryProfile(config.industry).isCleaning) {
+    const genUrls: { loc: string; pri: string; freq: string }[] = [
+      { loc: BASE_URL, pri: '1.0', freq: 'weekly' },
+      { loc: `${BASE_URL}/about`, pri: '0.8', freq: 'monthly' },
+      { loc: `${BASE_URL}/services`, pri: '0.9', freq: 'weekly' },
+      { loc: `${BASE_URL}/pricing`, pri: '0.9', freq: 'weekly' },
+      { loc: `${BASE_URL}/reviews`, pri: '0.8', freq: 'weekly' },
+      { loc: `${BASE_URL}/faq`, pri: '0.7', freq: 'monthly' },
+      { loc: `${BASE_URL}/contact`, pri: '0.8', freq: 'monthly' },
+      { loc: `${BASE_URL}/careers`, pri: '0.7', freq: 'weekly' },
+      { loc: `${BASE_URL}/referral-program`, pri: '0.5', freq: 'monthly' },
+      { loc: `${BASE_URL}/blog`, pri: '0.7', freq: 'weekly' },
+      ...blogPosts(config).map((p) => ({ loc: `${BASE_URL}/blog/${p.slug}`, pri: '0.7', freq: 'monthly' })),
+      { loc: `${BASE_URL}/privacy-policy`, pri: '0.3', freq: 'yearly' },
+      { loc: `${BASE_URL}/terms-conditions`, pri: '0.3', freq: 'yearly' },
+      { loc: `${BASE_URL}/legal`, pri: '0.3', freq: 'yearly' },
+      { loc: `${BASE_URL}/refund-policy`, pri: '0.3', freq: 'yearly' },
+      { loc: `${BASE_URL}/do-not-share-policy`, pri: '0.3', freq: 'yearly' },
+    ]
+    const genXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${genUrls
+  .map(
+    (u) => `  <url>
+    <loc>${u.loc}</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>${u.freq}</changefreq>
+    <priority>${u.pri}</priority>
+  </url>`,
+  )
+  .join('\n')}
+</urlset>`
+    return new Response(genXml, {
       headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=3600, s-maxage=3600' },
     })
   }
