@@ -613,7 +613,7 @@ export function siteNavigationSchema() {
       { '@type': 'WebPage', name: 'Blog', url: `${BUSINESS.url}/cleaning-tips-and-tricks` },
       { '@type': 'WebPage', name: 'About', url: `${BUSINESS.url}/about-nyc-cleaning-service-sunnyside-clean-nyc` },
       { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact-nyc-cleaning-service-sunnyside-clean-nyc` },
-      { '@type': 'WebPage', name: 'Self Booking $20 OFF', url: 'https://www.thenycmaid.com/book/new' },
+      { '@type': 'WebPage', name: 'Self Booking $10 OFF', url: 'https://www.thenycmaid.com/book/new' },
     ],
   }
 }

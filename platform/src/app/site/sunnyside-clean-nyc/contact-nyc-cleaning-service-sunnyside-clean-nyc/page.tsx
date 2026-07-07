@@ -112,7 +112,7 @@ export default function ContactPage() {
               <p className="text-[#1E2A4A] text-lg font-bold">cleaningservicesunnysideny.com</p>
               <p className="text-gray-500 text-sm mt-3">Submit your details online and we&apos;ll confirm your appointment within the hour.</p>
               <a href="https://www.thenycmaid.com/book/new" className="inline-block mt-5 bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
-                Self Booking $20 OFF
+                Self Booking $10 OFF
               </a>
             </div>
           </div>

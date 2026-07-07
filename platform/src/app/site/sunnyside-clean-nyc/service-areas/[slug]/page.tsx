@@ -101,7 +101,7 @@ export default async function SlugPage({ params }: Props) {
                 </div>
                 <div className="flex flex-col sm:flex-row items-start gap-4">
                   <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                    Self Booking $20 OFF
+                    Self Booking $10 OFF
                   </a>
                   <a href="tel:2122028400" className="text-blue-200/60 font-medium py-3.5 hover:text-white transition-colors underline underline-offset-4">
                     or Call (212) 202-8400
@@ -128,7 +128,7 @@ export default async function SlugPage({ params }: Props) {
                     <p className="text-[#1E2A4A]/60 text-xs mt-1">No travel fees &middot; No surge pricing</p>
                   </div>
                   <a href="https://www.thenycmaid.com/book/new" className="block text-center bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                    Self Booking $20 OFF
+                    Self Booking $10 OFF
                   </a>
                 </div>
               </div>
@@ -149,7 +149,7 @@ export default async function SlugPage({ params }: Props) {
                 <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide leading-tight mb-4">{area.name} Neighborhoods We Serve</h2>
                 <p className="text-gray-500 leading-relaxed mb-6">Every neighborhood below gets the same rates, the same quality, and the same background-checked cleaners. Click any neighborhood to see services available in your area.</p>
                 <a href="https://www.thenycmaid.com/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                  Self Booking $20 OFF
+                  Self Booking $10 OFF
                 </a>
               </div>
               <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -217,7 +217,7 @@ export default async function SlugPage({ params }: Props) {
             </div>
             <div className="flex justify-center mt-10">
               <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                Self Booking $20 OFF
+                Self Booking $10 OFF
               </a>
             </div>
           </div>
@@ -272,7 +272,7 @@ export default async function SlugPage({ params }: Props) {
             {/* CTA row */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
               <a href="https://www.thenycmaid.com/book/new" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
-                Self Booking $20 OFF
+                Self Booking $10 OFF
               </a>
               <a href="tel:2122028400" className="text-[#1E2A4A] font-semibold py-4 hover:underline underline-offset-4">
                 or Call (212) 202-8400
@@ -332,7 +332,7 @@ export default async function SlugPage({ params }: Props) {
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
                   <a href="https://www.thenycmaid.com/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                    Self Booking $20 OFF
+                    Self Booking $10 OFF
                   </a>
                   <a href="tel:2122028400" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
                     or Call (212) 202-8400
@@ -472,7 +472,7 @@ export default async function SlugPage({ params }: Props) {
             </div>
             <div className="flex justify-center mt-10">
               <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                Self Booking $20 OFF
+                Self Booking $10 OFF
               </a>
             </div>
           </div>

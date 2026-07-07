@@ -202,7 +202,7 @@ export default function AreasIndexPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
             <a href="https://www.thenycmaid.com/book/new" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
-              Self Booking $20 OFF
+              Self Booking $10 OFF
             </a>
             <a href="tel:2122028400" className="text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
               or Call (212) 202-8400

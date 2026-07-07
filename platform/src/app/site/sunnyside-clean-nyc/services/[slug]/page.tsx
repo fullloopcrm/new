@@ -93,7 +93,7 @@ export default async function ServicePage({ params }: Props) {
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                  Self Booking $20 OFF
+                  Self Booking $10 OFF
                 </a>
                 <a href="tel:2122028400" className="text-blue-200/60 font-medium py-3.5 hover:text-white transition-colors underline underline-offset-4">
                   or Call (212) 202-8400
@@ -128,7 +128,7 @@ export default async function ServicePage({ params }: Props) {
                   <p className="text-[#1E2A4A]/60 text-xs mt-1">Pay only for time worked &middot; No upfront cost</p>
                 </div>
                 <a href="https://www.thenycmaid.com/book/new" className="block text-center bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                  Self Booking $20 OFF
+                  Self Booking $10 OFF
                 </a>
               </div>
             </div>
@@ -157,7 +157,7 @@ export default async function ServicePage({ params }: Props) {
                 )}
                 <div className="flex flex-col sm:flex-row items-start gap-3">
                   <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                    Self Booking $20 OFF
+                    Self Booking $10 OFF
                   </a>
                   <a href="tel:2122028400" className="text-[#1E2A4A]/60 font-medium py-3 hover:text-[#1E2A4A] transition-colors underline underline-offset-4">
                     or Call Us
@@ -215,7 +215,7 @@ export default async function ServicePage({ params }: Props) {
                 <p className="text-gray-500 leading-relaxed mb-6">A regular clean maintains your home. A deep clean resets it. See exactly what&apos;s covered in each service so you know which one you need.</p>
                 <div className="flex flex-col sm:flex-row items-start gap-3">
                   <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                    Self Booking $20 OFF
+                    Self Booking $10 OFF
                   </a>
                   <a href="tel:2122028400" className="text-[#1E2A4A]/60 font-medium py-3 hover:text-[#1E2A4A] transition-colors underline underline-offset-4">
                     or Call Us
@@ -254,7 +254,7 @@ export default async function ServicePage({ params }: Props) {
                 <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide leading-tight mb-4">{rich.whenToBook.title}</h2>
                 <p className="text-gray-500 leading-relaxed mb-6">If any of these apply to you, a professional {service.name.toLowerCase()} is the move. Book online or call and we&apos;ll get you on the schedule.</p>
                 <a href="https://www.thenycmaid.com/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                  Self Booking $20 OFF
+                  Self Booking $10 OFF
                 </a>
               </div>
               <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -394,7 +394,7 @@ export default async function ServicePage({ params }: Props) {
           </div>
           <div className="flex justify-center mt-10">
             <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-              Self Booking $20 OFF
+              Self Booking $10 OFF
             </a>
           </div>
         </div>
