@@ -118,7 +118,6 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
           <div>
             <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Resources</h3>
             <ul className="space-y-2.5">
-              <li><a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-white transition-colors">Make a Payment</a></li>
               <li><Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="text-sm hover:text-white transition-colors">Referral Program</Link></li>
               <li><Link href="/book/new" className="text-sm hover:text-white transition-colors">Book a Cleaning</Link></li>
               <li><a href={`sms:${config.contact.phoneDigits}`} className="text-sm hover:text-white transition-colors">Text Sales: {config.contact.phone}</a></li>

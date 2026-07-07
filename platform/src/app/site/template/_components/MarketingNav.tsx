@@ -78,9 +78,6 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               </a>
             </div>
             <div className="hidden lg:flex items-center gap-4">
-              {isCleaning && (<>
-              <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Pay Now</a>
-              <span className="text-white/30">|</span></>)}
               <a href="/book" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Client Login</a>
               <span className="text-white/30">|</span>
               <a href="/referral" className="text-[var(--accent)] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Referrer Login</a>
@@ -245,7 +242,6 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
 
               <div className="border-t border-white/10 mt-4 pt-4 space-y-1">
                 <Link href="/book" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Client Login</Link>
-                {isCleaning && <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Pay Now</a>}
                 {isCleaning && <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" onClick={closeMenu} className="block py-3 text-[var(--accent)] font-medium">Referral Program</Link>}
               </div>
 
