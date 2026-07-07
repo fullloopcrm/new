@@ -203,6 +203,20 @@ export function serviceSections(service: VAService, businessName: string): Secti
         `And doing it yourself is the most expensive option of all, because your time is the scarcest resource you have. Every hour you spend on ${service.shortName.toLowerCase()} is an hour not spent on the work only you can do. A dedicated, English-speaking assistant is the option that combines human quality, real knowledge of your business, and honest pricing.`,
       ],
     },
+    {
+      heading: `${service.shortName} That Grows With You`,
+      paragraphs: [
+        `One of the best things about delegating ${service.shortName.toLowerCase()} is that it scales with your business. You might start with a few hours a week covering the essentials, and as you grow — more calls, more clients, more volume — you simply add hours or add an assistant, with the same standards and the same knowledge panel carrying over. You are never locked into fixed overhead, and you are never caught short-handed at exactly the moment business picks up.`,
+        `This is how a solo operation quietly becomes a real business. The ${service.shortName.toLowerCase()} that once ate your evenings is handled, the quality holds as volume climbs, and your attention stays free for the decisions and relationships that actually move things forward. Delegating it means ${service.benefits.map((b) => b.toLowerCase()).slice(0, 2).join(' and ')} — without adding a salaried headcount or a management headache.`,
+      ],
+    },
+    {
+      heading: `The Bottom Line on ${service.name}`,
+      paragraphs: [
+        `If ${service.shortName.toLowerCase()} is costing you time you cannot spare or leads you cannot afford to lose, a dedicated, English-speaking assistant is the most direct fix available — and at eight dollars an hour, one of the most affordable. You get a real professional who owns the work, tracked transparently through Quo and plugged into your systems, backed by an American-owned company that stands behind the result.`,
+        `The businesses that win are rarely the ones that work the most hours; they are the ones that put their hours where they count. Handing off ${service.shortName.toLowerCase()} is one of the clearest, lowest-risk ways to do exactly that. Tell us what you need off your plate, and we will put the right assistant on it — starting this week.`,
+      ],
+    },
     ...sharedDepthSections(),
     {
       heading: 'Frequently Asked Questions',

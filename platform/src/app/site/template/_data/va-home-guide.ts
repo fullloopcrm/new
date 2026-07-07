@@ -286,4 +286,20 @@ export const HOME_GUIDE: GuideSection[] = [
       'That is the quiet reason virtual assistants have become standard equipment for modern small businesses. They are not just a way to save money on admin. They are how a capable owner stops being the bottleneck and starts building something bigger than themselves — one delegated task at a time, starting at eight dollars an hour.',
     ],
   },
+  {
+    heading: 'The Time You Get Back',
+    paragraphs: [
+      'It is worth pausing on the thing that actually changes when you hire a virtual assistant, because it is not really about the tasks — it is about the time and the mental space you get back. The busywork that fills your day does not just cost hours; it costs attention. It is the low hum of a hundred small things you are half-tracking at all times, the reason you cannot fully focus on the client in front of you or the decision that actually matters. Handing that load to someone else does not just free your calendar; it clears your head.',
+      'Owners describe the shift in almost identical terms. The phone stops being a source of anxiety and becomes a source of booked business. The inbox stops being a place productivity goes to die and becomes a short, handled list. The evenings that used to disappear into admin come back. And the strange, quiet realization sets in that the work is still getting done — just not by you. That is the moment delegation stops feeling like a cost and starts feeling like the smartest move you have made in the business.',
+      'This is the real product. Not hours of cheap labor, though it is that too. What you are actually buying is the ability to spend your finite time and energy on the work that only you can do — and to stop drowning in the work that anyone could.',
+    ],
+  },
+  {
+    heading: 'Why Now',
+    paragraphs: [
+      'There is rarely a perfect moment to change how you work, which is exactly why most owners stay stuck doing everything themselves far longer than they should. The busywork never announces itself as a crisis; it just quietly caps how big the business can get and how present you can be. Waiting for it to get bad enough to force a change usually means waiting until you are already burned out and behind.',
+      'The case for starting now is simple. The cost is small and the risk is capped — pay-as-you-go at eight dollars an hour with a fifty-dollar-per-week minimum, no long-term contract, and the freedom to scale up or stop whenever you choose. The upside is large and it compounds: every week you have an assistant is a week of reclaimed hours going into higher-value work, and a week of leads answered and followed up instead of lost. The math does not get better by waiting; it only costs you the time in between.',
+      'So the honest advice is to start small and start soon. Pick the one task that is costing you the most right now — the phone, the inbox, the CRM, whatever it is — and hand it off. Give it a few weeks and judge it by the result. If reclaiming those hours is worth more than eight dollars an hour to you, and for almost every owner it is, you will wonder why you waited. A real, English-speaking assistant is ready when you are.',
+    ],
+  },
 ]
