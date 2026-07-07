@@ -26,12 +26,27 @@ const moreLinks = [
   { name: 'Referral Program', href: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
 ]
 
+// Generic (non-cleaning, non-VA) tenants use the config-driven long-form routes
+// (/about, /services, /pricing, /faq, /blog, /contact, /careers,
+// /referral-program) instead of the NYC-Maid cleaning slugs. Cleaning tenants
+// keep their live SEO nav above; this is additive.
+const genericMoreLinks = [
+  { name: 'FAQ', href: '/faq' },
+  { name: 'Blog', href: '/blog' },
+  { name: 'Contact', href: '/contact' },
+  { name: 'Careers', href: '/careers' },
+  { name: 'Referral Program', href: '/referral-program' },
+]
+
 export default function MarketingNav({ config }: { config: SiteConfig }) {
   // Cleaning-specific nav (services dropdown, area strip, pricing) links to
   // pages that are gated for non-cleaning tenants — hide them to avoid dead nav.
   const profile = industryProfile(config.industry)
   const isCleaning = profile.isCleaning
   const isVa = profile.isVirtualAssistant
+  // Trade-agnostic tenants: full generic menu pointing at the config-driven
+  // long-form routes.
+  const generic = !isCleaning && !isVa
   // Primary CTA label is industry-aware: the "$10 OFF self booking" promo is
   // cleaning-specific and must not show on other trades.
   const primaryCta = isCleaning ? 'Self Booking $10 OFF' : isVa ? 'Get an Assistant' : 'Get Started'
@@ -99,6 +114,12 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <Link href="/virtual-assistant-services" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Services</Link>
               )}
 
+              {generic && (<>
+              <Link href="/about" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">About</Link>
+              <Link href="/services" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Services</Link>
+              <Link href="/pricing" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Pricing</Link>
+              </>)}
+
               {/* Services Dropdown */}
               {isCleaning && (
               <div className="relative group">
@@ -125,7 +146,9 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                 Reviews
                 {config.reviewCount && <span className="text-yellow-400 text-xs">&#9733; {config.rating.toFixed(1)}</span>}
               </Link>
+              {!generic && (
               <Link href="/contact-the-nyc-maid-service-today" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Contact</Link>
+              )}
 
               {/* More Dropdown */}
               {isCleaning && (
@@ -137,6 +160,25 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                 <div className="absolute left-0 top-full pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                   <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-3 w-60">
                     {moreLinks.map(link => (
+                      <Link key={link.href} href={link.href} className="block px-5 py-2.5 text-sm text-gray-600 hover:bg-[rgb(var(--accent-rgb)/0.2)] hover:text-[var(--brand)] transition-colors">
+                        {link.name}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              )}
+
+              {/* Generic More Dropdown */}
+              {generic && (
+              <div className="relative group">
+                <button aria-expanded="false" aria-haspopup="true" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide flex items-center gap-1 py-2">
+                  More
+                  <svg aria-hidden="true" className="w-3.5 h-3.5 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                <div className="absolute left-0 top-full pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-3 w-60">
+                    {genericMoreLinks.map(link => (
                       <Link key={link.href} href={link.href} className="block px-5 py-2.5 text-sm text-gray-600 hover:bg-[rgb(var(--accent-rgb)/0.2)] hover:text-[var(--brand)] transition-colors">
                         {link.name}
                       </Link>
@@ -202,6 +244,12 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <Link href="/virtual-assistant-services" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Services</Link>
               )}
 
+              {generic && (<>
+              <Link href="/about" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">About</Link>
+              <Link href="/services" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Services</Link>
+              <Link href="/pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
+              </>)}
+
               {isCleaning && (<>
               <button onClick={() => setServicesOpen(!servicesOpen)} aria-expanded={servicesOpen} className="w-full flex items-center justify-between py-3 text-white font-medium text-lg">
                 Services
@@ -222,7 +270,9 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <Link href="/reviews" onClick={closeMenu} className="flex items-center gap-2 py-3 text-white font-medium text-lg">
                 Reviews {config.reviewCount && <span className="text-yellow-400 text-sm">&#9733; {config.rating.toFixed(1)}</span>}
               </Link>
+              {!generic && (
               <Link href="/contact-the-nyc-maid-service-today" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Contact</Link>
+              )}
 
               {isCleaning && (<>
               <button onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen} className="w-full flex items-center justify-between py-3 text-white font-medium text-lg">
@@ -232,6 +282,22 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               {moreOpen && (
                 <div className="pl-4 pb-2 space-y-1">
                   {moreLinks.map(link => (
+                    <Link key={link.href} href={link.href} onClick={closeMenu} className="block py-2 text-sm text-white/60 hover:text-[var(--accent)] transition-colors">
+                      {link.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              </>)}
+
+              {generic && (<>
+              <button onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen} className="w-full flex items-center justify-between py-3 text-white font-medium text-lg">
+                More
+                <svg aria-hidden="true" className={`w-4 h-4 transition-transform ${moreOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {moreOpen && (
+                <div className="pl-4 pb-2 space-y-1">
+                  {genericMoreLinks.map(link => (
                     <Link key={link.href} href={link.href} onClick={closeMenu} className="block py-2 text-sm text-white/60 hover:text-[var(--accent)] transition-colors">
                       {link.name}
                     </Link>
