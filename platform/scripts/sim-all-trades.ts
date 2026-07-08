@@ -393,6 +393,15 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     const { data: ownerRow } = await supabase.from('tenants').select('owner_email').eq('id', tenant.id).single()
     add('comms: owner notifications route to Jeff', ownerRow?.owner_email === OWNER.email, ownerRow?.owner_email || '')
 
+    // ================= P8 — PUBLIC SITE (industry gating: non-cleaning ≠ NYC-Maid site) =================
+    const { isCleaningTenant } = await import('../src/lib/messaging/client-sms')
+    const { industryProfile } = await import('../src/app/site/template/_lib/seo/industry')
+    const isClean = t.industry === 'cleaning'
+    add('site: isCleaningTenant classifies vertical', isCleaningTenant({ industry: t.industry }) === isClean)
+    const siteProf = industryProfile(t.industry)
+    add('site: gate marks cleaning-only pages (isCleaning)', siteProf.isCleaning === isClean, `isCleaning=${siteProf.isCleaning}`)
+    add('site: non-cleaning gets non-maid service label', isClean ? siteProf.serviceLabel === 'House Cleaning' : siteProf.serviceLabel !== 'House Cleaning', siteProf.serviceLabel)
+
   } catch (err) {
     const msg = err instanceof Error ? err.message
       : (err && typeof err === 'object') ? JSON.stringify(err)
