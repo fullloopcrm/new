@@ -83,7 +83,7 @@ function customerConfirmationHtml(opts: {
   const color = opts.primaryColor || '#111111'
   const discountBlock = opts.discountCents
     ? `<p style="margin:16px 0;padding:12px 16px;background:#f4faf6;border-radius:8px;font-size:15px">
-         You booked online, so <strong>$${Math.round(opts.discountCents / 100)} off</strong> will be applied to your quote.
+         You booked online, so <strong>$${Math.round(opts.discountCents / 100)} off your service</strong> will be applied to your appointment.
        </p>`
     : ''
   return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
@@ -96,7 +96,7 @@ function customerConfirmationHtml(opts: {
 
 function buildLeadNotes(form: string, body: ContactBody, discountCents: number): string {
   const lines: string[] = [`[${form}]`]
-  if (body.selfBook) lines.push(`💲 SELF-BOOK ONLINE — apply $${Math.round(discountCents / 100)} discount to quote`)
+  if (body.selfBook) lines.push(`💲 SELF-BOOK ONLINE — apply $${Math.round(discountCents / 100)} off the service`)
   if (body.pestType) lines.push(`Pest: ${body.pestType}`)
   if (body.propertyType) lines.push(`Property: ${body.propertyType}`)
   if (body.urgency) lines.push(`Urgency: ${body.urgency}`)
