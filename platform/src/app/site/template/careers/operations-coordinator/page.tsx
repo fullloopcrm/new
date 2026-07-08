@@ -122,7 +122,7 @@ function coordinatorJobPostingSchema() {
       },
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
+        streetAddress: '123 Main St',
         addressLocality: 'New York',
         addressRegion: 'NY',
         postalCode: '10036',
@@ -134,7 +134,7 @@ function coordinatorJobPostingSchema() {
       '@type': 'Place',
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
+        streetAddress: '123 Main St',
         addressLocality: 'New York',
         addressRegion: 'NY',
         postalCode: '10036',

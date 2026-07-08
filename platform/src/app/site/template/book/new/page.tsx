@@ -10,7 +10,7 @@ export default async function BookNewPage() {
   // /book/new is the CLEANING-specific funnel (per-hour, "cleaners", 30-min
   // increments, supplies toggle). Every template CTA points here, so a
   // non-cleaning tenant would land customers on a cleaning UX (F-028/F-045).
-  // Bounce them to the neutral form; cleaning tenants (NYC Maid) are unchanged.
+  // Bounce them to the neutral form; cleaning tenants (Your Business) are unchanged.
   if (!industryProfile(config.industry).isCleaning) {
     redirect('/book/standard')
   }
