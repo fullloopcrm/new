@@ -195,7 +195,7 @@ export default function PricingPage() {
             <a href={PHONE_HREF} className="rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
               Call {PHONE}
             </a>
-            <Link href="/contact" className="rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
+            <Link href="/get-a-free-consultation" className="rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
               Free Consultation
             </Link>
           </div>
@@ -364,7 +364,7 @@ export default function PricingPage() {
             <a href={PHONE_HREF} className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
               Call {PHONE}
             </a>
-            <Link href="/contact" className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
+            <Link href="/get-a-free-consultation" className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
               Free Consultation
             </Link>
           </div>

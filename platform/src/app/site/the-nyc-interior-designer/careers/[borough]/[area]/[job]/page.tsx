@@ -346,7 +346,7 @@ export default async function JobPage({ params }: Props) {
           <Link href={`/careers/${borough}/${areaSlug}`} className="text-blue-600 underline underline-offset-2 hover:text-blue-700">All Jobs in {area.name}</Link>
           <Link href={`/areas/${borough}/${areaSlug}`} className="text-blue-600 underline underline-offset-2 hover:text-blue-700">{area.name} Services</Link>
           <Link href="/services" className="text-blue-600 underline underline-offset-2 hover:text-blue-700">Our Services</Link>
-          <Link href="/contact" className="text-blue-600 underline underline-offset-2 hover:text-blue-700">Contact Us</Link>
+          <Link href="/get-a-free-consultation" className="text-blue-600 underline underline-offset-2 hover:text-blue-700">Book — $20 Off</Link>
         </div>
       </section>
     </>

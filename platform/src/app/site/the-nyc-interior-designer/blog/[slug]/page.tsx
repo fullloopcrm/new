@@ -169,7 +169,7 @@ export default async function BlogPostPage({ params }: Props) {
                 Call {PHONE}
               </span>
             </a>
-            <Link href="/contact">
+            <Link href="/get-a-free-consultation">
               <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
                 Free Consultation
               </span>

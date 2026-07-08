@@ -146,7 +146,7 @@ export default async function AreaPage({ params }: Props) {
             <a href={PHONE_HREF} className="rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
               Call {PHONE}
             </a>
-            <Link href="/contact" className="rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
+            <Link href="/get-a-free-consultation" className="rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
               Free Consultation
             </Link>
           </div>
@@ -326,7 +326,7 @@ export default async function AreaPage({ params }: Props) {
             Related Interior Design Resources
           </h2>
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <Link href="/contact" className="flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-800 border border-slate-200/60">
+            <Link href="/get-a-free-consultation" className="flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-800 border border-slate-200/60">
               Get a Free Consultation
             </Link>
             <Link href="/services" className="flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-800 border border-slate-200/60">
@@ -369,7 +369,7 @@ export default async function AreaPage({ params }: Props) {
                 Call {PHONE}
               </span>
             </a>
-            <Link href="/contact">
+            <Link href="/get-a-free-consultation">
               <span className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
                 Free Consultation
               </span>

@@ -298,7 +298,7 @@ export default function AboutPage() {
               Call {PHONE}
             </a>
             <Link
-              href="/contact"
+              href="/get-a-free-consultation"
               className="inline-block rounded-lg border-2 border-white/30 px-8 py-4 text-base font-bold text-white hover:bg-white/10 transition-colors font-cta"
             >
               Free Consultation

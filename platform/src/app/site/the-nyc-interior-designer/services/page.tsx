@@ -129,7 +129,7 @@ export default function ServicesIndexPage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <a href={SMS_HREF} className="rounded-lg bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 font-cta">Text Us</a>
             <a href={PHONE_HREF} className="rounded-lg border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 font-cta">Call {PHONE}</a>
-            <Link href="/contact" className="rounded-lg border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 font-cta">Get a Free Consultation</Link>
+            <Link href="/get-a-free-consultation" className="rounded-lg border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 font-cta">Book Online — $20 Off</Link>
             <Link href="/areas" className="rounded-lg border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 font-cta">Browse {areas.length}+ Neighborhoods</Link>
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function ServicesIndexPage() {
             <a href={PHONE_HREF} className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
               Call {PHONE}
             </a>
-            <Link href="/contact" className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
+            <Link href="/get-a-free-consultation" className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white hover:border-white/60 font-cta">
               Free Consultation
             </Link>
           </div>

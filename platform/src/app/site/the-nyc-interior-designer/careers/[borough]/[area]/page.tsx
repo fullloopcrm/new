@@ -564,7 +564,7 @@ export default async function AreaCareersPage({ params }: Props) {
             <Link href="/get-a-free-consultation" className="text-blue-600 hover:text-blue-700 transition">
               Free Consultation
             </Link>
-            <Link href="/contact" className="text-blue-600 hover:text-blue-700 transition">
+            <Link href="/get-a-free-consultation" className="text-blue-600 hover:text-blue-700 transition">
               Contact Us
             </Link>
           </div>
