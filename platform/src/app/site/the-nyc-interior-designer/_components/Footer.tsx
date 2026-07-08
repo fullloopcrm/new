@@ -123,10 +123,10 @@ export default function Footer() {
             <ul className="flex flex-col gap-3 text-sm text-slate-300">
               <li>
                 <a
-                  href="tel:+19174732013"
+                  href="sms:9174732013"
                   className="transition-colors hover:text-blue-400"
                 >
-                  (917) 473-2013
+                  Text us: (917) 473-2013
                 </a>
               </li>
               <li>
@@ -145,10 +145,10 @@ export default function Footer() {
               </li>
             </ul>
             <Link
-              href="/contact"
+              href="/get-a-free-consultation"
               className="mt-6 inline-block rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-700"
             >
-              Get a Free Consultation
+              Book Online — $20 Off
             </Link>
           </div>
         </div>

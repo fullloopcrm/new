@@ -145,9 +145,9 @@ export default function Navbar() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5">
           {/* Mobile: phone only */}
           <div className="flex items-center gap-3 sm:hidden">
-            <a href="tel:+19174732013" className="text-xs font-semibold text-blue-400 font-cta">
-              (917) 473-2013 | Call
-            </a>
+            <Link href="/get-a-free-consultation" className="text-xs font-semibold text-blue-400 font-cta">
+              $20 Off — Book Online
+            </Link>
           </div>
           {/* Desktop: full top bar */}
           <div className="hidden items-center gap-1.5 overflow-x-auto sm:flex">
@@ -163,9 +163,9 @@ export default function Navbar() {
             <Link href="/careers" className="shrink-0 text-xs font-semibold text-blue-400 transition-colors hover:text-blue-300 font-cta">Jobs</Link>
           </div>
           <div className="hidden items-center gap-3 shrink-0 sm:flex">
-            <a href="tel:+19174732013" className="text-xs font-semibold text-blue-400 transition-colors hover:text-blue-300 font-cta">
-              (917) 473-2013 | Call
-            </a>
+            <Link href="/get-a-free-consultation" className="text-xs font-semibold text-blue-400 transition-colors hover:text-blue-300 font-cta">
+              $20 Off When You Book Online
+            </Link>
           </div>
         </div>
       </div>
@@ -345,14 +345,17 @@ export default function Navbar() {
           </div>
 
           {/* CTA -- right */}
-          <div className="hidden lg:flex justify-end">
-            <Link href="/contact">
+          <div className="hidden lg:flex items-center justify-end gap-2">
+            <a href="sms:9174732013" className="text-[15px] font-semibold text-white/90 transition-colors hover:text-white font-cta whitespace-nowrap">
+              Text Us
+            </a>
+            <Link href="/get-a-free-consultation">
               <motion.span
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.97 }}
-                className="inline-block rounded-lg bg-white px-4 py-2 text-[15px] font-semibold text-blue-700 transition-colors hover:bg-blue-50 font-cta"
+                className="inline-block rounded-lg bg-white px-4 py-2 text-[15px] font-semibold text-blue-700 transition-colors hover:bg-blue-50 font-cta whitespace-nowrap"
               >
-                Free Consultation
+                Book — $20 Off
               </motion.span>
             </Link>
           </div>
@@ -537,24 +540,24 @@ export default function Navbar() {
                     Contact
                   </Link>
 
-                  {/* Phone -- highlighted in mobile */}
+                  {/* Text -- highlighted in mobile (no calls) */}
                   <div className="my-2 h-px bg-slate-200" />
                   <a
-                    href="tel:+19174732013"
+                    href="sms:9174732013"
                     onClick={() => setMobileOpen(false)}
                     className="rounded-lg px-4 py-3 text-base font-bold text-blue-600 transition-colors hover:bg-blue-50 font-cta"
                   >
-                    (917) 473-2013 | Call
+                    Text Us: (917) 473-2013
                   </a>
 
                   {/* CTA */}
                   <Link
-                    href="/contact"
+                    href="/get-a-free-consultation"
                     onClick={() => setMobileOpen(false)}
                     className="mt-6"
                   >
                     <span className="block rounded-lg bg-blue-600 px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-gray-700 font-cta">
-                      Free Consultation
+                      Book Now — $20 Off
                     </span>
                   </Link>
                 </div>

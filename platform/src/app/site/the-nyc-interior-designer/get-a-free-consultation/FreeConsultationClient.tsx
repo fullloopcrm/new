@@ -99,13 +99,13 @@ export default function FreeConsultationClient() {
         <div className="absolute inset-0 bg-[url('/og-image.jpg')] bg-cover bg-center opacity-15" />
         <div className="relative mx-auto max-w-4xl px-6 text-center">
           <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-blue-200">
-            Free Consultation &bull; No Obligation
+            $20 Off When You Book Online &bull; No Obligation
           </p>
           <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
-            Get a Free <span className="text-blue-200">Interior Design Consultation</span> for Your NYC Property
+            Book Your <span className="text-blue-200">Interior Design Consultation</span> — Get $20 Off
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-white/80">
-            Tell us about your project and we&apos;ll provide a personalized consultation — including design recommendations, pricing, and timeline.
+            Book online in under a minute and we&apos;ll take <span className="font-semibold text-white">$20 off</span> your project — plus a personalized consultation with design recommendations, pricing, and timeline. No phone call required.
           </p>
         </div>
       </section>

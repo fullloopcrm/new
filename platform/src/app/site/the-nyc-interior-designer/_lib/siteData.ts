@@ -5,6 +5,8 @@ export const SITE_DOMAIN = "https://www.thenycinteriordesigner.com";
 export const PHONE = "(917) 473-2013";
 export const PHONE_HREF = "tel:9174732013";
 export const SMS_HREF = "sms:9174732013";
+export const OFFER = "$20 Off When You Book Online";
+export const BOOK_HREF = "/get-a-free-consultation";
 export const EMAIL = "hello@thenycinteriordesigner.com";
 export const ADDRESS = "150 W 47th St, New York, NY 10036";
 

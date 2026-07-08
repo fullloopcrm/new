@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   SITE_NAME,
   PHONE,
-  PHONE_HREF,
   SMS_HREF,
   EMAIL,
   ADDRESS,
@@ -114,21 +113,16 @@ export default function HomeClient() {
             transition={{ delay: 0.3 }}
             className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
           >
-            <a href={SMS_HREF}>
+            <Link href="/get-a-free-consultation">
               <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-blue-700 shadow-lg transition-colors hover:bg-blue-50 font-cta">
-                {PHONE} | Text
-              </motion.span>
-            </a>
-            <a href={PHONE_HREF}>
-              <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
-                {PHONE} | Call
-              </motion.span>
-            </a>
-            <Link href="/contact">
-              <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
-                Free Consultation
+                Book Now — $20 Off
               </motion.span>
             </Link>
+            <a href={SMS_HREF}>
+              <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
+                Text Us
+              </motion.span>
+            </a>
           </motion.div>
 
           <motion.div
@@ -392,7 +386,7 @@ export default function HomeClient() {
 
           <div className="mt-12 space-y-8">
             {[
-              { step: "01", title: "Book a Free Consultation", desc: "Call us, text us, or fill out our online form. We'll schedule a free in-home consultation within 48 hours. There's no obligation and no pressure — just a professional assessment of your space and your options.", links: [{ label: "Book Consultation", href: "/contact" }, { label: "Call Us", href: PHONE_HREF }] },
+              { step: "01", title: "Book a Free Consultation", desc: "Book online in under a minute — or text us. We'll schedule a free in-home consultation within 48 hours and take $20 off your project. There's no obligation and no pressure — just a professional assessment of your space and your options.", links: [{ label: "Book — $20 Off", href: "/get-a-free-consultation" }, { label: "Text Us", href: SMS_HREF }] },
               { step: "02", title: "Space Assessment & Discovery", desc: "Our designer visits your property to evaluate the layout, natural light, architectural details, storage potential, and any building-specific requirements. We discuss your vision, lifestyle, budget, and timeline. This is where great design begins.", links: [{ label: "Our Design Process", href: "/services/space-planning" }] },
               { step: "03", title: "Design Concept Presentation", desc: "We present mood boards, space plans, material palettes, furniture selections, and 3D renderings. Every element is chosen for your specific space, lifestyle, and aesthetic. We revise until you love it — most clients are thrilled after one round.", links: [{ label: "Design Services", href: "/services/full-home-interior-design" }] },
               { step: "04", title: "Board Approval & Permit Coordination", desc: "If your project requires co-op or condo board approval, DOB permits, or building management sign-off, we handle the entire process. We prepare all documentation, coordinate with building architects, and ensure full compliance before any work begins.", links: [] },
@@ -710,7 +704,7 @@ export default function HomeClient() {
               <p className="mt-3 text-sm text-slate-500">{ADDRESS}</p>
               <p className="mt-1 text-sm text-slate-500">New York, NY 10036</p>
               <div className="mt-4 flex flex-col items-center gap-2">
-                <a href={PHONE_HREF} className="text-sm font-semibold text-blue-600 hover:text-blue-800 font-cta">{PHONE}</a>
+                <a href={SMS_HREF} className="text-sm font-semibold text-blue-600 hover:text-blue-800 font-cta">Text: {PHONE}</a>
                 <a href={`mailto:${EMAIL}`} className="text-sm font-semibold text-blue-600 hover:text-blue-800 font-cta">{EMAIL}</a>
               </div>
               <div className="mt-6">
@@ -746,21 +740,16 @@ export default function HomeClient() {
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <a href={SMS_HREF}>
+            <Link href="/get-a-free-consultation">
               <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-blue-700 shadow-lg transition-colors hover:bg-blue-50 font-cta">
-                {PHONE} | Text
-              </motion.span>
-            </a>
-            <a href={PHONE_HREF}>
-              <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
-                {PHONE} | Call
-              </motion.span>
-            </a>
-            <Link href="/contact">
-              <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
-                Free Consultation
+                Book Now — $20 Off
               </motion.span>
             </Link>
+            <a href={SMS_HREF}>
+              <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="inline-block rounded-lg border-2 border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white/60 font-cta">
+                Text Us
+              </motion.span>
+            </a>
           </motion.div>
         </div>
       </section>
