@@ -76,7 +76,7 @@ export default async function ServicePage({ params }: Props) {
     { q: `How do I prepare for my ${svc.name.toLowerCase()} appointment?`, a: `Preparing for your mobile ${svc.name.toLowerCase()} appointment is easy. Make sure you have a comfortable, well-lit area where your professional can work. For hair services, being near a sink is ideal but not mandatory. For nail services, a table and two chairs are all you need. For waxing and skin services, a bed or couch with a clean sheet works perfectly. We recommend wearing comfortable clothing that is easy to change if needed. Have any inspiration photos or references ready to share during your consultation. Beyond that, just relax and let us handle everything.` },
     { q: `Can I book ${svc.name.toLowerCase()} with other services?`, a: `Yes, and many of our clients do. Combining services is one of the biggest advantages of mobile beauty. You can book ${svc.name.toLowerCase()} alongside any of our other ${isWomens ? "women's" : "men's"} services in the same appointment. Popular combinations include hair and nails, hair and makeup, or a full grooming package. When you book multiple services, we coordinate timing so everything flows smoothly. You can also book for multiple people at the same location, which is perfect for bridal parties, girls' nights, or group events. Visit our <a href="/services">full services page</a> to see everything we offer.` },
     { q: `What products do you use for ${svc.name.toLowerCase()}?`, a: `We use only professional-grade, salon-quality products from trusted brands. Our professionals carry a curated selection of premium products chosen for performance, safety, and results. All products are appropriate for a wide range of skin types and hair textures. If you have allergies, sensitivities, or specific product preferences, let us know when you book and we will accommodate your needs. We never use cheap, drugstore-grade products. Your results should be indistinguishable from what you would get at the best salon in Manhattan.` },
-    { q: `How do I reschedule or cancel my ${svc.name.toLowerCase()} appointment?`, a: `We understand that plans change, especially in New York City. You can reschedule or cancel your appointment with at least 24 hours notice at no charge. Simply text us, call us, or reply to your confirmation message. If you need to reschedule within 24 hours of your appointment, we will do our best to accommodate you, though a late cancellation fee may apply. We are flexible and understanding because we know how busy life in NYC can be. Our goal is to make the entire experience, from booking to completion, as stress-free as possible.` },
+    { q: `How do I reschedule or cancel my ${svc.name.toLowerCase()} appointment?`, a: `We understand that plans change, especially in New York City. You can reschedule or cancel your appointment with at least 24 hours notice at no charge. Simply text us or reply to your confirmation message. If you need to reschedule within 24 hours of your appointment, we will do our best to accommodate you, though a late cancellation fee may apply. We are flexible and understanding because we know how busy life in NYC can be. Our goal is to make the entire experience, from booking to completion, as stress-free as possible.` },
   ];
 
   return (
@@ -228,7 +228,7 @@ export default async function ServicePage({ params }: Props) {
                 </div>
               </div>
               <Link href="/book" className={`mt-6 block w-full text-center ${isWomens ? "btn-rose" : "inline-block rounded-full bg-sky-500 px-9 py-3.5 text-sm font-semibold uppercase tracking-wider text-white shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5 hover:bg-sky-600 font-display"}`}>
-                Book Now
+                Book Now — $20 Off
               </Link>
             </div>
           </div>
@@ -301,7 +301,7 @@ export default async function ServicePage({ params }: Props) {
               </div>
               <h3 className="font-display mb-2 text-lg font-semibold text-charcoal">Book your appointment</h3>
               <p className="text-base leading-relaxed text-gray-600">
-                Fill out our booking form, text us, or call us to schedule your {svc.name.toLowerCase()} appointment. Tell us your preferred date, time, location, and any details about what you are looking for. We will confirm everything within 24 hours and match you with the perfect professional for your needs.
+                Fill out our booking form or text us to schedule your {svc.name.toLowerCase()} appointment. Tell us your preferred date, time, location, and any details about what you are looking for. We will confirm everything within 24 hours and match you with the perfect professional for your needs.
               </p>
             </div>
             <div className="text-center">
@@ -390,7 +390,7 @@ export default async function ServicePage({ params }: Props) {
             {svc.name} FAQ
           </h2>
           <p className="mx-auto mb-8 max-w-xl text-center text-base text-gray-600">
-            Everything you need to know about booking mobile {svc.name.toLowerCase()} in New York City. If your question is not answered here, text or call us anytime.
+            Everything you need to know about booking mobile {svc.name.toLowerCase()} in New York City. If your question is not answered here, text us anytime.
           </p>
           {serviceFaqs.map((faq, i) => (
             <details key={faq.q} className={`group ${i > 0 ? "border-t border-gray-200" : ""}`}>
@@ -445,10 +445,6 @@ export default async function ServicePage({ params }: Props) {
               <a href="sms:+12122029075" className={`flex items-center gap-3 text-lg font-medium hover:underline ${isWomens ? "text-blush-dark" : "text-sky-600"}`}>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                 Text us anytime
-              </a>
-              <a href="tel:+12122029075" className={`flex items-center gap-3 text-lg font-medium hover:underline ${isWomens ? "text-blush-dark" : "text-sky-600"}`}>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                Call us
               </a>
             </div>
           </div>

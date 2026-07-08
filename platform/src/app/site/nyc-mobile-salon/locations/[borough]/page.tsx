@@ -183,7 +183,7 @@ export default async function BoroughPage({ params }: Props) {
     },
     {
       q: `How do I book a mobile beauty appointment in ${name}?`,
-      a: `Booking is simple. Visit our booking page, select your services, choose your preferred date and time, and enter your ${name} address. We will confirm your appointment and match you with a licensed stylist who specializes in the services you need. You can also call or text us to book directly.`,
+      a: `Booking is simple. Visit our booking page, select your services, choose your preferred date and time, and enter your ${name} address. We will confirm your appointment and match you with a licensed stylist who specializes in the services you need. You can also text us to book directly.`,
     },
     {
       q: `What services are available in ${name}?`,

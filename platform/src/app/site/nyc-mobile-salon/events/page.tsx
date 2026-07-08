@@ -244,7 +244,7 @@ export default function EventsPage() {
               {
                 step: "1",
                 title: "Tell us about your event",
-                desc: "Fill out our quick event inquiry form with your date, location, group size, and the services you are interested in. You can also call or text us directly. We respond to every inquiry within 24 hours.",
+                desc: "Fill out our quick event inquiry form with your date, location, group size, and the services you are interested in. You can also text us directly. We respond to every inquiry within 24 hours.",
               },
               {
                 step: "2",

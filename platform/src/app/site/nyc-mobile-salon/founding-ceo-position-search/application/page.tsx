@@ -66,14 +66,14 @@ export default function FoundingCEOApplicationPage() {
                 Email Founder
               </a>
               <a
-                href="tel:+12122029075"
+                href="sms:+12122029075"
                 className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-bold text-slate-600 transition hover:-translate-y-0.5 hover:bg-gray-50"
               >
-                Call Founder
+                Text Founder
               </a>
             </div>
             <p className="mt-3 text-xs text-white/40">
-              212.202.9075 — call or text anytime
+              Text anytime: 212.202.9075
             </p>
           </div>
         </div>

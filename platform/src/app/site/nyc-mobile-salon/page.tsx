@@ -49,7 +49,7 @@ const howItWorks = [
   {
     step: "01",
     title: "Tell Us What You Need",
-    description: "Pick your services, choose your borough, and select a time that works for you. Book online, text us, or call \u2014 whatever\u2019s easiest.",
+    description: "Pick your services, choose your borough, and select a time that works for you. Book online and save $20, or text us \u2014 whatever\u2019s easiest.",
   },
   {
     step: "02",
@@ -70,7 +70,7 @@ const faqs = [
   },
   {
     q: "How far in advance should I book?",
-    a: "We recommend booking at least 48 hours in advance for standard appointments. Same-day availability is sometimes possible depending on your borough and the service requested \u2014 just text or call us and we\u2019ll do our best. For events, bridal parties, and group bookings, we recommend booking 2\u20134 weeks ahead to guarantee your preferred date and team size.",
+    a: "We recommend booking at least 48 hours in advance for standard appointments. Same-day availability is sometimes possible depending on your borough and the service requested \u2014 just text us and we\u2019ll do our best. For events, bridal parties, and group bookings, we recommend booking 2\u20134 weeks ahead to guarantee your preferred date and team size.",
   },
   {
     q: "What do I need to provide?",
@@ -248,15 +248,12 @@ export default function Home() {
           </p>
 
           <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
-            <a href="sms:+12122029075" className="btn-rose">
+            <Link href="/book" className="btn-rose">
+              Book Now — $20 Off
+            </Link>
+            <a href="sms:+12122029075" className="btn-outline-light">
               Text Us
             </a>
-            <a href="tel:+12122029075" className="btn-outline-light">
-              Call Us
-            </a>
-            <Link href="/book" className="btn-outline-light">
-              Book Yourself
-            </Link>
             <Link href="/pricing" className="btn-outline-light">
               See Pricing
             </Link>
@@ -894,7 +891,7 @@ export default function Home() {
         <div className="mx-auto grid max-w-5xl gap-12 md:grid-cols-2 md:items-start">
           <div>
             <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-blush-dark">
-              <Sparkle className="mr-1 h-3 w-3" /> Book Now
+              <Sparkle className="mr-1 h-3 w-3" /> Book Online — $20 Off
             </p>
             <h2 className="font-display mb-6 text-4xl font-medium leading-[1.1] tracking-tight text-charcoal md:text-5xl">
               Ready for the salon to <span className="italic">come to you?</span>
@@ -906,10 +903,6 @@ export default function Home() {
               <a href="sms:+12122029075" className="flex items-center gap-3 text-lg font-medium text-blush-dark hover:underline">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                 Text us anytime
-              </a>
-              <a href="tel:+12122029075" className="flex items-center gap-3 text-lg font-medium text-blush-dark hover:underline">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                Call us
               </a>
               <a href="mailto:hey@thenycmobilesalon.com" className="flex items-center gap-3 text-lg font-medium text-blush-dark hover:underline">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>

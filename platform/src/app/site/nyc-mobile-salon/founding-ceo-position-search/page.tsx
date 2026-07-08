@@ -594,7 +594,7 @@ export default function FoundingCEOPage() {
                 Email Founder
               </a>
               <a
-                href="tel:+12122029075"
+                href="sms:+12122029075"
                 className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-bold text-slate-600 transition hover:-translate-y-0.5 hover:bg-gray-50"
               >
                 <svg
@@ -610,10 +610,10 @@ export default function FoundingCEOPage() {
                     d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                   />
                 </svg>
-                Call Founder
+                Text Founder
               </a>
             </div>
-            <p className="mt-3 text-xs text-slate-400">212.202.9075 — call or text anytime</p>
+            <p className="mt-3 text-xs text-slate-400">Text anytime: 212.202.9075</p>
           </div>
         </div>
       </section>

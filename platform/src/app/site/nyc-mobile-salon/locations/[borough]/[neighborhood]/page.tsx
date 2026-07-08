@@ -57,7 +57,7 @@ export default async function NeighborhoodLocationPage({ params }: Props) {
     },
     {
       q: `How do I book a mobile beauty appointment in ${hood}?`,
-      a: `Booking is simple. Visit our online booking page at thenycmobilesalon.com/book, select the services you need, choose your preferred date and time, and enter your ${hood} address. You can also call or text us directly. We typically confirm appointments within a few hours and can often accommodate same-day requests depending on availability.`,
+      a: `Booking is simple. Visit our online booking page at thenycmobilesalon.com/book, select the services you need, choose your preferred date and time, and enter your ${hood} address. You can also text us directly. We typically confirm appointments within a few hours and can often accommodate same-day requests depending on availability.`,
     },
     {
       q: `Can I book event beauty services in ${hood}?`,

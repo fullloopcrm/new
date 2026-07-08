@@ -295,7 +295,7 @@ export default async function EventPage({ params }: Props) {
               {
                 step: "1",
                 title: "Tell us about your event",
-                desc: `Fill out our quick quote form or call us with the details of your ${evt.name.toLowerCase()}. Let us know the date, time, location, number of guests, and the services you are interested in. We will respond within a few hours with a custom proposal and pricing breakdown. There is no cost and no obligation for the quote.`,
+                desc: `Fill out our quick quote form or text us with the details of your ${evt.name.toLowerCase()}. Let us know the date, time, location, number of guests, and the services you are interested in. We will respond within a few hours with a custom proposal and pricing breakdown. There is no cost and no obligation for the quote.`,
               },
               {
                 step: "2",
@@ -520,7 +520,7 @@ export default async function EventPage({ params }: Props) {
           </p>
           <div className="flex flex-col items-center gap-3">
             <Link href="/book" className="btn-rose">Get a Free Quote</Link>
-            <p className="text-xs text-gray-400">Or call us to discuss your {evt.name.toLowerCase()} needs</p>
+            <p className="text-xs text-gray-400">Or text us to discuss your {evt.name.toLowerCase()} needs</p>
           </div>
         </div>
       </section>
