@@ -118,15 +118,15 @@ ${genUrls
 
   // Static pages
   const staticPages = [
-    { path: '/nyc-maid-service-services-offered-by-the-nyc-maid', freq: 'weekly', pri: '0.9' },
-    { path: '/service-areas-served-by-the-nyc-maid', freq: 'weekly', pri: '0.9' },
-    { path: '/about-the-nyc-maid-service-company', freq: 'monthly', pri: '0.7' },
-    { path: '/contact-the-nyc-maid-service-today', freq: 'monthly', pri: '0.8' },
-    { path: '/updated-nyc-maid-service-industry-pricing', freq: 'weekly', pri: '0.9' },
-    { path: '/nyc-cleaning-service-frequently-asked-questions-in-2025', freq: 'monthly', pri: '0.8' },
+    { path: '/services', freq: 'weekly', pri: '0.9' },
+    { path: '/service-areas', freq: 'weekly', pri: '0.9' },
+    { path: '/about', freq: 'monthly', pri: '0.7' },
+    { path: '/contact', freq: 'monthly', pri: '0.8' },
+    { path: '/pricing', freq: 'weekly', pri: '0.9' },
+    { path: '/faq', freq: 'monthly', pri: '0.8' },
     { path: '/reviews', freq: 'weekly', pri: '0.8' },
     { path: '/reviews/submit', freq: 'monthly', pri: '0.7' },
-    { path: '/available-nyc-maid-jobs', freq: 'daily', pri: '0.8' },
+    { path: '/careers', freq: 'daily', pri: '0.8' },
     { path: '/careers/operations-coordinator', freq: 'daily', pri: '0.8' },
     { path: '/nyc-maid-service-blog', freq: 'weekly', pri: '0.7' },
     { path: '/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid', freq: 'weekly', pri: '0.7' },
@@ -194,7 +194,7 @@ ${genUrls
   for (const n of ALL_NEIGHBORHOODS) {
     const photo = pickTeamPhoto(n.slug)
     urls.push({
-      loc: `${BASE_URL}/available-nyc-maid-jobs/${n.slug}`,
+      loc: `${BASE_URL}/careers/${n.slug}`,
       lastmod: now,
       changefreq: 'daily',
       priority: '0.8',

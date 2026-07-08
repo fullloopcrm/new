@@ -270,13 +270,13 @@ export default function OperationsCoordinatorPage() {
           speakable: ['h1', 'h2', '.hero-description'],
           breadcrumb: [
             { name: 'Home', url: 'https://www.example.com' },
-            { name: 'Careers', url: 'https://www.example.com/available-nyc-maid-jobs' },
+            { name: 'Careers', url: 'https://www.example.com/careers' },
             { name: 'Operations Admin', url: pageUrl },
           ],
         }),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.example.com' },
-          { name: 'Careers', url: 'https://www.example.com/available-nyc-maid-jobs' },
+          { name: 'Careers', url: 'https://www.example.com/careers' },
           { name: 'Operations Admin', url: pageUrl },
         ]),
         coordinatorJobPostingSchema(),
@@ -364,7 +364,7 @@ export default function OperationsCoordinatorPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Careers', href: '/available-nyc-maid-jobs' },
+          { name: 'Careers', href: '/careers' },
           { name: 'Operations Admin', href: '/careers/operations-coordinator' },
         ]} />
 

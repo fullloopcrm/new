@@ -14,15 +14,15 @@ const serviceLinks = [
   { name: 'Post-Construction', href: '/services/post-construction-cleanup-service-in-nyc' },
   { name: 'Airbnb Cleaning', href: '/services/airbnb-cleaning-in-nyc' },
   { name: 'Same-Day Cleaning', href: '/services/same-day-cleaning-service-in-nyc' },
-  { name: 'All Services', href: '/nyc-maid-service-services-offered-by-the-nyc-maid' },
+  { name: 'All Services', href: '/services' },
 ]
 
 const moreLinks = [
-  { name: 'About', href: '/about-the-nyc-maid-service-company' },
-  { name: 'FAQ', href: '/nyc-cleaning-service-frequently-asked-questions-in-2025' },
-  { name: 'Careers — Cleaning Jobs', href: '/available-nyc-maid-jobs' },
+  { name: 'About', href: '/about' },
+  { name: 'FAQ', href: '/faq' },
+  { name: 'Careers — Cleaning Jobs', href: '/careers' },
   { name: 'Careers — Operations Admin', href: '/careers/operations-coordinator' },
-  { name: 'Locations', href: '/service-areas-served-by-the-nyc-maid' },
+  { name: 'Locations', href: '/service-areas' },
   { name: 'Referral Program', href: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
 ]
 
@@ -73,7 +73,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
             <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] tracking-widest uppercase">
               {isCleaning && (<>
               <span className="text-white/80 font-semibold hidden sm:inline">Maid Service:</span>
-              <Link href="/service-areas-served-by-the-nyc-maid" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">NYC</Link>
+              <Link href="/service-areas" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">NYC</Link>
               <span className="text-white/20 hidden sm:inline">|</span>
               <Link href="/long-island-maid-service" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">L.I.</Link>
               <span className="text-white/20 hidden sm:inline">|</span>
@@ -140,14 +140,14 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               )}
 
               {isCleaning && (
-              <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Pricing</Link>
+              <Link href="/pricing" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Pricing</Link>
               )}
               <Link href="/reviews" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide flex items-center gap-1.5">
                 Reviews
                 {config.reviewCount && <span className="text-yellow-400 text-xs">&#9733; {config.rating.toFixed(1)}</span>}
               </Link>
               {!generic && (
-              <Link href="/contact-the-nyc-maid-service-today" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Contact</Link>
+              <Link href="/contact" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Contact</Link>
               )}
 
               {/* More Dropdown */}
@@ -265,13 +265,13 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                 </div>
               )}
 
-              <Link href="/updated-nyc-maid-service-industry-pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
+              <Link href="/pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
               </>)}
               <Link href="/reviews" onClick={closeMenu} className="flex items-center gap-2 py-3 text-white font-medium text-lg">
                 Reviews {config.reviewCount && <span className="text-yellow-400 text-sm">&#9733; {config.rating.toFixed(1)}</span>}
               </Link>
               {!generic && (
-              <Link href="/contact-the-nyc-maid-service-today" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Contact</Link>
+              <Link href="/contact" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Contact</Link>
               )}
 
               {isCleaning && (<>

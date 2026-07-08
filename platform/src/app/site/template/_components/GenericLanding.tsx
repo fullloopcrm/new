@@ -24,7 +24,7 @@ export default function GenericLanding({
 
   const cta =
     config.funnelMode === 'lead_only'
-      ? { label: 'Get in touch', href: '/contact-the-nyc-maid-service-today' }
+      ? { label: 'Get in touch', href: '/contact' }
       : config.funnelMode === 'pipeline'
         ? { label: 'Request a quote', href: '/book/new' }
         : { label: 'Book now', href: '/book/new' }

@@ -256,7 +256,7 @@ export function webSiteSchema() {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${BUSINESS.url}/service-areas-served-by-the-nyc-maid?q={search_term_string}`,
+        urlTemplate: `${BUSINESS.url}/service-areas?q={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },
@@ -420,7 +420,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area, op
         '@type': 'ReserveAction',
         target: {
           '@type': 'EntryPoint',
-          urlTemplate: `${BUSINESS.url}/contact-the-nyc-maid-service-today`,
+          urlTemplate: `${BUSINESS.url}/contact`,
           actionPlatform: ['http://schema.org/DesktopWebPlatform', 'http://schema.org/IOSPlatform', 'http://schema.org/AndroidPlatform'],
         },
         result: { '@type': 'Reservation', name: 'Book Cleaning Service' },
@@ -429,7 +429,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area, op
         '@type': 'OrderAction',
         target: {
           '@type': 'EntryPoint',
-          urlTemplate: `${BUSINESS.url}/contact-the-nyc-maid-service-today`,
+          urlTemplate: `${BUSINESS.url}/contact`,
           actionPlatform: 'http://schema.org/MobileWebPlatform',
         },
       },
@@ -495,7 +495,7 @@ export function serviceSchema(service: Service, neighborhood?: Neighborhood, are
       '@type': 'ReserveAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${BUSINESS.url}/contact-the-nyc-maid-service-today`,
+        urlTemplate: `${BUSINESS.url}/contact`,
         actionPlatform: ['http://schema.org/DesktopWebPlatform', 'http://schema.org/IOSPlatform', 'http://schema.org/AndroidPlatform'],
       },
       result: { '@type': 'Reservation', name: `Book ${service.name}` },
@@ -684,15 +684,15 @@ export function siteNavigationSchema() {
     '@type': 'SiteNavigationElement',
     name: 'Main Navigation',
     hasPart: [
-      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact-the-nyc-maid-service-today`, position: 1 },
-      { '@type': 'WebPage', name: 'Services', url: `${BUSINESS.url}/nyc-maid-service-services-offered-by-the-nyc-maid`, position: 2 },
-      { '@type': 'WebPage', name: 'Pricing', url: `${BUSINESS.url}/updated-nyc-maid-service-industry-pricing`, position: 3 },
-      { '@type': 'WebPage', name: 'Service Areas', url: `${BUSINESS.url}/service-areas-served-by-the-nyc-maid`, position: 4 },
+      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact`, position: 1 },
+      { '@type': 'WebPage', name: 'Services', url: `${BUSINESS.url}/services`, position: 2 },
+      { '@type': 'WebPage', name: 'Pricing', url: `${BUSINESS.url}/pricing`, position: 3 },
+      { '@type': 'WebPage', name: 'Service Areas', url: `${BUSINESS.url}/service-areas`, position: 4 },
       { '@type': 'WebPage', name: 'Reviews', url: `${BUSINESS.url}/reviews`, position: 5 },
-      { '@type': 'WebPage', name: 'Now Hiring Cleaners', url: `${BUSINESS.url}/available-nyc-maid-jobs`, position: 6 },
-      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact-the-nyc-maid-service-today`, position: 7 },
-      { '@type': 'WebPage', name: 'FAQ', url: `${BUSINESS.url}/nyc-cleaning-service-frequently-asked-questions-in-2025`, position: 8 },
-      { '@type': 'WebPage', name: 'About', url: `${BUSINESS.url}/about-the-nyc-maid-service-company`, position: 9 },
+      { '@type': 'WebPage', name: 'Now Hiring Cleaners', url: `${BUSINESS.url}/careers`, position: 6 },
+      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact`, position: 7 },
+      { '@type': 'WebPage', name: 'FAQ', url: `${BUSINESS.url}/faq`, position: 8 },
+      { '@type': 'WebPage', name: 'About', url: `${BUSINESS.url}/about`, position: 9 },
       { '@type': 'WebPage', name: 'Blog & Tips', url: `${BUSINESS.url}/nyc-maid-service-blog`, position: 10 },
     ],
   }
@@ -715,7 +715,7 @@ export function howToBookSchema() {
         '@type': 'HowToStep',
         name: 'Contact Us',
         text: 'Text (555) 555-5555 to schedule your cleaning.',
-        url: `${BUSINESS.url}/contact-the-nyc-maid-service-today`,
+        url: `${BUSINESS.url}/contact`,
         position: 1,
       },
       {
@@ -981,7 +981,7 @@ export function servicePageSchemas(service: Service) {
       description,
       breadcrumb: [
         { name: 'Home', url: BUSINESS.url },
-        { name: 'Services', url: `${BUSINESS.url}/nyc-maid-service-services-offered-by-the-nyc-maid` },
+        { name: 'Services', url: `${BUSINESS.url}/services` },
         { name: service.name, url },
       ],
     }),
@@ -990,7 +990,7 @@ export function servicePageSchemas(service: Service) {
     professionalServiceSchema(service),
     breadcrumbSchema([
       { name: 'Home', url: BUSINESS.url },
-      { name: 'Services', url: `${BUSINESS.url}/nyc-maid-service-services-offered-by-the-nyc-maid` },
+      { name: 'Services', url: `${BUSINESS.url}/services` },
       { name: service.name, url },
     ]),
     howToBookSchema(),

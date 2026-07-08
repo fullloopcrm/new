@@ -108,11 +108,11 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
           <div>
             <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Company</h3>
             <ul className="space-y-2.5">
-              <li><Link href="/about-the-nyc-maid-service-company" className="text-sm hover:text-white transition-colors">About Us</Link></li>
-              <li><Link href="/contact-the-nyc-maid-service-today" className="text-sm hover:text-white transition-colors">Contact</Link></li>
-              <li><Link href="/updated-nyc-maid-service-industry-pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
+              <li><Link href="/about" className="text-sm hover:text-white transition-colors">About Us</Link></li>
+              <li><Link href="/contact" className="text-sm hover:text-white transition-colors">Contact</Link></li>
+              <li><Link href="/pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
               <li><Link href="/reviews" className="text-sm hover:text-white transition-colors">Reviews</Link></li>
-              <li><Link href="/available-nyc-maid-jobs" className="text-sm hover:text-white transition-colors">Careers</Link></li>
+              <li><Link href="/careers" className="text-sm hover:text-white transition-colors">Careers</Link></li>
             </ul>
           </div>
           <div>
@@ -124,7 +124,7 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
               {config.contact.supportPhone && (
                 <li><a href={`sms:${config.contact.supportPhoneDigits}`} className="text-sm hover:text-white transition-colors">Text Support: {config.contact.supportPhone}</a></li>
               )}
-              <li><Link href="/nyc-cleaning-service-frequently-asked-questions-in-2025" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
+              <li><Link href="/faq" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
               <li><Link href="/nyc-maid-service-blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
               <li><Link href="/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>
               <li><Link href="/service/nyc-emergency-cleaning-service" className="text-sm hover:text-white transition-colors">Emergency Cleaning</Link></li>
