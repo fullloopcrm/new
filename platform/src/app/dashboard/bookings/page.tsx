@@ -103,7 +103,7 @@ export default function SchedulePage() {
   const worker = useWorkerLabel()
   const [data, setData] = useState<CalendarData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<Tab>('calendar')
+  const [tab, setTab] = useState<Tab>('bookings')
   const [month, setMonth] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -179,6 +179,11 @@ export default function SchedulePage() {
         ))}
       </div>
 
+      {/* Calendar-view chrome (stats / Selena / conflicts / load). The Bookings
+          list (BookingsAdmin) brings its own header + stats, so hide this on that
+          tab to avoid double chrome / overflow. */}
+      {tab !== 'bookings' && (
+      <>
       {/* OUTLOOK */}
       <div className="sched-bar-label">This Period</div>
       <div className="sched-outlook">
@@ -287,6 +292,8 @@ export default function SchedulePage() {
             <div className="sched-load-summary-label">Jobs / Cleaners</div>
           </div>
         </div>
+      )}
+      </>
       )}
 
       {tab === 'bookings' && <BookingsAdmin />}

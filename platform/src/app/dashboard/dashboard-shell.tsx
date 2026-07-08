@@ -76,8 +76,8 @@ const navMain: Array<{
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/bookings', '/dashboard/schedules'],
-  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/calendar'],
+  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/calendar', '/dashboard/bookings'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   hr: ['/dashboard/hr', '/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
