@@ -1,16 +1,25 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { protectAdminAPI } from '@/lib/nycmaid/auth'
+import { getCurrentTenant } from '@/lib/tenant'
 import { normalizePhone } from '@/lib/nycmaid/client-contacts'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await protectAdminAPI()
   if (authError) return authError
 
+  // Tenant isolation: admin_session is not tenant-bound, so scope the read to
+  // the caller's tenant (resolved from the signed header). Without this, any
+  // admin_session holder could read another tenant's client contact PII by
+  // iterating client ids.
+  const tenant = await getCurrentTenant()
+  if (!tenant) return NextResponse.json({ error: 'No tenant context' }, { status: 403 })
+
   const { id } = await params
   const { data, error } = await supabaseAdmin
     .from('client_contacts')
     .select('id, tenant_id, client_id, name, role, phone_e164, email, is_primary, receives_sms, receives_email, sms_consent_at, email_consent_at, sms_opted_out_at, email_opted_out_at, created_at')
+    .eq('tenant_id', tenant.id)
     .eq('client_id', id)
     .order('is_primary', { ascending: false })
     .order('created_at', { ascending: true })
@@ -23,6 +32,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const authError = await protectAdminAPI()
   if (authError) return authError
 
+  // Tenant isolation: scope the client lookup + insert to the caller's tenant so
+  // a cross-tenant client id can't have contacts written against it.
+  const tenant = await getCurrentTenant()
+  if (!tenant) return NextResponse.json({ error: 'No tenant context' }, { status: 403 })
+
   try {
     const { id } = await params
     const body = await req.json()
@@ -31,6 +45,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .from('clients')
       .select('tenant_id')
       .eq('id', id)
+      .eq('tenant_id', tenant.id)
       .single()
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
