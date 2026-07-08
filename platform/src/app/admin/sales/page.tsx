@@ -3,16 +3,18 @@
 import { useState } from 'react'
 import { LeadsPanel } from './LeadsPanel'
 import { AccountsPanel } from './AccountsPanel'
+import { ContactsPanel } from './ContactsPanel'
 
-type View = 'leads' | 'accounts'
+type View = 'contacts' | 'leads' | 'accounts'
 
 const VIEWS: { key: View; label: string }[] = [
+  { key: 'contacts', label: 'Contacts' },
   { key: 'leads', label: 'Leads' },
   { key: 'accounts', label: 'Accounts' },
 ]
 
 export default function SalesPage() {
-  const [view, setView] = useState<View>('leads')
+  const [view, setView] = useState<View>('contacts')
 
   return (
     <div>
@@ -35,7 +37,7 @@ export default function SalesPage() {
         ))}
       </div>
 
-      {view === 'leads' ? <LeadsPanel /> : <AccountsPanel />}
+      {view === 'contacts' ? <ContactsPanel /> : view === 'leads' ? <LeadsPanel /> : <AccountsPanel />}
     </div>
   )
 }

@@ -137,6 +137,7 @@ const isPublicRoute = createRouteMatcher([
   '/qualify(.*)',              // e.g. /qualify?cancelled=1
   '/welcome',                  // Post-Stripe-payment landing page
   '/api/prospects',            // Public prospect intake
+  '/api/territories/options',  // Public territory + service-category options for lead forms
   '/api/client(.*)',           // Ported nycmaid client-portal routes — tenant
                                // resolved via signed x-tenant-id header, not Clerk
   '/api/cleaner-applications', // Alias → /api/team-applications
@@ -389,6 +390,15 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   response.headers.set('x-tenant-id', tenantId)
   response.headers.set('x-tenant-slug', tenantSlug)
   response.headers.set('x-tenant-sig', tenantSig)
+
+  // The national VA SEO pages (1,500+) are force-dynamic because they read
+  // tenant headers, but their content is identical for every visitor on this
+  // host — so cache them at the edge instead of rendering each on every request.
+  // Big reduction in function/ISR cost. Marketing content, so an hour of
+  // staleness with background revalidation is fine.
+  if (req.method === 'GET' && pathname.startsWith('/virtual-assistant')) {
+    response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400')
+  }
 
   // Also set request headers so server components / route handlers can read them
   const requestHeaders = new Headers(req.headers)

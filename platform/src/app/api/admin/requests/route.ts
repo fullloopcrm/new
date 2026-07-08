@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { LEAD_STAGES, normalizeStage, isLeadStage } from '@/lib/lead-stages'
+import { computeFit } from '@/lib/lead-fit'
+import { upsertSalesContact } from '@/lib/sales-contacts'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -52,14 +54,14 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { id, status, admin_notes } = body
+    const { id, status, admin_notes, qualifying_answers } = body
 
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 })
     }
 
-    if (status === undefined && admin_notes === undefined) {
-      return NextResponse.json({ error: 'Provide a status or admin_notes to update' }, { status: 400 })
+    if (status === undefined && admin_notes === undefined && qualifying_answers === undefined) {
+      return NextResponse.json({ error: 'Provide a status, admin_notes, or qualifying_answers to update' }, { status: 400 })
     }
 
     const updateData: Record<string, unknown> = {}
@@ -82,6 +84,10 @@ export async function PATCH(request: NextRequest) {
       updateData.admin_notes = admin_notes
     }
 
+    if (qualifying_answers !== undefined) {
+      updateData.qualifying_answers = qualifying_answers
+    }
+
     const { data, error } = await supabaseAdmin
       .from('partner_requests')
       .update(updateData)
@@ -97,6 +103,100 @@ export async function PATCH(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
+}
+
+// Manual lead entry from the admin Leads panel. Mirrors the public /qualify
+// form field-for-field and produces an identical partner_requests row
+// (same fit scoring), so admin-created leads look the same in the pipeline.
+export async function POST(request: NextRequest) {
+  const authError = await requireAdmin()
+  if (authError) return authError
+
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+  const orNull = (v: unknown) => str(v) || null
+  const business_name = str(body.business_name)
+  const contact_name = str(body.owner_name)
+  const email = str(body.owner_email).toLowerCase()
+
+  if (!business_name || !contact_name || !email) {
+    return NextResponse.json(
+      { error: 'Business name, contact name, and email are required' },
+      { status: 400 }
+    )
+  }
+
+  const fit = computeFit({
+    automation_comfort: str(body.automation_comfort) || null,
+    growth_goal: str(body.growth_goal) || null,
+    revenue_trajectory: str(body.revenue_trajectory) || null,
+    timeline: str(body.timeline) || null,
+    current_system: str(body.current_system) || null,
+    lead_gen_spend: str(body.lead_gen_spend) || null,
+    wants_automation: body.wants_automation === true,
+    wants_growth: body.wants_growth === true,
+    comparing_prices: body.comparing_prices === true,
+  })
+
+  // Canonical contact (dedupe by email) — lead attaches to it.
+  const contactId = await upsertSalesContact({
+    business_name,
+    contact_name,
+    email,
+    phone: str(body.owner_phone),
+    service_category: str(body.trade),
+    city: str(body.primary_city),
+    state: str(body.primary_state),
+    source: 'Admin (manual)',
+  })
+
+  const { data, error } = await supabaseAdmin
+    .from('partner_requests')
+    .insert({
+      business_name,
+      contact_name,
+      email,
+      phone: str(body.owner_phone),
+      service_category: str(body.trade) || 'Other',
+      contact_id: contactId,
+      category_id: orNull(body.category_id),
+      territory_id: orNull(body.territory_id),
+      city: str(body.primary_city) || 'N/A',
+      state: str(body.primary_state) || 'NA',
+      billing_address: orNull(body.billing_address),
+      billing_city: orNull(body.billing_city),
+      billing_state: orNull(body.billing_state),
+      billing_zip: orNull(body.billing_zip),
+      monthly_revenue: orNull(body.annual_revenue),
+      current_system: orNull(body.current_system),
+      revenue_trajectory: orNull(body.revenue_trajectory),
+      growth_goal: orNull(body.growth_goal),
+      automation_comfort: orNull(body.automation_comfort),
+      lead_gen_spend: orNull(body.lead_gen_spend),
+      pain_point: orNull(body.pain_point),
+      timeline: orNull(body.timeline),
+      wants_automation: body.wants_automation ?? null,
+      wants_growth: body.wants_growth ?? null,
+      comparing_prices: body.comparing_prices ?? null,
+      fit_score: fit.score,
+      fit_bucket: fit.bucket,
+      referral_source: 'Admin (manual)',
+      status: 'new',
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true, id: data.id })
 }
 
 export async function DELETE(request: NextRequest) {

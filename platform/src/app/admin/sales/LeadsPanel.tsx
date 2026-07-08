@@ -21,12 +21,14 @@ interface Lead {
   state: string
   monthly_revenue: string | null
   referral_source: string | null
+  heard_from?: string | null
   pitch: string | null
   status: LeadStage
   admin_notes: string | null
   created_at: string
   reviewed_at: string | null
   converted_tenant_id: string | null
+  qualifying_answers?: Record<string, string> | null
   fit_score: number | null
   fit_bucket: string | null
   revenue_trajectory: string | null
@@ -83,12 +85,27 @@ export function LeadsPanel() {
   const [proposalErr, setProposalErr] = useState('')
   const [payLinkLoading, setPayLinkLoading] = useState(false)
   const [payUrl, setPayUrl] = useState('')
-  const [sendingEmail, setSendingEmail] = useState(false)
-  const [emailMsg, setEmailMsg] = useState('')
   const [notesList, setNotesList] = useState<Note[]>([])
   const [noteImages, setNoteImages] = useState<string[]>([])
   const [uploadingImg, setUploadingImg] = useState(false)
   const [noteErr, setNoteErr] = useState('')
+  const [sendingAgreement, setSendingAgreement] = useState(false)
+  const [agreementMsg, setAgreementMsg] = useState('')
+  const [showNewLead, setShowNewLead] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createErr, setCreateErr] = useState('')
+  const [newLead, setNewLead] = useState({
+    business_name: '', owner_name: '', owner_email: '', owner_phone: '',
+    trade: '', category_id: '', territory_id: '', primary_city: '', primary_state: '',
+    billing_address: '', billing_city: '', billing_state: '', billing_zip: '',
+    annual_revenue: '', revenue_trajectory: '', growth_goal: '',
+    automation_comfort: '', lead_gen_spend: '', pain_point: '',
+    timeline: '', current_system: '',
+    wants_automation: false, wants_growth: false, comparing_prices: false,
+  })
+  const [catOptions, setCatOptions] = useState<{ id: string; name: string }[]>([])
+  const [terrOptions, setTerrOptions] = useState<{ id: string; name: string; state: string | null }[]>([])
+  const [terrQuery, setTerrQuery] = useState('')
 
   const loadNotes = useCallback(async (leadId: string) => {
     const res = await fetch(`/api/admin/notes?subject_type=lead&subject_id=${leadId}`)
@@ -111,6 +128,15 @@ export function LeadsPanel() {
 
   useEffect(() => { fetchLeads() }, [fetchLeads])
 
+  // Territory + service-category options for the New Lead form (connects a lead
+  // to the territories system). Public, no PII — loaded once.
+  useEffect(() => {
+    fetch('/api/territories/options')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d) { setCatOptions(d.categories || []); setTerrOptions(d.territories || []) } })
+      .catch(() => {})
+  }, [])
+
   const selected = leads.find(l => l.id === selectedId) || null
 
   function selectLead(lead: Lead) {
@@ -121,7 +147,7 @@ export function LeadsPanel() {
     setNotesList([])
     setProposalErr('')
     setPayUrl('')
-    setEmailMsg('')
+    setAgreementMsg('')
     setPropAdmins(lead.proposal_admins ?? 1)
     setPropTeam(lead.proposal_team_members ?? 0)
     loadNotes(lead.id)
@@ -177,21 +203,16 @@ export function LeadsPanel() {
     }
   }
 
-  async function sendTestEmail() {
+  async function sendAgreement() {
     if (!selected) return
-    setSendingEmail(true); setProposalErr(''); setEmailMsg('')
+    setSendingAgreement(true); setProposalErr(''); setAgreementMsg('')
     try {
-      const res = await fetch(`/api/admin/requests/${selected.id}/proposal-email`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send', test: true, payUrl: payUrl || undefined }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'Send failed')
-      setEmailMsg(`Test sent to ${data.sentTo}`)
-    } catch (e) {
-      setProposalErr(e instanceof Error ? e.message : 'Send failed')
-    }
-    setSendingEmail(false)
+      const res = await fetch(`/api/admin/requests/${selected.id}/agreement`, { method: 'POST' })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(d.error || 'Failed to send agreement')
+      setAgreementMsg(d.warning || `Agreement sent to ${d.sentTo}`)
+    } catch (e) { setProposalErr(e instanceof Error ? e.message : 'Failed') }
+    setSendingAgreement(false)
   }
 
   async function generatePayLink() {
@@ -224,6 +245,42 @@ export function LeadsPanel() {
       setProposalErr(e instanceof Error ? e.message : 'Failed')
     }
     setSendingProposal(false)
+  }
+
+  function resetNewLead() {
+    setNewLead({
+      business_name: '', owner_name: '', owner_email: '', owner_phone: '',
+      trade: '', category_id: '', territory_id: '', primary_city: '', primary_state: '',
+      billing_address: '', billing_city: '', billing_state: '', billing_zip: '',
+      annual_revenue: '', revenue_trajectory: '', growth_goal: '',
+      automation_comfort: '', lead_gen_spend: '', pain_point: '',
+      timeline: '', current_system: '',
+      wants_automation: false, wants_growth: false, comparing_prices: false,
+    })
+    setTerrQuery('')
+  }
+
+  async function createLead() {
+    if (!newLead.business_name.trim() || !newLead.owner_name.trim() || !newLead.owner_email.trim()) {
+      setCreateErr('Business name, your name, and email are required.')
+      return
+    }
+    setCreating(true)
+    setCreateErr('')
+    const res = await fetch('/api/admin/requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newLead),
+    })
+    setCreating(false)
+    if (res.ok) {
+      setShowNewLead(false)
+      resetNewLead()
+      await fetchLeads()
+    } else {
+      const d = await res.json().catch(() => ({}))
+      setCreateErr(d.error || 'Could not create lead.')
+    }
   }
 
   async function patchLead(body: Record<string, unknown>) {
@@ -282,6 +339,155 @@ export function LeadsPanel() {
 
   return (
     <div>
+      {showNewLead && (() => {
+        const O = QUALIFY_OPTIONS
+        const txt = (k: keyof typeof newLead, label: string, extra?: { type?: string; maxLength?: number; placeholder?: string }) => (
+          <label className="block">
+            <span className="block text-[11px] uppercase tracking-wide text-slate-400 mb-1">{label}</span>
+            <input
+              type={extra?.type || 'text'}
+              maxLength={extra?.maxLength}
+              placeholder={extra?.placeholder}
+              value={newLead[k] as string}
+              onChange={e => setNewLead(p => ({ ...p, [k]: e.target.value }))}
+              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-teal-600"
+            />
+          </label>
+        )
+        const sel = (k: keyof typeof newLead, label: string, opts: readonly { v: string; l: string }[]) => (
+          <label className="block">
+            <span className="block text-[11px] uppercase tracking-wide text-slate-400 mb-1">{label}</span>
+            <select
+              value={newLead[k] as string}
+              onChange={e => setNewLead(p => ({ ...p, [k]: e.target.value }))}
+              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-teal-600"
+            >
+              <option value="">—</option>
+              {opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+            </select>
+          </label>
+        )
+        const chk = (k: keyof typeof newLead, label: string) => (
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={newLead[k] as boolean} onChange={e => setNewLead(p => ({ ...p, [k]: e.target.checked }))} />
+            {label}
+          </label>
+        )
+        // Trade = a real territories service_category (stores id + name).
+        const tradeField = (
+          <label className="block">
+            <span className="block text-[11px] uppercase tracking-wide text-slate-400 mb-1">Trade / service</span>
+            <select
+              value={newLead.category_id}
+              onChange={e => {
+                const id = e.target.value
+                const name = catOptions.find(c => c.id === id)?.name || ''
+                setNewLead(p => ({ ...p, category_id: id, trade: name }))
+              }}
+              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-teal-600"
+            >
+              <option value="">{catOptions.length ? '—' : 'Loading…'}</option>
+              {catOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+        )
+        // Territory = search-by-name against the territories system (stores id).
+        const terrMatches = terrQuery.trim() && !newLead.territory_id
+          ? terrOptions.filter(t => t.name.toLowerCase().includes(terrQuery.trim().toLowerCase())).slice(0, 40)
+          : []
+        const territoryField = (
+          <label className="block relative">
+            <span className="block text-[11px] uppercase tracking-wide text-slate-400 mb-1">Territory</span>
+            <input
+              value={terrQuery}
+              onChange={e => { setTerrQuery(e.target.value); setNewLead(p => ({ ...p, territory_id: '' })) }}
+              placeholder="Search territory by name…"
+              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-teal-600"
+            />
+            {terrMatches.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg">
+                {terrMatches.map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => { setNewLead(p => ({ ...p, territory_id: t.id })); setTerrQuery(`${t.name}${t.state ? ', ' + t.state : ''}`) }}
+                    className="block w-full text-left px-3 py-1.5 text-sm hover:bg-teal-50"
+                  >
+                    {t.name}{t.state ? `, ${t.state}` : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+            {newLead.territory_id && <span className="mt-1 inline-block text-[11px] text-teal-700">✓ territory linked</span>}
+          </label>
+        )
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowNewLead(false)}>
+            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4 sticky top-0 bg-white">
+                <h2 className="text-lg font-semibold text-slate-900">New lead</h2>
+                <button onClick={() => setShowNewLead(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              </div>
+              <div className="space-y-5">
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-900">You &amp; the business</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {txt('business_name', 'Business name *')}
+                    {txt('owner_name', 'Contact name *')}
+                    {txt('owner_email', 'Email *', { type: 'email' })}
+                    {txt('owner_phone', 'Phone')}
+                    {tradeField}
+                    {txt('primary_city', 'City')}
+                    {txt('primary_state', 'State', { maxLength: 2, placeholder: 'NY' })}
+                    {territoryField}
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-900">Billing address</h3>
+                  {txt('billing_address', 'Street address', { placeholder: '123 Main St, Suite 200' })}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {txt('billing_city', 'City')}
+                    {txt('billing_state', 'State', { maxLength: 2, placeholder: 'NY' })}
+                    {txt('billing_zip', 'ZIP')}
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-900">Where they&apos;re at</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {sel('annual_revenue', 'Annual revenue', O.annual_revenue)}
+                    {sel('revenue_trajectory', 'Revenue trend', O.revenue_trajectory)}
+                    {sel('current_system', 'What are they using now?', O.current_system)}
+                    {sel('lead_gen_spend', 'Monthly lead-gen spend', O.lead_gen_spend)}
+                  </div>
+                  {sel('pain_point', 'Biggest pain right now', O.pain_point)}
+                </section>
+
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-900">Where they&apos;re going</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {sel('growth_goal', 'Growth goal (12 mo)', O.growth_goal)}
+                    {sel('automation_comfort', 'Comfort automating comms', O.automation_comfort)}
+                  </div>
+                  {sel('timeline', 'When do they want to start?', O.timeline)}
+                  <div className="space-y-2 pt-1">
+                    {chk('wants_automation', 'Wants to automate customer communication')}
+                    {chk('wants_growth', 'Wants to grow / add crews')}
+                    {chk('comparing_prices', 'Comparing prices across several CRMs')}
+                  </div>
+                </section>
+
+                {createErr && <p className="text-xs text-red-600">{createErr}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setShowNewLead(false)} className="flex-1 border border-slate-300 text-slate-600 rounded-lg py-2 text-sm font-medium hover:bg-slate-50">Cancel</button>
+                  <button onClick={createLead} disabled={creating} className="flex-1 bg-teal-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-teal-700 disabled:opacity-50">{creating ? 'Creating…' : 'Create lead'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
       {/* Pipeline stat cards (click to filter) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
         <StatCard label="Total" value={counts.total || 0} active={filter === 'all'} onClick={() => setFilter('all')} color="border-l-slate-400" />
@@ -304,6 +510,12 @@ export function LeadsPanel() {
           placeholder="Search business, contact, email, city..."
           className="flex-1 min-w-[200px] border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-teal-600"
         />
+        <button
+          onClick={() => { setCreateErr(''); setShowNewLead(true) }}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700"
+        >
+          + New Lead
+        </button>
         {filterButtons.map(f => (
           <button
             key={f}
@@ -453,8 +665,8 @@ export function LeadsPanel() {
                 </div>
               ) : null}
 
-              {/* Proposal builder — Qualified → Proposed */}
-              {(selected.status === 'qualified' || selected.status === 'proposed') && (
+              {/* Proposal builder — Proposed stage only */}
+              {selected.status === 'proposed' && (
                 <div className="mb-5 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3">
                   <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Proposal</p>
                   <div className="grid grid-cols-2 gap-3 mb-2">
@@ -492,15 +704,13 @@ export function LeadsPanel() {
                       >
                         {payLinkLoading ? 'Generating…' : 'Generate payment link (ACH / card)'}
                       </button>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        <button onClick={previewEmail} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-lg text-sm font-medium">
-                          Preview email
-                        </button>
-                        <button onClick={sendTestEmail} disabled={sendingEmail} className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-                          {sendingEmail ? 'Sending…' : 'Send test email'}
-                        </button>
-                      </div>
-                      {emailMsg && <p className="text-[11px] text-green-600 mt-1">{emailMsg}</p>}
+                      <button onClick={previewEmail} className="w-full mt-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-lg text-sm font-medium">
+                        Preview email
+                      </button>
+                      <button onClick={sendAgreement} disabled={sendingAgreement} className="w-full mt-2 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
+                        {sendingAgreement ? 'Sending agreement…' : 'Send agreement for signature'}
+                      </button>
+                      {agreementMsg && <p className="text-[11px] text-green-600 mt-1">{agreementMsg}</p>}
                     </>
                   )}
                   {payUrl && (
@@ -555,6 +765,7 @@ export function LeadsPanel() {
                 <Field label="Location">{selected.city}, {selected.state}</Field>
                 <Field label="Monthly Revenue">{selected.monthly_revenue || '—'}</Field>
                 <Field label="Source">{selected.referral_source || '—'}</Field>
+                <Field label="How found us">{selected.heard_from || '—'}</Field>
                 <Field label="Received">{new Date(selected.created_at).toLocaleString()}</Field>
                 <Field label="Last activity">{selected.reviewed_at ? new Date(selected.reviewed_at).toLocaleString() : '—'}</Field>
               </dl>

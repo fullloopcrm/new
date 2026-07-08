@@ -73,6 +73,7 @@ export default function SignView({ token }: { token: string }) {
 
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
   const [showDecline, setShowDecline] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
 
@@ -199,19 +200,35 @@ export default function SignView({ token }: { token: string }) {
     load()
   }
 
-  async function submit() {
-    if (!primarySigDataUrl) { setErr('Please sign at least one signature field'); return }
-    if (!typedName.trim()) { setErr('Type your full legal name'); return }
-    // Validate required fields
-    if (!data) return
-    const missing: string[] = []
-    for (const f of data.fields) {
-      if (!f.is_mine || !f.required) continue
-      if (f.type === 'signature' && !primarySigDataUrl) missing.push('signature')
-      else if (f.type === 'initial' && !initialDataUrl && !primarySigDataUrl) missing.push('initial')
-      else if ((f.type === 'text' || f.type === 'date' || f.type === 'full_name') && !fieldValues[f.id]) missing.push(f.type)
+  function fieldFilled(f: Field): boolean {
+    if (f.type === 'signature') return !!primarySigDataUrl
+    if (f.type === 'initial') return !!initialDataUrl || !!primarySigDataUrl
+    return !!fieldValues[f.id]
+  }
+
+  // Scroll to a field, flash a highlight, and nudge the signer to fill it.
+  function nudgeTo(f: Field) {
+    setHighlightId(f.id)
+    const label = f.type === 'signature'
+      ? 'Tap the “Sign here” box we highlighted to add your signature.'
+      : f.type === 'initial'
+      ? 'Tap the highlighted box to add your initials.'
+      : `Fill in the highlighted ${f.type === 'full_name' ? 'name' : f.type} field.`
+    setErr(label)
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById(`field-${f.id}`)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-    if (missing.length > 0) { setErr(`Fill required: ${missing.join(', ')}`); return }
+    setTimeout(() => setHighlightId(null), 3200)
+  }
+
+  async function submit() {
+    if (!data) return
+    // Take them to the first thing that still needs filling instead of a bare error.
+    const firstIncomplete = data.fields.find(f => f.is_mine && f.required && !fieldFilled(f))
+    if (firstIncomplete) { nudgeTo(firstIncomplete); return }
+    if (!primarySigDataUrl) { const sig = data.fields.find(f => f.is_mine && f.type === 'signature'); if (sig) { nudgeTo(sig); return } setErr('Please add your signature'); return }
+    if (!typedName.trim()) { setErr('Please type your full legal name in the box below.'); return }
 
     setSubmitting(true); setErr('')
     // Build field_values payload — signature/initial fields carry PNG data URL, others carry text
@@ -346,6 +363,13 @@ export default function SignView({ token }: { token: string }) {
           </div>
         </div>
 
+        {/* How-to guidance */}
+        {!alreadyDone && consentAccepted && data.signer.can_act && (
+          <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900 leading-relaxed">
+            <strong>How to sign:</strong> tap each highlighted box in the document below — tap <span className="font-semibold">“Sign here”</span> to draw your signature, then fill the date. When every box turns <span className="text-green-700 font-semibold">green</span>, tap <span className="font-semibold">Finish &amp; Submit</span> at the bottom.
+          </div>
+        )}
+
         {/* PDF + fields */}
         <div className="space-y-4">
           {pages.map((p, i) => {
@@ -382,7 +406,10 @@ export default function SignView({ token }: { token: string }) {
                     return (
                       <div
                         key={f.id}
+                        id={`field-${f.id}`}
                         className={`absolute border-2 flex items-center justify-center text-xs font-medium transition-colors ${
+                          highlightId === f.id ? 'ring-4 ring-amber-400 ring-offset-1 animate-pulse z-10 ' : ''
+                        }${
                           consentAccepted && !alreadyDone
                             ? filled ? 'border-green-400 bg-green-50/80' : 'border-teal-500 bg-teal-50/80 cursor-pointer hover:bg-teal-100'
                             : 'border-slate-300 bg-slate-50/80'

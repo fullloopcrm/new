@@ -20,12 +20,17 @@ type FormState = {
   priority: string;
   investment: string;
   goal: string;
+  heardFrom: string;
+  heardMore: string;
 };
 
 const initial: FormState = {
   name: "", company: "", email: "", phone: "", trade: "", city: "",
   isOwner: "", operating: "", teamSize: "", revenue: "", priority: "", investment: "", goal: "",
+  heardFrom: "", heardMore: "",
 };
+
+const HEARD_FROM = ["Google search", "Referral / word of mouth", "Social media", "Online ad", "YouTube / podcast", "Email", "Other"];
 
 const OWNER = ["Yes — I own or run it", "No — I'm not the decision-maker"];
 const OPERATING = ["Operating now, taking jobs", "Launching within 90 days", "Just an idea — not operating yet"];
@@ -99,6 +104,8 @@ export default function LeadForm() {
       `Team: ${form.teamSize}`, `Revenue: ${form.revenue}`,
       `Priority: ${form.priority}`, `Investment: ${form.investment}`,
       form.goal && `Goal: ${form.goal}`,
+      form.heardFrom && `Heard from: ${form.heardFrom}`,
+      form.heardMore && `How they found us (details): ${form.heardMore}`,
       earlier.length
         ? `⚠️ CHANGED ANSWERS AFTER PRE-SCREEN — earlier attempt(s): ${earlier.map((a, i) => `[try ${i + 1}] ${snap(a)}`).join(" || ")}`
         : "",
@@ -107,7 +114,7 @@ export default function LeadForm() {
       const res = await fetch("/api/inquiry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, company: form.company, phone: form.phone, email: form.email, message }),
+        body: JSON.stringify({ name: form.name, company: form.company, phone: form.phone, email: form.email, message, heardFrom: form.heardFrom, heardMore: form.heardMore }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -264,7 +271,7 @@ export default function LeadForm() {
         <p style={{ fontFamily: body, fontSize: "13px", color: C.graphite, lineHeight: 1.55 }}>
           Full Loop is built for operators investing in growth:{" "}
           <strong style={{ color: C.ink }}>$25,000 one-time setup</strong>, then{" "}
-          <strong style={{ color: C.ink }}>$1,000/mo per admin + $100/mo per team member</strong>.
+          <strong style={{ color: C.ink }}>$2,500/mo per admin + $250/mo per team member</strong>.
           It is not the cheapest option &mdash; by design.
         </p>
       </div>
@@ -281,6 +288,25 @@ export default function LeadForm() {
         <label htmlFor="lf-goal" style={lStyle}>What do you want Full Loop to do for you? <span style={{ textTransform: "none", color: C.muted2 }}>(optional)</span></label>
         <textarea id="lf-goal" name="goal" rows={3} maxLength={1000} value={form.goal} onChange={handleChange} className={input + " resize-y"} style={iStyle} placeholder="One line is fine." />
       </div>
+
+      {/* How they found us — with a $100 incentive to actually answer */}
+      <div style={{ border: `1px solid ${C.good}`, background: C.cream, borderRadius: "2px", padding: "16px 18px" }}>
+        <div style={{ ...lStyle, color: C.good, marginBottom: "6px" }}>💵 Get $100 — tell us how you found us</div>
+        <p style={{ fontFamily: body, fontSize: "13px", color: C.graphite, lineHeight: 1.55, marginBottom: "12px" }}>
+          Tell us how you heard about Full Loop and, if you become a client, we&rsquo;ll send you <strong style={{ color: C.ink }}>$100</strong>. It genuinely helps us.
+        </p>
+        <label htmlFor="lf-heard" style={lStyle}>How did you find us?</label>
+        <select id="lf-heard" name="heardFrom" required value={form.heardFrom} onChange={handleChange} className={input} style={iStyle}>
+          <option value="" disabled>Select…</option>
+          {HEARD_FROM.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <label htmlFor="lf-heard-more" style={{ ...lStyle, marginTop: "12px", display: "block" }}>Anything more? <span style={{ textTransform: "none", color: C.muted2 }}>(optional — the specific search, person, page, or post)</span></label>
+        <textarea id="lf-heard-more" name="heardMore" rows={2} maxLength={1000} value={form.heardMore} onChange={handleChange} className={input + " resize-y"} style={iStyle} placeholder="e.g. Googled 'CRM for locksmiths', referred by…, saw your post on…" />
+        <p style={{ fontFamily: body, fontSize: "12px", color: C.graphite, lineHeight: 1.5, marginTop: "10px", fontStyle: "italic" }}>
+          We truly appreciate you helping us learn more about how we&rsquo;re found.
+        </p>
+      </div>
+
       <button type="submit" className="transition-transform hover:-translate-y-0.5" style={loud}>
         Review My Application →
       </button>

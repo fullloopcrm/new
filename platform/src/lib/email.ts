@@ -13,12 +13,14 @@ export async function sendEmail({
   html,
   from,
   resendApiKey,
+  attachments,
 }: {
   to: string
   subject: string
   html: string
   from?: string
   resendApiKey?: string | null
+  attachments?: { filename: string; content: string | Buffer }[]
 }) {
   // Determine which client to use — fail fast if no key available.
   // Per-tenant keys are stored encrypted; decryptSecret() passes plaintext through.
@@ -31,7 +33,7 @@ export async function sendEmail({
   }
 
   return withRetry(async () => {
-    const sender = from || 'Full Loop CRM <noreply@fullloopcrm.com>'
+    const sender = from || 'Full Loop CRM <hello@fullloopcrm.com>'
 
     // Trim recipients defensively — env vars and form input can carry stray
     // whitespace/newlines (e.g. ADMIN_NOTIFICATION_EMAIL="...\n"), which Resend
@@ -45,6 +47,7 @@ export async function sendEmail({
       to: recipients,
       subject,
       html,
+      ...(attachments && attachments.length ? { attachments } : {}),
     })
 
     if (error) {

@@ -19,15 +19,17 @@ type Section = {
 
 const navMain: Section[] = [
   { num: '00', label: 'Overview', href: '/admin', fold: 'overview', subs: [] },
-  { num: '01', label: 'Sales', href: '/admin/sales', fold: 'sales', subs: [] },
-  { num: '02', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [] },
-  { num: '03', label: 'Inbox', href: '/admin/inbox', fold: 'inbox', subs: [] },
-  { num: '04', label: 'Tenant Chats', href: '/admin/tenant-chats', fold: 'tenant-chats', subs: [] },
-  { num: '05', label: 'ComHub', href: '/admin/comhub', fold: 'comhub', subs: [] },
-  { num: '06', label: 'SEO', href: '/admin/seo', fold: 'seo', subs: [] },
+  { num: '01', label: 'ComHub', href: '/admin/comhub', fold: 'comhub', subs: [] },
+  { num: '02', label: 'Sales', href: '/admin/sales', fold: 'sales', subs: [
+    { letter: 'a', label: 'Territories', href: '/admin/territories' },
+  ] },
+  { num: '03', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [
+    { letter: 'a', label: 'Tenant Chats', href: '/admin/tenant-chats' },
+  ] },
 ]
 
 const navPlatform = [
+  { label: 'SEO', href: '/admin/seo' },
   { label: 'Feedback', href: '/admin/feedback' },
   { label: 'System Status', href: '/admin/status' },
   { label: 'Activity Log', href: '/admin/activity' },
