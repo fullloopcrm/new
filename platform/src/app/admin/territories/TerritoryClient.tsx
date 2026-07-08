@@ -91,6 +91,8 @@ export default function TerritoryClient({
   }, [])
 
   useEffect(() => {
+    // Fetch on category change; loadClaims setStates asynchronously after await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadClaims(categoryId)
   }, [categoryId, loadClaims])
 
