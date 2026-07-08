@@ -191,6 +191,7 @@ export async function POST(request: NextRequest) {
         try {
           await sendEmail({
             to: email,
+            from: (tenant as { email_from?: string | null }).email_from || undefined,
             resendApiKey: tenant.resend_api_key,
             subject: `We received your application — ${tenant.name}`,
             html: customerConfirmationHtml({
@@ -388,6 +389,7 @@ export async function POST(request: NextRequest) {
       try {
         await sendEmail({
           to: email,
+          from: (tenant as { email_from?: string | null }).email_from || undefined,
           resendApiKey: tenant.resend_api_key,
           subject: `We got your request — ${tenant.name}`,
           html: customerConfirmationHtml({
