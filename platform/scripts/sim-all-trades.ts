@@ -38,8 +38,9 @@ const PERSIST = process.env.SIM_PERSIST === '1'
 const ONLY = (process.env.SIM_ONLY || '').split(',').map(s => s.trim()).filter(Boolean)
 
 import type { IndustryKey } from '../src/lib/provision-tenant'
+import { SERVICE_PRESETS } from '../src/lib/industry-presets'
 
-const VALID_INDUSTRIES: IndustryKey[] = ['cleaning', 'landscaping', 'hvac', 'plumbing', 'handyman', 'electrical', 'pest', 'towing', 'junk_removal', 'dumpster', 'mobile_salon', 'laundry', 'interior_design', 'fitness', 'general']
+const VALID_INDUSTRIES = Object.keys(SERVICE_PRESETS)
 
 const CITIES = [
   { city: 'Austin', state: 'TX', zip: '78701' }, { city: 'Charlotte', state: 'NC', zip: '28202' },
@@ -132,6 +133,9 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
   const ind = mapIndustry(t.category)
   const bizName = `SIM ${t.category} ${runId}`
   add(`mapIndustry("${t.category}") → valid vertical`, VALID_INDUSTRIES.includes(ind), `got ${ind}`)
+  // "add the missing": every REAL trade must resolve to its own specific vertical.
+  // Only the freeform "Other" is allowed to fall back to 'general'.
+  add(`trade → specific vertical (not generic)`, t.category === 'Other' ? ind === 'general' : ind !== 'general', ind)
 
   let tenantId: string | null = null
   let prospectId: string | null = null

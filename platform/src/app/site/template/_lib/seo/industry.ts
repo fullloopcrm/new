@@ -26,7 +26,11 @@ export interface IndustryProfile {
 
 export function industryProfile(industry?: string | null): IndustryProfile {
   const key = (industry || '').toLowerCase()
-  const isCleaning = key.includes('clean') || key.includes('maid')
+  // ONLY true house-cleaning / maid service. Must NOT catch cleaning-adjacent
+  // trades (window_cleaning, carpet_cleaning, gutter, bin_cleaning, air_duct,
+  // pressure_washing, post_construction) — they are their own verticals and must
+  // not be served the maid marketing site with $59/hr bedrooms copy.
+  const isCleaning = key === 'cleaning' || key.includes('house clean') || key.includes('maid')
   const isVirtualAssistant =
     key.includes('virtual assist') ||
     key.includes('virtual-assist') ||
