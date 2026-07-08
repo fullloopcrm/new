@@ -1,25 +1,19 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { protectAdminAPI } from '@/lib/nycmaid/auth'
-import { getCurrentTenant } from '@/lib/tenant'
+import { requirePermission } from '@/lib/require-permission'
 import { normalizePhone } from '@/lib/nycmaid/client-contacts'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authError = await protectAdminAPI()
-  if (authError) return authError
-
-  // Tenant isolation: admin_session is not tenant-bound, so scope the read to
-  // the caller's tenant (resolved from the signed header). Without this, any
-  // admin_session holder could read another tenant's client contact PII by
-  // iterating client ids.
-  const tenant = await getCurrentTenant()
-  if (!tenant) return NextResponse.json({ error: 'No tenant context' }, { status: 403 })
+  // FL auth (replaces legacy admin_session): authenticates the caller + scopes
+  // every query to their tenant, so no one can read another tenant's contact PII.
+  const { tenant, error: authErr } = await requirePermission('clients.view')
+  if (authErr) return authErr
 
   const { id } = await params
   const { data, error } = await supabaseAdmin
     .from('client_contacts')
     .select('id, tenant_id, client_id, name, role, phone_e164, email, is_primary, receives_sms, receives_email, sms_consent_at, email_consent_at, sms_opted_out_at, email_opted_out_at, created_at')
-    .eq('tenant_id', tenant.id)
+    .eq('tenant_id', tenant.tenantId)
     .eq('client_id', id)
     .order('is_primary', { ascending: false })
     .order('created_at', { ascending: true })
@@ -29,13 +23,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authError = await protectAdminAPI()
-  if (authError) return authError
-
-  // Tenant isolation: scope the client lookup + insert to the caller's tenant so
-  // a cross-tenant client id can't have contacts written against it.
-  const tenant = await getCurrentTenant()
-  if (!tenant) return NextResponse.json({ error: 'No tenant context' }, { status: 403 })
+  // FL auth (replaces legacy admin_session): authenticate + scope to tenant.
+  const { tenant, error: authErr } = await requirePermission('clients.edit')
+  if (authErr) return authErr
 
   try {
     const { id } = await params
@@ -45,7 +35,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .from('clients')
       .select('tenant_id')
       .eq('id', id)
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
       .single()
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
@@ -72,7 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     if (payload.is_primary) {
-      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('tenant_id', tenant.id).eq('client_id', id).eq('is_primary', true)
+      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('tenant_id', tenant.tenantId).eq('client_id', id).eq('is_primary', true)
     }
 
     const { data, error } = await supabaseAdmin.from('client_contacts').insert(payload).select().single()  // tenant-scope-ok: insert payload carries tenant_id (client.tenant_id)
