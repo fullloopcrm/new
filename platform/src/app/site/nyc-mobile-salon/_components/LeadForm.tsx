@@ -37,6 +37,9 @@ async function submitLead(
     message: [date ? `Preferred date: ${date}` : "", userMessage]
       .filter(Boolean)
       .join("\n"),
+    // Online booking through the site = self-book → qualifies for the
+    // online-booking discount (amount is per-tenant, resolved server-side).
+    selfBook: true,
   };
 
   try {
