@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { getCommPrefs } from '@/lib/comms-prefs'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { sendSMS } from '@/lib/sms'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -40,6 +41,12 @@ export async function GET(request: Request) {
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
     const clientSms = await clientSmsTemplatesFor(tenantId)
+    // Per-tenant communications prefs (loaded once — not per booking).
+    // reminder_days drives which day-out reminders fire; the booking_reminder
+    // SMS toggle gates the client text. Email is gated centrally in notify().
+    const commPrefs = await getCommPrefs(tenantId)
+    const reminderDays = commPrefs.timing.reminder_days.length ? commPrefs.timing.reminder_days : [3, 1]
+    const reminderSmsOn = commPrefs.comms.booking_reminder?.sms !== false
 
     try {
       // ============================================
@@ -47,7 +54,7 @@ export async function GET(request: Request) {
       // 3 days before + 1 day before
       // ============================================
       if (now.getHours() === 8) {
-        for (const daysOut of [3, 1]) {
+        for (const daysOut of reminderDays) {
           const target = new Date(now)
           target.setDate(target.getDate() + daysOut)
           target.setHours(0, 0, 0, 0)
@@ -95,8 +102,8 @@ export async function GET(request: Request) {
               })
             }
 
-            // Client SMS reminder
-            if (client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+            // Client SMS reminder (gated by the booking_reminder SMS toggle)
+            if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
               const smsData = { start_time: booking.start_time, team_members: booking.team_members }
               const smsBody = clientSms.reminder(smsData, label)
               try {

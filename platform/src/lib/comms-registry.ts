@@ -391,3 +391,29 @@ export const AUDIENCE_LABEL: Record<CommAudience, string> = {
 }
 
 export const AUDIENCE_ORDER: CommAudience[] = ['client', 'team', 'owner']
+
+/**
+ * Maps notify() dispatches → registry keys so notify() can gate email/SMS on the
+ * tenant's preferences. Keyed `"<type>:<recipientType>"` (falls back to `<type>`).
+ *
+ * SAFETY: only entries whose registry default is TRUE on the channel notify()
+ * actually uses appear here — so gating is behavior-preserving (a comm that
+ * sends today keeps sending until a tenant explicitly turns it off). Comms whose
+ * default is OFF on a channel notify() currently sends unconditionally (e.g.
+ * owner_payment_received email) are intentionally OMITTED = fail-open, so wiring
+ * never silently disables a live message. Add them here only once their default
+ * is confirmed to match current behavior.
+ */
+export const NOTIFY_COMM_MAP: Record<string, string> = {
+  'booking_reminder:client': 'booking_reminder',
+  'booking_confirmed:client': 'booking_confirmed',
+  'booking_received:client': 'booking_received',
+  'follow_up:client': 'thank_you',
+  'review_request:client': 'review_request',
+  'new_client:admin': 'owner_new_lead',
+  'new_lead:admin': 'owner_new_lead',
+  'new_booking:admin': 'owner_new_booking',
+  'cleaner_application:admin': 'owner_new_application',
+  'daily_ops_recap:admin': 'owner_daily_summary',
+  'daily_summary:admin': 'owner_daily_summary',
+}
