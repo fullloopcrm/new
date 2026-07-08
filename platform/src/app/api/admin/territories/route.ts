@@ -14,6 +14,7 @@ import {
   getClaimsForCategory,
   getTenantPins,
   getTenantsLite,
+  searchTerritories,
   claimTerritory,
   releaseTerritory,
 } from '@/lib/territories/data'
@@ -21,6 +22,12 @@ import {
 export async function GET(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
+
+  const searchQ = req.nextUrl.searchParams.get('q')
+  if (searchQ !== null) {
+    const results = await searchTerritories(searchQ)
+    return NextResponse.json({ results })
+  }
 
   const categoryId = req.nextUrl.searchParams.get('category')
 

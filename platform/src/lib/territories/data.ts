@@ -56,16 +56,88 @@ export async function getTerritories(): Promise<Territory[]> {
   return (data ?? []) as Territory[]
 }
 
-/** fips -> territory_id, for coloring county polygons by their territory. */
+/**
+ * fips -> territory_id, for coloring county polygons by their territory.
+ * Paginated: Supabase caps a single select at 1000 rows, but there are 3,144
+ * counties — without paging, ~2/3 of the map would render uncolored.
+ */
 export async function getCountyToTerritory(): Promise<Record<string, string>> {
   const map: Record<string, string> = {}
-  const { data } = await supabaseAdmin
-    .from('counties')
-    .select('fips, territory_id')
-  for (const row of data ?? []) {
-    if (row.territory_id) map[row.fips as string] = row.territory_id as string
+  const PAGE = 1000
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabaseAdmin
+      .from('counties')
+      .select('fips, territory_id')
+      .range(from, from + PAGE - 1)
+    if (!data || data.length === 0) break
+    for (const row of data) {
+      if (row.territory_id) map[row.fips as string] = row.territory_id as string
+    }
+    if (data.length < PAGE) break
   }
   return map
+}
+
+export interface TerritorySearchResult {
+  territory_id: string
+  name: string
+  kind: string
+  state: string | null
+  match: string // human label of what matched (ZIP, county, metro name)
+}
+
+function coerceTerritory(rel: unknown): { id: string; name: string; kind: string; state_abbr: string | null } | null {
+  const t = Array.isArray(rel) ? rel[0] : rel
+  if (!t || typeof t !== 'object') return null
+  const o = t as Record<string, unknown>
+  if (!o.id) return null
+  return { id: o.id as string, name: (o.name as string) ?? '', kind: (o.kind as string) ?? '', state_abbr: (o.state_abbr as string | null) ?? null }
+}
+
+/** Search territories by ZIP, county name, metro name, or state — instead of map-hunting. */
+export async function searchTerritories(q: string): Promise<TerritorySearchResult[]> {
+  const query = q.trim()
+  if (query.length < 2) return []
+  const out = new Map<string, TerritorySearchResult>()
+
+  // ZIP → county → territory
+  if (/^\d{5}$/.test(query)) {
+    const { data: zc } = await supabaseAdmin.from('zip_counties').select('fips').eq('zip', query)
+    const fipsList = (zc ?? []).map((r) => r.fips as string)
+    if (fipsList.length) {
+      const { data: cs } = await supabaseAdmin
+        .from('counties')
+        .select('name, state_abbr, territories(id,name,kind,state_abbr)')
+        .in('fips', fipsList)
+      for (const c of cs ?? []) {
+        const t = coerceTerritory((c as Record<string, unknown>).territories)
+        if (t) out.set(t.id, { territory_id: t.id, name: t.name, kind: t.kind, state: t.state_abbr, match: `ZIP ${query} · ${c.name as string}, ${c.state_abbr as string}` })
+      }
+    }
+    return [...out.values()]
+  }
+
+  // Metro/rural name or state code
+  const { data: terr } = await supabaseAdmin
+    .from('territories')
+    .select('id,name,kind,state_abbr')
+    .or(`name.ilike.%${query}%,state_abbr.ilike.${query}`)
+    .limit(20)
+  for (const t of terr ?? [])
+    out.set(t.id as string, { territory_id: t.id as string, name: t.name as string, kind: t.kind as string, state: (t.state_abbr as string | null) ?? null, match: `${t.kind as string} territory` })
+
+  // County name → its territory
+  const { data: cs } = await supabaseAdmin
+    .from('counties')
+    .select('name, state_abbr, territories(id,name,kind,state_abbr)')
+    .ilike('name', `%${query}%`)
+    .limit(20)
+  for (const c of cs ?? []) {
+    const t = coerceTerritory((c as Record<string, unknown>).territories)
+    if (t && !out.has(t.id)) out.set(t.id, { territory_id: t.id, name: t.name, kind: t.kind, state: t.state_abbr, match: `${c.name as string}, ${c.state_abbr as string}` })
+  }
+
+  return [...out.values()].slice(0, 25)
 }
 
 /** Active claims for one category. Missing territory => available. */

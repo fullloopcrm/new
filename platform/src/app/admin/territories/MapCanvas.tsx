@@ -33,7 +33,7 @@ const COLORS: Record<ClaimStatus | 'unknown', string> = {
   available: '#10b981',
   pending: '#f59e0b',
   claimed: '#ef4444',
-  unknown: '#3f3f46',
+  unknown: '#cbd5e1', // light slate — outside the 50 states (PR etc.)
 }
 
 export default function MapCanvas({
@@ -78,9 +78,9 @@ export default function MapCanvas({
     const status = fipsToStatus(fips)
     return {
       fillColor: COLORS[status],
-      fillOpacity: status === 'unknown' ? 0.25 : 0.6,
-      color: '#18181b',
-      weight: 0.3,
+      fillOpacity: status === 'unknown' ? 0.3 : 0.72,
+      color: '#ffffff',
+      weight: 0.4,
     }
   }
 
@@ -91,11 +91,11 @@ export default function MapCanvas({
       minZoom={3}
       maxZoom={10}
       preferCanvas
-      style={{ height: '100%', width: '100%', background: '#0d0d0f' }}
+      style={{ height: '100%', width: '100%', background: '#e8edf1' }}
     >
       <TileLayer
-        attribution='&copy; OpenStreetMap'
-        url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
+        attribution='&copy; OpenStreetMap &copy; CARTO'
+        url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
       />
       {counties && (
         <GeoJSON

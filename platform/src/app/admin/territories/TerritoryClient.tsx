@@ -62,6 +62,24 @@ export default function TerritoryClient({
   const [assignTenant, setAssignTenant] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [searchQ, setSearchQ] = useState('')
+  const [searchResults, setSearchResults] = useState<
+    { territory_id: string; name: string; kind: string; state: string | null; match: string }[]
+  >([])
+
+  // Debounced search by ZIP / county / metro name / state — no map-hunting.
+  useEffect(() => {
+    const q = searchQ.trim()
+    if (q.length < 2) {
+      setSearchResults([])
+      return
+    }
+    const id = setTimeout(async () => {
+      const res = await fetch(`/api/admin/territories?q=${encodeURIComponent(q)}`)
+      if (res.ok) setSearchResults((await res.json()).results ?? [])
+    }, 250)
+    return () => clearTimeout(id)
+  }, [searchQ])
 
   const territoryById = useMemo(() => {
     const m = new Map<string, Territory>()
@@ -137,6 +155,39 @@ export default function TerritoryClient({
     <div className="flex gap-4" style={{ height: 'calc(100vh - 140px)' }}>
       {/* LEFT: controls */}
       <div className="w-72 flex-shrink-0 flex flex-col gap-4">
+        <div className="relative">
+          <label className="block text-[11px] uppercase tracking-wider text-zinc-500 mb-1">
+            Search — ZIP, county, metro, state
+          </label>
+          <input
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            placeholder="e.g. 10036, Dallas, Custer, TX"
+            className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100"
+          />
+          {searchResults.length > 0 && (
+            <div className="absolute z-[1000] mt-1 w-full max-h-72 overflow-y-auto rounded border border-zinc-700 bg-zinc-900 shadow-xl">
+              {searchResults.map((r) => (
+                <button
+                  key={r.territory_id}
+                  onClick={() => {
+                    setSelected({ territoryId: r.territory_id, countyName: r.match })
+                    setAssignTenant('')
+                    setSearchQ('')
+                    setSearchResults([])
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 hover:bg-zinc-800 border-b border-zinc-800 last:border-0"
+                >
+                  <div className="text-sm text-zinc-100">{r.name}</div>
+                  <div className="text-[11px] text-zinc-500">
+                    {r.kind} · {r.state ?? '—'} · {r.match}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div>
           <label className="block text-[11px] uppercase tracking-wider text-zinc-500 mb-1">
             Category
