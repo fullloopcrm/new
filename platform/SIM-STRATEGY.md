@@ -9,9 +9,23 @@ Every issue → fix with confidence → re-loop until that trade passes 100%. Do
 **DB:** FL prod (`cetnrttgtoajzjacfbhe`). Pattern = create `test-*` rows via service role → exercise real
 libs/routes → verify → clean up. No Stripe. No client SMS. Owner email/SMS to Jeff only, minimal.
 
-## The 15 verticals (IndustryKey)
-cleaning · landscaping · hvac · plumbing · handyman · electrical · pest · towing · junk_removal ·
-dumpster · mobile_salon · laundry · interior_design · fitness · general
+## ONE system, thinks like the trade (Jeff's model)
+- **Service business** (cleaning=1 day, lawn, window, pool…) → **bookings**. Self-book lands
+  `pending` → smart-scheduling suggests the best worker. A booking IS a sale → shows in the sales tab.
+- **Project business** (remodeling=up to a year, roofing, restoration…) → **lead/collect form** →
+  sales pipeline → job with N sessions + payment plan. Long spans → the project calendar view.
+- Either entry (booking OR lead) **creates a client profile**. Leads run the sales process; bookings
+  also reflect in the sales tab. The master schedule's 4 views span 1-day slot → multi-day → project.
+
+## The 53 trades (territory-map `service_categories`) + "Other"
+Source of truth = `service_categories` (the admin territory map). The partnership lead form
+(`src/components/PartnershipForm.tsx`) now lists all 53 + "Other". Each trade resolves to one of the
+15 provisioning verticals via the real `mapIndustry()`; unmatched trades fall to `general` (generic
+presets). The sim drives ALL 53 + "Other" through the full lifecycle and reports the trade→vertical map.
+
+15 provisioning verticals (IndustryKey): cleaning · landscaping · hvac · plumbing · handyman ·
+electrical · pest · towing · junk_removal · dumpster · mobile_salon · laundry · interior_design ·
+fitness · general
 
 ## Phases (each must hit 100% across all 15 before moving on)
 - [ ] **P1 — Lifecycle:** mapIndustry → prospect(lead) → approve(qualify) → tenant(sell) → entity →

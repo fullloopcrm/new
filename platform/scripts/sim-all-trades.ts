@@ -39,27 +39,80 @@ const ONLY = (process.env.SIM_ONLY || '').split(',').map(s => s.trim()).filter(B
 
 import type { IndustryKey } from '../src/lib/provision-tenant'
 
-// Representative free-text trade string per vertical → verifies mapIndustry resolution too.
-const TRADES: Array<{ industry: IndustryKey; tradeText: string; city: string; state: string; zip: string; minServices: number }> = [
-  { industry: 'cleaning',        tradeText: 'residential house cleaning & maid service', city: 'Austin',       state: 'TX', zip: '78701', minServices: 6 },
-  { industry: 'landscaping',     tradeText: 'lawn care and landscaping',                 city: 'Charlotte',    state: 'NC', zip: '28202', minServices: 4 },
-  { industry: 'hvac',            tradeText: 'HVAC heating and air conditioning',         city: 'Phoenix',      state: 'AZ', zip: '85004', minServices: 4 },
-  { industry: 'plumbing',        tradeText: 'plumbing and drain repair',                 city: 'Denver',       state: 'CO', zip: '80202', minServices: 4 },
-  { industry: 'handyman',        tradeText: 'handyman home repair and assembly',         city: 'Columbus',     state: 'OH', zip: '43215', minServices: 4 },
-  { industry: 'electrical',      tradeText: 'electrician and EV charger install',        city: 'Portland',     state: 'OR', zip: '97204', minServices: 4 },
-  { industry: 'pest',            tradeText: 'pest control and extermination',            city: 'Tampa',        state: 'FL', zip: '33602', minServices: 4 },
-  { industry: 'towing',          tradeText: 'towing and roadside recovery',              city: 'Dallas',       state: 'TX', zip: '75201', minServices: 5 },
-  { industry: 'junk_removal',    tradeText: 'junk removal and debris hauling',           city: 'Atlanta',      state: 'GA', zip: '30303', minServices: 5 },
-  { industry: 'dumpster',        tradeText: 'roll off dumpster rental',                  city: 'Nashville',    state: 'TN', zip: '37203', minServices: 4 },
-  { industry: 'mobile_salon',    tradeText: 'mobile hair salon and barber',              city: 'Miami',        state: 'FL', zip: '33130', minServices: 4 },
-  { industry: 'laundry',         tradeText: 'wash and fold laundry pickup',              city: 'Brooklyn',     state: 'NY', zip: '11201', minServices: 4 },
-  { industry: 'interior_design', tradeText: 'interior design and home staging',          city: 'Seattle',      state: 'WA', zip: '98101', minServices: 4 },
-  { industry: 'fitness',         tradeText: 'personal trainer and fitness coaching',     city: 'San Diego',    state: 'CA', zip: '92101', minServices: 4 },
-  { industry: 'general',         tradeText: 'general home services',                     city: 'Kansas City',  state: 'MO', zip: '64106', minServices: 4 },
+const VALID_INDUSTRIES: IndustryKey[] = ['cleaning', 'landscaping', 'hvac', 'plumbing', 'handyman', 'electrical', 'pest', 'towing', 'junk_removal', 'dumpster', 'mobile_salon', 'laundry', 'interior_design', 'fitness', 'general']
+
+const CITIES = [
+  { city: 'Austin', state: 'TX', zip: '78701' }, { city: 'Charlotte', state: 'NC', zip: '28202' },
+  { city: 'Phoenix', state: 'AZ', zip: '85004' }, { city: 'Denver', state: 'CO', zip: '80202' },
+  { city: 'Columbus', state: 'OH', zip: '43215' }, { city: 'Tampa', state: 'FL', zip: '33602' },
+  { city: 'Nashville', state: 'TN', zip: '37203' }, { city: 'Kansas City', state: 'MO', zip: '64106' },
+]
+
+// ALL 53 territory-map service_categories + "Other". model = the trade's primary
+// shape in the ONE system: 'service' = booking business (short/1-day; self-book →
+// pending → smart-schedule), 'project' = lead business (sales pipeline; can run
+// days→a year → the project calendar view). Every tenant runs BOTH paths here;
+// model is the per-trade lens Jeff asked for. `industry` is resolved at runtime by
+// the real mapIndustry() — trades with no specific vertical fall to 'general'.
+const TRADES: Array<{ category: string; model: 'service' | 'project' }> = [
+  { category: 'Aging-in-Place / Home Accessibility Mods', model: 'project' },
+  { category: 'Air Duct & Dryer Vent Cleaning', model: 'service' },
+  { category: 'Appliance Repair', model: 'service' },
+  { category: 'Carpet & Upholstery Cleaning', model: 'service' },
+  { category: 'Chimney Sweep', model: 'service' },
+  { category: 'Concrete & Masonry', model: 'project' },
+  { category: 'Deck Building', model: 'project' },
+  { category: 'Demolition', model: 'project' },
+  { category: 'Drywall Repair', model: 'project' },
+  { category: 'Electrical', model: 'service' },
+  { category: 'Epoxy / Garage Floor Coating', model: 'project' },
+  { category: 'Fencing', model: 'project' },
+  { category: 'Fire Damage Restoration', model: 'project' },
+  { category: 'Flooring Installation', model: 'project' },
+  { category: 'Foundation & Waterproofing', model: 'project' },
+  { category: 'Garage Door Repair', model: 'service' },
+  { category: 'Gutter Cleaning', model: 'service' },
+  { category: 'Handyman', model: 'service' },
+  { category: 'Holiday / Christmas Light Installation', model: 'service' },
+  { category: 'Home Inspection', model: 'service' },
+  { category: 'House Cleaning', model: 'service' },
+  { category: 'HVAC', model: 'service' },
+  { category: 'Insulation', model: 'project' },
+  { category: 'Irrigation / Sprinklers', model: 'service' },
+  { category: 'Junk Removal & Hauling', model: 'service' },
+  { category: 'Landscaping', model: 'project' },
+  { category: 'Lawn Care', model: 'service' },
+  { category: 'Locksmith', model: 'service' },
+  { category: 'Mobile Car Detailing', model: 'service' },
+  { category: 'Mobile Pet Grooming', model: 'service' },
+  { category: 'Mold Remediation', model: 'project' },
+  { category: 'Moving Services', model: 'project' },
+  { category: 'Painting', model: 'project' },
+  { category: 'Paving', model: 'project' },
+  { category: 'Pest Control', model: 'service' },
+  { category: 'Pet Waste Removal', model: 'service' },
+  { category: 'Plumbing', model: 'service' },
+  { category: 'Pool Cleaning & Maintenance', model: 'service' },
+  { category: 'Post-Construction Cleaning', model: 'service' },
+  { category: 'Pressure Washing', model: 'service' },
+  { category: 'Remodeling / General Contracting', model: 'project' },
+  { category: 'Replacement Windows & Doors', model: 'project' },
+  { category: 'Roofing', model: 'project' },
+  { category: 'Septic Services', model: 'service' },
+  { category: 'Siding Installation', model: 'project' },
+  { category: 'Smart Home & Security Installation', model: 'project' },
+  { category: 'Snow Removal', model: 'service' },
+  { category: 'Solar Panel Installation', model: 'project' },
+  { category: 'Stucco Repair', model: 'project' },
+  { category: 'Trash Bin / Garbage Can Cleaning', model: 'service' },
+  { category: 'Tree Service', model: 'service' },
+  { category: 'Water Damage Restoration', model: 'project' },
+  { category: 'Window Cleaning', model: 'service' },
+  { category: 'Other', model: 'service' }, // freeform → verifies unknown-trade fallback to 'general'
 ]
 
 type Check = { name: string; pass: boolean; detail?: string }
-type TradeResult = { industry: string; passed: number; failed: number; failures: string[]; ms: number; leftovers: string[] }
+type TradeResult = { category: string; industry: string; model: string; passed: number; failed: number; failures: string[]; ms: number; leftovers: string[] }
 
 function slugify(name: string, id: string): string {
   return 'sim-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + id.slice(0, 6)
@@ -72,20 +125,21 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
   const add = (name: string, pass: boolean, detail?: string) => checks.push({ name, pass, detail })
 
   const runId = `${idx}-${Date.now().toString(36)}-${randomBytes(2).toString('hex')}`
-  const bizName = `SIM ${t.industry} ${runId}`
+  const loc = CITIES[idx % CITIES.length]
 
-  // ---- P1.0 mapIndustry (trade-text → canonical vertical) ----
+  // ---- P1.0 mapIndustry (real trade name → canonical vertical) ----
   const { mapIndustry } = await import('../src/lib/provision-tenant')
-  const resolved = mapIndustry(t.tradeText)
-  add(`mapIndustry("${t.tradeText.slice(0, 24)}…") → ${t.industry}`, resolved === t.industry, `got ${resolved}`)
+  const ind = mapIndustry(t.category)
+  const bizName = `SIM ${t.category} ${runId}`
+  add(`mapIndustry("${t.category}") → valid vertical`, VALID_INDUSTRIES.includes(ind), `got ${ind}`)
 
   let tenantId: string | null = null
   let prospectId: string | null = null
   try {
-    // ---- P1.1 LEAD: prospect (as if /qualify submitted) ----
+    // ---- P1.1 LEAD: prospect (as if partnership form / qualify submitted) ----
     const { data: prospect, error: pErr } = await supabase.from('prospects').insert({
       business_name: bizName, owner_name: OWNER.name, owner_email: OWNER.email, owner_phone: OWNER.phone,
-      trade: t.tradeText, primary_city: t.city, primary_state: t.state, primary_zip: t.zip,
+      trade: t.category, primary_city: loc.city, primary_state: loc.state, primary_zip: loc.zip,
       paid_tier: 'growth', status: 'new',
     }).select('id, business_name, status').single()
     add('lead: prospect created', !!prospect && !pErr, pErr?.message)
@@ -101,14 +155,14 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     const pricing = signupPricing()
     const slug = slugify(bizName, prospect.id)
     const { data: tenant, error: tErr } = await supabase.from('tenants').insert({
-      name: bizName, slug, industry: t.industry,
+      name: bizName, slug, industry: ind,
       phone: OWNER.phone, email: OWNER.email,
       owner_name: OWNER.name, owner_email: OWNER.email, owner_phone: OWNER.phone,
       status: 'active', plan: 'growth',
       monthly_rate: Math.round((pricing.monthly_cents || 0) / 100),
       setup_fee: Math.round((pricing.setup_cents || 0) / 100),
       setup_fee_paid_at: new Date().toISOString(), billing_status: 'active',
-      address: `${t.city}, ${t.state} ${t.zip}`,
+      address: `${loc.city}, ${loc.state} ${loc.zip}`,
     }).select('id, slug').single()
     add('sell: tenant created', !!tenant && !tErr, tErr?.message)
     if (!tenant) throw new Error('tenant insert failed: ' + tErr?.message)
@@ -120,14 +174,14 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
 
     // ---- P1.5 ONBOARD: provisionTenant ----
     const { provisionTenant } = await import('../src/lib/provision-tenant')
-    const prov = await provisionTenant({ tenantId: tenant.id, industry: t.industry })
+    const prov = await provisionTenant({ tenantId: tenant.id, industry: ind })
     add('onboard: provisionTenant ran', prov.seeded.services > 0, `seeded ${JSON.stringify(prov.seeded)}`)
 
     // ---- P1.6 services w/ SKU price_cents (no $0 proposals) ----
     const { data: services } = await supabase.from('service_types')
       .select('id, name, price_cents, item_type, per_unit, default_hourly_rate').eq('tenant_id', tenant.id)
     const svcCount = services?.length || 0
-    add(`services: >= ${t.minServices} seeded`, svcCount >= t.minServices, `${svcCount} seeded`)
+    add(`services: >= ${4} seeded`, svcCount >= 4, `${svcCount} seeded`)
     const zeroPriced = (services || []).filter(s => !s.price_cents || s.price_cents <= 0)
     add('services: all have price_cents > 0', zeroPriced.length === 0, zeroPriced.length ? `${zeroPriced.length} at $0: ${zeroPriced.map(s => s.name).join(', ')}` : 'ok')
 
@@ -140,7 +194,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     add('config: checklist_fields present', checklist.length >= 5, `${checklist.length} fields`)
     // cleaning is the ONLY vertical that asks bedrooms; others must NOT.
     const hasBedrooms = checklist.some(f => f.key === 'bedrooms')
-    add('config: bedrooms only for cleaning', t.industry === 'cleaning' ? hasBedrooms : !hasBedrooms, `hasBedrooms=${hasBedrooms}`)
+    add('config: bedrooms only for cleaning', ind === 'cleaning' ? hasBedrooms : !hasBedrooms, `hasBedrooms=${hasBedrooms}`)
 
     // ---- P1.8 payment/hours/guidelines ----
     add('config: payment_methods populated', Array.isArray(fresh?.payment_methods) && (fresh!.payment_methods as unknown[]).length > 0)
@@ -156,7 +210,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     add('onboard: owner invite created', !invErr, invErr?.message)
 
     // ---- P1.10 idempotency: 2nd provision must not duplicate ----
-    const prov2 = await provisionTenant({ tenantId: tenant.id, industry: t.industry })
+    const prov2 = await provisionTenant({ tenantId: tenant.id, industry: ind })
     const { count: svcAfter } = await supabase.from('service_types').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id)
     add('idempotency: 2nd provision skips services', prov2.skipped.some(s => s.startsWith('services')) && (svcAfter || 0) === svcCount, `skipped=${prov2.skipped.join('|')} count=${svcAfter}`)
 
@@ -188,8 +242,8 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     const custEmail = `customer+${runId}@example.com`
     const { data: quote, error: qInsErr } = await supabase.from('quotes').insert({
       tenant_id: tenant.id, client_id: null, quote_number: quoteNumber, status: 'draft',
-      title: `${t.industry} job for customer`, contact_name: 'Test Customer', contact_email: custEmail,
-      contact_phone: '+15551230000', service_address: `${t.city}, ${t.state} ${t.zip}`,
+      title: `${ind} job for customer`, contact_name: 'Test Customer', contact_email: custEmail,
+      contact_phone: '+15551230000', service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
       line_items: liveLineItems, subtotal_cents: liveTotals.subtotal_cents, tax_rate_bps: 0,
       tax_cents: liveTotals.tax_cents, discount_cents: 0, total_cents: liveTotals.total_cents,
       public_token: generatePublicToken(),
@@ -227,8 +281,8 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     const q2Total = liveTotals.subtotal_cents || 20000
     const { data: quote2, error: q2Err } = await supabase.from('quotes').insert({
       tenant_id: tenant.id, client_id: null, quote_number: q2Num, status: 'accepted',
-      title: `${t.industry} project`, contact_name: 'Project Customer', contact_email: `proj+${runId}@example.com`,
-      contact_phone: '+15551239999', service_address: `${t.city}, ${t.state} ${t.zip}`,
+      title: `${ind} project`, contact_name: 'Project Customer', contact_email: `proj+${runId}@example.com`,
+      contact_phone: '+15551239999', service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
       line_items: liveLineItems, subtotal_cents: q2Total, tax_rate_bps: 0, tax_cents: 0, discount_cents: 0,
       total_cents: q2Total, public_token: generatePublicToken(),
     }).select('id, total_cents').single()
@@ -287,7 +341,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     if (undeposited && revenue) {
       entryId = await postJournalEntry({
         tenant_id: tenant.id, entry_date: new Date().toISOString().slice(0, 10),
-        memo: `sim ${t.industry} revenue`, source: 'sim-revenue', source_id: srcId,
+        memo: `sim ${ind} revenue`, source: 'sim-revenue', source_id: srcId,
         lines: [
           { coa_id: undeposited, debit_cents: amt, memo: 'payment received' },
           { coa_id: revenue, credit_cents: amt, memo: 'service revenue' },
@@ -396,9 +450,9 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     // ================= P8 — PUBLIC SITE (industry gating: non-cleaning ≠ NYC-Maid site) =================
     const { isCleaningTenant } = await import('../src/lib/messaging/client-sms')
     const { industryProfile } = await import('../src/app/site/template/_lib/seo/industry')
-    const isClean = t.industry === 'cleaning'
-    add('site: isCleaningTenant classifies vertical', isCleaningTenant({ industry: t.industry }) === isClean)
-    const siteProf = industryProfile(t.industry)
+    const isClean = ind === 'cleaning'
+    add('site: isCleaningTenant classifies vertical', isCleaningTenant({ industry: ind }) === isClean)
+    const siteProf = industryProfile(ind)
     add('site: gate marks cleaning-only pages (isCleaning)', siteProf.isCleaning === isClean, `isCleaning=${siteProf.isCleaning}`)
     add('site: non-cleaning gets non-maid service label', isClean ? siteProf.serviceLabel === 'House Cleaning' : siteProf.serviceLabel !== 'House Cleaning', siteProf.serviceLabel)
 
@@ -408,8 +462,8 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     const recNum = await generateQuoteNumber(tenant.id)
     const { data: recQuote } = await supabase.from('quotes').insert({
       tenant_id: tenant.id, quote_number: recNum, status: 'accepted',
-      title: `${t.industry} weekly service`, contact_name: 'Recurring Customer', contact_email: `rec+${runId}@example.com`,
-      contact_phone: '+15551237777', service_address: `${t.city}, ${t.state} ${t.zip}`,
+      title: `${ind} weekly service`, contact_name: 'Recurring Customer', contact_email: `rec+${runId}@example.com`,
+      contact_phone: '+15551237777', service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
       line_items: liveLineItems, subtotal_cents: liveTotals.subtotal_cents, tax_rate_bps: 0, tax_cents: 0, discount_cents: 0,
       total_cents: liveTotals.subtotal_cents, public_token: generatePublicToken(),
       recurring_type: 'weekly', recurring_start_date: new Date().toISOString().slice(0, 10),
@@ -434,7 +488,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     const { data: defEntity } = await supabase.from('entities').select('id').eq('tenant_id', tenant.id).limit(1).maybeSingle()
     const { data: invoice, error: invErr2 } = await supabase.from('invoices').insert({
       tenant_id: tenant.id, entity_id: defEntity?.id || null, invoice_number: invNum, status: 'draft',
-      title: `${t.industry} invoice`, contact_name: 'Inv Customer', contact_email: `inv+${runId}@example.com`,
+      title: `${ind} invoice`, contact_name: 'Inv Customer', contact_email: `inv+${runId}@example.com`,
       line_items: iLines, subtotal_cents: iTot.subtotal_cents, tax_rate_bps: 8875, tax_cents: iTot.tax_cents,
       discount_cents: 0, total_cents: iTot.total_cents, due_date: new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10),
       public_token: generateInvoicePublicToken(),
@@ -474,7 +528,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
   const passed = checks.filter(c => c.pass).length
   const failed = checks.filter(c => !c.pass).length
   const failures = checks.filter(c => !c.pass).map(c => `${c.name}${c.detail ? ` (${c.detail})` : ''}`)
-  return { industry: t.industry, passed, failed, failures, ms: Date.now() - t0, leftovers }
+  return { category: t.category, industry: ind, model: t.model, passed, failed, failures, ms: Date.now() - t0, leftovers }
 }
 
 // ================= P7 — TERRITORY EXCLUSIVITY (global, one tenant per category/territory) =================
@@ -552,14 +606,14 @@ async function runCommsGateCheck(): Promise<{ passed: number; failed: number; fa
 }
 
 async function main() {
-  const list = ONLY.length ? TRADES.filter(t => ONLY.includes(t.industry)) : TRADES
-  console.log(`\n=== ALL-TRADES SIM — Phase 1 lifecycle — ${list.length} verticals ${PERSIST ? '(PERSIST)' : '(cleanup)'} ===\n`)
+  const list = ONLY.length ? TRADES.filter(t => ONLY.some(o => t.category.toLowerCase().includes(o.toLowerCase()) || t.model === o)) : TRADES
+  console.log(`\n=== ALL-TRADES SIM — ${list.length} trades (P1-P9) ${PERSIST ? '(PERSIST)' : '(cleanup)'} ===\n`)
   const results: TradeResult[] = []
   for (let i = 0; i < list.length; i++) {
-    process.stdout.write(`[${i + 1}/${list.length}] ${list[i].industry.padEnd(15)} `)
+    process.stdout.write(`[${String(i + 1).padStart(2)}/${list.length}] ${list[i].category.slice(0, 34).padEnd(35)}`)
     const r = await runTrade(list[i], i)
     results.push(r)
-    console.log(`${r.failed === 0 ? '✓' : '✗'} ${r.passed} pass${r.failed ? ` / ${r.failed} FAIL` : ''} (${r.ms}ms)`)
+    console.log(`${r.failed === 0 ? '✓' : '✗'} ${r.passed} pass${r.failed ? ` / ${r.failed} FAIL` : ''} [${r.industry}/${r.model}] (${r.ms}ms)`)
     r.failures.forEach(f => console.log(`      ✗ ${f}`))
     if (r.leftovers.length) r.leftovers.forEach(l => console.log(`      ⚠ leftover ${l}`))
   }
@@ -574,8 +628,16 @@ async function main() {
   console.log(`\n=== SUMMARY ===`)
   console.log(`  trades 100%: ${greenTrades}/${results.length}`)
   console.log(`  checks: ${totPass} passed, ${totFail} failed`)
-  const failedTrades = results.filter(r => r.failed > 0).map(r => r.industry)
+  const failedTrades = results.filter(r => r.failed > 0).map(r => r.category)
   if (failedTrades.length) console.log(`  FAILING: ${failedTrades.join(', ')}`)
+
+  // Trade → vertical map (surfaces which trades fall to 'general' = no trade-specific presets)
+  const generalTrades = results.filter(r => r.industry === 'general').map(r => r.category)
+  const byVertical: Record<string, number> = {}
+  for (const r of results) byVertical[r.industry] = (byVertical[r.industry] || 0) + 1
+  console.log(`\n  vertical resolution: ${Object.entries(byVertical).map(([k, v]) => `${k}=${v}`).join('  ')}`)
+  console.log(`  trades → 'general' (generic presets, no trade-specific services/checklist): ${generalTrades.length}`)
+  if (generalTrades.length) console.log(`    ${generalTrades.join(', ')}`)
 
   const outDir = resolve(process.cwd(), 'scripts/out')
   mkdirSync(outDir, { recursive: true })
