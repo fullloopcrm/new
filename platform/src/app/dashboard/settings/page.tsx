@@ -70,7 +70,7 @@ type Tenant = {
   agent_name: string | null
 }
 
-type PricingModel = 'hourly' | 'flat' | 'per_unit'
+type PricingModel = 'hourly' | 'flat' | 'quote'
 
 type ServiceType = {
   id: string
@@ -93,19 +93,18 @@ type ServiceFormState = {
   default_duration_hours: string
   default_hourly_rate: string
   price: string
-  per_unit: string
   min_charge: string
 }
 
 const EMPTY_SERVICE_FORM: ServiceFormState = {
   name: '', pricing_model: 'hourly', default_duration_hours: '3',
-  default_hourly_rate: '49', price: '', per_unit: '', min_charge: '',
+  default_hourly_rate: '49', price: '', min_charge: '',
 }
 
 const PRICING_MODELS: { value: PricingModel; label: string }[] = [
   { value: 'hourly', label: 'Hourly (duration × rate)' },
   { value: 'flat', label: 'Flat price' },
-  { value: 'per_unit', label: 'Per unit (e.g. per room / window / item)' },
+  { value: 'quote', label: 'By quote (priced per job)' },
 ]
 
 // Build the API payload from a form. Non-hourly models still send safe
@@ -118,8 +117,10 @@ function buildServicePayload(f: ServiceFormState) {
     pricing_model: model,
     default_duration_hours: model === 'hourly' ? Number(f.default_duration_hours) || 1 : 1,
     default_hourly_rate: model === 'hourly' ? Number(f.default_hourly_rate) || 0 : 0,
-    price_cents: model === 'hourly' ? null : Math.round(Number(f.price || 0) * 100),
-    per_unit: model === 'per_unit' ? f.per_unit.trim() || 'unit' : model === 'hourly' ? 'hour' : null,
+    // Only 'flat' carries a fixed price; 'quote' is priced per deal. per_unit
+    // must be one of the DB enum values (hour/job/…) and is NOT NULL.
+    price_cents: model === 'flat' ? Math.round(Number(f.price || 0) * 100) : null,
+    per_unit: model === 'hourly' ? 'hour' : 'job',
     min_charge_cents: f.min_charge ? Math.round(Number(f.min_charge) * 100) : null,
   }
 }
@@ -129,7 +130,7 @@ function formatServicePrice(s: ServiceType): string {
   const model = s.pricing_model || 'hourly'
   const min = s.min_charge_cents ? ` (min $${(s.min_charge_cents / 100).toFixed(0)})` : ''
   if (model === 'flat') return `$${((s.price_cents || 0) / 100).toFixed(0)} flat${min}`
-  if (model === 'per_unit') return `$${((s.price_cents || 0) / 100).toFixed(0)}/${s.per_unit || 'unit'}${min}`
+  if (model === 'quote') return `By quote${min}`
   return `${s.default_duration_hours}hr · $${s.default_hourly_rate}/hr${min}`
 }
 
@@ -151,11 +152,8 @@ function PricingFields({ f, set }: { f: ServiceFormState; set: (patch: Partial<S
       {f.pricing_model === 'flat' && (
         <input placeholder="Flat Price ($)" type="number" value={f.price} onChange={(e) => set({ price: e.target.value })} className={INPUT_CLS} />
       )}
-      {f.pricing_model === 'per_unit' && (
-        <div className="grid grid-cols-2 gap-3">
-          <input placeholder="Price per unit ($)" type="number" value={f.price} onChange={(e) => set({ price: e.target.value })} className={INPUT_CLS} />
-          <input placeholder="Unit (e.g. room, window)" value={f.per_unit} onChange={(e) => set({ per_unit: e.target.value })} className={INPUT_CLS} />
-        </div>
+      {f.pricing_model === 'quote' && (
+        <p className="text-xs text-slate-400">Priced per job — set the amount on each quote or deal.</p>
       )}
       {f.pricing_model !== 'hourly' && (
         <input placeholder="Minimum charge ($) — optional" type="number" value={f.min_charge} onChange={(e) => set({ min_charge: e.target.value })} className={INPUT_CLS} />
@@ -322,7 +320,6 @@ export default function SettingsPage() {
       default_duration_hours: String(s.default_duration_hours ?? ''),
       default_hourly_rate: String(s.default_hourly_rate ?? ''),
       price: s.price_cents != null ? String(s.price_cents / 100) : '',
-      per_unit: s.per_unit && s.per_unit !== 'hour' ? s.per_unit : '',
       min_charge: s.min_charge_cents != null ? String(s.min_charge_cents / 100) : '',
     })
   }
