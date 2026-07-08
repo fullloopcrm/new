@@ -369,13 +369,13 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // The remaining tenants are non-cleaning verticals (tow, exterminator, salon,
   // SEO, etc.); the template is cleaning-specific, so they keep their bespoke
   // /site/<slug> subtree. nycmaid keeps its own bespoke site (the live primary).
+  // CUTOVER: every tenant except the nyc maid tenant is now a REAL tenant served
+  // by the shared, config-driven global template (/site/template) — no forked
+  // per-tenant site code. Only nycmaid (the live primary, mid-cutover) keeps its
+  // own bespoke /site/nycmaid subtree. The old bespoke clones are dead code once
+  // unrouted here and get deleted in a follow-up.
   const BESPOKE_SITE_TENANTS = new Set<string>([
-    'consortium-nyc', 'debt-service-ratio-loan', 'fla-dumpster-rentals', 'landscaping-in-nyc',
-    'nyc-mobile-salon', 'nyc-tow', 'nycmaid', 'nycroadsideemergencyassistance',
-    'stretch-ny', 'stretch-service', 'sunnyside-clean-nyc', 'the-florida-maid',
-    'the-home-services-company', 'the-nyc-exterminator', 'the-nyc-interior-designer',
-    'the-nyc-marketing-company', 'the-nyc-seo', 'theroadsidehelper', 'toll-trucks-near-me',
-    'wash-and-fold-hoboken', 'wash-and-fold-nyc', 'we-pay-you-junk',
+    'nycmaid',
   ])
   const siteBase = ROOT_SITE_TENANTS.has(tenantSlug)
     ? '/site'
