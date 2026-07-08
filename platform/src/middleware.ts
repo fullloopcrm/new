@@ -110,6 +110,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
   '/proposal(.*)',            // Post-payment redirect pages (thank-you / cancelled)
   '/api/requests',            // Partnership form submissions
+  '/api/territories/options', // Public territory/category options for the lead form (no PII)
+  '/geo(.*)',                 // Static map assets (US county polygons) for the territory map
   '/api/inquiry',             // Marketing-site contact form (homeservicesbusinesscrm.com/contact)
   '/api/feedback',            // Feedback form submissions
   '/api/contact',             // Tenant-aware contact form lead capture (tenant resolved from host)
