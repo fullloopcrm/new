@@ -424,9 +424,16 @@ function BookingsPage() {
       setLoading(false)
     }
   }
-  const loadClients = async () => { const res = await fetch('/api/clients'); if (res.ok) setClients(await res.json()) }
-  const loadCleaners = async () => { const res = await fetch('/api/cleaners'); if (res.ok) setCleaners(await res.json()) }
-  const loadReferrers = async () => { const res = await fetch('/api/referrers'); if (res.ok) setReferrers(await res.json()) }
+  const loadClients = async () => {
+    const res = await fetch('/api/clients?limit=2000')
+    if (!res.ok) return
+    const json = await res.json()
+    // API returns { clients, total }; tolerate a bare array. Never store a non-array
+    // or client-search .filter() throws and crashes the page.
+    setClients(Array.isArray(json) ? json : (json.clients ?? []))
+  }
+  const loadCleaners = async () => { const res = await fetch('/api/cleaners'); if (!res.ok) return; const j = await res.json(); setCleaners(Array.isArray(j) ? j : (j.cleaners ?? j.team ?? [])) }
+  const loadReferrers = async () => { const res = await fetch('/api/referrers'); if (!res.ok) return; const j = await res.json(); setReferrers(Array.isArray(j) ? j : (j.referrers ?? [])) }
 
   const loadWaitlist = async () => {
     setWaitlistLoading(true)
