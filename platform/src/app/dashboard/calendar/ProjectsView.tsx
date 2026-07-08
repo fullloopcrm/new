@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { buildMemberColors, colorForMember, type ColorableMember } from './_colors'
 
 // Projects projection — long jobs (multiday / project duration-class) as spans on
 // a horizon, Gantt-style. This is where a weeks-to-year job lives instead of
@@ -15,6 +16,7 @@ interface Booking {
   status: string
   service_type: string | null
   duration_class?: string | null
+  team_member_id: string | null
   clients: { name: string } | null
   team_members: { name: string } | null
 }
@@ -40,6 +42,15 @@ export default function ProjectsView() {
   const [form, setForm] = useState({ title: '', start_date: '', end_date: '', service_type: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  const [memberColors, setMemberColors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    fetch('/api/team').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d) return
+      const members: ColorableMember[] = Array.isArray(d) ? d : (d.team || d.team_members || [])
+      setMemberColors(buildMemberColors(members))
+    }).catch(() => {})
+  }, [])
 
   const load = useCallback(async () => {
     const now = new Date()
@@ -143,7 +154,7 @@ export default function ProjectsView() {
               const be = Math.max(bs + 1, toDay(b.end_time))
               const left = ((bs - startDay) / totalDays) * 100
               const width = Math.max(1.5, ((be - bs) / totalDays) * 100)
-              const color = b.duration_class === 'project' ? 'bg-purple-500' : 'bg-amber-500'
+              const barColor = colorForMember(memberColors, b.team_member_id)
               return (
                 <div key={b.id} className="grid grid-cols-[160px_1fr] items-center gap-3">
                   <div className="min-w-0">
@@ -152,8 +163,8 @@ export default function ProjectsView() {
                   </div>
                   <div className="relative h-6">
                     <div
-                      className={`absolute top-0 h-6 rounded ${color} flex items-center overflow-hidden px-2`}
-                      style={{ left: `${Math.max(0, left)}%`, width: `${width}%` }}
+                      className="absolute top-0 h-6 rounded flex items-center overflow-hidden px-2"
+                      style={{ left: `${Math.max(0, left)}%`, width: `${width}%`, background: barColor }}
                       title={`${b.service_type || 'Job'} · ${b.team_members?.name || 'Unassigned'}`}
                     >
                       <span className="cal-chip-sm truncate text-[10px] font-medium text-white">{b.service_type || 'Job'}</span>

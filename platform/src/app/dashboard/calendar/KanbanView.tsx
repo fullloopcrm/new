@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { buildMemberColors, colorForMember, type ColorableMember } from './_colors'
 
 // Kanban projection of the same jobs the calendar shows — grouped by status
 // instead of by time. Drag a card to a new column to advance its status. Native
@@ -17,6 +18,7 @@ interface Booking {
   service_type: string | null
   price: number
   duration_class?: string | null
+  team_member_id: string | null
   clients: { name: string } | null
   team_members: { name: string } | null
 }
@@ -46,6 +48,15 @@ export default function KanbanView() {
   const [loading, setLoading] = useState(true)
   const [dragId, setDragId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [memberColors, setMemberColors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    fetch('/api/team').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d) return
+      const members: ColorableMember[] = Array.isArray(d) ? d : (d.team || d.team_members || [])
+      setMemberColors(buildMemberColors(members))
+    }).catch(() => {})
+  }, [])
 
   const load = useCallback(async () => {
     // A 120-day window centered on now — enough to see the active pipeline.
@@ -127,6 +138,7 @@ export default function KanbanView() {
                   onDragStart={() => setDragId(b.id)}
                   onDragEnd={() => setDragId(null)}
                   className={`cursor-grab rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-sm transition-opacity active:cursor-grabbing ${dragId === b.id ? 'opacity-40' : ''}`}
+                  style={{ borderLeftWidth: '3px', borderLeftColor: colorForMember(memberColors, b.team_member_id) }}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="cal-chip-md truncate text-sm font-medium text-slate-900">{b.clients?.name || 'Client'}</span>
