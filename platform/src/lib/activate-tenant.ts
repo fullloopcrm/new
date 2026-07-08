@@ -362,7 +362,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, notes: 'Custom domain — auto-registered on activation' })
     }
     const { error: tdErr } = await supabaseAdmin
-      .from('tenant_domains')
+      .from('tenant_domains')  // tenant-scope-ok: upsert rows carry tenant_id (built above)
       .upsert(rows, { onConflict: 'domain', ignoreDuplicates: true })
     steps.push({
       key: 'domain_routing',

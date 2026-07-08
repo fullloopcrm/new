@@ -127,7 +127,7 @@ export async function POST(request: Request) {
 
     // Insert recipient rows
     if (recipientRows.length > 0) {
-      await supabaseAdmin.from('campaign_recipients').insert(recipientRows)
+      await supabaseAdmin.from('campaign_recipients').insert(recipientRows)  // tenant-scope-ok: insert payload carries tenant_id (built above)
     }
 
     // Send emails

@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     })
 
     if (bookings.length > 0) {
-      await supabaseAdmin.from('bookings').insert(bookings)
+      await supabaseAdmin.from('bookings').insert(bookings)  // tenant-scope-ok: insert bookings carry tenant_id (built above)
     }
 
     await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated: bookings.length } })

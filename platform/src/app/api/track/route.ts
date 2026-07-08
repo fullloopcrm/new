@@ -147,10 +147,10 @@ export async function POST(request: Request) {
     if (userAgent) extraFields.user_agent = userAgent.substring(0, 500)
 
     const fullPayload = { ...payload, ...extraFields }
-    let { error } = await supabaseAdmin.from('lead_clicks').insert(fullPayload)
+    let { error } = await supabaseAdmin.from('lead_clicks').insert(fullPayload)  // tenant-scope-ok: tracking payload carries tenant_id (nullable for unattributed hits)
 
     if (error) {
-      const { error: err2 } = await supabaseAdmin.from('lead_clicks').insert(payload)
+      const { error: err2 } = await supabaseAdmin.from('lead_clicks').insert(payload)  // tenant-scope-ok: tracking payload carries tenant_id (nullable for unattributed hits)
       if (err2) {
         delete payload.visitor_ip
         await supabaseAdmin.from('lead_clicks').insert(payload)

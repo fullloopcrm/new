@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   })
 
   const { data, error } = await supabaseAdmin
-    .from('bookings')
+    .from('bookings')  // tenant-scope-ok: insert payload carries tenant_id (built above)
     .insert(rows)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 

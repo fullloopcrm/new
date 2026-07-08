@@ -10,7 +10,7 @@ interface NotifyOptions {
 
 export async function notify({ type, title, message, project_id }: NotifyOptions) {
   try {
-    const { error } = await supabaseAdmin.from('notifications').insert({
+    const { error } = await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: per-tenant clone (single fixed tenant) — slated for deletion per platform/CLAUDE.md
       type,
       title,
       message,

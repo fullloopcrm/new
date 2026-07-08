@@ -74,7 +74,7 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
     for (let attempt = 0; attempt < 4 && !inserted; attempt++) {
       pin = String(1000 + crypto.randomInt(0, 9000))
       const { data: ins, error: insErr } = await supabaseAdmin
-        .from('team_members')
+        .from('team_members')  // tenant-scope-ok: insert base carries tenant_id (built above)
         .insert({ ...base, pin })
         .select('id')
         .single()

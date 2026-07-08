@@ -92,7 +92,7 @@ export async function POST(request: Request) {
   // Create default service types based on industry
   const defaultServices = getDefaultServices(industry, tenant.id)
   if (defaultServices.length > 0) {
-    await supabaseAdmin.from('service_types').insert(defaultServices)
+    await supabaseAdmin.from('service_types').insert(defaultServices)  // tenant-scope-ok: defaultServices built with tenant.id (payload carries tenant_id)
   }
 
   return NextResponse.json({ tenant })

@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   }
 
   await supabaseAdmin
-    .from('sms_conversation_messages')
+    .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
     .insert({ conversation_id: sessionId, direction: 'inbound', message })
     .then(() => {}, () => {})
 
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   const reply = result.text || '(no reply)'
 
   await supabaseAdmin
-    .from('sms_conversation_messages')
+    .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
     .insert({ conversation_id: sessionId, direction: 'outbound', message: reply })
     .then(() => {}, () => {})
 

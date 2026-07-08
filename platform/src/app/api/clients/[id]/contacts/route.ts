@@ -72,10 +72,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     if (payload.is_primary) {
-      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('client_id', id).eq('is_primary', true)
+      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('tenant_id', tenant.id).eq('client_id', id).eq('is_primary', true)
     }
 
-    const { data, error } = await supabaseAdmin.from('client_contacts').insert(payload).select().single()
+    const { data, error } = await supabaseAdmin.from('client_contacts').insert(payload).select().single()  // tenant-scope-ok: insert payload carries tenant_id (client.tenant_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   } catch (err) {

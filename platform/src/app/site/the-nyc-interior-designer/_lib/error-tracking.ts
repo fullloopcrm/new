@@ -21,7 +21,7 @@ export async function trackError(error: unknown, context: ErrorContext) {
   const severity = context.severity || 'medium'
 
   try {
-    await supabaseAdmin.from('notifications').insert({
+    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: per-tenant clone (single fixed tenant) — slated for deletion per platform/CLAUDE.md
       type: 'error',
       title: `${severity === 'critical' ? 'CRITICAL' : severity === 'high' ? 'WARNING' : 'ERROR'} ${context.source}`,
       message: message.length > 200 ? message.slice(0, 200) + '...' : message
