@@ -73,6 +73,56 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and a phone or email are required.' }, { status: 400 })
     }
 
+    // Job applications are NOT sales leads. Route them to team_applications
+    // (Team → Applications) instead of creating a client + sales deal, so the
+    // structured answers land as an application, not a customer record. Applies
+    // to every tenant job form that posts { type: 'job-application' }.
+    if (body.type === 'job-application') {
+      const appPhone = phoneRaw.replace(/\D/g, '')
+      try {
+        if (appPhone) {
+          const { data: dupe } = await supabaseAdmin
+            .from('team_applications')
+            .select('id')
+            .eq('tenant_id', tenant.id)
+            .eq('phone', appPhone)
+            .ilike('name', name)
+            .limit(1)
+            .maybeSingle()
+          if (dupe) return NextResponse.json({ success: true, application_id: dupe.id, deduped: true })
+        }
+
+        const { data: appRow, error: appErr } = await supabaseAdmin
+          .from('team_applications')
+          .insert({
+            tenant_id: tenant.id,
+            name,
+            email,
+            phone: appPhone || null,
+            availability: (body.availability as string) || null,
+            referral_source: (body.source as string) || null,
+            notes,
+            status: 'pending',
+          })
+          .select('id')
+          .single()
+        if (appErr) throw appErr
+
+        await notify({
+          tenantId: tenant.id,
+          type: 'cleaner_application',
+          title: 'New Team Application',
+          message: `${name}${phoneRaw ? ' • ' + phoneRaw : ''}`,
+        }).catch((err) => console.error('[api/lead] application notify error:', err))
+
+        return NextResponse.json({ success: true, application_id: appRow.id })
+      } catch (appErr) {
+        console.error('[api/lead] application insert failed:', appErr)
+        await trackError(appErr, { source: 'api/lead:application', severity: 'high' }).catch(() => {})
+        return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
+      }
+    }
+
     const cleanPhone = phoneRaw.replace(/\D/g, '')
     const phone = phoneRaw || null
     let clientId: string
