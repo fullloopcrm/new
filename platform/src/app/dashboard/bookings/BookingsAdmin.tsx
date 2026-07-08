@@ -3,6 +3,7 @@
 import SidePanel from '@/components/SidePanel'
 import { useWorkerLabel } from '../worker-label-context'
 import { Suspense, useEffect, useState } from 'react'
+import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
@@ -167,6 +168,9 @@ function BookingsPage() {
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
+  // Team-member colors, built from /api/team in the SAME order the calendar uses
+  // so a member reads as the same color in the picker and on the calendar.
+  const [memberColors, setMemberColors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -257,6 +261,14 @@ function BookingsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 25
+
+  useEffect(() => {
+    fetch('/api/team').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d) return
+      const members: ColorableMember[] = Array.isArray(d) ? d : (d.team || d.team_members || [])
+      setMemberColors(buildMemberColors(members))
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     loadBookings(); loadClients(); loadCleaners(); loadReferrers()
@@ -2348,7 +2360,7 @@ function BookingsPage() {
                     }`}>
                       <div className="flex items-center justify-between">
                         <span className={selected ? 'font-medium text-[#1E2A4A]' : ''}>
-                          {(topPick || isSuggested) && !selected ? '★ ' : ''}{c.name}
+                          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', background: colorForMember(memberColors, c.id), marginRight: '6px', verticalAlign: 'middle' }} />{(topPick || isSuggested) && !selected ? '★ ' : ''}{c.name}
                           {isLead && form.team_size > 1 && <span className="ml-1.5 text-[9px] bg-indigo-600 text-white px-1 py-0.5 rounded font-semibold">LEAD</span>}
                           {isExtra && <span className="ml-1.5 text-[9px] bg-indigo-400 text-white px-1 py-0.5 rounded font-semibold">EXTRA</span>}
                           {smart?.is_preferred && <span className="ml-1.5 text-[9px] bg-amber-500 text-white px-1 py-0.5 rounded font-semibold">★ PREFERRED</span>}
@@ -2691,7 +2703,7 @@ function BookingsPage() {
                           >
                             <div className="flex items-center justify-between">
                               <span className={selected ? 'font-medium' : ''}>
-                                {topPick && !selected ? '★ ' : ''}{c.name}
+                                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', background: colorForMember(memberColors, c.id), marginRight: '6px', verticalAlign: 'middle' }} />{topPick && !selected ? '★ ' : ''}{c.name}
                                 {smart?.is_preferred && <span className="ml-1.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-semibold">★ PREFERRED</span>}
                                 {isLead && createForm.team_size > 1 && <span className="ml-1.5 text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">LEAD</span>}
                                 {isExtra && <span className="ml-1.5 text-[10px] bg-indigo-400 text-white px-1.5 py-0.5 rounded font-semibold">EXTRA</span>}
