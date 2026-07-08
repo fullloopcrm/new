@@ -402,6 +402,45 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     add('site: gate marks cleaning-only pages (isCleaning)', siteProf.isCleaning === isClean, `isCleaning=${siteProf.isCleaning}`)
     add('site: non-cleaning gets non-maid service label', isClean ? siteProf.serviceLabel === 'House Cleaning' : siteProf.serviceLabel !== 'House Cleaning', siteProf.serviceLabel)
 
+    // ================= P9 — RECURRING SERIES + INVOICING =================
+    const { createRecurringSeriesFromQuote } = await import('../src/lib/sale-to-recurring')
+    // P9.1 recurring sale → recurring_schedules + generated bookings over horizon
+    const recNum = await generateQuoteNumber(tenant.id)
+    const { data: recQuote } = await supabase.from('quotes').insert({
+      tenant_id: tenant.id, quote_number: recNum, status: 'accepted',
+      title: `${t.industry} weekly service`, contact_name: 'Recurring Customer', contact_email: `rec+${runId}@example.com`,
+      contact_phone: '+15551237777', service_address: `${t.city}, ${t.state} ${t.zip}`,
+      line_items: liveLineItems, subtotal_cents: liveTotals.subtotal_cents, tax_rate_bps: 0, tax_cents: 0, discount_cents: 0,
+      total_cents: liveTotals.subtotal_cents, public_token: generatePublicToken(),
+      recurring_type: 'weekly', recurring_start_date: new Date().toISOString().slice(0, 10),
+      recurring_preferred_time: '09:00', recurring_duration_hours: 2,
+    }).select('id').single()
+    if (recQuote) {
+      const series = await createRecurringSeriesFromQuote(tenant.id, recQuote.id)
+      const { data: sched } = await supabase.from('recurring_schedules').select('id, status, recurring_type').eq('tenant_id', tenant.id).limit(1).maybeSingle()
+      add('recurring: schedule created (active, weekly)', sched?.status === 'active' && sched?.recurring_type === 'weekly', JSON.stringify(series))
+      if (sched) {
+        const { count: genCount } = await supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('schedule_id', sched.id)
+        add('recurring: weekly bookings generated over horizon', (genCount || 0) >= 4, `${genCount} bookings`)
+      }
+    }
+
+    // P9.2 invoicing — number format + totals from real invoice lib
+    const { generateInvoiceNumber, generateInvoicePublicToken, computeTotals: invTotals, normalizeLineItems: invLines } = await import('../src/lib/invoice')
+    const invNum = await generateInvoiceNumber(tenant.id)
+    add('invoice: number format PREFIX-YYYYMM-NNNN', /^[A-Z]+-\d{6}-\d{4}$/.test(invNum), invNum)
+    const iLines = invLines(svcForQuote.map(s => ({ name: s.name, quantity: 1, unit_price_cents: s.price_cents || 0 })))
+    const iTot = invTotals(iLines, 8875, 0)
+    const { data: defEntity } = await supabase.from('entities').select('id').eq('tenant_id', tenant.id).limit(1).maybeSingle()
+    const { data: invoice, error: invErr2 } = await supabase.from('invoices').insert({
+      tenant_id: tenant.id, entity_id: defEntity?.id || null, invoice_number: invNum, status: 'draft',
+      title: `${t.industry} invoice`, contact_name: 'Inv Customer', contact_email: `inv+${runId}@example.com`,
+      line_items: iLines, subtotal_cents: iTot.subtotal_cents, tax_rate_bps: 8875, tax_cents: iTot.tax_cents,
+      discount_cents: 0, total_cents: iTot.total_cents, due_date: new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10),
+      public_token: generateInvoicePublicToken(),
+    }).select('id, total_cents').single()
+    add('invoice: created with taxed total', !!invoice && !invErr2 && invoice.total_cents === iTot.total_cents, invErr2?.message || `total=${invoice?.total_cents}`)
+
   } catch (err) {
     const msg = err instanceof Error ? err.message
       : (err && typeof err === 'object') ? JSON.stringify(err)
@@ -414,7 +453,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       // best-effort fast path; the tenant delete is the real guarantee. Only a
       // surviving TENANT row is a true leftover — retry it through timeouts.
       if (tenantId) {
-        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'quote_activity', 'quotes', 'job_events', 'job_payments', 'bookings', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
+        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'quotes', 'job_events', 'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
           await supabase.from(tbl).delete().eq('tenant_id', tenantId) // best-effort, ignore errors
         }
         let delOk = false
