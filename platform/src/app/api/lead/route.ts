@@ -15,6 +15,9 @@ import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
+import { sendEmail } from '@/lib/email'
+import { emailShell } from '@/lib/messaging/shell'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { randomInt } from 'crypto'
 
 interface LeadBody {
@@ -187,6 +190,35 @@ export async function POST(request: NextRequest) {
       await emailAdmins(tenant, msg.subject, msg.html)
     } catch (emailErr) {
       console.error('[api/lead] lead email error:', emailErr)
+    }
+
+    // Client acknowledgement — auto-reply to the submitter (gated by lead_received email).
+    try {
+      if (email && (await isCommEnabled(tenant.id, 'lead_received', 'email'))) {
+        const t = tenant as Record<string, unknown>
+        const html = emailShell({
+          brand: {
+            name: tenant.name,
+            phone: (t.phone as string) || null,
+            email: (t.email as string) || null,
+            address: (t.address as string) || null,
+            logoUrl: tenant.logo_url || null,
+            primaryColor: tenant.primary_color || null,
+          },
+          heading: `Thanks, ${name.split(' ')[0]}`,
+          bodyHtml: `<p>We received your request and will be in touch shortly. If it's urgent, just reply to this email${t.phone ? ` or call ${t.phone}` : ''}.</p>`,
+          preheader: `We received your message`,
+        })
+        await sendEmail({
+          to: email,
+          subject: `We got your message — ${tenant.name}`,
+          html,
+          resendApiKey: (t.resend_api_key as string) || undefined,
+          from: (t.email_from as string) || undefined,
+        })
+      }
+    } catch (ackErr) {
+      console.error('[api/lead] client ack email error:', ackErr)
     }
 
     return NextResponse.json({ success: true, client_id: clientId })

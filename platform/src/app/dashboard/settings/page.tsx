@@ -6,6 +6,7 @@ import { downloadCSV } from '@/lib/csv'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import PermissionsTab from './PermissionsTab'
+import CommunicationsTab from './CommunicationsTab'
 
 type Tenant = {
   id: string
@@ -162,7 +163,7 @@ function PricingFields({ f, set }: { f: ServiceFormState; set: (patch: Partial<S
   )
 }
 
-const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Notifications', 'Guidelines', 'Selena', 'Tools'] as const
+const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Communications', 'Guidelines', 'Selena', 'Tools'] as const
 type Tab = typeof TABS[number]
 
 const PAYMENT_METHOD_OPTIONS = [
@@ -226,7 +227,6 @@ export default function SettingsPage() {
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null)
   const [editServiceForm, setEditServiceForm] = useState<ServiceFormState>(EMPTY_SERVICE_FORM)
   const [savingService, setSavingService] = useState(false)
-  const [notifPrefs, setNotifPrefs] = useState<Record<string, Record<string, boolean>>>({})
   const [exporting, setExporting] = useState<string | null>(null)
   const [selenaConfig, setSelenaConfig] = useState<Record<string, unknown>>({})
 
@@ -245,9 +245,6 @@ export default function SettingsPage() {
     fetch('/api/settings/services')
       .then((r) => r.json())
       .then((data) => setServices(data.services || []))
-    fetch('/api/settings/notifications')
-      .then((r) => r.json())
-      .then((data) => setNotifPrefs(data.preferences || {}))
   }, [])
 
   async function saveTenant() {
@@ -1197,60 +1194,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {tab === 'Notifications' && (
-        <div className="max-w-2xl">
-          <div className="border border-slate-200 rounded-lg p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">Notification Preferences</h3>
-            <p className="text-xs text-slate-400 mb-4">Choose which notifications you receive and how.</p>
-            <div className="space-y-3">
-              {[
-                { key: 'booking_reminder', label: 'Booking Reminders', desc: 'Reminders before appointments' },
-                { key: 'booking_confirmed', label: 'Booking Confirmed', desc: 'When a booking is confirmed' },
-                { key: 'payment_received', label: 'Payment Received', desc: 'When a payment comes in' },
-                { key: 'new_review', label: 'New Review', desc: 'When a client leaves a review' },
-                { key: 'new_referral', label: 'New Referral', desc: 'When a referral converts' },
-                { key: 'daily_summary', label: 'Daily Summary', desc: 'Morning recap of your day' },
-                { key: 'follow_up', label: 'Follow-up Sent', desc: 'Post-service thank you messages' },
-                { key: 'team_checkin', label: 'Team Check-in', desc: 'When team members check in to jobs' },
-              ].map(pref => (
-                <div key={pref.key} className="flex items-center justify-between py-2 border-b border-slate-200 last:border-0">
-                  <div>
-                    <p className="text-sm text-slate-900">{pref.label}</p>
-                    <p className="text-xs text-slate-400">{pref.desc}</p>
-                  </div>
-                  <div className="flex gap-3">
-                    {['email', 'sms', 'in_app'].map(channel => (
-                      <label key={channel} className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <input
-                          type="checkbox"
-                          checked={notifPrefs[pref.key]?.[channel] ?? (channel === 'in_app')}
-                          onChange={(e) => {
-                            const updated = {
-                              ...notifPrefs,
-                              [pref.key]: {
-                                ...notifPrefs[pref.key],
-                                [channel]: e.target.checked,
-                              },
-                            }
-                            setNotifPrefs(updated)
-                            fetch('/api/settings/notifications', {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ preferences: updated }),
-                            })
-                          }}
-                          className="rounded border-slate-200 bg-slate-50"
-                        />
-                        {channel === 'in_app' ? 'App' : channel.toUpperCase()}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {tab === 'Communications' && <CommunicationsTab />}
 
       {tab === 'Guidelines' && (
         <div className="max-w-3xl space-y-6">
