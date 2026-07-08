@@ -224,8 +224,8 @@ export async function GET(request: Request) {
         const member = booking.team_members
         const memberFirst = member?.name?.split(' ')[0] || 'Your pro'
 
-        // Client SMS — 2hr reminder
-        if (client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // Client SMS — 2hr reminder (gated by the booking_reminder SMS toggle)
+        if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
           try {
             await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })

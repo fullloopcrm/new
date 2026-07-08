@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { getCommPrefs } from '@/lib/comms-prefs'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
 
 export const maxDuration = 300 // Vercel pro plan
@@ -29,6 +30,10 @@ export async function GET(request: Request) {
   for (const tenant of tenants || []) {
     if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
     const tenantId = tenant.id
+    // Client day-before confirmation is gated by the confirmation_reminder SMS
+    // toggle. Team confirm-requests are operational and stay ungated.
+    const confirmPrefs = await getCommPrefs(tenantId)
+    const clientConfirmOn = confirmPrefs.comms.confirmation_reminder?.sms !== false
 
     try {
       // ============================================
@@ -150,7 +155,7 @@ export async function GET(request: Request) {
       // ============================================
       // CLIENT DAY-BEFORE CONFIRMATION — 1pm the day before
       // ============================================
-      if (now.getHours() === 13) {
+      if (now.getHours() === 13 && clientConfirmOn) {
         const tomorrowStart = new Date(now)
         tomorrowStart.setDate(tomorrowStart.getDate() + 1)
         tomorrowStart.setHours(0, 0, 0, 0)

@@ -215,10 +215,10 @@ export const COMMS: CommDef[] = [
   {
     key: 'retention',
     label: 'Win-back / retention',
-    desc: 'Re-engages clients who have not booked in a while.',
+    desc: 'Re-engages clients who have not booked in a while (outreach campaigns).',
     audience: 'client',
     channels: ['sms', 'email'],
-    defaults: { sms: false, email: false },
+    defaults: { sms: true, email: false },
     editableCopy: true,
     firedBy: 'cron: retention / outreach',
   },
