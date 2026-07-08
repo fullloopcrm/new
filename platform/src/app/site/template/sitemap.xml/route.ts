@@ -128,8 +128,8 @@ ${genUrls
     { path: '/reviews/submit', freq: 'monthly', pri: '0.7' },
     { path: '/careers', freq: 'daily', pri: '0.8' },
     { path: '/careers/operations-coordinator', freq: 'daily', pri: '0.8' },
-    { path: '/nyc-maid-service-blog', freq: 'weekly', pri: '0.7' },
-    { path: '/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid', freq: 'weekly', pri: '0.7' },
+    { path: '/blog', freq: 'weekly', pri: '0.7' },
+    { path: '/blog', freq: 'weekly', pri: '0.7' },
     { path: '/service/nyc-emergency-cleaning-service', freq: 'monthly', pri: '0.7' },
     { path: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced', freq: 'monthly', pri: '0.5' },
     { path: '/privacy-policy', freq: 'yearly', pri: '0.3' },
@@ -182,7 +182,7 @@ ${genUrls
   for (const post of BLOG_POSTS) {
     const photo = pickLifestylePhoto(post.slug)
     urls.push({
-      loc: `${BASE_URL}/nyc-maid-service-blog/${post.slug}`,
+      loc: `${BASE_URL}/blog/${post.slug}`,
       lastmod: post.date,
       changefreq: 'monthly',
       priority: '0.7',

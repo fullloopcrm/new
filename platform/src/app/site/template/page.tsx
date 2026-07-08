@@ -161,7 +161,7 @@ export default async function HomePage() {
               <span className="text-blue-200/70 text-sm font-medium underline underline-offset-2">5.0 Rating &middot; 50+ Reviews</span>
             </Link>
             <span className="text-white/20 hidden sm:inline">|</span>
-            <a href="https://www.bbb.org/us/ny/new-york/profile/house-cleaning/the-nyc-maid-0121-87177862" target="_blank" rel="noopener noreferrer" className="text-blue-200/70 text-sm font-medium underline underline-offset-2 hover:text-white transition-colors">A Rating on BBB</a>
+            <a href="https://www.bbb.org" target="_blank" rel="noopener noreferrer" className="text-blue-200/70 text-sm font-medium underline underline-offset-2 hover:text-white transition-colors">A Rating on BBB</a>
             <span className="text-white/20 hidden sm:inline">|</span>
             <span className="text-blue-200/70 text-sm font-medium">Trusted by New Yorkers Since 2018</span>
             <span className="text-white/20 hidden sm:inline">|</span>

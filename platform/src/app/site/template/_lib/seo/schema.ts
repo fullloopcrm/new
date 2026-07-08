@@ -693,7 +693,7 @@ export function siteNavigationSchema() {
       { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact`, position: 7 },
       { '@type': 'WebPage', name: 'FAQ', url: `${BUSINESS.url}/faq`, position: 8 },
       { '@type': 'WebPage', name: 'About', url: `${BUSINESS.url}/about`, position: 9 },
-      { '@type': 'WebPage', name: 'Blog & Tips', url: `${BUSINESS.url}/nyc-maid-service-blog`, position: 10 },
+      { '@type': 'WebPage', name: 'Blog & Tips', url: `${BUSINESS.url}/blog`, position: 10 },
     ],
   }
 }
