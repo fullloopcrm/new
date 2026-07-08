@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import { saveGoogleTokens, saveGoogleBusiness } from '@/lib/google'
+import { verifyOAuthState } from '@/lib/oauth-state'
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
   const error = url.searchParams.get('error')
-  const tenantId = url.searchParams.get('state') || ''
+  // Verify the signed state (CSRF): only our own /auth init can mint a state
+  // that binds a Google account to this tenant. A forged/expired state → reject.
+  const tenantId = verifyOAuthState(url.searchParams.get('state'))
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
 
@@ -18,7 +21,7 @@ export async function GET(request: Request) {
   }
 
   if (!tenantId) {
-    return NextResponse.redirect(`${baseUrl}/admin/google-profile?error=no_tenant`)
+    return NextResponse.redirect(`${baseUrl}/admin/google-profile?error=bad_state`)
   }
 
   const redirectUri = `${baseUrl}/api/admin/google/callback`
