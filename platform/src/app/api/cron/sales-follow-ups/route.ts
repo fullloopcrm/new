@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   // Dedup: skip deals already notified this hour.
   const dealIds = deals.map(d => d.id)
   const { data: existing } = await supabaseAdmin
-    .from('notifications')
+    .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     .select('metadata')
     .eq('type', 'follow_up')
     .gte('created_at', oneHourAgo.toISOString())

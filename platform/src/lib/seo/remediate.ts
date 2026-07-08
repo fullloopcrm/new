@@ -104,7 +104,7 @@ async function proposeForIssue(issue: Issue): Promise<number> {
   if (rows.length) {
     // Clear any prior proposals for this issue so re-runs stay idempotent.
     await supabaseAdmin.from('seo_changes').delete().eq('issue_id', issue.id).eq('status', 'proposed')
-    await supabaseAdmin.from('seo_changes').insert(rows)
+    await supabaseAdmin.from('seo_changes').insert(rows)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
   }
   return rows.length
 }

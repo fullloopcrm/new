@@ -191,7 +191,7 @@ export async function POST(request: Request) {
   })
 
   const { data: bookings, error: batchError } = await supabaseAdmin
-    .from('bookings')
+    .from('bookings')  // tenant-scope-ok: insert rows carry tenant_id (built above)
     .insert(rows)
     .select('id')
 

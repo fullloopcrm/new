@@ -31,7 +31,7 @@ export async function eligibleForAutoVerify(): Promise<Eligible[]> {
   const props = await supabaseAdmin
     .from('seo_properties')
     .select('property,domain,tenant_id,permission,meta')
-  const active = await supabaseAdmin.from('tenant_domains').select('domain').eq('active', true)
+  const active = await supabaseAdmin.from('tenant_domains').select('domain').eq('active', true)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
   const norm = (d: string) => d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
   const activeDomains = new Set((active.data ?? []).map((r) => norm(String(r.domain))))
 
@@ -50,11 +50,11 @@ export async function eligibleForAutoVerify(): Promise<Eligible[]> {
 }
 
 async function audit(property: string, entry: Record<string, unknown>): Promise<void> {
-  const cur = await supabaseAdmin.from('seo_properties').select('meta').eq('property', property).single()
+  const cur = await supabaseAdmin.from('seo_properties').select('meta').eq('property', property).single()  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
   const meta = (cur.data?.meta as Record<string, unknown>) ?? {}
   const log = Array.isArray(meta.autoverify_log) ? (meta.autoverify_log as unknown[]) : []
   await supabaseAdmin
-    .from('seo_properties')
+    .from('seo_properties')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     .update({ meta: { ...meta, ...entry, autoverify_log: [...log, { at: new Date().toISOString(), ...entry }] } })
     .eq('property', property)
 }

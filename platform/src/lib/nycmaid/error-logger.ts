@@ -35,7 +35,7 @@ export async function logError(err: unknown, ctx: ErrorContext = {}): Promise<vo
   const matched = SUPPRESSION_PATTERNS.find(p => p.test.test(message))
 
   try {
-    await supabaseAdmin.from('error_logs').insert({
+    await supabaseAdmin.from('error_logs').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
       route: ctx.route || null,
       method: ctx.method || null,
       message: message.slice(0, 2000),

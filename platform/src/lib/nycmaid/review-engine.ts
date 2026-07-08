@@ -39,7 +39,7 @@ export async function handleNycMaidReview(
   if (reviewLink || isDoneReply) {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const { data: reviewReq } = await supabaseAdmin
-      .from('sms_logs')
+      .from('sms_logs')  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
       .select('booking_id')
       .ilike('recipient', `%${cleanPhone}%`)
       .eq('sms_type', 'review_request')
@@ -91,7 +91,7 @@ export async function handleNycMaidReview(
   // ── State 1: 1-5 reply to a rating ask ──
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const { data: prompt } = await supabaseAdmin
-    .from('sms_logs')
+    .from('sms_logs')  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
     .select('booking_id, sms_type')
     .ilike('recipient', `%${cleanPhone}%`)
     .in('sms_type', ['pre_payment_rating', 'rating_prompt'])

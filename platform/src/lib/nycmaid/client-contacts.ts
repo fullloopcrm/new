@@ -76,7 +76,7 @@ export async function matchInboundPhone(
   if (!phone) return null
 
   const { data, error } = await supabaseAdmin
-    .from('client_contacts')
+    .from('client_contacts')  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
     .select('id, client_id, name')
     .eq('phone_e164', phone)
     .limit(1)
@@ -114,7 +114,7 @@ export async function createPrimaryContact(
   if (!phone_e164 && !email) return
 
   const now = new Date().toISOString()
-  await supabaseAdmin.from('client_contacts').insert({
+  await supabaseAdmin.from('client_contacts').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
     client_id: clientId,
     name: input.name || null,
     role: 'primary',
@@ -171,7 +171,7 @@ async function logZeroContactFanout(
       eventType ? `type=${eventType}` : '',
       bookingId ? `booking=${bookingId}` : '',
     ].filter(Boolean).join(' | ')
-    await supabaseAdmin.from('notifications').insert({
+    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
       type: 'comms_fail',
       title: `Zero ${channel} contacts for client`,
       message: `${channel} fan-out found no contacts — ${ctx}`,

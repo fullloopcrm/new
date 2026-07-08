@@ -58,7 +58,7 @@ export async function GET(request: Request) {
   // 3. ONBOARDING (tenant_members table accessible, api/tenants route exists)
   try {
     const { count, error } = await supabaseAdmin
-      .from('tenant_members')
+      .from('tenant_members')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
     if (error) throw error
     checks.push({ name: 'Onboarding', status: 'pass', detail: `tenant_members accessible, ${count} members` })
@@ -97,13 +97,13 @@ export async function GET(request: Request) {
   try {
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
     const { count: stuckCount } = await supabaseAdmin
-      .from('bookings')
+      .from('bookings')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .eq('status', 'in_progress')
       .lt('end_time', fourHoursAgo)
 
     const { count: pendingOld } = await supabaseAdmin
-      .from('bookings')
+      .from('bookings')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
       .lt('start_time', new Date().toISOString())
@@ -126,13 +126,13 @@ export async function GET(request: Request) {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     const { count: sent } = await supabaseAdmin
-      .from('notifications')
+      .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .eq('status', 'sent')
       .gte('created_at', oneDayAgo)
 
     const { count: failed } = await supabaseAdmin
-      .from('notifications')
+      .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .eq('status', 'failed')
       .gte('created_at', oneDayAgo)
@@ -153,7 +153,7 @@ export async function GET(request: Request) {
   try {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const { count } = await supabaseAdmin
-      .from('error_logs')
+      .from('error_logs')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .gte('created_at', oneHourAgo)
 
@@ -170,7 +170,7 @@ export async function GET(request: Request) {
   try {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { count: unpaid } = await supabaseAdmin
-      .from('bookings')
+      .from('bookings')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .eq('payment_status', 'unpaid')
       .eq('status', 'completed')
@@ -189,7 +189,7 @@ export async function GET(request: Request) {
   try {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const { count: stuck } = await supabaseAdmin
-      .from('campaigns')
+      .from('campaigns')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .eq('status', 'sending')
       .lt('updated_at', oneHourAgo)
@@ -222,7 +222,7 @@ export async function GET(request: Request) {
   const allGood = failures.length === 0
 
   // Store result
-  await supabaseAdmin.from('notifications').insert({
+  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     type: allGood ? 'system_check' : 'error',
     title: allGood ? 'System Check: All Clear' : `System Check: ${failures.length} failures, ${warnings.length} warnings`,
     message: checks.map(c => `${c.status === 'pass' ? 'OK' : c.status === 'warn' ? 'WARN' : 'FAIL'} ${c.name}: ${c.detail}`).join('\n'),

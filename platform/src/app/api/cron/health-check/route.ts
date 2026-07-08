@@ -141,7 +141,7 @@ export async function GET(request: Request) {
     // Mark notifications older than 30 days as archived
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const { data: archivedRows } = await supabaseAdmin
-      .from('notifications')
+      .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .update({ status: 'archived' })
       .in('status', ['sent', 'retry_success'])
       .lt('created_at', thirtyDaysAgo)
@@ -155,7 +155,7 @@ export async function GET(request: Request) {
     // Clear failed notifications older than 7 days that exhausted retries
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const { data: clearedRows } = await supabaseAdmin
-      .from('notifications')
+      .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .update({ status: 'expired' })
       .eq('status', 'failed')
       .gte('retry_count', 3)
@@ -253,7 +253,7 @@ export async function GET(request: Request) {
   const healthy = issues.length === 0
 
   if (!healthy) {
-    await supabaseAdmin.from('notifications').insert({
+    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       type: 'error',
       title: 'Health Check Issues',
       message: issues.join('; ').slice(0, 500),

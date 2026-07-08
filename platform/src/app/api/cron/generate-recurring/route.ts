@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   }
 
   const { data: schedules } = await supabaseAdmin
-    .from('recurring_schedules')
+    .from('recurring_schedules')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     .select('*')
     .eq('status', 'active')
 
@@ -233,7 +233,7 @@ export async function GET(request: Request) {
       }
       totalGenerated += inserted
       if (skipped.length > 0) {
-        await supabaseAdmin.from('notifications').insert({
+        await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
           type: 'recurring_generation_conflict',
           title: 'cron:generate-recurring skipped occurrences',
           message: `schedule ${schedule.id}: ${skipped.length} occurrence(s) skipped (overlap/insert error) — needs manual scheduling`,
@@ -245,7 +245,7 @@ export async function GET(request: Request) {
   }
 
   // Health-monitor marker.
-  await supabaseAdmin.from('notifications').insert({
+  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     type: 'recurring_generated',
     title: 'cron:generate-recurring',
     message: `generated=${totalGenerated}`,

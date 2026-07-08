@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   const body = await res.json().catch(() => ({}))
 
   // Health-monitor marker — proves the every-minute cron ran.
-  await supabaseAdmin.from('notifications').insert({
+  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     type: 'email_monitor_tick',
     title: 'cron:email-monitor',
     message: 'tick',
