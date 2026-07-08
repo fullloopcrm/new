@@ -30,11 +30,35 @@ const keyOf = (f) => `${f.file}::${f.table}::${f.snippet}`
 
 // Tables that carry tenant_id and hold per-tenant data.
 const TENANT_TABLES = new Set([
-  'bookings','clients','sms_conversations','sms_conversation_messages','notifications',
-  'team_members','recurring_schedules','cleaners','deals','quotes','payments','documents',
-  'service_types','document_signers','uploads','comhub_threads','comhub_messages','invoices',
-  'comhub_active_calls','campaigns','lead_clicks','deal_activities','campaign_recipients',
-  'bank_transactions','expenses','reviews','google_reviews','routes','waitlist',
+  // Full set: every table in the live DB that carries a tenant_id column
+  // (auto-derived from the schema; keep in sync when tables are added).
+  'accounting_periods','admin_tasks','ai_usage','audit_log','audit_logs',
+  'bank_accounts','bank_import_batches','bank_statements','bank_transactions','blocked_referrers',
+  'booking_notes','booking_team_members','bookings','campaign_recipients','campaigns',
+  'categorization_patterns','chart_of_accounts','cleaner_applications','client_contacts','client_properties',
+  'client_referral_stats','client_reviews','client_sms_messages','clients','comhub_active_calls',
+  'comhub_admin_phones','comhub_admin_presence','comhub_admin_voice_settings','comhub_channel_members','comhub_contacts',
+  'comhub_mentions','comhub_messages','comhub_missed_call_sms','comhub_softphone_calls','comhub_templates',
+  'comhub_threads','connect_channels','connect_messages','connect_read_cursors','cpa_access_tokens',
+  'crews','deal_activities','deals','document_activity','document_fields',
+  'document_signers','documents','domain_notes','domains','email_logs',
+  'entities','error_logs','expenses','google_reviews','hr_document_reminders',
+  'hr_document_requirements','hr_documents','hr_employee_profiles','hr_notes','impersonation_events',
+  'import_batches','import_rows','invoice_activity','invoices','jefe_tasks',
+  'job_events','job_payments','jobs','journal_entries','journal_lines',
+  'lead_clicks','management_application_drafts','management_applications','marketing_opt_out_log','notifications',
+  'oauth_state_nonces','onboarding_tasks','outreach_log','payments','payroll_payments',
+  'platform_announcement_reads','portal_auth_codes','portal_leads','products','projects',
+  'property_changes','prospects','push_subscriptions','quote_activity','quote_templates',
+  'quotes','ratings','recurring_exceptions','recurring_expenses','recurring_schedules',
+  'referral_commissions','referrals','referrers','reviews','routes',
+  'sales_applications','schedule_issues','security_events','selena_memory','seo_changes',
+  'seo_competitors','seo_issues','seo_properties','seo_serp','service_types',
+  'sms_conversation_messages','sms_conversations','sms_logs','system_state','team_applications',
+  'team_member_documents','team_member_payouts','team_members','team_notifications','tenant_domains',
+  'tenant_invites','tenant_members','tenant_owner_messages','tenant_settings','territory_claims',
+  'travel_time_cache','unmatched_payments','verification_codes','waitlist','website_visits',
+  'yinez_memory','yinez_skills',
 ])
 
 // Excluded from the gate: legacy per-tenant marketing/portal CLONES (each is a
