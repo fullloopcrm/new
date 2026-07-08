@@ -46,6 +46,7 @@ export async function GET(request: Request) {
     // SMS toggle gates the client text. Email is gated centrally in notify().
     const commPrefs = await getCommPrefs(tenantId)
     const reminderDays = commPrefs.timing.reminder_days.length ? commPrefs.timing.reminder_days : [3, 1]
+    const reminderHoursBefore = commPrefs.timing.reminder_hours_before.length ? commPrefs.timing.reminder_hours_before : [2]
     const reminderSmsOn = commPrefs.comms.booking_reminder?.sms !== false
 
     try {
@@ -191,9 +192,10 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // HOUR-BASED REMINDERS — runs every hour, sends 2hr before
+      // HOUR-BASED REMINDERS — one pass per configured hours-before (default [2])
       // ============================================
-      const twoHoursAhead = new Date(now.getTime() + 2 * 60 * 60 * 1000)
+      for (const hoursBefore of reminderHoursBefore) {
+      const twoHoursAhead = new Date(now.getTime() + hoursBefore * 60 * 60 * 1000)
       const hourWindowStart = new Date(twoHoursAhead)
       hourWindowStart.setMinutes(0, 0, 0)
       const hourWindowEnd = new Date(hourWindowStart)
@@ -210,7 +212,7 @@ export async function GET(request: Request) {
         .returns<BookingWith2HourReminder[]>()
 
       for (const booking of hourBookings || []) {
-        const emailType = 'reminder_2hour'
+        const emailType = `reminder_${hoursBefore}hour`
         const { data: existing } = await supabaseAdmin
           .from('notifications')
           .select('id')
@@ -238,7 +240,7 @@ export async function GET(request: Request) {
 
         // Team member SMS — 2hr reminder
         if (booking.team_member_id && member?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
-          const smsBody = `${tenant.name}: Job in 2 hours — ${client?.name || 'Client'} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          const smsBody = `${tenant.name}: Job in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'} — ${client?.name || 'Client'} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
           try {
             await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
             sent++
@@ -250,7 +252,7 @@ export async function GET(request: Request) {
 
         // NYC Maid parity: web-push the client for the 2-hour reminder.
         if (isNycMaid(tenantId) && booking.client_id) {
-          sendPushToClient(booking.client_id, 'Cleaning in 2 hours', 'Your cleaner arrives soon', '/book/dashboard').catch(() => {})
+          sendPushToClient(booking.client_id, `Cleaning in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'}`, 'Your cleaner arrives soon', '/book/dashboard').catch(() => {})
         }
 
         // Log as notification for dedup
@@ -268,6 +270,7 @@ export async function GET(request: Request) {
 
         results.push({ type: emailType, booking_id: booking.id, tenant_id: tenantId })
       }
+      } // end hours-before loop
 
       // ============================================
       // PAYMENT ALERT — 15 min before booking end_time

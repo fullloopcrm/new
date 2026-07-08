@@ -223,6 +223,16 @@ export const COMMS: CommDef[] = [
     firedBy: 'cron: retention / outreach',
   },
   {
+    key: 'lead_received',
+    label: 'Lead / inquiry acknowledgement',
+    desc: 'Auto-reply to someone who submits a contact or quote form.',
+    audience: 'client',
+    channels: ['email', 'sms'],
+    defaults: { email: true, sms: false },
+    editableCopy: true,
+    firedBy: 'event: /api/contact, /api/lead',
+  },
+  {
     key: 'verification_code',
     label: 'Verification code',
     desc: 'One-time login / portal verification code.',
