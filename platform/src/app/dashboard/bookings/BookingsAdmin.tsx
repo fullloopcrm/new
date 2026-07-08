@@ -409,13 +409,20 @@ function BookingsPage() {
   }, [showCreateModal, showModal, editingBooking, createForm.client_id, createForm.property_id, clientProperties, createForm.start_date, createForm.start_time, createForm.hours, createForm.hourly_rate, createForm.team_size, newClientForm.address, form.start_date, form.start_time, form.hours, form.hourly_rate, form.team_size, clients, smartScoresKey])
 
   const loadBookings = async () => {
-    const res = await fetch('/api/bookings')
-    if (res.ok) {
-      const data = await res.json()
-      data.sort((a: Booking, b: Booking) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
-      setBookings(data)
+    try {
+      const res = await fetch('/api/bookings?limit=200')
+      if (res.ok) {
+        const json = await res.json()
+        // API returns { bookings, total }; tolerate a bare array too.
+        const list: Booking[] = Array.isArray(json) ? json : (json.bookings ?? [])
+        list.sort((a: Booking, b: Booking) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+        setBookings(list)
+      }
+    } catch (e) {
+      console.error('loadBookings failed', e)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
   const loadClients = async () => { const res = await fetch('/api/clients'); if (res.ok) setClients(await res.json()) }
   const loadCleaners = async () => { const res = await fetch('/api/cleaners'); if (res.ok) setCleaners(await res.json()) }

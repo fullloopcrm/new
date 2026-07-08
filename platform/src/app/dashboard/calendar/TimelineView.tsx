@@ -51,7 +51,7 @@ export default function TimelineView() {
   useEffect(() => {
     fetch('/api/team').then((r) => (r.ok ? r.json() : null)).then((d) => {
       if (!d) return
-      setTeam(Array.isArray(d) ? d : d.team_members || [])
+      setTeam(Array.isArray(d) ? d : (d.team || d.team_members || []))
     }).catch(() => {})
   }, [])
 

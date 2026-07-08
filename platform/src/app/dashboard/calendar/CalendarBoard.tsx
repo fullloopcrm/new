@@ -152,7 +152,8 @@ export default function CalendarBoard() {
     const res = await fetch('/api/team')
     if (res.ok) {
       const data = await res.json()
-      const members = Array.isArray(data) ? data : data.team_members || []
+      // /api/team returns { team }; tolerate legacy { team_members } / bare array.
+      const members = Array.isArray(data) ? data : (data.team || data.team_members || [])
       setTeamMembers(members)
       const colors: Record<string, string> = {}
       members.forEach((m: TeamMember & { calendar_color?: string }, i: number) => {
