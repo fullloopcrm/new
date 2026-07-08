@@ -221,14 +221,14 @@ export async function GET(request: Request) {
     // could silently drop every occurrence for this schedule. Check the error and,
     // on failure, fall back to per-row inserts so non-conflicting occurrences still
     // land — and surface the ones that couldn't instead of reporting a false count.
-    const { error: batchErr } = await supabaseAdmin.from('bookings').insert(bookings)
+    const { error: batchErr } = await supabaseAdmin.from('bookings').insert(bookings) // tenant-scope-ok: each row carries tenant_id (schedule.tenant_id)
     if (!batchErr) {
       totalGenerated += bookings.length
     } else {
       let inserted = 0
       const skipped: string[] = []
       for (const row of bookings) {
-        const { error: rowErr } = await supabaseAdmin.from('bookings').insert(row)
+        const { error: rowErr } = await supabaseAdmin.from('bookings').insert(row) // tenant-scope-ok: row carries tenant_id (schedule.tenant_id)
         if (rowErr) skipped.push(String(row.start_time)); else inserted++
       }
       totalGenerated += inserted
