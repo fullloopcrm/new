@@ -1171,7 +1171,8 @@ function BookingsPage() {
   }
 
   const serviceTypesData = useServiceTypes()
-  const serviceTypes = serviceTypesData.length > 0 ? serviceTypesData.map(s => s.name) : ['Standard Cleaning', 'Deep Cleaning', 'Move In/Out', 'Post Construction']
+  // Catalog-driven only — no cleaning fallback. Shows the tenant's own services.
+  const serviceTypes = serviceTypesData.map(s => s.name)
 
   // Reverse-map stored recurring_type display name back to form repeat_type
   const reverseRecurringType = (displayName: string | null): string => {
@@ -2723,43 +2724,15 @@ function BookingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Rate</label>
-                    <div className="flex gap-2">
-                      <select
-                        value={[59, 69, 89, 99, 79, 49, 65, 75, 100].includes(createForm.hourly_rate) ? createForm.hourly_rate : 'custom'}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          if (v === 'custom') {
-                            // Pick a value NOT in presets so the custom input renders
-                            const isPreset = [59, 69, 89, 99, 79, 49, 65, 75, 100].includes(createForm.hourly_rate)
-                            setCreateForm({ ...createForm, hourly_rate: isPreset ? 0 : createForm.hourly_rate })
-                          } else setCreateForm({ ...createForm, hourly_rate: parseInt(v) })
-                        }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]"
-                      >
-                        <option value={59}>$59/hr</option>
-                        <option value={69}>$69/hr</option>
-                        <option value={89}>$89/hr</option>
-                        <option value={99}>$99/hr (Same-Day)</option>
-                        <option value={79}>$79/hr (Legacy)</option>
-                        <option value={49}>$49/hr (Legacy)</option>
-                        <option value={65}>$65/hr (Legacy)</option>
-                        <option value={75}>$75/hr (Legacy)</option>
-                        <option value={100}>$100/hr (Legacy)</option>
-                        <option value="custom">Custom $...</option>
-                      </select>
-                      {![59, 69, 89, 99, 79, 49, 65, 75, 100].includes(createForm.hourly_rate) && (
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={createForm.hourly_rate}
-                          onChange={(e) => setCreateForm({ ...createForm, hourly_rate: parseInt(e.target.value) || 0 })}
-                          className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-[#1E2A4A] text-sm"
-                          placeholder="$/hr"
-                          autoFocus
-                        />
-                      )}
-                    </div>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={createForm.hourly_rate}
+                      onChange={(e) => setCreateForm({ ...createForm, hourly_rate: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]"
+                      placeholder="$/hr"
+                    />
                   </div>
                 </div>
 

@@ -18,11 +18,44 @@
  */
 import { supabaseAdmin } from './supabase'
 
-type IndustryKey =
+export type IndustryKey =
   | 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest'
   | 'towing' | 'junk_removal' | 'dumpster' | 'mobile_salon' | 'laundry'
   | 'interior_design' | 'fitness'
+  | 'virtual_assistant'
   | 'general'
+
+/**
+ * Map a free-text trade/category string onto a canonical IndustryKey. This is
+ * the SINGLE source of truth for vertical detection across every creation door
+ * (lead conversion, direct provision, admin create), so a tenant's whole
+ * vertical — services, pricing, booking questions — is chosen the same way no
+ * matter how it was born. Falls back to 'general'.
+ *
+ * Order matters: more specific patterns are tested before broad ones (e.g. a
+ * "drain repair" must resolve to plumbing before the broad "repair" → handyman
+ * rule; "junk/dumpster" must never fall through to pest).
+ */
+export function mapIndustry(raw: string | null | undefined): IndustryKey {
+  const s = (raw || '').toLowerCase()
+  if (!s.trim()) return 'general'
+  if (/clean|maid|janitor|housekeep/.test(s)) return 'cleaning'
+  if (/pest|extermin|termite|rodent|bed ?bug|mosquito|roach/.test(s)) return 'pest'
+  if (/dumpster|roll ?off|container rental/.test(s)) return 'dumpster'
+  if (/junk|debris|\bhaul|\bwaste\b|cleanout/.test(s)) return 'junk_removal'
+  if (/tow|roadside|wrecker|recovery|jumpstart|lockout/.test(s)) return 'towing'
+  if (/landscap|lawn|garden|\btree\b|mulch|\bsnow|hardscape|mowing/.test(s)) return 'landscaping'
+  if (/hvac|heating|cooling|air ?condition|furnace|\bhvac\b/.test(s)) return 'hvac'
+  if (/plumb|drain|sewer|water ?heater/.test(s)) return 'plumbing'
+  if (/electric|\bev charger\b/.test(s)) return 'electrical'
+  if (/salon|barber|\bhair\b|beauty|makeup|\bnail|blowout/.test(s)) return 'mobile_salon'
+  if (/laundry|wash.*fold|dry ?clean|linen/.test(s)) return 'laundry'
+  if (/interior ?design|decorat|home ?stag|\bstager\b|\bstaging\b/.test(s)) return 'interior_design'
+  if (/fitness|trainer|\bgym\b|personal train|\byoga\b|pilates/.test(s)) return 'fitness'
+  if (/virtual ?assist|\bva\b|remote assist|executive assist/.test(s)) return 'virtual_assistant'
+  if (/handy|\brepair\b|assembly/.test(s)) return 'handyman'
+  return 'general'
+}
 
 interface DefaultService {
   name: string
@@ -33,6 +66,18 @@ interface DefaultService {
 }
 
 const SERVICE_PRESETS: Record<IndustryKey, DefaultService[]> = {
+  virtual_assistant: [
+    { name: 'Call Answering & Reception', description: 'Live phone answering and reception. Your calls handled professionally, messages taken, callers helped.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 1 },
+    { name: 'Appointment Setting & Scheduling', description: 'Booking appointments, managing your calendar, and coordinating meetings so your schedule runs itself.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 2 },
+    { name: 'Admin & Data Entry', description: 'Accurate data entry, document prep, and day-to-day admin. The busywork off your plate.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 3 },
+    { name: 'Inbox & Email Management', description: 'Inbox triage, replies, follow-ups, and organization so nothing important slips.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 4 },
+    { name: 'CRM Management', description: 'Keeping your CRM clean and current: updating records, logging activity, moving deals forward.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 5 },
+    { name: 'Customer Support & Live Chat', description: 'Responding to customers by email and live chat and resolving support requests promptly.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 6 },
+    { name: 'Lead Generation & Cold Outreach', description: 'List building, prospect research, and cold outreach to fill your pipeline.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 7 },
+    { name: 'Social Media Management', description: 'Scheduling posts, engaging your audience, and keeping your channels active and on-brand.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 8 },
+    { name: 'Bookkeeping & Invoicing Support', description: 'Invoicing, expense tracking, and basic reconciliation to keep your books current.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 9 },
+    { name: 'Executive / Personal Assistant', description: 'A dedicated right-hand for calendar, inbox, travel, and personal tasks so you focus on high-value work.', default_duration_hours: 1, default_hourly_rate: 8, sort_order: 10 },
+  ],
   cleaning: [
     { name: 'Standard Cleaning', description: 'Regular recurring cleaning for occupied homes', default_duration_hours: 2, default_hourly_rate: 59, sort_order: 1 },
     { name: 'Deep Cleaning', description: 'Top-to-bottom cleaning, inside appliances', default_duration_hours: 4, default_hourly_rate: 75, sort_order: 2 },
@@ -134,6 +179,17 @@ const SERVICE_PRESETS: Record<IndustryKey, DefaultService[]> = {
 // Per-industry checklist_fields. Cleaning is the ONLY industry that asks
 // bedrooms/bathrooms — everything else asks industry-appropriate notes instead.
 const CHECKLIST_BY_INDUSTRY: Record<IndustryKey, Array<{ key: string; enabled: boolean; required: boolean; question: string; sms_options: string }>> = {
+  virtual_assistant: [
+    { key: 'service_type', enabled: true, required: true, question: 'Ask which service they need help with.', sms_options: 'Admin,Inbox,Scheduling,Bookkeeping,Customer support' },
+    { key: 'hours', enabled: true, required: true, question: 'Ask how many hours they need.', sms_options: '10,20,40,Full-time' },
+    { key: 'cadence', enabled: true, required: true, question: 'Ask how often — one-time, weekly, or monthly.', sms_options: 'One-time,Weekly,Bi-weekly,Monthly' },
+    { key: 'timezone', enabled: true, required: true, question: 'Ask their timezone.', sms_options: 'ET,CT,MT,PT' },
+    { key: 'notes', enabled: true, required: true, question: 'Ask what tasks and tools they need covered.', sms_options: '' },
+    { key: 'day', enabled: true, required: true, question: 'Ask their preferred start date.', sms_options: '' },
+    { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
+    { key: 'phone', enabled: true, required: true, question: 'Ask for phone.', sms_options: '' },
+    { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
+  ],
   cleaning: [
     { key: 'service_type', enabled: true, required: true, question: 'Ask what type of clean they need.', sms_options: 'Standard,Deep,Move in/out' },
     { key: 'bedrooms', enabled: true, required: true, question: 'Ask how many bedrooms and bathrooms.', sms_options: '1bd/1ba,2bd/1ba,3bd/2ba' },
