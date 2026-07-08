@@ -58,6 +58,7 @@ export default function TerritoryClient({
   const [categoryId, setCategoryId] = useState<string>(categories[0]?.id ?? '')
   const [status, setStatus] = useState<Record<string, ClaimStatus>>({})
   const [tenantByTerritory, setTenantByTerritory] = useState<Record<string, string | null>>({})
+  const [holdByTerritory, setHoldByTerritory] = useState<Record<string, string | null>>({})
   const [selected, setSelected] = useState<Selected | null>(null)
   const [assignTenant, setAssignTenant] = useState<string>('')
   const [busy, setBusy] = useState(false)
@@ -96,16 +97,24 @@ export default function TerritoryClient({
       return
     }
     const { claims } = (await res.json()) as {
-      claims: { territory_id: string; status: ClaimStatus; tenant_name: string | null }[]
+      claims: {
+        territory_id: string
+        status: ClaimStatus
+        tenant_name: string | null
+        hold_expires_at: string | null
+      }[]
     }
     const s: Record<string, ClaimStatus> = {}
     const tn: Record<string, string | null> = {}
+    const hd: Record<string, string | null> = {}
     for (const c of claims) {
       s[c.territory_id] = c.status
       tn[c.territory_id] = c.tenant_name
+      hd[c.territory_id] = c.hold_expires_at
     }
     setStatus(s)
     setTenantByTerritory(tn)
+    setHoldByTerritory(hd)
   }, [])
 
   useEffect(() => {
@@ -244,6 +253,12 @@ export default function TerritoryClient({
                 </span>
                 {tenantByTerritory[selected!.territoryId] && (
                   <span className="text-zinc-400"> · {tenantByTerritory[selected!.territoryId]}</span>
+                )}
+                {selStatus === 'pending' && holdByTerritory[selected!.territoryId] && (
+                  <div className="text-[11px] text-amber-400/80 mt-0.5">
+                    Held until{' '}
+                    {new Date(holdByTerritory[selected!.territoryId] as string).toLocaleDateString()}
+                  </div>
                 )}
               </div>
 

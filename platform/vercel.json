@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/release-expired-holds",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/cron/finance-post",
       "schedule": "0 4 * * *"
     },

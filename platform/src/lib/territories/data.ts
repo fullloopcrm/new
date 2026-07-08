@@ -29,6 +29,7 @@ export interface CategoryClaim {
   status: Exclude<ClaimStatus, 'available'>
   tenant_id: string | null
   tenant_name: string | null
+  hold_expires_at: string | null
 }
 
 export interface TenantPin {
@@ -144,7 +145,7 @@ export async function searchTerritories(q: string): Promise<TerritorySearchResul
 export async function getClaimsForCategory(categoryId: string): Promise<CategoryClaim[]> {
   const { data } = await supabaseAdmin
     .from('territory_claims')
-    .select('territory_id, status, tenant_id, tenants(name)')
+    .select('territory_id, status, tenant_id, hold_expires_at, tenants(name)')
     .eq('category_id', categoryId)
   return (data ?? []).map((r) => {
     const t = r.tenants as { name?: string } | { name?: string }[] | null
@@ -154,6 +155,7 @@ export async function getClaimsForCategory(categoryId: string): Promise<Category
       status: r.status as CategoryClaim['status'],
       tenant_id: (r.tenant_id as string | null) ?? null,
       tenant_name,
+      hold_expires_at: (r.hold_expires_at as string | null) ?? null,
     }
   })
 }
@@ -200,21 +202,34 @@ export async function getTenantPins(): Promise<TenantPin[]> {
  * (territory_id, category_id) makes a second active claim impossible — a
  * conflict here means the combo is already taken.
  */
+/** Default soft-hold length when reserving (status='pending') a territory. */
+export const DEFAULT_HOLD_DAYS = 7
+
 export async function claimTerritory(args: {
   territoryId: string
   categoryId: string
   tenantId?: string | null
   status?: 'pending' | 'claimed'
   notes?: string | null
+  /** Soft-hold length in days for a pending reservation (default 7). */
+  holdDays?: number
+  partnerRequestId?: string | null
 }): Promise<{ ok: true } | { ok: false; error: string; conflict?: boolean }> {
   const status = args.status ?? 'claimed'
+  const now = new Date()
+  const holdExpires =
+    status === 'pending'
+      ? new Date(now.getTime() + (args.holdDays ?? DEFAULT_HOLD_DAYS) * 86400000).toISOString()
+      : null
   const { error } = await supabaseAdmin.from('territory_claims').insert({
     territory_id: args.territoryId,
     category_id: args.categoryId,
     tenant_id: args.tenantId ?? null,
     status,
-    claimed_at: status === 'claimed' ? new Date().toISOString() : null,
-    pending_since: status === 'pending' ? new Date().toISOString() : null,
+    claimed_at: status === 'claimed' ? now.toISOString() : null,
+    pending_since: status === 'pending' ? now.toISOString() : null,
+    hold_expires_at: holdExpires,
+    partner_request_id: args.partnerRequestId ?? null,
     notes: args.notes ?? null,
   })
   if (error) {
@@ -228,6 +243,21 @@ export async function claimTerritory(args: {
     }
   }
   return { ok: true }
+}
+
+/**
+ * Auto-release expired soft-holds: delete pending claims whose hold window has
+ * passed, freeing the territory. Run by cron. Returns how many were released.
+ */
+export async function releaseExpiredHolds(): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from('territory_claims')
+    .delete()
+    .eq('status', 'pending')
+    .lt('hold_expires_at', new Date().toISOString())
+    .select('id')
+  if (error) return 0
+  return (data ?? []).length
 }
 
 export async function releaseTerritory(territoryId: string, categoryId: string) {
