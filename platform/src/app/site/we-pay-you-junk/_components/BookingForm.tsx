@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { supabase } from "../_lib/supabase";
 
 interface AddressSuggestion {
   label: string;
@@ -24,6 +25,20 @@ interface PendingFile {
 
 const MAX_BYTES = 100 * 1024 * 1024;
 const ALLOWED_TYPES = /^(image\/(jpeg|png|webp|heic|heif)|video\/(mp4|quicktime|webm))$/;
+// Upload a few at a time so a big batch (people sometimes drop 20-30 photos)
+// doesn't fire dozens of simultaneous uploads and choke the connection.
+const MAX_UPLOAD_CONCURRENCY = 4;
+
+async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      await worker(items[index]);
+    }
+  });
+  await Promise.all(runners);
+}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -150,49 +165,41 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
     setShowSuggestions(false);
   }
 
-  function uploadOne(pf: PendingFile): Promise<void> {
-    return new Promise((resolve) => {
-      const fd = new FormData();
-      fd.append("file", pf.file);
+  // Two-step upload: (1) get a short-lived signed upload URL from our tenant-aware
+  // API, then (2) push the file straight to Supabase Storage. Step 2 never touches
+  // the Vercel function, so there is no 4.5 MB request-body ceiling — large photos
+  // and videos go through the same path as small ones.
+  async function uploadOne(pf: PendingFile): Promise<void> {
+    try {
+      if (!supabase) throw new Error("Uploads are not configured");
 
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/upload");
-
-      xhr.upload.onprogress = (e) => {
-        if (!e.lengthComputable) return;
-        const pct = Math.round((e.loaded / e.total) * 100);
-        setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, progress: pct } : p)));
+      const signRes = await fetch("/api/lead-media/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: pf.file.name, contentType: pf.file.type }),
+      });
+      const signData = (await signRes.json().catch(() => ({}))) as {
+        path?: string;
+        token?: string;
+        publicUrl?: string;
+        error?: string;
       };
+      if (!signRes.ok || !signData.path || !signData.token || !signData.publicUrl) {
+        throw new Error(signData.error || `Could not start upload (${signRes.status})`);
+      }
 
-      xhr.onload = () => {
-        try {
-          const data = JSON.parse(xhr.responseText) as { success: boolean; url?: string; error?: string };
-          if (xhr.status >= 200 && xhr.status < 300 && data.success && data.url) {
-            setFiles((prev) =>
-              prev.map((p) => (p.id === pf.id ? { ...p, status: "done", progress: 100, url: data.url } : p))
-            );
-          } else {
-            const msg = data.error || `Upload failed (${xhr.status})`;
-            setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: msg } : p)));
-          }
-        } catch {
-          setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: "Bad response" } : p)));
-        }
-        resolve();
-      };
+      const { error } = await supabase.storage
+        .from("uploads")
+        .uploadToSignedUrl(signData.path, signData.token, pf.file, { contentType: pf.file.type });
+      if (error) throw new Error(error.message);
 
-      xhr.onerror = () => {
-        setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: "Network error" } : p)));
-        resolve();
-      };
-
-      xhr.onabort = () => {
-        setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: "Aborted" } : p)));
-        resolve();
-      };
-
-      xhr.send(fd);
-    });
+      setFiles((prev) =>
+        prev.map((p) => (p.id === pf.id ? { ...p, status: "done", progress: 100, url: signData.publicUrl } : p))
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: msg } : p)));
+    }
   }
 
   async function handleFiles(list: FileList | null) {
@@ -217,7 +224,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
     }
     if (accepted.length === 0) return;
     setFiles((prev) => [...prev, ...accepted]);
-    await Promise.all(accepted.map(uploadOne));
+    await runWithConcurrency(accepted, MAX_UPLOAD_CONCURRENCY, uploadOne);
   }
 
   function removeFile(id: string) {
@@ -390,7 +397,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
           }`}
         >
           <p className="text-sm font-semibold">Tap to add photos or a quick video</p>
-          <p className="mt-1 text-xs opacity-75">JPEG, PNG, WebP, HEIC, MP4, MOV, WebM &middot; up to 100MB each</p>
+          <p className="mt-1 text-xs opacity-75">Add as many as you need &middot; up to 100MB each &middot; JPEG, PNG, WebP, HEIC, MP4, MOV, WebM</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -420,12 +427,9 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
                   {f.status === "uploading" && (
                     <>
                       <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                        <div
-                          className="h-full bg-teal-500 transition-all duration-150"
-                          style={{ width: `${f.progress}%` }}
-                        />
+                        <div className="h-full w-full animate-pulse bg-teal-500" />
                       </div>
-                      <p className="text-teal-600">{f.progress}%</p>
+                      <p className="text-teal-600">Uploading…</p>
                     </>
                   )}
                   {f.status === "done" && <p className="text-emerald-600">✓ Ready</p>}
