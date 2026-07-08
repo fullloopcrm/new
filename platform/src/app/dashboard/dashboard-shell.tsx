@@ -50,8 +50,9 @@ const navMain: Array<{
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
   ]},
   { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
-    { letter: 'A', label: 'Calendar', href: '/dashboard/calendar' },
-    { letter: 'B', label: 'Crews', href: '/dashboard/jobs/crews' },
+    { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
+    { letter: 'B', label: 'Calendar', href: '/dashboard/calendar' },
+    { letter: 'C', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
   { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
   { num: '06', label: 'HR', href: '/dashboard/hr', fold: 'hr', perm: 'team.view', subs: [
