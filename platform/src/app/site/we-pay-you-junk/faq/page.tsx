@@ -1,7 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { isValidElement, type ReactNode } from "react";
 import { PHONE, SMS_HREF } from "@/app/site/we-pay-you-junk/_data/content";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { faqPageLd } from "@/app/site/we-pay-you-junk/_lib/schema";
+
+// Extract plain text from a JSX answer (incl. link text) so FAQPage schema
+// matches the visible content exactly.
+function nodeText(node: ReactNode): string {
+  if (node == null || node === false || node === true) return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join("");
+  if (isValidElement(node)) return nodeText((node.props as { children?: ReactNode }).children);
+  return "";
+}
 
 const LEFT_DATES = ['Jun 14, 2023', 'Jul 22, 2023', 'Jul 25, 2023', 'Aug 01, 2023', 'Aug 05, 2023', 'Aug 28, 2023', 'Sep 02, 2023', 'Oct 21, 2023', 'Nov 09, 2023', 'Nov 11, 2023', 'Nov 26, 2023', 'Dec 07, 2023', 'Dec 09, 2023', 'Dec 16, 2023', 'Dec 27, 2023', 'Dec 27, 2023', 'Jan 15, 2024', 'Feb 11, 2024', 'Mar 12, 2024', 'Apr 14, 2024', 'Apr 22, 2024', 'Jun 28, 2024', 'Jul 12, 2024', 'Aug 14, 2024', 'Aug 21, 2024'];
 const RIGHT_DATES = ['Aug 25, 2024', 'Aug 31, 2024', 'Sep 09, 2024', 'Sep 19, 2024', 'Sep 19, 2024', 'Oct 14, 2024', 'Nov 23, 2024', 'Dec 15, 2024', 'Dec 21, 2024', 'Dec 21, 2024', 'Jan 13, 2025', 'Jan 21, 2025', 'Apr 20, 2025', 'Apr 27, 2025', 'May 05, 2025', 'Jun 05, 2025', 'Jun 10, 2025', 'Jul 15, 2025', 'Jul 18, 2025', 'Oct 07, 2025', 'Oct 12, 2025', 'Oct 13, 2025', 'Dec 06, 2025', 'Dec 27, 2025', 'Mar 31, 2026'];
@@ -69,8 +82,10 @@ const RIGHT_FAQS = [
 ];
 
 export default function FAQPage() {
+  const faqs = [...LEFT_FAQS, ...RIGHT_FAQS].map((f) => ({ question: f.q, answer: nodeText(f.a) }));
   return (
     <>
+      <JsonLd data={faqPageLd(faqs)} />
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />
