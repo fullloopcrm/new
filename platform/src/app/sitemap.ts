@@ -6,6 +6,7 @@ import {
   generateIndustrySlug,
   generateLocationSlug,
 } from '@/lib/marketing/combos'
+import { features } from '@/lib/marketing/features'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://homeservicesbusinesscrm.com'
@@ -36,6 +37,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/accessibility`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
   ]
 
+  // Feature pages — /feature/{slug}
+  const featurePages: MetadataRoute.Sitemap = features.map((f) => ({
+    url: `${baseUrl}/feature/${f.slug}`,
+    lastModified: now,
+    changeFrequency: 'monthly' as const,
+    priority: 0.8,
+  }))
+
   // 51 industry pages — /industry/{slug}
   const industryPages: MetadataRoute.Sitemap = industries.map((i) => ({
     url: `${baseUrl}/industry/${generateIndustrySlug(i)}`,
@@ -61,5 +70,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.5,
   }))
 
-  return [...staticPages, ...industryPages, ...locationPages, ...comboPages]
+  return [...staticPages, ...featurePages, ...industryPages, ...locationPages, ...comboPages]
 }

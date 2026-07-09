@@ -55,8 +55,8 @@ const faqs: QA[] = [
     q: "How does the AI sales agent actually convert leads?",
     a: (
       <>
-        The moment an inquiry comes in &mdash; any hour, any day &mdash; the AI replies by text and
-        chat, qualifies the customer, quotes from your real pricing, answers questions,
+        The moment an inquiry comes in &mdash; any hour, any day &mdash; the AI answers the phone
+        live or replies by text and chat, qualifies the customer, quotes from your real pricing, answers questions,
         handles objections, and books the job. It works in English and Spanish, stays on
         your brand voice, and never lets a lead sit. Speed-to-lead is the single biggest
         predictor of who wins the job, and the agent responds in seconds even while you&apos;re
@@ -403,7 +403,7 @@ export const homeFaqForSchema: { question: string; answer: string }[] = [
   { question: "What is Full Loop CRM, exactly?", answer: "Full Loop is the first full-cycle CRM for home service businesses. It generates your leads, closes them with an AI sales agent, books the job, dispatches and GPS-tracks your crew, collects payment, requests the review, and retargets the customer for the next booking — one platform, no integrations." },
   { question: "How is this different from other home service CRMs?", answer: "Most CRMs only organize leads you already have. Full Loop generates the lead and converts it automatically, and it is licensed to one operator per trade per city so competitors can't use the same lead engine, SEO network, or AI sales agent against you." },
   { question: "What does one operator per trade per city mean?", answer: "We license each trade in each city to a single operator — one cleaning company, one HVAC company, one plumber per metro. While you hold the license, every other business in that trade in that city is locked out of Full Loop. Once a territory is claimed, it's off the board." },
-  { question: "How does the AI sales agent actually convert leads?", answer: "The moment an inquiry arrives, the AI replies by text and chat, qualifies the customer, quotes from your real pricing, handles objections, and books the job — in English or Spanish, 24/7. Speed-to-lead is the biggest predictor of who wins the job, and it responds in seconds." },
+  { question: "How does the AI sales agent actually convert leads?", answer: "The moment an inquiry arrives, the AI answers the phone live or replies by text and chat, qualifies the customer, quotes from your real pricing, handles objections, and books the job — in English or Spanish, 24/7. Speed-to-lead is the biggest predictor of who wins the job, and it responds in seconds." },
   { question: "Do I need to run ads to get leads?", answer: "No. The lead engine is built on organic, SEO-optimized sites that rank for the searches customers already make. The NYC Maid case study documents tens of thousands of organic lead clicks with zero paid ad spend." },
   { question: "What types of businesses is this built for?", answer: "More than fifty home and field service trades — cleaning, HVAC, plumbing, electrical, landscaping, lawn care, pest control, roofing, painting, junk removal, pool service, handyman, restoration, and more." },
   { question: "How does GPS-verified check-in and check-out work?", answer: "Crews work from a mobile portal showing the day's route and job details, then check in and out with location verification, giving you an honest record of who was on site and for how long — the basis for billing, payroll, and customer updates." },

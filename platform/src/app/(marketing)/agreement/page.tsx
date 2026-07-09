@@ -105,8 +105,8 @@ export default function AgreementPage() {
               pages, and ongoing content
             </li>
             <li>
-              Yinez, our AI booking agent, handling SMS and web chat
-              conversations in English and Spanish
+              Yinez, our AI booking agent, answering the phone and handling SMS
+              and web chat conversations in English and Spanish
             </li>
             <li>
               The CRM platform with client management, bookings, calendar,

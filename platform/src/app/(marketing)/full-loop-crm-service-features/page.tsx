@@ -282,13 +282,13 @@ export default function FeaturesPage() {
           <div className="grid gap-8 sm:grid-cols-2">
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
-                Our AI receptionist SMS Chatbot
+                Our AI Receptionist &amp; Voice Agent
               </h3>
               <p className="text-slate-600">
                 The AI receptionist is not a generic chatbot — it&apos;s trained on your specific services,
-                pricing, availability, and service areas. She responds to inbound leads via SMS
-                within seconds, keeping your response time under 60 seconds — the window where
-                conversion rates are highest.
+                pricing, availability, and service areas. She answers the phone live and responds to
+                inbound texts and web chats within seconds, keeping your response time under 60 seconds
+                — the window where conversion rates are highest.
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">

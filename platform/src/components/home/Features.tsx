@@ -42,7 +42,7 @@ const stages: Stage[] = [
   },
   {
     num: "02",
-    title: "AI Sales Agent: Instant Speed-to-Lead Follow-Up That Books Jobs 24/7",
+    title: "AI Phone & Sales Agent: Instant Speed-to-Lead Follow-Up That Answers Live and Books Jobs 24/7",
     body: (
       <>
         <p>
@@ -50,17 +50,22 @@ const stages: Stage[] = [
           who replies within five minutes is many times more likely to close than the one
           who replies an hour later &mdash; and at 9&nbsp;p.m. on a Sunday, nobody on your team
           is replying at all. Full Loop&apos;s AI sales agent answers every inquiry the
-          instant it lands, by text and web chat, twenty-four hours a day, seven days a
-          week.
+          instant it lands &mdash; picking up the phone on the first ring and replying by text
+          and web chat &mdash; twenty-four hours a day, seven days a week. A caller reaches a
+          real voice agent, not voicemail.
         </p>
         <p className="mt-4">
           It does not just auto-reply with &ldquo;thanks, we&apos;ll get back to you.&rdquo; It actually
           sells: it qualifies the customer, pulls from your real pricing to give a quote,
-          answers questions about your services, handles the usual objections, offers
-          available time slots, and books the job &mdash; all in natural, on-brand
-          conversation, in English or Spanish. It follows up with the leads who go quiet,
-          on a cadence, without being told. The result is a sales team that never sleeps,
-          never forgets, and never lets a lead go cold. See exactly how it converts in the{" "}
+          answers questions about your services, handles the usual objections, checks your
+          live calendar for real open slots, and books the job &mdash; all in natural, on-brand
+          conversation, in English or Spanish. On the phone it recognizes returning callers
+          by their number, pulls up their jobs and balance, takes notes to their record,
+          and escalates genuine edge cases to you instead of guessing; every call is
+          recorded and transcribed into one customer thread. It follows up with the leads
+          who go quiet, on a cadence, without being told. The result is a sales team that
+          never sleeps, never forgets, and never lets a lead go cold. See exactly how it
+          converts in the{" "}
           <Link href="/why-you-should-choose-full-loop-crm-for-your-business" style={link}>
             breakdown of why operators switch
           </Link>.

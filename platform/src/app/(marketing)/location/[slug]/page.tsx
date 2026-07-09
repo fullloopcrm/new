@@ -121,7 +121,7 @@ function getStages(): { title: string; desc: string }[] {
     },
     {
       title: "2. AI Sales Automation",
-      desc: "Our AI receptionist responds to inquiries via SMS within seconds, 24/7 — qualifying leads and booking estimates while you sleep.",
+      desc: "Our AI receptionist answers the phone live and responds to texts within seconds, 24/7 — qualifying leads and booking estimates while you sleep.",
     },
     {
       title: "3. Smart Scheduling",
