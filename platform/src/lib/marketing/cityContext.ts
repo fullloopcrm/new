@@ -41,6 +41,59 @@ function subregion(stateAbbr: string): string {
   return SUBREGION[stateAbbr] ?? "the region";
 }
 
+// ---------------------------------------------------------------------------
+// Real geographic positioning — distance + compass direction to the nearest
+// major metro, computed from actual coordinates. Genuinely unique per city
+// (Cleveland's nearest anchor/distance differs from Columbus's), so it further
+// separates same-state city pages that share trade + state content.
+// ---------------------------------------------------------------------------
+const ANCHORS = metros
+  .map((m) => ({ m, d: getCityData(m.slug) }))
+  .filter((x) => x.d?.lat != null && x.d?.population != null)
+  .sort((a, b) => (b.d!.population as number) - (a.d!.population as number))
+  .slice(0, 20);
+
+function haversineMi(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3958.8;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function compass(fromLat: number, fromLng: number, toLat: number, toLng: number): string {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const y = Math.sin(toRad(toLng - fromLng)) * Math.cos(toRad(toLat));
+  const x =
+    Math.cos(toRad(fromLat)) * Math.sin(toRad(toLat)) -
+    Math.sin(toRad(fromLat)) * Math.cos(toRad(toLat)) * Math.cos(toRad(toLng - fromLng));
+  const brng = (Math.atan2(y, x) * 180) / Math.PI;
+  const dirs = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"];
+  return dirs[Math.round(((brng % 360) + 360) % 360 / 45) % 8];
+}
+
+function geoPositionLine(metro: ComboMetro): string {
+  const cd = getCityData(metro.slug);
+  if (cd?.lat == null || cd?.lng == null) return "";
+  let best: { name: string; mi: number; dir: string } | null = null;
+  for (const a of ANCHORS) {
+    if (a.m.slug === metro.slug || a.d?.lat == null) continue;
+    const mi = haversineMi(cd.lat, cd.lng, a.d.lat as number, a.d.lng as number);
+    if (!best || mi < best.mi) {
+      best = {
+        name: a.m.city,
+        mi,
+        dir: compass(a.d.lat as number, a.d.lng as number, cd.lat, cd.lng),
+      };
+    }
+  }
+  if (!best || best.mi < 5) return "";
+  return `${metro.city} sits roughly ${Math.round(best.mi)} miles ${best.dir} of ${best.name}`;
+}
+
 /**
  * Real neighbor set for a city — same-state metros first, then the closest
  * out-of-state metros by list adjacency (proxy for proximity). Unique per city,
@@ -91,6 +144,7 @@ export function buildCityContextSection(
   const popClause = cd?.population
     ? `, a market of roughly ${cd.population.toLocaleString()} residents,`
     : "";
+  const geoLine = geoPositionLine(metro);
   const neighbors = getNeighborCities(metro, 8);
   const neighborNames = neighbors.map((n) => n.city);
   const near3 = neighborNames.slice(0, 3).join(", ");
@@ -113,7 +167,7 @@ export function buildCityContextSection(
     title: `The ${city}, ${stateAbbr} Market for ${cap(label)} Businesses`,
     description: `${city}${cd?.county ? ` (${cd.county} County)` : ""} anchors a distinct ${label} market in ${region}. Full Loop CRM is built to win ${city} and the ${stateAbbr} metros around it — one operator per trade, per city.`,
     paragraphs: [
-      `${placeLine}${popClause} in ${region}. A ${label} business here competes on a local footing that a national tool never accounts for. Full Loop CRM treats ${city} as its own market: your lead generation, local SEO, and AI sales agent are pointed at ${city} customers and the surrounding ${stateAbbr} metros — ${near3}${neighborNames.length > 3 ? ", and more" : ""} — not spread thin across the whole country.${seasonLine}`,
+      `${placeLine}${popClause} in ${region}.${geoLine ? ` ${geoLine}, which sets the real drive-time radius your ${label} crews and dispatching have to cover.` : ""} A ${label} business here competes on a local footing that a national tool never accounts for. Full Loop CRM treats ${city} as its own market: your lead generation, local SEO, and AI sales agent are pointed at ${city} customers and the surrounding ${stateAbbr} metros — ${near3}${neighborNames.length > 3 ? ", and more" : ""} — not spread thin across the whole country.${seasonLine}`,
       marketLine,
       `Because Full Loop licenses one ${label} operator per city, claiming ${city} means the organic leads, the review flywheel, and the exclusive territory here are yours — and the same model is available in each nearby ${stateAbbr} market as you expand.`,
     ],
