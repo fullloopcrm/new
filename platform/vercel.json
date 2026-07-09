@@ -163,6 +163,10 @@
     {
       "path": "/api/cron/payment-followup-daily",
       "schedule": "0 12,13,16,17,22,23 * * *"
+    },
+    {
+      "path": "/api/cron/year-end",
+      "schedule": "0 5 * * *"
     }
   ]
 }

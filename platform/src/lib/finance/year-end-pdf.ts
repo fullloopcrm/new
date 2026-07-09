@@ -84,7 +84,7 @@ export async function buildYearEndPdf(d: YearEndData, memo: string): Promise<Uin
   write(`Prepared by Full Loop from ${d.tenant.name}'s operating records. This package is a bookkeeping handoff for your accountant — it is not a tax return and Full Loop does not file taxes.`, 10, font, gray)
   gap(8)
   write('Contents', 11, bold); gap(2)
-  for (const c of ['Cover memo (summary & open questions)', 'Profit & Loss', 'Balance Sheet', 'Trial Balance', '1099-NEC contractor summary', 'W-2 employee roster', 'General ledger detail']) write(`•  ${c}`, 9.5, font, gray)
+  for (const c of ['Cover memo (summary & open questions)', 'Profit & Loss', 'Balance Sheet', 'Cash Flow Summary', 'Trial Balance', '1099-NEC contractor summary', 'W-2 employee roster', 'General ledger detail']) write(`•  ${c}`, 9.5, font, gray)
   gap(6)
   if (d.accountant?.email) write(`Accountant on file: ${d.accountant.name || d.accountant.email} (${d.accountant.email})`, 9, font, gray)
 
@@ -117,6 +117,13 @@ export async function buildYearEndPdf(d: YearEndData, memo: string): Promise<Uin
   row2('Net income (current year)', usd(d.balanceSheet.net_income_cents))
   rule(); row2('Total equity', usd(d.balanceSheet.total_equity_cents), true)
   gap(4); write(d.balanceSheet.balanced ? '✓ Assets = Liabilities + Equity (books balance).' : '⚠ Assets do not equal Liabilities + Equity — review before filing.', 9, font, d.balanceSheet.balanced ? teal : rgb(0.55, 0.1, 0.1))
+
+  // ── Cash flow ──
+  heading(`Cash Flow Summary — ${d.year}`)
+  write('Cash-basis movement across cash & bank accounts (not a GAAP statement of cash flows).', 8.5, font, gray); gap(2)
+  row2('Cash in', usd(d.cashFlow.cash_in_cents))
+  row2('Cash out', usd(d.cashFlow.cash_out_cents))
+  rule(); row2('Net change in cash', usd(d.cashFlow.net_change_cents), true)
 
   // ── Trial balance ──
   heading(`Trial Balance — ${d.year}`)

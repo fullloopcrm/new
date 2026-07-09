@@ -63,6 +63,21 @@ export default function CpaAccessPage() {
     } finally { setSending(false) }
   }
 
+  async function holdResume(action: 'hold' | 'release') {
+    setSendMsg(null)
+    try {
+      const res = await fetch('/api/finance/year-end', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, year: parseInt(year) }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d?.error || 'Failed')
+      setSendMsg(action === 'hold' ? `Auto-send paused for ${d.year}.` : `Auto-send resumed for ${d.year} (48-hour window).`)
+    } catch (e) {
+      setSendMsg(e instanceof Error ? e.message : 'Failed')
+    }
+  }
+
   const accountantEmail = tokens.find(t => t.cpa_email)?.cpa_email || null
 
   return (
@@ -86,8 +101,12 @@ export default function CpaAccessPage() {
           </button>
         </div>
         {accountantEmail
-          ? <p className="text-xs text-slate-500">Will send to <strong>{accountantEmail}</strong>, with a copy to you.</p>
+          ? <p className="text-xs text-slate-500">Will send to <strong>{accountantEmail}</strong>, with a copy to you. At year-end this auto-sends after a 48-hour review window.</p>
           : <p className="text-xs text-amber-600">Add your accountant below to enable sending.</p>}
+        <div className="flex gap-3 mt-1">
+          <button onClick={() => holdResume('hold')} className="text-xs text-slate-500 hover:underline">Pause auto-send</button>
+          <button onClick={() => holdResume('release')} className="text-xs text-slate-500 hover:underline">Resume auto-send</button>
+        </div>
         {sendMsg && <p className="text-xs mt-2 text-slate-700">{sendMsg}</p>}
       </section>
 

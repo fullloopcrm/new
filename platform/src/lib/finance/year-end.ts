@@ -16,6 +16,7 @@ import { supabaseAdmin } from '../supabase'
 import { ledgerProfitAndLoss, ledgerBalanceSheet, ledgerTrialBalance, type LedgerPnL, type LedgerBalanceSheet, type LedgerTrialBalance } from './ledger-reports'
 import { listLedgerEntries, ledgerTotals, type LedgerEntry, type LedgerTotals } from './ledger-list'
 import { computeContractor1099, type Contractor1099Summary } from './contractor-1099'
+import { ledgerCashSummary, type LedgerCashFlow } from './cash-flow'
 
 export interface YearEndData {
   tenant: { id: string; name: string; email: string | null }
@@ -24,6 +25,7 @@ export interface YearEndData {
   pnl: LedgerPnL
   balanceSheet: LedgerBalanceSheet
   trialBalance: LedgerTrialBalance
+  cashFlow: LedgerCashFlow
   totals: LedgerTotals
   entries: LedgerEntry[]
   entriesTotal: number
@@ -53,10 +55,11 @@ export async function gatherYearEnd(tenantId: string, year: number): Promise<Yea
     .eq('id', tenantId)
     .single()
 
-  const [pnl, balanceSheet, trialBalance, totals, list, contractors, prior] = await Promise.all([
+  const [pnl, balanceSheet, trialBalance, cashFlow, totals, list, contractors, prior] = await Promise.all([
     ledgerProfitAndLoss(tenantId, from, to),
     ledgerBalanceSheet(tenantId, to),
     ledgerTrialBalance(tenantId, from, to),
+    ledgerCashSummary(tenantId, from, to),
     ledgerTotals(tenantId, { from, to }),
     listLedgerEntries(tenantId, { from, to, limit: 1000 }),
     computeContractor1099(tenantId, year),
@@ -95,6 +98,7 @@ export async function gatherYearEnd(tenantId: string, year: number): Promise<Yea
     pnl,
     balanceSheet,
     trialBalance,
+    cashFlow,
     totals,
     entries: list.entries,
     entriesTotal: list.total,
