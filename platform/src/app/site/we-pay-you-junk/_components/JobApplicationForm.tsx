@@ -21,7 +21,9 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       email: String(fd.get("email") || ""),
       city: String(fd.get("city") || ""),
       state,
+      vehicle: String(fd.get("vehicle") || ""),
       hasLicense: String(fd.get("hasLicense") || ""),
+      hasInsurance: String(fd.get("hasInsurance") || ""),
       canLift: String(fd.get("canLift") || ""),
       availability: String(fd.get("availability") || ""),
       about: String(fd.get("about") || ""),
@@ -75,8 +77,27 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
         <input type="text" name="city" required defaultValue={location !== "Nationwide" ? location : ""} placeholder="What city do you want to work in?" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
       </div>
       <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-1">Your truck / trailer setup *</label>
+        <select name="vehicle" required className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
+          <option value="">Select...</option>
+          <option value="pickup-and-trailer">Pickup truck + trailer</option>
+          <option value="pickup-only">Pickup truck only</option>
+          <option value="trailer-only">Trailer only (with tow vehicle)</option>
+          <option value="box-truck">Box truck / cargo van</option>
+          <option value="none">None — applying without equipment</option>
+        </select>
+      </div>
+      <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1">Do you have a valid driver&apos;s license? *</label>
         <select name="hasLicense" required className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
+          <option value="">Select...</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-1">Do you have vehicle insurance? *</label>
+        <select name="hasInsurance" required className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
           <option value="">Select...</option>
           <option value="yes">Yes</option>
           <option value="no">No</option>
