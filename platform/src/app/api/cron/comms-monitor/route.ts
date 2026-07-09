@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     const since = new Date(now.getTime() - WINDOW_MIN * 60 * 1000)
 
     const { data: fails } = await supabaseAdmin
-      .from('notifications')
+      .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id, message, created_at')
       .eq('type', 'comms_fail')
       .gte('created_at', since.toISOString())
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 
     const dedupSince = new Date(now.getTime() - DEDUP_HOURS * 60 * 60 * 1000)
     const { data: prior } = await supabaseAdmin
-      .from('notifications')
+      .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id, message')
       .eq('type', 'comms_monitor_alert')
       .gte('created_at', dedupSince.toISOString())
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
     const subject = `⚠️ Comms failures — ${fails.length} in last ${WINDOW_MIN} min`
     await alertOwner(subject, `${summary}\nfingerprint=${fingerprint}`).catch(err => console.error('[comms-monitor] alert telegram failed', err))
 
-    await supabaseAdmin.from('notifications').insert({
+    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       type: 'comms_monitor_alert',
       title: 'Comms failures detected',
       message: `${fails.length} failures · fingerprint=${fingerprint}`,

@@ -7,7 +7,7 @@ async function logSMSFailure(to: string, smsType: string | undefined, error: unk
   try {
     const errMsg = typeof error === 'string' ? error : (error as any)?.message || JSON.stringify(error)
     const truncated = (errMsg || 'unknown error').slice(0, 400)
-    await supabaseAdmin.from('notifications').insert({
+    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
       type: 'comms_fail',
       title: 'SMS send failed',
       message: `sms to ${to} | type=${smsType || 'unspecified'} | error=${truncated}`,
@@ -45,7 +45,7 @@ async function tripCircuit(reason: string) {
   try {
     const { smsAdmins } = await import('@/lib/nycmaid/admin-contacts')
     const { supabaseAdmin } = await import('@/lib/supabase')
-    await supabaseAdmin.from('notifications').insert({
+    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
       type: 'sms_circuit_breaker',
       title: 'SMS circuit breaker tripped',
       message: `Blocked outbound SMS — ${sentTimestamps.length} sends in last ${CIRCUIT_WINDOW_MS / 1000}s. ${reason}`,
@@ -165,7 +165,7 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
       // Log SMS
       if (options?.smsType) {
         try {
-          await supabaseAdmin.from('sms_logs').insert({
+          await supabaseAdmin.from('sms_logs').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
             booking_id: options.bookingId || null,
             sms_type: options.smsType,
             recipient: cleanPhone,

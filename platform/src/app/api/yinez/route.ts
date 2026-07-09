@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       }
 
       const { data: convo } = await supabaseAdmin
-        .from('sms_conversations')
+        .from('sms_conversations')  // tenant-scope-ok: insert payload carries tenant_id (built above)
         .insert(insertData)
         .select('id')
         .single()
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Log inbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({
+    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
       conversation_id: conversationId, direction: 'inbound', message,
     })
 
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const reply = result.text || ''
 
     // Log outbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({
+    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
       conversation_id: conversationId, direction: 'outbound', message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
     })
 

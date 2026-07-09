@@ -90,7 +90,7 @@ export async function createTenantFromLead(
     const priceCents =
       lead.proposal_monthly != null ? Math.round(Number(lead.proposal_monthly) * 100) : null
     const { data: claim, error: claimErr } = await supabaseAdmin
-      .from('territory_claims')
+      .from('territory_claims')  // tenant-scope-ok: territory reservation created pre-tenant; tenant_id set after tenant creation
       .insert({
         territory_id: lead.territory_id,
         category_id: lead.category_id,

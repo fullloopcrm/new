@@ -217,7 +217,7 @@ async function inspectAndDetect(prop: Property, urls: string[]): Promise<{ inspe
   }
 
   if (problems.length) {
-    const { error } = await supabaseAdmin.from('seo_issues').insert(problems)
+    const { error } = await supabaseAdmin.from('seo_issues').insert(problems)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     if (error) throw new Error(`not_indexed insert ${prop.property}: ${error.message}`)
   }
   return { inspected, problems: problems.length }

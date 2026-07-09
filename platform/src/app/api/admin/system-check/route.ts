@@ -19,13 +19,13 @@ export async function GET() {
 
   const [{ data: errors }, { data: checks }] = await Promise.all([
     supabaseAdmin
-      .from('error_logs')
+      .from('error_logs')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id, message, route, severity, created_at')
       .gte('created_at', oneDayAgo)
       .order('created_at', { ascending: false })
       .limit(20),
     supabaseAdmin
-      .from('notifications')
+      .from('notifications')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id, type, title, message, created_at')
       .in('type', ['system_check', 'error'])
       .gte('created_at', oneDayAgo)
@@ -75,7 +75,7 @@ export async function POST() {
   // 3. ONBOARDING
   try {
     const { count, error } = await supabaseAdmin
-      .from('tenant_members')
+      .from('tenant_members')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
     if (error) throw error
     checks.push({ name: 'Onboarding', status: 'pass', detail: `${count} members registered` })
@@ -112,13 +112,13 @@ export async function POST() {
   try {
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
     const { count: stuck } = await supabaseAdmin
-      .from('bookings')
+      .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'in_progress')
       .lt('end_time', fourHoursAgo)
 
     const { count: pendingOld } = await supabaseAdmin
-      .from('bookings')
+      .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
       .lt('start_time', new Date().toISOString())
@@ -140,13 +140,13 @@ export async function POST() {
   try {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { count: sent } = await supabaseAdmin
-      .from('notifications')
+      .from('notifications')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'sent')
       .gte('created_at', oneDayAgo)
 
     const { count: failed } = await supabaseAdmin
-      .from('notifications')
+      .from('notifications')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'failed')
       .gte('created_at', oneDayAgo)
@@ -167,7 +167,7 @@ export async function POST() {
   try {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const { count } = await supabaseAdmin
-      .from('error_logs')
+      .from('error_logs')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .gte('created_at', oneHourAgo)
 
@@ -184,7 +184,7 @@ export async function POST() {
   try {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { count: unpaid } = await supabaseAdmin
-      .from('bookings')
+      .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('payment_status', 'unpaid')
       .eq('status', 'completed')
@@ -203,7 +203,7 @@ export async function POST() {
   try {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const { count: stuck } = await supabaseAdmin
-      .from('campaigns')
+      .from('campaigns')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'sending')
       .lt('updated_at', oneHourAgo)

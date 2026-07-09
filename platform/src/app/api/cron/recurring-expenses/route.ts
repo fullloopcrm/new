@@ -108,7 +108,7 @@ export async function POST(request: Request) {
   }
 
   // Health-monitor marker.
-  await supabaseAdmin.from('notifications').insert({
+  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     type: 'recurring_expense_posted',
     title: 'cron:recurring-expenses',
     message: `fired=${fired} failed=${failed}`,

@@ -615,7 +615,7 @@ export async function POST(request: Request) {
               convo = newConvo
 
               // Log inbound message to conversation
-              await supabaseAdmin.from('sms_conversation_messages').insert({
+              await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: webhook resolves tenant from the verified event payload
                 conversation_id: convo.id,
                 direction: 'inbound',
                 message: text,
@@ -651,7 +651,7 @@ export async function POST(request: Request) {
           }
 
           // Ongoing conversation — log inbound and route to AI
-          await supabaseAdmin.from('sms_conversation_messages').insert({
+          await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: webhook resolves tenant from the verified event payload
             conversation_id: convo.id,
             direction: 'inbound',
             message: text,

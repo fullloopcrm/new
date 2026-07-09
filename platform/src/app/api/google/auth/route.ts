@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { signOAuthState } from '@/lib/oauth-state'
 
 // Dashboard-level Google OAuth — business owner connects their own Google
 export async function GET() {
@@ -21,7 +22,7 @@ export async function GET() {
       scope: 'https://www.googleapis.com/auth/business.manage',
       access_type: 'offline',
       prompt: 'consent',
-      state: tenant.id,
+      state: signOAuthState(tenant.id),
     })
 
     return NextResponse.json({

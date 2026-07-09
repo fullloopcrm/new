@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (newConvoId) {
-        await supabaseAdmin.from('sms_conversation_messages').insert({
+        await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
           conversation_id: newConvoId,
           direction: 'outbound',
           message: recoveryText,

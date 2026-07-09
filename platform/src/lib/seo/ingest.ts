@@ -90,7 +90,7 @@ async function ingestProperty(site: GscSite, startDate: string, endDate: string)
     }
 
     await supabaseAdmin
-      .from('seo_properties')
+      .from('seo_properties')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
       .update({ last_ingest_at: new Date().toISOString() })
       .eq('property', site.siteUrl)
 

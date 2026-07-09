@@ -163,7 +163,7 @@ export async function POST(request: Request) {
       for (let i = 0; i < validRows.length; i += batchSize) {
         const batch = validRows.slice(i, i + batchSize)
         const { data, error } = await supabaseAdmin
-          .from('clients')
+          .from('clients')  // tenant-scope-ok: insert payload carries tenant_id (built above)
           .insert(batch)
           .select('id')
 

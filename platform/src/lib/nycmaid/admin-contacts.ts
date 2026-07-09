@@ -67,7 +67,7 @@ export async function emailAdmins(subject: string, html: string, roles?: string[
       // email_logs.booking_id is nullable; leave null for admin-scoped sends
     }))
     if (rows.length > 0) {
-      await supabaseAdmin.from('email_logs').insert(rows)
+      await supabaseAdmin.from('email_logs').insert(rows)  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
     }
   } catch {
     // never throw from the logger

@@ -68,7 +68,7 @@ export async function DELETE(request: Request) {
     const { endpoint } = await request.json()
 
     if (endpoint) {
-      await supabaseAdmin.from('push_subscriptions').delete().eq('endpoint', endpoint)
+      await supabaseAdmin.from('push_subscriptions').delete().eq('endpoint', endpoint)  // tenant-scope-ok: row-scoped by globally-unique push endpoint
     }
 
     return NextResponse.json({ success: true })

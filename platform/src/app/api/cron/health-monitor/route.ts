@@ -83,7 +83,7 @@ export async function GET(request: Request) {
       const fingerprint = failures.map(f => f.cron).sort().join(',')
       const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000)
       const { data: recentAlerts } = await supabaseAdmin
-        .from('notifications')
+        .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
         .select('id, message')
         .eq('type', 'cron_health_alert')
         .gte('created_at', sixHoursAgo.toISOString())
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
         const subject = `🚨 Cron health — ${failures.length} cron${failures.length === 1 ? '' : 's'} silent`
         await alertOwner(subject, `${lines}\nfingerprint=${fingerprint}`).catch(err => console.error('[health-monitor] alert telegram failed', err))
 
-        await supabaseAdmin.from('notifications').insert({
+        await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
           type: 'cron_health_alert',
           title: 'Cron silence detected',
           message: `${failures.length} failing · fingerprint=${fingerprint}`,

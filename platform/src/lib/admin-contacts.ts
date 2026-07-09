@@ -146,7 +146,7 @@ export async function emailAdmins(
         status: 'sent' as const,
         email_type: 'admin_alert',
       }))
-      await supabaseAdmin.from('email_logs').insert(rows)
+      await supabaseAdmin.from('email_logs').insert(rows)  // tenant-scope-ok: insert rows carry tenant_id (built above)
     }
   } catch {
     // email_type column may not exist pre-migration-040; don't block alerts.

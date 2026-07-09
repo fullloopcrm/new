@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     // Insert outbound message
     const now = new Date().toISOString()
     const { data: msg, error: msgError } = await supabaseAdmin
-      .from('sms_conversation_messages')
+      .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
       .insert({
         conversation_id: convoId,
         direction: 'outbound',

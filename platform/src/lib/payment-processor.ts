@@ -81,7 +81,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
 
   // Tenant-scoped booking lookup with joined relations
   const { data: booking } = await supabaseAdmin
-    .from('bookings')
+    .from('bookings')  // tenant-scope-ok: row-scoped by globally-unique bookingId
     .select(`
       id,
       team_member_id,

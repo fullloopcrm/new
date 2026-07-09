@@ -122,14 +122,14 @@ export async function GET(request: Request) {
 
   // Mark stale (>60min) so we stop re-reminding
   await supabaseAdmin
-    .from('bookings')
+    .from('bookings')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     .update({ payment_reminder_sent_at: thirtyAgo })
     .neq('payment_status', 'paid')
     .lt('fifteen_min_alert_time', sixtyAgo)
     .is('payment_reminder_sent_at', null)
 
   // Health-monitor marker.
-  await supabaseAdmin.from('notifications').insert({
+  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     type: 'payment_reminder_fired',
     title: 'cron:payment-reminder',
     message: `reminded=${reminded} escalated=${escalated}`,

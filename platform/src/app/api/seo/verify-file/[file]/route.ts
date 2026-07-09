@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
     return new NextResponse('Not found', { status: 404 })
   }
   const { data, error } = await supabaseAdmin
-    .from('seo_properties')
+    .from('seo_properties')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     .select('property')
     .eq('meta->>verify_token', file)
     .limit(1)
