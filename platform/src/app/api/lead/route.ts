@@ -133,6 +133,36 @@ export async function POST(request: NextRequest) {
           console.error('[api/lead] job-app email error:', emailErr)
         }
 
+        // Applicant confirmation — same acknowledgement toggle as leads
+        // (lead_received). Sent from the tenant's own from-address. Non-blocking.
+        try {
+          if (email && (await isCommEnabled(tenant.id, 'lead_received', 'email'))) {
+            const t = tenant as Record<string, unknown>
+            const html = emailShell({
+              brand: {
+                name: tenant.name,
+                phone: (t.phone as string) || null,
+                email: (t.email as string) || null,
+                address: (t.address as string) || null,
+                logoUrl: tenant.logo_url || null,
+                primaryColor: tenant.primary_color || null,
+              },
+              heading: `Thanks for applying, ${name.split(' ')[0]}`,
+              bodyHtml: `<p>We received your application and our team will review it and follow up shortly. If you need to reach us, just reply to this email${t.phone ? ` or call ${t.phone}` : ''}.</p>`,
+              preheader: `We received your application`,
+            })
+            await sendEmail({
+              to: email,
+              subject: `We received your application — ${tenant.name}`,
+              html,
+              resendApiKey: (t.resend_api_key as string) || undefined,
+              from: (t.email_from as string) || undefined,
+            })
+          }
+        } catch (ackErr) {
+          console.error('[api/lead] applicant confirmation error:', ackErr)
+        }
+
         return NextResponse.json({ success: true, application_id: appRow.id })
       } catch (appErr) {
         console.error('[api/lead] application insert failed:', appErr)
