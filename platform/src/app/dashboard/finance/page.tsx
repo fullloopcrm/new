@@ -59,6 +59,9 @@ export default function FinancePage() {
   const [summary, setSummary] = useState<Summary>({})
   const [totals, setTotals] = useState<EnrichedTotals | null>(null)
   const [topClients, setTopClients] = useState<Array<{ name: string; amount_cents: number; meta: string; vip: boolean }>>([])
+  const [monthly, setMonthly] = useState<Array<{ month: string; amount: number }>>([])
+  const [aging, setAging] = useState<Array<{ label: string; count: number; total_cents: number }>>([])
+  const [freq, setFreq] = useState<{ weekly: number; biweekly: number; monthly: number; other: number }>({ weekly: 0, biweekly: 0, monthly: 0, other: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -66,9 +69,13 @@ export default function FinancePage() {
     Promise.all([
       fetch('/api/finance/summary').then((r) => r.json()).catch(() => ({})),
       fetch('/api/clients/enriched').then((r) => r.json()).catch(() => ({ clients: [], totals: null })),
-    ]).then(([s, e]) => {
+      fetch('/api/finance/revenue?monthly=true').then((r) => r.json()).catch(() => ({ monthly: [] })),
+      fetch('/api/finance/ar-aging').then((r) => r.json()).catch(() => ({ buckets: [] })),
+    ]).then(([s, e, rev, ar]) => {
       setSummary(s || {})
       setTotals(e?.totals || null)
+      setMonthly((rev?.monthly || []) as Array<{ month: string; amount: number }>)
+      setAging((ar?.buckets || []) as Array<{ label: string; count: number; total_cents: number }>)
       const cs = (e?.clients || []) as Array<{
         name: string
         ltv_actual_cents: number
@@ -76,6 +83,17 @@ export default function FinancePage() {
         recurring: { frequency: string } | null
         stage: string
       }>
+      // Real recurring mix by cadence (was fabricated 62/28/10 before).
+      const f = { weekly: 0, biweekly: 0, monthly: 0, other: 0 }
+      for (const c of cs) {
+        if (!c.recurring?.frequency) continue
+        const fr = c.recurring.frequency.toLowerCase()
+        if (fr.includes('bi') || fr.includes('2')) f.biweekly++
+        else if (fr.includes('week')) f.weekly++
+        else if (fr.includes('month')) f.monthly++
+        else f.other++
+      }
+      setFreq(f)
       const top = [...cs]
         .sort((a, b) => b.ltv_actual_cents - a.ltv_actual_cents)
         .slice(0, 5)
@@ -102,6 +120,12 @@ export default function FinancePage() {
   const mrrCents = totals?.mrr_cents ?? 0
   const recurringCount = totals?.recurring ?? 0
   const totalRevenueSum = topClients.reduce((s, c) => s + c.amount_cents, 0)
+  const chartMax = Math.max(1, ...monthly.map((m) => m.amount))
+  const chartHasData = monthly.some((m) => m.amount > 0)
+  const recurringTotal = freq.weekly + freq.biweekly + freq.monthly + freq.other
+  const agingTotalCents = aging.reduce((s, b) => s + (b.total_cents || 0), 0)
+  const bucketCents = (label: string) => aging.find((b) => b.label === label)?.total_cents ?? 0
+  const bucketMax = Math.max(1, ...aging.map((b) => b.total_cents || 0))
 
   return (
     <div className="fin-scope">
@@ -194,40 +218,40 @@ export default function FinancePage() {
               </div>
             </div>
             <div className="fin-chart-canvas">
-              <svg className="fin-chart-svg" viewBox="0 0 1200 240" preserveAspectRatio="none">
-                <line x1="0" y1="60" x2="1200" y2="60" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
-                <line x1="0" y1="120" x2="1200" y2="120" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
-                <line x1="0" y1="180" x2="1200" y2="180" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
-                {[
-                  { x: 50, h: 14, op: 0.2 },
-                  { x: 138, h: 18, op: 0.2 },
-                  { x: 226, h: 22, op: 0.25 },
-                  { x: 314, h: 28, op: 0.3 },
-                  { x: 402, h: 35, op: 0.35 },
-                  { x: 490, h: 50, op: 0.4 },
-                  { x: 578, h: 70, op: 0.5 },
-                  { x: 666, h: 85, op: 0.6 },
-                  { x: 754, h: 105, op: 0.7 },
-                  { x: 842, h: 120, op: 0.8 },
-                  { x: 930, h: 140, op: 0.9 },
-                  { x: 1018, h: 152, op: 1, current: true },
-                ].map((b, i) => (
-                  <rect
-                    key={i}
-                    x={b.x}
-                    y={230 - b.h}
-                    width="64"
-                    height={b.h}
-                    fill={b.current ? '#1C1C1C' : '#3A3A3A'}
-                    opacity={b.op}
-                    rx="2"
-                  />
-                ))}
-              </svg>
+              {chartHasData ? (
+                <svg className="fin-chart-svg" viewBox="0 0 1200 240" preserveAspectRatio="none">
+                  <line x1="0" y1="60" x2="1200" y2="60" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
+                  <line x1="0" y1="120" x2="1200" y2="120" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
+                  <line x1="0" y1="180" x2="1200" y2="180" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
+                  {monthly.map((m, i) => {
+                    const slot = 1200 / (monthly.length || 12)
+                    const h = Math.max(2, Math.round((m.amount / chartMax) * 200))
+                    const isCurrent = i === monthly.length - 1
+                    return (
+                      <rect
+                        key={m.month}
+                        x={i * slot + slot * 0.2}
+                        y={230 - h}
+                        width={slot * 0.6}
+                        height={h}
+                        fill={isCurrent ? '#1C1C1C' : '#3A3A3A'}
+                        opacity={isCurrent ? 1 : 0.35 + (i / (monthly.length || 12)) * 0.5}
+                        rx="2"
+                      >
+                        <title>{`${m.month}: $${Math.round(m.amount).toLocaleString('en-US')}`}</title>
+                      </rect>
+                    )
+                  })}
+                </svg>
+              ) : (
+                <div className="fin-chart-empty">No revenue in the last 12 months yet.</div>
+              )}
             </div>
             <div className="fin-chart-x-labels">
-              {['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'].map((m, i) => (
-                <span key={m} className={`fin-chart-x-label ${i === 11 ? 'current' : ''}`}>{m}{i === 11 ? ' ●' : ''}</span>
+              {monthly.map((m, i) => (
+                <span key={m.month} className={`fin-chart-x-label ${i === monthly.length - 1 ? 'current' : ''}`}>
+                  {m.month.split(' ')[0]}{i === monthly.length - 1 ? ' ●' : ''}
+                </span>
               ))}
             </div>
           </div>
@@ -242,25 +266,25 @@ export default function FinancePage() {
               <div className="fin-mrr-big"><span className="unit">$</span>{fmt(mrrCents)}</div>
               <div className="fin-mrr-meta">From <strong>{recurringCount}</strong> recurring clients</div>
               <div className="fin-mrr-bar">
-                <div className="fin-mrr-segment weekly" style={{ width: '62%' }} />
-                <div className="fin-mrr-segment biweekly" style={{ width: '28%' }} />
-                <div className="fin-mrr-segment monthly" style={{ width: '10%' }} />
+                <div className="fin-mrr-segment weekly" style={{ width: `${recurringTotal ? (freq.weekly / recurringTotal) * 100 : 0}%` }} />
+                <div className="fin-mrr-segment biweekly" style={{ width: `${recurringTotal ? (freq.biweekly / recurringTotal) * 100 : 0}%` }} />
+                <div className="fin-mrr-segment monthly" style={{ width: `${recurringTotal ? ((freq.monthly + freq.other) / recurringTotal) * 100 : 0}%` }} />
               </div>
               <div>
                 <div className="fin-mrr-leg-row">
                   <span className="fin-mrr-leg-dot" style={{ background: 'var(--fin-good)' }} />
                   <span className="fin-mrr-leg-name">Weekly</span>
-                  <span className="fin-mrr-leg-num">{Math.round(recurringCount * 0.62)} clients</span>
+                  <span className="fin-mrr-leg-num">{freq.weekly} {freq.weekly === 1 ? 'client' : 'clients'}</span>
                 </div>
                 <div className="fin-mrr-leg-row">
                   <span className="fin-mrr-leg-dot" style={{ background: 'var(--fin-vip)' }} />
                   <span className="fin-mrr-leg-name">Biweekly</span>
-                  <span className="fin-mrr-leg-num">{Math.round(recurringCount * 0.28)} clients</span>
+                  <span className="fin-mrr-leg-num">{freq.biweekly} {freq.biweekly === 1 ? 'client' : 'clients'}</span>
                 </div>
                 <div className="fin-mrr-leg-row">
                   <span className="fin-mrr-leg-dot" style={{ background: 'var(--fin-warn)' }} />
-                  <span className="fin-mrr-leg-name">Monthly</span>
-                  <span className="fin-mrr-leg-num">{Math.max(0, recurringCount - Math.round(recurringCount * 0.62) - Math.round(recurringCount * 0.28))} clients</span>
+                  <span className="fin-mrr-leg-name">Monthly{freq.other > 0 ? ' + other' : ''}</span>
+                  <span className="fin-mrr-leg-num">{freq.monthly + freq.other} {freq.monthly + freq.other === 1 ? 'client' : 'clients'}</span>
                 </div>
               </div>
               <div className="fin-mrr-arr">
@@ -301,35 +325,30 @@ export default function FinancePage() {
                 <span className="fin-panel-label">Outstanding · Aging</span>
                 <span className="fin-panel-cta">Collect →</span>
               </div>
-              <div className="fin-aging-row">
-                <span className="fin-aging-label">0–30d</span>
-                <div className="fin-aging-bar">
-                  {outstanding > 0 ? (
-                    <div className="fin-aging-fill green" style={{ width: '100%' }}>${fmt(outstanding)}</div>
-                  ) : (
-                    <div className="fin-aging-fill empty" />
-                  )}
-                </div>
-                <span className={`fin-aging-amount ${outstanding === 0 ? 'zero' : ''}`}>${fmt(outstanding)}</span>
-              </div>
-              <div className="fin-aging-row">
-                <span className="fin-aging-label">31–60d</span>
-                <div className="fin-aging-bar"><div className="fin-aging-fill empty" /></div>
-                <span className="fin-aging-amount zero">$0</span>
-              </div>
-              <div className="fin-aging-row">
-                <span className="fin-aging-label">61–90d</span>
-                <div className="fin-aging-bar"><div className="fin-aging-fill empty" /></div>
-                <span className="fin-aging-amount zero">$0</span>
-              </div>
-              <div className="fin-aging-row">
-                <span className="fin-aging-label">90d+</span>
-                <div className="fin-aging-bar"><div className="fin-aging-fill empty" /></div>
-                <span className="fin-aging-amount zero">$0</span>
-              </div>
+              {[
+                { key: 'Current', label: '0–30d' },
+                { key: '31-60', label: '31–60d' },
+                { key: '61-90', label: '61–90d' },
+                { key: '90+', label: '90d+' },
+              ].map((b) => {
+                const cents = bucketCents(b.key)
+                return (
+                  <div className="fin-aging-row" key={b.key}>
+                    <span className="fin-aging-label">{b.label}</span>
+                    <div className="fin-aging-bar">
+                      {cents > 0 ? (
+                        <div className="fin-aging-fill green" style={{ width: `${Math.max(8, (cents / bucketMax) * 100)}%` }}>${fmt(cents)}</div>
+                      ) : (
+                        <div className="fin-aging-fill empty" />
+                      )}
+                    </div>
+                    <span className={`fin-aging-amount ${cents === 0 ? 'zero' : ''}`}>${fmt(cents)}</span>
+                  </div>
+                )
+              })}
               <div className="fin-aging-foot">
                 <span className="fin-aging-foot-label">Total</span>
-                <span className="fin-aging-foot-value">${fmt(outstanding)}</span>
+                <span className="fin-aging-foot-value">${fmt(agingTotalCents)}</span>
               </div>
               {outstanding > 0 && (
                 <div className="fin-aging-action">Send batch reminder via Selena →</div>

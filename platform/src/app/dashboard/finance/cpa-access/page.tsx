@@ -20,6 +20,9 @@ export default function CpaAccessPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [days, setDays] = useState('90')
+  const [year, setYear] = useState(String(new Date().getUTCFullYear() - 1))
+  const [sending, setSending] = useState(false)
+  const [sendMsg, setSendMsg] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -45,10 +48,48 @@ export default function CpaAccessPage() {
     load()
   }
 
+  async function sendYearEnd() {
+    setSending(true); setSendMsg(null)
+    try {
+      const res = await fetch('/api/finance/year-end', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year: parseInt(year) }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d?.error || 'Send failed')
+      setSendMsg(`Sent to ${d.sent_to}${d.tenant_copied ? ' · copy sent to you' : ''} for ${d.year}.`)
+    } catch (e) {
+      setSendMsg(e instanceof Error ? e.message : 'Send failed')
+    } finally { setSending(false) }
+  }
+
+  const accountantEmail = tokens.find(t => t.cpa_email)?.cpa_email || null
+
   return (
     <div>
       <Link href="/dashboard/finance" className="text-xs text-slate-500 hover:underline">← Finance</Link>
       <h1 className="font-heading text-2xl font-bold text-slate-900 mt-1 mb-6">CPA Access</h1>
+
+      <section className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
+        <h3 className="font-heading font-semibold text-slate-900 text-sm mb-1">Year-End Package</h3>
+        <p className="text-xs text-slate-500 mb-3">
+          A complete, accountant-ready package — P&amp;L, balance sheet, trial balance, 1099-NEC summary, full general ledger, and a cover memo — built from your books. Full Loop prepares it; your accountant files.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <label className="text-xs text-slate-500">Tax year</label>
+          <input value={year} onChange={e => setYear(e.target.value)} className="w-24 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+          <button onClick={() => window.open(`/api/finance/year-end?year=${parseInt(year) || new Date().getUTCFullYear() - 1}`, '_blank')}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-300 hover:bg-slate-50">Preview PDF</button>
+          <button onClick={sendYearEnd} disabled={sending || !accountantEmail}
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-40">
+            {sending ? 'Sending…' : 'Send to accountant'}
+          </button>
+        </div>
+        {accountantEmail
+          ? <p className="text-xs text-slate-500">Will send to <strong>{accountantEmail}</strong>, with a copy to you.</p>
+          : <p className="text-xs text-amber-600">Add your accountant below to enable sending.</p>}
+        {sendMsg && <p className="text-xs mt-2 text-slate-700">{sendMsg}</p>}
+      </section>
 
       <section className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
         <h3 className="font-heading font-semibold text-slate-900 text-sm mb-3">Generate new read-only token</h3>

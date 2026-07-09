@@ -83,13 +83,24 @@ export async function POST(request: Request) {
         .catch(err => console.error('[payroll] ledger post failed:', err))
     }
 
-    // Mark related bookings as paid
-    await supabaseAdmin
+    // Mark this member's labor for the pay period as PAID via team_member_paid —
+    // NOT booking.status. Revenue/labor reports filter status='completed'; the
+    // old code flipped status→'paid', which silently dropped every paid job out
+    // of those reports (undercounting revenue). It also marked ALL of a member's
+    // completed jobs regardless of the period. Now: scope to the pay period and
+    // only flip the labor-paid flag, leaving status intact.
+    const nowIso = new Date().toISOString()
+    let markQ = supabaseAdmin
       .from('bookings')
-      .update({ status: 'paid' })
+      .update({ team_member_paid: true, team_member_paid_at: nowIso })
       .eq('tenant_id', tenantId)
       .eq('team_member_id', team_member_id)
       .eq('status', 'completed')
+      .or('team_member_paid.is.null,team_member_paid.eq.false')
+    if (period_start) markQ = markQ.gte('start_time', period_start)
+    if (period_end) markQ = markQ.lte('start_time', String(period_end).length === 10 ? `${period_end}T23:59:59` : period_end)
+    const { error: markErr } = await markQ
+    if (markErr) console.error('[payroll] mark labor paid failed:', markErr)
 
     return NextResponse.json({ payment: data }, { status: 201 })
   } catch (e) {

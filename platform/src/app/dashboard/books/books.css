@@ -450,3 +450,57 @@
   font-weight: 500;
   margin-bottom: 8px;
 }
+
+/* ── Ledger additions (real-ledger pass 2026-07-08) ───────────────── */
+.books-range { display: inline-flex; gap: 2px; background: var(--books-canvas); border: 1px solid var(--books-line); border-radius: 5px; padding: 2px; }
+.books-range-opt {
+  font-family: var(--books-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 5px 11px; border: none; background: transparent; color: var(--books-muted); cursor: pointer; border-radius: 3px;
+}
+.books-range-opt:hover { color: var(--books-ink); }
+.books-range-opt.active { background: var(--books-ink); color: var(--books-canvas); }
+
+.books-notice {
+  margin: 6px 0 16px; padding: 10px 14px; border-radius: 4px; font-size: 12.5px;
+  background: rgba(44,160,28,0.07); border: 1px solid rgba(44,160,28,0.25); color: var(--books-good);
+}
+.books-notice.error { background: rgba(139,26,26,0.06); border-color: rgba(139,26,26,0.25); color: var(--books-danger); }
+
+.books-empty-state { padding: 40px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.books-empty-state-title { font-family: var(--books-display); font-size: 19px; color: var(--books-ink); }
+.books-empty-state-sub { font-size: 13px; color: var(--books-muted); max-width: 420px; line-height: 1.55; margin-bottom: 6px; }
+.books-more-note { margin-top: 12px; font-family: var(--books-mono); font-size: 11px; color: var(--books-muted); letter-spacing: 0.04em; text-align: center; }
+
+/* Manual entry modal */
+.books-modal-overlay { position: fixed; inset: 0; background: rgba(28,28,28,0.42); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 20px; }
+.books-modal { background: var(--books-canvas); border: 1px solid var(--books-line); border-radius: 8px; width: 100%; max-width: 620px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.22); }
+.books-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--books-line-soft); }
+.books-modal-title { font-family: var(--books-display); font-size: 18px; font-weight: 500; }
+.books-modal-close { border: none; background: transparent; font-size: 24px; line-height: 1; color: var(--books-muted); cursor: pointer; }
+.books-modal-close:hover { color: var(--books-ink); }
+.books-modal-body { padding: 20px 22px; overflow-y: auto; }
+.books-modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px; border-top: 1px solid var(--books-line-soft); }
+
+.books-field-row { display: flex; gap: 12px; margin-bottom: 18px; }
+.books-field { display: flex; flex-direction: column; gap: 5px; }
+.books-field.grow { flex: 1; }
+.books-field span { font-family: var(--books-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--books-muted); }
+.books-field input { padding: 8px 10px; border: 1px solid var(--books-line); border-radius: 5px; font-size: 13px; color: var(--books-ink); background: var(--books-canvas); }
+.books-field input:focus { outline: none; border-color: var(--books-ink); }
+
+.books-lines { border: 1px solid var(--books-line-soft); border-radius: 6px; overflow: hidden; }
+.books-lines-head, .books-line-row { display: grid; grid-template-columns: 1fr 120px 120px 28px; gap: 8px; align-items: center; padding: 8px 10px; }
+.books-lines-head { background: var(--books-bg); font-family: var(--books-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--books-muted); }
+.books-lines-head .right, .books-line-row input.right { text-align: right; }
+.books-line-row { border-top: 1px solid var(--books-line-soft); }
+.books-line-row select, .books-line-row input { padding: 7px 8px; border: 1px solid var(--books-line); border-radius: 5px; font-size: 12.5px; background: var(--books-canvas); color: var(--books-ink); width: 100%; }
+.books-line-row select:focus, .books-line-row input:focus { outline: none; border-color: var(--books-ink); }
+.books-line-del { border: none; background: transparent; color: var(--books-muted-2); font-size: 18px; cursor: pointer; }
+.books-line-del:hover:not(:disabled) { color: var(--books-danger); }
+.books-line-del:disabled { opacity: 0.3; cursor: default; }
+.books-add-line { margin: 10px; }
+
+.books-balance { display: flex; gap: 18px; align-items: center; margin-top: 16px; padding: 12px 14px; border-radius: 6px; font-family: var(--books-mono); font-size: 12px; letter-spacing: 0.03em; }
+.books-balance.off { background: rgba(139,69,19,0.06); color: var(--books-warn); }
+.books-balance.ok { background: rgba(44,160,28,0.08); color: var(--books-good); }
+.books-balance-flag { margin-left: auto; font-weight: 600; }
