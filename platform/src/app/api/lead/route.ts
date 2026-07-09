@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
         if (newDeal) {
           await supabaseAdmin.from('deal_activities').insert({
             tenant_id: tenant.id, deal_id: newDeal.id, type: 'note',
-            description: `Lead captured via web form [${leadSource}]`,
+            description: `Lead captured via web form [${leadSource}]${notes ? `\n${notes}` : ''}`,
             metadata: { source: leadSource },
           })
         }
