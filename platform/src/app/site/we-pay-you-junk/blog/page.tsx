@@ -53,7 +53,7 @@ export default function BlogPage() {
         <div className="relative mx-auto max-w-5xl px-6 text-center">
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-200 font-cta">Ready to See What Your Junk Is Worth?</p>
           <h2 className="mt-3 text-center text-3xl font-bold text-white sm:text-4xl font-heading">Done Reading? Book Your Pickup.</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-white/70">Starting at $100/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable). Same-day available.</p>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-white/70">Starting at $200/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable). Same-day available.</p>
           <CtaButtons variant="dark" />
         </div>
       </section>

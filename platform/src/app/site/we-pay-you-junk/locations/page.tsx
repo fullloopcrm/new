@@ -24,7 +24,7 @@ export default function LocationsPage() {
             We Pay You Junk Removal <span className="gradient-text">Locations</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
-            One office in every state. {TOTAL_CITIES}+ cities served nationwide. starting at $100/hr, dump fees included, 50% Resale Credit (when applicable) on valuable items.
+            One office in every state. {TOTAL_CITIES}+ cities served nationwide. starting at $200/hr, dump fees included, 50% Resale Credit (when applicable) on valuable items.
           </p>
           <CtaButtons variant="dark" />
         </div>
@@ -91,7 +91,7 @@ export default function LocationsPage() {
           <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">
             Browse Cities by State
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">Select your state to see every city we serve with <Link href="/services" className="text-teal-700 font-semibold hover:underline">full-service junk removal</Link>. Each location offers the same <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">starting at $100/hr pricing with resale credits</Link>, and you can <Link href="/contact-we-pay-you-junk-removal-today" className="text-teal-700 font-semibold hover:underline">contact us</Link> if you do not see your area listed.</p>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">Select your state to see every city we serve with <Link href="/services" className="text-teal-700 font-semibold hover:underline">full-service junk removal</Link>. Each location offers the same <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">starting at $200/hr pricing with resale credits</Link>, and you can <Link href="/contact-we-pay-you-junk-removal-today" className="text-teal-700 font-semibold hover:underline">contact us</Link> if you do not see your area listed.</p>
           <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {STATES.map((state) => (
               <Link

@@ -130,7 +130,7 @@ export default async function CityServicePage({ params }: { params: Promise<{ st
           <div className="absolute inset-0 grid-bg opacity-30" />
           <div className="relative mx-auto max-w-5xl px-6 text-center">
             <h2 className="text-center text-3xl font-bold text-white sm:text-4xl font-heading">Ready to Book in {city.name}?</h2>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">starting at $100/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable). Same-day available.</p>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">starting at $200/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable). Same-day available.</p>
             <CtaButtons variant="dark" />
           </div>
         </section>
@@ -162,7 +162,7 @@ export default async function CityServicePage({ params }: { params: Promise<{ st
             in {city.name}, {state.abbreviation}
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
-            {service.description} starting at $100/hr, dump fees included, 50% Resale Credit (when applicable) in {city.name}.
+            {service.description} starting at $200/hr, dump fees included, 50% Resale Credit (when applicable) in {city.name}.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             {service.ideal.map((tag) => (
@@ -273,7 +273,7 @@ export default async function CityServicePage({ params }: { params: Promise<{ st
             Book {service.title} in {city.name} Today
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
-            Same-day available. starting at $100/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable) on valuable items.
+            Same-day available. starting at $200/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable) on valuable items.
           </p>
           <div className="mt-8">
             <Link href="/book-junk-removal-service-today">

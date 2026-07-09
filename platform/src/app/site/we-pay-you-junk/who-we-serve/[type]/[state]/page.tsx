@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ type: str
     const svc = SERVICES.find((s) => s.slug === stateOrService)!;
     return {
       title: `${svc.title} for ${ct.name} — We Pay You Junk Removal`,
-      description: `${svc.title} specifically for ${ct.name.toLowerCase()}. ${svc.description} Starting at $100/hr, dump fees included.`,
+      description: `${svc.title} specifically for ${ct.name.toLowerCase()}. ${svc.description} Starting at $200/hr, dump fees included.`,
       alternates: { canonical: `/who-we-serve/${type}/${stateOrService}` },
     };
   }
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ type: str
   if (!state) return {};
   return {
     title: `Junk Removal for ${ct.name} in ${state.name} — We Pay You`,
-    description: `${ct.name} junk removal in ${state.cities.length} ${state.abbreviation} cities. ${ct.description} Starting at $100/hr, dump fees included.`,
+    description: `${ct.name} junk removal in ${state.cities.length} ${state.abbreviation} cities. ${ct.description} Starting at $200/hr, dump fees included.`,
     alternates: { canonical: `/who-we-serve/${type}/${stateOrService}` },
   };
 }
@@ -72,7 +72,7 @@ export default async function TypeStatePage({ params }: { params: Promise<{ type
             </p>
             <div className="mx-auto mt-8 max-w-3xl space-y-5 text-center text-base leading-relaxed text-slate-700">
               <p>{svc.longDescription}</p>
-              <p>For {ct.name.toLowerCase()}, {svc.title.toLowerCase()} addresses specific needs: {ct.painPoints.slice(0, 3).join(", ")}. Our crew understands these challenges and delivers accordingly — with the same starting at $100/hr rate, dump fees included (an industry first), and 50% Resale Credit (when applicable) on every item worth something.</p>
+              <p>For {ct.name.toLowerCase()}, {svc.title.toLowerCase()} addresses specific needs: {ct.painPoints.slice(0, 3).join(", ")}. Our crew understands these challenges and delivers accordingly — with the same starting at $200/hr rate, dump fees included (an industry first), and 50% Resale Credit (when applicable) on every item worth something.</p>
             </div>
           </div>
         </section>

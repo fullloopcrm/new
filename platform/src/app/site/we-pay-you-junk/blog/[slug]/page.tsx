@@ -66,7 +66,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           {/* Post-article CTA */}
           <div className="mt-12 rounded-xl border-2 border-teal-400 bg-teal-50 p-6 text-center">
             <p className="text-lg font-bold text-slate-900 font-heading">Ready to see what your junk is worth?</p>
-            <p className="mt-2 text-sm text-slate-600">Starting at $100/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable).</p>
+            <p className="mt-2 text-sm text-slate-600">Starting at $200/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable).</p>
             <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link href="/book-junk-removal-service-today" className="inline-block rounded-lg bg-teal-700 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-800 font-cta">Book Now &amp; Save $10</Link>
               <Link href="/pricing" className="inline-block rounded-lg border border-teal-700 px-6 py-2.5 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 font-cta">See Pricing</Link>

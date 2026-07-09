@@ -34,7 +34,7 @@ export const BLOG_POSTS: BlogPost[] = [
     content: [
       "Dumpster rental looks cheap on paper — $300–$500 for a week. But the hidden costs add up fast. Weight overage fees run $40–$100 per ton over the limit, and renovation debris hits that limit on day one. Permits cost $25–$100 in most cities. And you still have to load it yourself.",
       "The time cost is massive. Loading a dumpster yourself takes an entire weekend for most cleanouts. That's 12–16 hours of backbreaking labor — carrying heavy items, making trips up and down stairs, figuring out how to fit everything in.",
-      "With our junk removal service, a 2-person crew handles the same job in 2–4 hours. Starting at $100/hr with dump fees included (an industry first). You point, they load. No permits, no overage fees, no spending your weekend destroying your back.",
+      "With our junk removal service, a 2-person crew handles the same job in 2–4 hours. Starting at $200/hr with dump fees included (an industry first). You point, they load. No permits, no overage fees, no spending your weekend destroying your back.",
       "The biggest difference: resale credit. A dumpster sends everything to the landfill. Your working fridge, quality furniture, power tools — all buried. With us, those same items earn you 50% of resale value (when applicable) credited to your bill. On a typical garage cleanout, that's $100–$300 in savings that a dumpster can never offer.",
       "When does a dumpster make sense? Only for multi-week construction projects where debris is generated continuously over days. For everything else — cleanouts, moves, single-day projects — junk removal is faster, easier, and cheaper when you factor in time, labor, and resale credits.",
     ],
@@ -90,7 +90,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: "January 10, 2026",
     content: [
       "If you're closing, relocating, or downsizing an office, you're sitting on tens of thousands of dollars in resale value. Herman Miller chairs resell for $150–$500 each. Steelcase desks bring $100–$300. Standing desks, conference tables, monitors, printers — commercial furniture and electronics have the strongest resale markets of any category.",
-      "The math on a typical 50-seat office: 50 Herman Miller chairs at $300 average resale = $15,000 in total value. You get 50% = $7,500 in credits. Our crew takes 6–8 hours at $250/hr = $1,500–$2,000. Your net: you receive a check for $5,500–$6,000. With any other company, you'd pay $4,000–$8,000 and they'd resell everything themselves.",
+      "The math on a typical 50-seat office: 50 Herman Miller chairs at $300 average resale = $15,000 in total value. You get 50% = $7,500 in credits. Our crew takes 6–8 hours at $300/hr = $1,500–$2,000. Your net: you receive a check for $5,500–$6,000. With any other company, you'd pay $4,000–$8,000 and they'd resell everything themselves.",
       "IT equipment adds up fast. Commercial monitors ($75–$200 each), desktop computers ($50–$300), printers ($25–$100), networking equipment — a 50-seat office can have $3,000–$8,000 in electronics resale value.",
       "We work around your schedule. After-hours, weekends, phased cleanouts over multiple days — whatever minimizes disruption to your operations. Priority scheduling for commercial accounts. COIs on request.",
       "The bottom line: an office cleanout should not be a cost center. With quality furniture and equipment, it should be a payout. Call us before signing with a traditional hauler and see the difference the 50% resale credit (when applicable) makes.",
@@ -107,7 +107,7 @@ export const BLOG_POSTS: BlogPost[] = [
       "Industry data shows that 35% or more of items collected by junk removal companies have resale value. That percentage goes higher on residential cleanouts with furniture and appliances, and much higher on office cleanouts with commercial equipment.",
       "On a $500 junk removal job, the company earns $500 from you AND an estimated $200–$400 from reselling your items. Total revenue from your stuff: $700–$900. Your cut: zero. This has been the standard model for decades.",
       "We built We Pay You Junk Removal because this model is fundamentally unfair. Your items have value. That value should benefit you — not just the company that shows up with a truck.",
-      "The difference is simple math: starting at $100/hr with dump fees included (an industry first), 50% of resale value (when applicable) credited to your bill. If credits exceed the bill, we pay you. No other company shares the resale upside because no other company wants to.",
+      "The difference is simple math: starting at $200/hr with dump fees included (an industry first), 50% of resale value (when applicable) credited to your bill. If credits exceed the bill, we pay you. No other company shares the resale upside because no other company wants to.",
     ],
   },
   {
@@ -188,7 +188,7 @@ export const BLOG_POSTS: BlogPost[] = [
     date: "September 5, 2025",
     content: [
       "Every landlord knows the pain of a tenant turnover. The previous tenant left behind furniture, appliances, bags of belongings, and general debris. The clock is ticking — every day the unit sits empty is lost rent.",
-      "Traditional approach: call a junk hauler, pay $300–$800, and lose 2–5 days waiting for availability. Our approach: same-day service, starting at $100/hr with dump fees included (an industry first), and items left behind earn you 50% resale credit (when applicable).",
+      "Traditional approach: call a junk hauler, pay $300–$800, and lose 2–5 days waiting for availability. Our approach: same-day service, starting at $200/hr with dump fees included (an industry first), and items left behind earn you 50% resale credit (when applicable).",
       "What tenants leave behind is often worth money. Working appliances, bed frames, dressers, desks, electronics — previous tenants' abandoned items can generate $100–$400 in credits per unit, reducing your cleanout cost by 30–50%.",
       "For property managers handling multiple units: we offer recurring service with priority scheduling and consistent crew assignments. Your crew learns your buildings, knows the typical left-behinds, and turns units fast.",
       "The math is simple: if you manage 50 units and turn 15 per year, saving $150 per turnover through resale credits = $2,250 in annual savings. That's before factoring in our faster scheduling compared to dumpster-based competitors.",
@@ -262,7 +262,7 @@ export const BLOG_POSTS: BlogPost[] = [
       "Dumpster rental for renovation debris seems like the default choice. But for most projects, it's the wrong one. Here's why calling a crew beats renting a steel box.",
       "Dumpsters have weight limits. Concrete, tile, and drywall blow through a 2-ton limit in hours. Overage fees run $40–$100 per ton. A bathroom demo can easily generate $200+ in overage charges on top of the rental fee.",
       "Dumpsters take up your driveway for days or weeks. HOA complaints, neighbor frustration, and the eyesore factor — plus you might need a permit from the city ($25–$100).",
-      "Our crew loads and hauls debris as you generate it. No dumpster blocking the driveway. No weight limits. No overage fees. Starting at $100/hr with dump fees included (an industry first). Schedule pickups as the project progresses.",
+      "Our crew loads and hauls debris as you generate it. No dumpster blocking the driveway. No weight limits. No overage fees. Starting at $200/hr with dump fees included (an industry first). Schedule pickups as the project progresses.",
       "Bonus: old cabinets, fixtures, and countertops may have resale value. Solid wood cabinets, granite countertops, vintage hardware — these earn you 50% resale credit (when applicable). A dumpster sends them straight to the landfill.",
     ],
   },
@@ -291,7 +291,7 @@ export const BLOG_POSTS: BlogPost[] = [
       "Many states now ban electronics from regular trash. Fines range from $25 to $1,000 per violation depending on the state. Even where it's technically legal, it's environmentally irresponsible.",
       "The good news: electronics within their useful life still have resale value. Flat screen TVs less than 6 years old, gaming consoles, desktop computers, laptops, tablets, smartphones, audio equipment — all have buyers.",
       "We handle e-waste properly: items with resale value get sold (you get 50% credit when applicable). Items past resale life go to certified e-waste recyclers who dismantle them safely, recovering metals and components while containing hazardous materials.",
-      "One pickup, everything handled. Old TVs, monitors, computers, printers, cables, phones, tablets, gaming systems — we take it all. No sorting required. Starting at $100/hr with dump fees included (an industry first).",
+      "One pickup, everything handled. Old TVs, monitors, computers, printers, cables, phones, tablets, gaming systems — we take it all. No sorting required. Starting at $200/hr with dump fees included (an industry first).",
     ],
   },
   {
@@ -318,7 +318,7 @@ export const BLOG_POSTS: BlogPost[] = [
       "Old hot tubs are one of the most dreaded items for homeowners to deal with. They weigh 500–800 lbs, they're bolted or wired into your deck or patio, and you can't exactly put them on the curb.",
       "The process: our crew disconnects remaining electrical and plumbing, cuts the shell into manageable sections using reciprocating saws, loads all components (shell, frame, pumps, heater, cover, steps), and hauls everything away.",
       "Timeline: most hot tub removals take 2–4 hours with a 2-person crew. Larger units or difficult access (fenced yards, raised decks) may take longer.",
-      "Cost: 2–4 hours at $250/hr = $500–$1,000. Hot tub shells themselves don't have resale value, but scrap components (copper from heaters, steel frame) may generate small credits.",
+      "Cost: 2–4 hours at $300/hr = $500–$1,000. Hot tub shells themselves don't have resale value, but scrap components (copper from heaters, steel frame) may generate small credits.",
       "The transformation is worth it. That space occupied by a deteriorating hot tub becomes usable yard area — room for a garden, patio furniture, or just open grass. Most homeowners say removing the hot tub was the best backyard decision they ever made.",
     ],
   },
@@ -349,7 +349,7 @@ export const BLOG_POSTS: BlogPost[] = [
       "Kitchen: old appliances being replaced, duplicate small appliances, cookware you never use. Working stand mixers, food processors, and quality cookware sets have active resale markets.",
       "Bedrooms: old mattresses and frames, dressers, nightstands, outdated electronics, clothing (not our department, but donate it). Bed frames in good condition earn credit; mattresses generally don't.",
       "Living room: outdated furniture, old TVs, entertainment centers, bookshelves. Quality furniture from brand-name manufacturers can generate significant credits even if you consider it 'dated.'",
-      "Book your spring cleanout early — March through June is our busiest season. A 2-person crew for 2–3 hours handles most whole-home spring cleanouts. Starting at $100/hr, dump fees included (an industry first).",
+      "Book your spring cleanout early — March through June is our busiest season. A 2-person crew for 2–3 hours handles most whole-home spring cleanouts. Starting at $200/hr, dump fees included (an industry first).",
     ],
   },
   {
