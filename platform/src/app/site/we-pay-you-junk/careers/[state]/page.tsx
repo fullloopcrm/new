@@ -7,6 +7,8 @@ import { getOfficeByState } from "@/app/site/we-pay-you-junk/_data/offices";
 import { OfficeBlock } from "@/app/site/we-pay-you-junk/_components/OfficeBlock";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { JobApplicationForm } from "@/app/site/we-pay-you-junk/_components/JobApplicationForm";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { jobPostingLd, SITE_URL } from "@/app/site/we-pay-you-junk/_lib/schema";
 
 export const dynamicParams = true
 export const revalidate = 2592000
@@ -32,6 +34,15 @@ export default async function StateJobsPage({ params }: { params: Promise<{ stat
 
   return (
     <>
+      <JsonLd
+        data={jobPostingLd({
+          title: `Junk Removal Operator Partner — ${state.name}`,
+          description:
+            "1099 partner opportunity: run junk removal in your territory under the We Pay You Junk Removal brand. $100/hr as the lead with your truck + $50/hr per additional laborer + 60% resale. Bring your own truck (or a vehicle with a trailer), a valid license, and insurance. No drug test, no benefits, no training.",
+          url: `${SITE_URL}/careers/${stateSlug}`,
+          state: state.abbreviation,
+        })}
+      />
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />
         <div className="relative mx-auto max-w-5xl px-6 text-center">
