@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
-import { PHONE, SMS_HREF, EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 
 export const metadata: Metadata = {
   title: "Careers at We Pay You Junk Removal — We're Hiring Nationwide",
@@ -110,7 +110,7 @@ export default function CareersPage() {
           <p className="mt-4 text-base text-white/70">Send us your name and city and we&apos;ll match you with the nearest open crew position. Learn more about our <Link href="/about" className="text-teal-200 underline">company mission</Link>, browse open <Link href="/locations" className="text-teal-200 underline">locations</Link>, or check out our <Link href="/services" className="text-teal-200 underline">full service list</Link> to see what you&apos;ll be doing every day.</p>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">Email us your name, city, and a brief note about your experience. We&apos;ll get back to you within 48 hours.</p>
           <div className="mt-8">
-            <a href={`mailto:${EMAIL}?subject=Job Application`}><span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">Apply Now — Email {EMAIL}</span></a>
+            <Link href="/apply-for-junk-removal-job"><span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">Apply Now</span></Link>
           </div>
         </div>
       </section>
