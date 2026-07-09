@@ -115,6 +115,24 @@ export async function POST(request: NextRequest) {
           message: `${name}${phoneRaw ? ' • ' + phoneRaw : ''}`,
         }).catch((err) => console.error('[api/lead] application notify error:', err))
 
+        // Email the tenant's admins too (mirrors /api/contact). notify() alone
+        // only fires when an owner tenant_member has an email; emailAdmins also
+        // falls back to tenant.email, so job-application alerts reach the inbox
+        // even for tenants with no member rows. Non-blocking.
+        try {
+          const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
+          const subject = `[${tenant.name}] New job application: ${name}`
+          const html = `<h2>New Job Application</h2>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email || '—'}</p>
+            <p><strong>Phone:</strong> ${phoneRaw || '—'}</p>
+            ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${notes}</pre>` : ''}
+            <p><a href="${adminUrl}">View in admin</a></p>`
+          await emailAdmins(tenant, subject, html)
+        } catch (emailErr) {
+          console.error('[api/lead] job-app email error:', emailErr)
+        }
+
         return NextResponse.json({ success: true, application_id: appRow.id })
       } catch (appErr) {
         console.error('[api/lead] application insert failed:', appErr)
