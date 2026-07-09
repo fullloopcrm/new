@@ -14,6 +14,7 @@ import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
 import { faqs as globalFaqs } from "@/lib/marketing/faqs";
 import { getCaseStudyStats } from "@/lib/caseStudyStats";
 import LiveProofBand from "@/components/LiveProofBand";
+import { RelatedLinksHub } from "@/components/marketing/SeoSection";
 
 // ---------------------------------------------------------------------------
 // Static params — generates all 51 industry pages at build time
@@ -637,6 +638,8 @@ export default async function IndustryPage({
           </div>
         </div>
       </section>
+
+      <RelatedLinksHub excludeIndustrySlug={slug} />
 
       {/* ================================================================= */}
       {/* 13. RELATED INDUSTRIES & INTERNAL LINKS                           */}

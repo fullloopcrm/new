@@ -7,6 +7,10 @@ import {
   webPageSchema,
   breadcrumbSchema,
   localBusinessSchema,
+  softwareApplicationSchema,
+  itemListSchema,
+  organizationSchema,
+  websiteSchema,
 } from "@/lib/schema";
 import {
   findCombo,
@@ -14,7 +18,10 @@ import {
   metros,
   generateIndustrySlug,
   generateComboSlug,
+  generateLocationSlug,
 } from "@/lib/marketing/combos";
+import { buildCityContextSection } from "@/lib/marketing/cityContext";
+import { SectionBlock, RelatedLinksHub } from "@/components/marketing/SeoSection";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
 import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
@@ -202,6 +209,38 @@ export default async function ComboPage({
     (m) => m.stateAbbr === metro.stateAbbr && m.slug !== metro.slug
   ).slice(0, 6);
 
+  // Genuinely city-unique content section — kills the same-state duplication
+  // that put 96% of the combo network into "Crawled - currently not indexed".
+  const citySection = buildCityContextSection(metro, stateMeta, trade);
+
+  // Rich, city-scoped structured data.
+  const nearbyComboItems = sameStateMetros.map((m) => ({
+    name: `${industry.name} CRM in ${m.city}, ${m.stateAbbr}`,
+    url: `https://homeservicesbusinesscrm.com/${generateComboSlug(industry, m)}`,
+  }));
+  const serviceLd = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "@id": `${pageUrl}/#service`,
+    name: `${industry.name} CRM Software in ${metro.city}, ${metro.stateAbbr}`,
+    description: `Full-cycle ${trade} CRM for ${metro.city}, ${metro.stateAbbr} — AI lead generation, AI sales, scheduling, GPS dispatch, payments, and reviews. One exclusive operator per city.`,
+    serviceType: `${industry.name} CRM`,
+    url: pageUrl,
+    provider: { "@id": "https://homeservicesbusinesscrm.com/#organization" },
+    areaServed: {
+      "@type": "City",
+      name: `${metro.city}, ${metro.stateAbbr}`,
+      containedInPlace: { "@type": "State", name: metro.state },
+    },
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "USD",
+      price: "2500",
+      availability: "https://schema.org/InStock",
+      url: "https://homeservicesbusinesscrm.com/waitlist",
+    },
+  };
+
   return (
     <>
       {/* JSON-LD */}
@@ -218,6 +257,16 @@ export default async function ComboPage({
         data={localBusinessSchema(
           `${metro.city}, ${metro.stateAbbr}`,
           "City"
+        )}
+      />
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={websiteSchema} />
+      <JsonLd data={serviceLd} />
+      <JsonLd data={softwareApplicationSchema("2500", "USD")} />
+      <JsonLd
+        data={itemListSchema(
+          `${industry.name} CRM in nearby ${metro.stateAbbr} markets`,
+          nearbyComboItems
         )}
       />
 
@@ -308,6 +357,9 @@ export default async function ComboPage({
       {/* ================================================================= */}
       {/* 1b. TERRITORY STATUS BAND — live availability                     */}
       {/* ================================================================= */}
+      {/* City-unique content — badge (short-tail) + title (long-tail) + description */}
+      <SectionBlock section={citySection} alt={false} />
+
       <section className="bg-slate-800 border-y border-slate-700 py-6 px-6">
         <div className="mx-auto max-w-5xl flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -803,6 +855,11 @@ export default async function ComboPage({
       {/* ================================================================= */}
       {/* 12. NEARBY MARKETS & RELATED PAGES                                */}
       {/* ================================================================= */}
+      <RelatedLinksHub
+        excludeIndustrySlug={generateIndustrySlug(industry)}
+        excludeLocationSlug={generateLocationSlug(metro)}
+      />
+
       <section className="py-16 px-6 bg-white border-t border-slate-200">
         <div className="mx-auto max-w-5xl">
           {sameStateMetros.length > 0 && (
