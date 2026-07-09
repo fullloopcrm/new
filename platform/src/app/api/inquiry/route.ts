@@ -24,6 +24,8 @@ interface InquiryBody {
   role?: unknown
   budget?: unknown
   message?: unknown
+  heardFrom?: unknown
+  heardMore?: unknown
 }
 
 function escapeHtml(s: string): string {
