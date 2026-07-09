@@ -106,7 +106,7 @@ export default function Home() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={softwareApplicationSchema("1000", "USD")} />
+      <JsonLd data={softwareApplicationSchema("2500", "USD")} />
       <JsonLd
         data={serviceSchema(
           "Home Service CRM Software",
