@@ -73,6 +73,14 @@ function junkSitemap(now: Date): MetadataRoute.Sitemap {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
 
+  // Stable lastmod for the ~1,050 programmatic marketing pages. Do NOT use
+  // `new Date()` for these: stamping today's date on every URL on every deploy
+  // tells Google "the entire site changed today" each build, which erodes
+  // lastmod trust and wastes crawl budget on a large programmatic network that
+  // is already slow to index. Bump this only when the underlying page content
+  // is actually revised.
+  const CONTENT_UPDATED = new Date('2026-07-09T00:00:00Z')
+
   // Tenant sites on their own domain get their own sitemap.
   const h = await headers()
   const host = (h.get('host') || '').split(':')[0].toLowerCase()
@@ -108,14 +116,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const industryPages: MetadataRoute.Sitemap = industries.map((i) => ({
     url: `${baseUrl}/industry/${generateIndustrySlug(i)}`,
-    lastModified: now,
+    lastModified: CONTENT_UPDATED,
     changeFrequency: 'monthly' as const,
     priority: 0.7,
   }))
 
   const locationPages: MetadataRoute.Sitemap = metros.map((m) => ({
     url: `${baseUrl}/location/${generateLocationSlug(m)}`,
-    lastModified: now,
+    lastModified: CONTENT_UPDATED,
     changeFrequency: 'monthly' as const,
     priority: 0.7,
   }))
@@ -123,7 +131,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const combos = getAllCombos()
   const comboPages: MetadataRoute.Sitemap = combos.map((c) => ({
     url: `${baseUrl}/${c.slug}`,
-    lastModified: now,
+    lastModified: CONTENT_UPDATED,
     changeFrequency: 'monthly' as const,
     priority: 0.5,
   }))

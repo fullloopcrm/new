@@ -257,7 +257,14 @@ export default async function ComboPage({
             CRM for {metro.city}, {metro.stateAbbr} — Licensed to One Operator
           </h1>
           <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-4">
-            Full Loop CRM is the only full-cycle CRM built for {trade} businesses,
+            Full Loop CRM is the only full-cycle{" "}
+            <Link
+              href="/"
+              className="text-teal-300 underline underline-offset-2 hover:text-teal-200"
+            >
+              home service CRM
+            </Link>{" "}
+            built for {trade} businesses,
             and we license a single exclusive partner per city. In {metro.city},
             that means one {trade} company gets every AI-generated lead, every
             local SEO asset, and the entire platform — and nobody else.
