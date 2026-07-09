@@ -168,7 +168,7 @@ function coordinatorJobPostingSchema() {
     identifier: {
       '@type': 'PropertyValue',
       name: 'Your Business',
-      value: 'nycmaid-ops-coordinator-2026',
+      value: 'ops-coordinator-2026',
     },
 
     industry: 'Cleaning Services',
