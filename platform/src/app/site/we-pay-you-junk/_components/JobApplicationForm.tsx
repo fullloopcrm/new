@@ -42,6 +42,10 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (!photoUrl) {
+      setError("A profile photo is required to apply.");
+      return;
+    }
     setSubmitting(true);
 
     const fd = new FormData(e.currentTarget);
@@ -170,7 +174,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       <button type="submit" disabled={submitting} className="w-full rounded-lg bg-teal-700 py-3.5 text-base font-bold text-white transition-colors hover:bg-teal-800 disabled:opacity-60 font-cta">
         {submitting ? "Sending..." : "Submit Application"}
       </button>
-      <p className="text-center text-xs text-slate-400">We respond within 48 hours. No experience required — we train you.</p>
+      <p className="text-center text-xs text-slate-400">We respond within 48 hours. 1099 partner role — you bring your own truck or trailer.</p>
     </form>
   );
 }
