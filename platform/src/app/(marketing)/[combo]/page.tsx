@@ -20,7 +20,7 @@ import {
   generateComboSlug,
   generateLocationSlug,
 } from "@/lib/marketing/combos";
-import { buildCityContextSection } from "@/lib/marketing/cityContext";
+import { buildCityContextSection, stateHubMetro, isHubOrMajorCity } from "@/lib/marketing/cityContext";
 import { SectionBlock, RelatedLinksHub } from "@/components/marketing/SeoSection";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
@@ -82,6 +82,18 @@ export async function generateMetadata({
   const finalTitle = override?.title || title;
   const finalDescription = override?.description || description;
 
+  // Canonical consolidation: thin long-tail city pages point at the state's
+  // strongest city so Google consolidates signal instead of filtering the whole
+  // same-state/same-trade set as duplicates. Top-3 metros per state (and any
+  // 250k+ city) and any manually-overridden page stay self-canonical.
+  let canonicalUrl = url;
+  if (!override && !isHubOrMajorCity(metro)) {
+    const hub = stateHubMetro(metro.stateAbbr);
+    if (hub && hub.slug !== metro.slug) {
+      canonicalUrl = `https://homeservicesbusinesscrm.com/${generateComboSlug(industry, hub)}`;
+    }
+  }
+
   return {
     title: finalTitle,
     description: finalDescription,
@@ -106,7 +118,7 @@ export async function generateMetadata({
       title: `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — ${statusTag}`,
       description: finalDescription,
     },
-    alternates: { canonical: url },
+    alternates: { canonical: canonicalUrl },
   };
 }
 

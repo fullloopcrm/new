@@ -188,3 +188,36 @@ export function buildCityContextSection(
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+// ---------------------------------------------------------------------------
+// Canonical consolidation — the fix for same-state/same-trade duplication that
+// content additions can't solve (proven: 100% -> 87% similarity, floor is the
+// shared trade+state core). Thin long-tail city pages point their canonical at
+// the state's strongest city so Google consolidates signal instead of filtering
+// the whole network as duplicates. Reversible (metadata only); URLs stay live.
+// ---------------------------------------------------------------------------
+function stateMetrosBy(stateAbbr: string): ComboMetro[] {
+  return metros.filter((m) => m.stateAbbr === stateAbbr);
+}
+
+/** The most-populous metro in a state — the canonical hub for that state. */
+export function stateHubMetro(stateAbbr: string): ComboMetro | null {
+  const ranked = stateMetrosBy(stateAbbr)
+    .map((m) => ({ m, p: getCityData(m.slug)?.population ?? 0 }))
+    .sort((a, b) => b.p - a.p);
+  return ranked[0]?.m ?? null;
+}
+
+/**
+ * True when a city is distinct enough to be its own canonical: a top-3 metro in
+ * its state by population, or any city over 250k residents. Everything else is
+ * long-tail and consolidates to the state hub.
+ */
+export function isHubOrMajorCity(metro: ComboMetro): boolean {
+  const ranked = stateMetrosBy(metro.stateAbbr)
+    .map((m) => ({ slug: m.slug, p: getCityData(m.slug)?.population ?? 0 }))
+    .sort((a, b) => b.p - a.p);
+  const rank = ranked.findIndex((x) => x.slug === metro.slug);
+  const pop = getCityData(metro.slug)?.population ?? 0;
+  return (rank >= 0 && rank < 3) || pop >= 250000;
+}
