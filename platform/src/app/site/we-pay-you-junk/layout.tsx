@@ -4,6 +4,8 @@ import { Sora, DM_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/app/site/we-pay-you-junk/_components/Header";
 import { Footer } from "@/app/site/we-pay-you-junk/_components/Footer";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { localBusinessLd, websiteLd } from "@/app/site/we-pay-you-junk/_lib/schema";
 
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"] });
 const dmSans = DM_Sans({ variable: "--font-dm-sans", subsets: ["latin"] });
@@ -62,6 +64,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${sora.variable} ${dmSans.variable} ${spaceGrotesk.variable}`}>
       <body className="font-body antialiased">
+        <JsonLd data={[localBusinessLd(), websiteLd()]} />
         <Header />
         <main>{children}</main>
         <Footer />

@@ -4,6 +4,8 @@ import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { notFound } from "next/navigation";
 import { PHONE, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 import { SERVICES, SERVICE_CATEGORIES, getExtendedContent } from "@/app/site/we-pay-you-junk/_data/services";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { serviceLd, breadcrumbLd } from "@/app/site/we-pay-you-junk/_lib/schema";
 
 export const dynamicParams = true
 export const revalidate = 2592000
@@ -33,6 +35,16 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
 
   return (
     <>
+      <JsonLd
+        data={[
+          serviceLd({ name: service.title, description: service.description, slug: service.slug }),
+          breadcrumbLd([
+            { name: "Home", path: "/" },
+            { name: "Services", path: "/services" },
+            { name: service.title, path: `/services/${service.slug}` },
+          ]),
+        ]}
+      />
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />

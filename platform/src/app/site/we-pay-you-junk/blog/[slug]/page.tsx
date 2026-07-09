@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BLOG_POSTS } from "@/app/site/we-pay-you-junk/_data/blog-posts";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { blogPostingLd } from "@/app/site/we-pay-you-junk/_lib/schema";
 import { AudioReader } from "@/app/site/we-pay-you-junk/_components/AudioReader";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 
@@ -32,6 +34,17 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   return (
     <>
+      <JsonLd
+        data={blogPostingLd({
+          title: post.title,
+          description: post.excerpt,
+          slug: post.slug,
+          datePublished: (() => {
+            const d = new Date(post.date);
+            return isNaN(d.getTime()) ? undefined : d.toISOString();
+          })(),
+        })}
+      />
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />
         <div className="relative mx-auto max-w-5xl px-6 text-center">

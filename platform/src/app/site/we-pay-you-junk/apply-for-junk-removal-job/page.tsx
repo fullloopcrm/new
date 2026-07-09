@@ -2,10 +2,20 @@
 
 import Link from "next/link";
 import { JobApplicationForm } from "@/app/site/we-pay-you-junk/_components/JobApplicationForm";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { jobPostingLd, SITE_URL } from "@/app/site/we-pay-you-junk/_lib/schema";
 
 export default function ApplyPage() {
   return (
     <>
+      <JsonLd
+        data={jobPostingLd({
+          title: "Junk Removal Operator Partner",
+          description:
+            "1099 partner opportunity: run junk removal in your own territory under the We Pay You Junk Removal brand. $100/hr as the lead with your truck + $50/hr per additional laborer + 60% resale. Requires your own truck (or a vehicle with a trailer), a valid driver's license, and vehicle insurance. No drug test, no benefits, no training — you operate. We guide your local branding and growth toward becoming the sole provider for your territory.",
+          url: `${SITE_URL}/apply-for-junk-removal-job`,
+        })}
+      />
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />
         <div className="relative mx-auto max-w-5xl px-6 text-center">
