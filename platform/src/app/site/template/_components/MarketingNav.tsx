@@ -104,7 +104,11 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-[72px]">
             <Link href="/" className="flex-shrink-0">
-              <Image src={config.identity.logo ?? '/logo.png'} alt={config.identity.name} width={160} height={48} className="h-10 sm:h-12 w-auto" priority />
+              {config.identity.logo ? (
+                <Image src={config.identity.logo} alt={config.identity.name} width={160} height={48} className="h-10 sm:h-12 w-auto" priority />
+              ) : (
+                <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-[var(--brand)]">{config.identity.name}</span>
+              )}
             </Link>
 
             <nav className="hidden lg:flex items-center justify-center flex-1 gap-8 mx-8">
@@ -226,7 +230,11 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
           {/* White header with logo + close */}
           <div className="bg-white flex items-center justify-between px-5 py-4">
             <Link href="/" onClick={closeMenu}>
-              <Image src={config.identity.logo ?? '/logo.png'} alt={config.identity.name} width={140} height={42} className="h-9 w-auto" />
+              {config.identity.logo ? (
+                <Image src={config.identity.logo} alt={config.identity.name} width={140} height={42} className="h-9 w-auto" />
+              ) : (
+                <span className="text-lg font-extrabold tracking-tight text-[var(--brand)]">{config.identity.name}</span>
+              )}
             </Link>
             <button onClick={closeMenu} aria-label="Close navigation menu" className="p-2 text-[var(--brand)]">
               <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

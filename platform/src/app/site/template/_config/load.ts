@@ -85,7 +85,9 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       siteName: name,
       legalName: str(tenant, 'legal_name') ?? defaultConfig.identity.legalName,
       foundedYear: defaultConfig.identity.foundedYear,
-      logo: str(tenant, 'logo_url') ?? defaultConfig.identity.logo,
+      // No NYC-Maid /logo.png fallback — a logo-less tenant renders its NAME as a
+      // wordmark in the nav/footer, never another tenant's logo.
+      logo: str(tenant, 'logo_url') ?? undefined,
     },
     contact: {
       phone,
