@@ -376,6 +376,7 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // unrouted here and get deleted in a follow-up.
   const BESPOKE_SITE_TENANTS = new Set<string>([
     'nycmaid',
+    'we-pay-you-junk',
   ])
   const siteBase = ROOT_SITE_TENANTS.has(tenantSlug)
     ? '/site'
