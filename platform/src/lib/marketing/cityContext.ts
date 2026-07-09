@@ -16,6 +16,7 @@ import { metros } from "./combos";
 import type { ComboMetro } from "./combos";
 import type { StateMetadata } from "./stateMetadata";
 import type { LocationSection } from "./locationContent";
+import { getCityData } from "./cityData";
 
 // Real US sub-regions — finer than the 4 census regions so copy varies more
 // across the country. Maintained mapping, not invented per-city data.
@@ -81,6 +82,15 @@ export function buildCityContextSection(
 ): LocationSection {
   const { city, state, stateAbbr } = metro;
   const region = subregion(stateAbbr);
+  const cd = getCityData(metro.slug);
+  // Real, verifiable per-city facts (county + population) — the differentiator
+  // that makes two same-state cities genuinely distinct pages.
+  const placeLine = cd?.county
+    ? `${city} is located in ${cd.county} County, ${state}`
+    : `${city}, ${state}`;
+  const popClause = cd?.population
+    ? `, a market of roughly ${cd.population.toLocaleString()} residents,`
+    : "";
   const neighbors = getNeighborCities(metro, 8);
   const neighborNames = neighbors.map((n) => n.city);
   const near3 = neighborNames.slice(0, 3).join(", ");
@@ -101,13 +111,16 @@ export function buildCityContextSection(
   return {
     badge: `${city} Market`,
     title: `The ${city}, ${stateAbbr} Market for ${cap(label)} Businesses`,
-    description: `${city} anchors a distinct ${label} market in ${region}. Full Loop CRM is built to win ${city} and the ${stateAbbr} metros around it — one operator per trade, per city.`,
+    description: `${city}${cd?.county ? ` (${cd.county} County)` : ""} anchors a distinct ${label} market in ${region}. Full Loop CRM is built to win ${city} and the ${stateAbbr} metros around it — one operator per trade, per city.`,
     paragraphs: [
-      `${city} sits in ${region}, and a ${label} business here competes on a local footing that a national tool never accounts for. Full Loop CRM treats ${city} as its own market: your lead generation, local SEO, and AI sales agent are pointed at ${city} customers and the surrounding ${stateAbbr} metros — ${near3}${neighborNames.length > 3 ? ", and more" : ""} — not spread thin across the whole country.${seasonLine}`,
+      `${placeLine}${popClause} in ${region}. A ${label} business here competes on a local footing that a national tool never accounts for. Full Loop CRM treats ${city} as its own market: your lead generation, local SEO, and AI sales agent are pointed at ${city} customers and the surrounding ${stateAbbr} metros — ${near3}${neighborNames.length > 3 ? ", and more" : ""} — not spread thin across the whole country.${seasonLine}`,
       marketLine,
       `Because Full Loop licenses one ${label} operator per city, claiming ${city} means the organic leads, the review flywheel, and the exclusive territory here are yours — and the same model is available in each nearby ${stateAbbr} market as you expand.`,
     ],
     bullets: [
+      cd?.county
+        ? `Built for the ${cd.county} County market${cd.population ? ` — roughly ${cd.population.toLocaleString()} residents` : ""}`
+        : `Built for the ${city}, ${stateAbbr} market`,
       `Local-first lead gen aimed at ${city} and ${stateAbbr} search demand, not national keywords`,
       `Exclusive ${city} territory — one ${label} operator per city, no internal competition`,
       `Ready to expand into nearby markets: ${neighborNames.slice(0, 5).join(", ")}`,
