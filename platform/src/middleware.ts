@@ -370,14 +370,19 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // The remaining tenants are non-cleaning verticals (tow, exterminator, salon,
   // SEO, etc.); the template is cleaning-specific, so they keep their bespoke
   // /site/<slug> subtree. nycmaid keeps its own bespoke site (the live primary).
-  // CUTOVER: every tenant except the nyc maid tenant is now a REAL tenant served
-  // by the shared, config-driven global template (/site/template) — no forked
-  // per-tenant site code. Only nycmaid (the live primary, mid-cutover) keeps its
-  // own bespoke /site/nycmaid subtree. The old bespoke clones are dead code once
-  // unrouted here and get deleted in a follow-up.
+  // CUTOVER: most non-nycmaid tenants are REAL tenants served by the shared,
+  // config-driven global template (/site/template) — no forked per-tenant code.
+  // The tenants listed below are LIVE businesses whose bespoke site the template
+  // cannot represent, so they keep their own /site/<slug> subtree. This set is
+  // the single source of truth for that routing; dropping a live tenant from it
+  // (or deleting its folder) silently replaces their site with the template, so
+  // every entry here is locked by scripts/verify-protected-tenants.mjs, which
+  // runs at build time (npm prebuild) and fails the deploy if one goes missing.
   const BESPOKE_SITE_TENANTS = new Set<string>([
     'nycmaid',
     'we-pay-you-junk',
+    'nyc-mobile-salon',
+    'the-florida-maid',
   ])
   const siteBase = ROOT_SITE_TENANTS.has(tenantSlug)
     ? '/site'

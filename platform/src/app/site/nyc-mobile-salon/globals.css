@@ -1,0 +1,279 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #ffffff;
+  --color-foreground: #1a1a1a;
+  --color-blush: #E8A0BF;
+  --color-blush-light: #FDF2F8;
+  --color-blush-dark: #D4749B;
+  --color-rose: #F43F5E;
+  --color-gold: #C9A96E;
+  --color-gold-light: #F5EFE0;
+  --color-champagne: #F7F0E8;
+  --color-charcoal: #1a1a1a;
+  --color-warm-gray: #FAF9F7;
+  --color-cream: #FFFBF5;
+  --font-sans: var(--font-geist-sans);
+  --font-serif: var(--font-playfair);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Serif heading utility */
+.font-display {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+}
+
+/* ── Accent utilities ── */
+.text-accent {
+  color: var(--color-blush);
+}
+
+.bg-hero-gradient {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d1f2f 40%, #3d1f35 70%, #1a1a1a 100%);
+}
+
+.bg-blush-gradient {
+  background: linear-gradient(135deg, #F9E4EF 0%, #FDF2F8 50%, #FCE7F3 100%);
+}
+
+.bg-gold-gradient {
+  background: linear-gradient(135deg, #F7F0E8 0%, #FBF6EE 50%, #F5EFE0 100%);
+}
+
+.text-gradient-rose {
+  background: linear-gradient(135deg, #E8A0BF, #F43F5E);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, #C9A96E, #E8C97A);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Buttons — editorial pill style ── */
+.btn-primary,
+.btn-outline,
+.btn-blue,
+.btn-rose,
+.btn-outline-light,
+.btn-outline-white,
+.btn-outline-rose,
+.btn-gold,
+.btn-sage {
+  font-family: var(--font-serif), Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: 999px;
+  padding: 14px 36px;
+  display: inline-block;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-primary:hover,
+.btn-outline:hover,
+.btn-blue:hover,
+.btn-rose:hover,
+.btn-outline-light:hover,
+.btn-outline-white:hover,
+.btn-outline-rose:hover,
+.btn-gold:hover,
+.btn-sage:hover {
+  transform: translateY(-1px);
+}
+.btn-primary:active,
+.btn-outline:active,
+.btn-blue:active,
+.btn-rose:active,
+.btn-outline-light:active,
+.btn-outline-white:active,
+.btn-outline-rose:active,
+.btn-gold:active,
+.btn-sage:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background-color: #1a1a1a;
+  color: white;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+}
+.btn-primary:hover {
+  background-color: #333;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+.btn-rose {
+  background: linear-gradient(135deg, #E8A0BF, #D4749B);
+  color: white;
+  box-shadow: 0 2px 16px rgba(232,160,191,0.4);
+}
+.btn-rose:hover {
+  background: linear-gradient(135deg, #D4749B, #C45A85);
+  box-shadow: 0 4px 24px rgba(232,160,191,0.5);
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, #C9A96E, #B8954F);
+  color: white;
+  box-shadow: 0 2px 16px rgba(201,169,110,0.35);
+}
+.btn-gold:hover {
+  background: linear-gradient(135deg, #B8954F, #A88440);
+  box-shadow: 0 4px 24px rgba(201,169,110,0.5);
+}
+
+.btn-outline {
+  border: 1.5px solid var(--color-blush);
+  color: var(--color-blush-dark);
+  background: transparent;
+}
+.btn-outline:hover {
+  background: linear-gradient(135deg, #E8A0BF, #D4749B);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(232,160,191,0.3);
+}
+
+.btn-outline-rose {
+  border: 1.5px solid var(--color-blush);
+  color: var(--color-blush-dark);
+  background: transparent;
+}
+.btn-outline-rose:hover {
+  background: var(--color-blush);
+  color: white;
+  box-shadow: 0 4px 20px rgba(232,160,191,0.3);
+}
+
+.btn-blue {
+  background: linear-gradient(135deg, #E8A0BF, #D4749B);
+  color: white;
+  box-shadow: 0 2px 16px rgba(232,160,191,0.4);
+}
+.btn-blue:hover {
+  background: linear-gradient(135deg, #D4749B, #C45A85);
+  box-shadow: 0 4px 24px rgba(232,160,191,0.5);
+}
+
+.btn-outline-light {
+  border: 1.5px solid rgba(232,160,191,0.6);
+  color: white;
+  background: transparent;
+}
+.btn-outline-light:hover {
+  background: rgba(232,160,191,0.2);
+  border-color: var(--color-blush);
+  color: white;
+  box-shadow: 0 4px 20px rgba(232,160,191,0.2);
+}
+
+.btn-outline-white {
+  border: 1.5px solid white;
+  color: white;
+  background: transparent;
+}
+.btn-outline-white:hover {
+  background-color: white;
+  color: #1a1a1a;
+  box-shadow: 0 4px 20px rgba(255,255,255,0.2);
+}
+
+.btn-sage {
+  background-color: var(--color-gold);
+  color: white;
+}
+.btn-sage:hover {
+  background-color: #B8954F;
+}
+
+/* Subtle card hover */
+.card-hover {
+  transition: all 0.25s ease;
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(232,160,191,0.12);
+}
+
+/* Section divider */
+.section-divider {
+  border-top: 1px solid #F3E8EF;
+}
+
+/* Fade in animation */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in-up 0.6s ease-out both;
+}
+
+/* Shimmer effect for decorative elements */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(232,160,191,0.15) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Decorative dot pattern */
+.dot-pattern {
+  background-image: radial-gradient(circle, rgba(232,160,191,0.15) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Glass effects */
+.glass {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid #F3E8EF;
+}
+
+.glass-dark {
+  background: #1a1a1a;
+}
+
+/* Legacy compat */
+.text-gradient {
+  color: var(--color-blush-dark);
+}
+
+.btn-gradient {
+  background: linear-gradient(135deg, #E8A0BF, #D4749B);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.btn-gradient:hover {
+  background: linear-gradient(135deg, #D4749B, #C45A85);
+}
+
+.blob {
+  display: none;
+}
+
+.gradient-border {
+  border: 1px solid #F3E8EF;
+  border-radius: 1rem;
+}

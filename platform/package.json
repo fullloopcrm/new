@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/verify-protected-tenants.mjs",
     "build": "next build",
+    "verify:tenants": "node scripts/verify-protected-tenants.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
