@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 
 export async function GET() {
   try {
@@ -45,6 +46,11 @@ export async function POST(request: Request) {
     } = body
     if (!client_id && !title) {
       return NextResponse.json({ error: 'client_id or title is required' }, { status: 400 })
+    }
+
+    if (client_id) {
+      const foreign = await findForeignRef(tenantId, [{ table: 'clients', ids: [client_id] }])
+      if (foreign) return NextResponse.json({ error: 'Unknown client for this account' }, { status: 400 })
     }
 
     // Only block duplicate open deal on same client if no title was given

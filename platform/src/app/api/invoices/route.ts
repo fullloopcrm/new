@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import {
   normalizeLineItems,
   computeTotals,
@@ -137,6 +138,18 @@ export async function POST(request: Request) {
         ? Number(body.discount_cents)
         : Number((prefillContact as { discount_cents?: number }).discount_cents || 0)
     const totals = computeTotals(lineItems, tax_rate_bps, discount_cents)
+
+    // Any FK the caller supplies directly in the body must be this tenant's.
+    // (Ids sourced from a tenant-scoped booking/quote above are already safe.)
+    const foreign = await findForeignRef(tenantId, [
+      { table: 'clients', ids: [body.client_id] },
+      { table: 'bookings', ids: [body.booking_id] },
+      { table: 'quotes', ids: [body.quote_id] },
+      { table: 'entities', ids: [body.entity_id] },
+    ])
+    if (foreign) {
+      return NextResponse.json({ error: `Unknown ${foreign.table.replace(/s$/, '').replace(/_/g, ' ')} for this account` }, { status: 400 })
+    }
 
     const invoice_number = body.invoice_number || (await generateInvoiceNumber(tenantId))
     const public_token = generateInvoicePublicToken()
