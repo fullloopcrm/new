@@ -32,7 +32,7 @@ export async function PUT(request: Request) {
           .update(u.data)
           .eq('id', u.id)
           .eq('tenant_id', tenantId)
-          .select('*, clients(name, phone, email), team_members(name, phone, email)')
+          .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
           .single()
         return { id: u.id, data, error }
       })

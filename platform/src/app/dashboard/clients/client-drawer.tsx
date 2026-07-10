@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useWorkerLabel } from '../worker-label-context'
 
 type EnrichedClient = {
   id: string
@@ -95,6 +96,7 @@ type Activity = {
 }
 
 export default function ClientDrawer({ client, open, onClose }: Props) {
+  const worker = useWorkerLabel()
   const [notesTab, setNotesTab] = useState<'cleaner' | 'operator' | 'selena'>('cleaner')
   const [notes, setNotes] = useState({ cleaner: '', operator: '', selena: '' })
   const [activity, setActivity] = useState<Activity[]>([])
@@ -291,11 +293,11 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
             </div>
           </div>
 
-          {/* Cleaner Affinity */}
+          {/* Worker affinity (trade-labeled) */}
           {client.preferred_cleaner && (
             <div className="clients-section">
               <div className="clients-section-head">
-                <span className="clients-section-label">Cleaner Affinity</span>
+                <span className="clients-section-label">{worker.singular} Affinity</span>
                 <span className="clients-section-action">{client.bookings_count} job{client.bookings_count === 1 ? '' : 's'} total</span>
               </div>
               <div className="clients-affinity-list">

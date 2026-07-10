@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { SERVICES, getServiceByUrlSlug } from '@/app/site/template/_lib/seo/services'
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export const dynamicParams = true
+export const dynamic = 'force-dynamic' // gate reads headers(); avoid static-to-dynamic 500
 
 export async function generateStaticParams() { return [] }
 
@@ -70,6 +72,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ServicePage({ params }: Props) {
+  await requireCleaningTenant()
   const { slug } = await params
   const service = getServiceByUrlSlug(slug)
   if (!service) notFound()
@@ -167,7 +170,7 @@ export default async function ServicePage({ params }: Props) {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Breadcrumbs items={[
-          { name: 'Services', href: '/nyc-maid-service-services-offered-by-the-nyc-maid' },
+          { name: 'Services', href: '/services' },
           { name: service.name, href: `/services/${service.urlSlug}` },
         ]} />
       </div>
@@ -353,7 +356,7 @@ export default async function ServicePage({ params }: Props) {
             <div>
               <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-2">{service.name} Cost Summary</h3>
               <p className="text-[rgb(var(--brand-rgb)/0.8)] leading-relaxed">{rich.pricingNote}</p>
-              <Link href="/updated-nyc-maid-service-industry-pricing" className="inline-block mt-3 text-[var(--brand)] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
+              <Link href="/pricing" className="inline-block mt-3 text-[var(--brand)] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
             </div>
           </div>
         </section>
@@ -458,7 +461,7 @@ export default async function ServicePage({ params }: Props) {
           </div>
 
           <div className="text-center mt-10">
-            <Link href="/service-areas-served-by-the-nyc-maid" className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
+            <Link href="/service-areas" className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
               Browse All 225+ Neighborhoods &rarr;
             </Link>
           </div>
@@ -498,7 +501,7 @@ export default async function ServicePage({ params }: Props) {
             ))}
           </div>
           <div className="text-center mt-10">
-            <Link href="/nyc-maid-service-services-offered-by-the-nyc-maid" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+            <Link href="/services" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               View All Services &amp; Pricing
             </Link>
           </div>

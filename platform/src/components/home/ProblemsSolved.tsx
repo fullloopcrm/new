@@ -43,7 +43,7 @@ export default function ProblemsSolved() {
             ladder, the call goes to voicemail and the customer dials the next company.
             Full Loop&apos;s{" "}
             <Link href="/full-loop-crm-service-features" style={link}>AI sales agent</Link>{" "}
-            answers every inquiry by text and chat the instant it arrives, qualifies it,
+            answers the phone live and every text and chat the instant it arrives, qualifies it,
             quotes it, and books it &mdash; so missing the phone stops meaning missing the job.
           </p>
 

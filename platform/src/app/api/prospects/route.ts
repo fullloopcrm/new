@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     let slotTaken = false
     if (body.primary_zip && body.trade) {
       const { data: existing } = await supabaseAdmin
-        .from('prospects')
+        .from('prospects')  // tenant-scope-ok: prospect intake is platform-level (pre-tenant), collision check is global by design
         .select('id')
         .eq('trade', body.trade)
         .eq('primary_zip', body.primary_zip)
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     const { data, error } = await supabaseAdmin
-      .from('prospects')
+      .from('prospects')  // tenant-scope-ok: prospect intake is platform-level (pre-tenant), collision check is global by design
       .insert({
         business_name: cap(body.business_name),
         legal_name: cap(body.legal_name),

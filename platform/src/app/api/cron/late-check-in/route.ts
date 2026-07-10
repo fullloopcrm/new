@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { getCommPrefs } from '@/lib/comms-prefs'
 import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins } from '@/lib/push'
 import { trackError } from '@/lib/error-tracking'
@@ -37,6 +38,11 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    // Late alerts: team text gated by team_late_alert, owner text by
+    // owner_late_alert. Push + in-app rows stay regardless.
+    const latePrefs = await getCommPrefs(tenantId)
+    const teamLateOn = latePrefs.comms.team_late_alert?.sms !== false
+    const ownerLateOn = latePrefs.comms.owner_late_alert?.sms !== false
 
     try {
       // ============================================
@@ -44,7 +50,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, clients(name, phone), team_members(name, phone)')
+        .select('id, start_time, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .lte('start_time', tenMinAgo.toISOString())
@@ -69,7 +75,7 @@ export async function GET(request: Request) {
         const memberPhone = (booking.team_members as any)?.phone
 
         // SMS to team member
-        if (memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckInTeam(tenant.name, booking as any),
@@ -80,7 +86,7 @@ export async function GET(request: Request) {
 
         // SMS to admin
         const adminPhone = tenant.owner_phone || tenant.phone
-        if (adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (ownerLateOn && adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`,
             body: smsLateCheckInAdmin(tenant.name, booking as any),
@@ -116,7 +122,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateCheckouts } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members(name, phone)')
+        .select('id, start_time, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
         .not('fifteen_min_alert_time', 'is', null)
@@ -140,7 +146,7 @@ export async function GET(request: Request) {
         const memberPhone = (booking.team_members as any)?.phone
 
         // SMS to team member
-        if (memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckOutTeam(tenant.name, booking as any),
@@ -151,7 +157,7 @@ export async function GET(request: Request) {
 
         // SMS to admin
         const adminPhone = tenant.owner_phone || tenant.phone
-        if (adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (ownerLateOn && adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`,
             body: smsLateCheckOutAdmin(tenant.name, booking as any),

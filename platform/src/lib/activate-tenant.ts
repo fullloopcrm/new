@@ -16,8 +16,11 @@ import { provisionTenant } from './provision-tenant'
 import { seedOnboardingTasks } from './onboarding-tasks'
 import { seedChartOfAccounts } from './ledger'
 import { seedHrDefaults } from './hr'
+import { ensureDefaultEntity } from './entity-provision'
 import { runOnboardingGate, type GateResult } from './onboarding-gate'
+import { clearSettingsCache } from './settings'
 import { registerCarryingDomain, registerCustomDomain, type CustomDomainResult } from './vercel-domains'
+import { registerSeoProperty } from './seo/onboarding'
 import { resolveCoverage } from './geo/coverage'
 import { hashAdminPin } from './admin-pin'
 import crypto from 'crypto'
@@ -179,13 +182,14 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   // profile per team member). Both idempotent: no-op when already seeded, so
   // this is safe on repeat activations. Best-effort — never block activation.
   try {
+    const createdEntity = await ensureDefaultEntity(tenantId, tenant.name || 'Main')
     const accounts = await seedChartOfAccounts(tenantId)
     const hr = await seedHrDefaults(tenantId)
     steps.push({
       key: 'finance_hr',
       label: 'Bookkeeping + HR seeded',
       status: 'done',
-      detail: `Ledger: ${accounts > 0 ? `${accounts} accounts` : 'already set'} · HR: ${hr.requirementsSeeded} doc rule(s), ${hr.profilesBackfilled} profile(s)`,
+      detail: `Entity: ${createdEntity ? 'created default' : 'already set'} · Ledger: ${accounts > 0 ? `${accounts} accounts` : 'already set'} · HR: ${hr.requirementsSeeded} doc rule(s), ${hr.profilesBackfilled} profile(s)`,
     })
   } catch (e) {
     steps.push({ key: 'finance_hr', label: 'Bookkeeping + HR seeded', status: 'failed', detail: msg(e) })
@@ -293,6 +297,12 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   await crumb(tenantId, 'after_owner')
 
   // 6. Smoke test — run the onboarding gate over the lead→review spine.
+  // Bust the per-tenant settings cache first: earlier steps (provisioning,
+  // review-destination seeding) mutated selena_config AFTER getSettings may have
+  // already cached a mid-activation snapshot. Without this, the gate reads stale
+  // settings and fails 'review' (and any other just-seeded field) even though the
+  // DB is correct — which blocked tenants from ever flipping 'active'.
+  clearSettingsCache(tenantId)
   const gate = await runOnboardingGate(tenantId)
   for (const stage of gate.stages) {
     steps.push({
@@ -352,7 +362,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, notes: 'Custom domain — auto-registered on activation' })
     }
     const { error: tdErr } = await supabaseAdmin
-      .from('tenant_domains')
+      .from('tenant_domains')  // tenant-scope-ok: upsert rows carry tenant_id (built above)
       .upsert(rows, { onConflict: 'domain', ignoreDuplicates: true })
     steps.push({
       key: 'domain_routing',
@@ -364,11 +374,46 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     steps.push({ key: 'domain_routing', label: 'Domain routing + SEO link', status: 'failed', detail: msg(e) })
   }
 
-  const ownerOk = steps.find((s) => s.key === 'owner_login')?.status === 'done'
-  const ready = gate.passed && ownerOk
+  // 8b. seomgr auto-onboard — register the public domain as an SEO property so
+  // the site is tracked from day one. Starts "awaiting_grant"; a one-time GSC
+  // grant to the monitor service account flips it live (ingest self-discovers).
+  try {
+    const carryHost = `${tenant.slug}.fullloopcrm.com`
+    const customHost = ((tenant.domain as string | null) || (tenant.domain_name as string | null) || '')
+      .trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+    const primaryHost = customHost || carryHost
+    const seo = await registerSeoProperty(tenantId, primaryHost, 'activation')
+    steps.push({
+      key: 'seo_monitoring',
+      label: 'seomgr monitoring',
+      status: 'done',
+      detail: seo
+        ? `${seo.domain} registered${seo.created ? ' (awaiting GSC grant)' : ' (already tracked)'}`
+        : 'no valid domain to track',
+    })
+  } catch (e) {
+    steps.push({ key: 'seo_monitoring', label: 'seomgr monitoring', status: 'failed', detail: msg(e) })
+  }
 
-  // Flip to active only when the spine passes and there's an owner login. Never
-  // mark a tenant live on faith.
+  const ownerOk = steps.find((s) => s.key === 'owner_login')?.status === 'done'
+  // The site only actually SERVES if a domain was really registered — the
+  // carrying domain succeeded, or a custom domain verified. Without that there
+  // is no TLS cert and the URL is dead, so we must NOT claim the tenant is live.
+  // (Root cause of dead auto-created sites: VERCEL_API_TOKEN/VERCEL_TEAM_ID unset
+  // → registerCarryingDomain returns 'skipped', which used to still flip 'active'.)
+  const siteServes = carry.ok || !!customDomain?.verified
+  if (!siteServes) {
+    steps.push({
+      key: 'site_live',
+      label: 'Site reachable',
+      status: 'action_needed',
+      detail: 'No live domain yet — the carrying/custom domain was not registered (check Vercel env). Site will 404/TLS-fail until fixed.',
+    })
+  }
+  const ready = gate.passed && ownerOk && siteServes
+
+  // Flip to active only when the spine passes, there's an owner login, AND the
+  // site actually serves. Never mark a tenant live on faith.
   let activated = tenant.status === 'active'
   if (ready && tenant.status !== 'active') {
     const { error: upErr } = await supabaseAdmin

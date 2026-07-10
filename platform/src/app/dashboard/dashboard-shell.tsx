@@ -8,6 +8,7 @@ import ToastProvider from './toast-provider'
 // import AutoPageSettings from './auto-page-settings' // gear removed for now
 import SelenaBar from './selena-bar'
 import AnnouncementBanner from './announcement-banner'
+import { WorkerLabelProvider } from './worker-label-context'
 
 type SidebarCounts = {
   clients: number
@@ -49,7 +50,9 @@ const navMain: Array<{
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
   ]},
   { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
-    { letter: 'A', label: 'Crews', href: '/dashboard/jobs/crews' },
+    { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
+    { letter: 'B', label: 'Calendar', href: '/dashboard/calendar' },
+    { letter: 'C', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
   { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
   { num: '06', label: 'HR', href: '/dashboard/hr', fold: 'hr', perm: 'team.view', subs: [
@@ -73,8 +76,8 @@ const navMain: Array<{
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/schedules'],
-  production: ['/dashboard/jobs', '/dashboard/jobs/crews'],
+  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/calendar', '/dashboard/bookings'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   hr: ['/dashboard/hr', '/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
@@ -172,6 +175,7 @@ function formatBadge(count: number): string {
 export default function DashboardShell({
   tenantName,
   primaryColor: _primaryColor,
+  industry,
   agentName = 'Selena',
   impersonationBanner,
   isAdminImpersonation,
@@ -179,6 +183,7 @@ export default function DashboardShell({
 }: {
   tenantName: string
   primaryColor: string
+  industry?: string | null
   agentName?: string
   impersonationBanner: React.ReactNode | null
   isAdminImpersonation?: boolean
@@ -508,7 +513,7 @@ export default function DashboardShell({
           </div>
 
           {/* Settings gear removed for now (was <AutoPageSettings />) */}
-          {children}
+          <WorkerLabelProvider industry={industry}>{children}</WorkerLabelProvider>
         </div>
       </main>
 

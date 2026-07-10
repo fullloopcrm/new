@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export const dynamicParams = true
+export const dynamic = 'force-dynamic' // gate reads headers(); avoid static-to-dynamic 500
 
 export async function generateStaticParams() { return [] }
 
@@ -60,6 +62,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function NeighborhoodServicePage({ params }: Props) {
+  await requireCleaningTenant()
   const { slug, service: serviceSlug } = await params
   const neighborhood = getNeighborhoodByUrlSlug(slug)
   const service = getService(serviceSlug)
@@ -267,7 +270,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
             <p className="text-[rgb(var(--brand-rgb)/0.8)] leading-relaxed">
               {service.name} in {neighborhood.name} typically costs {service.priceRange} and takes {service.duration}. We charge a flat hourly rate — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), or $89/hr for same-day emergency service. No travel fees, no surge pricing, no hidden costs. {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
             </p>
-            <Link href="/updated-nyc-maid-service-industry-pricing" className="inline-block mt-3 text-[var(--brand)] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
+            <Link href="/pricing" className="inline-block mt-3 text-[var(--brand)] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
           </div>
         </div>
       </section>

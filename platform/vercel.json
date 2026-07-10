@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/finance-post",
+      "schedule": "0 4 * * *"
+    },
+    {
       "path": "/api/cron/release-due-payments",
       "schedule": "0 7 * * *"
     },
@@ -49,28 +53,12 @@
       "schedule": "30 6 * * *"
     },
     {
-      "path": "/api/cron/seo-propose",
-      "schedule": "0 7 * * 1"
-    },
-    {
-      "path": "/api/cron/seo-competitors",
-      "schedule": "0 8 * * 1"
-    },
-    {
       "path": "/api/cron/seo-technical",
       "schedule": "0 7 * * 2"
     },
     {
-      "path": "/api/cron/seo-enrich",
-      "schedule": "0 9 * * 3"
-    },
-    {
-      "path": "/api/cron/seo-autopilot",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/seo-verify-revert",
-      "schedule": "0 10 * * 1"
+      "path": "/api/cron/seo-autoverify",
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/auto-reply-reviews",

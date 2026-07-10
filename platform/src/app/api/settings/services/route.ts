@@ -37,6 +37,10 @@ export async function POST(request: Request) {
       description: { type: 'string', max: 1000 },
       default_duration_hours: { type: 'number', min: 0.5, max: 24 },
       default_hourly_rate: { type: 'number', min: 0 },
+      pricing_model: { type: 'string', max: 20 },
+      price_cents: { type: 'number', min: 0 },
+      per_unit: { type: 'string', max: 40 },
+      min_charge_cents: { type: 'number', min: 0 },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 

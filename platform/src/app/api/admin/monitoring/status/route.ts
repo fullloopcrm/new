@@ -76,7 +76,7 @@ export async function GET() {
   let errors24h = -1
   try {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const { count } = await supabaseAdmin.from('error_logs').select('id', { count: 'exact', head: true }).gte('created_at', since.toISOString())
+    const { count } = await supabaseAdmin.from('error_logs').select('id', { count: 'exact', head: true }).gte('created_at', since.toISOString())  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
     errors24h = count || 0
   } catch {
     errors24h = -1

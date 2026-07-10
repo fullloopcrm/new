@@ -69,7 +69,8 @@ export async function GET(request: Request) {
 
     for (const b of upcomingBookings || []) {
       if (b.payment_status === 'paid') continue
-      const price = Math.round(Number(b.price || 0) * 100)
+      // bookings.price is already in cents — no ×100 (that over-projected 100×).
+      const price = Math.round(Number(b.price || 0))
       if (!price) continue
       const key = weekKey(new Date(b.start_time as string))
       const bucket = buckets.get(key)

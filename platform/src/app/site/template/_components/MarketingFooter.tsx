@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { SiteConfig } from '@/app/site/template/_config/types'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 
 const manhattanLinks = [
   { name: 'Upper East Side', href: '/upper-east-side-maid-service' },
@@ -51,23 +52,33 @@ const serviceFooterLinks = [
 ]
 
 export default function MarketingFooter({ config }: { config: SiteConfig }) {
+  // The neighborhood/service link grid is cleaning-only and points at gated
+  // pages — non-cleaning tenants get a minimal footer instead.
+  const profile = industryProfile(config.industry)
+  const isCleaning = profile.isCleaning
+  const isVa = profile.isVirtualAssistant
   return (
     <footer className="bg-[var(--brand)] text-gray-400">
       {/* Main footer brand */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8">
         <h2 className="font-[family-name:var(--font-bebas)] text-white text-3xl md:text-4xl tracking-wide text-center mb-2">{config.identity.name}</h2>
         <div className="w-16 h-[2px] bg-[var(--accent)] mx-auto mb-6" />
+        {config.reviewCount ? (
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
           <Link href="/reviews" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
             <span className="text-yellow-400">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
             <span className="text-gray-300 text-sm font-medium">{config.rating.toFixed(1)} from {config.reviewCount} verified reviews</span>
           </Link>
+          {isCleaning && (<>
           <span className="text-white/20 hidden sm:inline">|</span>
           <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="text-[var(--accent)] text-sm font-semibold hover:text-white transition-colors">Write a Review</Link>
+          </>)}
         </div>
+        ) : <div className="mb-12" />}
       </div>
 
-      {/* Links grid */}
+      {/* Links grid — cleaning only (neighborhood/service pages are gated for other trades) */}
+      {isCleaning ? (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-10">
           <div>
@@ -97,26 +108,25 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
           <div>
             <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Company</h3>
             <ul className="space-y-2.5">
-              <li><Link href="/about-the-nyc-maid-service-company" className="text-sm hover:text-white transition-colors">About Us</Link></li>
-              <li><Link href="/contact-the-nyc-maid-service-today" className="text-sm hover:text-white transition-colors">Contact</Link></li>
-              <li><Link href="/updated-nyc-maid-service-industry-pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
+              <li><Link href="/about" className="text-sm hover:text-white transition-colors">About Us</Link></li>
+              <li><Link href="/contact" className="text-sm hover:text-white transition-colors">Contact</Link></li>
+              <li><Link href="/pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
               <li><Link href="/reviews" className="text-sm hover:text-white transition-colors">Reviews</Link></li>
-              <li><Link href="/available-nyc-maid-jobs" className="text-sm hover:text-white transition-colors">Careers</Link></li>
+              <li><Link href="/careers" className="text-sm hover:text-white transition-colors">Careers</Link></li>
             </ul>
           </div>
           <div>
             <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Resources</h3>
             <ul className="space-y-2.5">
-              <li><a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-white transition-colors">Make a Payment</a></li>
               <li><Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="text-sm hover:text-white transition-colors">Referral Program</Link></li>
               <li><Link href="/book/new" className="text-sm hover:text-white transition-colors">Book a Cleaning</Link></li>
               <li><a href={`sms:${config.contact.phoneDigits}`} className="text-sm hover:text-white transition-colors">Text Sales: {config.contact.phone}</a></li>
               {config.contact.supportPhone && (
                 <li><a href={`sms:${config.contact.supportPhoneDigits}`} className="text-sm hover:text-white transition-colors">Text Support: {config.contact.supportPhone}</a></li>
               )}
-              <li><Link href="/nyc-cleaning-service-frequently-asked-questions-in-2025" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
-              <li><Link href="/nyc-maid-service-blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
-              <li><Link href="/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>
+              <li><Link href="/faq" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
+              <li><Link href="/blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
+              <li><Link href="/blog" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>
               <li><Link href="/service/nyc-emergency-cleaning-service" className="text-sm hover:text-white transition-colors">Emergency Cleaning</Link></li>
               <li><Link href="/apply" className="text-sm hover:text-white transition-colors">Apply to Clean</Link></li>
               <li><Link href="/feedback" className="text-sm hover:text-white transition-colors">Leave Feedback</Link></li>
@@ -124,6 +134,45 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
           </div>
         </div>
       </div>
+      ) : (
+      /* Non-cleaning tenants: config-driven footer on the generic long-form
+         routes (no NYC neighborhood grid, no cleaning slugs). */
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-10 max-w-3xl mx-auto">
+          <div>
+            <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Company</h3>
+            <ul className="space-y-2.5">
+              <li><Link href="/about" className="text-sm hover:text-white transition-colors">About Us</Link></li>
+              <li><Link href={isVa ? '/virtual-assistant-services' : '/services'} className="text-sm hover:text-white transition-colors">Services</Link></li>
+              <li><Link href="/pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
+              <li><Link href="/reviews" className="text-sm hover:text-white transition-colors">Reviews</Link></li>
+              <li><Link href="/careers" className="text-sm hover:text-white transition-colors">Careers</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Resources</h3>
+            <ul className="space-y-2.5">
+              <li><Link href="/faq" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
+              <li><Link href="/blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
+              <li><Link href="/contact" className="text-sm hover:text-white transition-colors">Contact</Link></li>
+              <li><Link href="/referral-program" className="text-sm hover:text-white transition-colors">Referral Program</Link></li>
+              <li><Link href="/book/new" className="text-sm hover:text-white transition-colors">Book Now</Link></li>
+            </ul>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Get in Touch</h3>
+            <ul className="space-y-2.5">
+              <li><a href={`sms:${config.contact.phoneDigits}`} className="text-sm hover:text-white transition-colors">Text Sales: {config.contact.phone}</a></li>
+              {config.contact.supportPhone && (
+                <li><a href={`sms:${config.contact.supportPhoneDigits}`} className="text-sm hover:text-white transition-colors">Text Support: {config.contact.supportPhone}</a></li>
+              )}
+              <li><Link href="/apply" className="text-sm hover:text-white transition-colors">Apply to Join</Link></li>
+              <li><Link href="/feedback" className="text-sm hover:text-white transition-colors">Leave Feedback</Link></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      )}
 
       {/* Bottom bar */}
       <div className="border-t border-white/10">

@@ -39,8 +39,10 @@ export function guessZoneFromAddress(address: string): ServiceZoneId | null {
   // Bronx
   if (a.includes('bronx') || /\b104[5-7]\d\b/.test(a)) return 'bronx'
 
-  // Queens
-  if (a.includes('queens') || a.includes('flushing') || a.includes('astoria') || a.includes('long island city') || a.includes('lic') || a.includes('rego park') || a.includes('jackson heights') || a.includes('woodhaven') || a.includes('elmhurst') || a.includes('middle village') || a.includes('forest hills') || a.includes('jamaica') || a.includes('ridgewood') || /\b11[1-4]\d{2}\b/.test(a)) return 'queens'
+  // Queens — ZIP 111xx/113xx/114xx. NOT 112xx: that's Brooklyn, which is checked
+  // after this block, so a 112xx here would wrongly steal every Brooklyn ZIP-only
+  // address. Excluding '2' keeps Brooklyn ZIPs falling through to the Brooklyn rule.
+  if (a.includes('queens') || a.includes('flushing') || a.includes('astoria') || a.includes('long island city') || a.includes('lic') || a.includes('rego park') || a.includes('jackson heights') || a.includes('woodhaven') || a.includes('elmhurst') || a.includes('middle village') || a.includes('forest hills') || a.includes('jamaica') || a.includes('ridgewood') || /\b11[134]\d{2}\b/.test(a)) return 'queens'
 
   // Brooklyn
   if (a.includes('brooklyn') || a.includes('williamsburg') || a.includes('bushwick') || a.includes('bed-stuy') || a.includes('park slope') || a.includes('prospect') || a.includes('flatbush') || a.includes('greenpoint') || /\b112[0-3]\d\b/.test(a) || /\b112[0-9]{2}\b/.test(a)) return 'brooklyn'

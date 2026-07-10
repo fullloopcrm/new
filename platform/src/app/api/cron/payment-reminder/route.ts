@@ -6,6 +6,9 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { getCommPrefs } from '@/lib/comms-prefs'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { runNycMaidPaymentReminder } from '@/lib/nycmaid/payment-reminder'
 
 export const maxDuration = 60
 
@@ -33,6 +36,21 @@ export async function GET(request: Request) {
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
 
+    // NYC Maid runs the faithful 2-stage flow (+15 nudge / +60 escalate) with
+    // the correct "still owes" filter (excludes partial + payment_method set).
+    // Tenant-scoped parity; other tenants keep the generic logic below.
+    if (isNycMaid(tenantId)) {
+      const r = await runNycMaidPaymentReminder(tenantId)
+      reminded += r.nudges
+      escalated += r.flagged
+      continue
+    }
+
+    // Client payment nudge is gated by the payment_reminder SMS toggle; the
+    // owner overdue-escalation stays ungated (operational alert).
+    const payPrefs = await getCommPrefs(tenantId)
+    const clientNudgeOn = payPrefs.comms.payment_reminder?.sms !== false
+
     try {
       // Bookings where alert fired 15-60 min ago and still unpaid.
       const { data: pending } = await supabaseAdmin
@@ -58,7 +76,7 @@ export async function GET(request: Request) {
         const minsSinceAlert = Math.floor((Date.now() - alertTime) / 60000)
 
         if (minsSinceAlert < 30) {
-          if (tenant.telnyx_api_key && tenant.telnyx_phone) {
+          if (clientNudgeOn && tenant.telnyx_api_key && tenant.telnyx_phone) {
             await sendSMS({
               to: client.phone,
               body: `Hi ${client.name?.split(' ')[0] || 'there'} — just following up on your payment for today's service. Let us know if you need the link resent. 😊`,
@@ -104,14 +122,14 @@ export async function GET(request: Request) {
 
   // Mark stale (>60min) so we stop re-reminding
   await supabaseAdmin
-    .from('bookings')
+    .from('bookings')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     .update({ payment_reminder_sent_at: thirtyAgo })
     .neq('payment_status', 'paid')
     .lt('fifteen_min_alert_time', sixtyAgo)
     .is('payment_reminder_sent_at', null)
 
   // Health-monitor marker.
-  await supabaseAdmin.from('notifications').insert({
+  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     type: 'payment_reminder_fired',
     title: 'cron:payment-reminder',
     message: `reminded=${reminded} escalated=${escalated}`,

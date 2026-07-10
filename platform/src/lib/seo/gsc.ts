@@ -72,18 +72,28 @@ const b64url = (buf: Buffer | string) =>
     .replace(/\//g, '_')
     .replace(/=+$/, '')
 
-// Cache the token in-process; SA tokens last 1h, refresh with 5-min headroom.
-let cachedToken: { token: string; expiresAt: number } | null = null
+// Cache tokens per-scope in-process; SA tokens last 1h, refresh with 5-min headroom.
+const cachedTokens = new Map<string, { token: string; expiresAt: number }>()
 
 async function getAccessToken(): Promise<string> {
+  return getAccessTokenForScope(SCOPE)
+}
+
+/**
+ * Mint (or reuse) an access token for a specific OAuth scope string. Exported so
+ * the write-scoped seomgr paths (site verification / sites.add) reuse the single
+ * audited JWT-signing path instead of duplicating it.
+ */
+export async function getAccessTokenForScope(scope: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
-  if (cachedToken && cachedToken.expiresAt - 300 > now) return cachedToken.token
+  const cached = cachedTokens.get(scope)
+  if (cached && cached.expiresAt - 300 > now) return cached.token
 
   const sa = loadServiceAccount()
   const header = { alg: 'RS256', typ: 'JWT' }
   const claim = {
     iss: sa.client_email,
-    scope: SCOPE,
+    scope,
     aud: TOKEN_URL,
     iat: now,
     exp: now + 3600,
@@ -104,7 +114,7 @@ async function getAccessToken(): Promise<string> {
   if (!res.ok || !json.access_token) {
     throw new Error(`GSC token exchange failed: ${res.status} ${JSON.stringify(json)}`)
   }
-  cachedToken = { token: json.access_token, expiresAt: now + (json.expires_in ?? 3600) }
+  cachedTokens.set(scope, { token: json.access_token, expiresAt: now + (json.expires_in ?? 3600) })
   return json.access_token
 }
 

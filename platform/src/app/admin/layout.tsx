@@ -20,7 +20,9 @@ type Section = {
 const navMain: Section[] = [
   { num: '00', label: 'Overview', href: '/admin', fold: 'overview', subs: [] },
   { num: '01', label: 'Sales', href: '/admin/sales', fold: 'sales', subs: [] },
-  { num: '02', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [] },
+  { num: '02', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [
+    { letter: 'a', label: 'Territories', href: '/admin/territories' },
+  ] },
   { num: '03', label: 'Inbox', href: '/admin/inbox', fold: 'inbox', subs: [] },
   { num: '04', label: 'Tenant Chats', href: '/admin/tenant-chats', fold: 'tenant-chats', subs: [] },
   { num: '05', label: 'ComHub', href: '/admin/comhub', fold: 'comhub', subs: [] },

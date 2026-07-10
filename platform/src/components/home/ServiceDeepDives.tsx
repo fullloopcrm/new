@@ -81,9 +81,9 @@ const stages: Stage[] = [
           "10-field checklist collected one at a time. Numbered SMS replies (1, 2, 3) for fast booking. Never re-asks for info already collected.",
       },
       {
-        name: "SMS + Web Chat — Same AI",
+        name: "Phone, SMS + Web Chat — Same AI",
         description:
-          "Works on SMS and your website. New clients start fresh; returning clients enter their phone and Yinez loads their full profile instantly.",
+          "Answers the phone live and works on SMS and your website. New clients start fresh; returning callers are recognized by number and Yinez loads their full profile instantly.",
       },
       {
         name: "Returning Client Recognition",

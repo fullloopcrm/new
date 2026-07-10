@@ -3,6 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/route'
 import { parseTimestamp } from '@/lib/dates'
 import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
+import { effectiveCleanerRate } from '@/lib/cleaner-pay'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { processPayment } from '@/lib/payment-processor'
+import { sendPushToClient } from '@/lib/push'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -11,7 +16,7 @@ export async function POST(request: Request) {
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { booking_id, lat, lng } = await request.json()
+  const { booking_id, lat, lng, payment_method } = await request.json()
 
   if (!booking_id) {
     return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
@@ -20,13 +25,33 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, team_member_id, referrer_id, client_id, clients(name), team_members(pay_rate)')
+    .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
 
   if (!booking || booking.team_member_id !== auth.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  // Resolve the service's pricing model. ONLY hourly services recompute the
+  // client price from elapsed time; flat/per-unit keep the price fixed at
+  // booking/quote time. (NYC Maid = all hourly → path below is unchanged.)
+  let pricingModel = 'hourly'
+  let servicePriceCents: number | null = null
+  let minChargeCents: number | null = null
+  if (booking.service_type_id) {
+    const { data: st } = await supabaseAdmin
+      .from('service_types')
+      .select('pricing_model, price_cents, min_charge_cents')
+      .eq('id', booking.service_type_id as string)
+      .eq('tenant_id', auth.tid)
+      .single()
+    if (st) {
+      pricingModel = (st.pricing_model as string) || 'hourly'
+      servicePriceCents = (st.price_cents as number | null) ?? null
+      minChargeCents = (st.min_charge_cents as number | null) ?? null
+    }
   }
 
   // Compute the bill at checkout (the 30-min alert + Stripe webhook rely on these
@@ -49,11 +74,27 @@ export async function POST(request: Request) {
     const billableCleaner = cap != null ? Math.min(cleanerHours, cap) : cleanerHours
     actualHours = billableClient
     const member = booking.team_members as unknown as { pay_rate?: number | null } | null
-    const cleanerRate = member?.pay_rate || (booking.pay_rate as number) || 25
+    const baseCleanerRate = member?.pay_rate || (booking.pay_rate as number) || 25
+    // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY
+    // (parity port is tenant-scoped, not global).
+    const cleanerRate = isNycMaid(auth.tid)
+      ? effectiveCleanerRate(baseCleanerRate, (booking.clients as unknown as { address?: string | null } | null)?.address ?? null)
+      : baseCleanerRate
     const clientRate = (booking.hourly_rate as number) || 69
     const teamSize = Math.max(1, (booking.team_size as number) || 1)
     teamMemberPayCents = Math.round(billableCleaner * cleanerRate * 100)
-    updatedPriceCents = Math.round(billableClient * clientRate * teamSize * 100)
+    if (pricingModel === 'hourly') {
+      // Time-and-materials: actual hours × rate × crew (NYC Maid path, unchanged).
+      updatedPriceCents = Math.round(billableClient * clientRate * teamSize * 100)
+    } else {
+      // Flat / per-unit: price was fixed at booking/quote time — elapsed hours
+      // must NOT rewrite it. Fall back to the service's configured price.
+      updatedPriceCents = (booking.price as number) ?? servicePriceCents ?? updatedPriceCents
+    }
+    // Minimum-charge floor (no-op for hourly cleaning where min_charge is unset).
+    if (minChargeCents && updatedPriceCents != null && updatedPriceCents < minChargeCents) {
+      updatedPriceCents = minChargeCents
+    }
   }
 
   const { data, error } = await supabaseAdmin
@@ -81,7 +122,7 @@ export async function POST(request: Request) {
   if (booking.referrer_id && updatedPriceCents && updatedPriceCents > 0) {
     const { data: ref } = await supabaseAdmin
       .from('referrers')
-      .select('id, commission_rate, total_earned')
+      .select('id, commission_rate, total_earned, email, name')
       .eq('id', booking.referrer_id as string)
       .eq('tenant_id', auth.tid)
       .single()
@@ -114,6 +155,70 @@ export async function POST(request: Request) {
           message: `Referrer earned $${(commissionCents / 100).toFixed(2)} on ${clientName || 'a'} booking`,
           recipient_type: 'admin',
         }).then(() => {}, () => {})
+        // NYC Maid parity: notify the referrer by email that they earned a credit.
+        if (isNycMaid(auth.tid) && (ref as { email?: string | null }).email) {
+          const { sendEmail } = await import('@/lib/nycmaid/email')
+          await sendEmail(
+            (ref as { email: string }).email,
+            'You earned a referral commission',
+            `<p>Hi ${(ref as { name?: string | null }).name || 'there'}, you just earned $${(commissionCents / 100).toFixed(2)} from ${clientName || 'a'} booking. Thank you for spreading the word!</p>`,
+          ).catch(() => {})
+        }
+      }
+    }
+  }
+
+  // ── NYC Maid parity (tenant-scoped): cleaner-reported payment → shared
+  // payment pipeline, client "complete" push, and a loud UNPAID-checkout alert
+  // when the cleaner leaves without payment collected. ──
+  if (isNycMaid(auth.tid)) {
+    const ALLOWED_METHODS = new Set(['credit_card', 'cashapp', 'apple_pay', 'cash'])
+    const reportedMethod = typeof payment_method === 'string' && ALLOWED_METHODS.has(payment_method)
+      ? payment_method
+      : null
+    const clientName = (booking.clients as unknown as { name?: string } | null)?.name || 'a client'
+
+    if (reportedMethod && updatedPriceCents) {
+      // Shared pipeline: marks paid, inserts payment row, transfers the cleaner
+      // via Stripe Connect, and notifies client/cleaner/admin — same path as the
+      // Stripe webhook. Non-blocking.
+      processPayment({
+        tenant: { id: auth.tid },
+        bookingId: data.id,
+        clientId: data.client_id,
+        method: reportedMethod as never,
+        amountCents: updatedPriceCents,
+        referenceId: `cleaner-checkout-${data.id}`,
+      }).catch((err) => console.error('processPayment from check-out failed:', err))
+    }
+
+    if (data.client_id) {
+      sendPushToClient(data.client_id, 'Cleaning complete!', 'Your cleaning is finished — thank you!', '/book/dashboard').catch(() => {})
+    }
+
+    // Checked out without payment confirmed → loud admin warning immediately.
+    if (!reportedMethod && data.payment_status !== 'paid') {
+      const clientTotal = updatedPriceCents != null ? (updatedPriceCents / 100).toFixed(0) : '—'
+      nmSmsAdmins(`UNPAID CHECKOUT: ${clientName} just checked out ($${clientTotal}) — payment NOT collected. Follow up NOW.`).catch(() => {})
+    }
+
+    // GPS distance flag on checkout — flag (don't block) a check-out far from the address.
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      const addr = (booking.clients as unknown as { address?: string | null } | null)?.address
+      if (addr) {
+        const { geocodeAddress, calculateDistance, MAX_DISTANCE_MILES } = await import('@/lib/nycmaid/geo')
+        const coords = await geocodeAddress(addr).catch(() => null)
+        if (coords) {
+          const dist = calculateDistance(lat, lng, coords.lat, coords.lng)
+          if (dist > MAX_DISTANCE_MILES) {
+            await supabaseAdmin
+              .from('bookings')
+              .update({ notes: ((data as { notes?: string | null }).notes || '') + `\n\n[GPS check-out flagged: ${dist.toFixed(2)} mi from address]` })
+              .eq('id', data.id).eq('tenant_id', auth.tid)
+              .then(() => {}, () => {})
+            nmSmsAdmins(`GPS MISMATCH on checkout: ${clientName} — ${dist.toFixed(2)} mi from the job address.`).catch(() => {})
+          }
+        }
       }
     }
   }

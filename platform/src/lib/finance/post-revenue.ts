@@ -38,11 +38,6 @@ export interface PostRevenueResult {
 export async function postPaymentRevenue(opts: { tenantId: string; paymentId: string }): Promise<PostRevenueResult> {
   const { tenantId, paymentId } = opts
 
-  // Idempotency first — cheap, and the common case on webhook retries.
-  if (await journalEntryExists(tenantId, 'payment', paymentId)) {
-    return { posted: false, reason: 'already_posted' }
-  }
-
   const { data: payment } = await supabaseAdmin
     .from('payments')
     .select('id, amount_cents, tip_cents, status, method, booking_id')
@@ -50,6 +45,15 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
     .eq('id', paymentId)
     .maybeSingle()
   if (!payment) return { posted: false, reason: 'not_found' }
+
+  // Unify the idempotency key with the bookings backfill: a booking-linked
+  // payment keys on the BOOKING, so the real-time post and backfillRevenueFromBookings
+  // can never double-count the same job. Invoice-only payments key on the payment.
+  const source = payment.booking_id ? 'booking' : 'payment'
+  const sourceId = (payment.booking_id as string) || paymentId
+  if (await journalEntryExists(tenantId, source, sourceId)) {
+    return { posted: false, reason: 'already_posted' }
+  }
   if (!REVENUE_STATUSES.includes((payment.status as string) || '')) {
     return { posted: false, reason: `status_${payment.status}` }
   }
@@ -81,11 +85,93 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
     tenant_id: tenantId,
     entry_date: new Date().toISOString().slice(0, 10),
     memo: `Payment ${payment.method || ''}${bookingRef}`.trim(),
-    source: 'payment',
-    source_id: paymentId,
+    source,
+    source_id: sourceId,
     lines,
   })
   return { posted: true, entryId }
+}
+
+/**
+ * Backfill the ledger from the REAL paid signal — bookings.payment_status —
+ * because the `payments` table is sparse/stale (most paid bookings have no
+ * completed payment row). Posts, per paid/partial booking, idempotently:
+ *   Revenue  DR 1050 (price+tip)  CR 4000 (price)  CR 4100 (tip)   source='booking'
+ *   Labor    DR 5000 (pay)        CR 2450 (pay)                     source='booking_cogs'
+ * price/tip/team_member_pay are stored in CENTS. Idempotent by source+booking id.
+ */
+export async function backfillRevenueFromBookings(
+  tenantId: string,
+  limit = 10000,
+): Promise<{ scanned: number; revenuePosted: number; cogsPosted: number }> {
+  await ensureChartAccounts(tenantId)
+  const [undeposited, revenueAcct, tipsAcct, contractorAcct, transitAcct] = await Promise.all([
+    getAccountIdByCode(tenantId, '1050'),
+    getAccountIdByCode(tenantId, '4000'),
+    getAccountIdByCode(tenantId, '4100'),
+    getAccountIdByCode(tenantId, '5000'),
+    getAccountIdByCode(tenantId, '2450'),
+  ])
+  if (!undeposited || !revenueAcct) throw new Error('backfill: revenue accounts missing')
+
+  const PAGE = 1000
+  let scanned = 0
+  let revenuePosted = 0
+  let cogsPosted = 0
+  let offset = 0
+
+  for (;;) {
+    if (scanned >= limit) break
+    const { data, error } = await supabaseAdmin
+      .from('bookings')
+      .select('id, price, team_member_pay, tip_amount, payment_date, start_time')
+      .eq('tenant_id', tenantId)
+      .in('payment_status', ['paid', 'partial'])
+      .gt('price', 0)
+      .order('start_time', { ascending: true })
+      .range(offset, offset + PAGE - 1)
+    if (error) throw error
+    const rows = data || []
+
+    for (const b of rows) {
+      scanned++
+      const id = b.id as string
+      const price = Math.round(Number(b.price) || 0)
+      const tip = Math.max(0, Math.round(Number(b.tip_amount) || 0))
+      const date = String((b.payment_date as string) || (b.start_time as string) || new Date().toISOString()).slice(0, 10)
+
+      if (price > 0 && !(await journalEntryExists(tenantId, 'booking', id))) {
+        const lines: JournalLineInput[] = [
+          { coa_id: undeposited, debit_cents: price + tip, memo: 'Booking revenue' },
+          { coa_id: revenueAcct, credit_cents: price, memo: 'Service revenue' },
+        ]
+        if (tip > 0 && tipsAcct) lines.push({ coa_id: tipsAcct, credit_cents: tip, memo: 'Tip' })
+        await postJournalEntry({ tenant_id: tenantId, entry_date: date, memo: `Booking ${id.slice(0, 8)}`, source: 'booking', source_id: id, lines })
+        revenuePosted++
+      }
+
+      const pay = Math.round(Number(b.team_member_pay) || 0)
+      if (pay > 0 && contractorAcct && transitAcct && !(await journalEntryExists(tenantId, 'booking_cogs', id))) {
+        await postJournalEntry({
+          tenant_id: tenantId,
+          entry_date: date,
+          memo: `Booking labor ${id.slice(0, 8)}`,
+          source: 'booking_cogs',
+          source_id: id,
+          lines: [
+            { coa_id: contractorAcct, debit_cents: pay, memo: 'Contractor pay' },
+            { coa_id: transitAcct, credit_cents: pay, memo: 'Payouts in transit' },
+          ],
+        })
+        cogsPosted++
+      }
+    }
+
+    if (rows.length < PAGE) break
+    offset += PAGE
+  }
+
+  return { scanned, revenuePosted, cogsPosted }
 }
 
 /**

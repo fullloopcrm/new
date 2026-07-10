@@ -4,6 +4,8 @@ import { sendSMS } from '@/lib/sms'
 import { askSelena } from '@/lib/selena-legacy'
 import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 
 export const maxDuration = 60
 
@@ -102,12 +104,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true })
     }
 
-    // Find tenant by their Telnyx phone number
-    const { data: tenant } = await supabaseAdmin
+    // Find tenant by their Telnyx phone number. Use limit(2), NOT .single():
+    // .single() ERRORS when two tenants share a number (mis-seeded row) and the
+    // message gets silently dropped — that took SMS down during a cutover test.
+    // Pick the first deterministically and log loudly if it's ambiguous.
+    const { data: tenantMatches } = await supabaseAdmin
       .from('tenants')
       .select('id, name, telnyx_api_key, telnyx_phone, owner_phone')
       .eq('telnyx_phone', to)
-      .single()
+      .order('id', { ascending: true })
+      .limit(2)
+
+    if (tenantMatches && tenantMatches.length > 1) {
+      console.error(`[telnyx] telnyx_phone ${to} matches ${tenantMatches.length} tenants — dedupe needed; routing to ${tenantMatches[0].name}`)
+    }
+    const tenant = tenantMatches?.[0] || null
 
     if (!tenant) {
       return NextResponse.json({ received: true })
@@ -355,6 +366,16 @@ export async function POST(request: Request) {
     }
 
     // ============================================
+    // NYC MAID review engine (tenant-scoped parity — rating capture + review
+    // generation). FL bills up front in the 30-min alert, so this does NOT
+    // re-bill. $10 written-review credit only. Gated to the NYC Maid tenant.
+    // ============================================
+    if (isNycMaid(tenantId)) {
+      const nmReview = await handleNycMaidReview({ tenantId, from, text })
+      if (nmReview) return nmReview
+    }
+
+    // ============================================
     // RATING INTERCEPT — single digit 1-5 after follow-up
     // ============================================
     if (/^[1-5]$/.test(text.trim())) {
@@ -594,7 +615,7 @@ export async function POST(request: Request) {
               convo = newConvo
 
               // Log inbound message to conversation
-              await supabaseAdmin.from('sms_conversation_messages').insert({
+              await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: webhook resolves tenant from the verified event payload
                 conversation_id: convo.id,
                 direction: 'inbound',
                 message: text,
@@ -630,7 +651,7 @@ export async function POST(request: Request) {
           }
 
           // Ongoing conversation — log inbound and route to AI
-          await supabaseAdmin.from('sms_conversation_messages').insert({
+          await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: webhook resolves tenant from the verified event payload
             conversation_id: convo.id,
             direction: 'inbound',
             message: text,

@@ -21,11 +21,6 @@ const included = [
   { label: "100% Autonomous Mode", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
 ];
 
-const buyoutSchedule = [
-  { year: "Buy Now", price: "$5,000" },
-  { year: "Later Buyout", price: "$20,000+" },
-];
-
 export default function PricingSlider() {
   return (
     <section className="bg-white py-20 sm:py-28 px-6">
@@ -41,14 +36,14 @@ export default function PricingSlider() {
             Home Service CRM Pricing
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 font-heading">
-            $1,000 per admin.{" "}
-            <span className="text-[#1F4D2C]">+ $100 per team member.</span>
+            $2,500 per admin.{" "}
+            <span className="text-[#1F4D2C]">+ $250 per team member.</span>
           </h2>
           <p className="mt-4 text-[#3A3A3A] text-lg max-w-2xl mx-auto">
-            No tiers. No feature gates. No revenue caps. $1,000/mo per admin seat
-            plus just $100/mo per field team member for the full{" "}
+            No tiers. No feature gates. No revenue caps. $2,500/mo per admin seat
+            plus just $250/mo per field team member for the full{" "}
             <Link href="/full-loop-crm-101-educational-tips" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">home service CRM</Link>{" "}
-            platform. Add a crew member for $100. View the full{" "}
+            platform. Add a crew member for $250. View the full{" "}
             <Link href="/waitlist" className="text-[#1F4D2C] underline underline-offset-2 hover:text-[#1F4D2C]">pricing guide</Link>.
           </p>
         </motion.div>
@@ -61,7 +56,7 @@ export default function PricingSlider() {
           transition={{ duration: 0.5, delay: 0.15 }}
           className="mb-8"
         >
-          <p className="text-center text-sm text-[#6F6F6B] mb-6 font-cta">$25,000 one-time setup &mdash; $1,000/admin + $100/team member thereafter</p>
+          <p className="text-center text-sm text-[#6F6F6B] mb-6 font-cta">$25,000 one-time setup &mdash; $2,500/admin + $250/team member thereafter</p>
 
           {/* Single price card */}
           <div className="mx-auto max-w-md rounded-2xl border-2 border-[#1F4D2C] bg-white shadow-lg p-8 text-center mb-8">
@@ -69,11 +64,11 @@ export default function PricingSlider() {
               Per admin / per month
             </p>
             <div className="text-5xl sm:text-6xl font-extrabold text-slate-900 font-mono">
-              $1,000
+              $2,500
               <span className="text-xl text-[#6F6F6B] font-medium">/admin/mo</span>
             </div>
             <p className="text-2xl font-bold text-[#1F4D2C] font-mono mt-2">
-              + $100<span className="text-base text-[#6F6F6B] font-medium"> /team member/mo</span>
+              + $250<span className="text-base text-[#6F6F6B] font-medium"> /team member/mo</span>
             </p>
             <p className="text-[#6F6F6B] text-sm mt-3">
               Every feature included. Admins run the business; field team members get the GPS portal.
@@ -101,13 +96,13 @@ export default function PricingSlider() {
                   <tr key={users}>
                     <td className="px-4 py-2.5 text-[#1C1C1C]">{label}</td>
                     <td className="px-4 py-2.5 text-right font-mono text-[#6F6F6B]">{users}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-slate-900">${(users * 1000).toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-900">${(users * 2500).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="text-center text-sm text-[#6F6F6B] mt-4">No contracts. Month to month. Cancel anytime.</p>
+          <p className="text-center text-sm text-[#6F6F6B] mt-4">No contracts. Month to month. Cancel anytime &mdash; and you keep everything we built, website included.</p>
         </motion.div>
 
         {/* Included features */}
@@ -218,33 +213,28 @@ export default function PricingSlider() {
               Full SEO Site Build
             </p>
             <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-mono leading-none mb-1">
-              Included
+              Included &amp; Yours
             </div>
             <p className="text-[#6F6F6B] text-sm mb-4">
-              Full Loop owns the site. Optional buyout available.
+              You own the site, its code &amp; the domain. No buyout, ever.
             </p>
             <p className="text-[#3A3A3A] text-sm leading-relaxed mb-4">
-              Enterprise Next.js SEO site with thousands of indexable pages, full local SEO architecture, and automatic Google indexing. Included in your partnership &mdash; leads flow to you exclusively.
+              Enterprise Next.js SEO site with thousands of indexable pages, full local SEO architecture, and automatic Google indexing. Built for you, owned by you &mdash; leads flow to you exclusively.
             </p>
-            <p className="text-xs font-semibold text-[#6F6F6B] uppercase tracking-wider mb-2 font-cta">
-              Site Buyout Schedule
-            </p>
-            <div className="space-y-1.5">
-              {buyoutSchedule.map((row) => (
-                <div
-                  key={row.year}
-                  className="flex justify-between text-sm text-[#3A3A3A] border-b border-slate-100 pb-1.5"
-                >
-                  <span>{row.year}</span>
-                  <span className="font-mono font-semibold text-slate-900">
-                    {row.price}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-[#6F6F6B] mt-3">
-              Buy now for $5,000 or buyout later at $20,000 + 10%/mo compound. You own the site &amp; domain upon buyout.
-            </p>
+            <ul className="space-y-2 text-sm text-[#3A3A3A]">
+              <li className="flex items-start gap-2">
+                <span className="text-[#1F4D2C] mt-0.5">&#10003;</span>
+                <span>Yours from day one at no extra charge</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#1F4D2C] mt-0.5">&#10003;</span>
+                <span>Site, code &amp; domain all transfer to you</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#1F4D2C] mt-0.5">&#10003;</span>
+                <span>Cancel anytime &mdash; you keep all of it</span>
+              </li>
+            </ul>
           </motion.div>
         </div>
 
@@ -263,21 +253,20 @@ export default function PricingSlider() {
             <div>
               <p className="font-bold text-slate-900 mb-2">You Own</p>
               <ul className="space-y-1.5 text-[#3A3A3A]">
+                <li>&#10003; Your full SEO website, its code &amp; domain</li>
+                <li>&#10003; Every microsite we build for you</li>
+                <li>&#10003; Google Business Profiles we create</li>
                 <li>&#10003; Your Telnyx phone number &amp; account</li>
                 <li>&#10003; Your Resend email account</li>
-                <li>&#10003; Your business name &amp; LLC</li>
-                <li>&#10003; Any $500 microsites purchased</li>
-                <li>&#10003; Full SEO site (if buyout completed)</li>
+                <li>&#10003; Your business name, LLC &amp; all client data</li>
               </ul>
             </div>
             <div>
               <p className="font-bold text-slate-900 mb-2">Full Loop Owns</p>
               <ul className="space-y-1.5 text-[#3A3A3A]">
-                <li>&#10003; CRM platform &amp; Yinez AI</li>
-                <li>&#10003; Full SEO site &amp; domain (until buyout)</li>
-                <li>&#10003; Google Business Profiles we create</li>
-                <li>&#10003; All website code &amp; templates</li>
-                <li>&#10003; SEO architecture &amp; strategy IP</li>
+                <li>&#10003; The CRM software platform itself</li>
+                <li>&#10003; The Yinez AI engine</li>
+                <li>&#10003; The shared platform infrastructure</li>
               </ul>
             </div>
           </div>

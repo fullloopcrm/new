@@ -10,9 +10,15 @@ import type Stripe from 'stripe'
 import { getStripe } from './stripe'
 import { PRICING } from './billing-pricing'
 
-const ADMIN_LOOKUP = 'fl_admin_seat_monthly'
-const MEMBER_LOOKUP = 'fl_team_seat_monthly'
-const SETUP_LOOKUP = 'fl_setup_fee_onetime'
+// Stripe Price objects are immutable: their unit_amount can't be edited after
+// creation. When the seat price changes we must mint NEW prices, so the lookup
+// keys are versioned by amount. Bumping the amount => bump the suffix here so
+// ensurePlatformPrices() creates a fresh price at the new amount instead of
+// reusing the old (cheaper) one. Existing subscriptions keep their old price
+// until explicitly migrated (see syncSubscriptionSeats / a repricing job).
+const ADMIN_LOOKUP = 'fl_admin_seat_monthly_2500'
+const MEMBER_LOOKUP = 'fl_team_seat_monthly_250'
+const SETUP_LOOKUP = 'fl_setup_fee_onetime' // unchanged — still $25,000
 
 interface SeatPrices {
   adminPriceId: string

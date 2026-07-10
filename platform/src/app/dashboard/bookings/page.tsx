@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useWorkerLabel } from '../worker-label-context'
 import './schedule.css'
 import BookingsAdmin from './BookingsAdmin'
 
@@ -99,9 +100,10 @@ function monthLabel(month: string): { name: string; year: string } {
 }
 
 export default function SchedulePage() {
+  const worker = useWorkerLabel()
   const [data, setData] = useState<CalendarData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<Tab>('calendar')
+  const [tab, setTab] = useState<Tab>('bookings')
   const [month, setMonth] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -177,6 +179,11 @@ export default function SchedulePage() {
         ))}
       </div>
 
+      {/* Calendar-view chrome (stats / Selena / conflicts / load). The Bookings
+          list (BookingsAdmin) brings its own header + stats, so hide this on that
+          tab to avoid double chrome / overflow. */}
+      {tab !== 'bookings' && (
+      <>
       {/* OUTLOOK */}
       <div className="sched-bar-label">This Period</div>
       <div className="sched-outlook">
@@ -286,6 +293,8 @@ export default function SchedulePage() {
           </div>
         </div>
       )}
+      </>
+      )}
 
       {tab === 'bookings' && <BookingsAdmin />}
 
@@ -322,7 +331,7 @@ export default function SchedulePage() {
                 <button className="sched-view-btn active" type="button">Month</button>
                 <button className="sched-view-btn" type="button" disabled>Week</button>
                 <button className="sched-view-btn" type="button" disabled>Day</button>
-                <button className="sched-view-btn" type="button" disabled>Cleaner</button>
+                <button className="sched-view-btn" type="button" disabled>{worker.singular}</button>
                 <button className="sched-view-btn" type="button" disabled>Zone</button>
               </div>
             </div>

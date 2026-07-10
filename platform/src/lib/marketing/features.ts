@@ -153,22 +153,22 @@ const baseFeatures: Feature[] = [
     name: "AI Receptionist",
     status: "live",
     title:
-      "AI Receptionist for Home Service Businesses | 24/7 AI SMS Sales Agent — Full Loop CRM",
+      "AI Receptionist for Home Service Businesses | 24/7 AI Phone & SMS Sales Agent — Full Loop CRM",
     metaDescription:
-      "Full Loop's AI receptionist answers, qualifies, quotes, and books every lead by SMS and web chat in under 60 seconds, 24/7, in English and Spanish. Trained on your services, pricing, and availability. Stop losing leads to slow replies and missed calls.",
+      "Full Loop's AI receptionist answers, qualifies, quotes, and books every lead by phone, SMS, and web chat in under 60 seconds, 24/7, in English and Spanish. It answers the phone live — never voicemail. Trained on your services, pricing, and availability. Stop losing leads to slow replies and missed calls.",
     keywords: [
       "AI receptionist for home services",
-      "AI SMS sales agent",
+      "AI phone and SMS sales agent",
       "24/7 automated lead response",
       "AI booking agent for contractors",
       "AI answering service for service business",
       "automated appointment booking software",
-      "text message CRM for home services",
+      "AI that answers the phone for contractors",
       "bilingual AI receptionist",
     ],
     h1: "An AI Receptionist That Answers, Qualifies, and Books Every Lead in Seconds",
     heroSub:
-      "Your 24/7 AI-powered SMS and web-chat sales agent — trained on your services, pricing, and availability, in English and Spanish.",
+      "Your 24/7 AI-powered phone, SMS, and web-chat sales agent — answers the phone live, never voicemail — trained on your services, pricing, and availability, in English and Spanish.",
     intro:
       "The single biggest leak in a home service business is the lead that texts or calls when you're on a job and waits an hour for a reply — then books your competitor. Full Loop's AI receptionist closes that leak. It responds to every inbound lead in under 60 seconds, any hour of any day, qualifies them, answers their questions, quotes the job, and books it on your calendar — without you touching your phone.",
     problem: {
@@ -215,9 +215,9 @@ const baseFeatures: Feature[] = [
           "The AI recognizes when a conversation is outside its normal flow — a complaint, a damage report, an odd request — and escalates to you with the full transcript so you can take over with complete context.",
       },
       {
-        question: "Does it work on my website too, or only over text?",
+        question: "Does it work on the phone and my website, or only over text?",
         answer:
-          "Both. The same AI powers SMS and a web chat widget on your site. Website visitors can choose new or returning client and book without ever making a phone call.",
+          "All three. The same AI answers your phone live, powers SMS, and runs a web chat widget on your site — one agent with one memory across every channel. See the dedicated AI voice agent for how it handles live calls and books on the phone.",
       },
       {
         question: "Can it handle Spanish-speaking customers?",
@@ -230,7 +230,105 @@ const baseFeatures: Feature[] = [
           "Typically within seconds, and consistently under 60 seconds — the window where conversion rates are highest — 24 hours a day.",
       },
     ],
-    relatedSlugs: ["smart-scheduling", "review-management", "autonomous-seo-engine"],
+    relatedSlugs: ["ai-voice-agent", "smart-scheduling", "review-management", "autonomous-seo-engine"],
+  },
+
+  // ───────────────────────────────────────────────────────────────────────
+  {
+    slug: "ai-voice-agent",
+    category: "AI & Sales",
+    eyebrow: "Stage 2 of 7 · AI Voice",
+    name: "AI Voice Agent",
+    status: "live",
+    title:
+      "AI Voice Agent for Home Service Businesses | 24/7 AI Phone Answering That Books — Full Loop CRM",
+    metaDescription:
+      "Full Loop's AI voice agent answers your phone live 24/7 — never voicemail. It checks your real calendar and books the job on the call, recognizes returning callers by number, quotes from your real rates, captures every caller as a lead, and escalates the edge cases to you. Every call recorded, transcribed, and threaded.",
+    keywords: [
+      "AI voice agent for home services",
+      "AI phone answering service for contractors",
+      "24/7 AI receptionist that answers the phone",
+      "AI call answering for service business",
+      "AI phone booking agent",
+      "automated phone answering for home services",
+      "AI that books appointments over the phone",
+      "virtual phone receptionist for contractors",
+    ],
+    h1: "An AI Voice Agent That Answers Your Phone Live and Books the Job on the Call",
+    heroSub:
+      "A warm, natural 24/7 phone agent that picks up on the first ring, checks your real calendar, and books the job — never voicemail, never dead air, in English and Spanish.",
+    intro:
+      "The call you can't take is the job you don't get. When you're under a sink or on a ladder, the phone rings out, the caller hits voicemail, and they dial the next company before you ever hear the message. Full Loop's AI voice agent answers that call live — day or night — with a real, natural voice that greets the caller, pulls up your live calendar, quotes from your real rates, and books the job on the spot. It's the same agent that runs your text and web chat, now answering the phone too.",
+    problem: {
+      heading: "Why missed calls quietly bleed a service business",
+      body:
+        "Most home service revenue still comes in by phone, and most of those calls come when you physically cannot answer — mid-job, driving, after hours, on a Sunday. Voicemail doesn't save the job; studies of service businesses show the majority of callers who hit voicemail simply hang up and call a competitor. A generic answering service takes a message but can't quote, can't see your calendar, and can't book — so you still call back hours later, after the customer already booked someone else.",
+    },
+    blocks: [
+      {
+        heading: "Answers live, 24/7 — never voicemail",
+        body:
+          "The agent picks up on the first ring with a warm, human-sounding voice, any hour of any day. Callers reach a real conversation, not a menu tree or a mailbox. If the agent is ever unavailable, the call falls back to your normal ring-and-voicemail — so a caller is never met with dead air.",
+      },
+      {
+        heading: "Checks real availability and books on the call",
+        body:
+          "It reads your live calendar for genuinely open slots, offers real times, and creates the booking during the call — auto-creating or linking the caller's client record. It never fake-books or invents a time it can't honor, and it explains your cancellation policy on every booking so there are no surprises.",
+      },
+      {
+        heading: "Knows your callers and your numbers",
+        body:
+          "Returning callers are recognized by their phone number: the agent greets them, pulls up their upcoming and past jobs, and can tell them whether a payment landed or what their balance is. It quotes strictly from your real rate book, and it saves notes to the client record — access codes, allergies, preferences — so the next visit already knows them.",
+      },
+      {
+        heading: "Captures every caller and escalates the edge cases",
+        body:
+          "Every caller is saved as a lead with name and number, even if they don't book — no more numbers lost to a missed call. Genuine edge cases — refund demands, damage, a caller who insists on a manager — are escalated straight to you for a fast callback instead of the agent freelancing an answer it shouldn't.",
+      },
+      {
+        heading: "Every call recorded, transcribed, and threaded",
+        body:
+          "Each call becomes a recording plus a full transcription in one unified customer thread, alongside that customer's texts and emails. Bookings, notes, escalations, and new-lead events post to the thread live, so your office sees exactly what was said and what happened — without listening back to a single voicemail.",
+      },
+    ],
+    outcome: {
+      heading: "Every call answered, every job captured — while you work",
+      body:
+        "You stop losing jobs to a phone you couldn't reach. Calls turn into booked work at 2 AM and on Sundays, returning customers feel known, every caller is captured as a lead, and the genuine problems reach you fast with the full transcript. It's a full-time bilingual phone receptionist and closer that never clocks out — the same AI agent that already runs your text and chat, now on the line.",
+    },
+    faqs: [
+      {
+        question: "Does it really answer the phone, or is it just voicemail transcription?",
+        answer:
+          "It answers live. A caller reaches a natural, conversational voice agent that talks, quotes, checks the calendar, and books the job on the call — it is not a voicemail box or a message-taker.",
+      },
+      {
+        question: "What happens if the AI can't handle a call?",
+        answer:
+          "Genuine edge cases — refunds, damage, a demand for a manager — are escalated to you with the call details for a fast callback. And if the voice agent is ever down, the call falls back to your normal ring and voicemail, so no call is ever met with dead air.",
+      },
+      {
+        question: "Will it recognize my existing customers when they call?",
+        answer:
+          "Yes. Returning callers are identified by their phone number. The agent greets them, pulls up their past and upcoming jobs, and can check their balance or whether a payment landed — then books or updates without making them repeat everything.",
+      },
+      {
+        question: "Can it book appointments over the phone?",
+        answer:
+          "Yes. It reads your live calendar for real open slots and creates the booking during the call, linking or creating the client record. It never fake-books a time it can't honor and explains your cancellation policy on every booking.",
+      },
+      {
+        question: "Do I get a record of what was said on each call?",
+        answer:
+          "Every call is recorded and transcribed into one unified customer thread, along with any booking, note, or escalation it created — so your office has full context without listening back to voicemails.",
+      },
+      {
+        question: "Does it speak Spanish?",
+        answer:
+          "Yes. The voice agent converses in English and Spanish, matching the language the caller uses.",
+      },
+    ],
+    relatedSlugs: ["ai-receptionist", "smart-scheduling", "loop-connect", "review-management"],
   },
 
   // ───────────────────────────────────────────────────────────────────────

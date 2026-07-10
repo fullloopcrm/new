@@ -148,7 +148,7 @@ export async function POST(request: Request) {
   const { data: bookings, error: bookErr } = await supabaseAdmin
     .from('bookings')
     .insert(rows)
-    .select('*, clients(*), team_members(*)')
+    .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 
   if (bookErr) return NextResponse.json({ error: bookErr.message, schedule }, { status: 500 })
 
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
     }
     if (teamRows.length > 0) {
       const { error: teamErr } = await supabaseAdmin
-        .from('booking_team_members')
+        .from('booking_team_members')  // tenant-scope-ok: row-scoped by unique join keys (booking_id, team_member_id)
         .upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
       if (teamErr) console.error('client recurring booking_team_members insert failed:', teamErr.message)
     }

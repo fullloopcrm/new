@@ -62,7 +62,7 @@ export async function runVerifyRevert(): Promise<VerifyResult> {
 
   const cutoff = new Date(Date.now() - VERIFY_WEEKS * 7 * 86_400_000).toISOString()
   const { data } = await supabaseAdmin
-    .from('seo_changes')
+    .from('seo_changes')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     .select('id,property,target_url,before_metric')
     .eq('applied_by', 'autopilot')
     .eq('status', 'applied')

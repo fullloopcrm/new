@@ -27,7 +27,7 @@ export function Footer() {
               WEPAYYOU<span className="text-teal-200">JUNK</span>
             </h3>
             <p className="text-slate-400 text-sm leading-relaxed mb-4">
-              The only junk removal company that values your stuff. Starting at $100/hr, dump fees included (an industry first), 50% Resale Credit (when applicable).
+              The only junk removal company that values your stuff. Starting at $200/hr, dump fees included (an industry first), 50% Resale Credit (when applicable).
             </p>
             <div className="space-y-1.5 text-sm">
               <p><a href={SMS_HREF} className="text-teal-400 font-semibold hover:text-teal-300 font-cta">Text {PHONE}</a></p>

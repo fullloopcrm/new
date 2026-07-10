@@ -74,7 +74,7 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
     for (let attempt = 0; attempt < 4 && !inserted; attempt++) {
       pin = String(1000 + crypto.randomInt(0, 9000))
       const { data: ins, error: insErr } = await supabaseAdmin
-        .from('team_members')
+        .from('team_members')  // tenant-scope-ok: insert base carries tenant_id (built above)
         .insert({ ...base, pin })
         .select('id')
         .single()
@@ -98,22 +98,29 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
   }
 
   // Email the applicant their PIN + portal link (only if we have both).
+  // Best-effort per the contract above: the team member is already created, so a
+  // comms failure (missing key, Resend outage) must NOT throw out of provisioning
+  // and make the caller think the hire failed. Log and move on.
   if (app.email && pin) {
-    const portalUrl = `${tenantSiteUrl({ domain: t.domain, slug: t.slug })}/team/login`
-    const html = teamApplicationApprovedEmail({
-      tenantName: t.name || 'the team',
-      primaryColor: t.primary_color || undefined,
-      logoUrl: t.logo_url || undefined,
-      applicantName: app.name || '',
-      pin,
-      portalUrl,
-      supportPhone: t.phone || undefined,
-    })
-    await sendEmail({
-      to: app.email,
-      subject: `Welcome to ${t.name || 'the team'}! Your PIN: ${pin}`,
-      html,
-      resendApiKey: t.resend_api_key || undefined,
-    })
+    try {
+      const portalUrl = `${tenantSiteUrl({ domain: t.domain, slug: t.slug })}/team/login`
+      const html = teamApplicationApprovedEmail({
+        tenantName: t.name || 'the team',
+        primaryColor: t.primary_color || undefined,
+        logoUrl: t.logo_url || undefined,
+        applicantName: app.name || '',
+        pin,
+        portalUrl,
+        supportPhone: t.phone || undefined,
+      })
+      await sendEmail({
+        to: app.email,
+        subject: `Welcome to ${t.name || 'the team'}! Your PIN: ${pin}`,
+        html,
+        resendApiKey: t.resend_api_key || undefined,
+      })
+    } catch (err) {
+      console.error('[provisionApprovedApplicant] welcome email failed (member still provisioned):', err)
+    }
   }
 }

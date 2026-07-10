@@ -30,6 +30,7 @@ export const DEFAULT_CHART: Array<{
   { code: '2300', name: 'Payroll Liabilities', type: 'liability', subtype: 'payroll' },
   { code: '2350', name: 'Customer Deposits', type: 'liability', subtype: 'deposits' },
   { code: '2400', name: 'Commissions Payable', type: 'liability', subtype: 'payable' },
+  { code: '2450', name: 'Payouts in Transit', type: 'liability', subtype: 'clearing' },
   // Equity
   { code: '3000', name: 'Owner Equity', type: 'equity' },
   { code: '3100', name: "Owner's Draw", type: 'equity' },
@@ -74,7 +75,7 @@ export async function seedChartOfAccounts(tenantId: string): Promise<number> {
     subtype: a.subtype || null,
     is_bank_account: !!a.is_bank_account,
   }))
-  const { error } = await supabaseAdmin.from('chart_of_accounts').insert(rows)
+  const { error } = await supabaseAdmin.from('chart_of_accounts').insert(rows)  // tenant-scope-ok: insert rows carry tenant_id (built above)
   if (error) throw error
   return rows.length
 }

@@ -10,7 +10,7 @@ const highlights = [
   },
   {
     name: "Yinez AI",
-    desc: "Your 24/7 AI receptionist that books appointments via SMS and web chat. Bilingual.",
+    desc: "Your 24/7 AI receptionist that answers the phone live and books appointments by call, SMS, and web chat. Bilingual.",
   },
   {
     name: "Custom Website",

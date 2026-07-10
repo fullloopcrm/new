@@ -7,7 +7,7 @@ export default function BookPage() {
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />
         <div className="relative mx-auto max-w-5xl px-6 text-center">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-teal-200 font-cta">starting at $100/hr &bull; 1 Hour Minimum &bull; Dump Fees Included</p>
+          <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-teal-200 font-cta">starting at $200/hr &bull; 1 Hour Minimum &bull; Dump Fees Included</p>
           <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl font-heading">
             Book Your <span className="gradient-text">Junk Removal</span> Today
           </h1>

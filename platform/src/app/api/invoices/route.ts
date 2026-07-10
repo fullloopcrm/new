@@ -66,21 +66,26 @@ export async function POST(request: Request) {
     if (body.from_booking_id) {
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('*, clients(id, name, email, phone, address), service_types(name, default_hourly_rate)')
+        .select('*, clients(id, name, email, phone, address), service_types(name, default_hourly_rate, pricing_model)')
         .eq('tenant_id', tenantId)
         .eq('id', body.from_booking_id)
         .single()
       if (booking) {
+        const model = (booking.service_types?.pricing_model as string) || 'hourly'
         const hours = Number(booking.actual_hours) || 0
         const rate = Number(booking.service_types?.default_hourly_rate) || 0
-        const total = Number(booking.price) || (hours && rate ? hours * rate : 0)
-        prefillLineItems = total
+        // booking.price is in CENTS. Fall back to hours×rate (converted to cents)
+        // only when no price was recorded. (Prior code double-multiplied by 100.)
+        const totalCents = Number(booking.price) || (hours && rate ? Math.round(hours * rate * 100) : 0)
+        // Hourly → line reads "N hrs × $rate"; flat/per-unit → single "1 × total" line.
+        const qty = model === 'hourly' ? (hours || 1) : 1
+        prefillLineItems = totalCents
           ? [{
               id: `li_${Date.now()}`,
               name: booking.service_types?.name || 'Service',
               description: booking.notes || null,
-              quantity: hours || 1,
-              unit_price_cents: Math.round((total / Math.max(1, hours)) * 100),
+              quantity: qty,
+              unit_price_cents: Math.round(totalCents / Math.max(1, qty)),
             }]
           : []
         if (booking.clients) {

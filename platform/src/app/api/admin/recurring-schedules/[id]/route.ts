@@ -22,7 +22,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data: bookings } = await supabaseAdmin
     .from('bookings')
-    .select('id, start_time, end_time, status, team_member_id, team_members(name)')
+    .select('id, start_time, end_time, status, team_member_id, team_members!bookings_team_member_id_fkey(name)')
     .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
     .gte('start_time', new Date().toISOString())

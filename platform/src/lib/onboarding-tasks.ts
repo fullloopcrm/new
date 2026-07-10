@@ -48,7 +48,7 @@ export async function seedOnboardingTasks(tenantId: string): Promise<void> {
     notes: t.label,
     requested_by_tenant: true,
   }))
-  const { error } = await supabaseAdmin.from('onboarding_tasks').insert(rows)
+  const { error } = await supabaseAdmin.from('onboarding_tasks').insert(rows)  // tenant-scope-ok: insert rows carry tenant_id (built above)
   if (error) console.error('[onboarding-tasks] seed failed:', error)
 }
 

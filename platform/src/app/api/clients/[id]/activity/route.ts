@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   // Get all bookings for this client
   const { data: bookings } = await supabaseAdmin
     .from('bookings')
-    .select('*, team_members(name)')
+    .select('*, team_members!bookings_team_member_id_fkey(name)')
     .eq('client_id', id)
     .eq('tenant_id', tenant.id)
     .order('start_time', { ascending: false })

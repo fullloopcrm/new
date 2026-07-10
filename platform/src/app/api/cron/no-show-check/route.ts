@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   // we can notify per tenant).
   const { data: candidates } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, start_time, client_id, team_member_id, clients(name), team_members(name)')
+    .select('id, tenant_id, start_time, client_id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
     .in('status', ['scheduled', 'confirmed', 'pending'])
     .is('check_in_time', null)
     .lt('start_time', cutoff.toISOString())

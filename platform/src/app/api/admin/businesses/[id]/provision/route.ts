@@ -5,9 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
-import { provisionTenant } from '@/lib/provision-tenant'
-
-type IndustryKey = 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general'
+import { provisionTenant, type IndustryKey } from '@/lib/provision-tenant'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()

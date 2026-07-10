@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/admin-contacts'
+import { sendEmail } from '@/lib/email'
 import { adminNewClientEmail } from '@/lib/email-templates'
 import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
@@ -54,12 +55,48 @@ function inferFormType(body: ContactBody): 'service-quote' | 'general-inquiry' |
   return 'service-quote'
 }
 
-// $10 discount for customers who book online instead of calling/texting.
-const SELF_BOOK_DISCOUNT_NOTE = '💲 SELF-BOOK ONLINE — apply $10 discount to quote'
+// Self-book online discount + customer confirmation are per-tenant DATA
+// (selena_config), never forked code. Defaults preserve prior behavior: $10
+// discount, no customer email. One global code path; tenants differ by config.
+type TenantConfigLike = { selena_config?: Record<string, unknown> | null }
 
-function buildLeadNotes(form: string, body: ContactBody): string {
+function selfBookDiscountCents(tenant: TenantConfigLike): number {
+  const cfg = (tenant.selena_config ?? {}) as Record<string, unknown>
+  const raw = Number(cfg.self_book_discount_cents)
+  return Number.isFinite(raw) && raw > 0 ? raw : 1000
+}
+
+function leadConfirmationEnabled(tenant: TenantConfigLike): boolean {
+  const cfg = (tenant.selena_config ?? {}) as Record<string, unknown>
+  return cfg.lead_confirmation_enabled === true
+}
+
+// Branded confirmation email sent to the customer/applicant (not the admin).
+// Uses the tenant's own Resend key + brand color so it lands on-brand.
+function customerConfirmationHtml(opts: {
+  tenantName: string
+  primaryColor?: string | null
+  heading: string
+  intro: string
+  discountCents?: number
+}): string {
+  const color = opts.primaryColor || '#111111'
+  const discountBlock = opts.discountCents
+    ? `<p style="margin:16px 0;padding:12px 16px;background:#f4faf6;border-radius:8px;font-size:15px">
+         You booked online, so <strong>$${Math.round(opts.discountCents / 100)} off your service</strong> will be applied to your appointment.
+       </p>`
+    : ''
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
+    <h2 style="color:${color};margin:0 0 12px">${opts.heading}</h2>
+    <p style="font-size:15px;line-height:1.5;margin:0 0 12px">${opts.intro}</p>
+    ${discountBlock}
+    <p style="font-size:14px;color:#555;margin:16px 0 0">— The ${opts.tenantName} team</p>
+  </div>`
+}
+
+function buildLeadNotes(form: string, body: ContactBody, discountCents: number): string {
   const lines: string[] = [`[${form}]`]
-  if (body.selfBook) lines.push(SELF_BOOK_DISCOUNT_NOTE)
+  if (body.selfBook) lines.push(`💲 SELF-BOOK ONLINE — apply $${Math.round(discountCents / 100)} off the service`)
   if (body.pestType) lines.push(`Pest: ${body.pestType}`)
   if (body.propertyType) lines.push(`Property: ${body.propertyType}`)
   if (body.urgency) lines.push(`Urgency: ${body.urgency}`)
@@ -149,11 +186,32 @@ export async function POST(request: NextRequest) {
         console.error('[api/contact] job-app email error:', emailErr)
       }
 
+      // Applicant confirmation — per-tenant opt-in, non-blocking.
+      if (email && leadConfirmationEnabled(tenant)) {
+        try {
+          await sendEmail({
+            to: email,
+            from: (tenant as { email_from?: string | null }).email_from || undefined,
+            resendApiKey: tenant.resend_api_key,
+            subject: `We received your application — ${tenant.name}`,
+            html: customerConfirmationHtml({
+              tenantName: tenant.name,
+              primaryColor: tenant.primary_color,
+              heading: `Thanks for applying, ${name.split(' ')[0]}!`,
+              intro: `We received your application${body.position ? ` for ${body.position}` : ''} and our team will review it and follow up soon.`,
+            }),
+          })
+        } catch (custErr) {
+          console.error('[api/contact] applicant confirmation error:', custErr)
+        }
+      }
+
       return NextResponse.json({ success: true, application_id: app.id })
     }
 
     // ─── lead branch (service-quote / general-inquiry) ───
-    const notes = buildLeadNotes(formType, body)
+    const discountCents = selfBookDiscountCents(tenant)
+    const notes = buildLeadNotes(formType, body, discountCents)
     const address = body.address?.trim() || null
     // Online self-book leads are tagged so the $10 discount is traceable and
     // can be applied at quote time. Non-self-book leads keep prior behavior
@@ -311,7 +369,7 @@ export async function POST(request: NextRequest) {
           email,
           address: address || undefined,
           notes: notes || undefined,
-          selfBookDiscountCents: body.selfBook ? 1000 : undefined,
+          selfBookDiscountCents: body.selfBook ? discountCents : undefined,
         },
         {
           tenantName: tenant.name,
@@ -323,6 +381,28 @@ export async function POST(request: NextRequest) {
       await emailAdmins(tenant, msg.subject, msg.html)
     } catch (emailErr) {
       console.error('[api/contact] lead email error:', emailErr)
+    }
+
+    // Customer confirmation — per-tenant opt-in. Non-blocking: a failed
+    // confirmation must never fail the lead capture (already saved above).
+    if (email && leadConfirmationEnabled(tenant)) {
+      try {
+        await sendEmail({
+          to: email,
+          from: (tenant as { email_from?: string | null }).email_from || undefined,
+          resendApiKey: tenant.resend_api_key,
+          subject: `We got your request — ${tenant.name}`,
+          html: customerConfirmationHtml({
+            tenantName: tenant.name,
+            primaryColor: tenant.primary_color,
+            heading: `Thanks, ${name.split(' ')[0]}!`,
+            intro: `We received your request and a team member will reach out shortly to confirm the details and your time.`,
+            discountCents: body.selfBook ? discountCents : undefined,
+          }),
+        })
+      } catch (custErr) {
+        console.error('[api/contact] customer confirmation error:', custErr)
+      }
     }
 
     return NextResponse.json({ success: true, client_id: clientId })

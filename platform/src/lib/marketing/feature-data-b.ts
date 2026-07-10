@@ -94,7 +94,7 @@ export const featuresB: Feature[] = [
     title:
       "AI Web Chat Booking for Home Service Websites | Book Without a Phone Call — Full Loop CRM",
     metaDescription:
-      "Full Loop's AI web chat lets website visitors get a quote and book a job without ever calling. The same AI that runs SMS powers your site, recognizes returning clients by phone number, and pulls their full history instantly.",
+      "Full Loop's AI web chat lets website visitors get a quote and book a job without ever calling. The same AI that answers your phone and runs SMS powers your site, recognizes returning clients by phone number, and pulls their full history instantly.",
     keywords: [
       "AI web chat booking",
       "website chat for home services",

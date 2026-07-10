@@ -93,6 +93,8 @@ export async function POST(request: NextRequest) {
       current_system: { type: 'string', max: 50 },
       referral_source: { type: 'string', max: 50 },
       pitch: { type: 'string', required: true, max: 2000 },
+      territory_id: { type: 'string', max: 40 },
+      category_id: { type: 'string', max: 40 },
     })
 
     if (vError) {
@@ -136,6 +138,8 @@ export async function POST(request: NextRequest) {
         current_system: validated.current_system,
         referral_source: validated.referral_source,
         pitch: validated.pitch,
+        ...(validated.territory_id ? { territory_id: validated.territory_id } : {}),
+        ...(validated.category_id ? { category_id: validated.category_id } : {}),
         status: 'new',
       })
       .select('id')

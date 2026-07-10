@@ -4,6 +4,7 @@ import { trackError } from '@/lib/error-tracking'
 import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { worksScheduledDay } from '@/lib/day-availability'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 export const maxDuration = 300
 
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
 
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, clients(id, name, address), team_members(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
+        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
         .eq('tenant_id', tenantId)
         .gte('start_time', todayStr + 'T00:00:00')
         .lte('start_time', toDateStr(endDate) + 'T23:59:59')
@@ -169,6 +170,91 @@ export async function GET(request: Request) {
               issues.push({ type: 'no_car', severity: 'critical', message: `${member.name} assigned to ${client.name} — area requires car`, booking_ids: [b.id], team_member_id: b.team_member_id, tenant_id: tenantId, date })
             }
           }
+        }
+      }
+
+      // NYC Maid parity (tenant-scoped): extra standalone checks + self-healing
+      // reconcile so the panel stays TRUE (issues clear when the condition does).
+      if (isNycMaid(tenantId)) {
+        const nowT = new Date()
+        const dayAgoIso = new Date(nowT.getTime() - 24 * 60 * 60 * 1000).toISOString()
+
+        // no_show — scheduled, past end_time, never checked in.
+        const { data: noShows } = await supabaseAdmin
+          .from('bookings')
+          .select('id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
+          .eq('tenant_id', tenantId).eq('status', 'scheduled')
+          .lte('end_time', nowT.toISOString()).gte('start_time', todayStr + 'T00:00:00').is('check_in_time', null)
+        for (const b of noShows || []) {
+          issues.push({ type: 'no_show', severity: 'critical', message: `${(b.team_members as { name?: string } | null)?.name || 'Unassigned'} never checked in for ${(b.clients as { name?: string } | null)?.name || 'client'} — job should be done by now`, booking_ids: [b.id], team_member_id: b.team_member_id || undefined, tenant_id: tenantId })
+        }
+
+        // stuck_pending — pending 24h+ and still scheduled in the future.
+        const { data: stuck } = await supabaseAdmin
+          .from('bookings')
+          .select('id, client_id, clients(name)')
+          .eq('tenant_id', tenantId).eq('status', 'pending').lt('created_at', dayAgoIso).gte('start_time', nowT.toISOString())
+        for (const b of stuck || []) {
+          issues.push({ type: 'stuck_pending', severity: 'warning', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} — pending 24h+, not yet scheduled`, booking_ids: [b.id], client_id: b.client_id || undefined, tenant_id: tenantId })
+        }
+
+        // payment_overdue — completed, unpaid, 24h+ after end.
+        const { data: overdue } = await supabaseAdmin
+          .from('bookings')
+          .select('id, client_id, price, end_time, clients(name)')
+          .eq('tenant_id', tenantId).eq('status', 'completed').neq('payment_status', 'paid').gt('price', 0).lte('end_time', dayAgoIso)
+        for (const b of overdue || []) {
+          issues.push({ type: 'payment_overdue', severity: 'warning', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} — $${(Number(b.price) / 100).toFixed(0)} unpaid (completed ${String(b.end_time).split('T')[0]})`, booking_ids: [b.id], client_id: b.client_id || undefined, tenant_id: tenantId })
+        }
+
+        // cleaner_unpaid — completed 48h+ ago, team member not paid.
+        const twoDayIso = new Date(nowT.getTime() - 48 * 60 * 60 * 1000).toISOString()
+        const { data: unpaidCleaner } = await supabaseAdmin
+          .from('bookings')
+          .select('id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
+          .eq('tenant_id', tenantId).eq('status', 'completed').gt('price', 0)
+          .or('team_member_paid.is.null,team_member_paid.eq.false').lte('end_time', twoDayIso)
+        for (const b of unpaidCleaner || []) {
+          issues.push({ type: 'cleaner_unpaid', severity: 'warning', message: `${(b.team_members as { name?: string } | null)?.name || 'Team member'} not paid for ${(b.clients as { name?: string } | null)?.name || 'client'}`, booking_ids: [b.id], team_member_id: b.team_member_id || undefined, tenant_id: tenantId })
+        }
+
+        // tight_buffer + price_mismatch (reuse byDate computed above).
+        const BUFFER_MIN = 60
+        for (const [date, dayBk] of Object.entries(byDate)) {
+          const byMember: Record<string, typeof dayBk> = {}
+          for (const b of dayBk) { if (!b.team_member_id) continue; (byMember[b.team_member_id] ||= []).push(b) }
+          for (const [mid, mb] of Object.entries(byMember)) {
+            const sorted = mb.sort((a, b) => a.start_time.localeCompare(b.start_time))
+            const nm = (sorted[0].team_members as { name?: string } | null)?.name || 'Team member'
+            for (let i = 0; i < sorted.length - 1; i++) {
+              const gap = toMin(sorted[i + 1].start_time) - toMin(sorted[i].end_time)
+              if (gap > 0 && gap < BUFFER_MIN) {
+                issues.push({ type: 'tight_buffer', severity: 'warning', message: `${nm} has only ${gap}min between jobs on ${date} (need ${BUFFER_MIN}min)`, booking_ids: [sorted[i].id, sorted[i + 1].id], team_member_id: mid, tenant_id: tenantId, date })
+              }
+            }
+          }
+          for (const b of dayBk) {
+            const bn = (b as { notes?: string | null }).notes
+            const hasPromo = typeof bn === 'string' && /\[Promo:|self-booking|discount|promo/i.test(bn)
+            const isRec = !!(b as { recurring_type?: string | null }).recurring_type
+            const hasActual = (b as { actual_hours?: number | null }).actual_hours != null && Number((b as { actual_hours?: number | null }).actual_hours) > 0
+            if (b.hourly_rate && b.price && !hasPromo && !isRec && !hasActual) {
+              const hrs = (toMin(b.end_time) - toMin(b.start_time)) / 60
+              const expected = hrs * Number(b.hourly_rate) * 100
+              if (Math.abs(Number(b.price) - expected) > 1000 && Number(b.price) > 0) {
+                issues.push({ type: 'price_mismatch', severity: 'info', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} on ${date} — price $${(Number(b.price) / 100).toFixed(0)} ≠ ${hrs}hrs × $${b.hourly_rate}/hr`, booking_ids: [b.id], tenant_id: tenantId, date })
+              }
+            }
+          }
+        }
+
+        // Self-healing reconcile — resolve open issues that are past-dated or no
+        // longer in the freshly-computed set (condition cleared).
+        const validMessages = new Set(issues.map((i) => i.message))
+        const { data: openIssues } = await supabaseAdmin.from('schedule_issues').select('id, message, date').eq('tenant_id', tenantId).in('status', ['open', 'acknowledged'])
+        const staleIds = (openIssues || []).filter((i) => (i.date && i.date < todayStr) || !validMessages.has(i.message)).map((i) => i.id)
+        if (staleIds.length) {
+          await supabaseAdmin.from('schedule_issues').update({ status: 'resolved', resolved_at: nowT.toISOString(), resolved_by: 'auto', resolution_note: 'Auto-resolved: no longer applies' }).in('id', staleIds).then(() => {}, () => {})
         }
       }
 

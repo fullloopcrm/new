@@ -118,7 +118,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       updated_at: new Date().toISOString(),
     }
     const { data, error } = await supabaseAdmin
-      .from('hr_employee_profiles')
+      .from('hr_employee_profiles')  // tenant-scope-ok: insert payload carries tenant_id (built above)
       .upsert(upsertRow, { onConflict: 'team_member_id' })
       .select('*')
       .single()

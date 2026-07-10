@@ -24,6 +24,8 @@ interface InquiryBody {
   role?: unknown
   budget?: unknown
   message?: unknown
+  heardFrom?: unknown
+  heardMore?: unknown
 }
 
 function escapeHtml(s: string): string {
@@ -145,6 +147,7 @@ export async function POST(req: NextRequest) {
       team_size: 'N/A',
       monthly_revenue: validBudget || 'N/A',
       referral_source: 'Contact form',
+      heard_from: typeof body.heardFrom === 'string' && body.heardFrom.trim() ? body.heardFrom.trim() : null,
       pitch: message,
       status: 'new',
     })
@@ -158,6 +161,25 @@ export async function POST(req: NextRequest) {
   if (adminEmail) {
     sends.push(sendEmail({ to: adminEmail, subject, html }).catch(err => console.error('inquiry email failed:', err)))
   }
+
+  // Confirmation / thank-you to the person who submitted — so a real lead like
+  // Mohammad isn't left with silence. Best-effort; never blocks the response.
+  const firstName = (name || '').trim().split(/\s+/)[0] || 'there'
+  const confirmHtml = `
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0f172a;">
+      <div style="font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#0d9488;margin-bottom:16px;">Full Loop CRM</div>
+      <h1 style="font-size:20px;margin:0 0 10px;">Thanks, ${escapeHtml(firstName)} — we got your application</h1>
+      <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 14px;">We received your inquiry${company ? ` for <strong>${escapeHtml(company)}</strong>` : ''} and a real person is reviewing it. Full Loop CRM isn't a cheap CRM — it's automation that runs your business — and we take on one operator per trade per market, by hand.</p>
+      <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px;">We'll reach out within <strong>2 business days</strong>. If you have anything to add in the meantime, just reply to this email — it comes to a real inbox.</p>
+      <div style="border-top:1px solid #e2e8f0;padding-top:16px;color:#94a3b8;font-size:12px;line-height:1.6;">
+        <strong style="color:#64748b;">Full Loop CRM</strong> — automation that runs home-service businesses.<br/>
+        <a href="mailto:hello@fullloopcrm.com" style="color:#0d9488;text-decoration:none;">hello@fullloopcrm.com</a> &nbsp;·&nbsp; (212) 202-9220 &nbsp;·&nbsp; <a href="https://fullloopcrm.com" style="color:#0d9488;text-decoration:none;">fullloopcrm.com</a>
+      </div>
+    </div>`
+  sends.push(
+    sendEmail({ to: email, subject: 'We got your application — Full Loop CRM', html: confirmHtml })
+      .catch(err => console.error('inquiry confirmation email failed:', err))
+  )
 
   if (isFatOffer) {
     const smsText = `🚨 Acquirer inquiry — ${company || name} (${validBudget}) from ${name} <${email}>. Check email for the full message.`

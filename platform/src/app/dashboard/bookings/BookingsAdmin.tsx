@@ -1,7 +1,9 @@
 'use client'
 
 import SidePanel from '@/components/SidePanel'
+import { useWorkerLabel } from '../worker-label-context'
 import { Suspense, useEffect, useState } from 'react'
+import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
@@ -153,7 +155,8 @@ function SuggestionStrip({ suggestions, onPick, variant }: { suggestions: SlotSu
 
 function BookingsPage() {
   const searchParams = useSearchParams()
-  useEffect(() => { document.title = 'Bookings | The NYC Maid' }, []);
+  const worker = useWorkerLabel()
+  useEffect(() => { document.title = 'Bookings' }, []);
   const formatPhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
     if (cleaned.length <= 3) return cleaned
@@ -165,6 +168,9 @@ function BookingsPage() {
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
+  // Team-member colors, built from /api/team in the SAME order the calendar uses
+  // so a member reads as the same color in the picker and on the calendar.
+  const [memberColors, setMemberColors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -255,6 +261,14 @@ function BookingsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 25
+
+  useEffect(() => {
+    fetch('/api/team').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d) return
+      const members: ColorableMember[] = Array.isArray(d) ? d : (d.team || d.team_members || [])
+      setMemberColors(buildMemberColors(members))
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     loadBookings(); loadClients(); loadCleaners(); loadReferrers()
@@ -407,17 +421,31 @@ function BookingsPage() {
   }, [showCreateModal, showModal, editingBooking, createForm.client_id, createForm.property_id, clientProperties, createForm.start_date, createForm.start_time, createForm.hours, createForm.hourly_rate, createForm.team_size, newClientForm.address, form.start_date, form.start_time, form.hours, form.hourly_rate, form.team_size, clients, smartScoresKey])
 
   const loadBookings = async () => {
-    const res = await fetch('/api/bookings')
-    if (res.ok) {
-      const data = await res.json()
-      data.sort((a: Booking, b: Booking) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
-      setBookings(data)
+    try {
+      const res = await fetch('/api/bookings?limit=200')
+      if (res.ok) {
+        const json = await res.json()
+        // API returns { bookings, total }; tolerate a bare array too.
+        const list: Booking[] = Array.isArray(json) ? json : (json.bookings ?? [])
+        list.sort((a: Booking, b: Booking) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+        setBookings(list)
+      }
+    } catch (e) {
+      console.error('loadBookings failed', e)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
-  const loadClients = async () => { const res = await fetch('/api/clients'); if (res.ok) setClients(await res.json()) }
-  const loadCleaners = async () => { const res = await fetch('/api/cleaners'); if (res.ok) setCleaners(await res.json()) }
-  const loadReferrers = async () => { const res = await fetch('/api/referrers'); if (res.ok) setReferrers(await res.json()) }
+  const loadClients = async () => {
+    const res = await fetch('/api/clients?limit=2000')
+    if (!res.ok) return
+    const json = await res.json()
+    // API returns { clients, total }; tolerate a bare array. Never store a non-array
+    // or client-search .filter() throws and crashes the page.
+    setClients(Array.isArray(json) ? json : (json.clients ?? []))
+  }
+  const loadCleaners = async () => { const res = await fetch('/api/cleaners'); if (!res.ok) return; const j = await res.json(); setCleaners(Array.isArray(j) ? j : (j.cleaners ?? j.team ?? [])) }
+  const loadReferrers = async () => { const res = await fetch('/api/referrers'); if (!res.ok) return; const j = await res.json(); setReferrers(Array.isArray(j) ? j : (j.referrers ?? [])) }
 
   const loadWaitlist = async () => {
     setWaitlistLoading(true)
@@ -1169,7 +1197,8 @@ function BookingsPage() {
   }
 
   const serviceTypesData = useServiceTypes()
-  const serviceTypes = serviceTypesData.length > 0 ? serviceTypesData.map(s => s.name) : ['Standard Cleaning', 'Deep Cleaning', 'Move In/Out', 'Post Construction']
+  // Catalog-driven only — no cleaning fallback. Shows the tenant's own services.
+  const serviceTypes = serviceTypesData.map(s => s.name)
 
   // Reverse-map stored recurring_type display name back to form repeat_type
   const reverseRecurringType = (displayName: string | null): string => {
@@ -1304,7 +1333,7 @@ function BookingsPage() {
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
-          <input type="text" placeholder="Search client, cleaner, address..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-[#1E2A4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E2A4A]/10 focus:border-[#1E2A4A] transition-all" />
+          <input type="text" placeholder={`Search client, ${worker.singular.toLowerCase()}, address...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-[#1E2A4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E2A4A]/10 focus:border-[#1E2A4A] transition-all" />
         </div>
 
         {/* Status Filter Pills */}
@@ -1343,7 +1372,7 @@ function BookingsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Cleaner</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{worker.singular}</label>
                 <select value={filters.cleaner_id} onChange={(e) => setFilters({ ...filters, cleaner_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[#1E2A4A] text-sm bg-white focus:outline-none focus:border-[#1E2A4A]">
                   <option value="">All</option>
                   {cleaners.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -1657,7 +1686,7 @@ function BookingsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Service</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date & Time</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Cleaner</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{worker.singular}</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Rate</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Recurring</th>
@@ -2168,7 +2197,7 @@ function BookingsPage() {
             {/* ── CLEANER / TEAM ── */}
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[10px] text-gray-400 uppercase">Cleaner{form.team_size > 1 ? 's' : ''}</label>
+                <label className="block text-[10px] text-gray-400 uppercase">{form.team_size > 1 ? worker.plural : worker.singular}</label>
                 <div className="flex items-center gap-2">
                   <label className="text-[10px] text-gray-500">Team size</label>
                   <select
@@ -2332,7 +2361,7 @@ function BookingsPage() {
                     }`}>
                       <div className="flex items-center justify-between">
                         <span className={selected ? 'font-medium text-[#1E2A4A]' : ''}>
-                          {(topPick || isSuggested) && !selected ? '★ ' : ''}{c.name}
+                          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', background: colorForMember(memberColors, c.id), marginRight: '6px', verticalAlign: 'middle' }} />{(topPick || isSuggested) && !selected ? '★ ' : ''}{c.name}
                           {isLead && form.team_size > 1 && <span className="ml-1.5 text-[9px] bg-indigo-600 text-white px-1 py-0.5 rounded font-semibold">LEAD</span>}
                           {isExtra && <span className="ml-1.5 text-[9px] bg-indigo-400 text-white px-1 py-0.5 rounded font-semibold">EXTRA</span>}
                           {smart?.is_preferred && <span className="ml-1.5 text-[9px] bg-amber-500 text-white px-1 py-0.5 rounded font-semibold">★ PREFERRED</span>}
@@ -2507,7 +2536,7 @@ function BookingsPage() {
                 ) : (
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-[#1E2A4A]">Cleaner{createForm.team_size > 1 ? 's' : ''} *</label>
+                      <label className="block text-sm font-medium text-[#1E2A4A]">{createForm.team_size > 1 ? worker.plural : worker.singular} *</label>
                       <div className="flex items-center gap-2">
                         <label className="text-xs text-gray-600">Team size</label>
                         <select
@@ -2675,7 +2704,7 @@ function BookingsPage() {
                           >
                             <div className="flex items-center justify-between">
                               <span className={selected ? 'font-medium' : ''}>
-                                {topPick && !selected ? '★ ' : ''}{c.name}
+                                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', background: colorForMember(memberColors, c.id), marginRight: '6px', verticalAlign: 'middle' }} />{topPick && !selected ? '★ ' : ''}{c.name}
                                 {smart?.is_preferred && <span className="ml-1.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-semibold">★ PREFERRED</span>}
                                 {isLead && createForm.team_size > 1 && <span className="ml-1.5 text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">LEAD</span>}
                                 {isExtra && <span className="ml-1.5 text-[10px] bg-indigo-400 text-white px-1.5 py-0.5 rounded font-semibold">EXTRA</span>}
@@ -2721,43 +2750,15 @@ function BookingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Rate</label>
-                    <div className="flex gap-2">
-                      <select
-                        value={[59, 69, 89, 99, 79, 49, 65, 75, 100].includes(createForm.hourly_rate) ? createForm.hourly_rate : 'custom'}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          if (v === 'custom') {
-                            // Pick a value NOT in presets so the custom input renders
-                            const isPreset = [59, 69, 89, 99, 79, 49, 65, 75, 100].includes(createForm.hourly_rate)
-                            setCreateForm({ ...createForm, hourly_rate: isPreset ? 0 : createForm.hourly_rate })
-                          } else setCreateForm({ ...createForm, hourly_rate: parseInt(v) })
-                        }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]"
-                      >
-                        <option value={59}>$59/hr</option>
-                        <option value={69}>$69/hr</option>
-                        <option value={89}>$89/hr</option>
-                        <option value={99}>$99/hr (Same-Day)</option>
-                        <option value={79}>$79/hr (Legacy)</option>
-                        <option value={49}>$49/hr (Legacy)</option>
-                        <option value={65}>$65/hr (Legacy)</option>
-                        <option value={75}>$75/hr (Legacy)</option>
-                        <option value={100}>$100/hr (Legacy)</option>
-                        <option value="custom">Custom $...</option>
-                      </select>
-                      {![59, 69, 89, 99, 79, 49, 65, 75, 100].includes(createForm.hourly_rate) && (
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={createForm.hourly_rate}
-                          onChange={(e) => setCreateForm({ ...createForm, hourly_rate: parseInt(e.target.value) || 0 })}
-                          className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-[#1E2A4A] text-sm"
-                          placeholder="$/hr"
-                          autoFocus
-                        />
-                      )}
-                    </div>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={createForm.hourly_rate}
+                      onChange={(e) => setCreateForm({ ...createForm, hourly_rate: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]"
+                      placeholder="$/hr"
+                    />
                   </div>
                 </div>
 

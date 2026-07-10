@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { getCommPrefs } from '@/lib/comms-prefs'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
 
 export const maxDuration = 300 // Vercel pro plan
@@ -29,6 +30,10 @@ export async function GET(request: Request) {
   for (const tenant of tenants || []) {
     if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
     const tenantId = tenant.id
+    // Client day-before confirmation is gated by the confirmation_reminder SMS
+    // toggle. Team confirm-requests are operational and stay ungated.
+    const confirmPrefs = await getCommPrefs(tenantId)
+    const clientConfirmOn = confirmPrefs.comms.confirmation_reminder?.sms !== false
 
     try {
       // ============================================
@@ -39,7 +44,7 @@ export async function GET(request: Request) {
 
       const { data: unconfirmedJobs } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, end_time, team_member_id, clients(name, address), team_members(name, phone)')
+        .select('id, start_time, end_time, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled'])
         .not('team_member_id', 'is', null)
@@ -150,7 +155,7 @@ export async function GET(request: Request) {
       // ============================================
       // CLIENT DAY-BEFORE CONFIRMATION — 1pm the day before
       // ============================================
-      if (now.getHours() === 13) {
+      if (now.getHours() === 13 && clientConfirmOn) {
         const tomorrowStart = new Date(now)
         tomorrowStart.setDate(tomorrowStart.getDate() + 1)
         tomorrowStart.setHours(0, 0, 0, 0)
@@ -159,7 +164,7 @@ export async function GET(request: Request) {
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, client_id, start_time, service_type, clients(name, phone), team_members(name)')
+          .select('id, client_id, start_time, service_type, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['scheduled', 'confirmed'])
           .gte('start_time', tomorrowStart.toISOString())

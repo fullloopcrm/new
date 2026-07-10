@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     if (existingClient) {
       const { data: updated, error } = await supabaseAdmin
-        .from('clients')
+        .from('clients')  // tenant-scope-ok: tenant-scoped (id + tenant_id filter just below)
         .update({
           name,
           email: email || null,

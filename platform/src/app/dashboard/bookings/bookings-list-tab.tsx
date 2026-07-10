@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useWorkerLabel } from '../worker-label-context'
 import './bookings-list.css'
 
 type Booking = {
@@ -90,6 +91,7 @@ function teamColor(id: string | null): string {
 }
 
 export default function BookingsListTab() {
+  const worker = useWorkerLabel()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all')
@@ -239,7 +241,7 @@ export default function BookingsListTab() {
           <div>Client</div>
           <div>Service</div>
           <div>When</div>
-          <div>Cleaner</div>
+          <div>{worker.singular}</div>
           <div>Rate</div>
           <div className="right">Margin</div>
           <div>On-Time</div>

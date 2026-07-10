@@ -29,20 +29,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const teamMembers = lead.proposal_team_members || 0
   const monthly = lead.proposal_monthly ?? computeMonthly(admins, teamMembers)
 
-  let payUrl: string | null = typeof body.payUrl === 'string' ? body.payUrl : null
-
-  // On send, make sure we have a real link.
-  if (action === 'send' && !payUrl) {
-    try {
-      const { createProposalCheckout } = await import('@/lib/platform-billing')
-      const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
-      const origin = host ? `https://${host}` : new URL(request.url).origin
-      const res = await createProposalCheckout({ leadId: lead.id, email: lead.email, admins, teamMembers, origin })
-      payUrl = res.url
-    } catch (e) {
-      return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not create pay link' }, { status: 500 })
-    }
-  }
+  // Payment link is OPTIONAL. The proposal goes out to get a signature first;
+  // the financial/Stripe step is added later. If a pay link was generated
+  // separately (Generate payment link button), we include it — otherwise the
+  // proposal sends without one.
+  const payUrl: string | null = typeof body.payUrl === 'string' && body.payUrl ? body.payUrl : null
 
   const { subject, html } = buildProposalEmail({
     businessName: lead.business_name || 'your business',

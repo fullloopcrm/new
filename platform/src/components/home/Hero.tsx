@@ -87,7 +87,7 @@ export default function Hero() {
           }}
           className="mb-6 max-w-5xl"
         >
-          The home service business CRM that runs itself
+          The home service CRM that runs the business itself
           <em style={{ fontStyle: "italic", fontWeight: 400, color: C.muted2 }}>.</em>
         </h1>
 

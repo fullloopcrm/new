@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
+import { signOAuthState } from '@/lib/oauth-state'
 
 export async function GET(request: Request) {
   const authError = await requireAdmin()
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
     scope: 'https://www.googleapis.com/auth/business.manage',
     access_type: 'offline',
     prompt: 'consent',
-    state: tenantId || '',
+    state: signOAuthState(tenantId || ''),
   })
 
   return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`)

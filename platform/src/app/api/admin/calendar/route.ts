@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('bookings')
-    .select('id, start_time, end_time, status, notes, tenant_id, clients(name, phone), team_members(name), tenants(name)')
+    .select('id, start_time, end_time, status, notes, tenant_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name), tenants(name)')
     .gte('start_time', from)
     .lte('start_time', to)
     .not('status', 'eq', 'cancelled')

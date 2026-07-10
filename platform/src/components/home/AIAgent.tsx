@@ -24,28 +24,47 @@ export default function AIAgent() {
       <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="AI sales agent software"
-          heading="The AI Agent Behind Full Loop CRM: One Assistant Across SMS, Web Chat & Email That Books, Quotes, and Collects"
+          heading="The AI Agent Behind Full Loop CRM: One Assistant Across Phone, SMS, Web Chat & Email That Books, Quotes, and Collects"
           description={
             <>
-              Not a chatbot that says &ldquo;we&apos;ll get back to you.&rdquo; The AI sales agent for home
-              service businesses that runs your front office across SMS, web chat, and email,
-              remembers every customer, and only ever speaks from your real data.
+              Not a chatbot that says &ldquo;we&apos;ll get back to you&rdquo; &mdash; and not a voicemail box.
+              The AI sales agent for home service businesses that answers the phone live, works
+              SMS, web chat, and email, remembers every customer, and only ever speaks from your
+              real data.
             </>
           }
         />
 
         <div className="mt-10 space-y-6 max-w-3xl" style={proseStyle}>
           <h3 style={subhead}>
-            One agent across SMS, web chat, and email &mdash; with full memory
+            One agent across phone, SMS, web chat, and email &mdash; with full memory
           </h3>
           <p>
             Most &ldquo;AI&rdquo; bolt-ons are a single web-chat widget that forgets you the moment
             you leave the page. Full Loop&apos;s agent is one assistant working every channel at
-            once &mdash; text, web chat, and email &mdash; with complete memory of the customer, their
-            past jobs, their address, their balance, and the last thing you said to them. A
-            lead who texts on Monday and emails on Thursday is the same conversation, not two
+            once &mdash; phone, text, web chat, and email &mdash; with complete memory of the customer,
+            their past jobs, their address, their balance, and the last thing you said to them. A
+            lead who calls on Monday and emails on Thursday is the same conversation, not two
             cold starts. That continuity is what lets it actually close and keep customers
             instead of just deflecting tickets.
+          </p>
+
+          <h3 style={subhead}>
+            It answers the phone &mdash; a real voice agent, 24/7, never dead air
+          </h3>
+          <p>
+            When a customer calls, they don&apos;t hit voicemail &mdash; they reach a warm, natural
+            voice agent that picks up on the first ring, day or night. On the call it checks
+            your live calendar for real open slots and books the job, recognizes returning
+            callers by their number and pulls up their past and upcoming jobs, quotes from your
+            real rates, checks whether a payment landed, and captures every caller as a lead
+            with name and number even if they don&apos;t book. It takes notes to the customer&apos;s
+            record &mdash; access codes, allergies, preferences &mdash; and it never fake-books or
+            invents a time. Genuine edge cases like refunds, damage, or a demand to speak to a
+            manager are escalated straight to you for an async callback instead of the agent
+            freelancing. Every call is recorded and transcribed into a single customer thread,
+            and if the agent is ever unavailable the call falls back to ring and voicemail &mdash;
+            never a dropped line.
           </p>
 
           <h3 style={subhead}>

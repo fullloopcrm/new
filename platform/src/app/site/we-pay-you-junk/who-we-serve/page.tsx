@@ -6,7 +6,7 @@ import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 
 export const metadata: Metadata = {
   title: "Who We Serve — Junk Removal for Homeowners, Businesses, Property Managers & More",
-  description: `We serve 13 customer types across ${CITY_COUNT}+ cities. Homeowners, renters, property managers, realtors, businesses, estate managers, contractors, and more. Starting at $100/hr.`,
+  description: `We serve 13 customer types across ${CITY_COUNT}+ cities. Homeowners, renters, property managers, realtors, businesses, estate managers, contractors, and more. Starting at $200/hr.`,
   alternates: { canonical: "/who-we-serve" },
 };
 
@@ -56,7 +56,7 @@ export default function WhoWeServePage() {
         <div className="relative mx-auto max-w-5xl px-6 text-center">
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-200 font-cta">Same Rate for Every Customer Type</p>
           <h2 className="mt-3 text-center text-3xl font-bold text-white sm:text-4xl font-heading">Your Stuff Has Value — No Matter Who You Are</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-white/70">Starting at $100/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable). Same-day available.</p>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-white/70">Starting at $200/hr. Dump fees included (an industry first). 50% Resale Credit (when applicable). Same-day available.</p>
           <CtaButtons variant="dark" />
         </div>
       </section>

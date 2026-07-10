@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   if (authError) return authError
   const url = new URL(request.url)
   const status = url.searchParams.get('status')
-  let q = supabaseAdmin.from('prospects').select('*').order('created_at', { ascending: false }).limit(200)
+  let q = supabaseAdmin.from('prospects').select('*').order('created_at', { ascending: false }).limit(200)  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
   if (status) q = q.eq('status', status)
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

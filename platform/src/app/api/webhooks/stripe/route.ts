@@ -9,6 +9,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { cleanerPaidHours } from '@/lib/billing-hours'
+import { effectiveCleanerRate } from '@/lib/cleaner-pay'
+import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
+import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
@@ -101,7 +104,7 @@ export async function POST(request: Request) {
         if (prospect && !prospect.tenant_id) {
           // Seat-based signup pricing, recomputed server-side from checkout
           // metadata (never from $ stored on the prospect row) so a corrupted
-          // row can't mint a $0 tenant. Defaults to 1 admin ($1,000/mo) when a
+          // row can't mint a $0 tenant. Defaults to 1 admin ($2,500/mo) when a
           // legacy Payment Link supplies no seat metadata.
           const pricing = signupPricing({
             admins: Number(session.metadata?.admins) || 1,
@@ -281,7 +284,44 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, quote_deposit_paid: true })
       }
 
-      if (!bookingId || !tenantId) break
+      // NYC Maid parity: a Stripe pay-link payment that arrived with NO booking
+      // reference — recover by matching the payer email to the NYC Maid client's
+      // most recent unpaid job; if we can't, alert admin so money never sits
+      // invisible (FL previously dropped these silently).
+      if (!bookingId) {
+        const payerEmail = session.customer_details?.email?.toLowerCase()
+        const amountC = session.amount_total || 0
+        if (payerEmail) {
+          const { data: mc } = await supabaseAdmin
+            .from('clients')
+            .select('id, name')
+            .eq('tenant_id', NYCMAID_TENANT_ID)
+            .ilike('email', payerEmail)
+            .limit(1)
+            .maybeSingle()
+          if (mc) {
+            const { data: cands } = await supabaseAdmin
+              .from('bookings')
+              .select('id, status')
+              .eq('tenant_id', NYCMAID_TENANT_ID)
+              .eq('client_id', mc.id)
+              .neq('payment_status', 'paid')
+              .in('status', ['completed', 'in_progress', 'scheduled'])
+              .order('start_time', { ascending: false })
+              .limit(5)
+            const pick = (cands || []).find((b) => b.status === 'completed') || (cands || [])[0]
+            if (pick) {
+              bookingId = pick.id
+              tenantId = NYCMAID_TENANT_ID
+            }
+          }
+        }
+        if (!bookingId) {
+          await nmSmsAdmins(`Stripe $${(amountC / 100).toFixed(2)} from ${payerEmail || 'unknown'} — no booking ref, couldn't auto-match. Apply manually.`).catch(() => {})
+          break
+        }
+      }
+      if (!tenantId) break
 
       // Idempotency — skip if we already processed this session
       const { data: existing } = await supabaseAdmin
@@ -296,7 +336,7 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone), tenants(name, telnyx_api_key, telnyx_phone)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()
@@ -307,7 +347,7 @@ export async function POST(request: Request) {
       }
 
       const tm = booking.team_members as unknown as { name?: string; phone?: string; stripe_account_id?: string; preferred_language?: string } | null
-      const client = booking.clients as unknown as { name?: string; phone?: string } | null
+      const client = booking.clients as unknown as { name?: string; phone?: string; address?: string | null } | null
       const tenant = booking.tenants as unknown as { name?: string; telnyx_api_key?: string; telnyx_phone?: string } | null
 
       const amountCents = session.amount_total || 0
@@ -385,7 +425,11 @@ export async function POST(request: Request) {
           // (booking.team_member_pay, cents); else compute cleaner-grace hours ×
           // pay_rate. Tip passes through 100% on top.
           const storedPay = (booking as { team_member_pay?: number | null }).team_member_pay
-          const cleanerRate = (tm as { pay_rate?: number | null })?.pay_rate || (booking as { pay_rate?: number | null }).pay_rate || 25
+          const baseCleanerRate = (tm as { pay_rate?: number | null })?.pay_rate || (booking as { pay_rate?: number | null }).pay_rate || 25
+          // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY.
+          const cleanerRate = isNycMaid(tenantId)
+            ? effectiveCleanerRate(baseCleanerRate, client?.address ?? null)
+            : baseCleanerRate
           const cleanerHours = Math.max(0.5, cleanerPaidHours((hours || 0) * 60))
           const cleanerBaseCents = storedPay && storedPay > 0 ? storedPay : Math.round(cleanerHours * cleanerRate * 100)
           const cleanerCents = cleanerBaseCents + tipCents
@@ -396,6 +440,15 @@ export async function POST(request: Request) {
             transfer_group: bookingId,
             metadata: { booking_id: bookingId, tenant_id: tenantId },
           })
+          // NYC Maid parity: push an INSTANT payout to the cleaner's bank so
+          // funds land immediately, not on the standard Connect schedule. The
+          // transfer already landed; a failed instant payout is non-fatal.
+          if (isNycMaid(tenantId)) {
+            await stripe.payouts.create(
+              { amount: cleanerCents, currency: 'usd', method: 'instant' },
+              { stripeAccount: tm.stripe_account_id },
+            ).catch((err) => console.error('[stripe] NYC Maid instant payout failed (transfer landed):', err))
+          }
           const { data: payoutRow } = await supabaseAdmin.from('team_member_payouts').insert({
             tenant_id: tenantId,
             team_member_id: booking.team_member_id,

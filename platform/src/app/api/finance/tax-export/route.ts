@@ -48,18 +48,20 @@ export async function GET(request: Request) {
     const [
       { data: bookings },
       { data: expenses },
-      { data: payouts },
+      { data: contractorRows },
     ] = await Promise.all([
       bookingsQ,
       expensesQ,
+      // 1099 totals from the REAL pay signal — every paid job's team_member_pay,
+      // not just Stripe payouts (contractors paid by any method are captured).
       supabaseAdmin
-        .from('team_member_payouts')
-        .select('created_at, amount_cents, status, team_members(name, tax_business_name, tax_ein, tax_ssn_last4)')
+        .from('bookings')
+        .select('team_member_id, team_member_pay, team_members!bookings_team_member_id_fkey(name, tax_business_name, tax_ein, tax_ssn_last4)')
         .eq('tenant_id', tenantId)
-        .gte('created_at', from)
-        .lte('created_at', to)
-        .in('status', ['paid', 'succeeded', 'completed'])
-        .order('created_at', { ascending: true }),
+        .gte('start_time', from)
+        .lte('start_time', to)
+        .in('payment_status', ['paid', 'partial'])
+        .gt('team_member_pay', 0),
     ])
 
     const lines: string[] = []
@@ -72,7 +74,7 @@ export async function GET(request: Request) {
         csvEscape((b.start_time as string).slice(0, 10)),
         csvEscape(b.id),
         csvEscape(client?.name || ''),
-        csvEscape((Number(b.price) || 0).toFixed(2)),
+        csvEscape(((Number(b.price) || 0) / 100).toFixed(2)), // price is cents
         csvEscape(b.payment_method || ''),
         csvEscape(b.payment_date ? (b.payment_date as string).slice(0, 10) : ''),
       ].join(','))
@@ -95,17 +97,27 @@ export async function GET(request: Request) {
     }
 
     lines.push('')
-    lines.push('# CONTRACTOR PAYOUTS (1099)')
-    lines.push(['date', 'contractor_name', 'business_name', 'ein_or_ssn_last4', 'amount', 'status'].join(','))
-    for (const p of payouts || []) {
-      const tm = p.team_members as { name?: string; tax_business_name?: string; tax_ein?: string; tax_ssn_last4?: string } | null
+    lines.push('# CONTRACTOR PAY — 1099-NEC totals (annual, per contractor)')
+    lines.push(['contractor_name', 'business_name', 'ein_or_ssn_last4', 'total_paid'].join(','))
+    const byWorker = new Map<string, { name: string; biz: string; taxId: string; cents: number }>()
+    for (const r of contractorRows || []) {
+      const tm = r.team_members as { name?: string; tax_business_name?: string; tax_ein?: string; tax_ssn_last4?: string } | null
+      const key = (r.team_member_id as string) || 'unknown'
+      const cur = byWorker.get(key) || {
+        name: tm?.name || '',
+        biz: tm?.tax_business_name || '',
+        taxId: tm?.tax_ein || (tm?.tax_ssn_last4 ? `***-**-${tm.tax_ssn_last4}` : ''),
+        cents: 0,
+      }
+      cur.cents += Number(r.team_member_pay) || 0
+      byWorker.set(key, cur)
+    }
+    for (const w of Array.from(byWorker.values()).sort((a, b) => b.cents - a.cents)) {
       lines.push([
-        csvEscape((p.created_at as string).slice(0, 10)),
-        csvEscape(tm?.name || ''),
-        csvEscape(tm?.tax_business_name || ''),
-        csvEscape(tm?.tax_ein || (tm?.tax_ssn_last4 ? `***-**-${tm.tax_ssn_last4}` : '')),
-        csvEscape(((Number(p.amount_cents) || 0) / 100).toFixed(2)),
-        csvEscape(p.status as string || ''),
+        csvEscape(w.name),
+        csvEscape(w.biz),
+        csvEscape(w.taxId),
+        csvEscape((w.cents / 100).toFixed(2)),
       ].join(','))
     }
 

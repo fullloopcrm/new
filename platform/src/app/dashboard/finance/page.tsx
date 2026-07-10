@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useWorkerLabel } from '../worker-label-context'
 import Link from 'next/link'
 import './finance.css'
 
@@ -52,6 +53,7 @@ function fmt(cents: number): string {
 }
 
 export default function FinancePage() {
+  const worker = useWorkerLabel()
   const [tab] = useState<Tab>('overview')
   const [range, setRange] = useState<DateRange>('month')
   const [summary, setSummary] = useState<Summary>({})
@@ -159,7 +161,7 @@ export default function FinancePage() {
           </div>
         </div>
         <div className="fin-stat">
-          <div className="fin-stat-label">Cleaner Owed</div>
+          <div className="fin-stat-label">{worker.singular} Owed</div>
           <div className="fin-stat-value"><span className="unit">$</span>{fmt(summary.pendingCleanerPayments ?? 0)}</div>
           <div className="fin-stat-sub">Pending payouts</div>
         </div>

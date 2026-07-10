@@ -8,6 +8,8 @@ import { getOfficeByState } from "@/app/site/we-pay-you-junk/_data/offices";
 import { OfficeBlock } from "@/app/site/we-pay-you-junk/_components/OfficeBlock";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { JobApplicationForm } from "@/app/site/we-pay-you-junk/_components/JobApplicationForm";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { jobPostingLd, SITE_URL } from "@/app/site/we-pay-you-junk/_lib/schema";
 
 export const dynamicParams = true;
 
@@ -20,8 +22,8 @@ export async function generateMetadata({ params }: { params: Promise<{ state: st
   const result = getCityBySlug(stateSlug, citySlug);
   if (!result) return {};
   return {
-    title: `Junk Removal Jobs in ${result.city.name}, ${result.state.abbreviation} — Now Hiring`,
-    description: `Hiring junk removal crew members in ${result.city.name}, ${result.state.abbreviation}. Competitive pay, tips, benefits, paid training, growth opportunities. Apply today.`,
+    title: `Junk Removal Partner in ${result.city.name}, ${result.state.abbreviation} — Now Recruiting`,
+    description: `Become a junk removal partner in ${result.city.name}, ${result.state.abbreviation}. 1099 role — $100/hr + $50/hr per extra laborer + 60% resale. Bring your own truck, license, and insurance. Apply today.`,
     alternates: { canonical: `/careers/${stateSlug}/${citySlug}` },
   };
 }
@@ -37,6 +39,16 @@ export default async function CityJobsPage({ params }: { params: Promise<{ state
 
   return (
     <>
+      <JsonLd
+        data={jobPostingLd({
+          title: `Junk Removal Operator Partner — ${city.name}, ${state.abbreviation}`,
+          description:
+            "1099 partner opportunity: run junk removal in your territory under the We Pay You Junk Removal brand. $100/hr as the lead with your truck + $50/hr per additional laborer + 60% resale. Bring your own truck (or a vehicle with a trailer), a valid license, and insurance. No drug test, no benefits, no training.",
+          url: `${SITE_URL}/careers/${stateSlug}/${citySlug}`,
+          city: city.name,
+          state: state.abbreviation,
+        })}
+      />
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />
         <div className="relative mx-auto max-w-5xl px-6 text-center">
@@ -58,9 +70,9 @@ export default async function CityJobsPage({ params }: { params: Promise<{ state
             Our {city.name} crews handle <Link href={`/locations/${stateSlug}/${citySlug}`} className="text-teal-700 font-semibold hover:underline">all {SERVICES.length} junk removal services</Link> — from <Link href="/services/furniture-removal" className="text-teal-700 font-semibold hover:underline">furniture pickup</Link> to <Link href="/services/estate-cleanouts" className="text-teal-700 font-semibold hover:underline">full estate cleanouts</Link>. See <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">how our pricing works</Link> and <Link href="/about" className="text-teal-700 font-semibold hover:underline">why we&apos;re different</Link>.
           </p>
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-center text-base leading-relaxed text-slate-700">
-            <p>As a crew member in {city.name}, you&apos;ll work directly with local homeowners, businesses, and property managers. You&apos;ll load items, identify resale value, present appraisals to customers, and deliver an experience that gets 5-star reviews. Our {city.name} crews know the neighborhoods, the dump sites, the recycling centers, and the local resale market — that knowledge makes every job faster and every appraisal more accurate.</p>
+            <p>As a partner in {city.name}, you&apos;ll work directly with local homeowners, businesses, and property managers. You&apos;ll load items, identify resale value, present appraisals to customers, and deliver an experience that gets 5-star reviews. As a {city.name} partner you know the neighborhoods, the dump sites, the recycling centers, and the local resale market — that knowledge makes every job faster and every appraisal more accurate.</p>
             <p>The job is physical — lifting, carrying, loading, driving. But it&apos;s also a thinking job. You&apos;ll learn to tell the difference between a $50 IKEA bookshelf and a $500 Pottery Barn one. You&apos;ll know which appliances hold value and which electronics have active resale markets. That appraisal skill is what makes this job different from every other hauling gig in {city.name}.</p>
-            <p>We provide paid training, competitive hourly pay, tips (customers tip well when you save them money), quarterly bonuses, and a clear path from crew member to team lead to operations manager. Full-time positions include health insurance, PTO, and 401k.</p>
+            <p>You earn $100/hr as the lead with your truck, $50/hr for each additional laborer you bring, and 60% of the resale value on items you haul. It&apos;s a 1099 partner role — no drug test, no benefits, no training. We guide your local branding and growth under the brand, with a path to becoming the sole We Pay You Junk provider for your territory.</p>
           </div>
         </div>
       </section>
@@ -70,7 +82,7 @@ export default async function CityJobsPage({ params }: { params: Promise<{ state
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">Requirements for {city.name} Junk Removal Jobs</p>
           <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">What We&apos;re Looking For in {city.name}</h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">
-            No experience required — we train you on everything. Here&apos;s what you need to apply. See our <Link href="/careers" className="text-teal-700 font-semibold hover:underline">main careers page</Link> for full details.
+            This is a 1099 partner role — you bring the truck and equipment. Here&apos;s what you need to apply. See our <Link href="/careers" className="text-teal-700 font-semibold hover:underline">main careers page</Link> for full details.
           </p>
           <div className="mx-auto mt-8 max-w-2xl">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -122,25 +134,25 @@ export default async function CityJobsPage({ params }: { params: Promise<{ state
         <div className="mx-auto max-w-5xl px-6">
           <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">Apply for $50/hr Junk Removal Jobs in {city.name}</p>
+              <p className="text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">Apply to Become a Junk Removal Partner in {city.name}</p>
               <h2 className="mt-3 text-3xl font-bold text-slate-900 font-heading">Apply Now — {city.name}, {state.abbreviation}</h2>
               <p className="mt-4 text-base text-slate-600">Fill out the form and we&apos;ll call you within 48 hours.</p>
               <div className="mt-6 space-y-3">
                 <div className="rounded-lg bg-white border border-slate-200 p-4">
-                  <p className="text-2xl font-bold text-teal-700 font-heading">$50/hr</p>
-                  <p className="text-sm text-slate-600">Starting pay — no experience required</p>
+                  <p className="text-2xl font-bold text-teal-700 font-heading">$100/hr</p>
+                  <p className="text-sm text-slate-600">You, the lead with the truck — dump fees included</p>
                 </div>
                 <div className="rounded-lg bg-white border border-slate-200 p-4">
-                  <p className="text-2xl font-bold text-teal-700 font-heading">$50–$150/day tips</p>
-                  <p className="text-sm text-slate-600">On top of hourly pay</p>
+                  <p className="text-2xl font-bold text-teal-700 font-heading">+$50/hr &bull; +60% resale</p>
+                  <p className="text-sm text-slate-600">Per additional laborer, plus your resale share</p>
                 </div>
                 <div className="mt-4 space-y-2 text-sm text-slate-600">
-                  <p>✓ Valid driver&apos;s license &amp; clean record</p>
+                  <p>✓ Your own truck (or a vehicle with a trailer)</p>
+                  <p>✓ Valid driver&apos;s license</p>
+                  <p>✓ Vehicle insurance</p>
+                  <p>✓ A dry storage area for resale items</p>
                   <p>✓ Lift 50+ lbs repeatedly</p>
-                  <p>✓ Smartphone with data plan</p>
-                  <p>✓ Pass background check</p>
                   <p>✓ 18+ years old</p>
-                  <p>✓ Available weekends</p>
                 </div>
               </div>
             </div>

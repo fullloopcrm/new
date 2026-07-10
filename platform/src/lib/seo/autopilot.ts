@@ -38,7 +38,7 @@ type UrlBundle = {
 /** competitor domain -> brand token, e.g. 'merrymaids.com' -> 'merrymaids'. */
 async function competitorBrands(property: string): Promise<string[]> {
   const { data } = await supabaseAdmin
-    .from('seo_competitors')
+    .from('seo_competitors')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     .select('competitor_domain')
     .eq('property', property)
     .eq('is_directory', false)
@@ -50,7 +50,7 @@ async function competitorBrands(property: string): Promise<string[]> {
 async function appliedLast7d(property: string): Promise<number> {
   const since = new Date(Date.now() - 7 * 86_400_000).toISOString()
   const { count } = await supabaseAdmin
-    .from('seo_changes')
+    .from('seo_changes')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     .select('id', { count: 'exact', head: true })
     .eq('property', property)
     .eq('applied_by', 'autopilot')

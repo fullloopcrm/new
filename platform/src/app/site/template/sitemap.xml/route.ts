@@ -4,6 +4,10 @@ import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { BLOG_POSTS } from '@/app/site/template/_lib/seo/blog-data'
 import { pickLifestylePhoto, pickTeamPhoto, pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
+import { VA_SERVICES } from '@/app/site/template/_data/va-services'
+import { ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
+import { blogPosts } from '@/app/site/template/_lib/content/longform'
 
 // Reads the tenant from request headers (getSiteConfig) to emit their real
 // domain, so it must render dynamically — a static route reading headers() 500s
@@ -29,6 +33,73 @@ export async function GET() {
   const absoluteImageUrl = (path: string): string => `${BASE_URL}${path}`
   const now = new Date().toISOString()
 
+  // Virtual-assistant tenants get a national VA sitemap (services + geo hubs).
+  // The 1,500 geo×service combos are noindex, so they are intentionally excluded.
+  if (industryProfile(config.industry).isVirtualAssistant) {
+    const vaUrls: { loc: string; pri: string; freq: string }[] = [
+      { loc: BASE_URL, pri: '1.0', freq: 'weekly' },
+      { loc: `${BASE_URL}/virtual-assistant-services`, pri: '0.9', freq: 'weekly' },
+      ...VA_SERVICES.map((s) => ({ loc: `${BASE_URL}/virtual-assistant-services/${s.slug}`, pri: '0.8', freq: 'weekly' })),
+      ...ALL_LOCATIONS.map((l) => ({ loc: `${BASE_URL}/virtual-assistant/${l.slug}`, pri: '0.7', freq: 'weekly' })),
+    ]
+    const vaXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${vaUrls
+  .map(
+    (u) => `  <url>
+    <loc>${u.loc}</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>${u.freq}</changefreq>
+    <priority>${u.pri}</priority>
+  </url>`,
+  )
+  .join('\n')}
+</urlset>`
+    return new Response(vaXml, {
+      headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=3600, s-maxage=3600' },
+    })
+  }
+
+  // Non-cleaning, non-VA (generic) tenants get a sitemap of the config-driven
+  // long-form routes — NOT the NYC-Maid cleaning slugs / NYC geo pages below,
+  // which don't exist for them. Keeps their sitemap accurate + indexable.
+  if (!industryProfile(config.industry).isCleaning) {
+    const genUrls: { loc: string; pri: string; freq: string }[] = [
+      { loc: BASE_URL, pri: '1.0', freq: 'weekly' },
+      { loc: `${BASE_URL}/about`, pri: '0.8', freq: 'monthly' },
+      { loc: `${BASE_URL}/services`, pri: '0.9', freq: 'weekly' },
+      { loc: `${BASE_URL}/pricing`, pri: '0.9', freq: 'weekly' },
+      { loc: `${BASE_URL}/reviews`, pri: '0.8', freq: 'weekly' },
+      { loc: `${BASE_URL}/faq`, pri: '0.7', freq: 'monthly' },
+      { loc: `${BASE_URL}/contact`, pri: '0.8', freq: 'monthly' },
+      { loc: `${BASE_URL}/careers`, pri: '0.7', freq: 'weekly' },
+      { loc: `${BASE_URL}/referral-program`, pri: '0.5', freq: 'monthly' },
+      { loc: `${BASE_URL}/blog`, pri: '0.7', freq: 'weekly' },
+      ...blogPosts(config).map((p) => ({ loc: `${BASE_URL}/blog/${p.slug}`, pri: '0.7', freq: 'monthly' })),
+      { loc: `${BASE_URL}/privacy-policy`, pri: '0.3', freq: 'yearly' },
+      { loc: `${BASE_URL}/terms-conditions`, pri: '0.3', freq: 'yearly' },
+      { loc: `${BASE_URL}/legal`, pri: '0.3', freq: 'yearly' },
+      { loc: `${BASE_URL}/refund-policy`, pri: '0.3', freq: 'yearly' },
+      { loc: `${BASE_URL}/do-not-share-policy`, pri: '0.3', freq: 'yearly' },
+    ]
+    const genXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${genUrls
+  .map(
+    (u) => `  <url>
+    <loc>${u.loc}</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>${u.freq}</changefreq>
+    <priority>${u.pri}</priority>
+  </url>`,
+  )
+  .join('\n')}
+</urlset>`
+    return new Response(genXml, {
+      headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=3600, s-maxage=3600' },
+    })
+  }
+
   interface ImageEntry { loc: string; title?: string; caption?: string }
   const urls: { loc: string; lastmod: string; changefreq: string; priority: string; images?: ImageEntry[] }[] = []
 
@@ -47,18 +118,18 @@ export async function GET() {
 
   // Static pages
   const staticPages = [
-    { path: '/nyc-maid-service-services-offered-by-the-nyc-maid', freq: 'weekly', pri: '0.9' },
-    { path: '/service-areas-served-by-the-nyc-maid', freq: 'weekly', pri: '0.9' },
-    { path: '/about-the-nyc-maid-service-company', freq: 'monthly', pri: '0.7' },
-    { path: '/contact-the-nyc-maid-service-today', freq: 'monthly', pri: '0.8' },
-    { path: '/updated-nyc-maid-service-industry-pricing', freq: 'weekly', pri: '0.9' },
-    { path: '/nyc-cleaning-service-frequently-asked-questions-in-2025', freq: 'monthly', pri: '0.8' },
+    { path: '/services', freq: 'weekly', pri: '0.9' },
+    { path: '/service-areas', freq: 'weekly', pri: '0.9' },
+    { path: '/about', freq: 'monthly', pri: '0.7' },
+    { path: '/contact', freq: 'monthly', pri: '0.8' },
+    { path: '/pricing', freq: 'weekly', pri: '0.9' },
+    { path: '/faq', freq: 'monthly', pri: '0.8' },
     { path: '/reviews', freq: 'weekly', pri: '0.8' },
     { path: '/reviews/submit', freq: 'monthly', pri: '0.7' },
-    { path: '/available-nyc-maid-jobs', freq: 'daily', pri: '0.8' },
+    { path: '/careers', freq: 'daily', pri: '0.8' },
     { path: '/careers/operations-coordinator', freq: 'daily', pri: '0.8' },
-    { path: '/nyc-maid-service-blog', freq: 'weekly', pri: '0.7' },
-    { path: '/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid', freq: 'weekly', pri: '0.7' },
+    { path: '/blog', freq: 'weekly', pri: '0.7' },
+    { path: '/blog', freq: 'weekly', pri: '0.7' },
     { path: '/service/nyc-emergency-cleaning-service', freq: 'monthly', pri: '0.7' },
     { path: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced', freq: 'monthly', pri: '0.5' },
     { path: '/privacy-policy', freq: 'yearly', pri: '0.3' },
@@ -111,7 +182,7 @@ export async function GET() {
   for (const post of BLOG_POSTS) {
     const photo = pickLifestylePhoto(post.slug)
     urls.push({
-      loc: `${BASE_URL}/nyc-maid-service-blog/${post.slug}`,
+      loc: `${BASE_URL}/blog/${post.slug}`,
       lastmod: post.date,
       changefreq: 'monthly',
       priority: '0.7',
@@ -123,7 +194,7 @@ export async function GET() {
   for (const n of ALL_NEIGHBORHOODS) {
     const photo = pickTeamPhoto(n.slug)
     urls.push({
-      loc: `${BASE_URL}/available-nyc-maid-jobs/${n.slug}`,
+      loc: `${BASE_URL}/careers/${n.slug}`,
       lastmod: now,
       changefreq: 'daily',
       priority: '0.8',

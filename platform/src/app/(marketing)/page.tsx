@@ -15,15 +15,17 @@ import {
 import { industries, generateIndustrySlug } from "@/lib/marketing/combos";
 
 export const metadata: Metadata = {
-  title: "Home Service Business CRM | Full Loop — AI Lead Gen, Sales & Scheduling",
+  title: "Home Service Business CRM | Full Loop — AI Phone, Lead Gen, Sales & Scheduling",
   description:
-    "Full Loop is the first full-cycle home service CRM: AI lead generation, AI sales, scheduling, GPS field operations, payments, reviews, and retargeting in one platform — proven by a real company it runs almost autonomously. One operator per trade per city.",
+    "Full Loop is the first full-cycle home service CRM: AI lead generation, a 24/7 AI phone & text sales agent that answers live and books, scheduling, GPS field operations, payments, reviews, and retargeting in one platform — proven by a real company it runs almost autonomously. One operator per trade per city.",
   keywords: [
     "home service business CRM",
     "home service CRM",
     "home service CRM software",
     "full-cycle home service CRM",
     "AI sales agent for home services",
+    "AI voice agent for home services",
+    "AI phone answering service for home services",
     "field service management software",
     "home service business automation",
   ],
@@ -31,7 +33,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Home Service Business CRM That Runs Itself | Full Loop CRM",
     description:
-      "The first full-cycle home service CRM — AI lead gen, sales, scheduling, payments, and reviews in one platform. Proven by a real cleaning company run by one person, ~1 hour a day. One operator per trade per city.",
+      "The first full-cycle home service CRM — AI lead gen, a 24/7 AI phone & text agent that answers live and books, scheduling, payments, and reviews in one platform. Proven by a real cleaning company run by one person, ~1 hour a day. One operator per trade per city.",
     url: "https://homeservicesbusinesscrm.com",
     siteName: "Full Loop CRM",
     type: "website",
@@ -83,7 +85,7 @@ const industryListItems = industries.map((i) => ({
 
 const loopSteps = [
   { name: "Lead generation", text: "Organic SEO sites and landing pages generate leads you own — no paid ads, no resold leads." },
-  { name: "AI sales & follow-up", text: "An AI sales agent answers, qualifies, quotes, and books every inquiry instantly, 24/7." },
+  { name: "AI phone & sales agent", text: "A 24/7 AI agent answers the phone live and every text, qualifies, quotes, and books every inquiry instantly — never voicemail, never dead air." },
   { name: "Booking & scheduling", text: "Jobs land on the calendar automatically with the right crew, price, and recurring cadence." },
   { name: "Dispatch & GPS field ops", text: "Crews work from a bilingual mobile portal with GPS-verified check-in and check-out." },
   { name: "Payments & payouts", text: "Payment is collected automatically and crew payouts run via Stripe Connect on job completion." },
@@ -106,7 +108,7 @@ export default function Home() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={softwareApplicationSchema("1000", "USD")} />
+      <JsonLd data={softwareApplicationSchema("2500", "USD")} />
       <JsonLd
         data={serviceSchema(
           "Home Service CRM Software",

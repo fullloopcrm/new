@@ -60,12 +60,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'team_member_id and body required' }, { status: 400 })
   }
 
-  const { contactId, threadId } = await resolveThread(teamMemberId)
+  const { contactId, threadId, tenantId } = await resolveThread(teamMemberId)
   if (!contactId || !threadId) return NextResponse.json({ error: 'team member not found' }, { status: 404 })
 
   const { data: msg, error } = await supabaseAdmin
     .from('comhub_messages')
     .insert({
+      tenant_id: tenantId,
       thread_id: threadId,
       contact_id: contactId,
       channel: 'web',

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +32,10 @@ export async function GET(request: NextRequest) {
       .in('payment_status', ['paid'])
       .gte('payment_date', dateFrom.toISOString())
 
-    const totalRevenue = (bookings || []).reduce((sum, b) => sum + (b.price || 0), 0)
+    // Revenue total from the LEDGER (source of truth); booking count stays live.
+    const nowIso = new Date().toISOString().slice(0, 10)
+    const pnl = await ledgerProfitAndLoss(tenantId, dateFrom.toISOString().slice(0, 10), nowIso)
+    const totalRevenue = pnl.revenue_cents
 
     const existingData = {
       period,

@@ -43,7 +43,7 @@ export default async function AdminOverviewPage() {
         </p>
       </div>
 
-      {/* REVENUE ROW — placeholder until seat-based billing ($1k/admin + $100/team + setup) is wired. */}
+      {/* REVENUE ROW — placeholder until seat-based billing ($2.5k/admin + $250/team + setup) is wired. */}
       <div className="grid grid-cols-3 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-900 px-5 py-4">
         {[
           { label: 'MRR', value: '$0' },

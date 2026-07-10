@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ type: str
   if (!ct) return {};
   return {
     title: `Junk Removal for ${ct.name} — We Pay You for Your Stuff`,
-    description: `${ct.description} Starting at $100/hr, dump fees included, 50% Resale Credit (when applicable). ${CITY_COUNT}+ cities.`,
+    description: `${ct.description} Starting at $200/hr, dump fees included, 50% Resale Credit (when applicable). ${CITY_COUNT}+ cities.`,
     alternates: { canonical: `/who-we-serve/${type}` },
   };
 }

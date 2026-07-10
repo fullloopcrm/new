@@ -63,7 +63,7 @@ export function smsRatingThanks(rating: { service_rating: number; cleaner_rating
 }
 
 export function smsReviewRequest(cleanerName: string): string {
-  return `The NYC Maid: 5 stars — thank you! 😊 Mind leaving a public review for ${cleanerName}? We'll Zelle you $10 for a written review or $25 for a short selfie video about ${cleanerName} and the service.\n\nLeave it here: https://share.google/rZI6VgG0BYd3A2Lsn\n\nReply DONE with the link/screenshot once posted and we'll send your credit.${STOP_TEXT}`
+  return `The NYC Maid: 5 stars — thank you! 😊 Mind leaving a public review for ${cleanerName}? We'll take $10 off your bill for a written review or $25 off for a short selfie video about ${cleanerName} and the service.\n\nLeave it here: https://g.page/r/CSX9IqciUG9SEAE/review\n\nReply DONE with the link/screenshot once posted and we'll apply your credit.\n\nP.S. Love us? Refer friends and earn 10% of every cleaning they book, forever: thenycmaid.com/get-paid-for-cleaning-referrals-every-time-they-are-serviced${STOP_TEXT}`
 }
 
 export function smsBookingConfirmation(booking: any): string {

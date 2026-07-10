@@ -7,7 +7,7 @@ export async function GET() {
   if (authError) return authError
 
   const { data: notifications } = await supabaseAdmin
-    .from('notifications')
+    .from('notifications')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
     .select('*, tenants(name)')
     .order('created_at', { ascending: false })
     .limit(100)

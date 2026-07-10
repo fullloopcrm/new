@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from('bookings')
-    .select('id, start_time, end_time, status, service_type, team_member_id, team_members(name), clients(name, address)')
+    .select('id, start_time, end_time, status, service_type, team_member_id, team_members!bookings_team_member_id_fkey(name), clients(name, address)')
     .eq('tenant_id', auth.tid)
     .in('team_member_id', scope)
     .gte('start_time', now.toISOString())

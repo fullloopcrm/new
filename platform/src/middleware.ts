@@ -110,6 +110,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
   '/proposal(.*)',            // Post-payment redirect pages (thank-you / cancelled)
   '/api/requests',            // Partnership form submissions
+  '/api/territories/options', // Public territory/category options for the lead form (no PII)
+  '/geo(.*)',                 // Static map assets (US county polygons) for the territory map
   '/api/inquiry',             // Marketing-site contact form (homeservicesbusinesscrm.com/contact)
   '/api/feedback',            // Feedback form submissions
   '/api/contact',             // Tenant-aware contact form lead capture (tenant resolved from host)
@@ -137,6 +139,7 @@ const isPublicRoute = createRouteMatcher([
   '/qualify(.*)',              // e.g. /qualify?cancelled=1
   '/welcome',                  // Post-Stripe-payment landing page
   '/api/prospects',            // Public prospect intake
+  '/api/territories/options',  // Public territory + service-category options for lead forms
   '/api/client(.*)',           // Ported nycmaid client-portal routes — tenant
                                // resolved via signed x-tenant-id header, not Clerk
   '/api/cleaner-applications', // Alias → /api/team-applications
@@ -254,7 +257,17 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
           p.startsWith('/api/send-booking-emails') || p.startsWith('/api/selena') ||
           p.startsWith('/api/quotes') || p.startsWith('/api/quote-templates') ||
           p.startsWith('/api/jobs') || p.startsWith('/api/catalog') || p.startsWith('/api/crews') ||
-          p.startsWith('/api/referral-commissions')) {
+          p.startsWith('/api/referral-commissions') ||
+          // H-01: these owner APIs were missing, so super-admin impersonation
+          // fell through to Clerk → 404 (Sales Pipeline, sidebar badges, invoices,
+          // payments, schedule, routes, etc.). Tenant scope is still enforced in-route.
+          p.startsWith('/api/pipeline') || p.startsWith('/api/sidebar-counts') ||
+          p.startsWith('/api/invoices') || p.startsWith('/api/documents') ||
+          p.startsWith('/api/payments') || p.startsWith('/api/recurring-expenses') ||
+          p.startsWith('/api/routes') || p.startsWith('/api/schedule') ||
+          p.startsWith('/api/service-area') || p.startsWith('/api/sales-applications') ||
+          p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
+          p.startsWith('/api/tenant/public')) {
         return
       }
     }
@@ -357,13 +370,14 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // The remaining tenants are non-cleaning verticals (tow, exterminator, salon,
   // SEO, etc.); the template is cleaning-specific, so they keep their bespoke
   // /site/<slug> subtree. nycmaid keeps its own bespoke site (the live primary).
+  // CUTOVER: every tenant except the nyc maid tenant is now a REAL tenant served
+  // by the shared, config-driven global template (/site/template) — no forked
+  // per-tenant site code. Only nycmaid (the live primary, mid-cutover) keeps its
+  // own bespoke /site/nycmaid subtree. The old bespoke clones are dead code once
+  // unrouted here and get deleted in a follow-up.
   const BESPOKE_SITE_TENANTS = new Set<string>([
-    'consortium-nyc', 'debt-service-ratio-loan', 'fla-dumpster-rentals', 'landscaping-in-nyc',
-    'nyc-mobile-salon', 'nyc-tow', 'nycmaid', 'nycroadsideemergencyassistance',
-    'stretch-ny', 'stretch-service', 'sunnyside-clean-nyc', 'the-florida-maid',
-    'the-home-services-company', 'the-nyc-exterminator', 'the-nyc-interior-designer',
-    'the-nyc-marketing-company', 'the-nyc-seo', 'theroadsidehelper', 'toll-trucks-near-me',
-    'wash-and-fold-hoboken', 'wash-and-fold-nyc', 'we-pay-you-junk',
+    'nycmaid',
+    'we-pay-you-junk',
   ])
   const siteBase = ROOT_SITE_TENANTS.has(tenantSlug)
     ? '/site'
@@ -379,6 +393,15 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   response.headers.set('x-tenant-id', tenantId)
   response.headers.set('x-tenant-slug', tenantSlug)
   response.headers.set('x-tenant-sig', tenantSig)
+
+  // The national VA SEO pages (1,500+) are force-dynamic because they read
+  // tenant headers, but their content is identical for every visitor on this
+  // host — so cache them at the edge instead of rendering each on every request.
+  // Big reduction in function/ISR cost. Marketing content, so an hour of
+  // staleness with background revalidation is fine.
+  if (req.method === 'GET' && pathname.startsWith('/virtual-assistant')) {
+    response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400')
+  }
 
   // Also set request headers so server components / route handlers can read them
   const requestHeaders = new Headers(req.headers)

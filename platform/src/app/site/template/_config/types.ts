@@ -94,4 +94,10 @@ export interface SiteConfig {
    *  'lead_only' → contact/lead capture only; no booking or pricing surfaced
    */
   funnelMode: 'booking' | 'pipeline' | 'lead_only'
+  /**
+   * The tenant's trade (e.g. 'cleaning', 'plumbing', 'towing'). Drives
+   * industry-aware copy in the content generators so a non-cleaning tenant's
+   * site stops reading as a cleaning site. Falls back to 'general'.
+   */
+  industry: string
 }

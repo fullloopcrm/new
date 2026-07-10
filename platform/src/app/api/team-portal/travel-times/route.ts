@@ -1,20 +1,29 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { calculateDistance, estimateTransitMinutes, geocodeClient } from '@/lib/nycmaid/geo'
 
 export async function GET(request: Request) {
+  // Auth: field-staff bearer token. This returns client names + full home
+  // addresses + geo, so it must be gated. A member can only see their OWN
+  // route — the team_member_id is taken from the verified token, not the query,
+  // and every lookup is scoped to the token's tenant.
+  const { auth, error } = await requirePortalPermission(request, 'jobs.view_own')
+  if (error) return error
+
   const { searchParams } = new URL(request.url)
-  const teamMemberId = searchParams.get('team_member_id') || searchParams.get('cleaner_id')
+  const teamMemberId = auth.id
   const date = searchParams.get('date')
 
-  if (!teamMemberId || !date) {
-    return NextResponse.json({ error: 'team_member_id and date required' }, { status: 400 })
+  if (!date) {
+    return NextResponse.json({ error: 'date required' }, { status: 400 })
   }
 
   const { data: member } = await supabaseAdmin
     .from('team_members')
     .select('id, has_car')
     .eq('id', teamMemberId)
+    .eq('tenant_id', auth.tid)
     .single()
 
   if (!member) return NextResponse.json([])
@@ -22,6 +31,7 @@ export async function GET(request: Request) {
   const { data: bookings } = await supabaseAdmin
     .from('bookings')
     .select('id, start_time, end_time, client_id, clients(id, name, address, latitude, longitude)')
+    .eq('tenant_id', auth.tid)
     .eq('team_member_id', teamMemberId)
     .gte('start_time', `${date}T00:00:00`)
     .lte('start_time', `${date}T23:59:59`)

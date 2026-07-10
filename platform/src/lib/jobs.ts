@@ -11,7 +11,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { logQuoteEvent } from '@/lib/quote'
 
-export type JobStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+export type JobStatus = 'unscheduled' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
 export type PaymentKind = 'deposit' | 'progress' | 'final' | 'milestone'
 export type PaymentStatus = 'pending' | 'invoiced' | 'paid' | 'void'
 export type PaymentTrigger = 'manual' | 'on_date' | 'on_stage_complete' | 'on_signature'
@@ -159,7 +159,9 @@ export async function createJobFromQuote(
       client_id: clientId,
       quote_id: quoteId,
       title: quote.title || `Job from ${quote.quote_number}`,
-      status: 'scheduled',
+      // Only call it 'scheduled' if a session/booking is actually attached.
+      // A sold job with no date is 'unscheduled' so it doesn't look booked.
+      status: opts.sessions && opts.sessions.length > 0 ? 'scheduled' : 'unscheduled',
       total_cents: totalCents,
       service_address: quote.service_address || null,
       notes: quote.notes || null,
@@ -198,7 +200,8 @@ export async function createJobFromQuote(
       end_time: s.end_time ?? null,
       status: 'confirmed',
       notes: s.notes || `Session of job (quote ${quote.quote_number})`,
-      address: quote.service_address || null,
+      // NB: bookings has no address column — the location lives on the parent
+      // job (service_address) and the client. Setting it here throws PGRST204.
     }))
     const { error: bErr } = await supabaseAdmin.from('bookings').insert(bookingRows)
     if (bErr) throw bErr

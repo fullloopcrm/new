@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
@@ -192,7 +193,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function EmergencyCleaningPage() {
+export default async function EmergencyCleaningPage() {
+  await requireCleaningTenant()
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -257,7 +259,7 @@ export default function EmergencyCleaningPage() {
         localBusinessSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.example.com' },
-          { name: 'Services', url: 'https://www.example.com/nyc-maid-service-services-offered-by-the-nyc-maid' },
+          { name: 'Services', url: 'https://www.example.com/services' },
           { name: 'Emergency Cleaning', url: 'https://www.example.com/service/nyc-emergency-cleaning-service' },
         ]),
         faqSchema,
@@ -284,7 +286,7 @@ export default function EmergencyCleaningPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Services', href: '/nyc-maid-service-services-offered-by-the-nyc-maid' },
+          { name: 'Services', href: '/services' },
           { name: 'Emergency Cleaning', href: '/service/nyc-emergency-cleaning-service' },
         ]} />
         <TrustBadges />

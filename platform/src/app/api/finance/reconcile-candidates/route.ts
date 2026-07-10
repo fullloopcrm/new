@@ -84,7 +84,7 @@ export async function GET() {
           }
         }
         for (const b of bookings) {
-          const priceCents = Math.round((Number(b.price) || 0) * 100)
+          const priceCents = Math.round(Number(b.price) || 0) // price is already cents
           if (priceCents <= 0) continue
           const sc = scoreMatch(priceCents, b.start_time, t.amount_cents, t.txn_date)
           if (sc > 0 && (!best || sc > best.confidence)) {

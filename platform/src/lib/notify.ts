@@ -1,6 +1,8 @@
 import { supabaseAdmin } from './supabase'
 import { sendEmail } from './email'
 import { sendSMS } from './sms'
+import { isCommEnabled } from './comms-prefs'
+import { NOTIFY_COMM_MAP } from './comms-registry'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
@@ -242,6 +244,21 @@ export async function notify({
   // Check if integrations are configured
   const hasEmail = !!(tenant.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
   const hasSMS = !!(tenant.telnyx_api_key && tenant.telnyx_phone)
+
+  // ── Communications gate ────────────────────────────────────────────────
+  // The in-app notification row is already persisted above; here we honor the
+  // tenant's per-comm channel preference for the OUTBOUND email/SMS only.
+  // Fail-open: only comms mapped in NOTIFY_COMM_MAP (whose default matches
+  // current behavior) are gated — everything else sends exactly as before.
+  if ((channel === 'email' || channel === 'sms') && tenantId) {
+    const commKey = NOTIFY_COMM_MAP[`${type}:${recipientType}`] || NOTIFY_COMM_MAP[type]
+    if (commKey && !(await isCommEnabled(tenantId, commKey, channel))) {
+      await updateNotif('skipped', {
+        metadata: { ...(metadata || {}), _gated: commKey, _channel: channel },
+      })
+      return { success: true }
+    }
+  }
 
   // Attempt primary channel
   try {

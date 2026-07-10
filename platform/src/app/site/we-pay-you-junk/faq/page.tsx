@@ -1,7 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { isValidElement, type ReactNode } from "react";
 import { PHONE, SMS_HREF } from "@/app/site/we-pay-you-junk/_data/content";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { faqPageLd } from "@/app/site/we-pay-you-junk/_lib/schema";
+
+// Extract plain text from a JSX answer (incl. link text) so FAQPage schema
+// matches the visible content exactly.
+function nodeText(node: ReactNode): string {
+  if (node == null || node === false || node === true) return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join("");
+  if (isValidElement(node)) return nodeText((node.props as { children?: ReactNode }).children);
+  return "";
+}
 
 const LEFT_DATES = ['Jun 14, 2023', 'Jul 22, 2023', 'Jul 25, 2023', 'Aug 01, 2023', 'Aug 05, 2023', 'Aug 28, 2023', 'Sep 02, 2023', 'Oct 21, 2023', 'Nov 09, 2023', 'Nov 11, 2023', 'Nov 26, 2023', 'Dec 07, 2023', 'Dec 09, 2023', 'Dec 16, 2023', 'Dec 27, 2023', 'Dec 27, 2023', 'Jan 15, 2024', 'Feb 11, 2024', 'Mar 12, 2024', 'Apr 14, 2024', 'Apr 22, 2024', 'Jun 28, 2024', 'Jul 12, 2024', 'Aug 14, 2024', 'Aug 21, 2024'];
 const RIGHT_DATES = ['Aug 25, 2024', 'Aug 31, 2024', 'Sep 09, 2024', 'Sep 19, 2024', 'Sep 19, 2024', 'Oct 14, 2024', 'Nov 23, 2024', 'Dec 15, 2024', 'Dec 21, 2024', 'Dec 21, 2024', 'Jan 13, 2025', 'Jan 21, 2025', 'Apr 20, 2025', 'Apr 27, 2025', 'May 05, 2025', 'Jun 05, 2025', 'Jun 10, 2025', 'Jul 15, 2025', 'Jul 18, 2025', 'Oct 07, 2025', 'Oct 12, 2025', 'Oct 13, 2025', 'Dec 06, 2025', 'Dec 27, 2025', 'Mar 31, 2026'];
@@ -13,7 +26,7 @@ export const metadata: Metadata = {
 };
 
 const LEFT_FAQS = [
-  { q: "How much does junk removal cost?", a: <>Our rates start at $100/hr for a 1-person crew, $250/hr for a 2-person crew, and $200/person/hr for emergency same-day. Dump fees included (an industry first). 1 hour minimum. See our full <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">pricing breakdown</Link>.</> },
+  { q: "How much does junk removal cost?", a: <>Our rates start at $200/hr for a 1-person crew, $300/hr for a 2-person crew, and +$100/hr per additional person for emergency same-day. Dump fees included (an industry first). 1 hour minimum. See our full <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">pricing breakdown</Link>.</> },
   { q: "What is the 50% resale credit?", a: <>As we load your items, we appraise anything with resale value and credit you 50% (when applicable) toward your bill. A $400 couch = $200 credit. If credits exceed the bill, <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">we pay you the difference</Link>.</> },
   { q: "Can I really get paid for junk removal?", a: <>Yes. If your item credits add up to more than the hours worked, we hand you a check on the spot. This happens regularly on <Link href="/services/estate-cleanouts" className="text-teal-700 font-semibold hover:underline">estate cleanouts</Link> and <Link href="/services/office-cleanouts" className="text-teal-700 font-semibold hover:underline">office cleanouts</Link>.</> },
   { q: "Do you offer same-day junk removal?", a: <>Yes. Call before noon and we can typically have a crew at your door within 2-4 hours. Need it faster? Our <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">emergency same-day rate</Link> guarantees arrival within 2 hours.</> },
@@ -61,7 +74,7 @@ const RIGHT_FAQS = [
   { q: "Do you provide certificates of insurance?", a: <>Yes. COIs available on request for commercial customers, property managers, and realtors. We carry comprehensive general liability and workers&apos; comp. <Link href="/contact-we-pay-you-junk-removal-today" className="text-teal-700 font-semibold hover:underline">Request a COI</Link>.</> },
   { q: "What payment methods do you accept?", a: <>Credit cards, debit cards, checks, Venmo, Zelle, and CashApp. For payouts (credits exceeding your bill), we process by check or digital transfer on the spot. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book now</Link>.</> },
   { q: "Do you have contracts or recurring fees?", a: <>No. Every job is standalone. No subscriptions, no recurring charges, no cancellation penalties. Book when you need us. <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">See pricing</Link>.</> },
-  { q: "Are you hiring?", a: <>Yes — in all 50 states. Crew members, team leads, and operations roles. Competitive pay, tips, benefits, and growth opportunities. See <Link href="/careers" className="text-teal-700 font-semibold hover:underline">open positions</Link>.</> },
+  { q: "Are you bringing on partners?", a: <>Yes — in all 50 states. It&apos;s a 1099 partner role: $100/hr as the lead with your own truck, $50/hr per additional laborer, plus 60% resale. Bring your own truck, license, and insurance. See <Link href="/careers" className="text-teal-700 font-semibold hover:underline">partner opportunities</Link>.</> },
   { q: "Do you offer franchise opportunities?", a: <>Yes. The only junk removal franchise with a dual revenue model — hourly fees plus resale income. See <Link href="/franchise" className="text-teal-700 font-semibold hover:underline">franchise details</Link>.</> },
   { q: "How do I contact you for non-booking questions?", a: <>Use our <Link href="/contact-we-pay-you-junk-removal-today" className="text-teal-700 font-semibold hover:underline">contact form</Link> for general inquiries, partnerships, media, or feedback. For booking, use the <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">booking page</Link>.</> },
   { q: "Why don't other companies do this?", a: <>Most junk companies charge you to haul your items and then resell the valuable ones for 100% profit. They have no incentive to share. We built a different model — see <Link href="/about" className="text-teal-700 font-semibold hover:underline">our story</Link>.</> },
@@ -69,8 +82,10 @@ const RIGHT_FAQS = [
 ];
 
 export default function FAQPage() {
+  const faqs = [...LEFT_FAQS, ...RIGHT_FAQS].map((f) => ({ question: f.q, answer: nodeText(f.a) }));
   return (
     <>
+      <JsonLd data={faqPageLd(faqs)} />
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />

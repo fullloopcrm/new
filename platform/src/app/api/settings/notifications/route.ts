@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { clearSettingsCache } from '@/lib/settings'
+import {
+  normalizePrefs,
+  defaultCommPrefs,
+  deriveCapabilities,
+  type CommPreferences,
+} from '@/lib/comms-prefs'
 
-// GET notification preferences for tenant
+// GET communications preferences + capabilities for the tenant.
 export async function GET() {
   let tenant
   try {
@@ -14,16 +21,17 @@ export async function GET() {
 
   const { data } = await supabaseAdmin
     .from('tenants')
-    .select('notification_preferences')
+    .select('notification_preferences, resend_api_key, telnyx_api_key, telnyx_phone')
     .eq('id', tenant.tenantId)
     .single()
 
   return NextResponse.json({
-    preferences: data?.notification_preferences || getDefaultPreferences(),
+    preferences: normalizePrefs(data?.notification_preferences),
+    capabilities: deriveCapabilities(data || {}),
   })
 }
 
-// PUT update notification preferences
+// PUT — persist the full { comms, timing } preferences object.
 export async function PUT(request: Request) {
   let tenant
   try {
@@ -33,7 +41,10 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { preferences } = await request.json()
+  const body = await request.json().catch(() => ({}))
+  // Normalize before storing so we only ever persist known keys in the canonical
+  // shape (drops unknown keys, fills gaps from registry defaults).
+  const preferences: CommPreferences = normalizePrefs(body?.preferences ?? defaultCommPrefs())
 
   const { error } = await supabaseAdmin
     .from('tenants')
@@ -41,18 +52,6 @@ export async function PUT(request: Request) {
     .eq('id', tenant.tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
-}
-
-function getDefaultPreferences() {
-  return {
-    booking_reminder: { email: true, sms: true, in_app: true },
-    booking_confirmed: { email: true, sms: false, in_app: true },
-    payment_received: { email: true, sms: false, in_app: true },
-    new_review: { email: true, sms: false, in_app: true },
-    new_referral: { email: false, sms: false, in_app: true },
-    daily_summary: { email: true, sms: false, in_app: false },
-    follow_up: { email: true, sms: false, in_app: false },
-    team_checkin: { email: false, sms: false, in_app: true },
-  }
+  clearSettingsCache(tenant.tenantId)
+  return NextResponse.json({ success: true, preferences })
 }

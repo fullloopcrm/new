@@ -6,6 +6,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 
 export const maxDuration = 60
 
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
   // Dedup: skip deals already notified this hour.
   const dealIds = deals.map(d => d.id)
   const { data: existing } = await supabaseAdmin
-    .from('notifications')
+    .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     .select('metadata')
     .eq('type', 'follow_up')
     .gte('created_at', oneHourAgo.toISOString())
@@ -62,6 +64,11 @@ export async function GET(request: Request) {
       recipientType: 'admin',
       metadata: { deal_id: deal.id, client_name: clientName },
     })
+
+    // NYC Maid parity: also text admins (nycmaid SMSes the follow-up, FL emailed only).
+    if (isNycMaid(deal.tenant_id as string)) {
+      await nmSmsAdmins(`Sales follow-up: ${clientName} — ${note}`).catch(() => {})
+    }
 
     reminded++
   }

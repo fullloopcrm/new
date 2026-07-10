@@ -421,6 +421,12 @@ export default function BusinessDetailPage() {
 
         <div className="flex items-center gap-2">
           <Link
+            href={`/admin/businesses/${id}/profile`}
+            className="bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
+          >
+            Profile Form (new) →
+          </Link>
+          <Link
             href={`/admin/businesses/${id}/wizard`}
             className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
           >
@@ -973,6 +979,21 @@ export default function BusinessDetailPage() {
             }`}>
             {biz?.setup_fee_paid_at ? `Setup fee paid ${new Date(biz.setup_fee_paid_at).toLocaleDateString()}` : 'Mark setup fee as paid'}
           </button>
+
+          <div className="pt-6 border-t border-slate-200">
+            <h3 className="font-heading font-semibold text-slate-900 mb-1">Website Ownership</h3>
+            <p className="text-xs text-slate-500 mb-3">
+              Static export of this tenant&apos;s live public site (HTML + assets) as a
+              downloadable ZIP they can host anywhere &mdash; fulfills the &ldquo;you own your
+              website&rdquo; promise on cancellation. Large sites are capped; may take ~10&ndash;30s to generate.
+            </p>
+            <a
+              href={`/api/admin/businesses/${id}/site-export`}
+              className="inline-block text-sm py-2 px-4 rounded-lg font-medium border border-teal-300 text-teal-700 hover:bg-teal-50"
+            >
+              Export site as ZIP &darr;
+            </a>
+          </div>
 
           <div className="pt-6 border-t border-slate-200">
             <h3 className="font-heading font-semibold text-slate-900 mb-3">Submitted Business Profile</h3>

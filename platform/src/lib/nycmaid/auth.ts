@@ -118,70 +118,9 @@ export async function requireAdmin() {
 // Use this at start of API routes to protect them
 // Returns null if authenticated, NextResponse error if not
 // Automatically enforces role-based restrictions
-export async function protectAdminAPI(): Promise<NextResponse | null> {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')?.value
-
-  if (!session || !verifySessionCookie(session).valid) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Check role-based restrictions from cookie (fast, no DB hit)
-  const role = cookieStore.get('admin_role')?.value as AdminRole | undefined
-  if (role && role !== 'owner') {
-    // Viewer: read-only — block all mutations
-    if (role === 'viewer') {
-      // Allow GET-like reads via these specific endpoints
-      // Everything else is blocked at the API handler level for write methods
-      // But we can't check HTTP method here — the route handler does that
-      // So we restrict by endpoint access instead
-      return null // sidebar + middleware already restrict page access; API-level blocks below
-    }
-  }
-
-  return null // authenticated
-}
-
 // Use this at start of POST/PUT/DELETE handlers to block viewers and restrict managers
-export async function protectWriteAPI(): Promise<NextResponse | null> {
-  const authError = await protectAdminAPI()
-  if (authError) return authError
-
-  const user = await getAdminUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  if (user.role === 'viewer') {
-    return NextResponse.json({ error: 'Forbidden — viewer accounts are read-only' }, { status: 403 })
-  }
-
-  return null
-}
-
 // Block access to finance/settings/team pay — owner only
-export async function protectOwnerAPI(): Promise<NextResponse | null> {
-  const authError = await protectAdminAPI()
-  if (authError) return authError
-
-  const user = await getAdminUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  if (user.role !== 'owner') {
-    return NextResponse.json({ error: 'Forbidden — owner access required' }, { status: 403 })
-  }
-
-  return null
-}
-
 // Require a specific role or higher
-export async function requireRole(...roles: AdminRole[]): Promise<NextResponse | null> {
-  const user = await getAdminUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!roles.includes(user.role)) {
-    return NextResponse.json({ error: 'Forbidden — insufficient permissions' }, { status: 403 })
-  }
-  return null
-}
-
 // Client session: signed token containing client_id
 export function createClientSession(clientId: string): string {
   const payload = `${clientId}.${Date.now()}`

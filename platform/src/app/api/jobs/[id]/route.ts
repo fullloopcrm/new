@@ -13,7 +13,7 @@ import { logJobEvent, releasePaymentsForEvent, shapeSession, type JobStatus, typ
 
 type Params = { params: Promise<{ id: string }> }
 
-const VALID_STATUS: JobStatus[] = ['scheduled', 'in_progress', 'completed', 'cancelled']
+const VALID_STATUS: JobStatus[] = ['unscheduled', 'scheduled', 'in_progress', 'completed', 'cancelled']
 
 export async function GET(_request: Request, { params }: Params) {
   try {

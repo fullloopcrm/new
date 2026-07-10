@@ -13,6 +13,7 @@ import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
+import { deriveDurationClass } from '@/lib/schedule/duration-class'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -54,8 +55,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Render each booking under ITS property's address (multi-address clients),
-    // falling back to the client's legacy address when no property is set.
-    for (const b of data || []) applyPropertyToBookingClient(b as Parameters<typeof applyPropertyToBookingClient>[0])
+    // falling back to the client's legacy address when no property is set. Also
+    // stamp duration_class (slot/multiday/project) so the multi-view calendar can
+    // lane each job without re-deriving client-side; derived when the column is null.
+    for (const b of data || []) {
+      applyPropertyToBookingClient(b as Parameters<typeof applyPropertyToBookingClient>[0])
+      const row = b as { start_time: string; end_time?: string | null; project_id?: string | null; duration_class?: string | null }
+      row.duration_class = deriveDurationClass(row)
+    }
 
     return NextResponse.json({ bookings: data, total: count })
   } catch (e) {
