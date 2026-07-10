@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "@/app/site/stretch-service/_components/Logo";
+import LeadForm from "@/app/site/stretch-service/_components/LeadForm";
 import type { Metadata } from "next";
 import { states, SITE_URL, SITE_SMS_LINK, SITE_PHONE, SITE_PHONE_LINK, SITE_EMAIL } from "@/app/site/stretch-service/_lib/siteData";
 import { JsonLd, webPageSchema, breadcrumbSchema, faqSchema } from "@/app/site/stretch-service/_lib/schema";
@@ -157,57 +158,7 @@ export default function ContactPage() {
             {/* Form */}
             <div>
               <h2 className="text-2xl font-bold text-slate-900 font-heading">Send Us a Message</h2>
-              <form className="mt-6 space-y-4" action={`mailto:${SITE_EMAIL}`} method="POST" encType="text/plain">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-semibold text-slate-700">Name</label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    required
-                    className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder="Your name"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-semibold text-slate-700">Email</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    required
-                    className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder="your@email.com"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-semibold text-slate-700">Phone (optional)</label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder="Your phone number"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="message" className="block text-sm font-semibold text-slate-700">Message</label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    rows={4}
-                    required
-                    className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder="Tell us about your needs — preferred date, time, location, and any specific concerns..."
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full rounded-lg bg-teal-600 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-teal-700 font-cta"
-                >
-                  Send Message
-                </button>
-              </form>
+              <LeadForm />
             </div>
           </div>
         </div>
