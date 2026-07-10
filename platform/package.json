@@ -7,6 +7,7 @@
     "prebuild": "node scripts/verify-protected-tenants.mjs",
     "build": "next build",
     "verify:tenants": "node scripts/verify-protected-tenants.mjs",
+    "reconcile:tenants": "node scripts/reconcile-tenant-config.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
