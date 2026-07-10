@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { askSelena } from '@/lib/selena-legacy'
+import { askSelena as askYinez } from '@/lib/selena/agent'
 import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -657,13 +658,12 @@ export async function POST(request: Request) {
             message: text,
           })
 
-          // Call Selena AI (loads transcript from DB internally)
-          const aiResult = await askSelena(
-            tenantId,
-            'sms',
-            text,
-            convo.id,
-          )
+          // NYC Maid runs the REAL Yinez agent (warm voice, self-book redirect,
+          // memory/skills). Other tenants stay on the legacy engine. Pass the
+          // sender phone so Yinez does owner-detection + client lookup.
+          const aiResult = isNycMaid(tenantId)
+            ? await askYinez('sms', text, convo.id, from)
+            : await askSelena(tenantId, 'sms', text, convo.id)
 
           // Prevent silent failure — if Selena returns nothing, send a fallback
           if (aiResult && !aiResult.text) {
@@ -696,8 +696,10 @@ export async function POST(request: Request) {
                 message: aiResult.text,
               })
 
-              // If client was just created by chatbot, backfill prior messages
-              if (aiResult.clientCreated && !client) {
+              // If client was just created by chatbot, backfill prior messages.
+              // clientCreated exists only on the legacy engine's result; the
+              // Yinez engine (YinezResult) doesn't set it, so guard with `in`.
+              if ('clientCreated' in aiResult && aiResult.clientCreated && !client) {
                 const { data: priorMsgs } = await supabaseAdmin
                   .from('sms_conversation_messages')
                   .select('direction, message, created_at')

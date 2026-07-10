@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies } from '@/lib/selena-legacy'
+import { askSelena as askYinez } from '@/lib/selena/agent'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
@@ -75,9 +77,23 @@ export async function POST(req: NextRequest) {
       conversation_id: conversationId, direction: 'inbound', message,
     })
 
-    // Ask Selena (tenant-aware)
-    const result = await askSelena(tenantId, 'web', message, conversationId, phone || undefined)
-    const reply = result.text || 'Something went wrong. Please try again or call us directly.'
+    // NYC Maid runs the REAL Yinez agent (src/lib/selena/agent) — warm voice,
+    // self-book redirect, memory/skills. Other tenants stay on the legacy
+    // deterministic engine. Tenant-scoped parity (isNycMaid), not global.
+    let reply: string
+    let quickReplies: string[] = []
+    let bookingCreated = false
+    if (isNycMaid(tenantId)) {
+      const yz = await askYinez('web', message, conversationId, phone || undefined)
+      reply = yz.text || 'Something went wrong. Please try again or call us directly.'
+      bookingCreated = !!yz.bookingCreated
+    } else {
+      const result = await askSelena(tenantId, 'web', message, conversationId, phone || undefined)
+      reply = result.text || 'Something went wrong. Please try again or call us directly.'
+      const checklist = result.checklist || EMPTY_CHECKLIST
+      quickReplies = getQuickReplies(checklist, getNextStep(checklist))
+      bookingCreated = !!result.bookingCreated
+    }
 
     // Log outbound
     await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
@@ -85,13 +101,8 @@ export async function POST(req: NextRequest) {
       message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
     })
 
-    // Quick replies from state machine
-    const checklist = result.checklist || EMPTY_CHECKLIST
-    const nextStep = getNextStep(checklist)
-    const quickReplies = getQuickReplies(checklist, nextStep)
-
     // Booking notification
-    if (result.bookingCreated) {
+    if (bookingCreated) {
       await notify({ tenantId, type: 'new_booking', title: 'New Web Booking', message: 'Client confirmed booking via web chat' }).catch(() => {})
     }
 
