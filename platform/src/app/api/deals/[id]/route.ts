@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -53,6 +54,11 @@ export async function PATCH(request: Request, { params }: Params) {
       if (k in body) updates[k] = body[k]
     }
     if ('title' in body) updates.title_override = true
+
+    if (updates.client_id) {
+      const foreign = await findForeignRef(tenantId, [{ table: 'clients', ids: [updates.client_id as string] }])
+      if (foreign) return NextResponse.json({ error: 'Unknown client for this account' }, { status: 400 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('deals')

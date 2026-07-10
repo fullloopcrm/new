@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -43,6 +44,11 @@ export async function PATCH(request: Request, { params }: Params) {
       'total_distance_meters', 'total_duration_seconds',
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
+
+    if (updates.team_member_id) {
+      const foreign = await findForeignRef(tenantId, [{ table: 'team_members', ids: [updates.team_member_id as string] }])
+      if (foreign) return NextResponse.json({ error: 'Unknown team member for this account' }, { status: 400 })
+    }
 
     if ('stops' in body && Array.isArray(body.stops)) {
       updates.total_stops = body.stops.length
