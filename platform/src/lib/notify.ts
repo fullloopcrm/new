@@ -128,7 +128,7 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, primary_color, logo_url')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, primary_color, logo_url, address')
     .eq('id', tenantId)
     .single()
 
@@ -156,6 +156,8 @@ export async function notify({
     tenantName: tenant.name || 'Your Business',
     primaryColor: tenant.primary_color || '#111827',
     logoUrl: tenant.logo_url || undefined,
+    // CAN-SPAM: physical postal address in the shared email footer when on file.
+    businessAddress: (tenant as { address?: string | null }).address || undefined,
   }
 
   let htmlBody: string | undefined
