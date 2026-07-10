@@ -30,6 +30,21 @@ function str(row: TenantRow, key: string): string | undefined {
   return typeof v === 'string' && v.trim() !== '' ? v : undefined
 }
 
+/**
+ * Best-effort city from a US business address like
+ * "150 W 47th St, New York, NY 10036" → "New York". For the standard
+ * "street, city, ST zip" shape the city is the second-to-last comma segment;
+ * a bare "City, ST" yields the first. Returns undefined when we can't tell,
+ * so the caller falls back to the neutral default rather than a wrong city.
+ */
+function cityFromAddress(address?: string): string | undefined {
+  if (!address) return undefined
+  const parts = address.split(',').map((s) => s.trim()).filter(Boolean)
+  if (parts.length >= 3) return parts[parts.length - 2] || undefined
+  if (parts.length === 2) return parts[0] || undefined
+  return undefined
+}
+
 export async function getSiteConfig(): Promise<SiteConfig> {
   let tenant: TenantRow | null = null
   try {
@@ -59,19 +74,24 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     (selena && typeof selena['agent_name'] === 'string' && selena['agent_name']) ||
     defaultConfig.agent.name
 
-  // Geo comes from the tenant's declared service_areas, not a hardcoded NYC
-  // default. A national/remote business (service_areas includes "United States"
-  // / "Nationwide") should never render as "New York City". Falls back to the
-  // neutral default when the tenant has not declared areas.
+  // Geo scope, in priority order, so a tenant never renders the "Your City"
+  // placeholder when we can derive its real area:
+  //  1. NATIONAL — service_areas names the whole US → "the United States"
+  //  2. DECLARED — the first explicitly-listed service area (regional/local)
+  //  3. LOCAL    — the city parsed from the tenant's business address
+  //  4. fallback — the neutral default
   const areas: string[] = Array.isArray(selena?.['service_areas'])
     ? (selena!['service_areas'] as unknown[]).filter((a): a is string => typeof a === 'string')
     : []
   const isNational = areas.some((a) => /united states|nationwide|\bnational\b|\bu\.?s\.?a?\b/i.test(a))
+  const addressCity = cityFromAddress(str(tenant, 'address'))
   const geo: SiteConfig['geo'] = isNational
     ? { region: 'US', placename: 'the United States', lat: 39.8283, lng: -98.5795 }
     : areas.length > 0
       ? { ...defaultConfig.geo, placename: areas[0] }
-      : defaultConfig.geo
+      : addressCity
+        ? { ...defaultConfig.geo, placename: addressCity }
+        : defaultConfig.geo
 
   const industry = str(tenant, 'industry') ?? defaultConfig.industry
   const isCleaningTenant = industryProfile(industry).isCleaning
