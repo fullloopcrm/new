@@ -29,6 +29,7 @@ const navMain: Section[] = [
 ]
 
 const navPlatform = [
+  { label: 'Tenant Health', href: '/admin/tenant-health' },
   { label: 'Feedback', href: '/admin/feedback' },
   { label: 'System Status', href: '/admin/status' },
   { label: 'Activity Log', href: '/admin/activity' },
