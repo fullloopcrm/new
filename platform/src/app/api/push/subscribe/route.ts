@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getCurrentTenant } from '@/lib/tenant'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 
 export async function POST(request: Request) {
   try {
@@ -22,6 +23,15 @@ export async function POST(request: Request) {
     }
     if (effectiveRole === 'client' && !client_id) {
       return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
+    }
+
+    // A subscription may only be tagged with this tenant's own member/client.
+    const foreign = await findForeignRef(tenant.id, [
+      { table: 'team_members', ids: [effectiveRole === 'team_member' ? team_member_id : null] },
+      { table: 'clients', ids: [effectiveRole === 'client' ? client_id : null] },
+    ])
+    if (foreign) {
+      return NextResponse.json({ error: 'Unknown subscriber for this account' }, { status: 400 })
     }
 
     // Check if this endpoint already exists
