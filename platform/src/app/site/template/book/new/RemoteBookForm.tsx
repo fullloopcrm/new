@@ -9,6 +9,7 @@
  */
 import { useState } from 'react'
 import type { ServiceOption } from '../../_config/types'
+import SmsConsent from '../../_components/SmsConsent'
 
 const CADENCE: { value: string; label: string }[] = [
   { value: '', label: 'One-time' },
@@ -18,8 +19,9 @@ const CADENCE: { value: string; label: string }[] = [
 ]
 const ZONES = ['Eastern (ET)', 'Central (CT)', 'Mountain (MT)', 'Pacific (PT)', 'Other']
 
-export default function RemoteBookForm({ services }: { services: ServiceOption[] }) {
+export default function RemoteBookForm({ services, businessName }: { services: ServiceOption[]; businessName: string }) {
   const active = services.filter(s => !s.emergency)
+  const [smsConsent, setSmsConsent] = useState(false)
   const [form, setForm] = useState({
     service_type: active[0]?.value ?? '',
     hours: '10',
@@ -44,11 +46,13 @@ export default function RemoteBookForm({ services }: { services: ServiceOption[]
     if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) { setError('Please add your name, email, and phone.'); return }
     if (!form.service_type) { setError('Please choose a service.'); return }
     if (!form.date) { setError('Please choose a start date.'); return }
+    if (!smsConsent) { setError('Please agree to be contacted so we can follow up.'); return }
     const cadenceLabel = CADENCE.find(c => c.value === form.cadence)?.label ?? 'One-time'
     const notes = [
       `Plan: ${form.hours} hrs / ${cadenceLabel.toLowerCase()}`,
       `Timezone: ${form.timezone}`,
       form.scope.trim() ? `Scope: ${form.scope.trim()}` : '',
+      smsConsent ? `✅ SMS consent granted (TCPA) at ${new Date().toISOString()}` : '',
     ].filter(Boolean).join(' — ')
 
     setSubmitting(true)
@@ -65,6 +69,7 @@ export default function RemoteBookForm({ services }: { services: ServiceOption[]
           estimated_hours: Number(form.hours) || 10,
           recurring_type: form.cadence || undefined,
           notes,
+          smsConsent,
           src: 'remote-book',
         }),
       })
@@ -139,6 +144,8 @@ export default function RemoteBookForm({ services }: { services: ServiceOption[]
         <div><label className={label}>Phone</label><input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} className={input} required /></div>
       </div>
       <div><label className={label}>Email</label><input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={input} required /></div>
+
+      <SmsConsent businessName={businessName} checked={smsConsent} onChange={setSmsConsent} />
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button type="submit" disabled={submitting} className="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-lg py-3 text-sm font-semibold disabled:opacity-50">

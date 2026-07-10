@@ -42,6 +42,8 @@ interface ContactBody {
   urgency?: string
   // self-book online (eligible for online-booking discount)
   selfBook?: boolean
+  // TCPA: customer affirmatively opted in to receive text messages at submit
+  smsConsent?: boolean
   // job-application
   position?: string
   experience?: string
@@ -79,8 +81,13 @@ function customerConfirmationHtml(opts: {
   heading: string
   intro: string
   discountCents?: number
+  businessAddress?: string | null
 }): string {
   const color = opts.primaryColor || '#111111'
+  // CAN-SPAM: include the sender's valid physical postal address when known.
+  const addressBlock = opts.businessAddress
+    ? `<p style="font-size:12px;color:#999;margin:12px 0 0">${opts.tenantName} · ${opts.businessAddress}</p>`
+    : ''
   const discountBlock = opts.discountCents
     ? `<p style="margin:16px 0;padding:12px 16px;background:#f4faf6;border-radius:8px;font-size:15px">
          You booked online, so <strong>$${Math.round(opts.discountCents / 100)} off your service</strong> will be applied to your appointment.
@@ -91,11 +98,13 @@ function customerConfirmationHtml(opts: {
     <p style="font-size:15px;line-height:1.5;margin:0 0 12px">${opts.intro}</p>
     ${discountBlock}
     <p style="font-size:14px;color:#555;margin:16px 0 0">— The ${opts.tenantName} team</p>
+    ${addressBlock}
   </div>`
 }
 
 function buildLeadNotes(form: string, body: ContactBody, discountCents: number): string {
   const lines: string[] = [`[${form}]`]
+  if (body.smsConsent) lines.push(`✅ SMS consent granted (TCPA) at ${new Date().toISOString()}`)
   if (body.selfBook) lines.push(`💲 SELF-BOOK ONLINE — apply $${Math.round(discountCents / 100)} off the service`)
   if (body.pestType) lines.push(`Pest: ${body.pestType}`)
   if (body.propertyType) lines.push(`Property: ${body.propertyType}`)
@@ -199,6 +208,7 @@ export async function POST(request: NextRequest) {
               primaryColor: tenant.primary_color,
               heading: `Thanks for applying, ${name.split(' ')[0]}!`,
               intro: `We received your application${body.position ? ` for ${body.position}` : ''} and our team will review it and follow up soon.`,
+              businessAddress: (tenant as { address?: string | null }).address ?? undefined,
             }),
           })
         } catch (custErr) {
@@ -398,6 +408,7 @@ export async function POST(request: NextRequest) {
             heading: `Thanks, ${name.split(' ')[0]}!`,
             intro: `We received your request and a team member will reach out shortly to confirm the details and your time.`,
             discountCents: body.selfBook ? discountCents : undefined,
+            businessAddress: (tenant as { address?: string | null }).address ?? undefined,
           }),
         })
       } catch (custErr) {

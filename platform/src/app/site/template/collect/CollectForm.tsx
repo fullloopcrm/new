@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { validateEmail } from '@/lib/validate-email'
 import { formatPhone } from '@/lib/format'
 import type { SiteConfig } from '../_config/types'
+import SmsConsent from '../_components/SmsConsent'
 
 /**
  * Basic trade-agnostic collect / contact form. Config-driven (services, theme,
@@ -31,6 +32,7 @@ export default function CollectForm({ config }: { config: SiteConfig }) {
     service: '',
     message: '',
   })
+  const [smsConsent, setSmsConsent] = useState(false)
   const [emailErr, setEmailErr] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -45,6 +47,7 @@ export default function CollectForm({ config }: { config: SiteConfig }) {
     setError('')
     if (!form.name.trim()) { setError('Please enter your name.'); return }
     if (form.phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number.'); return }
+    if (!smsConsent) { setError('Please agree to be contacted so we can follow up.'); return }
     if (form.email.trim()) {
       const emailCheck = validateEmail(form.email)
       if (!emailCheck.valid) { setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
@@ -68,6 +71,7 @@ export default function CollectForm({ config }: { config: SiteConfig }) {
           email: form.email.trim() || undefined,
           phone: form.phone.trim(),
           message: composedMessage,
+          smsConsent,
         }),
       })
       const data = await res.json().catch(() => null)
@@ -143,6 +147,8 @@ export default function CollectForm({ config }: { config: SiteConfig }) {
             <label className={labelCls}>Message</label>
             <textarea rows={3} placeholder="A few details about what you're looking for..." value={form.message} onChange={(e) => update('message', e.target.value)} className={`${inputCls} resize-none`} style={inputStyle} />
           </div>
+
+          <SmsConsent businessName={identity.legalName ?? identity.name} checked={smsConsent} onChange={setSmsConsent} />
 
           {error && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>}
 

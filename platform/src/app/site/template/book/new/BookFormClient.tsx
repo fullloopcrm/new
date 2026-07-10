@@ -27,7 +27,7 @@ function trackBookingEvent(action: string, sessionId: string, extra: Record<stri
 
 const TIME_SLOTS = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] as const
 
-function BookFormContent({ services }: { services: ServiceOption[] }) {
+function BookFormContent({ services, businessName }: { services: ServiceOption[]; businessName: string }) {
   // Vertical-specific options come from tenant config, not hardcoded here.
   const standardValue = services.find(s => !s.emergency)?.value ?? services[0]?.value ?? 'Standard Service'
   const emergencyValue = services.find(s => s.emergency)?.value ?? 'Same-Day Emergency'
@@ -309,7 +309,9 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
           hourly_rate: hourlyRate,
           estimated_hours: estimatedHours,
           max_hours: form.max_hours,
-          notes: form.notes.trim(),
+          // Confirming the booking agrees to the recap, which includes SMS
+          // consent — record it (TCPA) alongside any customer note.
+          notes: [form.notes.trim(), `✅ SMS consent granted (TCPA) at ${new Date().toISOString()}`].filter(Boolean).join('\n'),
           ref_code: refCode || null,
           src: srcDomain || null,
           referrer_name: form.referrer_name.trim() || null,
@@ -761,6 +763,7 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
               <li><strong>No-cancellation policy on this first booking</strong> — first-time bookings can&apos;t be cancelled or rescheduled</li>
               <li><strong>Recurring service</strong> (weekly / biweekly / monthly) requires <strong>7 days notice</strong> to reschedule or cancel</li>
               <li>Payment due 30 min before completion via our secure payment link (Apple Pay, card, or Cash App)</li>
+              <li>Receiving text messages from {businessName} at the number you provided about this booking — confirmations, arrival updates, reminders, and support, including messages sent by automated means. Consent is not a condition of purchase. Msg &amp; data rates may apply; msg frequency may vary. Reply STOP to opt out, HELP for help.</li>
             </ul>
           </div>
 
@@ -792,10 +795,10 @@ function BookFormContent({ services }: { services: ServiceOption[] }) {
   )
 }
 
-export default function BookFormClient({ services }: { services: ServiceOption[] }) {
+export default function BookFormClient({ services, businessName }: { services: ServiceOption[]; businessName: string }) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-[var(--brand)] flex items-center justify-center text-white">Loading…</div>}>
-      <BookFormContent services={services} />
+      <BookFormContent services={services} businessName={businessName} />
     </Suspense>
   )
 }

@@ -1,4 +1,3 @@
-import Script from 'next/script'
 import { Bebas_Neue, Inter } from 'next/font/google'
 
 const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' })
@@ -6,6 +5,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 import MarketingNav from '@/app/site/template/_components/MarketingNav'
 import MarketingFooter from '@/app/site/template/_components/MarketingFooter'
+import ConsentBanner from '@/app/site/template/_components/ConsentBanner'
+import AnalyticsGate from '@/app/site/template/_components/AnalyticsGate'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { buildThemeCss } from '@/app/site/template/_config/theme'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
@@ -60,7 +61,8 @@ export default async function MarketingLayout({ children }: { children: React.Re
       <MarketingNav config={config} />
       <main id="main-content">{children}</main>
       <MarketingFooter config={config} />
-      <Script id="site-analytics" src="/t.js" strategy="afterInteractive" />
+      <AnalyticsGate />
+      <ConsentBanner privacyHref="/privacy-policy" />
     </div>
   )
 }

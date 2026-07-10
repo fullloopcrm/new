@@ -183,6 +183,7 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
             <Link href="/refund-policy" className="hover:text-gray-300 transition-colors">Refunds</Link>
             <Link href="/legal" className="hover:text-gray-300 transition-colors">Legal</Link>
             <Link href="/do-not-share-policy" className="hover:text-gray-300 transition-colors">Do Not Share</Link>
+            <a href="#do-not-sell" className="hover:text-gray-300 transition-colors">Do Not Sell or Share My Info</a>
           </div>
           <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} {config.identity.name} &middot; Sales: <a href={`sms:${config.contact.phoneDigits}`} className="text-[rgb(var(--accent-rgb)/0.7)] hover:text-[var(--accent)]">{config.contact.phone}</a>{config.contact.supportPhone && (<> &middot; Support: <a href={`sms:${config.contact.supportPhoneDigits}`} className="text-[rgb(var(--accent-rgb)/0.7)] hover:text-[var(--accent)]">{config.contact.supportPhone}</a></>)}</p>
         </div>

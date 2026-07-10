@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import type { SiteConfig } from '@/app/site/template/_config/types'
+import SmsConsent from '@/app/site/template/_components/SmsConsent'
 
 /**
  * VA lead-capture form. Posts to the tenant-aware /api/contact endpoint (tenant
@@ -38,6 +39,7 @@ export default function VaLeadForm({ config }: { config: SiteConfig }) {
     }
 
     const business = (data.get('business') as string)?.trim()
+    const smsConsent = (data.get('sms_consent') as string) === 'yes'
     const hours = (data.get('hours') as string) || ''
     const needs = (data.get('needs') as string)?.trim()
     const message = [
@@ -61,6 +63,7 @@ export default function VaLeadForm({ config }: { config: SiteConfig }) {
           email,
           phone,
           message,
+          smsConsent,
         }),
       })
       if (!res.ok) {
@@ -117,6 +120,8 @@ export default function VaLeadForm({ config }: { config: SiteConfig }) {
         ))}
       </select>
       <textarea name="needs" rows={4} placeholder="What do you need help with? (calls, admin, CRM, support…)" className={inputCls} />
+
+      <SmsConsent businessName={config.identity.legalName ?? config.identity.name} required={false} />
 
       {status === 'error' && <p className="text-red-600 text-sm">{error}</p>}
 

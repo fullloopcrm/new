@@ -40,10 +40,12 @@ export async function POST(
       )
     }
 
-    // Get recipients (all active clients with opt-in)
+    // Get recipients (active clients). Per-channel marketing opt-outs are
+    // enforced below so a client who opted out of SMS/email marketing is never
+    // sent a campaign on that channel (CAN-SPAM / TCPA).
     const { data: clients } = await supabaseAdmin
       .from('clients')
-      .select('id, name, email, phone')
+      .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
@@ -80,11 +82,15 @@ export async function POST(
       // Tenant rule: auto_unsubscribe appends a reply-STOP / unsubscribe
       // footer to every outbound email body so each send is one-click
       // opt-out-able. Default true; off only if the tenant explicitly disabled.
+      // CAN-SPAM also requires the sender's physical postal address — appended
+      // whenever it's on file, independent of the unsubscribe toggle.
+      const tenantAddress = (tenant as { address?: string | null }).address
+      const addressLine = tenantAddress ? `<br>${tenant.name} · ${tenantAddress}` : ''
       const emailBody = settings.campaign_auto_unsubscribe
-        ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${tenant.name} client. <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/unsubscribe?email=${encodeURIComponent(client.email || '')}">Unsubscribe</a></p>`
-        : personalizedBody
+        ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${tenant.name} client. <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/unsubscribe?email=${encodeURIComponent(client.email || '')}">Unsubscribe</a>${addressLine}</p>`
+        : (tenantAddress ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">${tenant.name} · ${tenantAddress}</p>` : personalizedBody)
 
-      if (sendEmails && client.email) {
+      if (sendEmails && client.email && !client.email_marketing_opt_out) {
         try {
           await sendEmail({
             to: client.email,
@@ -99,7 +105,7 @@ export async function POST(
         }
       }
 
-      if (sendSMSMessages && client.phone) {
+      if (sendSMSMessages && client.phone && !client.sms_marketing_opt_out) {
         try {
           await sendSMS({
             to: client.phone,

@@ -11,7 +11,7 @@ export default async function BookNewPage() {
   // Remote / retainer verticals (e.g. virtual assistant) get the plan intake —
   // no service address, no single appointment.
   if (profile.isRemote) {
-    return <RemoteBookForm services={config.services} />
+    return <RemoteBookForm services={config.services} businessName={config.identity.legalName ?? config.identity.name} />
   }
 
   // /book/new is the CLEANING-specific funnel (per-hour, "cleaners", 30-min
@@ -23,5 +23,5 @@ export default async function BookNewPage() {
     redirect('/book/standard')
   }
 
-  return <BookFormClient services={config.services} />
+  return <BookFormClient services={config.services} businessName={config.identity.legalName ?? config.identity.name} />
 }
