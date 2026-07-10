@@ -369,7 +369,7 @@ export function getNextStep(cl: BookingChecklist, isReturning: boolean): NextSte
   // For returning clients, skip fields we already have
   if (!cl.service_type) return { field: 'service_type', instruction: 'Ask what type of cleaning they need. Use numbered options on SMS.' }
   if (cl.bedrooms === null || cl.bathrooms === null) return { field: 'bedrooms', instruction: 'Ask how many bedrooms and bathrooms.' }
-  if (!cl.rate) return { field: 'rate', instruction: 'Give time estimate RANGE for their size, then pricing: $79/hr (we supply everything) or $59/hr (client provides supplies). $99/hr for same-day. Do NOT mention recurring discount — that only applies after their first visit. Use numbered options on SMS.' }
+  if (!cl.rate) return { field: 'rate', instruction: 'Give time estimate RANGE for their size, then pricing: $69/hr (we supply everything) or $59/hr (client provides supplies). $89/hr for same-day. Do NOT mention recurring discount — that only applies after their first visit. Use numbered options on SMS.' }
   if (!cl.day) return { field: 'day', instruction: 'Ask what day works best. Our default slots are 8am, 12pm, and 4pm but we adjust as needed.' }
   if (!cl.time) return { field: 'time', instruction: 'Ask what time works. Our default slots are 8am, 12pm, and 4pm but we can adjust.' }
 
@@ -422,7 +422,7 @@ export function getQuickReplies(cl: BookingChecklist, next: NextStep): string[] 
   switch (next.field) {
     case 'service_type': return ['Regular cleaning', 'Deep cleaning', 'Move-in/move-out', 'Airbnb turnover']
     case 'bedrooms': return ['1 bed 1 bath', '2 bed 1 bath', '2 bed 2 bath', '3 bed 2 bath']
-    case 'rate': return ['$79 — you bring everything', '$59 — I have supplies']
+    case 'rate': return ['$69 — you bring everything', '$59 — I have supplies']
     case 'day': return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     case 'time': return ['8am', '10am', '12pm', '2pm', '4pm']
     default: return []
@@ -479,10 +479,10 @@ const SERVICE_TYPE_MAP: Record<string, BookingChecklist['service_type']> = {
   'limpieza': 'regular', 'limpieza regular': 'regular', 'normal': 'regular', 'estandar': 'regular', 'estándar': 'regular',
 }
 
-const RATE_MAP: Record<string, 59 | 79 | 99> = {
+const RATE_MAP: Record<string, 59 | 69 | 89> = {
   '1': 59, '59': 59, '$59': 59,
-  '2': 79, '79': 79, '$79': 79,
-  '3': 99, '99': 99, '$99': 99,
+  '2': 69, '69': 69, '$69': 69,
+  '3': 89, '89': 89, '$89': 89,
 }
 
 const DAY_MAP: Record<string, string> = {
@@ -674,7 +674,7 @@ export async function extractAndSave(
       }
     }
     if (!extracted.rate) {
-      if (/you bring|you provide|bring everything|full service/i.test(lower)) extracted.rate = 79
+      if (/you bring|you provide|bring everything|full service/i.test(lower)) extracted.rate = 69
       if (/i have supplies|my supplies|i provide|client supplies/i.test(lower)) extracted.rate = 59
     }
   }
@@ -858,7 +858,7 @@ const YINEZ_PERSONALITY = `You are Yinez from The NYC Maid. You ARE the business
 Short messages (under 300 chars, max 480). One question per message. 😊 only emoji, once max.
 BANNED PHRASES — never say these: "certainly" "absolutely" "of course" "great question" "happy to help" "I'd love to help" "I'd be happy"
 Say "she" for the cleaner. Plain text, no markdown. Spanish detected = respond in Spanish. Spanglish = respond in whatever they use.
-NEVER invent prices or totals. Only quote hourly rates: $79/hr (WE bring supplies) or $59/hr (CLIENT provides their own supplies). $99/hr same-day. NEVER confuse which is which.
+NEVER invent prices or totals. Only quote hourly rates: $69/hr (WE bring supplies) or $59/hr (CLIENT provides their own supplies). $89/hr same-day. NEVER confuse which is which.
 All bookings are ONE-TIME. Never ask about recurring frequency. Never mention discounts.
 When ALL booking fields are collected, you MUST do the recap and then call create_booking tool after client confirms. The booking is NOT created until you call the tool.`
 
@@ -879,9 +879,9 @@ function buildStepPrompt(intent: Intent, cl: BookingChecklist, next: NextStep, i
     feedback_positive: 'Thank them genuinely. Invite review at thenycmaid.com/reviews/submit. Use remember to save what they said.',
     feedback_negative: 'Acknowledge. Apologize sincerely. Use report_issue tool. Do NOT be defensive.',
     referral: 'Thank them. Ask for the friend\'s name/number. Use remember to log the referral.',
-    question: 'Answer their question directly. Pricing: $79/hr (we supply everything) | $59/hr (client provides supplies) | $99/hr same-day. Recurring discounts (only mention if asked): $79 tier saves 20% weekly / 10% biweekly+monthly; $59 tier saves 10% weekly / 5% biweekly+monthly. Areas: Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Nassau and western Suffolk), Westchester County, and Northern New Jersey (Hudson and close-in Bergen). Insurance: yes, fully insured up to $1 million. Cancellation: first-time bookings cannot be cancelled or rescheduled — we hold spots and turn away other clients. Phone: (212) 202-8400. After answering, do NOT push booking — let them decide.',
+    question: 'Answer their question directly. Pricing: $69/hr (we supply everything) | $59/hr (client provides supplies) | $89/hr same-day. Recurring discounts (only mention if asked): $69 tier saves 20% weekly / 10% biweekly+monthly; $59 tier saves 10% weekly / 5% biweekly+monthly. Areas: Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Nassau and western Suffolk), Westchester County, and Northern New Jersey (Hudson and close-in Bergen). Insurance: yes, fully insured up to $1 million. Cancellation: first-time bookings cannot be cancelled or rescheduled — we hold spots and turn away other clients. Phone: (212) 202-8400. After answering, do NOT push booking — let them decide.',
     rebook: 'Use lookup_bookings to find their last booking. Offer to rebook same setup. Check availability.',
-    emergency: 'Same-day cleaning at $99/hr. Check today\'s availability immediately.',
+    emergency: 'Same-day cleaning at $89/hr. Check today\'s availability immediately.',
   }
 
   if (intent !== 'booking' && intentPrompts[intent]) {
@@ -915,7 +915,7 @@ function buildStepPrompt(intent: Intent, cl: BookingChecklist, next: NextStep, i
     case 'bedrooms':
       return `${summary} Ask how many bedrooms and bathrooms.`
     case 'rate':
-      return `${summary}${est ? ` That typically runs ${est}.` : ''} Present TWO options clearly: 1) $79/hr — WE bring all cleaning supplies and equipment 2) $59/hr — THEY provide their own cleaning supplies and equipment. Also $99/hr for same-day emergency. NEVER mix up which is which. $79 = we supply, $59 = they supply. No discounts on first booking.`
+      return `${summary}${est ? ` That typically runs ${est}.` : ''} Present TWO options clearly: 1) $69/hr — WE bring all cleaning supplies and equipment 2) $59/hr — THEY provide their own cleaning supplies and equipment. Also $89/hr for same-day emergency. NEVER mix up which is which. $69 = we supply, $59 = they supply. No discounts on first booking.`
     case 'day':
       return `${summary} Ask what day works best.`
     case 'time':
@@ -1197,7 +1197,7 @@ async function handleGetQuote(input: Record<string, unknown>): Promise<string> {
   return JSON.stringify({
     service_type: serviceType, bedrooms, bathrooms,
     estimated_hours: hours,
-    rates: { client_supplies: '$59/hr', full_service: '$79/hr', emergency: '$99/hr', recurring_full_service: '$79/hr → 20% off weekly, 10% off biweekly/monthly (after first visit)', recurring_client_supplies: '$59/hr → 10% off weekly, 5% off biweekly/monthly (after first visit)' },
+    rates: { client_supplies: '$59/hr', full_service: '$69/hr', emergency: '$89/hr', recurring_full_service: '$69/hr → 20% off weekly, 10% off biweekly/monthly (after first visit)', recurring_client_supplies: '$59/hr → 10% off weekly, 5% off biweekly/monthly (after first visit)' },
     message: `${bedrooms}BR/${bathrooms}BA ${serviceType} typically runs ${hours} hours.`,
   })
 }
@@ -1680,7 +1680,7 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
     }
 
     const hours = booking.actual_hours || calculatedHours || null
-    const rate = booking.hourly_rate || 79
+    const rate = booking.hourly_rate || 69
     const total = hours ? Math.round(hours * rate) : null
 
     // Parse check-in location
@@ -1996,7 +1996,7 @@ export function generateNonBookingResponse(intent: Intent, message: string, cl: 
     }
     // Rate confusion — "I thought it was $X/hr" — this is a pricing mixup, not a time dispute
     if (/\bthought (?:it|the rate|the price|it was|the charge) (?:was|is) \$?\d+/i.test(lower)) {
-      return "Our rates are $79/hr (we bring supplies), $59/hr (you provide supplies), or $99/hr same-day. Our manager can pull your invoice and clarify — call (212) 202-8400."
+      return "Our rates are $69/hr (we bring supplies), $59/hr (you provide supplies), or $89/hr same-day. Our manager can pull your invoice and clarify — call (212) 202-8400."
     }
     // Hour/time gaslight — emphasize GPS records
     if (/\b(?:only (?:here|there) (?:for )?\d+ (?:hours?|hrs?)|(?:\d+|one|two|three|four) (?:hours?|hrs?) (?:late|early)|clock (?:started|was) early|started (?:the )?clock early|only did half|half the job|didn'?t finish|left early)\b/i.test(lower)) {
@@ -2059,7 +2059,7 @@ export function generateNonBookingResponse(intent: Intent, message: string, cl: 
       return "Got it — update anytime at thenycmaid.com/portal, or text the new info to (212) 202-8400 and we'll update it for you 😊"
     }
     if (/\bswitch (?:from |to )?\$?\d+/i.test(lower)) {
-      return "No problem — we can switch your rate ($79 we bring everything / $59 you provide supplies). Call (212) 202-8400 and we'll update your account."
+      return "No problem — we can switch your rate ($69 we bring everything / $59 you provide supplies). Call (212) 202-8400 and we'll update your account."
     }
     return 'Happy to help — text or call (212) 202-8400 and we\'ll sort it out 😊'
   }
@@ -2067,7 +2067,7 @@ export function generateNonBookingResponse(intent: Intent, message: string, cl: 
     return "Thank you so much for the referral! Send us their name and number when you can and we'll take great care of them 😊"
   }
   if (intent === 'emergency') {
-    return 'Same-day cleaning is $99/hr. Text or call (212) 202-8400 right now and we can check today\'s availability 😊'
+    return 'Same-day cleaning is $89/hr. Text or call (212) 202-8400 right now and we can check today\'s availability 😊'
   }
 
   // PAYMENT_QUESTION — invoice, receipt, tip, balance
@@ -2090,7 +2090,7 @@ export function generateNonBookingResponse(intent: Intent, message: string, cl: 
   // QUESTION — common FAQs
   if (intent === 'question') {
     if (/\b(how much|price|rate|cost|charge|hourly|per hour|quote|estimate)/i.test(lower)) {
-      return 'Our rates:\n\n$79/hr — we bring all supplies & equipment (recurring: 20% off weekly, 10% off biweekly/monthly)\n$59/hr — you provide your own supplies (recurring: 10% off weekly, 5% off biweekly/monthly)\n$99/hr — same-day emergency\n\nRecurring discounts kick in after first visit. We bill in 30-min increments. What works for you?'
+      return 'Our rates:\n\n$69/hr — we bring all supplies & equipment (recurring: 20% off weekly, 10% off biweekly/monthly)\n$59/hr — you provide your own supplies (recurring: 10% off weekly, 5% off biweekly/monthly)\n$89/hr — same-day emergency\n\nRecurring discounts kick in after first visit. We bill in 30-min increments. What works for you?'
     }
     if (/\b(insur|million|liability|bonded)/i.test(lower)) {
       return 'Yes, we are fully insured up to $1 million 😊'
@@ -2103,7 +2103,7 @@ export function generateNonBookingResponse(intent: Intent, message: string, cl: 
       return 'We cover Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Nassau and western Suffolk), Westchester County, and Northern New Jersey (Hudson plus close-in Bergen).'
     }
     if (/\b(supplies|product|equipment|vacuum|bring)/i.test(lower)) {
-      return 'On the $79/hr plan we bring everything — supplies, equipment, vacuum, mop, all of it 😊'
+      return 'On the $69/hr plan we bring everything — supplies, equipment, vacuum, mop, all of it 😊'
     }
     if (/\b(cancel|cancellation|reschedule)/i.test(lower)) {
       return 'First-time bookings cannot be cancelled or rescheduled — we hold your spot and turn away other clients. For recurring clients we ask for 7 days notice.'
@@ -2118,7 +2118,7 @@ export function generateNonBookingResponse(intent: Intent, message: string, cl: 
       return 'We accept Zelle (hi@thenycmaid.com), Venmo (@thenycmaid), CashApp, and credit/debit card. Payment is collected 30 minutes before the cleaner finishes.'
     }
     if (/\b(today|same day|asap|now|emergency|urgent)/i.test(lower)) {
-      return 'Same-day cleaning is $99/hr. Want me to check today\'s availability?'
+      return 'Same-day cleaning is $89/hr. Want me to check today\'s availability?'
     }
     if (/\b(?:automated|ai\b|robot|real person|human|bot)\b/i.test(lower) && !/\bairbnb/i.test(lower)) {
       return "I'm Yinez, your booking assistant — text or call (212) 202-8400 anytime to reach a person 😊"
@@ -2146,14 +2146,14 @@ export function generateNonBookingResponse(intent: Intent, message: string, cl: 
     }
     // Airbnb / short-term turnover
     if (/\b(airbnb|air bnb|short.?term|turnover|rental)/i.test(lower)) {
-      return 'Yes — we do airbnb turnovers regularly. Same hourly rates ($79/hr with supplies, $59/hr without). Want to book?'
+      return 'Yes — we do airbnb turnovers regularly. Same hourly rates ($69/hr with supplies, $59/hr without). Want to book?'
     }
     // Recurring questions (NOT pricing for first-time booking)
     if (/\b(recurring|weekly|bi.?weekly|monthly|every (?:week|two weeks|month))\b/i.test(lower)) {
       if (/\b(discount|first (?:time|clean|visit|booking)|first)\b/i.test(lower)) {
-        return 'Recurring discounts kick in after your first visit and depend on your rate tier. $79/hr (we supply): 20% off weekly, 10% off biweekly/monthly. $59/hr (you supply): 10% off weekly, 5% off biweekly/monthly. First booking is at standard rates.'
+        return 'Recurring discounts kick in after your first visit and depend on your rate tier. $69/hr (we supply): 20% off weekly, 10% off biweekly/monthly. $59/hr (you supply): 10% off weekly, 5% off biweekly/monthly. First booking is at standard rates.'
       }
-      return 'Yes — we offer weekly, biweekly, and monthly recurring service. After your first visit, $79 tier saves 20% weekly or 10% biweekly/monthly; $59 tier saves 10% weekly or 5% biweekly/monthly. Want to start with your first booking?'
+      return 'Yes — we offer weekly, biweekly, and monthly recurring service. After your first visit, $69 tier saves 20% weekly or 10% biweekly/monthly; $59 tier saves 10% weekly or 5% biweekly/monthly. Want to start with your first booking?'
     }
     return null  // Let Claude handle if available; falls through to error if not
   }
@@ -2236,12 +2236,12 @@ export function generateBookingResponse(cl: BookingChecklist, next: NextStep, ex
     case 'rate': {
       // Just extracted bedrooms/bathrooms → give estimate + pricing
       const est = sizeEstimates[`${cl.service_type}-${cl.bedrooms}-${cl.bathrooms}`] ?? 3
-      return `${cl.bedrooms}BR/${cl.bathrooms}BA — that typically runs ${est} hours.\n\n$79/hr — we bring all supplies\n$59/hr — you provide your own supplies\n\nWhich works for you?`
+      return `${cl.bedrooms}BR/${cl.bathrooms}BA — that typically runs ${est} hours.\n\n$69/hr — we bring all supplies\n$59/hr — you provide your own supplies\n\nWhich works for you?`
     }
 
     case 'day':
       // Just extracted rate → ask day
-      return `$${cl.rate}/hr${(cl.rate === 79 || cl.rate === 75) ? ', we bring everything' : ', you provide supplies'}. What day works best?`
+      return `$${cl.rate}/hr${(cl.rate === 69 || cl.rate === 79 || cl.rate === 75) ? ', we bring everything' : ', you provide supplies'}. What day works best?`
 
     case 'time':
       // Just extracted day → ask time
