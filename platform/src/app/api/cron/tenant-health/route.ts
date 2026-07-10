@@ -18,9 +18,10 @@ export const maxDuration = 120
  * instead of by eye. Manual run: GET with `Authorization: Bearer $CRON_SECRET`.
  */
 
-// Tenants intentionally served by the shared template (expect /site/template).
-// Empty today — every live tenant is bespoke. Add slugs here as they migrate.
-const TEMPLATE_TENANTS = new Set<string>([])
+// Tenants intentionally served by the shared template (expect /site/template),
+// i.e. tenants with a live domain but no bespoke /site/<slug> folder. Add slugs
+// here as tenants migrate onto the template.
+const TEMPLATE_TENANTS = new Set<string>(['the-va-virtual-assistant'])
 
 // Slugs that are the platform itself, not a customer site — never health-checked.
 const SKIP_SLUGS = new Set<string>(['full-loop-crm'])
@@ -46,28 +47,40 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Active custom domains, one (preferred) per tenant.
-  const { data: rows, error } = await supabaseAdmin
+  // A tenant's live domain can be in EITHER `tenants.domain` OR `tenant_domains`.
+  // The resolver checks `tenants.domain` first, so it wins here too. Union both
+  // so no tenant is missed (this is the bug the first live run exposed).
+  const byTenant = new Map<string, { slug: string; domain: string; primary: boolean }>()
+
+  // Source 1 (authoritative): tenants.domain
+  const { data: tenantRows, error: tErr } = await supabaseAdmin
+    .from('tenants')
+    .select('id, slug, domain, status')
+    .not('domain', 'is', null)
+    .in('status', ['active', 'live', 'setup'])
+  if (tErr) {
+    await alertOwner('Fortress cron DB error', tErr.message).catch(() => {})
+    return NextResponse.json({ error: tErr.message }, { status: 500 })
+  }
+  const slugById = new Map<string, string>()
+  for (const t of tenantRows ?? []) {
+    slugById.set(t.id, t.slug)
+    if (SKIP_SLUGS.has(t.slug) || !t.domain) continue
+    byTenant.set(t.id, { slug: t.slug, domain: t.domain, primary: true })
+  }
+
+  // Source 2 (fallback): active tenant_domains, only for tenants not covered above
+  const { data: tdRows } = await supabaseAdmin
     .from('tenant_domains')
     .select('tenant_id, domain, is_primary')
     .eq('active', true)
-
-  if (error) {
-    await alertOwner('Fortress cron DB error', error.message).catch(() => {})
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  const missingIds = [...new Set((tdRows ?? []).map((r) => r.tenant_id).filter((id) => id && !byTenant.has(id)))]
+  if (missingIds.length) {
+    const { data: extra } = await supabaseAdmin.from('tenants').select('id, slug').in('id', missingIds)
+    for (const t of extra ?? []) slugById.set(t.id, t.slug)
   }
-
-  // Resolve tenant slugs.
-  const tenantIds = [...new Set((rows ?? []).map((r) => r.tenant_id).filter(Boolean))]
-  const { data: tenantRows } = await supabaseAdmin
-    .from('tenants')
-    .select('id, slug')
-    .in('id', tenantIds)
-  const slugById = new Map<string, string>((tenantRows ?? []).map((t) => [t.id, t.slug]))
-
-  // Reduce to one domain per tenant (prefer is_primary), skip platform slugs.
-  const byTenant = new Map<string, { slug: string; domain: string; primary: boolean }>()
-  for (const r of rows ?? []) {
+  for (const r of tdRows ?? []) {
+    if (byTenant.has(r.tenant_id)) continue // tenants.domain already won
     const slug = slugById.get(r.tenant_id)
     if (!slug || SKIP_SLUGS.has(slug)) continue
     const cur = byTenant.get(r.tenant_id)
