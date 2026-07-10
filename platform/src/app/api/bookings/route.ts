@@ -84,6 +84,7 @@ export async function POST(request: Request) {
 
     const { data: fields, error: vError } = validate(body, {
       client_id: { type: 'uuid', required: true },
+      property_id: { type: 'uuid' },
       team_member_id: { type: 'uuid' },
       service_type_id: { type: 'uuid' },
       start_time: { type: 'date', required: true },
@@ -209,12 +210,16 @@ export async function POST(request: Request) {
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .insert({ ...validated, tenant_id: tenantId, status: newStatus })
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone)')
+      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
       .single()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Render this booking under its property's address (multi-address clients),
+    // falling back to the client's legacy address when no property is set.
+    applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])
 
     await audit({ tenantId, action: 'booking.created', entityType: 'booking', entityId: data.id, details: { service: validated.service_type_id } })
 

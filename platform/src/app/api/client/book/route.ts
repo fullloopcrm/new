@@ -12,6 +12,7 @@ import {
 import { bookingReceivedEmail } from '@/lib/messaging/client-email'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { autoAttributeBooking } from '@/lib/attribution'
+import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-properties'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -227,12 +228,24 @@ export async function POST(request: Request) {
       }
     }
 
+    // Resolve property (multi-address per client). Matches this booking's
+    // address to an existing property for the client, or creates a new one. A
+    // returning client booking a different address gets a NEW property — not a
+    // duplicate client row. Address used everywhere downstream = property ??
+    // client.address. Faithful port of the NYC Maid ind build.
+    let propertyId: string | null = null
+    if (clientId && body.address) {
+      const property = await resolveProperty(clientId, body.address as string, (body.unit as string) || null)
+      propertyId = property?.id || null
+    }
+
     // Create booking
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .insert({
         tenant_id: tenant.id,
         client_id: clientId,
+        property_id: propertyId,
         team_member_id: null,
         start_time: startTime,
         end_time: endTime,
@@ -250,9 +263,13 @@ export async function POST(request: Request) {
         referrer_id: referrerId,
         ref_code: (body.ref_code as string) || null,
       })
-      .select('*, clients(*)')
+      .select('*, clients(*), client_properties(*)')
       .single()
     if (error || !data) return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
+
+    // Render admin/client emails + SMS with this booking's property address
+    // (property ?? client.address) instead of the client's default address.
+    applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])
 
     // Smart team suggestion
     try {
