@@ -23,7 +23,6 @@ const navMain: Section[] = [
   { num: '02', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [
     { letter: 'a', label: 'Territories', href: '/admin/territories' },
   ] },
-  { num: '03', label: 'Inbox', href: '/admin/inbox', fold: 'inbox', subs: [] },
   { num: '04', label: 'Tenant Chats', href: '/admin/tenant-chats', fold: 'tenant-chats', subs: [] },
   { num: '05', label: 'ComHub', href: '/admin/comhub', fold: 'comhub', subs: [] },
   { num: '06', label: 'SEO', href: '/admin/seo', fold: 'seo', subs: [] },
