@@ -9,7 +9,8 @@ import {
 } from '@/app/site/template/_lib/seo/locations'
 import { SERVICES, getService } from '@/app/site/template/_lib/seo/services'
 import { neighborhoodServiceContent, neighborhoodFAQs, serviceFAQs, commonServiceFAQs } from '@/app/site/template/_lib/seo/content'
-import { neighborhoodServicePageSchemas, faqSchema } from '@/app/site/template/_lib/seo/schema'
+import { neighborhoodServicePageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
+import { getSiteConfig } from '@/app/site/template/_config/load'
 import { pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
 import Image from 'next/image'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -67,6 +68,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
   const neighborhood = getNeighborhoodByUrlSlug(slug)
   const service = getService(serviceSlug)
   if (!neighborhood || !service) notFound()
+  const biz = buildBusiness(await getSiteConfig())
 
   const area = getArea(neighborhood.area)!
   const content = neighborhoodServiceContent(neighborhood, service, area)
@@ -97,7 +99,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
 
   return (
     <>
-      <JsonLd data={[...neighborhoodServicePageSchemas(neighborhood, service, area), faqSchema(faqs)]} />
+      <JsonLd data={[...neighborhoodServicePageSchemas(biz, neighborhood, service, area), faqSchema(faqs)]} />
 
       {/* Hero — dark gradient with stat row at bottom */}
       <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] pt-14 md:pt-20 pb-0">

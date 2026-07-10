@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
 import { SERVICES } from '@/app/site/template/_lib/seo/services'
-import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema, areaItemListSchema } from '@/app/site/template/_lib/seo/schema'
+import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema, areaItemListSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
+import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
@@ -55,27 +56,29 @@ export const metadata: Metadata = {
 
 export default async function AreasIndexPage() {
   await requireCleaningTenant()
+  const biz = buildBusiness(await getSiteConfig())
+  const areasUrl = `${biz.url}/service-areas`
   return (
     <>
       <JsonLd data={[
-        organizationSchema(),
-        webSiteSchema(),
-        webPageSchema({
-          url: pageUrl,
+        organizationSchema(biz),
+        webSiteSchema(biz),
+        webPageSchema(biz, {
+          url: areasUrl,
           name: pageTitle,
           description: pageDescription,
           breadcrumb: [
-            { name: 'Home', url: 'https://www.example.com' },
-            { name: 'Service Areas', url: pageUrl },
+            { name: 'Home', url: biz.url },
+            { name: 'Service Areas', url: areasUrl },
           ],
         }),
-        localBusinessSchema(),
-        howToBookSchema(),
+        localBusinessSchema(biz),
+        howToBookSchema(biz),
         breadcrumbSchema([
-          { name: 'Home', url: 'https://www.example.com' },
-          { name: 'Service Areas', url: pageUrl },
+          { name: 'Home', url: biz.url },
+          { name: 'Service Areas', url: areasUrl },
         ]),
-        areaItemListSchema(),
+        areaItemListSchema(biz),
         faqSchema(areaFAQs),
       ]} />
 

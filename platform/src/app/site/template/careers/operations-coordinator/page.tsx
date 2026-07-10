@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { organizationSchema, webSiteSchema, webPageSchema, breadcrumbSchema, faqSchema } from '@/app/site/template/_lib/seo/schema'
+import { organizationSchema, webSiteSchema, webPageSchema, breadcrumbSchema, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
+import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 
@@ -256,28 +257,30 @@ const faqs = [
   },
 ]
 
-export default function OperationsCoordinatorPage() {
+export default async function OperationsCoordinatorPage() {
+  const biz = buildBusiness(await getSiteConfig())
+  const careerUrl = `${biz.url}/careers/operations-coordinator`
   return (
     <>
       <JsonLd data={[
-        organizationSchema(),
-        webSiteSchema(),
-        webPageSchema({
-          url: pageUrl,
+        organizationSchema(biz),
+        webSiteSchema(biz),
+        webPageSchema(biz, {
+          url: careerUrl,
           name: pageTitle,
           description: pageDescription,
           type: 'WebPage',
           speakable: ['h1', 'h2', '.hero-description'],
           breadcrumb: [
-            { name: 'Home', url: 'https://www.example.com' },
-            { name: 'Careers', url: 'https://www.example.com/careers' },
-            { name: 'Operations Admin', url: pageUrl },
+            { name: 'Home', url: biz.url },
+            { name: 'Careers', url: `${biz.url}/careers` },
+            { name: 'Operations Admin', url: careerUrl },
           ],
         }),
         breadcrumbSchema([
-          { name: 'Home', url: 'https://www.example.com' },
-          { name: 'Careers', url: 'https://www.example.com/careers' },
-          { name: 'Operations Admin', url: pageUrl },
+          { name: 'Home', url: biz.url },
+          { name: 'Careers', url: `${biz.url}/careers` },
+          { name: 'Operations Admin', url: careerUrl },
         ]),
         coordinatorJobPostingSchema(),
         faqSchema(faqs),

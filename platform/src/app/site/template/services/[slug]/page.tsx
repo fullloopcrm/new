@@ -6,7 +6,8 @@ import { SERVICES, getServiceByUrlSlug } from '@/app/site/template/_lib/seo/serv
 import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
 import { serviceContent, serviceFAQs, getServiceRichContent, commonServiceFAQs } from '@/app/site/template/_lib/seo/content'
-import { servicePageSchemas, faqSchema } from '@/app/site/template/_lib/seo/schema'
+import { servicePageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
+import { getSiteConfig } from '@/app/site/template/_config/load'
 import { pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
 import Image from 'next/image'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -76,6 +77,7 @@ export default async function ServicePage({ params }: Props) {
   const { slug } = await params
   const service = getServiceByUrlSlug(slug)
   if (!service) notFound()
+  const biz = buildBusiness(await getSiteConfig())
 
   const content = serviceContent(service)
   const baseFaqs = serviceFAQs(service)
@@ -91,7 +93,7 @@ export default async function ServicePage({ params }: Props) {
 
   return (
     <>
-      <JsonLd data={[...servicePageSchemas(service), faqSchema(faqs)]} />
+      <JsonLd data={[...servicePageSchemas(biz, service), faqSchema(faqs)]} />
 
       {/* Hero — split layout: left text, right pricing card */}
       <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-14 md:py-20">

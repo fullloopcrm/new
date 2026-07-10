@@ -3,7 +3,8 @@ import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
-import { breadcrumbSchema, localBusinessSchema } from '@/app/site/template/_lib/seo/schema'
+import { breadcrumbSchema, localBusinessSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
+import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
@@ -195,6 +196,7 @@ export const metadata: Metadata = {
 
 export default async function EmergencyCleaningPage() {
   await requireCleaningTenant()
+  const biz = buildBusiness(await getSiteConfig())
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -256,11 +258,11 @@ export default async function EmergencyCleaningPage() {
   return (
     <>
       <JsonLd data={[
-        localBusinessSchema(),
+        localBusinessSchema(biz),
         breadcrumbSchema([
-          { name: 'Home', url: 'https://www.example.com' },
-          { name: 'Services', url: 'https://www.example.com/services' },
-          { name: 'Emergency Cleaning', url: 'https://www.example.com/service/nyc-emergency-cleaning-service' },
+          { name: 'Home', url: biz.url },
+          { name: 'Services', url: `${biz.url}/services` },
+          { name: 'Emergency Cleaning', url: `${biz.url}/service/nyc-emergency-cleaning-service` },
         ]),
         faqSchema,
         serviceSchema,

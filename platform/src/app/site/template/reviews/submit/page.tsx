@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { localBusinessSchema, breadcrumbSchema } from '@/app/site/template/_lib/seo/schema'
+import { localBusinessSchema, breadcrumbSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
+import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import ReviewForm from './ReviewForm'
@@ -15,15 +16,16 @@ export const metadata: Metadata = {
   },
 }
 
-export default function ReviewSubmitPage() {
+export default async function ReviewSubmitPage() {
+  const biz = buildBusiness(await getSiteConfig())
   return (
     <>
       <JsonLd data={[
-        localBusinessSchema(),
+        localBusinessSchema(biz),
         breadcrumbSchema([
-          { name: 'Home', url: 'https://www.example.com' },
-          { name: 'Reviews', url: 'https://www.example.com/reviews' },
-          { name: 'Leave a Review', url: 'https://www.example.com/reviews/submit' },
+          { name: 'Home', url: biz.url },
+          { name: 'Reviews', url: `${biz.url}/reviews` },
+          { name: 'Leave a Review', url: `${biz.url}/reviews/submit` },
         ]),
       ]} />
 

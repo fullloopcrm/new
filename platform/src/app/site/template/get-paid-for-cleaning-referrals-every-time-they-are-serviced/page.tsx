@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
-import { breadcrumbSchema, localBusinessSchema, faqSchema } from '@/app/site/template/_lib/seo/schema'
+import { breadcrumbSchema, localBusinessSchema, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
@@ -43,7 +43,7 @@ export default async function ReferralPage() {
   return (
     <>
       <JsonLd data={[
-        localBusinessSchema(),
+        localBusinessSchema(buildBusiness(config)),
         breadcrumbSchema([
           { name: 'Home', url: origin },
           { name: 'Referral Program', url: `${origin}${PATH}` },

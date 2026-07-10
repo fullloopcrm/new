@@ -15,7 +15,7 @@ import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { areaContent, neighborhoodContent, neighborhoodFAQs, commonServiceFAQs, neighborhoodVibe, neighborhoodKnownFor, neighborhoodFunFacts } from '@/app/site/template/_lib/seo/content'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { toBrand } from '@/app/site/template/_lib/seo/brand'
-import { areaPageSchemas, neighborhoodPageSchemas, faqSchema } from '@/app/site/template/_lib/seo/schema'
+import { areaPageSchemas, neighborhoodPageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { pickLifestylePhoto } from '@/app/site/template/_lib/seo/photos'
 import Image from 'next/image'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -78,7 +78,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function SlugPage({ params }: Props) {
   await requireCleaningTenant()
   const { slug } = await params
-  const brand = toBrand(await getSiteConfig())
+  const config = await getSiteConfig()
+  const brand = toBrand(config)
+  const biz = buildBusiness(config)
 
   // ============ AREA PAGE ============
   const area = getAreaByUrlSlug(slug)
@@ -89,7 +91,7 @@ export default async function SlugPage({ params }: Props) {
 
     return (
       <>
-        <JsonLd data={areaPageSchemas(area)} />
+        <JsonLd data={areaPageSchemas(biz, area)} />
 
         {/* Hero */}
         <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-16 md:py-24">
@@ -277,7 +279,7 @@ export default async function SlugPage({ params }: Props) {
 
     return (
       <>
-        <JsonLd data={[...neighborhoodPageSchemas(neighborhood, neighborhoodArea), faqSchema(faqs)]} />
+        <JsonLd data={[...neighborhoodPageSchemas(biz, neighborhood, neighborhoodArea), faqSchema(faqs)]} />
 
         {/* Hero — centered, light background, neighborhood-focused */}
         <section className="bg-white border-b border-gray-100 pt-14 md:pt-20 pb-0">

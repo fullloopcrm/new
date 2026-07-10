@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { homepageContent } from '@/app/site/template/_lib/seo/content'
-import { homepageSchemas, faqSchema, videoReviewsSchemas } from '@/app/site/template/_lib/seo/schema'
+import { homepageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { pickLifestylePhoto } from '@/app/site/template/_lib/seo/photos'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import ServiceGrid from '@/app/site/template/_components/ServiceGrid'
@@ -144,7 +144,7 @@ export default async function HomePage() {
     return <GenericHome config={siteConfig} />
   }
 
-  const schemas = [...homepageSchemas(), faqSchema(homepageFAQs), ...videoReviewsSchemas()]
+  const schemas = [...homepageSchemas(buildBusiness(siteConfig)), faqSchema(homepageFAQs)]
   const homepagePhoto = pickLifestylePhoto('homepage')
 
   return (

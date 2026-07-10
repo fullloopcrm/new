@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { breadcrumbSchema, localBusinessSchema, reviewSchemas, reviewsPageSchema, videoReviewsSchemas } from '@/app/site/template/_lib/seo/schema'
+import { breadcrumbSchema, localBusinessSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
@@ -34,14 +34,11 @@ export default async function ReviewsPage() {
     return (
       <>
         <JsonLd data={[
-          reviewsPageSchema(),
-          localBusinessSchema(undefined, undefined, { includeRating: true }),
+          localBusinessSchema(buildBusiness(config)),
           breadcrumbSchema([
-            { name: 'Home', url: 'https://www.example.com' },
-            { name: 'Reviews', url: 'https://www.example.com/reviews' },
+            { name: 'Home', url: config.identity.url },
+            { name: 'Reviews', url: `${config.identity.url}/reviews` },
           ]),
-          ...reviewSchemas(),
-          ...videoReviewsSchemas(),
         ]} />
 
         <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-20 md:py-28">

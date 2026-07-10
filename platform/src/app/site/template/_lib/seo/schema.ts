@@ -1,239 +1,167 @@
+import type { SiteConfig } from '../../_config/types'
 import type { Neighborhood } from './locations'
 import type { Service } from './services'
 import type { Area } from './data/areas'
 import { SERVICES } from './services'
 import { AREAS } from './data/areas'
 
-const BUSINESS = {
-  name: 'Your Business',
-  legalName: 'Your Business Cleaning Service LLC',
-  url: 'https://www.example.com',
-  phone: '+1-555-555-5555',
-  phoneDisplay: '(555) 555-5555',
-  email: 'hi@example.com',
-  logo: 'https://www.example.com/icon-512.png',
-  image: 'https://www.example.com/icon-512.png',
-  priceRange: '$$',
-  ratingValue: '4.9',
-  ratingCount: '43',
-  reviewCount: '43',
-  foundingDate: '2018',
-  currenciesAccepted: 'USD',
-  paymentAccepted: 'Cash, Credit Card, Debit Card, Apple Pay, Cash App',
-  description: 'Professional house cleaning services across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester County, and Northern New Jersey. Deep cleaning, regular apartment cleaning, move-in/move-out, post-construction cleanup, weekly maid service, same-day cleaning, Airbnb turnover, and office cleaning. Licensed, insured, and background-checked cleaners. Serving the NYC metro since 2018.',
-  slogan: "New York City's Most Trusted Cleaning Service",
-  knowsLanguage: ['en', 'es'],
-  numberOfEmployees: { '@type': 'QuantitativeValue' as const, minValue: 10, maxValue: 25 },
-  address: {
-    street: '123 Main St',
-    city: 'New York',
-    state: 'NY',
-    zip: '10036',
-    country: 'US',
-  },
-  socialProfiles: [
-    'https://www.yelp.com',
-    'https://www.instagram.com/example/',
-    'https://www.facebook.com/example/',
-    'https://www.example.com',
-    'https://www.exampleservice.com',
-    'https://www.thenewyorkcitymaid.com',
-  ],
+/**
+ * Config-driven structured data.
+ *
+ * Every schema function takes a `Biz` built from the tenant's SiteConfig via
+ * buildBusiness(config), so a tenant's JSON-LD carries ITS OWN name, URL, phone,
+ * email, geo and logo — never a placeholder or another business's data.
+ *
+ * Deliberately NOT emitted: individual customer reviews and aggregateRating.
+ * SiteConfig has no per-tenant verified reviews, and emitting reviews a tenant
+ * did not actually receive is fake-review markup (Google penalty + deceptive).
+ * The cleaning offer catalog / service + area lists are cleaning-domain content
+ * (these functions run only on the cleaning-gated template pages).
+ */
+
+export interface Biz {
+  name: string
+  legalName: string
+  url: string
+  phone: string
+  phoneDisplay: string
+  email: string
+  logo?: string
+  placename: string
+  region: string
+  lat: number
+  lng: number
+  foundingDate?: string
+  description: string
 }
 
-// Verified client reviews (43 total, 4.9 avg — all displayed are 5-star)
-const CLIENT_REVIEWS = [
-  { text: 'I cannot recommend this company enough! I found myself in a bind and made a last-minute, desperate call at midnight, not expecting much. To my surprise, they answered, were incredibly understanding, and had someone at my door first thing the next morning.', name: 'Desiree Marie', location: 'New York', rating: 5, datePublished: '2026-04-05' },
-  { text: 'Gloria did such a wonderful job! Came back to my home smelling fresh and clean. She even cleaned all three of my apartment windows which I didn\'t know she would be doing!', name: 'Cristina Garelli', location: 'New York', rating: 5, datePublished: '2026-04-01' },
-  { text: 'Gloria did an incredible job, very thorough, showed up on time, and did not leave until everything was spotless. Jeff was very easy to coordinate with. Highly recommend!', name: 'Hailey', location: 'New York', rating: 5, datePublished: '2026-03-31' },
-  { text: 'Pilar was great, she was very friendly, and thorough with her cleaning, definitely recommend!', name: 'Roy Khoury', location: 'New York', rating: 5, datePublished: '2026-03-30' },
-  { text: 'Maria did a great job, with a thorough clean of the bathroom and the overall process was very seamless.', name: 'Ofek Inger', location: 'New York', rating: 5, datePublished: '2026-03-23' },
-  { text: 'Amazing cleaner and customer service, should\'ve called this company sooner.', name: 'Fanny K.', location: 'New York', rating: 5, datePublished: '2026-03-23' },
-  { text: 'Ines Enriquez was incredible. Loved this job. Worth every penny.', name: 'Jessica Pace', location: 'New York', rating: 5, datePublished: '2026-03-16' },
-  { text: 'Gloria did an amazing job!! Everything was spotless and perfect, will definitely be using her again!!', name: 'Grayson Esherick', location: 'New York', rating: 5, datePublished: '2026-03-16' },
-  { text: 'Karina was absolutely incredible! She was so thorough, fast, efficient, and left my apartment looking better than I could\'ve imagined.', name: 'Gerianne Perez', location: 'New York', rating: 5, datePublished: '2026-03-16' },
-  { text: 'I had such a great experience with Your Business Cleaning Company. I was in a stressful situation after another cleaning company canceled on me last minute, and Your Business was able to fit me in right away.', name: 'Marisa Akson', location: 'New York', rating: 5, datePublished: '2026-03-16' },
-  { text: 'Very affordable and professional', name: 'Ana Horsburgh-Emerson', location: 'New York', rating: 5, datePublished: '2026-03-16' },
-  { text: 'Fantastic service! On time and very thorough', name: 'David Rold', location: 'New York', rating: 5, datePublished: '2026-03-09' },
-  { text: 'Gloria my cleaner was really great! She deep cleaned very well, and the company made sure they got me in a same day fast request!', name: 'Ashley Austin', location: 'New York', rating: 5, datePublished: '2026-03-09' },
-  { text: 'Gloria was punctual and came with everything needed. She was thorough and did an excellent job! And always with a smile :)', name: 'Lea Ruivo', location: 'New York', rating: 5, datePublished: '2026-03-02' },
-  { text: 'Great service and very communicative & responsive over text. The maid thoroughly cleaned as instructed. Will definitely use again!', name: 'Raahish Kalaria', location: 'New York', rating: 5, datePublished: '2026-03-02' },
-  { text: 'Gloria arrived and was professional, thorough, and left my apartment sparkling. I felt such relief walking into a clean home. Will absolutely use them again.', name: 'Kati', location: 'New York', rating: 5, datePublished: '2026-03-02' },
-  { text: 'Gloria was amazing! This was our first time using this service and it definitely won\'t be the last. She was super sweet and did such a thorough job.', name: 'Jordan Chacon', location: 'New York', rating: 5, datePublished: '2026-03-02' },
-  { text: 'Came on time, efficient and reasonably priced, will definitely be contacting them again if I ever need any more cleaning services', name: 'Ayodele', location: 'New York', rating: 5, datePublished: '2026-03-02' },
-  { text: 'Karina just came and cleaned our whole apartment and it was spotless! The rate for this service was a lot better than other cleaning services I have used for a deep clean.', name: 'Giana Horigan', location: 'New York', rating: 5, datePublished: '2026-03-02' },
-  { text: 'Karina was incredible. She was extremely meticulous and left my apt spotless. 10/10; will definitely use again.', name: 'Shannon Atran', location: 'New York', rating: 5, datePublished: '2026-02-23' },
-  { text: 'Karina was great and very helpful', name: 'Joseph Busacca', location: 'New York', rating: 5, datePublished: '2026-02-16' },
-  { text: 'Awesome cleaners and very responsive. I\'ve used them for several months now for my 3 bed 3 bath walk up in Hell\'s Kitchen. Karina is my cleaner. She is so sweet and warm and lovely.', name: 'Lindsey Hill', location: 'New York', rating: 5, datePublished: '2026-02-16' },
-  { text: 'Great job. Friendly and professional.', name: 'Adam Berger', location: 'New York', rating: 5, datePublished: '2026-02-16' },
-  { text: 'Great, fast and everything is perfect', name: 'Theo Marx', location: 'New York', rating: 5, datePublished: '2026-02-16' },
-  { text: 'Excellent and deep cleaning service. No fuss no nonsense just efficient cleaning.', name: 'V D', location: 'New York', rating: 5, datePublished: '2026-02-09' },
-  { text: 'Gloria was great. The place is spotless!', name: 'Ahmad Choudhry', location: 'New York', rating: 5, datePublished: '2026-02-09' },
-  { text: 'Fantastic job! Super fast and easy communication and was booked a day before. Will be using them again and recommending to friends :)', name: 'Ella Sultan', location: 'New York', rating: 5, datePublished: '2026-02-09' },
-  { text: 'The services was amazing from beginning to end. Not just in quality but also in attitude. We had a deep clean move in and Karina was incredibly thorough.', name: 'Ricky Foschi', location: 'New York', rating: 5, datePublished: '2026-02-02' },
-  { text: 'Great experience. Texted the number on their website on Saturday and had a deep cleaning scheduled for that following Monday at 9am. The cleaner was prompt and super nice/friendly.', name: 'Kelsey Wheeler', location: 'New York', rating: 5, datePublished: '2026-02-02' },
-  { text: 'Jeff is a real gem. Super communicative easy going and responsive. In a city with a lot of fly by night operations, Your Business is the real deal.', name: 'Brad Lieberman', location: 'New York', rating: 5, datePublished: '2026-02-02' },
-  { text: 'Fantastic experience with services. Price is affordable for great service. I\'ve been more than happy each time, and staff is very friendly.', name: 'Natalie Pita', location: 'New York', rating: 5, datePublished: '2026-02-02' },
-  { text: 'Moving into an apartment clean. Cindy came and cleaned very well. Even cleaned up my living room as bonus. Right on time, fast, easy to book and communicate.', name: 'Eeland Stribling', location: 'New York', rating: 5, datePublished: '2026-01-19' },
-  { text: 'What a gift to have found Your Business Cleaning Company and Jeff, the owner! The cleaner did a wonderful job — thorough, detail-oriented, and left everything spotless.', name: 'Kelly Gay', location: 'New York', rating: 5, datePublished: '2026-01-05' },
-  { text: 'Gloria was great and very nice. Felt comfortable with her cleaning home.', name: 'Vijay Chadderwala', location: 'New York', rating: 5, datePublished: '2025-12-15' },
-  { text: 'Karina was wonderful! She left my home in exceptional condition and I\'m looking forward to having her come again!', name: 'Blair Silver-Matthes', location: 'New York', rating: 5, datePublished: '2025-12-08' },
-  { text: 'Needed to get the condo which we just bought a deep clean before moving in. It was amazing to place a phone call and have someone show up the next day. Highly recommend!', name: 'Mona Abdel-Misih', location: 'New York', rating: 5, datePublished: '2025-12-08' },
-  { text: 'Maria did an amazing job! My apartment is spotless and she is so easy to work with. Was very happy to accommodate all of my requests.', name: 'Jason Klig', location: 'New York', rating: 5, datePublished: '2025-12-08' },
-  { text: 'We hired them for cleaning our offices in Manhattan and no doubt they are the best we ever had. Affordable pricing, staff was friendly and on time.', name: 'Endrit Jonuzi', location: 'New York', rating: 5, datePublished: '2025-12-01' },
-  { text: 'I called for an emergency cleaning Jeff took care of it right away. Karina did an amazing job and she\'s incredibly sweet.', name: 'Jessica Papantoniou', location: 'New York', rating: 5, datePublished: '2025-11-24' },
-  { text: 'Great service, cleaning, and pricing!', name: 'Erik Berlin', location: 'New York', rating: 5, datePublished: '2025-11-24' },
-  { text: 'Maria is the grandmother you didn\'t know you needed. Couldn\'t recommend a more trustworthy and tidy business.', name: 'Will Gags', location: 'New York', rating: 5, datePublished: '2025-11-24' },
-  { text: 'Have used Your Business twice and have had a great experience both times. Maria was thorough, prompt, and awesome. Highly recommend Your Business Cleaning Company.', name: 'Alexandra Spieth', location: 'New York', rating: 5, datePublished: '2025-11-17' },
-  { text: 'Service was great and very friendly staff.', name: 'Priya Vadlamudi', location: 'New York', rating: 5, datePublished: '2025-11-17' },
-]
-
-// ============ REUSABLE REFERENCES ============
-
-const addressObj = {
-  '@type': 'PostalAddress' as const,
-  streetAddress: BUSINESS.address.street,
-  addressLocality: BUSINESS.address.city,
-  addressRegion: BUSINESS.address.state,
-  postalCode: BUSINESS.address.zip,
-  addressCountry: BUSINESS.address.country,
+/** State code from an ISO region like "US-NY" → "NY". */
+function regionCode(region: string): string {
+  const parts = region.split('-')
+  return parts[parts.length - 1] || region
 }
 
-const geoObj = {
-  '@type': 'GeoCoordinates' as const,
-  latitude: 40.7589,
-  longitude: -73.9851,
+export function buildBusiness(config: SiteConfig): Biz {
+  const url = config.identity.url.replace(/\/+$/, '')
+  const digits = (config.contact.phoneDigits || '').replace(/\D/g, '')
+  const logoPath = config.identity.logo
+  return {
+    name: config.identity.name,
+    legalName: config.identity.legalName ?? config.identity.name,
+    url,
+    phone: digits ? `+1-${digits}` : '',
+    phoneDisplay: config.contact.phone,
+    email: config.contact.email,
+    logo: logoPath ? `${url}${logoPath.startsWith('/') ? '' : '/'}${logoPath}` : undefined,
+    placename: config.geo.placename,
+    region: regionCode(config.geo.region),
+    lat: config.geo.lat,
+    lng: config.geo.lng,
+    foundingDate: config.identity.foundedYear ? String(config.identity.foundedYear) : undefined,
+    description: `${config.identity.name} provides professional service in ${config.geo.placename}.`,
+  }
 }
 
-const logoObj = {
-  '@type': 'ImageObject' as const,
-  '@id': `${BUSINESS.url}/#logo`,
-  url: BUSINESS.logo,
-  contentUrl: BUSINESS.logo,
-  width: 512,
-  height: 512,
-  caption: 'Your Business Logo',
+// ============ REUSABLE REFERENCES (per-biz) ============
+
+function addressObj(b: Biz) {
+  return {
+    '@type': 'PostalAddress' as const,
+    addressLocality: b.placename,
+    addressRegion: b.region,
+    addressCountry: 'US',
+  }
 }
 
-const aggregateRatingObj = {
-  '@type': 'AggregateRating' as const,
-  ratingValue: BUSINESS.ratingValue,
-  reviewCount: BUSINESS.reviewCount,
-  ratingCount: BUSINESS.ratingCount,
-  bestRating: '5',
-  worstRating: '1',
+function geoObj(b: Biz) {
+  return { '@type': 'GeoCoordinates' as const, latitude: b.lat, longitude: b.lng }
 }
 
-const openingHoursObj = [
-  { '@type': 'OpeningHoursSpecification' as const, dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], opens: '07:00', closes: '19:00' },
-]
+function logoObj(b: Biz) {
+  return b.logo
+    ? {
+        '@type': 'ImageObject' as const,
+        '@id': `${b.url}/#logo`,
+        url: b.logo,
+        contentUrl: b.logo,
+        caption: `${b.name} Logo`,
+      }
+    : undefined
+}
 
-const contactPoints = [
-  {
-    '@type': 'ContactPoint' as const,
-    telephone: BUSINESS.phone,
-    contactType: 'customer service',
-    areaServed: 'US',
-    availableLanguage: ['English', 'Spanish'],
-    contactOption: ['HearingImpairedSupported'],
-  },
-  {
-    '@type': 'ContactPoint' as const,
-    telephone: BUSINESS.phone,
-    contactType: 'reservations',
-    areaServed: 'US',
-    availableLanguage: ['English', 'Spanish'],
-  },
-  {
-    '@type': 'ContactPoint' as const,
-    email: BUSINESS.email,
-    contactType: 'customer support',
-    areaServed: 'US',
-    availableLanguage: ['English', 'Spanish'],
-  },
-]
+function openingHoursObj() {
+  return [
+    { '@type': 'OpeningHoursSpecification' as const, dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], opens: '07:00', closes: '19:00' },
+  ]
+}
 
-const fullAreaServed = [
-  { '@type': 'City' as const, name: 'New York', '@id': 'https://en.wikipedia.org/wiki/New_York_City' },
-  { '@type': 'AdministrativeArea' as const, name: 'Manhattan, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Brooklyn, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Queens, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Bronx, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Staten Island, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Nassau County, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Suffolk County, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Westchester County, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'New Jersey' },
-]
+function contactPoints(b: Biz) {
+  const points: Record<string, unknown>[] = []
+  if (b.phone) {
+    points.push(
+      { '@type': 'ContactPoint', telephone: b.phone, contactType: 'customer service', areaServed: 'US', availableLanguage: ['English', 'Spanish'] },
+      { '@type': 'ContactPoint', telephone: b.phone, contactType: 'reservations', areaServed: 'US', availableLanguage: ['English', 'Spanish'] },
+    )
+  }
+  if (b.email) {
+    points.push({ '@type': 'ContactPoint', email: b.email, contactType: 'customer support', areaServed: 'US', availableLanguage: ['English', 'Spanish'] })
+  }
+  return points
+}
 
-const serviceAreaObj = {
-  '@type': 'GeoCircle' as const,
-  geoMidpoint: { '@type': 'GeoCoordinates' as const, latitude: 40.7589, longitude: -73.9851 },
-  geoRadius: '80000',
+function areaServedObj(b: Biz) {
+  return [{ '@type': 'Place' as const, name: b.placename }]
+}
+
+function serviceAreaObj(b: Biz) {
+  return {
+    '@type': 'GeoCircle' as const,
+    geoMidpoint: { '@type': 'GeoCoordinates' as const, latitude: b.lat, longitude: b.lng },
+    geoRadius: '80000',
+  }
 }
 
 // Provider shorthand
-const providerRef = { '@type': 'LocalBusiness' as const, '@id': `${BUSINESS.url}/#business`, name: BUSINESS.name }
-const orgRef = { '@id': `${BUSINESS.url}/#organization` }
-const siteRef = { '@id': `${BUSINESS.url}/#website` }
-const businessRef = { '@id': `${BUSINESS.url}/#business` }
+function providerRef(b: Biz) {
+  return { '@type': 'LocalBusiness' as const, '@id': `${b.url}/#business`, name: b.name }
+}
+function orgRef(b: Biz) {
+  return { '@id': `${b.url}/#organization` }
+}
+function siteRef(b: Biz) {
+  return { '@id': `${b.url}/#website` }
+}
+function businessRef(b: Biz) {
+  return { '@id': `${b.url}/#business` }
+}
 
 // ================================================================
 // ORGANIZATION
 // ================================================================
 
-export function organizationSchema() {
+export function organizationSchema(b: Biz) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    '@id': `${BUSINESS.url}/#organization`,
-    name: BUSINESS.name,
-    legalName: BUSINESS.legalName,
-    url: BUSINESS.url,
-    logo: logoObj,
-    image: [BUSINESS.image],
-    email: BUSINESS.email,
-    telephone: BUSINESS.phone,
-    description: BUSINESS.description,
-    slogan: BUSINESS.slogan,
-    foundingDate: BUSINESS.foundingDate,
-    foundingLocation: {
-      '@type': 'Place',
-      name: 'New York City, NY',
-    },
-    knowsLanguage: BUSINESS.knowsLanguage,
-    numberOfEmployees: BUSINESS.numberOfEmployees,
-    address: addressObj,
-    contactPoint: contactPoints,
-    areaServed: fullAreaServed,
-    sameAs: BUSINESS.socialProfiles,
+    '@id': `${b.url}/#organization`,
+    name: b.name,
+    legalName: b.legalName,
+    url: b.url,
+    ...(logoObj(b) ? { logo: logoObj(b) } : {}),
+    ...(b.logo ? { image: [b.logo] } : {}),
+    ...(b.email ? { email: b.email } : {}),
+    ...(b.phone ? { telephone: b.phone } : {}),
+    description: b.description,
+    ...(b.foundingDate ? { foundingDate: b.foundingDate } : {}),
+    address: addressObj(b),
+    contactPoint: contactPoints(b),
+    areaServed: areaServedObj(b),
     brand: {
       '@type': 'Brand',
-      name: BUSINESS.name,
-      slogan: BUSINESS.slogan,
-      logo: BUSINESS.logo,
-      url: BUSINESS.url,
+      name: b.name,
+      ...(b.logo ? { logo: b.logo } : {}),
+      url: b.url,
     },
-    knowsAbout: [
-      'House Cleaning',
-      'Deep Cleaning',
-      'Move-In Move-Out Cleaning',
-      'Post-Construction Cleanup',
-      'Apartment Cleaning',
-      'Office Cleaning',
-      'Airbnb Cleaning',
-      'Maid Service',
-      'Residential Cleaning',
-      'Commercial Cleaning',
-      'NYC Apartment Cleaning',
-      'Brownstone Cleaning',
-      'High-Rise Cleaning',
-    ],
-    hasCredential: [
-      { '@type': 'EducationalOccupationalCredential', credentialCategory: 'General Liability Insurance' },
-      { '@type': 'EducationalOccupationalCredential', credentialCategory: 'Bonded and Insured' },
-      { '@type': 'EducationalOccupationalCredential', credentialCategory: 'Background-Checked Staff' },
-    ],
   }
 }
 
@@ -241,25 +169,16 @@ export function organizationSchema() {
 // WEBSITE
 // ================================================================
 
-export function webSiteSchema() {
+export function webSiteSchema(b: Biz) {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    '@id': `${BUSINESS.url}/#website`,
-    name: BUSINESS.name,
-    url: BUSINESS.url,
-    description: BUSINESS.description,
-    publisher: orgRef,
+    '@id': `${b.url}/#website`,
+    name: b.name,
+    url: b.url,
+    description: b.description,
+    publisher: orgRef(b),
     inLanguage: 'en-US',
-    copyrightYear: new Date().getFullYear(),
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: `${BUSINESS.url}/service-areas?q={search_term_string}`,
-      },
-      'query-input': 'required name=search_term_string',
-    },
   }
 }
 
@@ -267,7 +186,7 @@ export function webSiteSchema() {
 // WEBPAGE
 // ================================================================
 
-export function webPageSchema(opts: {
+export function webPageSchema(b: Biz, opts: {
   url: string
   name: string
   description: string
@@ -285,20 +204,17 @@ export function webPageSchema(opts: {
     url: opts.url,
     name: opts.name,
     description: opts.description,
-    isPartOf: siteRef,
-    about: businessRef,
-    publisher: orgRef,
-    datePublished: opts.datePublished || '2025-01-01',
-    dateModified: opts.dateModified || '2026-02-20',
+    isPartOf: siteRef(b),
+    about: businessRef(b),
+    publisher: orgRef(b),
+    ...(opts.datePublished ? { datePublished: opts.datePublished } : {}),
+    ...(opts.dateModified ? { dateModified: opts.dateModified } : {}),
     inLanguage: 'en-US',
     ...(opts.primaryImageOfPage ? {
       primaryImageOfPage: { '@type': 'ImageObject', url: opts.primaryImageOfPage },
     } : {}),
     ...(opts.speakable ? {
-      speakable: {
-        '@type': 'SpeakableSpecification',
-        cssSelector: opts.speakable,
-      },
+      speakable: { '@type': 'SpeakableSpecification', cssSelector: opts.speakable },
     } : {}),
     ...(opts.breadcrumb ? {
       breadcrumb: {
@@ -311,127 +227,54 @@ export function webPageSchema(opts: {
         })),
       },
     } : {}),
-    potentialAction: {
-      '@type': 'ReadAction',
-      target: opts.url,
-    },
+    potentialAction: { '@type': 'ReadAction', target: opts.url },
   }
 }
 
 // ================================================================
-// LOCAL BUSINESS (full)
+// LOCAL BUSINESS
 // ================================================================
 
-export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area, opts?: { includeRating?: boolean }) {
+export function localBusinessSchema(b: Biz, neighborhood?: Neighborhood, area?: Area) {
   const areaServed = neighborhood
     ? [
         { '@type': 'Place' as const, name: `${neighborhood.name}${area ? `, ${area.name}` : ''}` },
         ...(area ? [{ '@type': 'Place' as const, name: area.name }] : []),
-        { '@type': 'City' as const, name: 'New York City' },
+        { '@type': 'Place' as const, name: b.placename },
       ]
-    : fullAreaServed
+    : areaServedObj(b)
 
   return {
     '@context': 'https://schema.org',
     '@type': ['LocalBusiness', 'HomeAndConstructionBusiness', 'HousekeepingService'],
-    '@id': `${BUSINESS.url}/#business`,
-    name: BUSINESS.name,
-    legalName: BUSINESS.legalName,
-    url: BUSINESS.url,
-    telephone: BUSINESS.phone,
-    email: BUSINESS.email,
-    description: BUSINESS.description,
-    slogan: BUSINESS.slogan,
-    logo: logoObj,
-    image: BUSINESS.image,
-    priceRange: BUSINESS.priceRange,
-    currenciesAccepted: BUSINESS.currenciesAccepted,
-    paymentAccepted: BUSINESS.paymentAccepted,
-    foundingDate: BUSINESS.foundingDate,
-    knowsLanguage: BUSINESS.knowsLanguage,
-    numberOfEmployees: BUSINESS.numberOfEmployees,
-    address: addressObj,
-    geo: neighborhood ? {
-      '@type': 'GeoCoordinates',
-      latitude: neighborhood.lat,
-      longitude: neighborhood.lng,
-    } : geoObj,
-    hasMap: 'https://maps.google.com/?q=Your+Business',
+    '@id': `${b.url}/#business`,
+    name: b.name,
+    legalName: b.legalName,
+    url: b.url,
+    ...(b.phone ? { telephone: b.phone } : {}),
+    ...(b.email ? { email: b.email } : {}),
+    description: b.description,
+    ...(logoObj(b) ? { logo: logoObj(b) } : {}),
+    ...(b.logo ? { image: b.logo } : {}),
+    priceRange: '$$',
+    ...(b.foundingDate ? { foundingDate: b.foundingDate } : {}),
+    address: addressObj(b),
+    geo: neighborhood
+      ? { '@type': 'GeoCoordinates', latitude: neighborhood.lat, longitude: neighborhood.lng }
+      : geoObj(b),
     areaServed,
-    serviceArea: serviceAreaObj,
-    ...(opts?.includeRating ? { aggregateRating: aggregateRatingObj } : {}),
-    openingHoursSpecification: openingHoursObj,
-    contactPoint: contactPoints,
-    hasOfferCatalog: {
-      '@type': 'OfferCatalog',
-      name: 'Cleaning Services',
-      itemListElement: [
-        {
-          '@type': 'OfferCatalog',
-          name: 'Residential Cleaning',
-          itemListElement: [
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Deep Cleaning', url: `${BUSINESS.url}/services/deep-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Regular Apartment Cleaning', url: `${BUSINESS.url}/services/apartment-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Weekly Maid Service', url: `${BUSINESS.url}/services/weekly-maid-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Bi-Weekly Cleaning', url: `${BUSINESS.url}/services/bi-weekly-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Monthly Cleaning', url: `${BUSINESS.url}/services/monthly-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Move-In/Move-Out Cleaning', url: `${BUSINESS.url}/services/move-in-move-out-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Post-Construction Cleanup', url: `${BUSINESS.url}/services/post-construction-cleanup-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Same-Day Cleaning', url: `${BUSINESS.url}/services/same-day-cleaning-service-in-nyc` } },
-          ],
-        },
-        {
-          '@type': 'OfferCatalog',
-          name: 'Commercial Cleaning',
-          itemListElement: [
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Office Cleaning', url: `${BUSINESS.url}/services/office-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Airbnb & Short-Term Rental Cleaning', url: `${BUSINESS.url}/services/airbnb-cleaning-in-nyc` } },
-          ],
-        },
-      ],
-    },
-    makesOffer: [
-      {
-        '@type': 'Offer',
-        name: 'Client Supplies & Equipment',
-        priceSpecification: { '@type': 'UnitPriceSpecification', price: '59.00', priceCurrency: 'USD', unitCode: 'HUR', unitText: 'per hour' },
-      },
-      {
-        '@type': 'Offer',
-        name: 'We Bring Everything',
-        priceSpecification: { '@type': 'UnitPriceSpecification', price: '69.00', priceCurrency: 'USD', unitCode: 'HUR', unitText: 'per hour' },
-      },
-      {
-        '@type': 'Offer',
-        name: 'Same-Day / Emergency',
-        priceSpecification: { '@type': 'UnitPriceSpecification', price: '89.00', priceCurrency: 'USD', unitCode: 'HUR', unitText: 'per hour' },
-      },
-    ],
-    review: CLIENT_REVIEWS.slice(0, 5).map(r => ({
-      '@type': 'Review',
-      reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 },
-      author: { '@type': 'Person', name: r.name },
-      reviewBody: r.text,
-      datePublished: r.datePublished,
-    })),
-    sameAs: BUSINESS.socialProfiles,
+    serviceArea: serviceAreaObj(b),
+    openingHoursSpecification: openingHoursObj(),
+    contactPoint: contactPoints(b),
     potentialAction: [
       {
         '@type': 'ReserveAction',
         target: {
           '@type': 'EntryPoint',
-          urlTemplate: `${BUSINESS.url}/contact`,
+          urlTemplate: `${b.url}/contact`,
           actionPlatform: ['http://schema.org/DesktopWebPlatform', 'http://schema.org/IOSPlatform', 'http://schema.org/AndroidPlatform'],
         },
-        result: { '@type': 'Reservation', name: 'Book Cleaning Service' },
-      },
-      {
-        '@type': 'OrderAction',
-        target: {
-          '@type': 'EntryPoint',
-          urlTemplate: `${BUSINESS.url}/contact`,
-          actionPlatform: 'http://schema.org/MobileWebPlatform',
-        },
+        result: { '@type': 'Reservation', name: `Book ${b.name}` },
       },
     ],
     isAccessibleForFree: false,
@@ -439,14 +282,14 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area, op
 }
 
 // ================================================================
-// SERVICE (enhanced with provider, rating, reviews, pricing)
+// SERVICE
 // ================================================================
 
-export function serviceSchema(service: Service, neighborhood?: Neighborhood, area?: Area) {
-  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'New York City'
+export function serviceSchema(b: Biz, service: Service, neighborhood?: Neighborhood, area?: Area) {
+  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : b.placename
   const serviceUrl = neighborhood
-    ? `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}`
-    : `${BUSINESS.url}/services/${service.urlSlug}`
+    ? `${b.url}/${neighborhood.urlSlug}/${service.slug}`
+    : `${b.url}/services/${service.urlSlug}`
 
   return {
     '@context': 'https://schema.org',
@@ -455,14 +298,13 @@ export function serviceSchema(service: Service, neighborhood?: Neighborhood, are
     name: `${service.name}${neighborhood ? ` in ${neighborhood.name}` : ''}`,
     description: service.description,
     url: serviceUrl,
-    provider: providerRef,
-    brand: { '@type': 'Brand', name: BUSINESS.name },
+    provider: providerRef(b),
+    brand: { '@type': 'Brand', name: b.name },
     areaServed: neighborhood
       ? { '@type': 'Place', name: location, geo: { '@type': 'GeoCoordinates', latitude: neighborhood.lat, longitude: neighborhood.lng } }
-      : fullAreaServed,
+      : areaServedObj(b),
     serviceType: service.name,
-    category: 'House Cleaning',
-    serviceOutput: 'Clean, sanitized living or working space',
+    serviceOutput: 'Completed professional service',
     hasOfferCatalog: {
       '@type': 'OfferCatalog',
       name: `${service.name} Features`,
@@ -476,165 +318,22 @@ export function serviceSchema(service: Service, neighborhood?: Neighborhood, are
       url: serviceUrl,
       priceCurrency: 'USD',
       price: service.priceRange,
-      priceSpecification: {
-        '@type': 'PriceSpecification',
-        priceCurrency: 'USD',
-        price: service.priceRange,
-      },
+      priceSpecification: { '@type': 'PriceSpecification', priceCurrency: 'USD', price: service.priceRange },
       availability: 'https://schema.org/InStock',
-      validFrom: '2025-01-01',
       areaServed: { '@type': 'Place', name: location },
-      seller: providerRef,
+      seller: providerRef(b),
     },
-    termsOfService: `${BUSINESS.url}/terms-conditions`,
-    audience: {
-      '@type': 'Audience',
-      audienceType: service.idealFor.join(', '),
-    },
+    termsOfService: `${b.url}/terms-conditions`,
+    audience: { '@type': 'Audience', audienceType: service.idealFor.join(', ') },
     potentialAction: {
       '@type': 'ReserveAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${BUSINESS.url}/contact`,
+        urlTemplate: `${b.url}/contact`,
         actionPlatform: ['http://schema.org/DesktopWebPlatform', 'http://schema.org/IOSPlatform', 'http://schema.org/AndroidPlatform'],
       },
       result: { '@type': 'Reservation', name: `Book ${service.name}` },
     },
-  }
-}
-
-// ================================================================
-// PRICING OFFERS (3 tiers with UnitPriceSpecification)
-// ================================================================
-
-export function pricingOffersSchema() {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Service',
-    '@id': `${BUSINESS.url}/#cleaning-service`,
-    name: 'House Cleaning Service',
-    provider: providerRef,
-    description: BUSINESS.description,
-    offers: [
-      {
-        '@type': 'Offer',
-        name: 'Client Supplies & Equipment',
-        description: 'You provide the cleaning supplies and equipment. We bring the expertise.',
-        priceSpecification: {
-          '@type': 'UnitPriceSpecification',
-          price: '59.00',
-          priceCurrency: 'USD',
-          unitCode: 'HUR',
-          unitText: 'per hour',
-          referenceQuantity: { '@type': 'QuantitativeValue', value: '1', unitCode: 'HUR' },
-        },
-        availability: 'https://schema.org/InStock',
-        areaServed: fullAreaServed,
-      },
-      {
-        '@type': 'Offer',
-        name: 'We Bring Everything',
-        description: 'We bring all supplies and professional-grade equipment. Just open the door.',
-        priceSpecification: {
-          '@type': 'UnitPriceSpecification',
-          price: '69.00',
-          priceCurrency: 'USD',
-          unitCode: 'HUR',
-          unitText: 'per hour',
-          referenceQuantity: { '@type': 'QuantitativeValue', value: '1', unitCode: 'HUR' },
-        },
-        availability: 'https://schema.org/InStock',
-        areaServed: fullAreaServed,
-      },
-      {
-        '@type': 'Offer',
-        name: 'Same-Day / Emergency Cleaning',
-        description: 'Need it today? We dispatch a professional cleaner to your door within hours.',
-        priceSpecification: {
-          '@type': 'UnitPriceSpecification',
-          price: '89.00',
-          priceCurrency: 'USD',
-          unitCode: 'HUR',
-          unitText: 'per hour',
-          referenceQuantity: { '@type': 'QuantitativeValue', value: '1', unitCode: 'HUR' },
-        },
-        availability: 'https://schema.org/InStock',
-        areaServed: fullAreaServed,
-      },
-    ],
-  }
-}
-
-// ================================================================
-// INDIVIDUAL REVIEW SCHEMAS
-// ================================================================
-
-export function reviewSchemas(reviews?: typeof CLIENT_REVIEWS) {
-  const r = reviews || CLIENT_REVIEWS
-  return r.map(review => ({
-    '@context': 'https://schema.org',
-    '@type': 'Review',
-    itemReviewed: providerRef,
-    reviewRating: {
-      '@type': 'Rating',
-      ratingValue: review.rating,
-      bestRating: 5,
-      worstRating: 1,
-    },
-    author: {
-      '@type': 'Person',
-      name: review.name,
-    },
-    reviewBody: review.text,
-    datePublished: review.datePublished,
-    publisher: { '@type': 'Organization', name: 'Your Business' },
-  }))
-}
-
-// ================================================================
-// REVIEWS PAGE — LocalBusiness with nested reviews + aggregateRating
-// Gives Google the clearest possible signal to show star snippets
-// ================================================================
-
-export function reviewsPageSchema() {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
-    name: BUSINESS.name,
-    url: BUSINESS.url,
-    telephone: BUSINESS.phone,
-    image: BUSINESS.image,
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: BUSINESS.address.street,
-      addressLocality: BUSINESS.address.city,
-      addressRegion: BUSINESS.address.state,
-      postalCode: BUSINESS.address.zip,
-      addressCountry: BUSINESS.address.country,
-    },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: BUSINESS.ratingValue,
-      reviewCount: BUSINESS.reviewCount,
-      ratingCount: BUSINESS.ratingCount,
-      bestRating: '5',
-      worstRating: '1',
-    },
-    review: CLIENT_REVIEWS.filter(r => r.text).map(review => ({
-      '@type': 'Review',
-      reviewRating: {
-        '@type': 'Rating',
-        ratingValue: review.rating,
-        bestRating: 5,
-        worstRating: 1,
-      },
-      author: {
-        '@type': 'Person',
-        name: review.name,
-      },
-      reviewBody: review.text,
-      datePublished: review.datePublished,
-    })),
   }
 }
 
@@ -649,10 +348,7 @@ export function faqSchema(faqs: { question: string; answer: string }[]) {
     mainEntity: faqs.map(faq => ({
       '@type': 'Question',
       name: faq.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: faq.answer,
-      },
+      acceptedAnswer: { '@type': 'Answer', text: faq.answer },
     })),
   }
 }
@@ -675,115 +371,60 @@ export function breadcrumbSchema(items: { name: string; url: string }[]) {
 }
 
 // ================================================================
-// SITE NAVIGATION (for homepage)
+// SITE NAVIGATION
 // ================================================================
 
-export function siteNavigationSchema() {
+export function siteNavigationSchema(b: Biz) {
+  const pages = [
+    ['Contact', '/contact'], ['Services', '/services'], ['Pricing', '/pricing'],
+    ['Service Areas', '/service-areas'], ['Reviews', '/reviews'], ['Careers', '/careers'],
+    ['FAQ', '/faq'], ['About', '/about'], ['Blog', '/blog'],
+  ]
   return {
     '@context': 'https://schema.org',
     '@type': 'SiteNavigationElement',
     name: 'Main Navigation',
-    hasPart: [
-      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact`, position: 1 },
-      { '@type': 'WebPage', name: 'Services', url: `${BUSINESS.url}/services`, position: 2 },
-      { '@type': 'WebPage', name: 'Pricing', url: `${BUSINESS.url}/pricing`, position: 3 },
-      { '@type': 'WebPage', name: 'Service Areas', url: `${BUSINESS.url}/service-areas`, position: 4 },
-      { '@type': 'WebPage', name: 'Reviews', url: `${BUSINESS.url}/reviews`, position: 5 },
-      { '@type': 'WebPage', name: 'Now Hiring Cleaners', url: `${BUSINESS.url}/careers`, position: 6 },
-      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact`, position: 7 },
-      { '@type': 'WebPage', name: 'FAQ', url: `${BUSINESS.url}/faq`, position: 8 },
-      { '@type': 'WebPage', name: 'About', url: `${BUSINESS.url}/about`, position: 9 },
-      { '@type': 'WebPage', name: 'Blog & Tips', url: `${BUSINESS.url}/blog`, position: 10 },
-    ],
+    hasPart: pages.map(([name, path], i) => ({ '@type': 'WebPage', name, url: `${b.url}${path}`, position: i + 1 })),
   }
 }
 
 // ================================================================
-// HOWTO: How to Book (for homepage)
+// ITEM LISTS
 // ================================================================
 
-export function howToBookSchema() {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'HowTo',
-    name: 'How to Book a Cleaning Service with Your Business',
-    description: 'Book a professional cleaning in just 3 simple steps.',
-    totalTime: 'PT5M',
-    estimatedCost: { '@type': 'MonetaryAmount', currency: 'USD', value: '49' },
-    step: [
-      {
-        '@type': 'HowToStep',
-        name: 'Contact Us',
-        text: 'Text (555) 555-5555 to schedule your cleaning.',
-        url: `${BUSINESS.url}/contact`,
-        position: 1,
-      },
-      {
-        '@type': 'HowToStep',
-        name: 'Tell Us About Your Space',
-        text: 'Share your home size, cleaning needs, and preferred schedule. We provide a custom quote within minutes.',
-        position: 2,
-      },
-      {
-        '@type': 'HowToStep',
-        name: 'Relax While We Clean',
-        text: 'A licensed, insured, background-checked cleaner arrives at your door on schedule. Satisfaction guaranteed.',
-        position: 3,
-      },
-    ],
-    tool: [
-      { '@type': 'HowToTool', name: 'Phone or computer for booking' },
-    ],
-  }
-}
-
-// ================================================================
-// ITEM LIST: Services Offered (for homepage)
-// ================================================================
-
-export function serviceItemListSchema() {
+export function serviceItemListSchema(b: Biz) {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'Cleaning Services Offered by Your Business',
-    description: 'Complete list of professional cleaning services available across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey.',
+    name: `Services Offered by ${b.name}`,
     numberOfItems: SERVICES.length,
     itemListElement: SERVICES.map((s, i) => ({
       '@type': 'ListItem',
       position: i + 1,
       name: s.name,
-      url: `${BUSINESS.url}/services/${s.urlSlug}`,
+      url: `${b.url}/services/${s.urlSlug}`,
       item: {
         '@type': 'Service',
         name: s.name,
         description: s.description,
-        provider: providerRef,
-        offers: {
-          '@type': 'Offer',
-          price: s.priceRange,
-          priceCurrency: 'USD',
-        },
+        provider: providerRef(b),
+        offers: { '@type': 'Offer', price: s.priceRange, priceCurrency: 'USD' },
       },
     })),
   }
 }
 
-// ================================================================
-// ITEM LIST: Service Areas (for homepage)
-// ================================================================
-
-export function areaItemListSchema() {
+export function areaItemListSchema(b: Biz) {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'Service Areas Covered by Your Business',
-    description: 'We serve hundreds of neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey.',
+    name: `Service Areas Covered by ${b.name}`,
     numberOfItems: AREAS.length,
     itemListElement: AREAS.map((a, i) => ({
       '@type': 'ListItem',
       position: i + 1,
       name: a.name,
-      url: `${BUSINESS.url}/${a.urlSlug}`,
+      url: `${b.url}/${a.urlSlug}`,
       item: {
         '@type': 'Place',
         name: a.name,
@@ -794,205 +435,182 @@ export function areaItemListSchema() {
 }
 
 // ================================================================
-// PROFESSIONAL SERVICE (for service + neighborhood×service pages)
+// HOW TO BOOK
 // ================================================================
 
-export function professionalServiceSchema(service: Service, neighborhood?: Neighborhood, area?: Area) {
-  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'NYC Metro Area'
+export function howToBookSchema(b: Biz) {
   return {
     '@context': 'https://schema.org',
-    '@type': 'ProfessionalService',
-    name: `${service.name}${neighborhood ? ` in ${neighborhood.name}` : ''} - Your Business`,
-    description: service.description,
-    url: neighborhood ? `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}` : `${BUSINESS.url}/services/${service.urlSlug}`,
-    telephone: BUSINESS.phone,
-    email: BUSINESS.email,
-    priceRange: service.priceRange,
-    address: addressObj,
-    geo: neighborhood ? { '@type': 'GeoCoordinates', latitude: neighborhood.lat, longitude: neighborhood.lng } : geoObj,
-    areaServed: { '@type': 'Place', name: location },
-    aggregateRating: aggregateRatingObj,
-    openingHoursSpecification: openingHoursObj,
-    paymentAccepted: BUSINESS.paymentAccepted,
-    image: BUSINESS.image,
-    sameAs: BUSINESS.socialProfiles,
+    '@type': 'HowTo',
+    name: `How to Book ${b.name}`,
+    description: 'Book in a few simple steps.',
+    totalTime: 'PT5M',
+    step: [
+      { '@type': 'HowToStep', name: 'Contact Us', text: b.phoneDisplay ? `Text ${b.phoneDisplay} to get started.` : 'Reach out to get started.', url: `${b.url}/contact`, position: 1 },
+      { '@type': 'HowToStep', name: 'Tell Us What You Need', text: 'Share your details and we provide a custom quote.', position: 2 },
+      { '@type': 'HowToStep', name: 'We Take Care of It', text: 'A vetted professional handles the job on schedule.', position: 3 },
+    ],
   }
 }
 
 // ================================================================
-// VIDEO OBJECTS (client review videos on homepage + /reviews)
+// PROFESSIONAL SERVICE
 // ================================================================
 
-const VIDEO_REVIEW_UPLOAD_DATE = '2026-02-15'
-
-export function videoReviewsSchemas() {
-  const videos = [
-    { id: 'review-1', title: 'NYC Cleaning Client Review — Manhattan Apartment', description: 'Real client testimonial from a verified NYC apartment cleaning booked with Your Business.' },
-    { id: 'review-2', title: 'NYC Cleaning Client Review — Brooklyn Home', description: 'Brooklyn client shares their honest experience with professional deep cleaning from Your Business.' },
-    { id: 'review-3', title: 'NYC Cleaning Client Review — Weekly Maid Service', description: 'Weekly maid service client reviews on-camera their recurring cleaning experience in New York City.' },
-  ]
-  return videos.map(v => ({
+export function professionalServiceSchema(b: Biz, service: Service, neighborhood?: Neighborhood, area?: Area) {
+  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : b.placename
+  return {
     '@context': 'https://schema.org',
-    '@type': 'VideoObject',
-    name: v.title,
-    description: v.description,
-    thumbnailUrl: `${BUSINESS.url}/icon-512.png`,
-    uploadDate: VIDEO_REVIEW_UPLOAD_DATE,
-    contentUrl: `${BUSINESS.url}/videos/${v.id}.mp4`,
-    publisher: orgRef,
-    inLanguage: 'en-US',
-    isFamilyFriendly: true,
-    hasPart: [],
-  }))
+    '@type': 'ProfessionalService',
+    name: `${service.name}${neighborhood ? ` in ${neighborhood.name}` : ''} - ${b.name}`,
+    description: service.description,
+    url: neighborhood ? `${b.url}/${neighborhood.urlSlug}/${service.slug}` : `${b.url}/services/${service.urlSlug}`,
+    ...(b.phone ? { telephone: b.phone } : {}),
+    ...(b.email ? { email: b.email } : {}),
+    priceRange: service.priceRange,
+    address: addressObj(b),
+    geo: neighborhood ? { '@type': 'GeoCoordinates', latitude: neighborhood.lat, longitude: neighborhood.lng } : geoObj(b),
+    areaServed: { '@type': 'Place', name: location },
+    openingHoursSpecification: openingHoursObj(),
+    ...(b.logo ? { image: b.logo } : {}),
+  }
 }
 
 // ================================================================
-// COMBINED SCHEMA FUNCTIONS PER PAGE TYPE
+// COMBINED SCHEMA BUNDLES PER PAGE TYPE
 // ================================================================
 
-export function homepageSchemas() {
-  const url = BUSINESS.url
+export function homepageSchemas(b: Biz) {
+  const url = b.url
   return [
-    organizationSchema(),
-    webSiteSchema(),
-    webPageSchema({
+    organizationSchema(b),
+    webSiteSchema(b),
+    webPageSchema(b, {
       url,
-      name: 'Your Business Service & House Cleaning From $59/hr | 5-Star Rated | Your Business',
-      description: BUSINESS.description,
+      name: `${b.name} — ${b.placename}`,
+      description: b.description,
       type: 'WebPage',
       speakable: ['h1', '.hero-description'],
       breadcrumb: [{ name: 'Home', url }],
     }),
-    localBusinessSchema(undefined, undefined, { includeRating: true }),
-    pricingOffersSchema(),
-    serviceItemListSchema(),
-    areaItemListSchema(),
-    siteNavigationSchema(),
-    howToBookSchema(),
+    localBusinessSchema(b),
+    serviceItemListSchema(b),
+    areaItemListSchema(b),
+    siteNavigationSchema(b),
   ]
 }
 
-export function areaPageSchemas(area: Area) {
-  const url = `${BUSINESS.url}/${area.urlSlug}`
-  const title = `${area.name} Maid Service & House Cleaning From $59/hr | Your Business`
-  const description = `Professional house cleaning in ${area.name} from $59/hr. Deep cleaning, weekly maid service, move-in/out & more. Licensed, insured, 5.0★ Rated. ${BUSINESS.phoneDisplay}`
+export function areaPageSchemas(b: Biz, area: Area) {
+  const url = `${b.url}/${area.urlSlug}`
+  const title = `${area.name} — ${b.name}`
+  const description = `Professional service in ${area.name}. ${b.phoneDisplay}`
   return [
-    organizationSchema(),
-    webSiteSchema(),
-    webPageSchema({
+    organizationSchema(b),
+    webSiteSchema(b),
+    webPageSchema(b, {
       url,
       name: title,
       description,
-      breadcrumb: [
-        { name: 'Home', url: BUSINESS.url },
-        { name: area.name, url },
-      ],
+      breadcrumb: [{ name: 'Home', url: b.url }, { name: area.name, url }],
     }),
-    localBusinessSchema(),
-    breadcrumbSchema([
-      { name: 'Home', url: BUSINESS.url },
-      { name: area.name, url },
-    ]),
-    serviceItemListSchema(),
-    howToBookSchema(),
+    localBusinessSchema(b),
+    breadcrumbSchema([{ name: 'Home', url: b.url }, { name: area.name, url }]),
+    serviceItemListSchema(b),
   ]
 }
 
-export function neighborhoodPageSchemas(neighborhood: Neighborhood, area: Area) {
-  const url = `${BUSINESS.url}/${neighborhood.urlSlug}`
-  const title = `${neighborhood.name} Maid Service & House Cleaning From $59/hr | Your Business`
-  const description = `Professional cleaning in ${neighborhood.name}, ${area.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $59/hr. 5.0★ Rated. ${BUSINESS.phoneDisplay}`
+export function neighborhoodPageSchemas(b: Biz, neighborhood: Neighborhood, area: Area) {
+  const url = `${b.url}/${neighborhood.urlSlug}`
+  const title = `${neighborhood.name} — ${b.name}`
+  const description = `Professional service in ${neighborhood.name}, ${area.name}. ${b.phoneDisplay}`
   return [
-    organizationSchema(),
-    webSiteSchema(),
-    webPageSchema({
+    organizationSchema(b),
+    webSiteSchema(b),
+    webPageSchema(b, {
       url,
       name: title,
       description,
       breadcrumb: [
-        { name: 'Home', url: BUSINESS.url },
-        { name: area.name, url: `${BUSINESS.url}/${area.urlSlug}` },
+        { name: 'Home', url: b.url },
+        { name: area.name, url: `${b.url}/${area.urlSlug}` },
         { name: neighborhood.name, url },
       ],
     }),
-    localBusinessSchema(neighborhood, area),
+    localBusinessSchema(b, neighborhood, area),
     breadcrumbSchema([
-      { name: 'Home', url: BUSINESS.url },
-      { name: area.name, url: `${BUSINESS.url}/${area.urlSlug}` },
+      { name: 'Home', url: b.url },
+      { name: area.name, url: `${b.url}/${area.urlSlug}` },
       { name: neighborhood.name, url },
     ]),
     {
       '@context': 'https://schema.org',
       '@type': 'ItemList',
-      name: `Cleaning Services in ${neighborhood.name}`,
+      name: `Services in ${neighborhood.name}`,
       numberOfItems: SERVICES.length,
       itemListElement: SERVICES.map((s, i) => ({
         '@type': 'ListItem',
         position: i + 1,
         name: s.name,
-        url: `${BUSINESS.url}/${neighborhood.urlSlug}/${s.slug}`,
+        url: `${b.url}/${neighborhood.urlSlug}/${s.slug}`,
       })),
     },
-    howToBookSchema(),
   ]
 }
 
-export function neighborhoodServicePageSchemas(neighborhood: Neighborhood, service: Service, area: Area) {
-  const url = `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}`
-  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $59/hr | Your Business`
-  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. ${BUSINESS.phoneDisplay}`
+export function neighborhoodServicePageSchemas(b: Biz, neighborhood: Neighborhood, service: Service, area: Area) {
+  const url = `${b.url}/${neighborhood.urlSlug}/${service.slug}`
+  const title = `${service.name} in ${neighborhood.name}, ${area.name} — ${b.name}`
+  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.priceRange}. ${b.phoneDisplay}`
   return [
-    organizationSchema(),
-    webSiteSchema(),
-    webPageSchema({
+    organizationSchema(b),
+    webSiteSchema(b),
+    webPageSchema(b, {
       url,
       name: title,
       description,
       breadcrumb: [
-        { name: 'Home', url: BUSINESS.url },
-        { name: area.name, url: `${BUSINESS.url}/${area.urlSlug}` },
-        { name: neighborhood.name, url: `${BUSINESS.url}/${neighborhood.urlSlug}` },
+        { name: 'Home', url: b.url },
+        { name: area.name, url: `${b.url}/${area.urlSlug}` },
+        { name: neighborhood.name, url: `${b.url}/${neighborhood.urlSlug}` },
         { name: service.name, url },
       ],
     }),
-    localBusinessSchema(neighborhood, area),
-    serviceSchema(service, neighborhood, area),
-    professionalServiceSchema(service, neighborhood, area),
+    localBusinessSchema(b, neighborhood, area),
+    serviceSchema(b, service, neighborhood, area),
+    professionalServiceSchema(b, service, neighborhood, area),
     breadcrumbSchema([
-      { name: 'Home', url: BUSINESS.url },
-      { name: area.name, url: `${BUSINESS.url}/${area.urlSlug}` },
-      { name: neighborhood.name, url: `${BUSINESS.url}/${neighborhood.urlSlug}` },
+      { name: 'Home', url: b.url },
+      { name: area.name, url: `${b.url}/${area.urlSlug}` },
+      { name: neighborhood.name, url: `${b.url}/${neighborhood.urlSlug}` },
       { name: service.name, url },
     ]),
-    howToBookSchema(),
   ]
 }
 
-export function servicePageSchemas(service: Service) {
-  const url = `${BUSINESS.url}/services/${service.urlSlug}`
-  const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | 5-Star Rated | Your Business`
-  const description = `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 3).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Rated. ${BUSINESS.phoneDisplay}`
+export function servicePageSchemas(b: Biz, service: Service) {
+  const url = `${b.url}/services/${service.urlSlug}`
+  const title = `${service.name} — ${b.name}`
+  const description = `Professional ${service.name.toLowerCase()} in ${b.placename}. ${service.features.slice(0, 3).join(', ')} & more. ${b.phoneDisplay}`
   return [
-    organizationSchema(),
-    webSiteSchema(),
-    webPageSchema({
+    organizationSchema(b),
+    webSiteSchema(b),
+    webPageSchema(b, {
       url,
       name: title,
       description,
       breadcrumb: [
-        { name: 'Home', url: BUSINESS.url },
-        { name: 'Services', url: `${BUSINESS.url}/services` },
+        { name: 'Home', url: b.url },
+        { name: 'Services', url: `${b.url}/services` },
         { name: service.name, url },
       ],
     }),
-    localBusinessSchema(),
-    serviceSchema(service),
-    professionalServiceSchema(service),
+    localBusinessSchema(b),
+    serviceSchema(b, service),
+    professionalServiceSchema(b, service),
     breadcrumbSchema([
-      { name: 'Home', url: BUSINESS.url },
-      { name: 'Services', url: `${BUSINESS.url}/services` },
+      { name: 'Home', url: b.url },
+      { name: 'Services', url: `${b.url}/services` },
       { name: service.name, url },
     ]),
-    howToBookSchema(),
   ]
 }
