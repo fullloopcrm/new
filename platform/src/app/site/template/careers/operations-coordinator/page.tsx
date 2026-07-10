@@ -13,7 +13,7 @@ const pageDescription = 'Your Business is hiring a part-time operations coordina
 export const metadata: Metadata = {
   title: pageTitle,
   description: pageDescription,
-  alternates: { canonical: pageUrl },
+  alternates: { canonical: '/careers/operations-coordinator' },
   robots: {
     index: true,
     follow: true,
@@ -24,11 +24,10 @@ export const metadata: Metadata = {
   openGraph: {
     title: pageTitle,
     description: pageDescription,
-    url: pageUrl,
+    url: '/careers/operations-coordinator',
     type: 'article',
-    siteName: 'Your Business',
     locale: 'en_US',
-    images: [{ url: 'https://www.example.com/icon-512.png', width: 512, height: 512, alt: 'Part-Time Operations Admin — Your Business — Now Hiring' }],
+    images: [{ url: '/icon-512.png', width: 512, height: 512 }],
     publishedTime: '2026-03-31T00:00:00Z',
     modifiedTime: new Date().toISOString(),
   },
@@ -36,7 +35,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: pageTitle,
     description: pageDescription,
-    images: ['https://www.example.com/icon-512.png'],
+    images: ['/icon-512.png'],
   },
   keywords: 'part time operations coordinator, part time coordinator remote, part time dispatcher, part time customer service, second job from home, side job remote, work from phone job, cleaning service coordinator, scheduling coordinator part time, payment coordinator, virtual coordinator, remote coordinator NYC, part time work from home, easy second job, side gig remote, operations coordinator cleaning company, bilingual coordinator, part time job NYC, part time job New Jersey, part time job Long Island, remote part time job, work from home part time, dispatcher part time, service coordinator part time, 10 percent commission job, per job pay, pay per job coordinator',
   other: {

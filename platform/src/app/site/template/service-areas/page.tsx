@@ -31,15 +31,14 @@ const pageDescription = `Your Business serves ${totalNeighborhoods}+ neighborhoo
 export const metadata: Metadata = {
   title: pageTitle,
   description: pageDescription,
-  alternates: { canonical: pageUrl },
+  alternates: { canonical: '/service-areas' },
   openGraph: {
     title: pageTitle,
     description: pageDescription,
-    url: pageUrl,
+    url: '/service-areas',
     type: 'website',
-    siteName: 'Your Business',
     locale: 'en_US',
-    images: [{ url: 'https://www.example.com/icon-512.png', width: 512, height: 512, alt: 'Your Business' }],
+    images: [{ url: '/icon-512.png', width: 512, height: 512 }],
   },
   twitter: {
     card: 'summary',
