@@ -156,7 +156,7 @@ const testimonials = [
     rating: 5,
   },
   {
-    text: "We went from hoping the phone would ring to having to hire two more plumbers to keep up. The NYC Marketing Company changed everything for us.",
+    text: "We went from hoping the phone would ring to having to hire two more plumbers to keep up. Consortium NYC changed everything for us.",
     name: "Mike T.",
     business: "Brooklyn Plumbing Co.",
     rating: 5,
@@ -581,7 +581,7 @@ export default function ResultsClient() {
             </p>
             <div className="mt-10">
               <Link
-                href="/contact"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-10 py-5 text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Get Your Free Strategy Session

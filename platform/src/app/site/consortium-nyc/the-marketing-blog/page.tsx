@@ -4,7 +4,7 @@ import TipBlurb from "@/app/site/consortium-nyc/_components/TipBlurb";
 import BlogSidebar from "@/app/site/consortium-nyc/_components/blog/BlogSidebar";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-nyc/_lib/schema";
 
-const title = "NYC Marketing Blog | SEO, Web Design & Growth Strategies | The NYC Marketing Company";
+const title = "NYC Marketing Blog | SEO, Web Design & Growth Strategies | Consortium NYC";
 const description =
   "Actionable digital marketing strategies, SEO tips, and growth tactics for NYC, Long Island, and Westchester businesses. No fluff — just what works. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/the-marketing-blog";
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC",
     type: "website",
     images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },

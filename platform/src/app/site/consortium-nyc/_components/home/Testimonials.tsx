@@ -38,7 +38,7 @@ export default function Testimonials() {
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 font-heading">
             What NYC &amp; Long Island Businesses{" "}
-            <span className="text-teal-400">Say About The NYC Marketing Company</span>
+            <span className="text-teal-400">Say About Consortium NYC</span>
           </h2>
 
           {/* Overall rating summary */}
@@ -126,7 +126,7 @@ export default function Testimonials() {
               Review Us on Google
             </a>
             <Link
-              href="/contact-nyc-marketing-company-consortium-nyc"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
               Become Our Next Success Story

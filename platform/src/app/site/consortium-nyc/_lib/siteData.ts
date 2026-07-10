@@ -29,7 +29,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Our SEO services combine technical optimization, strategic content creation, and authoritative link building to drive organic traffic that converts. We help local businesses across New York City build sustainable search visibility that generates leads month after month. Stop losing customers to competitors who rank above you.",
     metaTitle: "NYC SEO Services | Local Search Marketing That Drives Real Leads",
-    metaDescription: "Data-driven SEO for NYC businesses across every borough, Long Island & Westchester. Technical SEO, local search, content strategy, link building — 25 years of results. The NYC Marketing Company. From $950/mo. No contracts. Call (212) 202-9220.",
+    metaDescription: "Data-driven SEO for NYC businesses across every borough, Long Island & Westchester. Technical SEO, local search, content strategy, link building — 25 years of results. Consortium NYC. From $950/mo. No contracts. Call (212) 202-9220.",
     icon: "search",
     features: [
       "Technical SEO Audits & Fixes",
@@ -101,7 +101,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "We design and develop high-performance websites that look incredible and drive results for local businesses. Every site is built with SEO architecture from day one, lightning-fast load times, and conversion-optimized layouts. Your website should be your hardest-working salesperson.",
     metaTitle: "NYC Web Design | Custom Websites That Rank, Convert & Load Fast",
-    metaDescription: "Custom Next.js websites for NYC businesses — built for speed, SEO, and conversion. No WordPress, no templates, no lock-in. You own everything. The NYC Marketing Company. Starting at $4,600. Call (212) 202-9220.",
+    metaDescription: "Custom Next.js websites for NYC businesses — built for speed, SEO, and conversion. No WordPress, no templates, no lock-in. You own everything. Consortium NYC. Starting at $4,600. Call (212) 202-9220.",
     icon: "layout",
     features: [
       "Custom Design & Development",
@@ -167,7 +167,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Your brand is more than a logo — it's how customers perceive and remember you. We create comprehensive brand identities for local businesses that communicate your value, connect with your audience, and differentiate you from every competitor on the block. Stand out in the most competitive market in the country.",
     metaTitle: "NYC Branding Services | Brand Identity, Logo Design & Strategy",
-    metaDescription: "Strategic brand identity for NYC businesses — logo design, visual identity systems, brand voice, style guides, and rebranding. Stand out in the most competitive market in the country. The NYC Marketing Company. From $2,500. Call (212) 202-9220.",
+    metaDescription: "Strategic brand identity for NYC businesses — logo design, visual identity systems, brand voice, style guides, and rebranding. Stand out in the most competitive market in the country. Consortium NYC. From $2,500. Call (212) 202-9220.",
     icon: "palette",
     features: [
       "Brand Strategy & Positioning",
@@ -227,7 +227,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Great content is the foundation of every successful digital marketing strategy. We create targeted content that positions your local business as the go-to authority in your industry. From blog posts to video, every piece is designed to drive traffic and build trust with NYC customers.",
     metaTitle: "NYC Content Marketing | Blog Writing & SEO Content Strategy",
-    metaDescription: "Strategic content marketing for NYC businesses — blog writing, SEO content, content calendars, and thought leadership that drives organic traffic and builds authority. The NYC Marketing Company. Call (212) 202-9220.",
+    metaDescription: "Strategic content marketing for NYC businesses — blog writing, SEO content, content calendars, and thought leadership that drives organic traffic and builds authority. Consortium NYC. Call (212) 202-9220.",
     icon: "pen",
     features: [
       "Content Strategy Development",
@@ -275,7 +275,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Social media is where your NYC customers spend their time — and where they decide who to trust. We manage, create, and advertise across social platforms to build brand awareness, engage your community, and drive real business results for local companies.",
     metaTitle: "NYC Social Media Marketing | Management, Strategy & Paid Ads",
-    metaDescription: "Full-service social media marketing for NYC businesses — content creation, community management, paid social advertising, influencer partnerships, and real measurable results. The NYC Marketing Company. From $750/mo. Call (212) 202-9220.",
+    metaDescription: "Full-service social media marketing for NYC businesses — content creation, community management, paid social advertising, influencer partnerships, and real measurable results. Consortium NYC. From $750/mo. Call (212) 202-9220.",
     icon: "share",
     features: [
       "Social Media Strategy",
@@ -329,7 +329,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Stop wasting money on ads that don't convert. We build and manage precision-targeted PPC and display campaigns that put your business in front of ready-to-buy customers across NYC. Every dollar is tracked, optimized, and accountable to your bottom line.",
     metaTitle: "NYC PPC & Digital Advertising | Google Ads Management That Converts",
-    metaDescription: "Precision-targeted Google Ads and digital advertising for NYC businesses. No wasted spend — every dollar tracked, optimized, and accountable to your bottom line. The NYC Marketing Company. From $500/mo + ad spend. Call (212) 202-9220.",
+    metaDescription: "Precision-targeted Google Ads and digital advertising for NYC businesses. No wasted spend — every dollar tracked, optimized, and accountable to your bottom line. Consortium NYC. From $500/mo + ad spend. Call (212) 202-9220.",
     icon: "megaphone",
     features: [
       "Google Ads Management",
@@ -377,7 +377,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Email is still the highest-ROI marketing channel — when done right. We build automated email systems for local businesses that nurture leads, retain customers, and drive repeat revenue. From welcome sequences to win-back campaigns, every email is designed to move your business forward.",
     metaTitle: "NYC Email Marketing & Automation | Campaigns That Nurture & Convert",
-    metaDescription: "Email marketing and automation for NYC businesses — welcome sequences, drip campaigns, segmentation, list management, and monthly campaigns that drive repeat revenue. The NYC Marketing Company. Call (212) 202-9220.",
+    metaDescription: "Email marketing and automation for NYC businesses — welcome sequences, drip campaigns, segmentation, list management, and monthly campaigns that drive repeat revenue. Consortium NYC. Call (212) 202-9220.",
     icon: "mail",
     features: [
       "Email Campaign Design & Copywriting",
@@ -425,7 +425,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "In New York, reputation is everything. We help local businesses manage online reviews, earn media coverage, and build the kind of credibility that turns searchers into customers. Whether you need damage control or proactive brand building, we have you covered.",
     metaTitle: "NYC PR & Reputation Management | Reviews, Media & Crisis Response",
-    metaDescription: "Online reputation management and PR for NYC businesses — review generation, media outreach, press releases, crisis communication, and brand sentiment monitoring. The NYC Marketing Company. Call (212) 202-9220.",
+    metaDescription: "Online reputation management and PR for NYC businesses — review generation, media outreach, press releases, crisis communication, and brand sentiment monitoring. Consortium NYC. Call (212) 202-9220.",
     icon: "shield",
     features: [
       "Online Reputation Monitoring",
@@ -473,7 +473,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "You can't improve what you don't measure. We set up, integrate, and manage the analytics and marketing technology stack your business needs to make smarter decisions. From Google Analytics to CRM integration, we give NYC businesses the data infrastructure to scale with confidence.",
     metaTitle: "NYC Marketing Analytics | Data Setup, Attribution & Growth Insights",
-    metaDescription: "Marketing analytics and technology consulting for NYC businesses — GA4 setup, conversion tracking, custom dashboards, CRM integration, lead attribution. Turn data into decisions. The NYC Marketing Company. Call (212) 202-9220.",
+    metaDescription: "Marketing analytics and technology consulting for NYC businesses — GA4 setup, conversion tracking, custom dashboards, CRM integration, lead attribution. Turn data into decisions. Consortium NYC. Call (212) 202-9220.",
     icon: "chart",
     features: [
       "Google Analytics Setup & Management",
@@ -539,7 +539,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Growth without strategy is just chaos. We provide hands-on business strategy consulting for local companies looking to scale smartly. From market research to competitive positioning, we help NYC business owners make the big decisions with confidence and clarity.",
     metaTitle: "NYC Business Strategy Consulting | Growth Planning & Market Analysis",
-    metaDescription: "Hands-on business strategy and growth consulting for NYC companies ready to scale — market research, competitive analysis, revenue roadmaps, SWOT, and expansion planning. The NYC Marketing Company. Call (212) 202-9220.",
+    metaDescription: "Hands-on business strategy and growth consulting for NYC companies ready to scale — market research, competitive analysis, revenue roadmaps, SWOT, and expansion planning. Consortium NYC. Call (212) 202-9220.",
     icon: "briefcase",
     features: [
       "Business Growth Consulting",
@@ -593,7 +593,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "You don't need a $75,000 marketing hire. You need a marketing partner who knows what they're doing. We step in as your outsourced marketing manager — handling strategy, execution, vendor management, and reporting so you can focus on running your business. Same expertise, fraction of the cost.",
     metaTitle: "NYC Fractional Marketing Manager | Outsourced Marketing Leadership",
-    metaDescription: "Fractional CMO and outsourced marketing management for NYC businesses — strategy, execution, vendor coordination, and monthly reporting. No $75K hire. The NYC Marketing Company. From $1,500/mo. Call (212) 202-9220.",
+    metaDescription: "Fractional CMO and outsourced marketing management for NYC businesses — strategy, execution, vendor coordination, and monthly reporting. No $75K hire. Consortium NYC. From $1,500/mo. Call (212) 202-9220.",
     icon: "user",
     features: [
       "Fractional CMO / Marketing Manager",
@@ -616,7 +616,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Your competitors are answering leads at 2am while you sleep. Our AI automation services level the playing field. We build custom AI text bots (like Selena), chatbots, automated lead follow-up, review request systems, and appointment scheduling — all running 24/7 on our own infrastructure. Not a plugin. Not a widget. Real AI built on Telnyx, Supabase, and Claude AI.",
     metaTitle: "NYC AI Automation | Custom SMS Bots, Lead Follow-Up & Booking Systems",
-    metaDescription: "Custom AI automation for NYC businesses — SMS chatbots, 24/7 lead follow-up, appointment booking, review requests. Built on Telnyx, Supabase & Claude AI. Not a plugin. The NYC Marketing Company. From $1,000/mo. Call (212) 202-9220.",
+    metaDescription: "Custom AI automation for NYC businesses — SMS chatbots, 24/7 lead follow-up, appointment booking, review requests. Built on Telnyx, Supabase & Claude AI. Not a plugin. Consortium NYC. From $1,000/mo. Call (212) 202-9220.",
     icon: "cpu",
     features: [
       "Custom AI Text Bot (SMS-Based)",
@@ -658,7 +658,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Programmatic SEO is how we took Moodap™ from zero to 25,000 pages and 2,000 page 1 rankings in 2 months. We build systems that generate hundreds or thousands of unique, keyword-targeted pages — each optimized for a specific search query. Not AI-generated filler. Not duplicate content with swapped city names. Real pages built to rank.",
     metaTitle: "NYC Programmatic SEO | Hundreds of Ranking Pages Deployed at Scale",
-    metaDescription: "Programmatic SEO for NYC businesses — location pages, service pages, EMD micro sites. 2,000 page 1 rankings in 2 months. See the proof in Google Search Console. The NYC Marketing Company. From $5,000. Call (212) 202-9220.",
+    metaDescription: "Programmatic SEO for NYC businesses — location pages, service pages, EMD micro sites. 2,000 page 1 rankings in 2 months. See the proof in Google Search Console. Consortium NYC. From $5,000. Call (212) 202-9220.",
     icon: "layers",
     features: [
       "Keyword Universe Research & Mapping",
@@ -700,7 +700,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Stop paying $300/month for a CRM you use 10% of. We build custom CRM platforms tailored to your exact workflow — lead tracking, automated follow-up, AI text bots, appointment scheduling, review management, and reporting. Built on Next.js, Supabase, Resend, and Telnyx. You own the code. You own the data. No monthly SaaS fees to a third party.",
     metaTitle: "NYC Custom CRM Development | Built to Own, Not Rent",
-    metaDescription: "Custom CRM platforms built from scratch for NYC businesses — lead tracking, AI bots, scheduling, review management. No monthly SaaS fees. You own the code and data. The NYC Marketing Company. From $25K. Call (212) 202-9220.",
+    metaDescription: "Custom CRM platforms built from scratch for NYC businesses — lead tracking, AI bots, scheduling, review management. No monthly SaaS fees. You own the code and data. Consortium NYC. From $25K. Call (212) 202-9220.",
     icon: "database",
     features: [
       "Custom-Built on Next.js + Supabase",
@@ -723,7 +723,7 @@ export const serviceCategories: ServiceCategory[] = [
     description:
       "Your Google Business Profile is often the first thing customers see. We handle everything — creation, verification submission, full optimization of every field, photo uploads, weekly posts, review response management, and ongoing monitoring. Verification is submitted through Google's process — we cannot guarantee approval as Google controls that process.",
     metaTitle: "NYC Google Business Profile | Setup, Verification & Full Optimization",
-    metaDescription: "Google Business Profile setup, verification submission, full optimization, and ongoing management for NYC businesses. Dominate the local map pack. The NYC Marketing Company. Setup from $500. Call (212) 202-9220.",
+    metaDescription: "Google Business Profile setup, verification submission, full optimization, and ongoing management for NYC businesses. Dominate the local map pack. Consortium NYC. Setup from $500. Call (212) 202-9220.",
     icon: "map-pin",
     features: [
       "GBP Creation & Verification Submission",
@@ -1043,31 +1043,31 @@ export const testimonials = [
   {
     name: "Nicky R.",
     business: "Manhattan, NY",
-    text: "The NYC Marketing Company exceeded all our expectations! Their top-tier NYC web design and SEO services transformed our online presence completely.",
+    text: "Consortium NYC exceeded all our expectations! Their top-tier NYC web design and SEO services transformed our online presence completely.",
     rating: 5,
   },
   {
     name: "Gabriel Gonzalez",
     business: "Queens, NY",
-    text: "Jeff at The NYC Marketing Company is very communicative after we spoke about my new website. He took the time to understand my vision and delivered beyond what I expected.",
+    text: "Jeff at Consortium NYC is very communicative after we spoke about my new website. He took the time to understand my vision and delivered beyond what I expected.",
     rating: 5,
   },
   {
     name: "Michael",
     business: "Hoboken, NJ",
-    text: "I cannot express enough gratitude for the incredible work Jeff and the entire The NYC Marketing Company team have done. Their dedication and expertise are unmatched.",
+    text: "I cannot express enough gratitude for the incredible work Jeff and the entire Consortium NYC team have done. Their dedication and expertise are unmatched.",
     rating: 5,
   },
   {
     name: "William Snyder",
     business: "Long Island, NY",
-    text: "The NYC Marketing Company has consistently impressed clients with their exceptional web design and SEO services, leading to significant business growth and online presence.",
+    text: "Consortium NYC has consistently impressed clients with their exceptional web design and SEO services, leading to significant business growth and online presence.",
     rating: 5,
   },
   {
     name: "Rachel M.",
     business: "Westchester, NY",
-    text: "We switched to The NYC Marketing Company from another agency and the difference was night and day. Our rankings improved within weeks and the leads haven't stopped since.",
+    text: "We switched to Consortium NYC from another agency and the difference was night and day. Our rankings improved within weeks and the leads haven't stopped since.",
     rating: 5,
   },
   {
@@ -1085,19 +1085,19 @@ export const testimonials = [
   {
     name: "Samantha Torres",
     business: "Bronx, NY",
-    text: "The NYC Marketing Company understood our business from day one. The branding and website they created perfectly captured who we are. Our customers love it.",
+    text: "Consortium NYC understood our business from day one. The branding and website they created perfectly captured who we are. Our customers love it.",
     rating: 5,
   },
   {
     name: "Mark Sullivan",
     business: "Nassau County, NY",
-    text: "After years of wasting money on agencies that overpromised, The NYC Marketing Company actually delivered. Transparent, responsive, and the SEO results speak for themselves.",
+    text: "After years of wasting money on agencies that overpromised, Consortium NYC actually delivered. Transparent, responsive, and the SEO results speak for themselves.",
     rating: 5,
   },
   {
     name: "Lisa Park",
     business: "Jersey City, NJ",
-    text: "The team at The NYC Marketing Company is incredibly responsive. They treat our business like their own. Our web traffic has tripled and we're getting calls every single day now.",
+    text: "The team at Consortium NYC is incredibly responsive. They treat our business like their own. Our web traffic has tripled and we're getting calls every single day now.",
     rating: 5,
   },
   {
@@ -1112,7 +1112,7 @@ export const faqs = {
   general: [
     {
       question:
-        "What makes The NYC Marketing Company different from other marketing companies?",
+        "What makes Consortium NYC different from other marketing companies?",
       answer:
         "We're a local business marketing agency — built specifically for plumbers, dentists, restaurants, HVAC companies, law firms, and other small businesses in NYC, Long Island, and Westchester. We combine SEO, custom web design, and marketing automation into one integrated system that generates real leads and revenue. Every decision is backed by data, not guesswork.",
     },
@@ -1146,7 +1146,7 @@ export const faqs = {
   homepageAll: [
     // ── general (6) ──
     {
-      question: "What makes The NYC Marketing Company different from other marketing companies?",
+      question: "What makes Consortium NYC different from other marketing companies?",
       answer: "We're a local business marketing agency — built specifically for plumbers, dentists, restaurants, HVAC companies, law firms, and other small businesses in NYC, Long Island, and Westchester. We combine SEO, custom web design, and marketing automation into one integrated system that generates real leads and revenue. Every decision is backed by data, not guesswork.",
     },
     {
@@ -1191,7 +1191,7 @@ export const faqs = {
       answer: "We've served 100+ industries over 25 years. Our biggest verticals are home services, law firms, dental practices, restaurants, real estate, HVAC, roofing, and contractors. But if people search for it on Google, we can rank it. Our data-driven approach works across verticals because we build from actual market data, not templates.",
     },
     {
-      question: "What makes The NYC Marketing Company different from other marketing companies?",
+      question: "What makes Consortium NYC different from other marketing companies?",
       answer: "You work directly with someone who has 25 years of experience in the exact seat they sit in. No junior account managers, no layers, no runaround. We pick up the phone. We respond same-day. We don't outsource your work overseas. We don't lock you into contracts. And we show you real results from real businesses — not stock photo case studies.",
     },
     {
@@ -1239,7 +1239,7 @@ export const faqs = {
       answer: "We build on Next.js, React, and Tailwind CSS — hosted on Vercel with Supabase for databases and Resend for email. No WordPress, no page builders, no bloat. Our sites load in under 2 seconds and score 90+ on Core Web Vitals because they're custom-coded, not dragged and dropped. This is the same tech stack used by Fortune 500 companies — and we bring it to local businesses.",
     },
     {
-      question: "How do I get started with The NYC Marketing Company?",
+      question: "How do I get started with Consortium NYC?",
       answer: "Schedule a free strategy session. We'll review your current situation, audit your competitors, and give you a clear roadmap — whether you hire us or not. No pitch decks, no pressure. Just a real conversation about what it takes to win in your market. You can also call us directly at (212) 202-9220. We pick up the phone.",
     },
   ],

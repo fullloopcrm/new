@@ -80,7 +80,7 @@ export default function Industries() {
               See All Industries We&apos;ve Served
             </Link>
             <Link
-              href="/contact-nyc-marketing-company-consortium-nyc"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
               I&apos;m Ready to Talk

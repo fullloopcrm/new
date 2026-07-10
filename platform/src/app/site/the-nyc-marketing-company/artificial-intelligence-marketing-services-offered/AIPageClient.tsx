@@ -177,7 +177,7 @@ export default function AIPageClient({ faqs }: { faqs: { question: string; answe
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} transition={{ duration: 0.5, delay: 0.15 }} className="flex justify-center mb-10">
             <Image
               src="/images/selena-ai-chat-bot.png"
-              alt="Selena AI booking concierge live on The NYC Maid — built by Full Loop CRM in partnership with Consortium NYC (Now The NYC Marketing Company)"
+              alt="Selena AI booking concierge live on The NYC Maid — built by Full Loop CRM in partnership with The NYC Marketing Company"
               width={900}
               height={506}
               className="rounded-2xl shadow-2xl border border-slate-200"

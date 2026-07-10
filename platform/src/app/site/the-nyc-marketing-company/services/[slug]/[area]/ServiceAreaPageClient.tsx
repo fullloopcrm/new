@@ -136,7 +136,7 @@ export default function ServiceAreaPageClient({
                   The {area.name} market has nuances that generic agencies miss. Search behavior here is different from <L href="/services-areas-we-offer-marketing-services-in/manhattan-marketing-company">Manhattan</L> and different from <L href="/services-areas-we-offer-marketing-services-in/long-island-marketing-company">Long Island</L>. Customer expectations, competition density, and buying patterns all vary by neighborhood. We account for every one of these factors in your <L href="/nyc-marketing-pricing-guide">$950/month strategy</L>.
                 </p>
                 <p>
-                  {service.name} doesn&apos;t work in isolation. It connects to your <L href="/nyc-marketing-company-services-list">website</L>, your <L href="/nyc-marketing-company-services-list">Google Business Profile</L>, your <L href="/nyc-marketing-company-services-list">brand identity</L>, and your <L href="/artificial-intelligence-marketing-services-offered">automation systems</L>. When all of these work together, the compounding effect on leads and revenue is massive. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">Consortium NYC (Now The NYC Marketing Company) difference</L> — integrated systems, not disconnected tactics. See our <L href="/nyc-marketing-company-portfolio">real results</L>.
+                  {service.name} doesn&apos;t work in isolation. It connects to your <L href="/nyc-marketing-company-services-list">website</L>, your <L href="/nyc-marketing-company-services-list">Google Business Profile</L>, your <L href="/nyc-marketing-company-services-list">brand identity</L>, and your <L href="/artificial-intelligence-marketing-services-offered">automation systems</L>. When all of these work together, the compounding effect on leads and revenue is massive. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">The NYC Marketing Company difference</L> — integrated systems, not disconnected tactics. See our <L href="/nyc-marketing-company-portfolio">real results</L>.
                 </p>
               </div>
               <Link
@@ -460,7 +460,7 @@ export default function ServiceAreaPageClient({
                   { label: `More About ${area.name}`, href: `/services-areas-we-offer-marketing-services-in/${area.slug}` },
                   { label: "100+ Industries", href: "/industries-we-offer-marketing-services-for" },
                   { label: "80+ Service Areas", href: "/services-areas-we-offer-marketing-services-in" },
-                  { label: "About Consortium NYC (Now The NYC Marketing Company)", href: "/about-digital-marketing-agency-consortium-nyc" },
+                  { label: "About The NYC Marketing Company", href: "/about-digital-marketing-agency-consortium-nyc" },
                   { label: "Contact Us", href: "/contact-nyc-marketing-company-consortium-nyc" },
                 ].map((link) => (
                   <Link key={link.href} href={link.href} className="block text-teal-400 text-sm font-medium hover:text-teal-300 transition-colors">

@@ -6,7 +6,7 @@ import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb"
 /* ------------------------------------------------------------------ */
 /*  Metadata                                                           */
 /* ------------------------------------------------------------------ */
-const pTitle = "Transparent Pricing | Consortium NYC (Now The NYC Marketing Company)";
+const pTitle = "Transparent Pricing | The NYC Marketing Company";
 const pDescription = "Simple, transparent pricing for web design and SEO services. No hidden fees, no surprise invoices, no long-term contracts. Custom websites from $4,600. Monthly SEO from $950/mo. Call/text (212) 202-9220.";
 const pUrl = "https://www.thenycmarketingcompany.com/pricing";
 
@@ -27,9 +27,9 @@ export const metadata: Metadata = {
     title: pTitle,
     description: pDescription,
     url: pUrl,
-    siteName: "Consortium NYC (Now The NYC Marketing Company)",
+    siteName: "The NYC Marketing Company",
     type: "website",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company) Pricing" }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "The NYC Marketing Company Pricing" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -142,7 +142,7 @@ export default function PricingPage() {
       {/* Schema */}
       <JsonLd
         data={webPageSchema(
-          "Transparent Pricing | Consortium NYC (Now The NYC Marketing Company)",
+          "Transparent Pricing | The NYC Marketing Company",
           "Simple, transparent pricing for web design and SEO services. No hidden fees, no surprise invoices, no long-term contracts. Call/text (212) 202-9220.",
           "https://www.thenycmarketingcompany.com/pricing"
         )}

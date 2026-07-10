@@ -118,7 +118,7 @@ export default function Guarantees() {
             <span className="text-teal-600 font-bold">YOU</span> first.
           </p>
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-10 py-4 rounded-full bg-teal-600 text-white font-bold text-lg hover:bg-teal-500 transition-colors duration-300 font-cta"
           >
             Book Your Free Strategy Call

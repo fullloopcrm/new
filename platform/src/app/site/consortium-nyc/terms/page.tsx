@@ -5,7 +5,7 @@ import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-n
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "Terms of Service for The NYC Marketing Company. Read our terms governing the use of our website and digital marketing services. Call (212) 202-9220 with questions.",
+    "Terms of Service for Consortium NYC. Read our terms governing the use of our website and digital marketing services. Call (212) 202-9220 with questions.",
   alternates: { canonical: "https://www.consortiumnyc.com/terms" },
   robots: { index: true, follow: true },
 };
@@ -18,7 +18,7 @@ export default function TermsPage() {
       <JsonLd
         data={webPageSchema(
           "Terms of Service",
-          "Terms of Service for The NYC Marketing Company. Terms governing use of our website and digital marketing services.",
+          "Terms of Service for Consortium NYC. Terms governing use of our website and digital marketing services.",
           "https://www.consortiumnyc.com/terms"
         )}
       />
@@ -38,13 +38,13 @@ export default function TermsPage() {
           <div className="mt-12 prose-legal">
             <Section title="1. Agreement to Terms">
               <p>
-                By accessing or using the website at <strong>consortiumnyc.com</strong> (the &quot;Site&quot;) or engaging any services provided by The NYC Marketing Company (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree, do not use the Site or our services.
+                By accessing or using the website at <strong>consortiumnyc.com</strong> (the &quot;Site&quot;) or engaging any services provided by Consortium NYC (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree, do not use the Site or our services.
               </p>
             </Section>
 
             <Section title="2. Services">
               <p>
-                The NYC Marketing Company is a marketing company providing services including but not limited to search engine optimization (SEO), web design and development, branding, digital strategy, business development, marketing automation, and AI chatbot solutions (collectively, &quot;Services&quot;).
+                Consortium NYC is a marketing company providing services including but not limited to search engine optimization (SEO), web design and development, branding, digital strategy, business development, marketing automation, and AI chatbot solutions (collectively, &quot;Services&quot;).
               </p>
               <p>
                 Specific service terms, deliverables, timelines, and pricing are outlined in individual service agreements or proposals provided to clients. In the event of a conflict between these Terms and a signed service agreement, the service agreement shall prevail.
@@ -65,7 +65,7 @@ export default function TermsPage() {
 
             <Section title="4. Intellectual Property">
               <p>
-                All content on the Site — including text, graphics, logos, images, code, design, and the overall look and feel — is owned by The NYC Marketing Company or its licensors and is protected by copyright, trademark, and other intellectual property laws.
+                All content on the Site — including text, graphics, logos, images, code, design, and the overall look and feel — is owned by Consortium NYC or its licensors and is protected by copyright, trademark, and other intellectual property laws.
               </p>
               <p>
                 You may not reproduce, distribute, modify, create derivative works of, publicly display, or otherwise use any Site content without our prior written consent.
@@ -128,7 +128,7 @@ export default function TermsPage() {
 
             <Section title="10. Limitation of Liability">
               <p>
-                To the maximum extent permitted by law, The NYC Marketing Company shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of revenue, profits, data, or business opportunities, arising from or related to your use of the Site or our Services.
+                To the maximum extent permitted by law, Consortium NYC shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of revenue, profits, data, or business opportunities, arising from or related to your use of the Site or our Services.
               </p>
               <p>
                 Our total liability for any claim arising from these Terms or our Services shall not exceed the total fees paid by you to us in the 12 months preceding the claim.
@@ -137,7 +137,7 @@ export default function TermsPage() {
 
             <Section title="11. Indemnification">
               <p>
-                You agree to indemnify, defend, and hold harmless The NYC Marketing Company, its officers, directors, employees, and agents from any claims, damages, losses, liabilities, and expenses (including attorneys&apos; fees) arising from your use of the Site, violation of these Terms, or infringement of any third-party rights.
+                You agree to indemnify, defend, and hold harmless Consortium NYC, its officers, directors, employees, and agents from any claims, damages, losses, liabilities, and expenses (including attorneys&apos; fees) arising from your use of the Site, violation of these Terms, or infringement of any third-party rights.
               </p>
             </Section>
 
@@ -179,7 +179,7 @@ export default function TermsPage() {
               <ul>
                 <li><strong>Email:</strong> <a href="mailto:hello@consortiumnyc.com">hello@consortiumnyc.com</a></li>
                 <li><strong>Phone:</strong> <a href="tel:+12122029220">(212) 202-9220</a></li>
-                <li><strong>Address:</strong> The NYC Marketing Company, New York, NY 10001</li>
+                <li><strong>Address:</strong> Consortium NYC, New York, NY 10001</li>
               </ul>
             </Section>
           </div>

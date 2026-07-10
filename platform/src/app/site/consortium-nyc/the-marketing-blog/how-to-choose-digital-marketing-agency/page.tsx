@@ -6,7 +6,7 @@ import BlogNav from "@/app/site/consortium-nyc/_components/blog/BlogNav";
 import ListenButton from "@/app/site/consortium-nyc/_components/blog/ListenButton";
 import { JsonLd, articleSchema, breadcrumbSchema } from "@/app/site/consortium-nyc/_lib/schema";
 
-const title = "How to Choose a Marketing Company (Without Getting Burned) | The NYC Marketing Company";
+const title = "How to Choose a Marketing Company (Without Getting Burned) | Consortium NYC";
 const description =
   "The exact questions to ask, red flags to watch for, and benchmarks to demand before hiring a marketing company. 25 years of industry insight — no sugarcoating. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/the-marketing-blog/how-to-choose-digital-marketing-agency";
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC",
     type: "article",
     images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },
@@ -69,7 +69,7 @@ export default function Post() {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 font-heading leading-tight max-w-3xl">
             How to Choose a Marketing Company (Without Getting Burned)
           </h1>
-          <p className="text-white/50 text-sm">By The NYC Marketing Company</p>
+          <p className="text-white/50 text-sm">By Consortium NYC</p>
         </div>
       </section>
 
@@ -91,7 +91,7 @@ export default function Post() {
 
             <h3 className="text-lg font-bold text-slate-900 mt-8 mb-2 font-heading">1. &ldquo;Who will actually be doing the work?&rdquo;</h3>
             <p className="text-slate-600 leading-relaxed mb-6">
-              Most agencies sell you the senior team and hand your account to a junior employee or outsource it overseas. Ask directly: who touches my account day-to-day? What&apos;s their experience level? At <Link href="/about-digital-marketing-agency-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">The NYC Marketing Company</Link>, you work directly with someone who has 25 years in the seat they sit in. No layers.
+              Most agencies sell you the senior team and hand your account to a junior employee or outsource it overseas. Ask directly: who touches my account day-to-day? What&apos;s their experience level? At <Link href="/about-digital-marketing-agency-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Consortium NYC</Link>, you work directly with someone who has 25 years in the seat they sit in. No layers.
             </p>
 
             <h3 className="text-lg font-bold text-slate-900 mt-8 mb-2 font-heading">2. &ldquo;Can you show me real results from real businesses?&rdquo;</h3>
@@ -162,7 +162,7 @@ export default function Post() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
-                  href="/contact-nyc-marketing-company-consortium-nyc"
+                  href="https://www.thenycmarketingcompany.com/contact"
                   className="inline-block px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta"
                 >
                   Schedule a Free Strategy Session

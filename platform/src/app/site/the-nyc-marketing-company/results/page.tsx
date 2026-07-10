@@ -5,8 +5,8 @@ import ResultsClient from "./ResultsClient";
 /* ------------------------------------------------------------------ */
 /*  Metadata                                                           */
 /* ------------------------------------------------------------------ */
-const title = "What's Working | Results & Case Studies | Consortium NYC (Now The NYC Marketing Company)";
-const description = "Real results for real NYC businesses. See how Consortium NYC (Now The NYC Marketing Company) helped local businesses go from invisible to page 1, generating dozens of leads per month with SEO and web design. Call/text (212) 202-9220.";
+const title = "What's Working | Results & Case Studies | The NYC Marketing Company";
+const description = "Real results for real NYC businesses. See how The NYC Marketing Company helped local businesses go from invisible to page 1, generating dozens of leads per month with SEO and web design. Call/text (212) 202-9220.";
 const url = "https://www.thenycmarketingcompany.com/results";
 
 export const metadata: Metadata = {
@@ -26,9 +26,9 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "Consortium NYC (Now The NYC Marketing Company)",
+    siteName: "The NYC Marketing Company",
     type: "website",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company) Results" }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "The NYC Marketing Company Results" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -47,7 +47,7 @@ export default function ResultsPage() {
       <JsonLd
         data={webPageSchema(
           "What's Working | Results & Case Studies",
-          "Real results for real NYC businesses. See how Consortium NYC (Now The NYC Marketing Company) helped local businesses go from invisible to page 1.",
+          "Real results for real NYC businesses. See how The NYC Marketing Company helped local businesses go from invisible to page 1.",
           "https://www.thenycmarketingcompany.com/results"
         )}
       />

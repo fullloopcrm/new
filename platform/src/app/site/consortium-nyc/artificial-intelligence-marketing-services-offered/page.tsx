@@ -11,7 +11,7 @@ const PHONE = "212.202.9220";
 
 export const metadata = {
   title: "AI Automation for Local Businesses | AI Text Bots, Lead Follow-Up & CRM",
-  description: `AI automation built for local businesses. Custom AI text bots, automated lead follow-up, review requests, appointment booking, and CRM — running 24/7 on real infrastructure. Not a plugin. Built by The NYC Marketing Company. Call ${PHONE}.`,
+  description: `AI automation built for local businesses. Custom AI text bots, automated lead follow-up, review requests, appointment booking, and CRM — running 24/7 on real infrastructure. Not a plugin. Built by Consortium NYC. Call ${PHONE}.`,
   alternates: { canonical: "https://www.consortiumnyc.com/ai" },
   keywords: [
     "ai automation local business",
@@ -26,15 +26,15 @@ export const metadata = {
     "consortium nyc ai",
   ],
   openGraph: {
-    title: "AI Automation for Local Businesses | The NYC Marketing Company",
+    title: "AI Automation for Local Businesses | Consortium NYC",
     description: `Custom AI text bots, lead follow-up, review automation, and CRM. Built on real infrastructure. Call ${PHONE}.`,
     url: "https://www.consortiumnyc.com/ai",
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC",
     type: "website",
   },
   twitter: {
     card: "summary_large_image" as const,
-    title: "AI Automation for Local Businesses | The NYC Marketing Company",
+    title: "AI Automation for Local Businesses | Consortium NYC",
     description: `AI text bots, automated lead follow-up, review requests, and CRM. Call ${PHONE}.`,
   },
 };
@@ -45,7 +45,7 @@ const breadcrumbs = [
 ];
 
 const faqs = [
-  { question: "What kind of AI bots does The NYC Marketing Company build?", answer: `We build custom SMS-based AI text bots (like Selena), AI chatbots, automated lead follow-up systems, review request automation, and appointment scheduling bots. Everything is built on real infrastructure — Telnyx for SMS/voice, Supabase for data, and Claude AI for intelligence. No third-party plugins or widgets. Call ${PHONE} to learn more.` },
+  { question: "What kind of AI bots does Consortium NYC build?", answer: `We build custom SMS-based AI text bots (like Selena), AI chatbots, automated lead follow-up systems, review request automation, and appointment scheduling bots. Everything is built on real infrastructure — Telnyx for SMS/voice, Supabase for data, and Claude AI for intelligence. No third-party plugins or widgets. Call ${PHONE} to learn more.` },
   { question: "How much does AI automation cost?", answer: `AI automation starts at $1,000/month after a $25,000 setup and development cost. Setup includes custom bot development, CRM integration, workflow design, testing, and deployment. The monthly fee covers hosting, AI usage, monitoring, and ongoing improvements. Call ${PHONE} for a custom quote.` },
   { question: "Can the AI bot integrate with my existing systems?", answer: "Yes. We build custom integrations with your CRM, scheduling system, phone system, and communication tools. Everything runs on open APIs — no vendor lock-in. If you already use a CRM like HubSpot or Salesforce, we integrate directly. If you want a custom CRM, we build that too." },
   { question: "What is Selena?", answer: "Selena is our AI customer service bot built on Claude AI, Telnyx SMS, and Supabase. She handles lead qualification, appointment booking, customer questions, review requests, and follow-up — all via text message. She works 24/7, responds in seconds, and never calls in sick. Selena was built in-house and runs on infrastructure we own." },
@@ -62,7 +62,7 @@ export default function AIPage() {
   return (
     <>
       <JsonLd data={serviceSchema("AI Automation", "ai-automation-services-in-nyc", "Custom AI text bots, automated lead follow-up, review requests, appointment booking, and CRM for local businesses. Built on Telnyx, Supabase, and Claude AI.")} />
-      <JsonLd data={webPageSchema("AI Automation for Local Businesses | The NYC Marketing Company", "Custom AI text bots, lead follow-up automation, review requests, and CRM.", pageUrl, breadcrumbs)} />
+      <JsonLd data={webPageSchema("AI Automation for Local Businesses | Consortium NYC", "Custom AI text bots, lead follow-up automation, review requests, and CRM.", pageUrl, breadcrumbs)} />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd data={faqSchema(faqs)} />
       <AIPageClient faqs={faqs} />

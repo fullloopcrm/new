@@ -24,9 +24,9 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC",
     type: "website",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "The NYC Marketing Company" }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC" }],
   },
   twitter: {
     card: "summary_large_image",

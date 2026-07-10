@@ -586,7 +586,7 @@ const lessons: Lesson[] = [
     step: "Think in Systems, Not Tactics",
     issue: <span>You&apos;ve tried dozens of marketing tactics over the years. Some worked, some didn&apos;t. But nothing connects. Your marketing is a collection of experiments, not a machine.</span>,
     advice: <span>Build a marketing system where every piece amplifies every other piece: <L href="/nyc-marketing-company-services-list">SEO</L> drives traffic → your website converts visitors → <L href="/artificial-intelligence-marketing-services-offered">automation</L> follows up → reviews build authority → authority improves rankings → the cycle repeats. This is how you build a marketing machine that runs without you.</span>,
-    secret: <span>The difference between businesses that grow 5% per year and businesses that grow 50% is systems thinking. Individual tactics plateau. Integrated systems compound. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">Consortium NYC (Now The NYC Marketing Company) philosophy</L> — every service we offer is designed to amplify every other service.</span>,
+    secret: <span>The difference between businesses that grow 5% per year and businesses that grow 50% is systems thinking. Individual tactics plateau. Integrated systems compound. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">The NYC Marketing Company philosophy</L> — every service we offer is designed to amplify every other service.</span>,
   },
   {
     phase: "mastery",
@@ -925,7 +925,7 @@ export default function Marketing101Client() {
                 {[
                   { label: "100+ Industries", href: "/industries-we-offer-marketing-services-for" },
                   { label: "80+ Service Areas", href: "/services-areas-we-offer-marketing-services-in" },
-                  { label: "About Consortium NYC (Now The NYC Marketing Company)", href: "/about-digital-marketing-agency-consortium-nyc" },
+                  { label: "About The NYC Marketing Company", href: "/about-digital-marketing-agency-consortium-nyc" },
                   { label: "Free SEO Audit", href: "https://www.thenycmarketingcompany.com/contact" },
                   { label: "Contact Us", href: "/contact-nyc-marketing-company-consortium-nyc" },
                 ].map((link) => (

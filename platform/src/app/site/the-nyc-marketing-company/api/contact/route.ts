@@ -7,7 +7,7 @@ function getResend() {
   return _resend;
 }
 
-const FROM = "Consortium NYC (Now The NYC Marketing Company) <hi@thenycmarketingcompany.com>";
+const FROM = "The NYC Marketing Company <hi@thenycmarketingcompany.com>";
 const TO = "thenycmarketingco@gmail.com";
 
 /**

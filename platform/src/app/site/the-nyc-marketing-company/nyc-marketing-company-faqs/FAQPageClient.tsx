@@ -98,7 +98,7 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   // ─── Pricing & Costs (11–20) ───
   {
     category: "pricing",
-    question: "Why is Consortium NYC (Now The NYC Marketing Company)'s SEO pricing lower than other NYC agencies?",
+    question: "Why is The NYC Marketing Company's SEO pricing lower than other NYC agencies?",
     answer: <span>We don&apos;t have a Manhattan office lease, 50-person staff, or investor overhead. You work directly with senior strategists — no junior account managers burning your budget learning on your dime. Our <L href="/nyc-marketing-pricing-guide">$950/month SEO</L> delivers more value than most agencies charging $3,000+ because every dollar goes to actual work, not overhead.</span>,
   },
   {
@@ -464,7 +464,7 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   // ─── Process & Reporting (81–90) ───
   {
     category: "process",
-    question: "What does the onboarding process look like at Consortium NYC (Now The NYC Marketing Company)?",
+    question: "What does the onboarding process look like at The NYC Marketing Company?",
     answer: <span>After your <L href="https://www.thenycmarketingcompany.com/contact">free strategy session</L>, onboarding takes less than a week. We conduct a full digital audit, perform competitive research in your <L href="/services-areas-we-offer-marketing-services-in">local market</L>, and deliver a strategic roadmap within two weeks. Implementation starts immediately. You&apos;ll have direct access to your strategist from day one — no layers, no handoffs.</span>,
   },
   {
@@ -474,8 +474,8 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   },
   {
     category: "process",
-    question: "Who will I work with at Consortium NYC (Now The NYC Marketing Company)?",
-    answer: <span>You work directly with senior strategists who have 25+ years of experience. No junior account managers, no interns, no overseas outsourcing. When you call, the person who picks up is the same person working on your <L href="/nyc-marketing-company-services-list">SEO</L>, your <L href="/nyc-marketing-company-services-list">website</L>, and your strategy. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">Consortium NYC (Now The NYC Marketing Company) difference</L>.</span>,
+    question: "Who will I work with at The NYC Marketing Company?",
+    answer: <span>You work directly with senior strategists who have 25+ years of experience. No junior account managers, no interns, no overseas outsourcing. When you call, the person who picks up is the same person working on your <L href="/nyc-marketing-company-services-list">SEO</L>, your <L href="/nyc-marketing-company-services-list">website</L>, and your strategy. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">The NYC Marketing Company difference</L>.</span>,
   },
   {
     category: "process",
@@ -563,7 +563,7 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   },
   {
     category: "general",
-    question: "How do I get started with Consortium NYC (Now The NYC Marketing Company)?",
+    question: "How do I get started with The NYC Marketing Company?",
     answer: <span><L href="https://www.thenycmarketingcompany.com/contact">Schedule a free strategy session</L>. We&apos;ll review your current situation, audit your competitors, and give you a clear roadmap — whether you hire us or not. No pitch decks, no pressure. Just a real conversation about what it takes to win in your <L href="/services-areas-we-offer-marketing-services-in">local market</L>. You can also call us at (212) 202-9220.</span>,
   },
 ];
@@ -800,7 +800,7 @@ export default function FAQPageClient() {
                   { label: "100+ Industries We Serve", href: "/industries-we-offer-marketing-services-for" },
                   { label: "80+ Service Areas", href: "/services-areas-we-offer-marketing-services-in" },
                   { label: "What's Working in Marketing", href: "/whats-working-in-marketing" },
-                  { label: "About Consortium NYC (Now The NYC Marketing Company)", href: "/about-digital-marketing-agency-consortium-nyc" },
+                  { label: "About The NYC Marketing Company", href: "/about-digital-marketing-agency-consortium-nyc" },
                   { label: "Free Strategy Session", href: "/contact-nyc-marketing-company-consortium-nyc" },
                 ].map((link) => (
                   <Link key={link.href} href={link.href} className="block text-teal-400 text-sm font-medium hover:text-teal-300 transition-colors">

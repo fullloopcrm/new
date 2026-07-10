@@ -182,7 +182,7 @@ export default function MarketingChecklist() {
                 : "Your competitors are ahead. Let's catch up — fast."}
             </p>
             <Link
-              href="/contact-nyc-marketing-company-consortium-nyc"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
             >
               Get Help Checking Every Box

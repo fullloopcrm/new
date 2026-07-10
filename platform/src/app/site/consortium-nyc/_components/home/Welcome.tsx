@@ -14,7 +14,7 @@ export default function Welcome() {
           transition={{ duration: 0.5 }}
           className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta"
         >
-          Welcome to The NYC Marketing Company
+          Welcome to Consortium NYC
         </motion.p>
 
         <motion.h2

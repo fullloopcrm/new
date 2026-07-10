@@ -96,7 +96,7 @@ export default function AreaPageClient({
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/contact-nyc-marketing-company-consortium-nyc"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Get a Free {area.name} Strategy Session
@@ -146,7 +146,7 @@ export default function AreaPageClient({
                 </p>
               </div>
               <Link
-                href="/contact-nyc-marketing-company-consortium-nyc"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block mt-8 px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta"
               >
                 Get Started in {area.name}
@@ -509,7 +509,7 @@ export default function AreaPageClient({
                 {[
                   { label: "100+ Industries", href: "/industries-we-offer-marketing-services-for" },
                   { label: "80+ Service Areas", href: "/services-areas-we-offer-marketing-services-in" },
-                  { label: "About The NYC Marketing Company", href: "/about-digital-marketing-agency-consortium-nyc" },
+                  { label: "About Consortium NYC", href: "/about-digital-marketing-agency-consortium-nyc" },
                   { label: "Free SEO Audit", href: "/the-free-human+ai-seo-marketing-review" },
                   { label: "Contact Us", href: "/contact-nyc-marketing-company-consortium-nyc" },
                 ].map((link) => (
@@ -541,7 +541,7 @@ export default function AreaPageClient({
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/contact-nyc-marketing-company-consortium-nyc"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Get My Free {area.name} Strategy

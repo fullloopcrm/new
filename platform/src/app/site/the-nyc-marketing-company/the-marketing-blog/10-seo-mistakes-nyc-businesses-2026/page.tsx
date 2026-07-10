@@ -7,7 +7,7 @@ import ListenButton from "@/app/site/the-nyc-marketing-company/_components/blog/
 import { JsonLd, articleSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
-const title = "10 SEO Mistakes NYC Businesses Make in 2026 | Consortium NYC (Now The NYC Marketing Company)";
+const title = "10 SEO Mistakes NYC Businesses Make in 2026 | The NYC Marketing Company";
 const description =
   "The most common SEO mistakes we see NYC businesses making — and exactly how to fix them. From local citations to Core Web Vitals, stop leaving money on the table. Call/text (212) 202-9220.";
 const url = "https://www.thenycmarketingcompany.com/the-marketing-blog/10-seo-mistakes-nyc-businesses-2026";
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "Consortium NYC (Now The NYC Marketing Company)",
+    siteName: "The NYC Marketing Company",
     type: "article",
     images: [{ url: "https://www.thenycmarketingcompany.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },

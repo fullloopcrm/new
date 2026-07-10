@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 
-const title = "NYC Marketing Company Pricing Guide | Honest Costs, No Hidden Fees | Consortium NYC (Now The NYC Marketing Company)";
+const title = "NYC Marketing Company Pricing Guide | Honest Costs, No Hidden Fees | The NYC Marketing Company";
 const description = "How much does a marketing company in NYC actually cost? Real pricing for SEO, web design, branding, and AI automation. Plus the mistakes 85% of business owners make that cost them thousands. Call/text (212) 202-9220.";
 const url = "https://www.thenycmarketingcompany.com/nyc-marketing-pricing-guide";
 
@@ -25,9 +25,9 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "Consortium NYC (Now The NYC Marketing Company)",
+    siteName: "The NYC Marketing Company",
     type: "website",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company) Pricing Guide" }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "The NYC Marketing Company Pricing Guide" }],
   },
   twitter: {
     card: "summary_large_image",

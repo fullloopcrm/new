@@ -6,7 +6,7 @@ import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 export const metadata: Metadata = {
   title: "Accessibility Statement",
   description:
-    "Accessibility Statement for Consortium NYC (Now The NYC Marketing Company). Our commitment to making our website accessible to all users. Call (212) 202-9220 with questions.",
+    "Accessibility Statement for The NYC Marketing Company. Our commitment to making our website accessible to all users. Call (212) 202-9220 with questions.",
   alternates: { canonical: "https://www.thenycmarketingcompany.com/accessibility" },
   robots: { index: true, follow: true },
 };
@@ -19,7 +19,7 @@ export default function AccessibilityPage() {
       <JsonLd
         data={webPageSchema(
           "Accessibility Statement",
-          "Accessibility Statement for Consortium NYC (Now The NYC Marketing Company). Our commitment to digital accessibility for all users.",
+          "Accessibility Statement for The NYC Marketing Company. Our commitment to digital accessibility for all users.",
           "https://www.thenycmarketingcompany.com/accessibility"
         )}
       />

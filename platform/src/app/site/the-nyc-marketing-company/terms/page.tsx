@@ -6,7 +6,7 @@ import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "Terms of Service for Consortium NYC (Now The NYC Marketing Company). Read our terms governing the use of our website and digital marketing services. Call (212) 202-9220 with questions.",
+    "Terms of Service for The NYC Marketing Company. Read our terms governing the use of our website and digital marketing services. Call (212) 202-9220 with questions.",
   alternates: { canonical: "https://www.thenycmarketingcompany.com/terms" },
   robots: { index: true, follow: true },
 };
@@ -19,7 +19,7 @@ export default function TermsPage() {
       <JsonLd
         data={webPageSchema(
           "Terms of Service",
-          "Terms of Service for Consortium NYC (Now The NYC Marketing Company). Terms governing use of our website and digital marketing services.",
+          "Terms of Service for The NYC Marketing Company. Terms governing use of our website and digital marketing services.",
           "https://www.thenycmarketingcompany.com/terms"
         )}
       />

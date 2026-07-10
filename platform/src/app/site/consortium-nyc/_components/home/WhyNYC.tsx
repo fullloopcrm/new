@@ -126,7 +126,7 @@ export default function WhyNYC() {
             it&apos;s how much longer you can afford to go without it.
           </p>
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
           >
             Get Your Free Market Analysis

@@ -69,7 +69,7 @@ export default function NotLikeOthers() {
             </ul>
           </motion.div>
 
-          {/* Right — Consortium NYC (Now The NYC Marketing Company) */}
+          {/* Right — The NYC Marketing Company */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}

@@ -156,7 +156,7 @@ const testimonials = [
     rating: 5,
   },
   {
-    text: "We went from hoping the phone would ring to having to hire two more plumbers to keep up. Consortium NYC (Now The NYC Marketing Company) changed everything for us.",
+    text: "We went from hoping the phone would ring to having to hire two more plumbers to keep up. The NYC Marketing Company changed everything for us.",
     name: "Mike T.",
     business: "Brooklyn Plumbing Co.",
     rating: 5,

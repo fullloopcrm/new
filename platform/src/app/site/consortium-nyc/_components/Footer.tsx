@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PartnerLine } from "@/app/site/consortium-nyc/_lib/brand";
 
 const services = [
   { label: "SEO", slug: "seo" },
@@ -129,7 +130,7 @@ export default function Footer() {
               </li>
             </ul>
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="mt-6 inline-block rounded-full bg-teal-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
             >
               Get in Touch
@@ -141,7 +142,7 @@ export default function Footer() {
         <div className="mt-14 rounded-lg bg-slate-800 px-6 py-4">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <p className="text-xs text-slate-400">
-              &copy; {year} The NYC Marketing Company. All rights reserved.
+              &copy; {year} <PartnerLine />. All rights reserved.
             </p>
             <div className="flex flex-wrap justify-center gap-6">
               <Link

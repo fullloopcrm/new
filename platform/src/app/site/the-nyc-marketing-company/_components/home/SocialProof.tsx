@@ -10,7 +10,7 @@ const reviews = [
     starCount: 5,
     badge: "50+ Reviews",
     snippet:
-      "Consortium NYC (Now The NYC Marketing Company) completely transformed our online presence. Within 3 months we were ranking on page one for every keyword that matters. Our leads tripled and our phone won't stop ringing. Best investment we've made in 10 years of business.",
+      "The NYC Marketing Company completely transformed our online presence. Within 3 months we were ranking on page one for every keyword that matters. Our leads tripled and our phone won't stop ringing. Best investment we've made in 10 years of business.",
     author: "— Michael R., Restaurant Owner, Manhattan",
   },
   {
@@ -19,7 +19,7 @@ const reviews = [
     starCount: 5,
     badge: "Top Digital Agency NYC 2025",
     snippet:
-      "We interviewed six agencies before choosing Consortium NYC (Now The NYC Marketing Company). Nobody else came close to their level of strategic thinking. They don't just execute — they think like business owners. Revenue is up 140% year over year and we've cut our ad spend by 30%.",
+      "We interviewed six agencies before choosing The NYC Marketing Company. Nobody else came close to their level of strategic thinking. They don't just execute — they think like business owners. Revenue is up 140% year over year and we've cut our ad spend by 30%.",
     author: "— Sarah K., E-Commerce Founder, Brooklyn",
   },
   {
@@ -28,7 +28,7 @@ const reviews = [
     starCount: 5,
     badge: "Best of NYC",
     snippet:
-      "After getting burned by two other agencies, we were skeptical. Consortium NYC (Now The NYC Marketing Company) proved us wrong in the first month. Transparent reporting, real results, and a team that actually picks up the phone. They treat our business like it's their own.",
+      "After getting burned by two other agencies, we were skeptical. The NYC Marketing Company proved us wrong in the first month. Transparent reporting, real results, and a team that actually picks up the phone. They treat our business like it's their own.",
     author: "— David L., Law Firm Partner, Midtown",
   },
 ];

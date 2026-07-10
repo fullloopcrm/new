@@ -6,6 +6,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import { JsonLd, organizationSchema, websiteSchema } from "@/app/site/consortium-nyc/_lib/schema";
 import Navbar from "@/app/site/consortium-nyc/_components/Navbar";
 import Footer from "@/app/site/consortium-nyc/_components/Footer";
+import { PartnerBanner } from "@/app/site/consortium-nyc/_lib/brand";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -34,11 +35,11 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.consortiumnyc.com"),
   title: {
-    default: "NYC Marketing Company | The NYC Marketing Company",
-    template: "%s | The NYC Marketing Company",
+    default: "NYC Marketing Company | Consortium NYC",
+    template: "%s | Consortium NYC",
   },
   description:
-    "The NYC Marketing Company is a full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for local businesses in NYC, Long Island, and Westchester. Call/text (212) 202-9220.",
+    "Consortium NYC is a full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for local businesses in NYC, Long Island, and Westchester. Call/text (212) 202-9220.",
   keywords: [
     "nyc marketing company",
     "seo agency new york",
@@ -51,9 +52,9 @@ export const metadata: Metadata = {
     "digital marketing long island",
     "web design westchester",
   ],
-  authors: [{ name: "The NYC Marketing Company" }],
-  creator: "The NYC Marketing Company",
-  publisher: "The NYC Marketing Company",
+  authors: [{ name: "Consortium NYC" }],
+  creator: "Consortium NYC",
+  publisher: "Consortium NYC",
   formatDetection: {
     email: false,
     address: false,
@@ -63,8 +64,8 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: "https://www.consortiumnyc.com",
-    siteName: "The NYC Marketing Company",
-    title: "NYC Marketing Company | The NYC Marketing Company",
+    siteName: "Consortium NYC",
+    title: "NYC Marketing Company | Consortium NYC",
     description:
       "Full-service NYC marketing company for local businesses in NYC, Long Island, and Westchester. SEO, web design, branding, and automation. Call/text (212) 202-9220.",
     images: [
@@ -72,13 +73,13 @@ export const metadata: Metadata = {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "The NYC Marketing Company - NYC Marketing Company",
+        alt: "Consortium NYC - NYC Marketing Company",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "NYC Marketing Company | The NYC Marketing Company",
+    title: "NYC Marketing Company | Consortium NYC",
     description:
       "Full-service NYC marketing company for local businesses. SEO, web design, branding, and automation. Call/text (212) 202-9220.",
     images: ["/og-image.jpg"],
@@ -117,16 +118,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <GoogleAnalytics gaId="G-QN1ZPCL4NS" />
-        {/* Rebrand announcement banner */}
-        <div className="relative z-50 bg-teal-600 text-white text-center py-3 px-4 text-sm sm:text-base font-medium font-cta tracking-wide">
-          Consortium NYC is now <strong>The NYC Marketing Company</strong>.{" "}
-          <a
-            href="https://www.thenycmarketingcompany.com"
-            className="underline underline-offset-2 hover:text-teal-100 transition-colors"
-          >
-            Visit our new site &rarr;
-          </a>
-        </div>
+        <PartnerBanner />
         <Navbar />
         <main>{children}</main>
         <Footer />

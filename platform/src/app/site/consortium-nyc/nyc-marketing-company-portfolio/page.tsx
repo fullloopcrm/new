@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import TipBlurb from "@/app/site/consortium-nyc/_components/TipBlurb";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-nyc/_lib/schema";
 
-const title = "NYC Marketing Company Portfolio | Real SEO Results & Case Studies | The NYC Marketing Company";
+const title = "NYC Marketing Company Portfolio | Real SEO Results & Case Studies | Consortium NYC";
 const description =
   "See real SEO results, traffic growth, and revenue numbers from NYC businesses we've grown from zero. Visit their websites, Google them — every result is verifiable. No stock photos, no fake case studies. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/nyc-marketing-company-portfolio";
@@ -25,9 +25,9 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC",
     type: "website",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "The NYC Marketing Company" }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -254,7 +254,7 @@ export default function PortfolioPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/contact-nyc-marketing-company-consortium-nyc"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-8 py-4 text-base font-bold text-slate-900 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
               >
                 Schedule a Free Strategy Session

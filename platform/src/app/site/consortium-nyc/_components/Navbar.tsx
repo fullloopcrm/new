@@ -175,7 +175,7 @@ export default function Navbar() {
 
         {/* Contact CTA — right */}
         <div className="hidden lg:flex justify-end">
-          <Link href="/contact-nyc-marketing-company-consortium-nyc">
+          <Link href="https://www.thenycmarketingcompany.com/contact">
             <motion.span
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.97 }}
@@ -294,7 +294,7 @@ export default function Navbar() {
 
                 {/* Contact CTA */}
                 <Link
-                  href="/contact-nyc-marketing-company-consortium-nyc"
+                  href="https://www.thenycmarketingcompany.com/contact"
                   onClick={() => setMobileOpen(false)}
                   className="mt-6"
                 >

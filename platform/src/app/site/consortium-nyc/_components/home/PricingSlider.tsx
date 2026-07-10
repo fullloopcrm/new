@@ -183,7 +183,7 @@ export default function PricingSlider() {
           {/* CTA */}
           <div className="mt-8 flex flex-col items-center gap-3">
             <Link
-              href="/contact-nyc-marketing-company-consortium-nyc"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-10 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
               Get Started at ${tier.rate}/hr

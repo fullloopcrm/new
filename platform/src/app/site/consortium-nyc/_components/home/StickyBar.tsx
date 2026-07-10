@@ -33,7 +33,7 @@ export default function StickyBar() {
             (212) 202-9220
           </a>
           <Link
-            href="/contact"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-6 py-2.5 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors whitespace-nowrap font-cta"
           >
             Book Now

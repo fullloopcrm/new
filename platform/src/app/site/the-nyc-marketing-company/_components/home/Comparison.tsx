@@ -109,7 +109,7 @@ export default function Comparison() {
             <span className="text-teal-600">Marketing Company Over In-House or Freelancers</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            Compare the cost, expertise, and results of hiring a full-service marketing company in New York City versus building an in-house team or relying on freelancers. See why local businesses choose <Link href="/about-marketing-company-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Consortium NYC (Now The NYC Marketing Company)</Link>.
+            Compare the cost, expertise, and results of hiring a full-service marketing company in New York City versus building an in-house team or relying on freelancers. See why local businesses choose <Link href="/about-marketing-company-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">The NYC Marketing Company</Link>.
           </p>
         </motion.div>
 

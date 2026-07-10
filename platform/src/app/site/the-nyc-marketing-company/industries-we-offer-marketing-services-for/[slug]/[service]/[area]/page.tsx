@@ -55,7 +55,7 @@ export async function generateMetadata({
       title: h1,
       description: `${svc.name} for ${label.toLowerCase()} businesses in ${area.name}. $950/mo SEO. $4,600 websites. No contracts. ${PHONE}.`,
       url: canonical,
-      siteName: "Consortium NYC (Now The NYC Marketing Company)",
+      siteName: "The NYC Marketing Company",
       type: "website",
     },
     twitter: {
@@ -71,7 +71,7 @@ function getFaqs(serviceName: string, label: string, areaName: string, regionNam
   return [
     { question: `How much does ${serviceName.toLowerCase()} cost for a ${lb} business in ${areaName}?`, answer: `${serviceName} for ${lb} businesses in ${areaName} starts at $950/month for SEO and $4,600 for custom websites. Pricing depends on the competitiveness of the ${lb} market in ${areaName} and the scope of work. We provide a free, customized proposal after your consultation. Call ${PHONE} to get started.` },
     { question: `How long does ${serviceName.toLowerCase()} take to show results for ${lb} companies in ${areaName}?`, answer: `Most ${lb} businesses in ${areaName} see measurable improvements within 3-6 months for SEO campaigns. Web design projects typically launch in 3-5 weeks. The timeline depends on how competitive the ${lb} space is in ${regionName}. We provide monthly reporting from day one so you can track every improvement.` },
-    { question: `Why should a ${lb} business in ${areaName} choose Consortium NYC (Now The NYC Marketing Company)?`, answer: `We specialize in marketing for ${lb} businesses and know the ${areaName} market inside and out. You work directly with senior strategists who have 25+ years of experience - no junior account managers, no outsourcing. We've generated over $15.2M in attributable revenue for local businesses. No contracts, transparent pricing, real results. Call us at ${PHONE}.` },
+    { question: `Why should a ${lb} business in ${areaName} choose The NYC Marketing Company?`, answer: `We specialize in marketing for ${lb} businesses and know the ${areaName} market inside and out. You work directly with senior strategists who have 25+ years of experience - no junior account managers, no outsourcing. We've generated over $15.2M in attributable revenue for local businesses. No contracts, transparent pricing, real results. Call us at ${PHONE}.` },
     { question: `What ${serviceName.toLowerCase()} strategies work best for ${lb} businesses in ${areaName}?`, answer: `For ${lb} businesses in ${areaName}, we focus on hyper-local keyword targeting, Google Business Profile optimization, industry-specific content, technical SEO, and competitive link building. We study what your ${lb} competitors are doing in ${areaName} and build a strategy that outperforms them.` },
     { question: `Do you offer other services for ${lb} businesses in ${areaName}?`, answer: `Yes. Beyond ${serviceName.toLowerCase()}, we offer SEO, custom web design, brand identity, Google Business Profile optimization, AI automation, content marketing, and full marketing strategy for ${lb} businesses in ${areaName}. Every service is designed to amplify the others for compounding growth. Call ${PHONE} for a free consultation.` },
   ];

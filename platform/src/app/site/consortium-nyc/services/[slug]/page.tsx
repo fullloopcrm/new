@@ -33,8 +33,8 @@ export async function generateMetadata({
   const { category, subService } = result;
   const name = subService ? subService.name : category.name;
   const desc = subService ? subService.shortDesc : category.description;
-  const fallbackDesc = `${desc} The NYC Marketing Company. Call/text (212) 202-9220.`;
-  const fallbackTitle = `NYC ${name} | The NYC Marketing Company`;
+  const fallbackDesc = `${desc} Consortium NYC. Call/text (212) 202-9220.`;
+  const fallbackTitle = `NYC ${name} | Consortium NYC`;
 
   const title = subService ? fallbackTitle : (category.metaTitle ?? fallbackTitle);
   const description = subService ? fallbackDesc : (category.metaDescription ?? fallbackDesc);
@@ -131,7 +131,7 @@ export default async function ServicePage({
   return (
     <>
       <JsonLd data={serviceSchema(name, slug, desc)} />
-      <JsonLd data={webPageSchema(`${name} Services in NYC | The NYC Marketing Company`, desc, pageUrl, breadcrumbs)} />
+      <JsonLd data={webPageSchema(`${name} Services in NYC | Consortium NYC`, desc, pageUrl, breadcrumbs)} />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       {serviceFaqs.length > 0 && <JsonLd data={faqSchema(serviceFaqs)} />}
       <ServicePageClient

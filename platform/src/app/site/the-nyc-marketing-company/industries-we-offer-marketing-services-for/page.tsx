@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import IndustriesListClient from "./IndustriesListClient";
 
-const title = "Industries We Serve | NYC Marketing Company | Consortium NYC (Now The NYC Marketing Company)";
+const title = "Industries We Serve | NYC Marketing Company | The NYC Marketing Company";
 const description =
   "Marketing services for 100+ industries across NYC, Long Island, and the tri-state area. Home services, law firms, restaurants, medical practices, contractors, and more. 25+ years of experience. Call/text (212) 202-9220.";
 const url = "https://www.thenycmarketingcompany.com/industries-we-offer-marketing-services-for";
@@ -24,9 +24,9 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "Consortium NYC (Now The NYC Marketing Company)",
+    siteName: "The NYC Marketing Company",
     type: "website",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company)" }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "The NYC Marketing Company" }],
   },
   twitter: {
     card: "summary_large_image",

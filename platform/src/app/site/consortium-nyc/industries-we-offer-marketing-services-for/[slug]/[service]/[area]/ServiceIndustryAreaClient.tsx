@@ -75,7 +75,7 @@ export default function ServiceIndustryAreaClient({
               Local SEO from <span className="text-teal-400 font-bold">$950/mo</span> &middot; Custom websites from <span className="text-teal-400 font-bold">$4,600</span> &middot; No contracts &middot; <span className="text-teal-400 font-bold">$15.2M+</span> revenue generated
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-4">
-              <Link href="/contact-nyc-marketing-company-consortium-nyc" className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta">
+              <Link href="https://www.thenycmarketingcompany.com/contact" className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta">
                 Get a Free {industry.badge} Marketing Strategy
               </Link>
               <Link href="/nyc-marketing-pricing-guide" className="inline-block px-8 py-4 text-base font-bold text-white/90 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-colors font-cta">
@@ -104,7 +104,7 @@ export default function ServiceIndustryAreaClient({
                   If you run a {lb} business in {area.name}, you already know the competition is fierce. Every day, potential customers in {area.name} and surrounding {regionLabel} areas are searching Google for exactly what you offer. The question is: are they finding you, or your competitors? <L href={`/services/${service.slug}`}>Professional {sn}</L> is the difference between being invisible and being the first call.
                 </p>
                 <p className="text-slate-600 leading-relaxed mb-6">
-                  At <L href="/">The NYC Marketing Company</L>, we specialize in <L href={`/industries-we-offer-marketing-services-for/${industry.slug}`}>{lb} marketing</L> across the tri-state area. We&apos;ve spent 25+ years studying how local customers find and choose {lb} businesses in markets like {area.name}. Our <L href={`/services/${service.slug}/${area.slug}`}>{sn} strategies for {area.name}</L> are built on real competitive data — not guesswork.
+                  At <L href="/">Consortium NYC</L>, we specialize in <L href={`/industries-we-offer-marketing-services-for/${industry.slug}`}>{lb} marketing</L> across the tri-state area. We&apos;ve spent 25+ years studying how local customers find and choose {lb} businesses in markets like {area.name}. Our <L href={`/services/${service.slug}/${area.slug}`}>{sn} strategies for {area.name}</L> are built on real competitive data — not guesswork.
                 </p>
                 <p className="text-slate-600 leading-relaxed mb-6">
                   The {lb} market in {area.name} has unique characteristics that require a tailored approach. Search behavior varies by neighborhood, seasonal demand shifts differently across {regionLabel}, and the competitive landscape is constantly evolving. A generic {sn} strategy won&apos;t cut it. You need a partner who understands both the {lb} industry and the {area.name} market at a granular level.
@@ -180,7 +180,7 @@ export default function ServiceIndustryAreaClient({
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-400 mb-4">NYC avg: <span className="line-through">$2,000-$5,000/mo</span> SEO &middot; <span className="line-through">$12K-$25K</span> websites</p>
-                  <Link href="/contact-nyc-marketing-company-consortium-nyc" className="block w-full text-center px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta">
+                  <Link href="https://www.thenycmarketingcompany.com/contact" className="block w-full text-center px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta">
                     Get {industry.badge} Proposal
                   </Link>
                 </div>
@@ -371,7 +371,7 @@ export default function ServiceIndustryAreaClient({
               Free strategy session. No pitch decks, no fluff — just a real conversation about what it takes to win the {lb} market in {area.name}.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/contact-nyc-marketing-company-consortium-nyc" className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta">
+              <Link href="https://www.thenycmarketingcompany.com/contact" className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta">
                 Get My Free {industry.badge} Strategy
               </Link>
               <a href={PHONE_HREF} className="inline-block px-8 py-4 text-base font-bold text-white/90 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-colors font-cta">

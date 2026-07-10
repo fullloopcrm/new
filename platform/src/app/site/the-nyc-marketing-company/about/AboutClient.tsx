@@ -92,8 +92,8 @@ export default function AboutPage() {
       {/* Schema Markup */}
       <JsonLd
         data={webPageSchema(
-          "About Consortium NYC (Now The NYC Marketing Company)",
-          "Learn about Consortium NYC (Now The NYC Marketing Company), a data-driven NYC marketing company. We help businesses across NYC, Long Island, and Westchester grow with SEO, branding, web design, and automation.",
+          "About The NYC Marketing Company",
+          "Learn about The NYC Marketing Company, a data-driven NYC marketing company. We help businesses across NYC, Long Island, and Westchester grow with SEO, branding, web design, and automation.",
           "https://www.thenycmarketingcompany.com/about"
         )}
       />

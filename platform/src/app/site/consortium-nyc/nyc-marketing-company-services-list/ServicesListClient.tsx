@@ -129,7 +129,7 @@ export default function ServicesListClient() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
           >
             <Link
-              href="/contact-nyc-marketing-company-consortium-nyc"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
             >
               Schedule a Free Strategy Session
@@ -523,7 +523,7 @@ export default function ServicesListClient() {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link
-                  href="/contact-nyc-marketing-company-consortium-nyc"
+                  href="https://www.thenycmarketingcompany.com/contact"
                   className="inline-block px-10 py-5 text-lg font-bold text-slate-900 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
                 >
                   Schedule a Free Strategy Session

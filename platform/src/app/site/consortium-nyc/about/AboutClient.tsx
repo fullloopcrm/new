@@ -91,8 +91,8 @@ export default function AboutPage() {
       {/* Schema Markup */}
       <JsonLd
         data={webPageSchema(
-          "About The NYC Marketing Company",
-          "Learn about The NYC Marketing Company, a data-driven NYC marketing company. We help businesses across NYC, Long Island, and Westchester grow with SEO, branding, web design, and automation.",
+          "About Consortium NYC",
+          "Learn about Consortium NYC, a data-driven NYC marketing company. We help businesses across NYC, Long Island, and Westchester grow with SEO, branding, web design, and automation.",
           "https://www.consortiumnyc.com/about"
         )}
       />
@@ -163,7 +163,7 @@ export default function AboutPage() {
             className="space-y-6 text-warm-gray text-lg leading-relaxed"
           >
             <p>
-              The NYC Marketing Company was founded with a simple belief: digital marketing
+              Consortium NYC was founded with a simple belief: digital marketing
               should be measurable, transparent, and relentlessly focused on
               results. Too many agencies hide behind jargon and vanity metrics.
               We built something different -- an agency where every strategy is
@@ -308,7 +308,7 @@ export default function AboutPage() {
           </p>
           <div className="mt-10">
             <Link
-              href="/contact"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-electric via-violet to-hot-pink px-10 py-5 text-lg font-semibold text-midnight transition-transform hover:scale-105"
             >
               Get Your Free Consultation

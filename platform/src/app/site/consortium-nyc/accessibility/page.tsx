@@ -5,7 +5,7 @@ import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-n
 export const metadata: Metadata = {
   title: "Accessibility Statement",
   description:
-    "Accessibility Statement for The NYC Marketing Company. Our commitment to making our website accessible to all users. Call (212) 202-9220 with questions.",
+    "Accessibility Statement for Consortium NYC. Our commitment to making our website accessible to all users. Call (212) 202-9220 with questions.",
   alternates: { canonical: "https://www.consortiumnyc.com/accessibility" },
   robots: { index: true, follow: true },
 };
@@ -18,7 +18,7 @@ export default function AccessibilityPage() {
       <JsonLd
         data={webPageSchema(
           "Accessibility Statement",
-          "Accessibility Statement for The NYC Marketing Company. Our commitment to digital accessibility for all users.",
+          "Accessibility Statement for Consortium NYC. Our commitment to digital accessibility for all users.",
           "https://www.consortiumnyc.com/accessibility"
         )}
       />
@@ -38,7 +38,7 @@ export default function AccessibilityPage() {
           <div className="mt-12 prose-legal">
             <Section title="Our Commitment">
               <p>
-                The NYC Marketing Company is committed to ensuring that our website is accessible to all people, including individuals with disabilities. We strive to meet or exceed the requirements of the Web Content Accessibility Guidelines (WCAG) 2.1, Level AA.
+                Consortium NYC is committed to ensuring that our website is accessible to all people, including individuals with disabilities. We strive to meet or exceed the requirements of the Web Content Accessibility Guidelines (WCAG) 2.1, Level AA.
               </p>
               <p>
                 Accessibility is an ongoing effort. We continually improve the user experience for everyone and apply the relevant accessibility standards to achieve this.
@@ -93,7 +93,7 @@ export default function AccessibilityPage() {
               <ul>
                 <li><strong>Email:</strong> <a href="mailto:hello@consortiumnyc.com">hello@consortiumnyc.com</a></li>
                 <li><strong>Phone:</strong> <a href="tel:+12122029220">(212) 202-9220</a></li>
-                <li><strong>Address:</strong> The NYC Marketing Company, New York, NY 10001</li>
+                <li><strong>Address:</strong> Consortium NYC, New York, NY 10001</li>
               </ul>
               <p>
                 We aim to respond to accessibility feedback within 2 business days and to resolve issues as quickly as possible.

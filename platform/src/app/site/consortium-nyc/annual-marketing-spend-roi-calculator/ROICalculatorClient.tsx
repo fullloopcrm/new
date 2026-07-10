@@ -187,7 +187,7 @@ export default function ROICalculator() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/contact-nyc-marketing-company-consortium-nyc"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Schedule a Free Strategy Session

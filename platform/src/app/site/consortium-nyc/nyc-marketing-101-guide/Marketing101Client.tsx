@@ -170,7 +170,7 @@ const lessons: Lesson[] = [
     phase: "foundation",
     step: "Don't Try to Do Everything Yourself",
     issue: <span>You&apos;re the plumber, the bookkeeper, the marketer, the customer service rep, and the CEO. Your marketing gets 30 minutes on Sunday night when you&apos;re exhausted.</span>,
-    advice: <span>Marketing is a full-time discipline, not a side project. Either hire someone or <L href="/contact-nyc-marketing-company-consortium-nyc">partner with an agency</L> that specializes in <L href="/industries-we-offer-marketing-services-for">your industry</L>. The cost of professional marketing is always less than the cost of missed opportunities from bad DIY marketing.</span>,
+    advice: <span>Marketing is a full-time discipline, not a side project. Either hire someone or <L href="https://www.thenycmarketingcompany.com/contact">partner with an agency</L> that specializes in <L href="/industries-we-offer-marketing-services-for">your industry</L>. The cost of professional marketing is always less than the cost of missed opportunities from bad DIY marketing.</span>,
     secret: <span>The math is simple: if your average job is worth $500 and professional <L href="/nyc-marketing-pricing-guide">SEO costs $950/month</L>, you need 2 extra jobs per month to break even. Most clients get 20–30 additional leads per month. That&apos;s not an expense — it&apos;s the best investment in your business.</span>,
   },
 
@@ -455,7 +455,7 @@ const lessons: Lesson[] = [
     phase: "scale",
     step: "Hire a Marketing Professional",
     issue: <span>You&apos;ve been handling marketing yourself or with a cheap freelancer. Growth has plateaued because marketing quality and consistency are limited by your time and expertise.</span>,
-    advice: <span><L href="/contact-nyc-marketing-company-consortium-nyc">Partner with specialists</L> who do this every day. A dedicated <L href="/nyc-marketing-company-services-list">marketing partner</L> brings strategy, execution, tools, and experience you don&apos;t have time to develop. The cost of a professional is always less than the cost of amateur marketing that doesn&apos;t work.</span>,
+    advice: <span><L href="https://www.thenycmarketingcompany.com/contact">Partner with specialists</L> who do this every day. A dedicated <L href="/nyc-marketing-company-services-list">marketing partner</L> brings strategy, execution, tools, and experience you don&apos;t have time to develop. The cost of a professional is always less than the cost of amateur marketing that doesn&apos;t work.</span>,
     secret: <span>The ROI inflection point for most local businesses is around $5,000/month in revenue from marketing channels. Below that, DIY makes sense. Above that, every dollar spent on professional <L href="/nyc-marketing-pricing-guide">SEO and marketing</L> returns 5–15x. The businesses that scale are the ones that stop trying to do it themselves at the right time.</span>,
   },
   {
@@ -586,7 +586,7 @@ const lessons: Lesson[] = [
     step: "Think in Systems, Not Tactics",
     issue: <span>You&apos;ve tried dozens of marketing tactics over the years. Some worked, some didn&apos;t. But nothing connects. Your marketing is a collection of experiments, not a machine.</span>,
     advice: <span>Build a marketing system where every piece amplifies every other piece: <L href="/nyc-marketing-company-services-list">SEO</L> drives traffic → your website converts visitors → <L href="/artificial-intelligence-marketing-services-offered">automation</L> follows up → reviews build authority → authority improves rankings → the cycle repeats. This is how you build a marketing machine that runs without you.</span>,
-    secret: <span>The difference between businesses that grow 5% per year and businesses that grow 50% is systems thinking. Individual tactics plateau. Integrated systems compound. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">The NYC Marketing Company philosophy</L> — every service we offer is designed to amplify every other service.</span>,
+    secret: <span>The difference between businesses that grow 5% per year and businesses that grow 50% is systems thinking. Individual tactics plateau. Integrated systems compound. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">Consortium NYC philosophy</L> — every service we offer is designed to amplify every other service.</span>,
   },
   {
     phase: "mastery",
@@ -676,15 +676,15 @@ const lessons: Lesson[] = [
     phase: "mastery",
     step: "Play the Long Game",
     issue: <span>Everyone wants results yesterday. You&apos;ve seen enough to know that the businesses that win aren&apos;t the ones that move fastest — they&apos;re the ones that never stop.</span>,
-    advice: <span>Marketing is a marathon, not a sprint. The businesses that dominate their <L href="/services-areas-we-offer-marketing-services-in">local market</L> after 10+ years didn&apos;t find a silver bullet — they showed up consistently, invested steadily, and compounded small advantages into an insurmountable lead. Start today. <L href="/contact-nyc-marketing-company-consortium-nyc">Let&apos;s talk about your next move.</L></span>,
+    advice: <span>Marketing is a marathon, not a sprint. The businesses that dominate their <L href="/services-areas-we-offer-marketing-services-in">local market</L> after 10+ years didn&apos;t find a silver bullet — they showed up consistently, invested steadily, and compounded small advantages into an insurmountable lead. Start today. <L href="https://www.thenycmarketingcompany.com/contact">Let&apos;s talk about your next move.</L></span>,
     secret: <span>Here&apos;s the truth after 25 years: there is no secret. No hack, no shortcut, no trick that replaces doing the work. The businesses that win are the ones that build the right foundation, hire the right <L href="/about-digital-marketing-agency-consortium-nyc">partners</L>, stay consistent for years, and treat marketing as an investment — not an expense. That&apos;s the only lesson that matters. Everything else is details.</span>,
   },
   {
     phase: "mastery",
     step: "Start Now",
     issue: <span>You just read 100 lessons and feel overwhelmed. There&apos;s too much to do. You don&apos;t know where to begin. So you close this tab and do nothing.</span>,
-    advice: <span>Pick ONE lesson from this list that you haven&apos;t done yet. Do it today. Tomorrow, pick another. In 101 days, you&apos;ll have transformed your marketing. Or <L href="/contact-nyc-marketing-company-consortium-nyc">call us at (212) 202-9220</L> and we&apos;ll do it for you — starting with a free strategy session that covers everything on this list for your specific business, <L href="/industries-we-offer-marketing-services-for">industry</L>, and <L href="/services-areas-we-offer-marketing-services-in">market</L>.</span>,
-    secret: <span>The real secret? You already know what to do. You&apos;ve known for a while. The only thing separating you from the <L href="/nyc-marketing-company-portfolio">businesses that are winning</L> is execution. Not knowledge. Not budget. Not luck. Execution. So close this tab and go execute. Or better yet — <L href="/contact-nyc-marketing-company-consortium-nyc">let&apos;s execute together</L>.</span>,
+    advice: <span>Pick ONE lesson from this list that you haven&apos;t done yet. Do it today. Tomorrow, pick another. In 101 days, you&apos;ll have transformed your marketing. Or <L href="https://www.thenycmarketingcompany.com/contact">call us at (212) 202-9220</L> and we&apos;ll do it for you — starting with a free strategy session that covers everything on this list for your specific business, <L href="/industries-we-offer-marketing-services-for">industry</L>, and <L href="/services-areas-we-offer-marketing-services-in">market</L>.</span>,
+    secret: <span>The real secret? You already know what to do. You&apos;ve known for a while. The only thing separating you from the <L href="/nyc-marketing-company-portfolio">businesses that are winning</L> is execution. Not knowledge. Not budget. Not luck. Execution. So close this tab and go execute. Or better yet — <L href="https://www.thenycmarketingcompany.com/contact">let&apos;s execute together</L>.</span>,
   },
 ];
 
@@ -728,7 +728,7 @@ export default function Marketing101Client() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/contact-nyc-marketing-company-consortium-nyc"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Skip Ahead — Talk to an Expert
@@ -925,7 +925,7 @@ export default function Marketing101Client() {
                 {[
                   { label: "100+ Industries", href: "/industries-we-offer-marketing-services-for" },
                   { label: "80+ Service Areas", href: "/services-areas-we-offer-marketing-services-in" },
-                  { label: "About The NYC Marketing Company", href: "/about-digital-marketing-agency-consortium-nyc" },
+                  { label: "About Consortium NYC", href: "/about-digital-marketing-agency-consortium-nyc" },
                   { label: "Free SEO Audit", href: "/the-free-human+ai-seo-marketing-review" },
                   { label: "Contact Us", href: "/contact-nyc-marketing-company-consortium-nyc" },
                 ].map((link) => (
@@ -953,11 +953,11 @@ export default function Marketing101Client() {
               <span className="text-teal-600">One Phone Call to Start.</span>
             </h2>
             <p className="text-slate-600 text-lg mb-8 max-w-2xl mx-auto">
-              Whether you&apos;re on lesson 1 or lesson 101, we meet you where you are. <L href="/contact-nyc-marketing-company-consortium-nyc">Schedule a free strategy session</L> and we&apos;ll tell you exactly which lessons your business needs to focus on right now — for your <L href="/industries-we-offer-marketing-services-for">industry</L>, your <L href="/services-areas-we-offer-marketing-services-in">market</L>, and your budget.
+              Whether you&apos;re on lesson 1 or lesson 101, we meet you where you are. <L href="https://www.thenycmarketingcompany.com/contact">Schedule a free strategy session</L> and we&apos;ll tell you exactly which lessons your business needs to focus on right now — for your <L href="/industries-we-offer-marketing-services-for">industry</L>, your <L href="/services-areas-we-offer-marketing-services-in">market</L>, and your budget.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/contact-nyc-marketing-company-consortium-nyc"
+                href="https://www.thenycmarketingcompany.com/contact"
                 className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
               >
                 Schedule a Free Strategy Session

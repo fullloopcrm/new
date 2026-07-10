@@ -192,7 +192,7 @@ export default function IndustriesListClient() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
           >
             <Link
-              href="/contact-nyc-marketing-company-consortium-nyc"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
             >
               Tell Us Your Industry
@@ -405,7 +405,7 @@ export default function IndustriesListClient() {
             className="text-center mb-14"
           >
             <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-              Why The NYC Marketing Company
+              Why Consortium NYC
             </p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4 font-heading">
               Why We Work Across{" "}
@@ -518,7 +518,7 @@ export default function IndustriesListClient() {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link
-                  href="/contact-nyc-marketing-company-consortium-nyc"
+                  href="https://www.thenycmarketingcompany.com/contact"
                   className="inline-block px-10 py-5 text-lg font-bold text-slate-900 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
                 >
                   Tell Us Your Industry

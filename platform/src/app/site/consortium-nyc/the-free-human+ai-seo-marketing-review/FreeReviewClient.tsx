@@ -158,7 +158,7 @@ export default function FreeSEOAudit() {
             Schedule a free strategy session and we&apos;ll walk you through the audit results live, answer every question, and build a roadmap for your business.
           </p>
           <Link
-            href="/contact-nyc-marketing-company-consortium-nyc"
+            href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta"
           >
             Schedule a Strategy Session

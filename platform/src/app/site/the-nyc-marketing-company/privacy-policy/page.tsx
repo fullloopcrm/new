@@ -6,7 +6,7 @@ import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Privacy Policy for Consortium NYC (Now The NYC Marketing Company). Learn how we collect, use, and protect your personal information. Call (212) 202-9220 with questions.",
+    "Privacy Policy for The NYC Marketing Company. Learn how we collect, use, and protect your personal information. Call (212) 202-9220 with questions.",
   alternates: { canonical: "https://www.thenycmarketingcompany.com/privacy-policy" },
   robots: { index: true, follow: true },
 };
@@ -19,7 +19,7 @@ export default function PrivacyPolicyPage() {
       <JsonLd
         data={webPageSchema(
           "Privacy Policy",
-          "Privacy Policy for Consortium NYC (Now The NYC Marketing Company). How we collect, use, and protect your personal information.",
+          "Privacy Policy for The NYC Marketing Company. How we collect, use, and protect your personal information.",
           "https://www.thenycmarketingcompany.com/privacy-policy"
         )}
       />

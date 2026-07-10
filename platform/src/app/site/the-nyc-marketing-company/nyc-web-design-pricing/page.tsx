@@ -3,7 +3,7 @@ import Link from "next/link";
 import { JsonLd, webPageSchema, breadcrumbSchema, faqSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
 
-const wdTitle = "NYC Web Design Pricing | Custom Websites from $4,600 | Consortium NYC (Now The NYC Marketing Company)";
+const wdTitle = "NYC Web Design Pricing | Custom Websites from $4,600 | The NYC Marketing Company";
 const wdDescription = "Transparent web design pricing for NYC businesses. Custom websites from $4,600, monthly SEO from $950/mo. No hidden fees, no contracts. Mobile-first, SEO-optimized sites that convert. Call/text (212) 202-9220.";
 const wdUrl = "https://www.thenycmarketingcompany.com/nyc-web-design-pricing";
 
@@ -24,9 +24,9 @@ export const metadata: Metadata = {
     title: wdTitle,
     description: wdDescription,
     url: wdUrl,
-    siteName: "Consortium NYC (Now The NYC Marketing Company)",
+    siteName: "The NYC Marketing Company",
     type: "website",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company) Web Design Pricing" }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "The NYC Marketing Company Web Design Pricing" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -87,7 +87,7 @@ export default function PricingPage() {
     <>
       <JsonLd
         data={webPageSchema(
-          "Transparent Pricing | Consortium NYC (Now The NYC Marketing Company)",
+          "Transparent Pricing | The NYC Marketing Company",
           "Simple, transparent pricing for web design and SEO services. No hidden fees, no surprise invoices, no long-term contracts.",
           "https://www.thenycmarketingcompany.com/nyc-web-design-pricing"
         )}

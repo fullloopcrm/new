@@ -133,7 +133,7 @@ export default function AIPageClient({ faqs }: { faqs: { question: string; answe
               Setup from <span className="text-teal-400 font-bold">$25,000</span> &middot; Monthly from <span className="text-teal-400 font-bold">$1,000/mo</span> &middot; Responds in <span className="text-teal-400 font-bold">&lt;10 seconds</span> &middot; <span className="text-teal-400 font-bold">{PHONE}</span>
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
-              <Link href="/contact-nyc-marketing-company-consortium-nyc" className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta">
+              <Link href="https://www.thenycmarketingcompany.com/contact" className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta">
                 Get an AI Demo
               </Link>
               <a href={PHONE_HREF} className="inline-block px-8 py-4 text-base font-bold text-white/90 rounded-lg border border-white/20 hover:bg-white/10 transition-colors font-cta">
@@ -177,7 +177,7 @@ export default function AIPageClient({ faqs }: { faqs: { question: string; answe
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} transition={{ duration: 0.5, delay: 0.15 }} className="flex justify-center mb-10">
             <Image
               src="/images/selena-ai-chat-bot.png"
-              alt="Selena AI booking concierge live on The NYC Maid — built by Full Loop CRM in partnership with The NYC Marketing Company"
+              alt="Selena AI booking concierge live on The NYC Maid — built by Full Loop CRM in partnership with Consortium NYC"
               width={900}
               height={506}
               className="rounded-2xl shadow-2xl border border-slate-200"
@@ -185,7 +185,7 @@ export default function AIPageClient({ faqs }: { faqs: { question: string; answe
           </motion.div>
 
           <div className="text-center">
-            <Link href="/contact-nyc-marketing-company-consortium-nyc" className="inline-block px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta">
+            <Link href="https://www.thenycmarketingcompany.com/contact" className="inline-block px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta">
               See Selena in Action
             </Link>
           </div>
@@ -341,7 +341,7 @@ export default function AIPageClient({ faqs }: { faqs: { question: string; answe
                     </li>
                   ))}
                 </ul>
-                <Link href="/contact-nyc-marketing-company-consortium-nyc" className="block w-full text-center px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta">
+                <Link href="https://www.thenycmarketingcompany.com/contact" className="block w-full text-center px-6 py-3 text-sm font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors font-cta">
                   Get Started
                 </Link>
               </div>
@@ -455,7 +455,7 @@ export default function AIPageClient({ faqs }: { faqs: { question: string; answe
               Every minute you wait costs you money. Get a live demo of Selena and see exactly how AI automation works for your business.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/contact-nyc-marketing-company-consortium-nyc" className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta">
+              <Link href="https://www.thenycmarketingcompany.com/contact" className="inline-block px-8 py-4 text-base font-bold text-teal-600 rounded-lg bg-white hover:bg-slate-100 transition-colors shadow-lg font-cta">
                 Get a Free AI Demo
               </Link>
               <a href={PHONE_HREF} className="inline-block px-8 py-4 text-base font-bold text-white/90 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-colors font-cta">

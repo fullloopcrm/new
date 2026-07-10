@@ -72,7 +72,7 @@ export default function TechStack() {
           thousands for, and we put it to work for local businesses like yours.
           The difference? You don&apos;t pay $50K+ per year in software
           licenses. That&apos;s our problem, not yours. When you work with
-          The NYC Marketing Company, you get the full arsenal from day one: real-time
+          Consortium NYC, you get the full arsenal from day one: real-time
           analytics, competitive intelligence, technical auditing, conversion
           tracking, and AI-powered content strategy. Every tool, every insight,
           every advantage — working for your local business around the clock.
@@ -131,7 +131,7 @@ export default function TechStack() {
                 The Best Communication of Any Marketing Company in NYC
               </h3>
               <p className="text-white/70 text-sm leading-relaxed">
-                When you work with The NYC Marketing Company, you&apos;re not handed off to a junior account manager who&apos;s reading from a script. You work directly with someone who has <span className="text-white font-bold">25 years of experience</span> in the exact seat they sit in — strategy, execution, and results. No layers. No runaround. No waiting 3 days for an email back. We pick up the phone. We respond same-day. We treat your business like it&apos;s ours because that&apos;s the only way this works.
+                When you work with Consortium NYC, you&apos;re not handed off to a junior account manager who&apos;s reading from a script. You work directly with someone who has <span className="text-white font-bold">25 years of experience</span> in the exact seat they sit in — strategy, execution, and results. No layers. No runaround. No waiting 3 days for an email back. We pick up the phone. We respond same-day. We treat your business like it&apos;s ours because that&apos;s the only way this works.
               </p>
             </div>
             <div className="space-y-4">

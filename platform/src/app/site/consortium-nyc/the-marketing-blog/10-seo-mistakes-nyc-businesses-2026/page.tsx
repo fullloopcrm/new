@@ -6,7 +6,7 @@ import BlogNav from "@/app/site/consortium-nyc/_components/blog/BlogNav";
 import ListenButton from "@/app/site/consortium-nyc/_components/blog/ListenButton";
 import { JsonLd, articleSchema, breadcrumbSchema } from "@/app/site/consortium-nyc/_lib/schema";
 
-const title = "10 SEO Mistakes NYC Businesses Make in 2026 | The NYC Marketing Company";
+const title = "10 SEO Mistakes NYC Businesses Make in 2026 | Consortium NYC";
 const description =
   "The most common SEO mistakes we see NYC businesses making — and exactly how to fix them. From local citations to Core Web Vitals, stop leaving money on the table. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/the-marketing-blog/10-seo-mistakes-nyc-businesses-2026";
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "The NYC Marketing Company",
+    siteName: "Consortium NYC",
     type: "article",
     images: [{ url: "https://www.consortiumnyc.com/og-image.jpg", width: 1200, height: 630, alt: title }],
   },
@@ -69,7 +69,7 @@ export default function Post() {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 font-heading leading-tight max-w-3xl">
             10 SEO Mistakes NYC Businesses Make in 2026
           </h1>
-          <p className="text-white/50 text-sm">By The NYC Marketing Company</p>
+          <p className="text-white/50 text-sm">By Consortium NYC</p>
         </div>
       </section>
 

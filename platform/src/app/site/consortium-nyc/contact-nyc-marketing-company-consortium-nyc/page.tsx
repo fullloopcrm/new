@@ -5,7 +5,7 @@ import ContactLandingClient from "./ContactLandingClient";
 export const metadata: Metadata = {
   title: "Contact NYC Marketing Company — Free Strategy Session",
   description:
-    "Schedule a free strategy session with The NYC Marketing Company, New York's top-rated marketing company. SEO, web design, branding, and automation. Call (212) 202-9220.",
+    "Schedule a free strategy session with Consortium NYC, New York's top-rated marketing company. SEO, web design, branding, and automation. Call (212) 202-9220.",
   alternates: { canonical: "https://www.consortiumnyc.com/contact-nyc-marketing-company-consortium-nyc" },
   keywords: [
     "contact nyc marketing company",
@@ -20,9 +20,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Contact NYC Marketing Company — Free Strategy Session",
     description:
-      "Schedule a free strategy session with The NYC Marketing Company. SEO, web design, branding, automation. Call (212) 202-9220.",
+      "Schedule a free strategy session with Consortium NYC. SEO, web design, branding, automation. Call (212) 202-9220.",
     url: "https://www.consortiumnyc.com/contact-nyc-marketing-company-consortium-nyc",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Contact The NYC Marketing Company" }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Contact Consortium NYC" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -38,7 +38,7 @@ export default function Page() {
       <JsonLd
         data={webPageSchema(
           "Contact NYC Marketing Company — Free Strategy Session",
-          "Schedule a free strategy session with The NYC Marketing Company. SEO, web design, branding, and automation for NYC businesses. Call (212) 202-9220.",
+          "Schedule a free strategy session with Consortium NYC. SEO, web design, branding, and automation for NYC businesses. Call (212) 202-9220.",
           "https://www.consortiumnyc.com/contact-nyc-marketing-company-consortium-nyc"
         )}
       />

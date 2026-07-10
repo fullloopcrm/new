@@ -5,9 +5,9 @@ import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb"
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import { BrandLink } from "@/app/site/the-nyc-marketing-company/_lib/brand";
 
-const title = "What's Working in Marketing Right Now | Consortium NYC (Now The NYC Marketing Company)";
+const title = "What's Working in Marketing Right Now | The NYC Marketing Company";
 const description =
-  "Real-time notes, updates, and observations from the team at Consortium NYC (Now The NYC Marketing Company). What's actually working in SEO, web design, and digital marketing — no fluff, no theory. Call/text (212) 202-9220.";
+  "Real-time notes, updates, and observations from the team at The NYC Marketing Company. What's actually working in SEO, web design, and digital marketing — no fluff, no theory. Call/text (212) 202-9220.";
 const url = "https://www.thenycmarketingcompany.com/whats-working-in-marketing";
 
 export const metadata: Metadata = {
@@ -26,9 +26,9 @@ export const metadata: Metadata = {
     title,
     description,
     url,
-    siteName: "Consortium NYC (Now The NYC Marketing Company)",
+    siteName: "The NYC Marketing Company",
     type: "website",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC (Now The NYC Marketing Company)" }],
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "The NYC Marketing Company" }],
   },
   twitter: {
     card: "summary_large_image",

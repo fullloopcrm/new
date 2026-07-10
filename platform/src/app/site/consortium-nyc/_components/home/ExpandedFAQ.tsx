@@ -11,7 +11,7 @@ const L = ({ href, children }: { href: string; children: ReactNode }) => (
 const faqs: { question: string; answer: ReactNode }[] = [
   {
     question: "How much does a marketing company in NYC cost?",
-    answer: <span>Our <L href="/nyc-marketing-pricing-guide">pricing</L> is transparent and built for real small businesses. Custom websites start at $4,600. Monthly <L href="/nyc-marketing-company-services-list">SEO</L> is $950/month. Hourly consulting ranges from $100–$250/hr depending on scope. No hidden fees, no surprise invoices. We walk you through exactly what you get during your <L href="/contact-nyc-marketing-company-consortium-nyc">free strategy session</L>. Every dollar has a reason behind it.</span>,
+    answer: <span>Our <L href="/nyc-marketing-pricing-guide">pricing</L> is transparent and built for real small businesses. Custom websites start at $4,600. Monthly <L href="/nyc-marketing-company-services-list">SEO</L> is $950/month. Hourly consulting ranges from $100–$250/hr depending on scope. No hidden fees, no surprise invoices. We walk you through exactly what you get during your <L href="https://www.thenycmarketingcompany.com/contact">free strategy session</L>. Every dollar has a reason behind it.</span>,
   },
   {
     question: "How long does SEO take to work for NYC businesses?",
@@ -30,7 +30,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
     answer: <span>We&apos;ve served <L href="/industries-we-offer-marketing-services-for">100+ industries</L> over 25 years. Our biggest verticals are <L href="/industries-we-offer-marketing-services-for/home-service-business-marketing">home services</L>, <L href="/industries-we-offer-marketing-services-for/personal-injury-law-firm-marketing">law firms</L>, <L href="/industries-we-offer-marketing-services-for/dental-practice-marketing">dental practices</L>, <L href="/industries-we-offer-marketing-services-for/restaurant-food-service-marketing">restaurants</L>, <L href="/industries-we-offer-marketing-services-for/real-estate-agent-marketing">real estate</L>, <L href="/industries-we-offer-marketing-services-for/hvac-company-marketing">HVAC</L>, <L href="/industries-we-offer-marketing-services-for/roofing-company-marketing">roofing</L>, and <L href="/industries-we-offer-marketing-services-for/contractor-marketing">contractors</L>. But if people search for it on Google, we can rank it. Our data-driven approach works across verticals because we build from actual market data, not templates.</span>,
   },
   {
-    question: "What makes The NYC Marketing Company different from other marketing companies?",
+    question: "What makes Consortium NYC different from other marketing companies?",
     answer: <span>You work directly with someone who has 25 years of experience in the exact seat they sit in. No junior account managers, no layers, no runaround. We pick up the phone. We respond same-day. We don&apos;t outsource your work overseas. We don&apos;t lock you into contracts. And we show you <L href="/nyc-marketing-company-portfolio">real results from real businesses</L> — not stock photo case studies. Read more <L href="/about-digital-marketing-agency-consortium-nyc">about us</L>.</span>,
   },
   {
@@ -55,7 +55,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "What does your onboarding process look like?",
-    answer: <span>After your <L href="/contact-nyc-marketing-company-consortium-nyc">free strategy session</L>, onboarding takes less than a week. We conduct a full audit of your digital presence, perform competitive research, and deliver a strategic roadmap within the first two weeks. Implementation starts immediately — no wasted time. You&apos;ll have direct access to your strategist from day one. No layers, no handoffs.</span>,
+    answer: <span>After your <L href="https://www.thenycmarketingcompany.com/contact">free strategy session</L>, onboarding takes less than a week. We conduct a full audit of your digital presence, perform competitive research, and deliver a strategic roadmap within the first two weeks. Implementation starts immediately — no wasted time. You&apos;ll have direct access to your strategist from day one. No layers, no handoffs.</span>,
   },
   {
     question: "Can you help my business rank on Google Maps?",
@@ -63,7 +63,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "How do I know if my current marketing company is doing a good job?",
-    answer: <span>Ask them three questions: What keywords am I ranking for? How many leads did marketing generate last month? What&apos;s my cost per lead? If they can&apos;t answer with specific numbers, that&apos;s your answer. We offer a <L href="/contact-nyc-marketing-company-consortium-nyc">free honest audit</L> — we&apos;ll tell you exactly where you stand, what&apos;s working, what&apos;s not, and what your competitors are doing. No obligation, no pitch.</span>,
+    answer: <span>Ask them three questions: What keywords am I ranking for? How many leads did marketing generate last month? What&apos;s my cost per lead? If they can&apos;t answer with specific numbers, that&apos;s your answer. We offer a <L href="https://www.thenycmarketingcompany.com/contact">free honest audit</L> — we&apos;ll tell you exactly where you stand, what&apos;s working, what&apos;s not, and what your competitors are doing. No obligation, no pitch.</span>,
   },
   {
     question: "What is the ROI of SEO for a local NYC business?",
@@ -78,8 +78,8 @@ const faqs: { question: string; answer: ReactNode }[] = [
     answer: <span>We build on Next.js, React, and Tailwind CSS — hosted on <L href="/nyc-marketing-company-services-list">Vercel</L> with Supabase for databases and Resend for email. No WordPress, no page builders, no bloat. Our sites load in under 2 seconds and score 90+ on Core Web Vitals because they&apos;re custom-coded, not dragged and dropped. This is the same tech stack used by Fortune 500 companies — and we bring it to local businesses.</span>,
   },
   {
-    question: "How do I get started with The NYC Marketing Company?",
-    answer: <span><L href="/contact-nyc-marketing-company-consortium-nyc">Schedule a free strategy session</L>. We&apos;ll review your current situation, audit your competitors, and give you a clear roadmap — whether you hire us or not. No pitch decks, no pressure. Just a real conversation about what it takes to win in your market. You can also call us directly at (212) 202-9220. We pick up the phone.</span>,
+    question: "How do I get started with Consortium NYC?",
+    answer: <span><L href="https://www.thenycmarketingcompany.com/contact">Schedule a free strategy session</L>. We&apos;ll review your current situation, audit your competitors, and give you a clear roadmap — whether you hire us or not. No pitch decks, no pressure. Just a real conversation about what it takes to win in your market. You can also call us directly at (212) 202-9220. We pick up the phone.</span>,
   },
 ];
 
@@ -181,7 +181,7 @@ export default function ExpandedFAQ() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/contact-nyc-marketing-company-consortium-nyc"
+              href="https://www.thenycmarketingcompany.com/contact"
               className="inline-block px-8 py-4 text-base font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg font-cta"
             >
               Schedule a Free Strategy Session

@@ -30,7 +30,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
     answer: <span>We&apos;ve served <L href="/industries-we-offer-marketing-services-for">100+ industries</L> over 25 years. Our biggest verticals are <L href="/industries-we-offer-marketing-services-for/home-service-business-marketing">home services</L>, <L href="/industries-we-offer-marketing-services-for/personal-injury-law-firm-marketing">law firms</L>, <L href="/industries-we-offer-marketing-services-for/dental-practice-marketing">dental practices</L>, <L href="/industries-we-offer-marketing-services-for/restaurant-food-service-marketing">restaurants</L>, <L href="/industries-we-offer-marketing-services-for/real-estate-agent-marketing">real estate</L>, <L href="/industries-we-offer-marketing-services-for/hvac-company-marketing">HVAC</L>, <L href="/industries-we-offer-marketing-services-for/roofing-company-marketing">roofing</L>, and <L href="/industries-we-offer-marketing-services-for/contractor-marketing">contractors</L>. But if people search for it on Google, we can rank it. Our data-driven approach works across verticals because we build from actual market data, not templates.</span>,
   },
   {
-    question: "What makes Consortium NYC (Now The NYC Marketing Company) different from other marketing companies?",
+    question: "What makes The NYC Marketing Company different from other marketing companies?",
     answer: <span>You work directly with someone who has 25 years of experience in the exact seat they sit in. No junior account managers, no layers, no runaround. We pick up the phone. We respond same-day. We don&apos;t outsource your work overseas. We don&apos;t lock you into contracts. And we show you <L href="/nyc-marketing-company-portfolio">real results from real businesses</L> — not stock photo case studies. Read more <L href="/about-digital-marketing-agency-consortium-nyc">about us</L>.</span>,
   },
   {
@@ -78,7 +78,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
     answer: <span>We build on Next.js, React, and Tailwind CSS — hosted on <L href="/nyc-marketing-company-services-list">Vercel</L> with Supabase for databases and Resend for email. No WordPress, no page builders, no bloat. Our sites load in under 2 seconds and score 90+ on Core Web Vitals because they&apos;re custom-coded, not dragged and dropped. This is the same tech stack used by Fortune 500 companies — and we bring it to local businesses.</span>,
   },
   {
-    question: "How do I get started with Consortium NYC (Now The NYC Marketing Company)?",
+    question: "How do I get started with The NYC Marketing Company?",
     answer: <span><L href="https://www.thenycmarketingcompany.com/contact">Schedule a free strategy session</L>. We&apos;ll review your current situation, audit your competitors, and give you a clear roadmap — whether you hire us or not. No pitch decks, no pressure. Just a real conversation about what it takes to win in your market. You can also call us directly at (212) 202-9220. We pick up the phone.</span>,
   },
 ];
