@@ -110,7 +110,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     tenant_id: FULL_LOOP_TENANT, document_id: doc.id, signer_id: signerId, type, page: spot.page,
     x_pct: spot.xPct, y_pct: spot.yPct, w_pct: spot.wPct, h_pct: spot.hPct, required, label,
   })
-  const { error: fErr } = await supabaseAdmin.from('document_fields').insert([
+  const { error: fErr } = await supabaseAdmin.from('document_fields').insert([ // tenant-scope-ok: field() rows carry tenant_id: FULL_LOOP_TENANT (platform agreement doc)
     field(clientSigner.id, 'signature', pdf.clientSignature, true, 'Client signature'),
     field(clientSigner.id, 'date', pdf.clientDate, false, 'Date'),
     field(loopSigner.id, 'signature', pdf.loopSignature, true, 'Full Loop signature'),

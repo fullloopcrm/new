@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
 
     if (existing && existing.length > 0) {
       const { data: updated, error } = await supabaseAdmin
-        .from('clients')
+        .from('clients') // tenant-scope-ok: update is scoped by .eq('tenant_id', tenant.id) below
         .update({
           name,
           email: email || null,

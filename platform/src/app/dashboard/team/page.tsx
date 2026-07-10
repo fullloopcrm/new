@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import './team.css'
 import TeamCoverageMap from '@/components/TeamCoverageMap'
 import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
@@ -493,7 +494,7 @@ export default function TeamPage() {
                   <div className="tm-actions">
                     <button className="tm-action-btn" type="button">Schedule</button>
                     <button className="tm-action-btn" type="button">Pay</button>
-                    <button className="tm-action-btn" type="button">Profile</button>
+                    <Link className="tm-action-btn" href={`/dashboard/team/${m.id}`}>Profile</Link>
                   </div>
                 </div>
               )
