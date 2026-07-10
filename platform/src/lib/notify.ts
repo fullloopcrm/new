@@ -332,8 +332,19 @@ export async function notify({
     return { success: true }
   }
 
-  // Both primary and fallback failed — mark for retry
-  await updateNotif('failed', {
+  // A missing recipient address or an unconfigured channel is NOT a delivery
+  // failure — nothing was ever sendable. Classify it 'skipped' (like the gated
+  // case) so it doesn't count against the delivery-rate health check or trigger
+  // pointless retries. Genuine send errors (bounce, unverified domain, provider
+  // error) stay 'failed'.
+  const UNROUTABLE = new Set([
+    'No email address for recipient',
+    'No phone number for recipient',
+    'Email not configured — no Resend API key',
+    'SMS not configured — no Telnyx API key',
+  ])
+  const finalStatus = lastError && UNROUTABLE.has(lastError) ? 'skipped' : 'failed'
+  await updateNotif(finalStatus, {
     metadata: { ...(metadata || {}), _error: lastError, _failedAt: new Date().toISOString() },
   })
 
