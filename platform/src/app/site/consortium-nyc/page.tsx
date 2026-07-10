@@ -9,9 +9,9 @@ import {
 import { faqs } from "@/app/site/consortium-nyc/_lib/siteData";
 
 export const metadata: Metadata = {
-  title: "NYC Marketing Company | SEO, Web Design & Branding | Consortium NYC",
+  title: "NYC Web Design & SEO Company | Consortium NYC",
   description:
-    "Full-service NYC marketing company serving 100+ industries across NYC, Long Island, and Westchester. SEO from $950/mo, custom websites from $4,600. 25+ years experience. No contracts. Call/text (212) 202-9220.",
+    "Custom NYC web design that ranks. Consortium NYC builds fast, SEO-engineered websites — custom sites from $4,600, SEO from $950/mo. 25+ years, 100+ industries, no contracts. Call/text (212) 202-9220.",
   alternates: { canonical: "https://www.consortiumnyc.com" },
 };
 
@@ -60,7 +60,7 @@ export default function Home() {
       {/* Schema Markup */}
       <JsonLd
         data={webPageSchema(
-          "NYC Marketing Company | Consortium NYC",
+          "NYC Web Design & SEO | Consortium NYC",
           "Full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for businesses in NYC, Long Island, and Westchester.",
           "https://www.consortiumnyc.com",
           breadcrumbs

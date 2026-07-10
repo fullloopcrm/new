@@ -12,7 +12,7 @@ export const organizationSchema = {
     width: 600,
     height: 60,
   },
-  image: "https://www.consortiumnyc.com/og-image.jpg",
+  image: "https://www.consortiumnyc.com/og-consortium.jpg",
   description:
     "Consortium NYC is a full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for businesses across NYC, Long Island, and Westchester.",
   address: {
@@ -96,7 +96,7 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
     "@type": "ProfessionalService",
     "@id": `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}/#localbusiness`,
     name: `Consortium NYC - ${area} Digital Marketing`,
-    image: "https://www.consortiumnyc.com/og-image.jpg",
+    image: "https://www.consortiumnyc.com/og-consortium.jpg",
     url: `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}`,
     telephone: "+1-212-202-9220",
     priceRange: "$$",
@@ -227,7 +227,7 @@ export function articleSchema(
     headline: title,
     description,
     url,
-    image: image || "https://www.consortiumnyc.com/og-image.jpg",
+    image: image || "https://www.consortiumnyc.com/og-consortium.jpg",
     datePublished,
     dateModified,
     author: {

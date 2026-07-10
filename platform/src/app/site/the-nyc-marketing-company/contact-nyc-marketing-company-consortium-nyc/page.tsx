@@ -22,13 +22,13 @@ export const metadata: Metadata = {
     description:
       "Schedule a free strategy session with The NYC Marketing Company. SEO, web design, branding, automation. Call (212) 202-9220.",
     url: "https://www.thenycmarketingcompany.com/contact-nyc-marketing-company-consortium-nyc",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Contact The NYC Marketing Company" }],
+    images: [{ url: "/og-marketing.jpg", width: 1200, height: 630, alt: "Contact The NYC Marketing Company" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Contact NYC Marketing Company — Free Strategy Session",
     description: "Free strategy session. SEO, web design, branding. Call (212) 202-9220.",
-    images: ["/og-image.jpg"],
+    images: ["/og-marketing.jpg"],
   },
 };
 

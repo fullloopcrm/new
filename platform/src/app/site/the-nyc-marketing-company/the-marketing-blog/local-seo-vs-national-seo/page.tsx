@@ -32,13 +32,13 @@ export const metadata: Metadata = {
     url,
     siteName: "The NYC Marketing Company",
     type: "article",
-    images: [{ url: "https://www.thenycmarketingcompany.com/og-image.jpg", width: 1200, height: 630, alt: title }],
+    images: [{ url: "https://www.thenycmarketingcompany.com/og-marketing.jpg", width: 1200, height: 630, alt: title }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
-    images: ["https://www.thenycmarketingcompany.com/og-image.jpg"],
+    images: ["https://www.thenycmarketingcompany.com/og-marketing.jpg"],
   },
 };
 

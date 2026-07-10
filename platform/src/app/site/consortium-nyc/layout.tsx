@@ -35,12 +35,15 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.consortiumnyc.com"),
   title: {
-    default: "NYC Marketing Company | Consortium NYC",
+    default: "NYC Web Design & SEO | Consortium NYC",
     template: "%s | Consortium NYC",
   },
   description:
-    "Consortium NYC is a full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for local businesses in NYC, Long Island, and Westchester. Call/text (212) 202-9220.",
+    "Consortium NYC builds custom, high-performance NYC websites engineered to rank page one. NYC web design, SEO, branding, and automation for businesses across NYC, Long Island, and Westchester. Call/text (212) 202-9220.",
   keywords: [
+    "nyc web design",
+    "web design nyc",
+    "nyc seo",
     "nyc marketing company",
     "seo agency new york",
     "web design nyc",
@@ -65,12 +68,12 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://www.consortiumnyc.com",
     siteName: "Consortium NYC",
-    title: "NYC Marketing Company | Consortium NYC",
+    title: "NYC Web Design & SEO | Consortium NYC",
     description:
       "Full-service NYC marketing company for local businesses in NYC, Long Island, and Westchester. SEO, web design, branding, and automation. Call/text (212) 202-9220.",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/og-consortium.jpg",
         width: 1200,
         height: 630,
         alt: "Consortium NYC - NYC Marketing Company",
@@ -79,10 +82,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "NYC Marketing Company | Consortium NYC",
+    title: "NYC Web Design & SEO | Consortium NYC",
     description:
       "Full-service NYC marketing company for local businesses. SEO, web design, branding, and automation. Call/text (212) 202-9220.",
-    images: ["/og-image.jpg"],
+    images: ["/og-consortium.jpg"],
     creator: "@consortiumnyc",
   },
   robots: {

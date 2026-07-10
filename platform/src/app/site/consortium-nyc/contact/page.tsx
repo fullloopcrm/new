@@ -22,14 +22,14 @@ export const metadata: Metadata = {
     description:
       "Schedule a free strategy consultation for SEO, web design, branding, and digital marketing in NYC. Call (212) 202-9220.",
     url: "https://www.consortiumnyc.com/contact",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Contact Consortium NYC" }],
+    images: [{ url: "/og-consortium.jpg", width: 1200, height: 630, alt: "Contact Consortium NYC" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Contact Consortium NYC — Free Strategy Session",
     description:
       "Schedule a free strategy consultation. SEO, web design, branding, digital marketing. Call (212) 202-9220.",
-    images: ["/og-image.jpg"],
+    images: ["/og-consortium.jpg"],
   },
 };
 

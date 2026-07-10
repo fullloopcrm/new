@@ -27,13 +27,13 @@ export const metadata: Metadata = {
     url,
     siteName: "Consortium NYC",
     type: "website",
-    images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "Consortium NYC Pricing Guide" }],
+    images: [{ url: "/og-consortium.jpg", width: 1200, height: 630, alt: "Consortium NYC Pricing Guide" }],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
-    images: ["/og-image.jpg"],
+    images: ["/og-consortium.jpg"],
   },
 };
 
