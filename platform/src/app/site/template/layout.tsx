@@ -29,6 +29,10 @@ export async function generateMetadata() {
   // none of its own (the 'use client' booking/apply/etc pages). Drive them all
   // from the tenant's own industry/name so nothing leaks to customers or search.
   return {
+    // Resolves relative canonical/OG URLs on child pages to the tenant's own
+    // origin — so per-page `alternates.canonical: '/path'` points at the real
+    // domain instead of a hardcoded placeholder.
+    metadataBase: config.identity.url ? new URL(config.identity.url) : undefined,
     title: { default: name },
     description,
     keywords: `${p.serviceLabel}, ${p.serviceLabel} in ${place}, ${config.identity.name}`,

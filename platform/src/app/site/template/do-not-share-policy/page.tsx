@@ -7,7 +7,7 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 export const metadata: Metadata = {
   title: 'Do Not Share Policy | Your Business',
   description: 'Your Business does not sell, share, or distribute your personal information. Your data stays with us. NYC cleaning from $59/hr. (555) 555-5556',
-  alternates: { canonical: 'https://www.example.com/do-not-share-policy' },
+  alternates: { canonical: '/do-not-share-policy' },
 }
 
 export default function DoNotSharePage() {

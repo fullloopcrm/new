@@ -7,7 +7,7 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 export const metadata: Metadata = {
   title: 'Terms & Conditions | Your Business',
   description: 'Terms & conditions for Your Business — cancellation policy, payment terms, scheduling & service agreement. Cleaning from $59/hr. (555) 555-5556',
-  alternates: { canonical: 'https://www.example.com/terms-conditions' },
+  alternates: { canonical: '/terms-conditions' },
 }
 
 export default function TermsPage() {

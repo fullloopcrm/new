@@ -7,7 +7,7 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 export const metadata: Metadata = {
   title: 'Refund Policy | Your Business',
   description: 'Your Business refund policy — no money upfront, pay only after cleaning is complete. No deposits. Service from $59/hr. (555) 555-5556',
-  alternates: { canonical: 'https://www.example.com/refund-policy' },
+  alternates: { canonical: '/refund-policy' },
 }
 
 export default function RefundPolicyPage() {

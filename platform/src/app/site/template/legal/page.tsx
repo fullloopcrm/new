@@ -7,7 +7,7 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 export const metadata: Metadata = {
   title: 'Legal Information | Your Business',
   description: 'Legal information for Your Business — privacy policy, terms, refund policy & data sharing. NYC cleaning from $59/hr. (555) 555-5556',
-  alternates: { canonical: 'https://www.example.com/legal' },
+  alternates: { canonical: '/legal' },
 }
 
 export default function LegalPage() {

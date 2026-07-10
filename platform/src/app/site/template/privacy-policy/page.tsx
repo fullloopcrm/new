@@ -7,7 +7,7 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 export const metadata: Metadata = {
   title: 'Privacy Policy | Your Business',
   description: 'Your Business privacy policy — how we protect your data. We never sell or share your information. NYC cleaning from $59/hr. (555) 555-5556',
-  alternates: { canonical: 'https://www.example.com/privacy-policy' },
+  alternates: { canonical: '/privacy-policy' },
 }
 
 export default function PrivacyPolicyPage() {

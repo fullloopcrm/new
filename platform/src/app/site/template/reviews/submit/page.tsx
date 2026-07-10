@@ -7,7 +7,7 @@ import ReviewForm from './ReviewForm'
 export const metadata: Metadata = {
   title: 'Leave a Review | Your Business',
   description: 'Share your experience with Your Business. Your honest feedback helps other New Yorkers find trusted, reliable cleaning services.',
-  alternates: { canonical: 'https://www.example.com/reviews/submit' },
+  alternates: { canonical: '/reviews/submit' },
   openGraph: {
     title: 'Leave a Review | Your Business',
     description: 'Share your experience with Your Business cleaning service.',
