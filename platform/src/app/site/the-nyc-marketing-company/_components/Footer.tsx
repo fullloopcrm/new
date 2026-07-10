@@ -42,10 +42,7 @@ export default function Footer() {
           <div>
             <Link href="/" className="inline-flex items-center gap-0.5">
               <span className="text-lg font-bold tracking-widest text-white leading-tight">
-                CONSORTIUM NYC<br />
-                <span className="text-xs font-semibold tracking-wide text-white/80">
-                  w/ THE NYC MARKETING CO
-                </span>
+                THE NYC<br />MARKETING CO
               </span>
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-slate-300">

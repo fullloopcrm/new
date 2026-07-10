@@ -112,10 +112,7 @@ export default function Navbar() {
         {/* Logo — left */}
         <Link href="/" className="flex items-center gap-0.5 shrink-0">
           <span className="text-base font-bold tracking-widest text-white font-heading leading-tight">
-            CONSORTIUM NYC<br />
-            <span className="text-[0.65rem] font-semibold tracking-wide text-white/80">
-              w/ THE NYC MARKETING CO
-            </span>
+            THE NYC<br />MARKETING CO
           </span>
         </Link>
 
