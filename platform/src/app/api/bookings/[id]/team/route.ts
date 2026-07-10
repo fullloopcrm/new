@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team'
 import { smsJobAssignment } from '@/lib/sms-templates'
 
@@ -60,6 +61,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const rawExtras: unknown[] = Array.isArray(body.extra_team_member_ids) ? body.extra_team_member_ids : []
   const newExtras = rawExtras.filter((x): x is string => typeof x === 'string' && x.length > 0 && x !== newLead)
   const teamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1 + newExtras.length))
+
+  // Reject any team_member_id that isn't this tenant's — prevents assigning
+  // (and notifying) another tenant's cleaner via a forged body id.
+  const foreign = await findForeignRef(ctx.tenantId, [
+    { table: 'team_members', ids: [newLead, ...newExtras] },
+  ])
+  if (foreign) {
+    return NextResponse.json({ error: 'Unknown team member for this account' }, { status: 400 })
+  }
 
   // Snapshot the old team to figure out which extras are NEW (need notification).
   const { data: oldRows } = await supabaseAdmin
