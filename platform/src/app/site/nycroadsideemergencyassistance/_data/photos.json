@@ -1,0 +1,398 @@
+{
+  "_home": {
+    "url": "https://images.pexels.com/photos/11686531/pexels-photo-11686531.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Black and white photo of vintage cars with a tow truck in an urban street setting.",
+    "photographer": "Malcolm Hill",
+    "photographer_url": "https://www.pexels.com/@malcolmhill",
+    "pexels_url": "https://www.pexels.com/photo/a-car-being-towed-away-11686531/",
+    "width": 5576,
+    "height": 3962
+  },
+  "_about": {
+    "url": "https://images.pexels.com/photos/17429097/pexels-photo-17429097.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Tow truck operator loading white GMC pickup truck on street in daytime.",
+    "photographer": "Jonathan  Reynaga",
+    "photographer_url": "https://www.pexels.com/@jonathan-reynaga-861774",
+    "pexels_url": "https://www.pexels.com/photo/a-car-on-a-tow-truck-17429097/",
+    "width": 5760,
+    "height": 3840
+  },
+  "_pricing": {
+    "url": "https://images.pexels.com/photos/7651555/pexels-photo-7651555.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Person's hand holding a company invoice on a clipboard with a pen.",
+    "photographer": "Kindel Media",
+    "photographer_url": "https://www.pexels.com/@kindelmedia",
+    "pexels_url": "https://www.pexels.com/photo/close-up-shot-of-a-person-holding-a-clipboard-7651555/",
+    "width": 5184,
+    "height": 3888
+  },
+  "_commercial": {
+    "url": "https://images.pexels.com/photos/33623770/pexels-photo-33623770.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Aerial view of white pickup trucks parked in rows, emphasizing symmetry and industrial style.",
+    "photographer": "abdo alshreef",
+    "photographer_url": "https://www.pexels.com/@alshreef",
+    "pexels_url": "https://www.pexels.com/photo/aerial-view-of-multiple-white-pickup-trucks-parked-33623770/",
+    "width": 5272,
+    "height": 2962
+  },
+  "_careers": {
+    "url": "https://images.pexels.com/photos/17429097/pexels-photo-17429097.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Tow truck operator loading white GMC pickup truck on street in daytime.",
+    "photographer": "Jonathan  Reynaga",
+    "photographer_url": "https://www.pexels.com/@jonathan-reynaga-861774",
+    "pexels_url": "https://www.pexels.com/photo/a-car-on-a-tow-truck-17429097/",
+    "width": 5760,
+    "height": 3840
+  },
+  "_franchise": {
+    "url": "https://images.pexels.com/photos/33175650/pexels-photo-33175650.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Close-up of two businessmen shaking hands, symbolizing agreement and partnership.",
+    "photographer": "Bia Limova",
+    "photographer_url": "https://www.pexels.com/@bia-limova-1908542654",
+    "pexels_url": "https://www.pexels.com/photo/professional-handshake-in-business-meeting-33175650/",
+    "width": 4160,
+    "height": 2773
+  },
+  "_blog": {
+    "url": "https://images.pexels.com/photos/11456868/pexels-photo-11456868.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Dynamic shot of Times Square at night with bustling traffic and iconic neon signs.",
+    "photographer": "Raphael Loquellano",
+    "photographer_url": "https://www.pexels.com/@loquellano",
+    "pexels_url": "https://www.pexels.com/photo/cars-driving-road-in-city-downtown-11456868/",
+    "width": 7744,
+    "height": 6192
+  },
+  "light-duty-towing": {
+    "url": "https://images.pexels.com/photos/13151224/pexels-photo-13151224.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Towing a blue Audi convertible in a bustling city street.",
+    "photographer": "Artem Makarov",
+    "photographer_url": "https://www.pexels.com/@artem-makarov-289670876",
+    "pexels_url": "https://www.pexels.com/photo/a-car-being-towed-away-13151224/",
+    "width": 5580,
+    "height": 3720
+  },
+  "motorcycle-towing": {
+    "url": "https://images.pexels.com/photos/5199685/pexels-photo-5199685.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Black car towing trailer with modern motorcycles on asphalt road against cloudy sky in city street with distant people on roadside",
+    "photographer": "Erik Mclean",
+    "photographer_url": "https://www.pexels.com/@introspectivedsgn",
+    "pexels_url": "https://www.pexels.com/photo/car-towing-trailer-with-motorbikes-5199685/",
+    "width": 5472,
+    "height": 3648
+  },
+  "heavy-duty-towing": {
+    "url": "https://images.pexels.com/photos/7006131/pexels-photo-7006131.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Close-up of a classic red semi truck in a dimly lit garage with chrome details.",
+    "photographer": "cottonbro studio",
+    "photographer_url": "https://www.pexels.com/@cottonbro",
+    "pexels_url": "https://www.pexels.com/photo/red-and-silver-vintage-carrier-truck-7006131/",
+    "width": 5617,
+    "height": 3745
+  },
+  "flatbed-towing": {
+    "url": "https://images.pexels.com/photos/13151224/pexels-photo-13151224.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Towing a blue Audi convertible in a bustling city street.",
+    "photographer": "Artem Makarov",
+    "photographer_url": "https://www.pexels.com/@artem-makarov-289670876",
+    "pexels_url": "https://www.pexels.com/photo/a-car-being-towed-away-13151224/",
+    "width": 5580,
+    "height": 3720
+  },
+  "accident-recovery": {
+    "url": "https://images.pexels.com/photos/13151224/pexels-photo-13151224.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Towing a blue Audi convertible in a bustling city street.",
+    "photographer": "Artem Makarov",
+    "photographer_url": "https://www.pexels.com/@artem-makarov-289670876",
+    "pexels_url": "https://www.pexels.com/photo/a-car-being-towed-away-13151224/",
+    "width": 5580,
+    "height": 3720
+  },
+  "long-distance-towing": {
+    "url": "https://images.pexels.com/photos/27099096/pexels-photo-27099096.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A blue semi truck driving on a rural highway under clear blue skies, showcasing transportation and travel.",
+    "photographer": "Tom Jackson",
+    "photographer_url": "https://www.pexels.com/@tom-jackson-1238161",
+    "pexels_url": "https://www.pexels.com/photo/photo-of-a-truck-driving-on-the-road-27099096/",
+    "width": 4941,
+    "height": 3294
+  },
+  "rv-motorhome-towing": {
+    "url": "https://images.pexels.com/photos/24698/pexels-photo-24698.jpg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A campervan travels on a winding road through vibrant autumn forest scenery.",
+    "photographer": "Tim Gouw",
+    "photographer_url": "https://www.pexels.com/@punttim",
+    "pexels_url": "https://www.pexels.com/photo/white-car-traveling-near-trees-during-daytime-24698/",
+    "width": 2992,
+    "height": 2000
+  },
+  "roadside-assistance": {
+    "url": "https://images.pexels.com/photos/12956065/pexels-photo-12956065.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A woman looks puzzled by her broken car with an open hood on a rural road.",
+    "photographer": "Atlantic Ambience",
+    "photographer_url": "https://www.pexels.com/@freestockpro",
+    "pexels_url": "https://www.pexels.com/photo/a-woman-standing-by-a-car-12956065/",
+    "width": 6000,
+    "height": 4000
+  },
+  "jump-start": {
+    "url": "https://images.pexels.com/photos/5572271/pexels-photo-5572271.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Close-up of car engine with attached jump starter cables, showing detailed mechanics.",
+    "photographer": "Daniel @ bestjumpstarterreview.com",
+    "photographer_url": "https://www.pexels.com/@daniel-bestjumpstarterreview-com-3750282",
+    "pexels_url": "https://www.pexels.com/photo/close-up-of-a-car-engine-and-pincers-5572271/",
+    "width": 5184,
+    "height": 3456
+  },
+  "battery-replacement": {
+    "url": "https://images.pexels.com/photos/37177072/pexels-photo-37177072.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Detailed view of an electric car battery inside a vehicle's engine compartment, highlighting sustainable technology.",
+    "photographer": "Ayyeee Ayyeee",
+    "photographer_url": "https://www.pexels.com/@ayyeee-ayyeee-434363205",
+    "pexels_url": "https://www.pexels.com/photo/close-up-of-electric-car-battery-in-engine-compartment-37177072/",
+    "width": 6240,
+    "height": 4160
+  },
+  "gas-delivery": {
+    "url": "https://images.pexels.com/photos/36249353/pexels-photo-36249353.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Man in uniform loading red and blue propane tanks onto a truck in urban setting.",
+    "photographer": "Enam  Sape",
+    "photographer_url": "https://www.pexels.com/@enammakafui",
+    "pexels_url": "https://www.pexels.com/photo/worker-loading-propane-tanks-onto-truck-36249353/",
+    "width": 6000,
+    "height": 4000
+  },
+  "flat-tire-change": {
+    "url": "https://images.pexels.com/photos/12216205/pexels-photo-12216205.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Mechanic repairing a red car on a street side in an urban neighborhood. Manual work in action.",
+    "photographer": "Yura Forrat",
+    "photographer_url": "https://www.pexels.com/@yuraforrat",
+    "pexels_url": "https://www.pexels.com/photo/man-changing-a-flat-tire-12216205/",
+    "width": 5699,
+    "height": 3799
+  },
+  "lockout-service": {
+    "url": "https://images.pexels.com/photos/17124737/pexels-photo-17124737.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Close-up of a locksmith tool inserted into a car door lock, demonstrating security access.",
+    "photographer": "My Car Key Hero",
+    "photographer_url": "https://www.pexels.com/@my-car-key-hero-592675237",
+    "pexels_url": "https://www.pexels.com/photo/lockpick-in-car-17124737/",
+    "width": 5472,
+    "height": 3648
+  },
+  "winch-out-recovery": {
+    "url": "https://images.pexels.com/photos/11143670/pexels-photo-11143670.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Detailed view of an off-road vehicle bumper with a metal tow winch, ready for adventure.",
+    "photographer": "Gaspar Zaldo",
+    "photographer_url": "https://www.pexels.com/@gasparzaldo",
+    "pexels_url": "https://www.pexels.com/photo/a-tow-winch-on-the-bumper-of-a-vehicle-11143670/",
+    "width": 5567,
+    "height": 2810
+  },
+  "winter-snow-extraction": {
+    "url": "https://images.pexels.com/photos/28996084/pexels-photo-28996084.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Cars stuck in snow on a snowy Chicago street during winter blizzard.",
+    "photographer": "Charles Criscuolo",
+    "photographer_url": "https://www.pexels.com/@onetrillionpixels",
+    "pexels_url": "https://www.pexels.com/photo/snow-covered-cars-on-a-chicago-street-28996084/",
+    "width": 6000,
+    "height": 4000
+  },
+  "mobile-mechanic-on-site-repairs": {
+    "url": "https://images.pexels.com/photos/8478268/pexels-photo-8478268.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Close-up of mechanic repairing a car engine. Outdoor setting during the day.",
+    "photographer": "Sergey  Meshkov",
+    "photographer_url": "https://www.pexels.com/@19x14",
+    "pexels_url": "https://www.pexels.com/photo/mechanic-at-work-8478268/",
+    "width": 6720,
+    "height": 4480
+  },
+  "junk-car-removal": {
+    "url": "https://images.pexels.com/photos/29879066/pexels-photo-29879066.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A damaged car sits atop a metal scrap heap, showing a scene of automotive decay.",
+    "photographer": "UMUT   \ud83c\udd81\ud83c\udd70\ud83c\udd86",
+    "photographer_url": "https://www.pexels.com/@umudicreative",
+    "pexels_url": "https://www.pexels.com/photo/crashed-car-on-metal-scrap-heap-outdoors-29879066/",
+    "width": 6240,
+    "height": 4160
+  },
+  "illegally-parked-towing": {
+    "url": "https://images.pexels.com/photos/34802562/pexels-photo-34802562.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A black and white photo of a pay parking sign in downtown Tyler, Texas. Violators will be towed.",
+    "photographer": "John Robertson",
+    "photographer_url": "https://www.pexels.com/@john-robertson-1100376905",
+    "pexels_url": "https://www.pexels.com/photo/black-and-white-pay-parking-sign-in-tyler-texas-34802562/",
+    "width": 2504,
+    "height": 1890
+  },
+  "impound-recovery": {
+    "url": "https://images.pexels.com/photos/35627355/pexels-photo-35627355.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "High angle view of numerous vehicles in an organized car lot, showcasing variety and structure.",
+    "photographer": "Bl\u2221ke",
+    "photographer_url": "https://www.pexels.com/@giantasparagus",
+    "pexels_url": "https://www.pexels.com/photo/aerial-view-of-a-car-lot-with-rows-of-vehicles-35627355/",
+    "width": 4000,
+    "height": 3000
+  },
+  "abandoned-vehicle-removal": {
+    "url": "https://images.pexels.com/photos/13151224/pexels-photo-13151224.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Towing a blue Audi convertible in a bustling city street.",
+    "photographer": "Artem Makarov",
+    "photographer_url": "https://www.pexels.com/@artem-makarov-289670876",
+    "pexels_url": "https://www.pexels.com/photo/a-car-being-towed-away-13151224/",
+    "width": 5580,
+    "height": 3720
+  },
+  "ev-tesla-towing": {
+    "url": "https://images.pexels.com/photos/35736773/pexels-photo-35736773.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Close-up of electric car being charged, highlighting eco-friendly transportation.",
+    "photographer": "04iraq",
+    "photographer_url": "https://www.pexels.com/@04iraq-1272398525",
+    "pexels_url": "https://www.pexels.com/photo/electric-car-charging-at-station-eco-friendly-transportation-35736773/",
+    "width": 6000,
+    "height": 4000
+  },
+  "luxury-exotic-towing": {
+    "url": "https://images.pexels.com/photos/943930/pexels-photo-943930.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A worn-out, rusty vintage car secured on a flatbed trailer, outdoors under daylight.",
+    "photographer": "Mike Bird",
+    "photographer_url": "https://www.pexels.com/@mikebirdy",
+    "pexels_url": "https://www.pexels.com/photo/red-coupe-on-flatbed-trailer-943930/",
+    "width": 4912,
+    "height": 3264
+  },
+  "insurance-claim-towing": {
+    "url": "https://images.pexels.com/photos/10341357/pexels-photo-10341357.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Close-up image of an insurance policy with a magnifying glass, money, and toy car.",
+    "photographer": "Vlad Deep",
+    "photographer_url": "https://www.pexels.com/@vlad-deep-29415806",
+    "pexels_url": "https://www.pexels.com/photo/magnifying-glass-and-a-document-10341357/",
+    "width": 6032,
+    "height": 4021
+  },
+  "auto-body-collision-delivery": {
+    "url": "https://images.pexels.com/photos/4480507/pexels-photo-4480507.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "An indoor auto repair shop with a covered car, tools, and equipment visible.",
+    "photographer": "cottonbro studio",
+    "photographer_url": "https://www.pexels.com/@cottonbro",
+    "pexels_url": "https://www.pexels.com/photo/black-and-white-folding-bed-4480507/",
+    "width": 5803,
+    "height": 3869
+  },
+  "boat-trailer-towing": {
+    "url": "https://images.pexels.com/photos/13191810/pexels-photo-13191810.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A family enjoys a sunny day at the beach while a truck assists with a boat trailer.",
+    "photographer": "Robert So",
+    "photographer_url": "https://www.pexels.com/@robertkso",
+    "pexels_url": "https://www.pexels.com/photo/a-person-standing-on-trailer-pulling-a-boat-on-body-of-water-13191810/",
+    "width": 6240,
+    "height": 4160
+  },
+  "classic-antique-car-transport": {
+    "url": "https://images.pexels.com/photos/4489766/pexels-photo-4489766.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Mechanics working on a vintage car restoration in a dimly lit garage, capturing the essence of classic automotive care.",
+    "photographer": "cottonbro studio",
+    "photographer_url": "https://www.pexels.com/@cottonbro",
+    "pexels_url": "https://www.pexels.com/photo/man-in-black-suit-standing-beside-silver-porsche-911-4489766/",
+    "width": 6000,
+    "height": 4000
+  },
+  "fleet-towing": {
+    "url": "https://images.pexels.com/photos/33623770/pexels-photo-33623770.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Aerial view of white pickup trucks parked in rows, emphasizing symmetry and industrial style.",
+    "photographer": "abdo alshreef",
+    "photographer_url": "https://www.pexels.com/@alshreef",
+    "pexels_url": "https://www.pexels.com/photo/aerial-view-of-multiple-white-pickup-trucks-parked-33623770/",
+    "width": 5272,
+    "height": 2962
+  },
+  "commercial-towing": {
+    "url": "https://images.pexels.com/photos/17429097/pexels-photo-17429097.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Tow truck operator loading white GMC pickup truck on street in daytime.",
+    "photographer": "Jonathan  Reynaga",
+    "photographer_url": "https://www.pexels.com/@jonathan-reynaga-861774",
+    "pexels_url": "https://www.pexels.com/photo/a-car-on-a-tow-truck-17429097/",
+    "width": 5760,
+    "height": 3840
+  },
+  "emergency-247-towing": {
+    "url": "https://images.pexels.com/photos/28447796/pexels-photo-28447796.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A red tow truck parked on a wet street in an urban neighborhood with workers in the background.",
+    "photographer": "Helena Jankovi\u010dov\u00e1 Kov\u00e1\u010dov\u00e1",
+    "photographer_url": "https://www.pexels.com/@helen1",
+    "pexels_url": "https://www.pexels.com/photo/red-tow-truck-in-urban-setting-on-rainy-day-28447796/",
+    "width": 6578,
+    "height": 4385
+  },
+  "dealer-auto-transport": {
+    "url": "https://images.pexels.com/photos/34539243/pexels-photo-34539243.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Large car carrier truck transporting vehicles on a road in Heathwood, Queensland.",
+    "photographer": "Elite Transport Solutions",
+    "photographer_url": "https://www.pexels.com/@elite-transport-solutions-2157098629",
+    "pexels_url": "https://www.pexels.com/photo/car-transport-truck-on-road-in-heathwood-34539243/",
+    "width": 5120,
+    "height": 3840
+  },
+  "borough-manhattan": {
+    "url": "https://images.pexels.com/photos/285011/pexels-photo-285011.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Stunning New York City skyline featuring the iconic Empire State Building under a clear blue sky.",
+    "photographer": "Jerome Dominici",
+    "photographer_url": "https://www.pexels.com/@jdominici",
+    "pexels_url": "https://www.pexels.com/photo/empire-state-building-new-york-285011/",
+    "width": 3421,
+    "height": 2233
+  },
+  "borough-brooklyn": {
+    "url": "https://images.pexels.com/photos/33619969/pexels-photo-33619969.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A stunning view of the Brooklyn Bridge and New York City's skyline at sunset.",
+    "photographer": "Federico Abis",
+    "photographer_url": "https://www.pexels.com/@federicoabisphotography",
+    "pexels_url": "https://www.pexels.com/photo/sunset-over-brooklyn-bridge-and-nyc-skyline-33619969/",
+    "width": 6048,
+    "height": 4024
+  },
+  "borough-queens": {
+    "url": "https://images.pexels.com/photos/5114812/pexels-photo-5114812.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "Breathtaking aerial view of Nueva York skyline, lush parkland, and architectural landmarks.",
+    "photographer": "Juan Patino",
+    "photographer_url": "https://www.pexels.com/@juan-patino-2936094",
+    "pexels_url": "https://www.pexels.com/photo/aerial-shot-of-a-city-and-its-downtown-in-distance-5114812/",
+    "width": 4000,
+    "height": 2250
+  },
+  "borough-bronx": {
+    "url": "https://images.pexels.com/photos/28319363/pexels-photo-28319363.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A summer view of urban residential buildings showcasing classic architecture.",
+    "photographer": "Ben Jackson",
+    "photographer_url": "https://www.pexels.com/@ben-jackson-102496908",
+    "pexels_url": "https://www.pexels.com/photo/a-view-of-a-city-street-with-tall-buildings-28319363/",
+    "width": 3089,
+    "height": 2048
+  },
+  "borough-staten-island": {
+    "url": "https://images.pexels.com/photos/32716875/pexels-photo-32716875.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A man in white attire watching another ferry in New York Harbor from a Staten Island ferry with a warm, evening glow.",
+    "photographer": "Jesse R",
+    "photographer_url": "https://www.pexels.com/@jesserphotonyc",
+    "pexels_url": "https://www.pexels.com/photo/man-in-hat-observing-new-york-harbor-from-staten-island-ferry-32716875/",
+    "width": 4412,
+    "height": 2757
+  },
+  "_steps": {
+    "url": "https://images.pexels.com/photos/20551791/pexels-photo-20551791.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "White truck parked under an industrial overpass in New York City, showcasing urban transportation.",
+    "photographer": "Garrison Gao",
+    "photographer_url": "https://www.pexels.com/@garrison-gao-56316964",
+    "pexels_url": "https://www.pexels.com/photo/trucks-under-a-metal-bridge-construction-20551791/",
+    "width": 6627,
+    "height": 4418
+  },
+  "_commercial_fleet": {
+    "url": "https://images.pexels.com/photos/31573459/pexels-photo-31573459.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "alt": "A row of white delivery vans parked outdoors, showcasing uniformity and logistics.",
+    "photographer": "Jan van der Wolf",
+    "photographer_url": "https://www.pexels.com/@jan-van-der-wolf-11680885",
+    "pexels_url": "https://www.pexels.com/photo/fleet-of-white-vans-parked-in-a-row-outdoors-31573459/",
+    "width": 4691,
+    "height": 3127
+  }
+}

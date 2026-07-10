@@ -30,7 +30,7 @@
  * BESPOKE_SITE_TENANTS in src/middleware.ts, and make sure its
  * src/app/site/<slug>/ folder exists. All three or the guard fails.
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -45,6 +45,24 @@ const PROTECTED = [
   { slug: 'we-pay-you-junk', domain: 'wepayyoujunkremoval.com' },
   { slug: 'nyc-mobile-salon', domain: 'thenycmobilesalon.com' },
   { slug: 'the-florida-maid', domain: 'thefloridamaid.com' },
+  { slug: 'the-nyc-exterminator', domain: 'thenycexterminator.com' },
+  { slug: 'nyc-tow', domain: 'nyctow' },
+  { slug: 'nycroadsideemergencyassistance', domain: 'nycroadsideemergencyassistance.com' },
+  { slug: 'theroadsidehelper', domain: 'theroadsidehelper.com' },
+  { slug: 'toll-trucks-near-me', domain: 'tolltrucksnearme.com' },
+  { slug: 'sunnyside-clean-nyc', domain: 'cleaningservicesunnysideny.com' },
+  { slug: 'wash-and-fold-nyc', domain: 'washnfoldnyc' },
+  { slug: 'wash-and-fold-hoboken', domain: 'hoboken laundry' },
+  { slug: 'landscaping-in-nyc', domain: 'landscapinginnyc' },
+  { slug: 'debt-service-ratio-loan', domain: 'debtserviceratioloan' },
+  { slug: 'fla-dumpster-rentals', domain: 'fladumpsterrentals' },
+  { slug: 'stretch-ny', domain: 'stretchny.com' },
+  { slug: 'stretch-service', domain: 'stretch service' },
+  { slug: 'the-home-services-company', domain: 'thehomeservicescompany' },
+  { slug: 'the-nyc-interior-designer', domain: 'thenycinteriordesigner.com' },
+  { slug: 'the-nyc-marketing-company', domain: 'thenycmarketingcompany / consortium' },
+  { slug: 'the-nyc-seo', domain: 'thenycseo.com' },
+  { slug: 'consortium-nyc', domain: 'consortiumnyc.com' },
 ]
 
 const violations = []
@@ -77,11 +95,20 @@ for (const t of PROTECTED) {
       `the global template instead of its own site. Re-add it to the set in src/middleware.ts.`
     )
   }
-  const pagePath = join(REPO, 'src', 'app', 'site', t.slug, 'page.tsx')
-  if (!existsSync(pagePath)) {
+  // Homepage lives at <slug>/page.tsx OR, when the site uses a Next route group
+  // (e.g. wash-and-fold's (marketing)/page.tsx), at <slug>/(group)/page.tsx.
+  const siteDir = join(REPO, 'src', 'app', 'site', t.slug)
+  const groupHome = existsSync(siteDir)
+    ? readdirSync(siteDir).some(
+        (e) => e.startsWith('(') && e.endsWith(')') && existsSync(join(siteDir, e, 'page.tsx'))
+      )
+    : false
+  const hasHome = existsSync(join(siteDir, 'page.tsx')) || groupHome
+  if (!hasHome) {
     violations.push(
-      `'${t.slug}' (${t.domain}) is missing src/app/site/${t.slug}/page.tsx → its ` +
-      `bespoke site was deleted. Restore it (e.g. \`git checkout <commit> -- src/app/site/${t.slug}\`).`
+      `'${t.slug}' (${t.domain}) has no homepage (src/app/site/${t.slug}/page.tsx or ` +
+      `(group)/page.tsx) → its bespoke site was deleted. Restore it ` +
+      `(e.g. \`git checkout <commit> -- src/app/site/${t.slug}\`).`
     )
   }
 }

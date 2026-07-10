@@ -47,7 +47,13 @@ export function registerTenantSeo(d: TenantSeoDescriptor): void {
 }
 
 /** Build a Next MetadataRoute.Sitemap from a descriptor (for app/site sitemap.ts). */
-export function buildTenantSitemap(d: TenantSeoDescriptor): MetadataRoute.Sitemap {
+export function buildTenantSitemap(d: TenantSeoDescriptor | undefined): MetadataRoute.Sitemap {
+  // Undefined-safe: a restored tenant site whose descriptor is not (yet)
+  // registered in TENANT_SEO must not crash the build (prerender error) — it
+  // just yields an empty sitemap until its descriptor is restored. This is the
+  // exact break that took the whole build down when tenants were restored after
+  // the 2026-07-08 template cutover emptied the SEO registry.
+  if (!d || typeof d.buildUrls !== 'function') return []
   const lastModified = new Date()
   return d.buildUrls().map((u) => ({
     url: u.loc,

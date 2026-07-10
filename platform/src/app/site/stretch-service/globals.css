@@ -1,0 +1,3 @@
+/* @ts-nocheck — minimal brand stub for stretch-service. Replace with real theme tokens. */
+@import "../../globals.css";
+:root { --brand-accent: #10b981; }

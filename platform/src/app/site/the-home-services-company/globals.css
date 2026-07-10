@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-dm-sans);
+  /* Bright green primary (mapped onto existing teal tokens) */
+  --color-teal-50: #f0fdf4;
+  --color-teal-100: #dcfce7;
+  --color-teal-200: #bbf7d0;
+  --color-teal-300: #86efac;
+  --color-teal-400: #4ade80;
+  --color-teal-500: #22c55e;
+  --color-teal-600: #16a34a;
+  --color-teal-700: #15803d;
+  --color-teal-800: #166534;
+  /* Brown secondary */
+  --color-accent: #78350f;
+  --color-accent-dark: #451a03;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #0a0a0a;
+  background: #fff;
+}
+
+.font-heading { font-family: var(--font-sora), "Sora", system-ui, sans-serif; }
+.font-body { font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif; }
+.font-cta { font-family: var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif; }
+
+.bg-section-white { background: #fff; }
+.bg-section-teal { background: #f0fdf4; }
+
+/* Yellow text over green or brown hero gradient backgrounds */
+section.bg-gradient-to-br.from-teal-700 h1,
+section.bg-gradient-to-br.from-teal-700 h2,
+section.bg-gradient-to-br.from-teal-700 p,
+section.bg-gradient-to-br.from-teal-700 span.text-white,
+section.bg-gradient-to-br.from-teal-700 .text-white\/80,
+section.bg-gradient-to-br.from-teal-700 .text-white\/70,
+section.bg-gradient-to-br.from-teal-700 .text-teal-200,
+section.bg-gradient-to-br.from-teal-700 .text-teal-200\/80,
+section.bg-gradient-to-br.from-teal-700 .text-teal-200\/60 {
+  color: #fde047 !important;
+}
+
+/* Preserve button foregrounds (buttons with explicit bg-white/teal retain their text colors) */
+section.bg-gradient-to-br.from-teal-700 .bg-white {
+  color: #15803d !important;
+}
+section.bg-gradient-to-br.from-teal-700 .bg-accent {
+  color: #fde047 !important;
+}
+
+.gradient-text {
+  -webkit-text-fill-color: transparent;
+  background: linear-gradient(135deg, #fde047 0%, #facc15 50%, #eab308 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(21,128,61,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(21,128,61,0.06) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+details summary::-webkit-details-marker { display: none; }
+details summary::marker { content: ""; }
