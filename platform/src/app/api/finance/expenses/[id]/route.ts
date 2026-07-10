@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { stripImmutable } from '@/lib/verify-tenant-refs'
 import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
 
@@ -19,7 +20,7 @@ export async function PUT(
 
     const { data, error } = await supabaseAdmin
       .from('expenses')
-      .update(body)
+      .update(stripImmutable(body))
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()

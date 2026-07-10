@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { stripImmutable } from '@/lib/verify-tenant-refs'
 import { requireAdmin } from '@/lib/require-admin'
 
 export async function PUT(
@@ -14,7 +15,7 @@ export async function PUT(
 
   const { error } = await supabaseAdmin
     .from('platform_announcements')
-    .update(body)
+    .update(stripImmutable(body))
     .eq('id', id)
 
   if (error) {

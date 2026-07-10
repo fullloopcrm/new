@@ -31,3 +31,20 @@ export async function findForeignRef(
   }
   return null
 }
+
+// Columns a client must never set through a mass-assigned write. Stripping these
+// stops a raw `.update(body)` from moving a row to another tenant (tenant_id) or
+// rewriting identity/audit fields.
+const IMMUTABLE_WRITE_KEYS = ['tenant_id', 'id', 'created_at']
+
+/**
+ * Returns a shallow copy of `body` with system-owned keys removed, so a raw
+ * `.update()` / `.insert()` of request JSON can't mass-assign them. Non-object
+ * input yields `{}`.
+ */
+export function stripImmutable<T extends Record<string, unknown>>(body: T): Partial<T> {
+  if (!body || typeof body !== 'object') return {}
+  const out: Record<string, unknown> = { ...body }
+  for (const k of IMMUTABLE_WRITE_KEYS) delete out[k]
+  return out as Partial<T>
+}
