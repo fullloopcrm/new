@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 
 export async function GET() {
   try {
@@ -39,6 +40,11 @@ export async function POST(request: Request) {
       status: { type: 'string', max: 50 },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
+
+    if (fields!.client_id) {
+      const foreign = await findForeignRef(tenantId, [{ table: 'clients', ids: [fields!.client_id as string] }])
+      if (foreign) return NextResponse.json({ error: 'Unknown client for this account' }, { status: 400 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('reviews')

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateToken } from '@/lib/tokens'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
@@ -49,6 +50,15 @@ export async function POST(request: Request) {
     .single()
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
   const tenantId = clientRow.tenant_id
+
+  // Cleaner(s) and property must belong to the client's tenant.
+  const foreign = await findForeignRef(tenantId, [
+    { table: 'team_members', ids: [cleaner_id, ...extras] },
+    { table: 'client_properties', ids: [property_id] },
+  ])
+  if (foreign) {
+    return NextResponse.json({ error: `Unknown ${foreign.table.replace(/s$/, '').replace(/_/g, ' ')} for this account` }, { status: 400 })
+  }
 
   // Repeat-client gate
   const { count: priorCount } = await supabaseAdmin
