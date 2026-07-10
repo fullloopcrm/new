@@ -36,7 +36,10 @@ const DRY_RUN = process.argv.includes('--dry-run')
 const VERIFY_ONLY = process.argv.includes('--verify')
 const CUTOFF = process.env.MIGRATION_CUTOFF || new Date().toISOString()
 const TENANT_NAME = 'The NYC Maid'
-const TENANT_SLUG = 'the-nyc-maid'
+// LIVE tenant slug is `nycmaid` (id 00000000-0000-0000-0000-000000000001).
+// The old `the-nyc-maid` slug does not exist — targeting it would CREATE a
+// duplicate tenant and split-brain the data. Must resolve the existing live row.
+const TENANT_SLUG = 'nycmaid'
 
 const fullloop = createClient(
   process.env.FULLLOOP_SUPABASE_URL!,
