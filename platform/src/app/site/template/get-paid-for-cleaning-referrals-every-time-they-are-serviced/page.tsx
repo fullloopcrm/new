@@ -1,21 +1,29 @@
 import type { Metadata } from 'next'
 import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import { breadcrumbSchema, localBusinessSchema, faqSchema } from '@/app/site/template/_lib/seo/schema'
+import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import FAQSection from '@/app/site/template/_components/FAQSection'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 import ReferralSignupForm from '@/app/site/template/_components/ReferralSignupForm'
 
-export const metadata: Metadata = {
-  title: 'Get Paid for Cleaning Referrals | Earn 10% Commission | Your Business',
-  description: 'Earn 10% commission every time your referral books a cleaning (from $59/hr). Recurring income, fast payouts via Zelle or Apple Cash. (555) 555-5555',
-  alternates: { canonical: 'https://www.example.com/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
-  openGraph: {
-    title: 'Get Paid for Cleaning Referrals | Your Business',
-    description: 'Earn 10% commission every time someone you refer books a cleaning. Recurring income, fast payouts.',
-    url: 'https://www.example.com/get-paid-for-cleaning-referrals-every-time-they-are-serviced',
-  },
+const PATH = '/get-paid-for-cleaning-referrals-every-time-they-are-serviced'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await getSiteConfig()
+  const name = config.identity.name
+  const canonical = `${config.identity.url}${PATH}`
+  return {
+    title: `Get Paid for Cleaning Referrals | Earn 10% Commission | ${name}`,
+    description: `Earn 10% commission every time your referral books a cleaning. Recurring income, fast payouts via Zelle or Apple Cash. ${config.contact.phone}`,
+    alternates: { canonical },
+    openGraph: {
+      title: `Get Paid for Cleaning Referrals | ${name}`,
+      description: 'Earn 10% commission every time someone you refer books a cleaning. Recurring income, fast payouts.',
+      url: canonical,
+    },
+  }
 }
 
 const referralFAQs = [
@@ -29,13 +37,16 @@ const referralFAQs = [
 
 export default async function ReferralPage() {
   await requireCleaningTenant()
+  const config = await getSiteConfig()
+  const businessName = config.identity.name
+  const origin = config.identity.url
   return (
     <>
       <JsonLd data={[
         localBusinessSchema(),
         breadcrumbSchema([
-          { name: 'Home', url: 'https://www.example.com' },
-          { name: 'Referral Program', url: 'https://www.example.com/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
+          { name: 'Home', url: origin },
+          { name: 'Referral Program', url: `${origin}${PATH}` },
         ]),
         faqSchema(referralFAQs),
       ]} />
@@ -47,7 +58,7 @@ export default async function ReferralPage() {
             Get Paid for Cleaning Referrals
           </h1>
           <p className="text-gray-300 text-lg max-w-2xl leading-relaxed">
-            Earn 10% commission every time someone you refer books a cleaning with Your Business. No limit on referrals. Recurring income for as long as they stay a customer.
+            Earn 10% commission every time someone you refer books a cleaning with {businessName}. No limit on referrals. Recurring income for as long as they stay a customer.
           </p>
         </div>
       </section>
@@ -79,7 +90,7 @@ export default async function ReferralPage() {
           <div className="aspect-video rounded-xl overflow-hidden border border-gray-200">
             <iframe
               src="https://www.youtube.com/embed/MhVjNiZtB_E"
-              title="Your Business Referral Program"
+              title={`${businessName} Referral Program`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               className="w-full h-full"
@@ -136,7 +147,7 @@ export default async function ReferralPage() {
             </ul>
           </div>
 
-          <ReferralSignupForm />
+          <ReferralSignupForm businessName={businessName} origin={origin} />
         </div>
 
         {/* Earnings example */}

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-export default function ReferralSignupForm() {
+export default function ReferralSignupForm({ businessName = 'our', origin = '' }: { businessName?: string; origin?: string }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -17,6 +17,9 @@ export default function ReferralSignupForm() {
   })
   const [honeypot, setHoneypot] = useState('')
   const [loadedAt] = useState(Date.now())
+  // Base for the shareable referral link: the tenant's configured origin,
+  // falling back to the live host (this UI only renders after a client submit).
+  const referralBase = origin || (typeof window !== 'undefined' ? window.location.origin : '')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,7 +54,7 @@ export default function ReferralSignupForm() {
   }
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`https://www.example.com/book?ref=${refCode}`)
+    navigator.clipboard.writeText(`${referralBase}/book?ref=${refCode}`)
     alert('Link copied!')
   }
 
@@ -64,7 +67,7 @@ export default function ReferralSignupForm() {
           </svg>
         </div>
         <h3 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-2">You&apos;re In!</h3>
-        <p className="text-gray-600 mb-6">Welcome to Your Business referral program.</p>
+        <p className="text-gray-600 mb-6">Welcome to the {businessName} referral program.</p>
 
         <div className="bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-xl p-6 mb-6">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Your Referral Code</p>
@@ -73,7 +76,7 @@ export default function ReferralSignupForm() {
 
         <div className="bg-gray-50 rounded-xl p-6 mb-6">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Your Referral Link</p>
-          <p className="text-sm font-mono text-gray-700 break-all mb-3">https://www.example.com/book?ref={refCode}</p>
+          <p className="text-sm font-mono text-gray-700 break-all mb-3">{referralBase}/book?ref={refCode}</p>
           <button
             onClick={copyLink}
             className="bg-[var(--accent)] text-[var(--brand)] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors"
@@ -185,7 +188,7 @@ export default function ReferralSignupForm() {
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
           <label className="flex items-start gap-3 cursor-pointer text-sm text-gray-600 leading-relaxed">
             <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
-            <span>By checking this box, I consent to receive transactional text messages from <strong>Your Business</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="/privacy-policy" className="text-[var(--brand)] underline underline-offset-2">Privacy Policy</a> | <a href="/terms-conditions" className="text-[var(--brand)] underline underline-offset-2">Terms &amp; Conditions</a></span>
+            <span>By checking this box, I consent to receive transactional text messages from <strong>{businessName}</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="/privacy-policy" className="text-[var(--brand)] underline underline-offset-2">Privacy Policy</a> | <a href="/terms-conditions" className="text-[var(--brand)] underline underline-offset-2">Terms &amp; Conditions</a></span>
           </label>
         </div>
 
