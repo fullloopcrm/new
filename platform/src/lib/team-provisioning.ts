@@ -24,7 +24,7 @@ export type ApprovedApplication = {
 export async function provisionApprovedApplicant(tenantId: string, app: ApprovedApplication): Promise<void> {
   const { data: t } = await supabaseAdmin
     .from('tenants')
-    .select('name, primary_color, logo_url, resend_api_key, phone, domain, slug')
+    .select('name, primary_color, logo_url, resend_api_key, email_from, phone, domain, slug')
     .eq('id', tenantId)
     .single()
   if (!t) return
@@ -118,6 +118,11 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
         subject: `Welcome to ${t.name || 'the team'}! Your PIN: ${pin}`,
         html,
         resendApiKey: t.resend_api_key || undefined,
+        // Send from the tenant's own verified sender when they have one. With a
+        // per-tenant Resend key, the default platform `from` domain isn't
+        // verified in that account and Resend 403s — so this is required, not
+        // cosmetic, for tenants running independent email.
+        from: t.email_from || undefined,
       })
     } catch (err) {
       console.error('[provisionApprovedApplicant] welcome email failed (member still provisioned):', err)
