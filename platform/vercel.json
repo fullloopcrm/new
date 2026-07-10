@@ -147,6 +147,10 @@
     {
       "path": "/api/cron/payment-followup-daily",
       "schedule": "0 12,13,16,17,22,23 * * *"
+    },
+    {
+      "path": "/api/cron/tenant-health",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
