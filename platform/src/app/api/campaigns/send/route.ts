@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     // Fetch audience
     let query = supabaseAdmin
       .from('clients')
-      .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out')
+      .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent')
       .eq('tenant_id', tenantId)
 
     if (client_ids && client_ids.length > 0) {
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
           tenant_id: tenantId,
         })
       }
-      if (sendSms && client.phone && !client.sms_marketing_opt_out) {
+      if (sendSms && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false) {
         recipientRows.push({
           campaign_id,
           client_id: client.id,

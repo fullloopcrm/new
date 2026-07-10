@@ -45,7 +45,7 @@ export async function POST(
     // sent a campaign on that channel (CAN-SPAM / TCPA).
     const { data: clients } = await supabaseAdmin
       .from('clients')
-      .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out')
+      .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out, sms_consent')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
@@ -105,7 +105,7 @@ export async function POST(
         }
       }
 
-      if (sendSMSMessages && client.phone && !client.sms_marketing_opt_out) {
+      if (sendSMSMessages && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false) {
         try {
           await sendSMS({
             to: client.phone,

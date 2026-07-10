@@ -255,6 +255,9 @@ export async function POST(request: NextRequest) {
           email: email || null,
           ...(address ? { address } : {}),
           ...(body.selfBook ? { source: leadSource } : {}),
+          // Only ever UPGRADE consent — a returning lead who now opts in becomes
+          // marketing-textable; we never silently downgrade an existing consent.
+          ...(body.smsConsent ? { sms_consent: true } : {}),
           notes,
           active: true,
           status: 'active',
@@ -275,6 +278,10 @@ export async function POST(request: NextRequest) {
           phone: phone || null,
           address,
           source: clientSource,
+          // Express-consent going forward: a brand-new lead is marketing-textable
+          // only if they affirmatively opted in on the form. (Existing clients
+          // keep their prior value and are unaffected.)
+          sms_consent: !!body.smsConsent,
           notes,
           pin: randomInt(100000, 1000000).toString(),
         })
