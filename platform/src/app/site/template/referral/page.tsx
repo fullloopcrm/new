@@ -18,8 +18,12 @@ function ReferrerPortalContent() {
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
+  // The referrer's shareable link must point at the tenant's real host, not a
+  // placeholder. Resolved client-side (this whole portal is client-rendered).
+  const [origin, setOrigin] = useState('')
 
   useEffect(() => {
+    setOrigin(window.location.origin)
     const code = searchParams.get('code')
     if (code) fetchReferrer(code)
     else setLoading(false)
@@ -82,7 +86,7 @@ function ReferrerPortalContent() {
     if (days < 7) return days + 'd ago'
     return date.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' })
   }
-  const copyLink = () => { if (referrer) { navigator.clipboard.writeText('https://www.example.com/book/new?ref=' + referrer.ref_code); alert('Copied!') } }
+  const copyLink = () => { if (referrer) { navigator.clipboard.writeText(origin + '/book/new?ref=' + referrer.ref_code); alert('Copied!') } }
   const pendingAmount = referrer ? referrer.total_earned - referrer.total_paid : 0
 
   const actionLabels: Record<string, string> = {
@@ -136,7 +140,7 @@ function ReferrerPortalContent() {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="font-semibold text-[var(--brand)] mb-3">Your Referral Link</h2>
           <div className="flex gap-3">
-            <input type="text" value={'https://www.example.com/book/new?ref=' + referrer?.ref_code} readOnly className="flex-1 px-4 py-2 bg-gray-50 border rounded-lg text-gray-600 text-sm" />
+            <input type="text" value={origin + '/book/new?ref=' + referrer?.ref_code} readOnly className="flex-1 px-4 py-2 bg-gray-50 border rounded-lg text-gray-600 text-sm" />
             <button onClick={copyLink} className="px-4 py-2 bg-[var(--brand)] text-white rounded-lg hover:bg-[rgb(var(--brand-rgb)/0.9)]">Copy</button>
           </div>
           <p className="text-sm text-gray-500 mt-2">Share this link. You earn 10% of every cleaning!</p>
