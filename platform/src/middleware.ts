@@ -161,6 +161,16 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   // NOTE: the old www.homeservicesbusinesscrm.com -> apex redirect in
   // next.config.ts was removed alongside this; keeping it would infinite-loop.
   const canonicalHost = hostname.split(':')[0].toLowerCase()
+  // Apex-canonical tenants: their site is served at the bare apex, NOT www.
+  // These are ex-standalone builds migrated to FL whose www subdomain isn't
+  // cleanly served on FL (Vercel treats the apex as primary and 307s www->apex,
+  // which fights the apex->www redirect below and infinite-loops). Serving them
+  // at the apex — their original canonical — breaks the loop with no DNS work.
+  const APEX_CANONICAL_DOMAINS = new Set<string>([
+    'consortiumnyc.com',
+    'thenycmarketingcompany.com',
+    'thenycinteriordesigner.com',
+  ])
   if (
     // Never canonical-redirect API routes. A 301 on a POST is downgraded to GET
     // with the body dropped, so an apex-host admin POST (e.g. Activate) gets
@@ -168,6 +178,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     // for pages/SEO, not APIs.
     !req.nextUrl.pathname.startsWith('/api/') &&
     !canonicalHost.startsWith('www.') &&
+    !APEX_CANONICAL_DOMAINS.has(canonicalHost) &&
     canonicalHost !== 'localhost' &&
     canonicalHost.includes('.') &&
     !canonicalHost.endsWith('.vercel.app') &&
