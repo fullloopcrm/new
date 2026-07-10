@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { sendSMS } from '@/lib/sms'
-import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP } from '../preview/route'
+import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP } from '../constants'
 
 // Broadcast a one-off SMS to new/un-hired applicants. Ported from nycmaid,
 // tenant-scoped for FullLoop (cleaner_applications + per-tenant Telnyx creds).

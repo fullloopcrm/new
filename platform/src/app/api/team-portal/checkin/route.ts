@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyToken } from '../auth/route'
+import { verifyToken } from '../auth/token'
 import { formatET } from '@/lib/dates'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { geocodeAddress, calculateDistance, CHECK_IN_MAX_MILES, CHECK_IN_HARD_BLOCK_MILES, CHECK_IN_GPS_ENABLED } from '@/lib/nycmaid/geo'

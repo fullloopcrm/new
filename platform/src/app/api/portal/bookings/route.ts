@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyPortalToken } from '../auth/route'
+import { verifyPortalToken } from '../auth/token'
 import { getSettings } from '@/lib/settings'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyPortalToken } from '../auth/route'
+import { verifyPortalToken } from '../auth/token'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')

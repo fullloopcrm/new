@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { verifyToken } from '../auth/route'
+import { verifyToken } from '../auth/token'
 
 const MAX_SIZE = 150 * 1024 * 1024 // 150MB
 const ALLOWED_MIMES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp', 'video/x-m4v']

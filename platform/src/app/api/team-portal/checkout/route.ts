@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyToken } from '../auth/route'
+import { verifyToken } from '../auth/token'
 import { parseTimestamp } from '@/lib/dates'
 import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'

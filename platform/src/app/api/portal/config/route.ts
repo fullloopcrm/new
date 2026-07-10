@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyPortalToken } from '../auth/route'
+import { verifyPortalToken } from '../auth/token'
 import { getSettings } from '@/lib/settings'
 
 // Tells the client portal which funnel this tenant runs so the booking UI can

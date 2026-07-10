@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from './supabase'
-import { verifyToken } from '@/app/api/team-portal/auth/route'
+import { verifyToken } from '@/app/api/team-portal/auth/token'
 import {
   hasPortalPermission,
   type PortalPermission,

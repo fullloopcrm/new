@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyPortalToken } from '../auth/route'
+import { verifyPortalToken } from '../auth/token'
 import { ownerAlert } from '@/lib/messaging/owner-alerts'
 
 // Client "request a quote / appointment" for pipeline & lead_only tenants (trades

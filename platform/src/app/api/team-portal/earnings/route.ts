@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyToken } from '../auth/route'
+import { verifyToken } from '../auth/token'
 
 // Round to half hour with 10-min grace: under 10 min past = round down, 10+ min = round up
 const roundToHalfHour = (hours: number) => {

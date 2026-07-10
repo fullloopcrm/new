@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '../auth/route'
+import { verifyToken } from '../auth/token'
 import { getSettings } from '@/lib/settings'
 
 // Config the team portal needs to render trade-agnostically: whether this tenant

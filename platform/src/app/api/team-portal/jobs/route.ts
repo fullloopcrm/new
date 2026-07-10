@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyToken } from '../auth/route'
+import { verifyToken } from '../auth/token'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 
 // Coarsen a free-text address to a rough area for the open pool — enough to
