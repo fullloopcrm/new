@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import {
   normalizeLineItems,
   computeTotals,
@@ -72,6 +73,14 @@ export async function POST(request: Request) {
 
     const quote_number = body.quote_number || (await generateQuoteNumber(tenantId))
     const public_token = generatePublicToken()
+
+    const foreign = await findForeignRef(tenantId, [
+      { table: 'clients', ids: [body.client_id] },
+      { table: 'deals', ids: [body.deal_id] },
+    ])
+    if (foreign) {
+      return NextResponse.json({ error: `Unknown ${foreign.table.replace(/s$/, '').replace(/_/g, ' ')} for this account` }, { status: 400 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('quotes')

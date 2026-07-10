@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { normalizeLineItems, computeTotals, logQuoteEvent } from '@/lib/quote'
 
 type Params = { params: Promise<{ id: string }> }
@@ -60,6 +61,11 @@ export async function PATCH(request: Request, { params }: Params) {
       'terms', 'notes', 'valid_until', 'client_id', 'tiers',
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
+
+    if (updates.client_id) {
+      const foreign = await findForeignRef(tenantId, [{ table: 'clients', ids: [updates.client_id as string] }])
+      if (foreign) return NextResponse.json({ error: 'Unknown client for this account' }, { status: 400 })
+    }
 
     if ('line_items' in body || 'tax_rate_bps' in body || 'discount_cents' in body) {
       const { data: current } = await supabaseAdmin

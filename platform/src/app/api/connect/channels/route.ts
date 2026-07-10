@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
@@ -52,6 +53,11 @@ export async function POST(request: NextRequest) {
     const { name, type, client_id } = await request.json()
 
     if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
+
+    if (client_id) {
+      const foreign = await findForeignRef(tenantId, [{ table: 'clients', ids: [client_id] }])
+      if (foreign) return NextResponse.json({ error: 'Unknown client for this account' }, { status: 400 })
+    }
 
     const channelType = type || 'custom'
 

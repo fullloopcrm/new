@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 
 export async function GET(request: Request) {
   try {
@@ -46,6 +47,11 @@ export async function POST(request: Request) {
 
     if (!body.route_date) {
       return NextResponse.json({ error: 'route_date required' }, { status: 400 })
+    }
+
+    if (body.team_member_id) {
+      const foreign = await findForeignRef(tenantId, [{ table: 'team_members', ids: [body.team_member_id] }])
+      if (foreign) return NextResponse.json({ error: 'Unknown team member for this account' }, { status: 400 })
     }
 
     // Default start/end from team_member home or tenant HQ
