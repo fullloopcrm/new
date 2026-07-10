@@ -75,7 +75,7 @@ export async function seedChartOfAccounts(tenantId: string): Promise<number> {
     subtype: a.subtype || null,
     is_bank_account: !!a.is_bank_account,
   }))
-  const { error } = await supabaseAdmin.from('chart_of_accounts').insert(rows)
+  const { error } = await supabaseAdmin.from('chart_of_accounts').insert(rows)  // tenant-scope-ok: insert rows carry tenant_id (built above)
   if (error) throw error
   return rows.length
 }

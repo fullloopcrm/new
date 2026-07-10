@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './supabase'
+import { normalizePrefs } from './comms-prefs'
 
 // --- Types ---
 
@@ -187,6 +188,10 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
       : 0
 
   const selenaConfig = (tenant?.selena_config || {}) as Record<string, unknown>
+  // Communications preferences (tenants.notification_preferences jsonb) drive
+  // the reminder timing + client-reminder toggles below. normalizePrefs fills
+  // gaps from the registry defaults and migrates any legacy flat shape.
+  const commPrefs = normalizePrefs(tenant?.notification_preferences)
 
   const settings: TenantSettings = {
     id: (tenant?.id as string) || tenantId,
@@ -220,11 +225,12 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     active_client_threshold_days: Number(tenant?.active_client_threshold_days ?? 45),
     at_risk_threshold_days: Number(tenant?.at_risk_threshold_days ?? 90),
     reschedule_notice_hours: Number(tenant?.reschedule_notice_days ?? 2) * 24,
-    reminder_days: DEFAULT_FALLBACKS.reminder_days,
-    reminder_hours_before: DEFAULT_FALLBACKS.reminder_hours_before,
-    daily_summary_enabled: DEFAULT_FALLBACKS.daily_summary_enabled,
-    client_reminder_email: DEFAULT_FALLBACKS.client_reminder_email,
-    client_reminder_sms: DEFAULT_FALLBACKS.client_reminder_sms,
+    reminder_days: commPrefs.timing.reminder_days,
+    reminder_hours_before: commPrefs.timing.reminder_hours_before,
+    daily_summary_enabled:
+      !!(commPrefs.comms.owner_daily_summary?.email || commPrefs.comms.owner_daily_summary?.in_app),
+    client_reminder_email: !!commPrefs.comms.booking_reminder?.email,
+    client_reminder_sms: !!commPrefs.comms.booking_reminder?.sms,
     chatbot_enabled: Boolean(selenaConfig.enabled ?? selenaConfig.chatbot_enabled ?? false),
     chatbot_greeting: (selenaConfig.greeting as string) || (selenaConfig.chatbot_greeting as string) || DEFAULT_FALLBACKS.chatbot_greeting,
     auto_respond_leads: Boolean(selenaConfig.auto_respond_leads ?? true),

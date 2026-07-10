@@ -3,6 +3,7 @@
 import SidePanel from '@/components/SidePanel'
 import { useWorkerLabel } from '../worker-label-context'
 import { Suspense, useEffect, useState } from 'react'
+import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
@@ -167,6 +168,9 @@ function BookingsPage() {
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
+  // Team-member colors, built from /api/team in the SAME order the calendar uses
+  // so a member reads as the same color in the picker and on the calendar.
+  const [memberColors, setMemberColors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -257,6 +261,14 @@ function BookingsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 25
+
+  useEffect(() => {
+    fetch('/api/team').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d) return
+      const members: ColorableMember[] = Array.isArray(d) ? d : (d.team || d.team_members || [])
+      setMemberColors(buildMemberColors(members))
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     loadBookings(); loadClients(); loadCleaners(); loadReferrers()
@@ -409,17 +421,31 @@ function BookingsPage() {
   }, [showCreateModal, showModal, editingBooking, createForm.client_id, createForm.property_id, clientProperties, createForm.start_date, createForm.start_time, createForm.hours, createForm.hourly_rate, createForm.team_size, newClientForm.address, form.start_date, form.start_time, form.hours, form.hourly_rate, form.team_size, clients, smartScoresKey])
 
   const loadBookings = async () => {
-    const res = await fetch('/api/bookings')
-    if (res.ok) {
-      const data = await res.json()
-      data.sort((a: Booking, b: Booking) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
-      setBookings(data)
+    try {
+      const res = await fetch('/api/bookings?limit=200')
+      if (res.ok) {
+        const json = await res.json()
+        // API returns { bookings, total }; tolerate a bare array too.
+        const list: Booking[] = Array.isArray(json) ? json : (json.bookings ?? [])
+        list.sort((a: Booking, b: Booking) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+        setBookings(list)
+      }
+    } catch (e) {
+      console.error('loadBookings failed', e)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
-  const loadClients = async () => { const res = await fetch('/api/clients'); if (res.ok) setClients(await res.json()) }
-  const loadCleaners = async () => { const res = await fetch('/api/cleaners'); if (res.ok) setCleaners(await res.json()) }
-  const loadReferrers = async () => { const res = await fetch('/api/referrers'); if (res.ok) setReferrers(await res.json()) }
+  const loadClients = async () => {
+    const res = await fetch('/api/clients?limit=2000')
+    if (!res.ok) return
+    const json = await res.json()
+    // API returns { clients, total }; tolerate a bare array. Never store a non-array
+    // or client-search .filter() throws and crashes the page.
+    setClients(Array.isArray(json) ? json : (json.clients ?? []))
+  }
+  const loadCleaners = async () => { const res = await fetch('/api/cleaners'); if (!res.ok) return; const j = await res.json(); setCleaners(Array.isArray(j) ? j : (j.cleaners ?? j.team ?? [])) }
+  const loadReferrers = async () => { const res = await fetch('/api/referrers'); if (!res.ok) return; const j = await res.json(); setReferrers(Array.isArray(j) ? j : (j.referrers ?? [])) }
 
   const loadWaitlist = async () => {
     setWaitlistLoading(true)
@@ -2335,7 +2361,7 @@ function BookingsPage() {
                     }`}>
                       <div className="flex items-center justify-between">
                         <span className={selected ? 'font-medium text-[#1E2A4A]' : ''}>
-                          {(topPick || isSuggested) && !selected ? '★ ' : ''}{c.name}
+                          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', background: colorForMember(memberColors, c.id), marginRight: '6px', verticalAlign: 'middle' }} />{(topPick || isSuggested) && !selected ? '★ ' : ''}{c.name}
                           {isLead && form.team_size > 1 && <span className="ml-1.5 text-[9px] bg-indigo-600 text-white px-1 py-0.5 rounded font-semibold">LEAD</span>}
                           {isExtra && <span className="ml-1.5 text-[9px] bg-indigo-400 text-white px-1 py-0.5 rounded font-semibold">EXTRA</span>}
                           {smart?.is_preferred && <span className="ml-1.5 text-[9px] bg-amber-500 text-white px-1 py-0.5 rounded font-semibold">★ PREFERRED</span>}
@@ -2678,7 +2704,7 @@ function BookingsPage() {
                           >
                             <div className="flex items-center justify-between">
                               <span className={selected ? 'font-medium' : ''}>
-                                {topPick && !selected ? '★ ' : ''}{c.name}
+                                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', background: colorForMember(memberColors, c.id), marginRight: '6px', verticalAlign: 'middle' }} />{topPick && !selected ? '★ ' : ''}{c.name}
                                 {smart?.is_preferred && <span className="ml-1.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-semibold">★ PREFERRED</span>}
                                 {isLead && createForm.team_size > 1 && <span className="ml-1.5 text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">LEAD</span>}
                                 {isExtra && <span className="ml-1.5 text-[10px] bg-indigo-400 text-white px-1.5 py-0.5 rounded font-semibold">EXTRA</span>}

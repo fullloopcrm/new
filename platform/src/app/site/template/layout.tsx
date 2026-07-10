@@ -18,13 +18,32 @@ import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 export async function generateMetadata() {
   const config = await getSiteConfig()
   const p = industryProfile(config.industry)
+  const name = config.identity.siteName ?? config.identity.name
+  const place = config.geo.placename
+  const ogTitle = `${name} — ${p.serviceLabel} in ${place}`
+  const description = `${name} provides ${p.serviceNoun} in ${place}. Book online or request a quote today.`
+  // FULLY override the platform root layout's Full Loop CRM metadata. keywords was
+  // already overridden, but description/openGraph/twitter still inherited the
+  // product's "maid service software" + NYC-Maid OG on any tenant page that sets
+  // none of its own (the 'use client' booking/apply/etc pages). Drive them all
+  // from the tenant's own industry/name so nothing leaks to customers or search.
   return {
-    title: {
-      default: config.identity.siteName ?? config.identity.name,
+    title: { default: name },
+    description,
+    keywords: `${p.serviceLabel}, ${p.serviceLabel} in ${place}, ${config.identity.name}`,
+    openGraph: {
+      title: ogTitle,
+      description,
+      siteName: name,
+      url: config.identity.url,
+      type: 'website',
+      images: config.identity.logo ? [config.identity.logo] : [],
     },
-    // Override the platform root layout's CRM keywords ("software for cleaners")
-    // so tenant public sites carry their OWN trade keywords, not the product's.
-    keywords: `${p.serviceLabel}, ${p.serviceLabel} in ${config.geo.placename}, ${config.identity.name}`,
+    twitter: {
+      card: 'summary_large_image',
+      title: ogTitle,
+      description,
+    },
   }
 }
 

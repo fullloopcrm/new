@@ -106,7 +106,7 @@ export async function seedHrDefaults(tenantId: string): Promise<{
         team_member_id: m.id as string,
         employment_type: 'contractor_1099' as EmploymentType,
       }))
-      const { error } = await supabaseAdmin.from('hr_employee_profiles').insert(rows)
+      const { error } = await supabaseAdmin.from('hr_employee_profiles').insert(rows)  // tenant-scope-ok: insert rows carry tenant_id (built above)
       if (error) throw error
       profilesBackfilled = rows.length
     }

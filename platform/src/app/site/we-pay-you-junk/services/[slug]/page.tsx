@@ -4,6 +4,8 @@ import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 import { notFound } from "next/navigation";
 import { PHONE, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 import { SERVICES, SERVICE_CATEGORIES, getExtendedContent } from "@/app/site/we-pay-you-junk/_data/services";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { serviceLd, breadcrumbLd } from "@/app/site/we-pay-you-junk/_lib/schema";
 
 export const dynamicParams = true
 export const revalidate = 2592000
@@ -33,6 +35,16 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
 
   return (
     <>
+      <JsonLd
+        data={[
+          serviceLd({ name: service.title, description: service.description, slug: service.slug }),
+          breadcrumbLd([
+            { name: "Home", path: "/" },
+            { name: "Services", path: "/services" },
+            { name: service.title, path: `/services/${service.slug}` },
+          ]),
+        ]}
+      />
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />
@@ -88,7 +100,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
           <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">The Complete Guide to {service.title}</h2>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
             <p>{service.title} is one of our most requested services nationwide, and it&apos;s a perfect example of why the We Pay You model works better than traditional junk removal. When you call a flat-rate company for {service.title.toLowerCase()}, they estimate the truck volume, charge you $200-$800+ depending on the load size, and haul everything away. Any items with resale value get resold for their own profit. You paid the removal fee and lost the resale value — a double hit to your wallet.</p>
-            <p>With our {service.title.toLowerCase()} service, the economics are completely different. You pay a transparent hourly rate — $100/hr for a 1-person crew, $250/hr for a 2-person crew, or $200/person/hr for emergency same-day. Dump fees, transfer station costs, and all disposal charges are included (an industry first). As our crew loads your items, they identify everything with resale value and appraise it at current fair market rates. You receive 50% of each item&apos;s appraised value (when applicable) as an immediate credit on your bill. If the total credits exceed the total bill, we pay you the difference.</p>
+            <p>With our {service.title.toLowerCase()} service, the economics are completely different. You pay a transparent hourly rate — $200/hr for a 1-person crew, $300/hr for a 2-person crew, or +$100/hr per additional person for emergency same-day. Dump fees, transfer station costs, and all disposal charges are included (an industry first). As our crew loads your items, they identify everything with resale value and appraise it at current fair market rates. You receive 50% of each item&apos;s appraised value (when applicable) as an immediate credit on your bill. If the total credits exceed the total bill, we pay you the difference.</p>
             <p>The typical {service.title.toLowerCase()} customer uses our crew and the job takes 1.5-3 hours, putting the pre-credit cost at $225-$450. Resale credits typically range from $50-$300+ depending on the items involved, bringing the out-of-pocket cost to $100-$350 — significantly less than the $350-$700+ a flat-rate company would charge for the same job. On larger {service.title.toLowerCase()} projects with high-value items, credits frequently cover the entire bill or result in a payout.</p>
             <p>Our crews are specifically trained in {service.title.toLowerCase()} — they understand the particular challenges, safety considerations, and item categories involved. They carry the right equipment, know the most efficient techniques, and can handle everything from a quick single-item pickup to a large-scale multi-hour project. Same-day appointments are available when you call before noon, and we operate 7 days a week, 7AM-8PM.</p>
           </div>
@@ -114,8 +126,8 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         <div className="mx-auto max-w-5xl px-6">
           <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">Common {service.title} Scenarios and What They Cost</h2>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
-            <p><strong>Quick Pickup (1-3 items):</strong> You have a couple of pieces of furniture, an old appliance, or a few boxes that need to go. Our crew handles this in 30-60 minutes for $100 (1 hour minimum). If any items have resale value — a working dryer, a solid wood desk — the credit comes right off the top. Many quick pickups cost $20-$50 out of pocket after credits. Traditional companies charge $100-$200 flat for the same job.</p>
-            <p><strong>Medium Job (partial room or multiple items):</strong> You&apos;re clearing a room, removing a set of furniture, or doing a moderate declutter. Our crew tackles this in 1-2 hours for $100-$200. Resale credits from furniture and electronics typically run $50-$150, bringing the cost to $75-$200. A flat-rate company would charge $250-$450 for the same volume.</p>
+            <p><strong>Quick Pickup (1-3 items):</strong> You have a couple of pieces of furniture, an old appliance, or a few boxes that need to go. Our crew handles this in 30-60 minutes for $200 (1 hour minimum). If any items have resale value — a working dryer, a solid wood desk — the credit comes right off the top. Many quick pickups cost $50-$150 out of pocket after credits. Traditional companies charge $100-$200 flat for the same job.</p>
+            <p><strong>Medium Job (partial room or multiple items):</strong> You&apos;re clearing a room, removing a set of furniture, or doing a moderate declutter. Our crew tackles this in 1-2 hours for $200-$400. Resale credits from furniture and electronics typically run $50-$150, bringing the cost to $50-$350. A flat-rate company would charge $250-$450 for the same volume.</p>
             <p><strong>Large Job (full room or major cleanout):</strong> A full garage, basement, or multi-room clear. Our crew takes 2-3 hours at $200-$300. Resale credits on larger jobs run higher — $100-$400+ — because there are more items to appraise. Out-of-pocket costs typically land at $150-$350 for jobs that flat-rate companies price at $400-$700+.</p>
             <p><strong>Major Project (estate, office, or full property):</strong> A complete estate cleanout, full office clearing, or whole-property removal. Our crew works 4-8+ hours at $400-$800. But these jobs have the highest concentration of valuable items — complete furniture sets, full kitchens of appliances, decades of accumulated tools, office equipment. Credits regularly reach $500-$2,000+, and payouts to the customer are common. Traditional companies charge $1,500-$5,000+ for comparable work and keep all resale value.</p>
           </div>

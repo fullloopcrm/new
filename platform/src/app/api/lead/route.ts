@@ -15,6 +15,9 @@ import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
+import { sendEmail } from '@/lib/email'
+import { emailShell } from '@/lib/messaging/shell'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { randomInt } from 'crypto'
 
 interface LeadBody {
@@ -68,6 +71,104 @@ export async function POST(request: NextRequest) {
 
     if (!name || (!email && !phoneRaw)) {
       return NextResponse.json({ error: 'Name and a phone or email are required.' }, { status: 400 })
+    }
+
+    // Job applications are NOT sales leads. Route them to team_applications
+    // (Team → Applications) instead of creating a client + sales deal, so the
+    // structured answers land as an application, not a customer record. Applies
+    // to every tenant job form that posts { type: 'job-application' }.
+    if (body.type === 'job-application') {
+      const appPhone = phoneRaw.replace(/\D/g, '')
+      try {
+        if (appPhone) {
+          const { data: dupe } = await supabaseAdmin
+            .from('team_applications')
+            .select('id')
+            .eq('tenant_id', tenant.id)
+            .eq('phone', appPhone)
+            .ilike('name', name)
+            .limit(1)
+            .maybeSingle()
+          if (dupe) return NextResponse.json({ success: true, application_id: dupe.id, deduped: true })
+        }
+
+        const { data: appRow, error: appErr } = await supabaseAdmin
+          .from('team_applications')
+          .insert({
+            tenant_id: tenant.id,
+            name,
+            email,
+            phone: appPhone || null,
+            availability: (body.availability as string) || null,
+            referral_source: (body.source as string) || null,
+            notes,
+            status: 'pending',
+          })
+          .select('id')
+          .single()
+        if (appErr) throw appErr
+
+        await notify({
+          tenantId: tenant.id,
+          type: 'cleaner_application',
+          title: 'New Team Application',
+          message: `${name}${phoneRaw ? ' • ' + phoneRaw : ''}`,
+        }).catch((err) => console.error('[api/lead] application notify error:', err))
+
+        // Email the tenant's admins too (mirrors /api/contact). notify() alone
+        // only fires when an owner tenant_member has an email; emailAdmins also
+        // falls back to tenant.email, so job-application alerts reach the inbox
+        // even for tenants with no member rows. Non-blocking.
+        try {
+          const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
+          const subject = `[${tenant.name}] New job application: ${name}`
+          const html = `<h2>New Job Application</h2>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email || '—'}</p>
+            <p><strong>Phone:</strong> ${phoneRaw || '—'}</p>
+            ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${notes}</pre>` : ''}
+            <p><a href="${adminUrl}">View in admin</a></p>`
+          await emailAdmins(tenant, subject, html)
+        } catch (emailErr) {
+          console.error('[api/lead] job-app email error:', emailErr)
+        }
+
+        // Applicant confirmation — same acknowledgement toggle as leads
+        // (lead_received). Sent from the tenant's own from-address. Non-blocking.
+        try {
+          if (email && (await isCommEnabled(tenant.id, 'lead_received', 'email'))) {
+            const t = tenant as Record<string, unknown>
+            const html = emailShell({
+              brand: {
+                name: tenant.name,
+                phone: (t.phone as string) || null,
+                email: (t.email as string) || null,
+                address: (t.address as string) || null,
+                logoUrl: tenant.logo_url || null,
+                primaryColor: tenant.primary_color || null,
+              },
+              heading: `Thanks for applying, ${name.split(' ')[0]}`,
+              bodyHtml: `<p>We received your application and our team will review it and follow up shortly. If you need to reach us, just reply to this email${t.phone ? ` or call ${t.phone}` : ''}.</p>`,
+              preheader: `We received your application`,
+            })
+            await sendEmail({
+              to: email,
+              subject: `We received your application — ${tenant.name}`,
+              html,
+              resendApiKey: (t.resend_api_key as string) || undefined,
+              from: (t.email_from as string) || undefined,
+            })
+          }
+        } catch (ackErr) {
+          console.error('[api/lead] applicant confirmation error:', ackErr)
+        }
+
+        return NextResponse.json({ success: true, application_id: appRow.id })
+      } catch (appErr) {
+        console.error('[api/lead] application insert failed:', appErr)
+        await trackError(appErr, { source: 'api/lead:application', severity: 'high' }).catch(() => {})
+        return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
+      }
     }
 
     const cleanPhone = phoneRaw.replace(/\D/g, '')
@@ -157,7 +258,7 @@ export async function POST(request: NextRequest) {
         if (newDeal) {
           await supabaseAdmin.from('deal_activities').insert({
             tenant_id: tenant.id, deal_id: newDeal.id, type: 'note',
-            description: `Lead captured via web form [${leadSource}]`,
+            description: `Lead captured via web form [${leadSource}]${notes ? `\n${notes}` : ''}`,
             metadata: { source: leadSource },
           })
         }
@@ -187,6 +288,35 @@ export async function POST(request: NextRequest) {
       await emailAdmins(tenant, msg.subject, msg.html)
     } catch (emailErr) {
       console.error('[api/lead] lead email error:', emailErr)
+    }
+
+    // Client acknowledgement — auto-reply to the submitter (gated by lead_received email).
+    try {
+      if (email && (await isCommEnabled(tenant.id, 'lead_received', 'email'))) {
+        const t = tenant as Record<string, unknown>
+        const html = emailShell({
+          brand: {
+            name: tenant.name,
+            phone: (t.phone as string) || null,
+            email: (t.email as string) || null,
+            address: (t.address as string) || null,
+            logoUrl: tenant.logo_url || null,
+            primaryColor: tenant.primary_color || null,
+          },
+          heading: `Thanks, ${name.split(' ')[0]}`,
+          bodyHtml: `<p>We received your request and will be in touch shortly. If it's urgent, just reply to this email${t.phone ? ` or call ${t.phone}` : ''}.</p>`,
+          preheader: `We received your message`,
+        })
+        await sendEmail({
+          to: email,
+          subject: `We got your message — ${tenant.name}`,
+          html,
+          resendApiKey: (t.resend_api_key as string) || undefined,
+          from: (t.email_from as string) || undefined,
+        })
+      }
+    } catch (ackErr) {
+      console.error('[api/lead] client ack email error:', ackErr)
     }
 
     return NextResponse.json({ success: true, client_id: clientId })

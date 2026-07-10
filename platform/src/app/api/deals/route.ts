@@ -139,7 +139,7 @@ export async function PUT(request: Request) {
     if (error) throw error
 
     if (activities.length > 0) {
-      await supabaseAdmin.from('deal_activities').insert(activities)
+      await supabaseAdmin.from('deal_activities').insert(activities)  // tenant-scope-ok: insert payload carries tenant_id (built above)
     }
 
     return NextResponse.json(deal)

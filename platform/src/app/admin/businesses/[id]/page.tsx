@@ -981,6 +981,21 @@ export default function BusinessDetailPage() {
           </button>
 
           <div className="pt-6 border-t border-slate-200">
+            <h3 className="font-heading font-semibold text-slate-900 mb-1">Website Ownership</h3>
+            <p className="text-xs text-slate-500 mb-3">
+              Static export of this tenant&apos;s live public site (HTML + assets) as a
+              downloadable ZIP they can host anywhere &mdash; fulfills the &ldquo;you own your
+              website&rdquo; promise on cancellation. Large sites are capped; may take ~10&ndash;30s to generate.
+            </p>
+            <a
+              href={`/api/admin/businesses/${id}/site-export`}
+              className="inline-block text-sm py-2 px-4 rounded-lg font-medium border border-teal-300 text-teal-700 hover:bg-teal-50"
+            >
+              Export site as ZIP &darr;
+            </a>
+          </div>
+
+          <div className="pt-6 border-t border-slate-200">
             <h3 className="font-heading font-semibold text-slate-900 mb-3">Submitted Business Profile</h3>
             <p className="text-xs text-slate-500 mb-3">Collected via the tenant&apos;s Business Profile wizard. Legal name / EIN live in Finance › Entities.</p>
             {(() => {

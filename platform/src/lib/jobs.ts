@@ -200,7 +200,8 @@ export async function createJobFromQuote(
       end_time: s.end_time ?? null,
       status: 'confirmed',
       notes: s.notes || `Session of job (quote ${quote.quote_number})`,
-      address: quote.service_address || null,
+      // NB: bookings has no address column — the location lives on the parent
+      // job (service_address) and the client. Setting it here throws PGRST204.
     }))
     const { error: bErr } = await supabaseAdmin.from('bookings').insert(bookingRows)
     if (bErr) throw bErr

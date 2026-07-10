@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins, sendPushToClient } from '@/lib/push'
@@ -7,14 +8,21 @@ import { smsRunningLateClient, smsRunningLateAdmin } from '@/lib/sms-templates'
 
 export async function POST(request: Request) {
   try {
-    const { bookingId, teamMemberId, eta } = await request.json()
-    if (!bookingId || !teamMemberId) return NextResponse.json({ error: 'bookingId and teamMemberId required' }, { status: 400 })
+    // Auth: this fires client + admin SMS, so it must be gated. The member is
+    // taken from the verified token; a member can only report late on their OWN
+    // booking, scoped to the token's tenant.
+    const { auth, error } = await requirePortalPermission(request, 'jobs.view_own')
+    if (error) return error
+
+    const { bookingId, eta } = await request.json()
+    if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
       .select('id, tenant_id, start_time, team_member_id, client_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
-      .eq('team_member_id', teamMemberId)
+      .eq('tenant_id', auth.tid)
+      .eq('team_member_id', auth.id)
       .single()
 
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })

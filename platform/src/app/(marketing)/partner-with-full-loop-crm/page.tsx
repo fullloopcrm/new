@@ -71,7 +71,7 @@ export default function PartnersPage() {
             claimed, it is permanently off the market for that trade.
           </p>
           <p className="font-mono text-sm text-teal-400 mb-10 tracking-wide">
-            $1,000 / admin / month + $100 / team member &middot; every feature included
+            $2,500 / admin / month + $250 / team member &middot; every feature included
           </p>
           <Link
             href="#apply"
@@ -218,6 +218,8 @@ export default function PartnersPage() {
               </h3>
               <ul className="space-y-3">
                 {[
+                  "Your website, its code, and your domain",
+                  "Every microsite we build for you",
                   "Your customer data and contact lists",
                   "Your Google Business Profile",
                   "Your reviews and reputation",
@@ -244,10 +246,9 @@ export default function PartnersPage() {
                 {[
                   "The CRM software platform and code",
                   "Yinez AI engine and training data",
-                  "SEO microsite domains and content",
                   "The proprietary lead routing system",
-                  "Platform infrastructure and hosting",
-                  "Analytics dashboards and reporting tools",
+                  "The shared platform infrastructure and hosting",
+                  "Analytics and reporting tooling",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3">
                     <span className="text-slate-400 font-bold mt-0.5">
@@ -260,8 +261,9 @@ export default function PartnersPage() {
             </div>
           </div>
           <p className="text-center text-slate-500 mt-8 text-sm">
-            If you ever leave Full Loop CRM, you take your customers, your
-            reviews, your GMB, and your brand with you. We keep the software.
+            If you ever leave Full Loop CRM, you take everything we built &mdash;
+            your website, its code and domain, your customers, your reviews, your
+            GMB, and your brand. We keep only the software.
           </p>
         </div>
       </section>

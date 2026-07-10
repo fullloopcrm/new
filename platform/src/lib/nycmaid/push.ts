@@ -28,7 +28,7 @@ export async function sendPushToAll(title: string, body: string, url?: string, t
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
 
   const { data: subscriptions } = await supabaseAdmin
-    .from('push_subscriptions')
+    .from('push_subscriptions')  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
     .select('id, subscription')
     .eq('role', 'admin')
 
@@ -64,7 +64,7 @@ export async function sendPushToAllCleaners(title: string, body: string, url?: s
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
 
   const { data: subscriptions } = await supabaseAdmin
-    .from('push_subscriptions')
+    .from('push_subscriptions')  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
     .select('id, subscription')
     .eq('role', 'cleaner')
 

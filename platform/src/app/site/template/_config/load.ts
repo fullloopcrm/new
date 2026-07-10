@@ -1,6 +1,7 @@
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { supabaseAdmin } from '@/lib/supabase'
 import { siteConfig as defaultConfig } from './site'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import type { SiteConfig } from './types'
 
 /**
@@ -58,6 +59,25 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     (selena && typeof selena['agent_name'] === 'string' && selena['agent_name']) ||
     defaultConfig.agent.name
 
+  // Geo comes from the tenant's declared service_areas, not a hardcoded NYC
+  // default. A national/remote business (service_areas includes "United States"
+  // / "Nationwide") should never render as "New York City". Falls back to the
+  // neutral default when the tenant has not declared areas.
+  const areas: string[] = Array.isArray(selena?.['service_areas'])
+    ? (selena!['service_areas'] as unknown[]).filter((a): a is string => typeof a === 'string')
+    : []
+  const isNational = areas.some((a) => /united states|nationwide|\bnational\b|\bu\.?s\.?a?\b/i.test(a))
+  const geo: SiteConfig['geo'] = isNational
+    ? { region: 'US', placename: 'the United States', lat: 39.8283, lng: -98.5795 }
+    : areas.length > 0
+      ? { ...defaultConfig.geo, placename: areas[0] }
+      : defaultConfig.geo
+
+  const industry = str(tenant, 'industry') ?? defaultConfig.industry
+  const isCleaningTenant = industryProfile(industry).isCleaning
+  const reviewStats = await loadReviewStats(str(tenant, 'id'))
+  const hasReviews = reviewStats.count !== ''
+
   return {
     identity: {
       name,
@@ -65,7 +85,9 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       siteName: name,
       legalName: str(tenant, 'legal_name') ?? defaultConfig.identity.legalName,
       foundedYear: defaultConfig.identity.foundedYear,
-      logo: str(tenant, 'logo_url') ?? defaultConfig.identity.logo,
+      // No NYC-Maid /logo.png fallback — a logo-less tenant renders its NAME as a
+      // wordmark in the nav/footer, never another tenant's logo.
+      logo: str(tenant, 'logo_url') ?? undefined,
     },
     contact: {
       phone,
@@ -74,7 +96,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       supportPhone,
       supportPhoneDigits,
     },
-    geo: defaultConfig.geo,
+    geo,
     theme: {
       primary: str(tenant, 'primary_color') ?? defaultConfig.theme.primary,
       primaryAlt: defaultConfig.theme.primaryAlt,
@@ -83,15 +105,36 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       surface: defaultConfig.theme.surface,
     },
     agent: { name: agentName },
-    rating: defaultConfig.rating,
-    reviewCount: defaultConfig.reviewCount,
+    // Reviews come from the tenant's REAL google_reviews. A brand-new tenant
+    // with none must not display fabricated "5.0 / 50+"; cleaning tenants keep
+    // the existing default so their live sites don't regress.
+    rating: hasReviews ? reviewStats.rating : isCleaningTenant ? defaultConfig.rating : 0,
+    reviewCount: hasReviews ? reviewStats.count : isCleaningTenant ? defaultConfig.reviewCount : '',
     services: (await loadServices(str(tenant, 'id'))) ?? defaultConfig.services,
     funnelMode:
       selena?.['funnel_mode'] === 'pipeline' ? 'pipeline'
       : selena?.['funnel_mode'] === 'lead_only' ? 'lead_only'
       : 'booking',
-    industry: str(tenant, 'industry') ?? defaultConfig.industry,
+    industry,
   }
+}
+
+/**
+ * Real review stats from google_reviews. Returns empty count when the tenant has
+ * no reviews so the marketing site can hide the rating instead of inventing one.
+ */
+async function loadReviewStats(tenantId: string | undefined): Promise<{ rating: number; count: string }> {
+  if (!tenantId) return { rating: 0, count: '' }
+  const { data } = await supabaseAdmin
+    .from('google_reviews')
+    .select('rating')
+    .eq('tenant_id', tenantId)
+  if (!data || data.length === 0) return { rating: 0, count: '' }
+  const rated = data
+    .map((r) => (typeof r.rating === 'number' ? r.rating : Number(r.rating)))
+    .filter((n) => !Number.isNaN(n) && n > 0)
+  const avg = rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : 0
+  return { rating: Math.round(avg * 10) / 10, count: String(data.length) }
 }
 
 /**

@@ -122,7 +122,7 @@ function coordinatorJobPostingSchema() {
       },
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
+        streetAddress: '123 Main St',
         addressLocality: 'New York',
         addressRegion: 'NY',
         postalCode: '10036',
@@ -134,7 +134,7 @@ function coordinatorJobPostingSchema() {
       '@type': 'Place',
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
+        streetAddress: '123 Main St',
         addressLocality: 'New York',
         addressRegion: 'NY',
         postalCode: '10036',
@@ -168,7 +168,7 @@ function coordinatorJobPostingSchema() {
     identifier: {
       '@type': 'PropertyValue',
       name: 'Your Business',
-      value: 'nycmaid-ops-coordinator-2026',
+      value: 'ops-coordinator-2026',
     },
 
     industry: 'Cleaning Services',
@@ -270,13 +270,13 @@ export default function OperationsCoordinatorPage() {
           speakable: ['h1', 'h2', '.hero-description'],
           breadcrumb: [
             { name: 'Home', url: 'https://www.example.com' },
-            { name: 'Careers', url: 'https://www.example.com/available-nyc-maid-jobs' },
+            { name: 'Careers', url: 'https://www.example.com/careers' },
             { name: 'Operations Admin', url: pageUrl },
           ],
         }),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.example.com' },
-          { name: 'Careers', url: 'https://www.example.com/available-nyc-maid-jobs' },
+          { name: 'Careers', url: 'https://www.example.com/careers' },
           { name: 'Operations Admin', url: pageUrl },
         ]),
         coordinatorJobPostingSchema(),
@@ -364,7 +364,7 @@ export default function OperationsCoordinatorPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Careers', href: '/available-nyc-maid-jobs' },
+          { name: 'Careers', href: '/careers' },
           { name: 'Operations Admin', href: '/careers/operations-coordinator' },
         ]} />
 

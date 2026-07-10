@@ -7,22 +7,22 @@ const assets = [
   {
     name: "Custom Website",
     description: "Next.js site with auto-generated service, area, and hiring pages. Full SEO.",
-    buyNow: "$5,000",
-    buyNowNote: "Own it from day one",
-    included: "Included in your plan",
-    includedNote: "We own it, you use it",
-    buyout: "$20,000 + 10%/mo",
-    buyoutNote: "Reflects SEO equity we build monthly",
+    buyNow: "Yours",
+    buyNowNote: "Owned from day one — no fee",
+    included: "We build & host it",
+    includedNote: "You own it the whole time",
+    buyout: "You keep it",
+    buyoutNote: "Site, code & domain go with you",
   },
   {
     name: "Google Business Profile",
     description: "Setup, verification, optimization, and ongoing management.",
     buyNow: "$999",
-    buyNowNote: "One-time — you own it",
-    included: "N/A",
-    includedNote: "Always a purchase",
-    buyout: "$999 + 10%/mo",
-    buyoutNote: "If we created it and you leave later",
+    buyNowNote: "One-time setup — you own it",
+    included: "We manage it",
+    includedNote: "Always your profile",
+    buyout: "You keep it",
+    buyoutNote: "Yours if you leave — no buyout",
   },
   {
     name: "EMD Micro Sites",
@@ -58,16 +58,16 @@ export default function AssetPricing() {
           className="text-center mb-16"
         >
           <p className="text-[#1F4D2C] text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            Own It or Use It — Your Choice
+            You Own It All
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[#1C1C1C] mb-4 font-heading">
-            Buy Assets Upfront or{" "}
-            <span className="text-[#1F4D2C]">Pay Later If You Leave</span>
+            Everything We Build{" "}
+            <span className="text-[#1F4D2C]">Is Yours to Keep</span>
           </h2>
           <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
-            Everything is included in your monthly plan. But if you want to own
-            your website or other assets outright, you can buy them anytime. If
-            you leave without buying, the buyout reflects the value we&apos;ve built.
+            Everything we build for you is included in your monthly plan &mdash;
+            and it&apos;s yours. Your website, its code, your domain: owned from
+            day one, no buyout, no clawback. Cancel anytime and you keep all of it.
           </p>
         </motion.div>
 
@@ -80,7 +80,7 @@ export default function AssetPricing() {
                   <th className="px-6 py-4 text-[#6F6F6B] font-semibold font-cta text-xs uppercase tracking-wider">Asset</th>
                   <th className="px-6 py-4 text-[#1F4D2C] font-semibold font-cta text-xs uppercase tracking-wider">Buy Now</th>
                   <th className="px-6 py-4 text-[#6F6F6B] font-semibold font-cta text-xs uppercase tracking-wider">Included in Plan</th>
-                  <th className="px-6 py-4 text-[#1F4D2C] font-semibold font-cta text-xs uppercase tracking-wider">Buyout If You Leave</th>
+                  <th className="px-6 py-4 text-[#1F4D2C] font-semibold font-cta text-xs uppercase tracking-wider">If You Leave</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E4E2DC]">
@@ -131,7 +131,7 @@ export default function AssetPricing() {
                   </div>
                 </div>
                 <div className="flex justify-between items-start">
-                  <span className="text-[#6F6F6B] text-xs uppercase tracking-wider">Buyout</span>
+                  <span className="text-[#6F6F6B] text-xs uppercase tracking-wider">If You Leave</span>
                   <div className="text-right">
                     <p className="text-[#1F4D2C] font-bold">{asset.buyout}</p>
                     <p className="text-[#6F6F6B] text-xs">{asset.buyoutNote}</p>

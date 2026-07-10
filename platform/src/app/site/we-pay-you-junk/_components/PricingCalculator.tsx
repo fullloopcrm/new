@@ -54,8 +54,8 @@ const CATEGORIES: Item["category"][] = ["Furniture", "Appliances", "Electronics"
 
 type CrewKey = "solo" | "standard";
 const CREW: Record<CrewKey, { label: string; rate: number; speed: number; subtitle: string }> = {
-  solo: { label: "1 Person Crew", rate: 100, speed: 1, subtitle: "$100/hr • small jobs" },
-  standard: { label: "2 Person Crew", rate: 250, speed: 1.6, subtitle: "$250/hr • most popular" },
+  solo: { label: "1 Person Crew", rate: 200, speed: 1, subtitle: "$200/hr • dump fees included" },
+  standard: { label: "2 Person Crew", rate: 300, speed: 1.6, subtitle: "$300/hr • +$100 per extra" },
 };
 
 function formatUSD(n: number): string {

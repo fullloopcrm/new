@@ -91,7 +91,7 @@ export default function CostBreakdown() {
           They&rsquo;re Spending{" "}
           <span className="text-[#1C1C1C] line-through">$178,800</span>.
           You&rsquo;ll Spend{" "}
-          <span className="text-[#1F4D2C]">$1,000/admin + $100/team member</span>.
+          <span className="text-[#1F4D2C]">$2,500/admin + $250/team member</span>.
         </motion.h2>
 
         <motion.p
@@ -158,7 +158,7 @@ export default function CostBreakdown() {
               $178,800
             </span>
             <span className="text-lg sm:text-xl font-mono font-bold text-[#1F4D2C] text-right sm:text-center">
-              $12,000<span className="block text-[10px] font-normal text-[#1F4D2C] leading-tight">solo · per admin / yr</span>
+              $30,000<span className="block text-[10px] font-normal text-[#1F4D2C] leading-tight">solo · per admin / yr</span>
             </span>
           </div>
         </motion.div>
@@ -189,15 +189,15 @@ export default function CostBreakdown() {
               Solo Operator Savings · Year 1
             </p>
             <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-[#1C1C1C] font-mono">
-              $166,800
+              $148,800
               <span className="text-lg sm:text-xl text-[#1C1C1C] font-normal">/yr</span>
             </p>
             <p className="mt-3 text-base sm:text-lg text-[#3A3A3A] max-w-md mx-auto">
-              That&rsquo;s <strong className="text-[#1F4D2C]">93% less</strong>{" "}
+              That&rsquo;s <strong className="text-[#1F4D2C]">83% less</strong>{" "}
               than running the front office the old way &mdash; with the AI
               sales agent, GPS field ops, e-signature, books, and routes that
               the old stack doesn&rsquo;t even include. Add seats as you grow
-              for just $100/mo per field team member. See the full <Link href="/full-loop-crm-pricing" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">CRM pricing</Link> breakdown.
+              for just $250/mo per field team member. See the full <Link href="/full-loop-crm-pricing" className="text-[#1F4D2C] underline underline-offset-2 hover:text-yellow-200">CRM pricing</Link> breakdown.
             </p>
           </div>
         </motion.div>

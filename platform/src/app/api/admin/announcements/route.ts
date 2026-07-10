@@ -68,7 +68,7 @@ export async function POST(request: Request) {
         message: body,
         channel: 'in_app',
       }))
-      await supabaseAdmin.from('notifications').insert(notifications)
+      await supabaseAdmin.from('notifications').insert(notifications)  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
     }
   }
 
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
         message: body,
         channel: 'in_app',
       }))
-      await supabaseAdmin.from('notifications').insert(notifications)
+      await supabaseAdmin.from('notifications').insert(notifications)  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
     }
   }
 

@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { createTenantFromLead } from '@/lib/create-tenant-from-lead'
+import { activateTenant } from '@/lib/activate-tenant'
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_PLATFORM_WEBHOOK_SECRET
@@ -49,6 +50,18 @@ export async function POST(request: Request) {
         console.error('[stripe-platform] tenant create failed:', result.error)
         // Return 500 so Stripe retries — better than silently dropping a paid sale.
         return NextResponse.json({ error: result.error }, { status: 500 })
+      }
+
+      // Paid → drive the tenant to live automatically (seeds team + review dest,
+      // domains, runs the gate, flips 'active' when ready). Idempotent and
+      // best-effort: an activation failure must NOT fail the webhook — the paid
+      // tenant already exists and an admin can re-run activation from the board.
+      if (result.tenant && !result.alreadyConverted) {
+        try {
+          await activateTenant(result.tenant.id)
+        } catch (e) {
+          console.error('[stripe-platform] auto-activate failed:', e)
+        }
       }
     }
   }

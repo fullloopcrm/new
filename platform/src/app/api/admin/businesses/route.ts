@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       phone: phone || null,
       email: email || null,
       tagline: tagline || null,
-      primary_color: primary_color || '#0d9488',
+      primary_color: primary_color || null,
       ...(business_hours && { business_hours }),
       ...(business_hours_start && { business_hours_start }),
       ...(business_hours_end && { business_hours_end }),

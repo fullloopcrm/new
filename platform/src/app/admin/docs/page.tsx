@@ -36,7 +36,7 @@ const sections: DocSection[] = [
 - **Impersonation** — Admins can impersonate any tenant via \`fl_impersonate\` cookie. Supports both Clerk super-admin and PIN-based admin.
 
 **Pricing (one model — no tiers):**
-- **$1,000/mo per admin seat** + **$100/mo per field team-member seat**
+- **$2,500/mo per admin seat** + **$250/mo per field team-member seat**
 - **$25,000 one-time setup** (white-glove onboarding)
 - Every feature included — there are no Starter/Growth/Pro tiers and no feature gating
 - One operator per trade per city (exclusive territory)`,

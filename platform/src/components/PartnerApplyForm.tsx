@@ -1,32 +1,6 @@
 "use client";
 
-import { useState, FormEvent, ChangeEvent } from "react";
-
-const TRADES = [
-  "Cleaning Services",
-  "Carpet Cleaning",
-  "Pressure Washing",
-  "Landscaping",
-  "Lawn Care",
-  "Handyman",
-  "Pest Control",
-  "HVAC",
-  "Plumbing",
-  "Electrical",
-  "Painting",
-  "Junk Removal",
-  "Pool Cleaning",
-  "Roofing",
-  "Appliance Repair",
-  "Locksmith",
-  "Flooring",
-  "Tree Service",
-  "Mobile Detailing",
-  "Window Cleaning",
-  "Garage Door Repair",
-  "Fencing",
-  "Other",
-];
+import { useState, useEffect, useMemo, FormEvent, ChangeEvent } from "react";
 
 const US_STATES = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
@@ -58,7 +32,8 @@ type FormData = {
   business_name: string;
   email: string;
   phone: string;
-  trade: string;
+  category_id: string;
+  territory_id: string;
   city: string;
   state: string;
   monthly_revenue: string;
@@ -71,7 +46,8 @@ const initialForm: FormData = {
   business_name: "",
   email: "",
   phone: "",
-  trade: "",
+  category_id: "",
+  territory_id: "",
   city: "",
   state: "",
   monthly_revenue: "",
@@ -84,6 +60,32 @@ export default function PartnerApplyForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [territories, setTerritories] = useState<
+    { id: string; name: string; state: string | null; kind: string }[]
+  >([]);
+
+  useEffect(() => {
+    fetch("/api/territories/options")
+      .then((r) => r.json())
+      .then((d) => {
+        setCategories(d.categories || []);
+        setTerritories(d.territories || []);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Group 969 territories by state for a usable native <optgroup> picker.
+  const territoryGroups = useMemo(() => {
+    const by: Record<string, { id: string; name: string }[]> = {};
+    for (const t of territories) {
+      const k = t.state || "—";
+      (by[k] = by[k] || []).push({ id: t.id, name: t.name });
+    }
+    return Object.keys(by)
+      .sort()
+      .map((state) => ({ state, items: by[state] }));
+  }, [territories]);
 
   function handleChange(
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -105,7 +107,10 @@ export default function PartnerApplyForm() {
           contact_name: form.full_name,
           email: form.email,
           phone: form.phone,
-          service_category: form.trade,
+          service_category:
+            categories.find((c) => c.id === form.category_id)?.name || "",
+          category_id: form.category_id,
+          territory_id: form.territory_id,
           city: form.city,
           state: form.state,
           years_in_business: "N/A",
@@ -239,27 +244,58 @@ export default function PartnerApplyForm() {
       </div>
 
       <div>
-        <label htmlFor="trade" className={labelClass}>
-          Trade / Industry <span className="text-red-500">*</span>
+        <label htmlFor="category_id" className={labelClass}>
+          Trade / Category <span className="text-red-500">*</span>
         </label>
         <div className="relative">
           <select
-            id="trade"
-            name="trade"
+            id="category_id"
+            name="category_id"
             required
-            value={form.trade}
+            value={form.category_id}
             onChange={handleChange}
             className={selectClass}
           >
-            <option value="">Select your trade</option>
-            {TRADES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            <option value="">Select your category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </select>
           {chevronIcon}
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="territory_id" className={labelClass}>
+          Territory <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+          <select
+            id="territory_id"
+            name="territory_id"
+            required
+            value={form.territory_id}
+            onChange={handleChange}
+            className={selectClass}
+          >
+            <option value="">Select your territory</option>
+            {territoryGroups.map((g) => (
+              <optgroup key={g.state} label={g.state}>
+                {g.items.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {chevronIcon}
+        </div>
+        <p className="text-xs text-slate-500 mt-1">
+          One owner per category per territory — availability confirmed at checkout.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

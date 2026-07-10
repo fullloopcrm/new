@@ -6,7 +6,7 @@ import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
 
 export const metadata: Metadata = {
   title: "About We Pay You Junk Removal — The Only Junk Company That Pays You Back",
-  description: "We Pay You Junk Removal started with a radical idea: customers deserve a cut when their items have resale value. Starting at $100/hr, dump fees included, 50% Resale Credit (when applicable). 900+ cities, 50 states, 34 services.",
+  description: "We Pay You Junk Removal started with a radical idea: customers deserve a cut when their items have resale value. Starting at $200/hr, dump fees included, 50% Resale Credit (when applicable). 900+ cities, 50 states, 34 services.",
   alternates: { canonical: "/about" },
 };
 
@@ -55,7 +55,7 @@ export default function AboutPage() {
           </p>
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-center text-base leading-relaxed text-slate-700">
             <p><strong>Mission:</strong> To build the most honest junk removal company in America — one that charges a fair rate, includes dump fees, and shares resale value with the people whose items we haul. We believe your stuff has value and you deserve a cut.</p>
-            <p><strong>Transparency:</strong> No hidden fees. No surprise surcharges. No volume-based guessing games. Starting at $100/hr with a 1 hour minimum and dump fees included. You watch the clock. You see every appraisal. You approve every credit. Our <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">pricing page</Link> tells you exactly what you&apos;ll pay — and we stick to it.</p>
+            <p><strong>Transparency:</strong> No hidden fees. No surprise surcharges. No volume-based guessing games. Starting at $200/hr with a 1 hour minimum and dump fees included. You watch the clock. You see every appraisal. You approve every credit. Our <Link href="/pricing" className="text-teal-700 font-semibold hover:underline">pricing page</Link> tells you exactly what you&apos;ll pay — and we stick to it.</p>
             <p><strong>Fairness:</strong> The 50% Resale Credit (when applicable) exists because we refuse to profit from your items without sharing the upside. Other companies keep 100% of resale revenue. We split it 50/50 because that&apos;s what&apos;s right. If your credits exceed your bill, we pay you the difference — same day, on the spot.</p>
             <p><strong>Environmental Responsibility:</strong> We divert 60% of what we haul from landfills. Items with value get resold. Items without resale value but in usable condition get donated. Materials like metal, cardboard, and electronics get recycled. Only truly unsalvageable waste goes to the dump — and even then, we pay the dump fees so you don&apos;t have to.</p>
             <p><strong>Respect:</strong> Your home is your space. Our crews show up on time, protect your floors and walls, communicate clearly, and leave the space cleaner than they found it. We treat every job — from a single <Link href="/services/furniture-removal" className="text-teal-700 font-semibold hover:underline">couch removal</Link> to a full <Link href="/commercial" className="text-teal-700 font-semibold hover:underline">commercial cleanout</Link> — with the same level of care.</p>
@@ -73,9 +73,9 @@ export default function AboutPage() {
           </p>
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-xl border border-slate-200 bg-white p-6 transition-all hover:border-teal-400 hover:shadow-md text-center">
-              <p className="text-3xl font-bold text-teal-700 font-heading">$100/hr</p>
+              <p className="text-3xl font-bold text-teal-700 font-heading">$200/hr</p>
               <h3 className="mt-2 text-lg font-bold text-slate-900 font-heading">Simple Hourly Rate</h3>
-              <p className="mt-2 text-sm text-slate-600">Starting at $100/hr with a 1 hour minimum. No volume estimates, no truck-fraction pricing, no hidden fees. Dump fees included — an industry first.</p>
+              <p className="mt-2 text-sm text-slate-600">Starting at $200/hr with a 1 hour minimum. No volume estimates, no truck-fraction pricing, no hidden fees. Dump fees included — an industry first.</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6 transition-all hover:border-teal-400 hover:shadow-md text-center">
               <p className="text-3xl font-bold text-teal-700 font-heading">50%</p>
@@ -132,7 +132,7 @@ export default function AboutPage() {
           </p>
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-center text-base leading-relaxed text-slate-700">
             <p>We Pay You Junk Removal operates 50 regional offices across all {STATE_COUNT} states, serving {CITY_COUNT} cities and counting. Each office is staffed with local crews who know their market — the resale landscape, the donation partners, the recycling facilities, and the neighborhoods they serve. This isn&apos;t a franchise model with absentee operators. Every office is company-owned and held to the same standards.</p>
-            <p>Whether you&apos;re in New York, Los Angeles, Chicago, Houston, Phoenix, or a smaller market, the experience is the same: starting at $100/hr, dump fees included, 50% Resale Credit (when applicable), and a crew that shows up on time and does the job right. Our national scale means we can serve you anywhere — and our local presence means we understand your market.</p>
+            <p>Whether you&apos;re in New York, Los Angeles, Chicago, Houston, Phoenix, or a smaller market, the experience is the same: starting at $200/hr, dump fees included, 50% Resale Credit (when applicable), and a crew that shows up on time and does the job right. Our national scale means we can serve you anywhere — and our local presence means we understand your market.</p>
             <p>Need junk removal in your area? <Link href="/locations" className="text-teal-700 font-semibold hover:underline">Browse all locations</Link> to find your city, or text <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">{PHONE}</a> to reach a local coordinator who can get a crew to you — often the same day.</p>
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function AboutPage() {
         <div className="relative mx-auto max-w-5xl px-6 text-center">
           <h2 className="text-3xl font-bold text-white sm:text-4xl font-heading">Ready to See What Your Junk Is Worth?</h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-white/80">
-            Starting at $100/hr. Dump fees included. 50% Resale Credit (when applicable). The only junk removal company that pays you back.
+            Starting at $200/hr. Dump fees included. 50% Resale Credit (when applicable). The only junk removal company that pays you back.
           </p>
           <CtaButtons variant="dark" />
         </div>

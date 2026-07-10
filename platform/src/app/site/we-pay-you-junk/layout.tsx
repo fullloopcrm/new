@@ -4,6 +4,8 @@ import { Sora, DM_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/app/site/we-pay-you-junk/_components/Header";
 import { Footer } from "@/app/site/we-pay-you-junk/_components/Footer";
+import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
+import { localBusinessLd, websiteLd } from "@/app/site/we-pay-you-junk/_lib/schema";
 
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"] });
 const dmSans = DM_Sans({ variable: "--font-dm-sans", subsets: ["latin"] });
@@ -22,10 +24,33 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  applicationName: "We Pay You Junk Removal",
+  authors: [{ name: "We Pay You Junk Removal" }],
+  creator: "We Pay You Junk Removal",
+  publisher: "We Pay You Junk Removal",
+  keywords: [
+    "junk removal",
+    "junk removal near me",
+    "furniture removal",
+    "appliance removal",
+    "estate cleanout",
+    "same-day junk removal",
+    "we pay you junk",
+    "resale credit junk removal",
+  ],
   openGraph: {
     type: "website",
     siteName: "We Pay You Junk Removal",
+    title: "We Pay You Junk Removal | $200/hr Fully Inclusive +$100/hr Per Extra Laborer",
+    description:
+      "America's only junk removal company that pays you. $200/hr fully inclusive, dump fees included, and we credit you 50% of resale value on items worth something. 900+ cities, all 50 states.",
     locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "We Pay You Junk Removal | We Pay You For Your Stuff",
+    description:
+      "$200/hr fully inclusive junk removal that pays you back — 50% resale credit on valuable items. 900+ cities, all 50 states, same-day available.",
   },
   robots: {
     index: true,
@@ -39,6 +64,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${sora.variable} ${dmSans.variable} ${spaceGrotesk.variable}`}>
       <body className="font-body antialiased">
+        <JsonLd data={[localBusinessLd(), websiteLd()]} />
         <Header />
         <main>{children}</main>
         <Footer />

@@ -8,26 +8,12 @@
  * Idempotent: a lead already converted returns its existing tenant.
  */
 import { supabaseAdmin } from './supabase'
-import { provisionTenant } from './provision-tenant'
+import { provisionTenant, mapIndustry } from './provision-tenant'
 import { seedOnboardingTasks } from './onboarding-tasks'
 import { computeMonthly } from './billing-pricing'
 import { zipToTimezone } from './timezone'
 import { hashAdminPin } from './admin-pin'
 import crypto from 'crypto'
-
-type IndustryKey = 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general'
-
-function mapIndustry(raw: string | null | undefined): IndustryKey {
-  const s = (raw || '').toLowerCase()
-  if (/clean|maid|janitor|housekeep/.test(s)) return 'cleaning'
-  if (/landscap|lawn|garden|tree|snow|mulch/.test(s)) return 'landscaping'
-  if (/hvac|heating|cooling|\bair\b/.test(s)) return 'hvac'
-  if (/plumb|drain|water heater/.test(s)) return 'plumbing'
-  if (/handy|repair/.test(s)) return 'handyman'
-  if (/electric/.test(s)) return 'electrical'
-  if (/pest|extermin|waste|removal|junk/.test(s)) return 'pest'
-  return 'general'
-}
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -94,6 +80,52 @@ export async function createTenantFromLead(
   const salesNotes = (lead.admin_notes || '').trim()
   const adminNotes = [salesNotes, fitContext ? `From lead — ${fitContext}` : ''].filter(Boolean).join('\n\n')
 
+  // ── Territory reservation (atomicity rule #1) ───────────────────────────
+  // Lock the contended resource (territory × category) BEFORE creating the
+  // tenant. If it's already claimed we abort here — no orphaned "paid but
+  // unclaimed" tenant. Reserve with tenant_id=null, then attach the tenant
+  // once it exists (and release the reservation if tenant creation fails).
+  let reservedClaimId: string | null = null
+  if (lead.territory_id && lead.category_id) {
+    const priceCents =
+      lead.proposal_monthly != null ? Math.round(Number(lead.proposal_monthly) * 100) : null
+    const { data: claim, error: claimErr } = await supabaseAdmin
+      .from('territory_claims')  // tenant-scope-ok: territory reservation created pre-tenant; tenant_id set after tenant creation
+      .insert({
+        territory_id: lead.territory_id,
+        category_id: lead.category_id,
+        status: 'claimed',
+        claimed_at: new Date().toISOString(),
+        price_cents: priceCents,
+        billing_interval: 'monthly',
+        stripe_subscription_id: opts.stripeSubscriptionId ?? null,
+      })
+      .select('id')
+      .single()
+    if (claimErr) {
+      // 23505 = the unique (territory, category) lock. Reclaim an abandoned
+      // reservation (tenant_id IS NULL) from a prior failed run; otherwise the
+      // territory is genuinely taken and the sale cannot complete.
+      if (claimErr.code === '23505') {
+        const { data: existing } = await supabaseAdmin
+          .from('territory_claims')
+          .select('id, tenant_id')
+          .eq('territory_id', lead.territory_id)
+          .eq('category_id', lead.category_id)
+          .maybeSingle()
+        if (existing && existing.tenant_id == null) {
+          reservedClaimId = existing.id as string
+        } else {
+          return { ok: false, error: 'Territory already claimed for that category — cannot convert.' }
+        }
+      } else {
+        return { ok: false, error: `Territory reservation failed: ${claimErr.message}` }
+      }
+    } else {
+      reservedClaimId = claim!.id as string
+    }
+  }
+
   // Unique slug — suffix on collision.
   const base = slugify(name) || 'tenant'
   let slug = base
@@ -118,18 +150,34 @@ export async function createTenantFromLead(
       admin_seats: admins,
       team_seats: teamMembers,
       ...(opts.stripeSubscriptionId && { stripe_subscription_id: opts.stripeSubscriptionId }),
+      ...(lead.category_id && { primary_category_id: lead.category_id }),
+      ...(lead.territory_id && { home_territory_id: lead.territory_id }),
       owner_name: lead.contact_name || null,
       owner_email: lead.email || null,
       owner_phone: lead.phone || null,
       phone: lead.phone || null,
       email: lead.email || null,
       address: lead.billing_address || null,
-      primary_color: '#0d9488',
       ...(adminNotes && { admin_notes: adminNotes }),
     })
     .select('id, slug, name, status')
     .single()
-  if (insErr || !tenant) return { ok: false, error: insErr?.message || 'Tenant create failed' }
+  if (insErr || !tenant) {
+    // Tenant creation failed — release the territory reservation so it doesn't
+    // stay locked to a tenant that never existed (atomicity: both or neither).
+    if (reservedClaimId) {
+      await supabaseAdmin.from('territory_claims').delete().eq('id', reservedClaimId)
+    }
+    return { ok: false, error: insErr?.message || 'Tenant create failed' }
+  }
+
+  // Attach the reserved territory to the now-created tenant (completes the claim).
+  if (reservedClaimId) {
+    await supabaseAdmin
+      .from('territory_claims')
+      .update({ tenant_id: tenant.id })
+      .eq('id', reservedClaimId)
+  }
 
   // Seed industry defaults. Best-effort — a seeding failure must not orphan the tenant.
   try {

@@ -95,7 +95,7 @@ export default function ClientPortalMessages() {
                   <div className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{m.body || ''}</div>
                 </div>
                 <div className="text-[10px] text-neutral-500 mt-1 px-1">
-                  {isCustomer ? 'You' : (m.author === 'yinez' ? 'Yinez · auto' : 'NYC Maid')} · {fmtTime(m.sent_at)}
+                  {isCustomer ? 'You' : (m.author === 'yinez' ? 'Yinez · auto' : 'Support')} · {fmtTime(m.sent_at)}
                 </div>
               </div>
             </div>

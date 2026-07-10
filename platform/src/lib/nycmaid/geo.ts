@@ -9,7 +9,10 @@ export const MAX_DISTANCE_MILES = 0.1
 // is a hard block. GPS can be toggled off via env for incident recovery.
 export const CHECK_IN_MAX_MILES = Number(process.env.CHECK_IN_MAX_MILES) || 0.5
 export const CHECK_IN_HARD_BLOCK_MILES = Number(process.env.CHECK_IN_HARD_BLOCK_MILES) || 2
-export const CHECK_IN_GPS_ENABLED = process.env.CHECK_IN_GPS_ENABLED !== 'off'
+// Default OFF to match standalone NYC Maid (CHECK_IN_GPS_ENABLED = false there —
+// GPS check-in was disabled after it field-blocked cleaners, commit c8739c7).
+// Opt back in explicitly with CHECK_IN_GPS_ENABLED=on.
+export const CHECK_IN_GPS_ENABLED = process.env.CHECK_IN_GPS_ENABLED === 'on'
 
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   try {

@@ -1,16 +1,27 @@
+import { redirect } from 'next/navigation'
 import { getSiteConfig } from '../../_config/load'
+import { industryProfile } from '../../_lib/seo/industry'
 import BookFormClient from './BookFormClient'
 import RemoteBookForm from './RemoteBookForm'
 
-// Remote, retainer-style verticals get the plan intake (no address / no single
-// appointment). Everyone else gets the on-site appointment form. Config-driven
-// off the tenant's industry — no per-tenant fork.
-const REMOTE_INDUSTRIES = new Set(['virtual assistant', 'virtual_assistant'])
-
 export default async function BookNewPage() {
   const config = await getSiteConfig()
-  const remote = REMOTE_INDUSTRIES.has((config.industry || '').toLowerCase())
-  return remote
-    ? <RemoteBookForm services={config.services} />
-    : <BookFormClient services={config.services} />
+  const profile = industryProfile(config.industry)
+
+  // Remote / retainer verticals (e.g. virtual assistant) get the plan intake —
+  // no service address, no single appointment.
+  if (profile.isRemote) {
+    return <RemoteBookForm services={config.services} />
+  }
+
+  // /book/new is the CLEANING-specific funnel (per-hour, "cleaners", 30-min
+  // increments, supplies toggle). Every template CTA points here, so a
+  // non-cleaning on-site tenant would land customers on a cleaning UX
+  // (F-028/F-045). Bounce them to the neutral standard form; cleaning tenants
+  // are unchanged.
+  if (!profile.isCleaning) {
+    redirect('/book/standard')
+  }
+
+  return <BookFormClient services={config.services} />
 }

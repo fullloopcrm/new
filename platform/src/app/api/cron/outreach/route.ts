@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { getCommPrefs } from '@/lib/comms-prefs'
 import { getActiveMoments, pickMessage, qualifiesForMoment, type OutreachMoment } from '@/lib/outreach'
 
 export const maxDuration = 300
@@ -65,6 +66,10 @@ export async function GET(request: Request) {
 }
 
 async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiName: string): Promise<number> {
+  // Gated by the retention (win-back) SMS toggle. Off → skip this tenant.
+  const prefs = await getCommPrefs(tenant.id)
+  if (prefs.comms.retention?.sms === false) return 0
+
   // 1. Eligible clients: have phone, opted in, not DNS, active.
   const { data: rawClients } = await supabaseAdmin
     .from('clients')

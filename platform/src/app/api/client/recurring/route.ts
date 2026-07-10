@@ -163,7 +163,7 @@ export async function POST(request: Request) {
     }
     if (teamRows.length > 0) {
       const { error: teamErr } = await supabaseAdmin
-        .from('booking_team_members')
+        .from('booking_team_members')  // tenant-scope-ok: row-scoped by unique join keys (booking_id, team_member_id)
         .upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
       if (teamErr) console.error('client recurring booking_team_members insert failed:', teamErr.message)
     }

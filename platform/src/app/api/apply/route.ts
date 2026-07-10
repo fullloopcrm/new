@@ -14,19 +14,31 @@ interface ApplyBody {
   email?: string
   phone?: string
   specialty?: string
+  position?: string
+  borough?: string
+  driversLicense?: string
   instagram?: string
   experience?: string
   availability?: string
   message?: string
   website?: string
+  portfolioUrl?: string
+  resumeUrl?: string | null
+  portfolioFileUrl?: string | null
   videoUrl?: string | null
 }
 
 function buildNotes(body: ApplyBody): string {
-  const lines: string[] = ['[Stylist / team application]']
+  const lines: string[] = ['[Team application]']
+  if (body.position) lines.push(`Position: ${body.position}`)
   if (body.specialty) lines.push(`Specialty: ${body.specialty}`)
+  if (body.borough) lines.push(`Preferred area: ${body.borough}`)
+  if (body.driversLicense) lines.push(`Driver's license: ${body.driversLicense}`)
   if (body.instagram) lines.push(`Instagram: ${body.instagram}`)
   if (body.website) lines.push(`Website: ${body.website}`)
+  if (body.portfolioUrl) lines.push(`Portfolio link: ${body.portfolioUrl}`)
+  if (body.portfolioFileUrl) lines.push(`Portfolio file: ${body.portfolioFileUrl}`)
+  if (body.resumeUrl) lines.push(`Resume: ${body.resumeUrl}`)
   if (body.videoUrl) lines.push(`Video selfie: ${body.videoUrl}`)
   if (body.message) lines.push('', body.message.trim())
   return lines.join('\n').trim()
@@ -74,7 +86,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'cleaner_application',
       title: 'New Team Application',
-      message: `${name} • ${body.specialty || 'general'} • ${body.experience || '?'}`,
+      message: `${name} • ${body.specialty || body.position || 'general'} • ${body.experience || '?'}`,
     }).catch((err) => console.error('[apply] notify failed:', err))
 
     return NextResponse.json({ success: true, id: data.id })

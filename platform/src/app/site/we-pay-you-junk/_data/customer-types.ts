@@ -35,7 +35,7 @@ export const CUSTOMER_TYPES: CustomerType[] = [
     name: "Property Managers & Landlords",
     shortName: "Property Mgrs",
     description: "Fast tenant turnovers with credits on items left behind. Recurring service with consistent crews and priority scheduling.",
-    longDescription: "Every day a unit sits vacant is lost rent. Traditional junk haulers charge $300-$800 per turnover and take 2-5 days to schedule. We offer same-day service starting at $100/hr with dump fees included, and items left behind by tenants — furniture, appliances, electronics — earn you 50% resale credit (when applicable). Recurring clients get priority scheduling, consistent crew assignments, and per-unit costs that drop 30-50% through credits.",
+    longDescription: "Every day a unit sits vacant is lost rent. Traditional junk haulers charge $300-$800 per turnover and take 2-5 days to schedule. We offer same-day service starting at $200/hr with dump fees included, and items left behind by tenants — furniture, appliances, electronics — earn you 50% resale credit (when applicable). Recurring clients get priority scheduling, consistent crew assignments, and per-unit costs that drop 30-50% through credits.",
     services: ["property-management-cleanouts", "foreclosure-cleanouts", "full-service-junk-removal", "appliance-removal", "furniture-removal"],
     painPoints: ["Every vacant day is lost rent", "Tenants leave behind furniture and junk", "Need fast turnaround for new tenants", "Managing multiple properties with ongoing turnover"],
     creditHighlights: ["Items left behind earn $100-$400 credit per unit", "Per-unit cleanout costs drop 30-50%", "Recurring accounts save $2,000+/year across portfolio"],

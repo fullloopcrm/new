@@ -6,6 +6,7 @@ import { downloadCSV } from '@/lib/csv'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import PermissionsTab from './PermissionsTab'
+import CommunicationsTab from './CommunicationsTab'
 
 type Tenant = {
   id: string
@@ -70,17 +71,99 @@ type Tenant = {
   agent_name: string | null
 }
 
+type PricingModel = 'hourly' | 'flat' | 'quote'
+
 type ServiceType = {
   id: string
   name: string
   description: string | null
   default_duration_hours: number
   default_hourly_rate: number
+  pricing_model: PricingModel | null
+  price_cents: number | null
+  per_unit: string | null
+  min_charge_cents: number | null
   sort_order: number
   active: boolean
 }
 
-const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Notifications', 'Guidelines', 'Selena', 'Tools'] as const
+// Client-side form shape — all values are strings (raw <input> values).
+type ServiceFormState = {
+  name: string
+  pricing_model: PricingModel
+  default_duration_hours: string
+  default_hourly_rate: string
+  price: string
+  min_charge: string
+}
+
+const EMPTY_SERVICE_FORM: ServiceFormState = {
+  name: '', pricing_model: 'hourly', default_duration_hours: '3',
+  default_hourly_rate: '49', price: '', min_charge: '',
+}
+
+const PRICING_MODELS: { value: PricingModel; label: string }[] = [
+  { value: 'hourly', label: 'Hourly (duration × rate)' },
+  { value: 'flat', label: 'Flat price' },
+  { value: 'quote', label: 'By quote (priced per job)' },
+]
+
+// Build the API payload from a form. Non-hourly models still send safe
+// duration/rate defaults so a NOT NULL column can never blow up the insert;
+// dollar inputs are converted to *_cents.
+function buildServicePayload(f: ServiceFormState) {
+  const model: PricingModel = f.pricing_model || 'hourly'
+  return {
+    name: f.name,
+    pricing_model: model,
+    default_duration_hours: model === 'hourly' ? Number(f.default_duration_hours) || 1 : 1,
+    default_hourly_rate: model === 'hourly' ? Number(f.default_hourly_rate) || 0 : 0,
+    // Only 'flat' carries a fixed price; 'quote' is priced per deal. per_unit
+    // must be one of the DB enum values (hour/job/…) and is NOT NULL.
+    price_cents: model === 'flat' ? Math.round(Number(f.price || 0) * 100) : null,
+    per_unit: model === 'hourly' ? 'hour' : 'job',
+    min_charge_cents: f.min_charge ? Math.round(Number(f.min_charge) * 100) : null,
+  }
+}
+
+// Human summary of a service's price for the list row.
+function formatServicePrice(s: ServiceType): string {
+  const model = s.pricing_model || 'hourly'
+  const min = s.min_charge_cents ? ` (min $${(s.min_charge_cents / 100).toFixed(0)})` : ''
+  if (model === 'flat') return `$${((s.price_cents || 0) / 100).toFixed(0)} flat${min}`
+  if (model === 'quote') return `By quote${min}`
+  return `${s.default_duration_hours}hr · $${s.default_hourly_rate}/hr${min}`
+}
+
+const INPUT_CLS = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm'
+
+// Shared pricing-model editor used by both the add and edit forms.
+function PricingFields({ f, set }: { f: ServiceFormState; set: (patch: Partial<ServiceFormState>) => void }) {
+  return (
+    <>
+      <select value={f.pricing_model} onChange={(e) => set({ pricing_model: e.target.value as PricingModel })} className={INPUT_CLS}>
+        {PRICING_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+      </select>
+      {f.pricing_model === 'hourly' && (
+        <div className="grid grid-cols-2 gap-3">
+          <input placeholder="Duration (hours)" type="number" step="0.5" value={f.default_duration_hours} onChange={(e) => set({ default_duration_hours: e.target.value })} className={INPUT_CLS} />
+          <input placeholder="Hourly Rate ($)" type="number" value={f.default_hourly_rate} onChange={(e) => set({ default_hourly_rate: e.target.value })} className={INPUT_CLS} />
+        </div>
+      )}
+      {f.pricing_model === 'flat' && (
+        <input placeholder="Flat Price ($)" type="number" value={f.price} onChange={(e) => set({ price: e.target.value })} className={INPUT_CLS} />
+      )}
+      {f.pricing_model === 'quote' && (
+        <p className="text-xs text-slate-400">Priced per job — set the amount on each quote or deal.</p>
+      )}
+      {f.pricing_model !== 'hourly' && (
+        <input placeholder="Minimum charge ($) — optional" type="number" value={f.min_charge} onChange={(e) => set({ min_charge: e.target.value })} className={INPUT_CLS} />
+      )}
+    </>
+  )
+}
+
+const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Communications', 'Guidelines', 'Selena', 'Tools'] as const
 type Tab = typeof TABS[number]
 
 const PAYMENT_METHOD_OPTIONS = [
@@ -139,12 +222,11 @@ export default function SettingsPage() {
   const [form, setForm] = useState<Partial<Tenant>>({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [newService, setNewService] = useState({ name: '', default_duration_hours: '3', default_hourly_rate: '49' })
+  const [newService, setNewService] = useState<ServiceFormState>(EMPTY_SERVICE_FORM)
   const [addingService, setAddingService] = useState(false)
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null)
-  const [editServiceForm, setEditServiceForm] = useState({ name: '', default_duration_hours: '', default_hourly_rate: '' })
+  const [editServiceForm, setEditServiceForm] = useState<ServiceFormState>(EMPTY_SERVICE_FORM)
   const [savingService, setSavingService] = useState(false)
-  const [notifPrefs, setNotifPrefs] = useState<Record<string, Record<string, boolean>>>({})
   const [exporting, setExporting] = useState<string | null>(null)
   const [selenaConfig, setSelenaConfig] = useState<Record<string, unknown>>({})
 
@@ -163,9 +245,6 @@ export default function SettingsPage() {
     fetch('/api/settings/services')
       .then((r) => r.json())
       .then((data) => setServices(data.services || []))
-    fetch('/api/settings/notifications')
-      .then((r) => r.json())
-      .then((data) => setNotifPrefs(data.preferences || {}))
   }, [])
 
   async function saveTenant() {
@@ -205,16 +284,12 @@ export default function SettingsPage() {
     const res = await fetch('/api/settings/services', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: newService.name,
-        default_duration_hours: Number(newService.default_duration_hours),
-        default_hourly_rate: Number(newService.default_hourly_rate),
-      }),
+      body: JSON.stringify(buildServicePayload(newService)),
     })
     if (res.ok) {
       const { service } = await res.json()
       setServices((prev) => [...prev, service])
-      setNewService({ name: '', default_duration_hours: '3', default_hourly_rate: '49' })
+      setNewService(EMPTY_SERVICE_FORM)
       setAddingService(false)
     }
   }
@@ -238,8 +313,11 @@ export default function SettingsPage() {
     setEditingServiceId(s.id)
     setEditServiceForm({
       name: s.name,
-      default_duration_hours: String(s.default_duration_hours),
-      default_hourly_rate: String(s.default_hourly_rate),
+      pricing_model: s.pricing_model || 'hourly',
+      default_duration_hours: String(s.default_duration_hours ?? ''),
+      default_hourly_rate: String(s.default_hourly_rate ?? ''),
+      price: s.price_cents != null ? String(s.price_cents / 100) : '',
+      min_charge: s.min_charge_cents != null ? String(s.min_charge_cents / 100) : '',
     })
   }
 
@@ -248,20 +326,11 @@ export default function SettingsPage() {
     const res = await fetch(`/api/settings/services/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: editServiceForm.name,
-        default_duration_hours: Number(editServiceForm.default_duration_hours),
-        default_hourly_rate: Number(editServiceForm.default_hourly_rate),
-      }),
+      body: JSON.stringify(buildServicePayload(editServiceForm)),
     })
     if (res.ok) {
-      setServices((prev) =>
-        prev.map((s) =>
-          s.id === id
-            ? { ...s, name: editServiceForm.name, default_duration_hours: Number(editServiceForm.default_duration_hours), default_hourly_rate: Number(editServiceForm.default_hourly_rate) }
-            : s
-        )
-      )
+      const { service } = await res.json()
+      setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...service } : s)))
       setEditingServiceId(null)
     }
     setSavingService(false)
@@ -596,10 +665,7 @@ export default function SettingsPage() {
           {addingService && (
             <form onSubmit={addService} className="border border-slate-200 rounded-lg p-4 space-y-3">
               <input placeholder="Service Name *" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} required className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-              <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Duration (hours)" type="number" step="0.5" value={newService.default_duration_hours} onChange={(e) => setNewService({ ...newService, default_duration_hours: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                <input placeholder="Hourly Rate ($)" type="number" value={newService.default_hourly_rate} onChange={(e) => setNewService({ ...newService, default_hourly_rate: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-              </div>
+              <PricingFields f={newService} set={(p) => setNewService({ ...newService, ...p })} />
               <div className="flex gap-2">
                 <button type="submit" className="bg-teal-600 text-white px-3 py-1.5 rounded text-sm font-cta font-semibold">Save</button>
                 <button type="button" onClick={() => setAddingService(false)} className="text-sm text-slate-400">Cancel</button>
@@ -616,16 +682,7 @@ export default function SettingsPage() {
                       <label className="text-xs text-slate-400 block mb-1">Service Name</label>
                       <input value={editServiceForm.name} onChange={(e) => setEditServiceForm({ ...editServiceForm, name: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1">Duration (hours)</label>
-                        <input type="number" step="0.5" value={editServiceForm.default_duration_hours} onChange={(e) => setEditServiceForm({ ...editServiceForm, default_duration_hours: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1">Hourly Rate ($)</label>
-                        <input type="number" value={editServiceForm.default_hourly_rate} onChange={(e) => setEditServiceForm({ ...editServiceForm, default_hourly_rate: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                      </div>
-                    </div>
+                    <PricingFields f={editServiceForm} set={(p) => setEditServiceForm({ ...editServiceForm, ...p })} />
                     <div className="flex gap-2">
                       <button onClick={() => saveEditService(s.id)} disabled={savingService} className="bg-teal-600 text-white px-3 py-1.5 rounded text-sm font-cta font-semibold disabled:opacity-50">
                         {savingService ? 'Saving...' : 'Save'}
@@ -637,7 +694,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className={`font-medium text-sm ${s.active ? 'text-slate-900' : 'text-slate-400 line-through'}`}>{s.name}</p>
-                      <p className="text-xs text-slate-400">{s.default_duration_hours}hr &middot; ${s.default_hourly_rate}/hr</p>
+                      <p className="text-xs text-slate-400">{formatServicePrice(s)}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <button onClick={() => startEditService(s)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
@@ -1137,60 +1194,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {tab === 'Notifications' && (
-        <div className="max-w-2xl">
-          <div className="border border-slate-200 rounded-lg p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">Notification Preferences</h3>
-            <p className="text-xs text-slate-400 mb-4">Choose which notifications you receive and how.</p>
-            <div className="space-y-3">
-              {[
-                { key: 'booking_reminder', label: 'Booking Reminders', desc: 'Reminders before appointments' },
-                { key: 'booking_confirmed', label: 'Booking Confirmed', desc: 'When a booking is confirmed' },
-                { key: 'payment_received', label: 'Payment Received', desc: 'When a payment comes in' },
-                { key: 'new_review', label: 'New Review', desc: 'When a client leaves a review' },
-                { key: 'new_referral', label: 'New Referral', desc: 'When a referral converts' },
-                { key: 'daily_summary', label: 'Daily Summary', desc: 'Morning recap of your day' },
-                { key: 'follow_up', label: 'Follow-up Sent', desc: 'Post-service thank you messages' },
-                { key: 'team_checkin', label: 'Team Check-in', desc: 'When team members check in to jobs' },
-              ].map(pref => (
-                <div key={pref.key} className="flex items-center justify-between py-2 border-b border-slate-200 last:border-0">
-                  <div>
-                    <p className="text-sm text-slate-900">{pref.label}</p>
-                    <p className="text-xs text-slate-400">{pref.desc}</p>
-                  </div>
-                  <div className="flex gap-3">
-                    {['email', 'sms', 'in_app'].map(channel => (
-                      <label key={channel} className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <input
-                          type="checkbox"
-                          checked={notifPrefs[pref.key]?.[channel] ?? (channel === 'in_app')}
-                          onChange={(e) => {
-                            const updated = {
-                              ...notifPrefs,
-                              [pref.key]: {
-                                ...notifPrefs[pref.key],
-                                [channel]: e.target.checked,
-                              },
-                            }
-                            setNotifPrefs(updated)
-                            fetch('/api/settings/notifications', {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ preferences: updated }),
-                            })
-                          }}
-                          className="rounded border-slate-200 bg-slate-50"
-                        />
-                        {channel === 'in_app' ? 'App' : channel.toUpperCase()}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {tab === 'Communications' && <CommunicationsTab />}
 
       {tab === 'Guidelines' && (
         <div className="max-w-3xl space-y-6">

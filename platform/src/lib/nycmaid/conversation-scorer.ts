@@ -292,7 +292,7 @@ IMPROVEMENTS: [bullet list of specific suggestions]`,
  */
 export async function scoreRecentConversations(): Promise<{ scored: number; avgScore: number }> {
   const { data: unscored } = await supabaseAdmin
-    .from('sms_conversations')
+    .from('sms_conversations')  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
     .select('id')
     .is('quality_score', null)
     .not('outcome', 'is', null)

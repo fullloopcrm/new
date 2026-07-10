@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { toSlug } from '@/lib/tenant-site'
 import { TENANT_SEO, type UrlSpec } from '@/lib/seo/tenant-seo'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
+import { VA_SERVICES } from '@/app/site/template/_data/va-services'
+import { ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
 
 /**
  * Dynamic XML sitemap for a tenant site.
@@ -21,7 +24,7 @@ export async function GET(req: NextRequest) {
   // Look up tenant
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, slug, domain, website_url, selena_config')
+    .select('id, slug, domain, website_url, selena_config, industry')
     .eq('slug', slug)
     .eq('status', 'active')
     .single()
@@ -43,6 +46,39 @@ export async function GET(req: NextRequest) {
   if (descriptor) {
     const specs: UrlSpec[] = descriptor.buildUrls()
     return new NextResponse(specsToXml(specs), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+      },
+    })
+  }
+
+  // Virtual-assistant tenants: emit the national VA SEO set — home + services
+  // index + 10 service pages + 150 city/state hubs. The 1,500 geo×service
+  // combos are noindex, so they are intentionally excluded from the sitemap.
+  if (industryProfile((tenant as { industry?: string | null }).industry).isVirtualAssistant) {
+    const vaSpecs: Array<{ loc: string; priority: string; changefreq: string }> = [
+      { loc: baseUrl, priority: '1.0', changefreq: 'weekly' },
+      { loc: `${baseUrl}/virtual-assistant-services`, priority: '0.9', changefreq: 'weekly' },
+      ...VA_SERVICES.map((s) => ({ loc: `${baseUrl}/virtual-assistant-services/${s.slug}`, priority: '0.8', changefreq: 'weekly' })),
+      ...ALL_LOCATIONS.map((l) => ({ loc: `${baseUrl}/virtual-assistant/${l.slug}`, priority: '0.7', changefreq: 'weekly' })),
+    ]
+    const today = new Date().toISOString().split('T')[0]
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${vaSpecs
+  .map(
+    (u) => `  <url>
+    <loc>${escapeXml(u.loc)}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${u.changefreq}</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`,
+  )
+  .join('\n')}
+</urlset>`
+    return new NextResponse(xml, {
       status: 200,
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',

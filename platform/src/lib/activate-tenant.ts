@@ -18,7 +18,9 @@ import { seedChartOfAccounts } from './ledger'
 import { seedHrDefaults } from './hr'
 import { ensureDefaultEntity } from './entity-provision'
 import { runOnboardingGate, type GateResult } from './onboarding-gate'
+import { clearSettingsCache } from './settings'
 import { registerCarryingDomain, registerCustomDomain, type CustomDomainResult } from './vercel-domains'
+import { registerSeoProperty } from './seo/onboarding'
 import { resolveCoverage } from './geo/coverage'
 import { hashAdminPin } from './admin-pin'
 import crypto from 'crypto'
@@ -295,6 +297,12 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   await crumb(tenantId, 'after_owner')
 
   // 6. Smoke test — run the onboarding gate over the lead→review spine.
+  // Bust the per-tenant settings cache first: earlier steps (provisioning,
+  // review-destination seeding) mutated selena_config AFTER getSettings may have
+  // already cached a mid-activation snapshot. Without this, the gate reads stale
+  // settings and fails 'review' (and any other just-seeded field) even though the
+  // DB is correct — which blocked tenants from ever flipping 'active'.
+  clearSettingsCache(tenantId)
   const gate = await runOnboardingGate(tenantId)
   for (const stage of gate.stages) {
     steps.push({
@@ -354,7 +362,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, notes: 'Custom domain — auto-registered on activation' })
     }
     const { error: tdErr } = await supabaseAdmin
-      .from('tenant_domains')
+      .from('tenant_domains')  // tenant-scope-ok: upsert rows carry tenant_id (built above)
       .upsert(rows, { onConflict: 'domain', ignoreDuplicates: true })
     steps.push({
       key: 'domain_routing',
@@ -364,6 +372,27 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     })
   } catch (e) {
     steps.push({ key: 'domain_routing', label: 'Domain routing + SEO link', status: 'failed', detail: msg(e) })
+  }
+
+  // 8b. seomgr auto-onboard — register the public domain as an SEO property so
+  // the site is tracked from day one. Starts "awaiting_grant"; a one-time GSC
+  // grant to the monitor service account flips it live (ingest self-discovers).
+  try {
+    const carryHost = `${tenant.slug}.fullloopcrm.com`
+    const customHost = ((tenant.domain as string | null) || (tenant.domain_name as string | null) || '')
+      .trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+    const primaryHost = customHost || carryHost
+    const seo = await registerSeoProperty(tenantId, primaryHost, 'activation')
+    steps.push({
+      key: 'seo_monitoring',
+      label: 'seomgr monitoring',
+      status: 'done',
+      detail: seo
+        ? `${seo.domain} registered${seo.created ? ' (awaiting GSC grant)' : ' (already tracked)'}`
+        : 'no valid domain to track',
+    })
+  } catch (e) {
+    steps.push({ key: 'seo_monitoring', label: 'seomgr monitoring', status: 'failed', detail: msg(e) })
   }
 
   const ownerOk = steps.find((s) => s.key === 'owner_login')?.status === 'done'

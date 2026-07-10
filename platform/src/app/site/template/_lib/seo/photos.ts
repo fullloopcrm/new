@@ -89,7 +89,7 @@ export const PHOTOS: SitePhoto[] = [
   {
     "id": 6195198,
     "src": "/photos/nyc-maid-wiping-table-modern-living-room.jpg",
-    "alt": "A NYC maid wearing gloves wiping a coffee table in a modern Manhattan living room",
+    "alt": "A professional cleaner wearing gloves wiping a coffee table in a modern Manhattan living room",
     "caption": "Detail dusting, NYC living room",
     "pool": "lifestyle",
     "category": "dust",
@@ -128,7 +128,7 @@ export const PHOTOS: SitePhoto[] = [
   {
     "id": 6195212,
     "src": "/photos/nyc-maid-making-bed-bright-bedroom.jpg",
-    "alt": "NYC maid service making the bed in a bright, monochrome bedroom",
+    "alt": "cleaning service making the bed in a bright, monochrome bedroom",
     "caption": "Bedroom turndown, NYC apartment",
     "pool": "lifestyle",
     "category": "bed",
@@ -154,7 +154,7 @@ export const PHOTOS: SitePhoto[] = [
   {
     "id": 6195207,
     "src": "/photos/nyc-maid-washing-dishes-modern-kitchen.jpg",
-    "alt": "NYC maid wearing rubber gloves washing dishes in a modern Manhattan kitchen",
+    "alt": "professional cleaner wearing rubber gloves washing dishes in a modern Manhattan kitchen",
     "caption": "Dish cleaning in a NYC kitchen",
     "pool": "lifestyle",
     "category": "kitchen",

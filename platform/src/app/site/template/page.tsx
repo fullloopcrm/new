@@ -13,7 +13,8 @@ import VideoReviews from '@/app/site/template/_components/VideoReviews'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
-import GenericLanding from '@/app/site/template/_components/GenericLanding'
+import GenericHome from '@/app/site/template/_components/GenericHome'
+import VirtualAssistantLanding from '@/app/site/template/_components/VirtualAssistantLanding'
 
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -128,11 +129,19 @@ export default async function HomePage() {
   const siteConfig = await getSiteConfig()
   const content = homepageContent(toBrand(siteConfig))
 
-  // Non-cleaning tenants get a clean, config-driven landing instead of the
-  // cleaning-editorial homepage (which links to gated pages). No cleaning
-  // structured data is emitted for them either.
-  if (!industryProfile(siteConfig.industry).isCleaning) {
-    return <GenericLanding config={siteConfig} h1={content.h1} subtitle={content.subtitle} />
+  const profile = industryProfile(siteConfig.industry)
+
+  // Virtual-assistant tenants get a dedicated, remote+national landing.
+  if (profile.isVirtualAssistant) {
+    return <VirtualAssistantLanding config={siteConfig} />
+  }
+
+  // Other non-cleaning tenants get the config-driven long-form homepage
+  // (GenericHome) instead of the cleaning-editorial homepage (which links to
+  // gated pages). Hero + real services grid + long-form body + FAQ, all from
+  // SiteConfig. No cleaning copy, no dead links, no cleaning structured data.
+  if (!profile.isCleaning) {
+    return <GenericHome config={siteConfig} />
   }
 
   const schemas = [...homepageSchemas(), faqSchema(homepageFAQs), ...videoReviewsSchemas()]
@@ -152,7 +161,7 @@ export default async function HomePage() {
               <span className="text-blue-200/70 text-sm font-medium underline underline-offset-2">5.0 Rating &middot; 50+ Reviews</span>
             </Link>
             <span className="text-white/20 hidden sm:inline">|</span>
-            <a href="https://www.bbb.org/us/ny/new-york/profile/house-cleaning/the-nyc-maid-0121-87177862" target="_blank" rel="noopener noreferrer" className="text-blue-200/70 text-sm font-medium underline underline-offset-2 hover:text-white transition-colors">A Rating on BBB</a>
+            <a href="https://www.bbb.org" target="_blank" rel="noopener noreferrer" className="text-blue-200/70 text-sm font-medium underline underline-offset-2 hover:text-white transition-colors">A Rating on BBB</a>
             <span className="text-white/20 hidden sm:inline">|</span>
             <span className="text-blue-200/70 text-sm font-medium">Trusted by New Yorkers Since 2018</span>
             <span className="text-white/20 hidden sm:inline">|</span>
@@ -246,7 +255,7 @@ export default async function HomePage() {
                 Whether it&apos;s a <Link href="/services/weekly-maid-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">weekly cleaning</Link> for your <Link href="/upper-east-side-maid-service" className="text-[var(--brand)] underline underline-offset-2">Upper East Side</Link> apartment, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">deep clean</Link> before guests arrive in <Link href="/park-slope-maid-service" className="text-[var(--brand)] underline underline-offset-2">Park Slope</Link>, or a <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">move-out clean</Link> in <Link href="/hoboken-maid-service" className="text-[var(--brand)] underline underline-offset-2">Hoboken</Link> — we handle it all with care, attention to detail, and genuine pride in what we do.
               </p>
               <p className="text-gray-600 leading-relaxed mb-5">
-                We serve hundreds of <Link href="/service-areas-served-by-the-nyc-maid" className="text-[var(--brand)] underline underline-offset-2">neighborhoods</Link> across <Link href="/manhattan-maid-service" className="text-[var(--brand)] underline underline-offset-2">Manhattan</Link>, <Link href="/brooklyn-maid-service" className="text-[var(--brand)] underline underline-offset-2">Brooklyn</Link>, <Link href="/queens-maid-service" className="text-[var(--brand)] underline underline-offset-2">Queens</Link>, the <Link href="/bronx-maid-service" className="text-[var(--brand)] underline underline-offset-2">Bronx</Link>, <Link href="/staten-island-maid-service" className="text-[var(--brand)] underline underline-offset-2">Staten Island</Link>, <Link href="/long-island-maid-service" className="text-[var(--brand)] underline underline-offset-2">Long Island</Link>, <Link href="/westchester-maid-service" className="text-[var(--brand)] underline underline-offset-2">Westchester</Link>, and <Link href="/new-jersey-maid-service" className="text-[var(--brand)] underline underline-offset-2">New Jersey</Link>. Every cleaner is background-checked, insured, and paid fairly. We don&apos;t cut corners — on your home or on our people.
+                We serve hundreds of <Link href="/service-areas" className="text-[var(--brand)] underline underline-offset-2">neighborhoods</Link> across <Link href="/manhattan-maid-service" className="text-[var(--brand)] underline underline-offset-2">Manhattan</Link>, <Link href="/brooklyn-maid-service" className="text-[var(--brand)] underline underline-offset-2">Brooklyn</Link>, <Link href="/queens-maid-service" className="text-[var(--brand)] underline underline-offset-2">Queens</Link>, the <Link href="/bronx-maid-service" className="text-[var(--brand)] underline underline-offset-2">Bronx</Link>, <Link href="/staten-island-maid-service" className="text-[var(--brand)] underline underline-offset-2">Staten Island</Link>, <Link href="/long-island-maid-service" className="text-[var(--brand)] underline underline-offset-2">Long Island</Link>, <Link href="/westchester-maid-service" className="text-[var(--brand)] underline underline-offset-2">Westchester</Link>, and <Link href="/new-jersey-maid-service" className="text-[var(--brand)] underline underline-offset-2">New Jersey</Link>. Every cleaner is background-checked, insured, and paid fairly. We don&apos;t cut corners — on your home or on our people.
               </p>
               <p className="text-gray-600 leading-relaxed mb-5">
                 Our clients aren&apos;t looking for the cheapest option — they&apos;re looking for someone they can rely on. Someone who remembers how they like their kitchen cleaned, who notices the details, and who treats their space with respect. That&apos;s what we do. It&apos;s why families in <Link href="/chelsea-maid-service" className="text-[var(--brand)] underline underline-offset-2">Chelsea</Link>, <Link href="/williamsburg-maid-service" className="text-[var(--brand)] underline underline-offset-2">Williamsburg</Link>, <Link href="/forest-hills-maid-service" className="text-[var(--brand)] underline underline-offset-2">Forest Hills</Link>, and <Link href="/great-neck-maid-service" className="text-[var(--brand)] underline underline-offset-2">Great Neck</Link> keep us coming back week after week.
@@ -261,7 +270,7 @@ export default async function HomePage() {
                 <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
                   Text 555.555.5555
                 </a>
-                <Link href="/about-the-nyc-maid-service-company" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">
+                <Link href="/about" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">
                   Learn more &rarr;
                 </Link>
               </div>
@@ -321,7 +330,7 @@ export default async function HomePage() {
           <p className="text-xs font-semibold text-[rgb(var(--brand-rgb)/0.5)] tracking-[0.25em] uppercase mb-3 text-center">Your Business Service Pricing Explained — Hourly Rates, Average Costs &amp; What to Expect</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide text-center mb-4">How Much Does House Cleaning Cost in New York City?</h2>
           <p className="text-[rgb(var(--brand-rgb)/0.7)] text-center max-w-3xl mx-auto mb-14">
-            We keep it simple: flat hourly rates, no hidden fees, no contracts. Choose the option that fits your situation. Every tier includes the same professional, <Link href="/about-the-nyc-maid-service-company" className="text-[var(--brand)] font-semibold underline underline-offset-2">background-checked cleaners</Link> — the only difference is who brings the supplies. See our full <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] font-semibold underline underline-offset-2">pricing page</Link> for more details.
+            We keep it simple: flat hourly rates, no hidden fees, no contracts. Choose the option that fits your situation. Every tier includes the same professional, <Link href="/about" className="text-[var(--brand)] font-semibold underline underline-offset-2">background-checked cleaners</Link> — the only difference is who brings the supplies. See our full <Link href="/pricing" className="text-[var(--brand)] font-semibold underline underline-offset-2">pricing page</Link> for more details.
           </p>
 
           {/* 3 pricing cards */}
@@ -492,7 +501,7 @@ export default async function HomePage() {
               <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
                 Text 555.555.5555
               </a>
-              <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4 text-sm">
+              <Link href="/pricing" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4 text-sm">
                 View pricing &rarr;
               </Link>
             </div>
@@ -600,7 +609,7 @@ export default async function HomePage() {
           </p>
           <ServiceGrid />
           <div className="text-center mt-10">
-            <Link href="/nyc-maid-service-services-offered-by-the-nyc-maid" className="text-[var(--accent)] font-semibold hover:underline underline-offset-4">Browse All NYC Cleaning Services &rarr;</Link>
+            <Link href="/services" className="text-[var(--accent)] font-semibold hover:underline underline-offset-4">Browse All NYC Cleaning Services &rarr;</Link>
           </div>
         </div>
       </section>
@@ -613,10 +622,10 @@ export default async function HomePage() {
             <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide leading-tight mb-6">Why Thousands of New Yorkers Trust Your Business</h2>
             <div className="w-12 h-[2px] bg-[var(--accent)] mb-6" />
             <p className="text-gray-600 text-lg leading-relaxed mb-4">
-              We provide personalized, hourly <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] underline underline-offset-2">cleaning service pricing</Link> for each unique space — ensuring high-quality cleaning tailored to your needs. No contracts, no hidden fees, no surprises.
+              We provide personalized, hourly <Link href="/pricing" className="text-[var(--brand)] underline underline-offset-2">cleaning service pricing</Link> for each unique space — ensuring high-quality cleaning tailored to your needs. No contracts, no hidden fees, no surprises.
             </p>
             <p className="text-gray-600 leading-relaxed mb-6">
-              Every cleaner on our team is fully background-checked and insured. Whether you need a <Link href="/services/apartment-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">regular apartment cleaning</Link> in <Link href="/manhattan-maid-service" className="text-[var(--brand)] underline underline-offset-2">Manhattan</Link>, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">deep clean</Link> in <Link href="/brooklyn-maid-service" className="text-[var(--brand)] underline underline-offset-2">Brooklyn</Link>, or <Link href="/services/airbnb-cleaning-in-nyc" className="text-[var(--brand)] underline underline-offset-2">Airbnb turnover cleaning</Link> in <Link href="/queens-maid-service" className="text-[var(--brand)] underline underline-offset-2">Queens</Link> — we&apos;ve got you covered. <Link href="/about-the-nyc-maid-service-company" className="text-[var(--brand)] underline underline-offset-2">Learn more about our company</Link>.
+              Every cleaner on our team is fully background-checked and insured. Whether you need a <Link href="/services/apartment-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">regular apartment cleaning</Link> in <Link href="/manhattan-maid-service" className="text-[var(--brand)] underline underline-offset-2">Manhattan</Link>, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">deep clean</Link> in <Link href="/brooklyn-maid-service" className="text-[var(--brand)] underline underline-offset-2">Brooklyn</Link>, or <Link href="/services/airbnb-cleaning-in-nyc" className="text-[var(--brand)] underline underline-offset-2">Airbnb turnover cleaning</Link> in <Link href="/queens-maid-service" className="text-[var(--brand)] underline underline-offset-2">Queens</Link> — we&apos;ve got you covered. <Link href="/about" className="text-[var(--brand)] underline underline-offset-2">Learn more about our company</Link>.
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-4">
               <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
@@ -671,7 +680,7 @@ export default async function HomePage() {
           <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">What Makes Your Business Different From Other NYC Cleaning Services</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide text-center mb-4">Why Clients Choose Your Business Over Every Other Cleaning Company</h2>
           <p className="text-gray-500 text-center max-w-3xl mx-auto mb-14">
-            No money upfront — you pay only after your cleaning is complete. Flat <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[var(--brand)] underline underline-offset-2">hourly pricing</Link> with no surprise fees. Experienced, professional cleaners — not random gig workers. <Link href="/services/weekly-maid-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">Weekly</Link> and <Link href="/services/bi-weekly-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">bi-weekly recurring service</Link> available. No contracts — stay because you&apos;re happy.
+            No money upfront — you pay only after your cleaning is complete. Flat <Link href="/pricing" className="text-[var(--brand)] underline underline-offset-2">hourly pricing</Link> with no surprise fees. Experienced, professional cleaners — not random gig workers. <Link href="/services/weekly-maid-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">Weekly</Link> and <Link href="/services/bi-weekly-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">bi-weekly recurring service</Link> available. No contracts — stay because you&apos;re happy.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="border border-gray-200 rounded-2xl p-8">
@@ -748,7 +757,7 @@ export default async function HomePage() {
             <p className="text-gray-600 leading-relaxed mb-6">
               That&apos;s why our clients in <Link href="/upper-west-side-maid-service" className="text-[var(--brand)] underline underline-offset-2">the Upper West Side</Link>, <Link href="/park-slope-maid-service" className="text-[var(--brand)] underline underline-offset-2">Park Slope</Link>, <Link href="/long-island-city-maid-service" className="text-[var(--brand)] underline underline-offset-2">Long Island City</Link>, and <Link href="/jersey-city-maid-service" className="text-[var(--brand)] underline underline-offset-2">Jersey City</Link> keep rebooking — they know exactly who&apos;s coming, and they trust them completely.
             </p>
-            <Link href="/available-nyc-maid-jobs" className="text-[var(--brand)] font-semibold text-sm hover:underline underline-offset-4">Join Our Cleaning Team &rarr;</Link>
+            <Link href="/careers" className="text-[var(--brand)] font-semibold text-sm hover:underline underline-offset-4">Join Our Cleaning Team &rarr;</Link>
           </div>
           <div>
             <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">The Ideal Your Business Service Client</p>
@@ -1015,7 +1024,7 @@ export default async function HomePage() {
           </div>
 
           <div className="text-center mt-12">
-            <Link href="/service-areas-served-by-the-nyc-maid" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">Browse All Neighborhoods &rarr;</Link>
+            <Link href="/service-areas" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">Browse All Neighborhoods &rarr;</Link>
           </div>
         </div>
       </section>

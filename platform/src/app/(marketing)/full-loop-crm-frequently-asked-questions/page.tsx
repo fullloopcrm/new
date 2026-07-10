@@ -113,7 +113,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "Are there any setup fees?",
         answer:
-          "Yes — a $25,000 one-time setup & onboarding fee. It covers white-glove setup: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas, integrate payments and your phone/email, and test everything end-to-end before you go live. After that it's $1,000/mo per admin + $100/mo per field team member.",
+          "Yes — a $25,000 one-time setup & onboarding fee. It covers white-glove setup: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas, integrate payments and your phone/email, and test everything end-to-end before you go live. After that it's $2,500/mo per admin + $250/mo per field team member.",
       },
       {
         question: "What are microsites?",
@@ -133,7 +133,7 @@ const faqCategories: FaqCategory[] = [
       {
         question: "Can I pause my subscription?",
         answer:
-          "We do not offer pausing. If you cancel, you retain ownership of your Telnyx number, Resend account, business name, and any purchased microsites. You lose access to the CRM platform and the full SEO site.",
+          "We do not offer pausing. If you cancel, you keep everything we built for you — your website, its code and domain, your microsites, your Google Business Profile, your Telnyx number, your Resend account, and your business name. The only thing you lose access to is the CRM platform and Yinez AI, the software you were subscribing to.",
       },
     ],
   },
@@ -144,27 +144,27 @@ const faqCategories: FaqCategory[] = [
       {
         question: "What do I own vs. what does Full Loop own?",
         answer:
-          "You own: your Telnyx phone number, your Resend email account, your business name, and any microsites you purchase ($500 each). Full Loop owns: the CRM platform, the full SEO website (until buyout), Google Business Profiles we create, all code, and all templates.",
+          "You own everything we build for you: your full SEO website, its code and domain, every microsite, your Google Business Profile, your Telnyx phone number, your Resend email account, your business name, and all your client data. Full Loop owns only the software product you subscribe to — the CRM platform, the Yinez AI engine, and the shared infrastructure it runs on.",
       },
       {
-        question: "Can I buy out my full SEO site?",
+        question: "Is there a buyout to own my site?",
         answer:
-          "Yes. You can buy your custom Next.js site from day one for $5,000 and own it outright. If you don't buy upfront, the site is included in your subscription. You can buy it later at a buyout price of $20,000 + 10%/mo compound — this reflects the accrued SEO value we build over time.",
+          "No — there's nothing to buy out. Your site is yours from day one at no extra charge. We build, host, and manage it while you're a partner, but you own it the whole time. Cancel whenever you want and the site, its code, and its domain go with you.",
       },
       {
         question: "What happens to my site if I cancel?",
         answer:
-          "If you cancel without buying out the site, the full SEO website is taken down. You keep your microsites (if purchased), your Telnyx number, your Resend account, and your business name. Your CRM data can be exported before cancellation.",
+          "It's yours — you keep it. The site, its code, and its domain transfer to you. You also keep your microsites, your Google Business Profile, your Telnyx number, your Resend account, and your business name, and we export your CRM data for free before you go.",
       },
       {
-        question: "Who owns the Google Business Profiles?",
+        question: "Who owns the Google Business Profile?",
         answer:
-          "Google Business Profiles created as part of your Full Loop partnership are owned and managed by Full Loop. If you already have a GMB before joining, we can discuss integration options.",
+          "You do. Any Google Business Profile we create as part of your partnership is yours — you keep it if you leave, with no buyout. If you already have a GMB before joining, we simply manage the one you own.",
       },
       {
-        question: "Why doesn't Full Loop give away the site for free?",
+        question: "If I own the site, what am I paying for monthly?",
         answer:
-          "Building a high-performance SEO site with 50+ pages, schema markup, local targeting, and ongoing content takes significant investment. The monthly fee covers continuous optimization, content updates, and technical maintenance. The buyout option exists for partners who want full ownership.",
+          "The platform and the people running it: the CRM, the Yinez AI receptionist, hosting, and continuous SEO — content updates, technical maintenance, and optimization that keeps the site ranking. You own the asset; the subscription keeps it working and keeps the leads coming.",
       },
     ],
   },

@@ -53,17 +53,17 @@ export async function GET(request: Request) {
 
   // 3. Summary counts
   const { count: totalErrors } = await supabaseAdmin
-    .from('error_logs')
+    .from('error_logs')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
     .select('id', { count: 'exact', head: true })
     .eq('resolved', false)
 
   const { count: totalFailed } = await supabaseAdmin
-    .from('notifications')
+    .from('notifications')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
     .select('id', { count: 'exact', head: true })
     .eq('status', 'failed')
 
   const { count: retriedSuccess } = await supabaseAdmin
-    .from('notifications')
+    .from('notifications')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
     .select('id', { count: 'exact', head: true })
     .eq('status', 'retry_success')
     .gte('created_at', since)

@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
   if (member.email) {
     await supabaseAdmin
-      .from('cleaner_applications')
+      .from('cleaner_applications')  // tenant-scope-ok: member-initiated phone sync across the same applicant's records by their verified email
       .update({ phone: phoneCheck.normalized })
       .eq('email', member.email)
   }

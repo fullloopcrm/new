@@ -473,7 +473,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
         {submitting ? "Sending..." : "Book Now & Save $10"}
       </button>
       <p className={`mt-2 text-center text-xs ${isDark ? "text-white/40" : "text-slate-400"}`}>
-        starting at $100/hr &bull; 1 hour minimum &bull; Dump fees included (an industry first) &bull; 50% Resale Credit (when applicable)
+        starting at $200/hr &bull; 1 hour minimum &bull; Dump fees included (an industry first) &bull; 50% Resale Credit (when applicable)
       </p>
     </form>
   );

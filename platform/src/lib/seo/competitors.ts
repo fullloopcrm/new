@@ -176,9 +176,9 @@ async function computeCompetitors(prop: Property, serps: SerpRow[]): Promise<num
     }))
 
   // Rebuild this property's leaderboard from scratch each run.
-  await supabaseAdmin.from('seo_competitors').delete().eq('property', prop.property)
+  await supabaseAdmin.from('seo_competitors').delete().eq('property', prop.property)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
   if (rows.length) {
-    const { error } = await supabaseAdmin.from('seo_competitors').insert(rows)
+    const { error } = await supabaseAdmin.from('seo_competitors').insert(rows)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     if (error) throw new Error(`competitors insert ${prop.property}: ${error.message}`)
   }
   return rows.length
@@ -236,7 +236,7 @@ async function detectCompetitorGaps(prop: Property, serps: SerpRow[]): Promise<n
   const imprByQuery = new Map<string, number>()
   const today = new Date().toISOString().slice(0, 10)
   const { data: imprRows } = await supabaseAdmin
-    .from('seo_serp')
+    .from('seo_serp')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     .select('query,impressions')
     .eq('property', prop.property)
     .eq('checked_at', today)
@@ -250,7 +250,7 @@ async function detectCompetitorGaps(prop: Property, serps: SerpRow[]): Promise<n
     ;(iss.detail as Record<string, unknown>).impressions = impr
   }
 
-  const { error } = await supabaseAdmin.from('seo_issues').insert(issues)
+  const { error } = await supabaseAdmin.from('seo_issues').insert(issues)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
   if (error) throw new Error(`competitor_gap insert ${prop.property}: ${error.message}`)
   return issues.length
 }

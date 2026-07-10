@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/we-pay-you-junk/_components/CtaButtons";
-import { PHONE, SMS_HREF, EMAIL, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
+import { PHONE, SMS_HREF, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 
 export const metadata: Metadata = {
   title: "Careers at We Pay You Junk Removal — We're Hiring Nationwide",
@@ -27,17 +27,17 @@ export default function CareersPage() {
           <h2 className="text-center text-3xl font-bold text-slate-900 font-heading">Junk Removal Crew Member</h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">Our crew members handle everything from <Link href="/services" className="text-teal-600 underline">full-service junk removal</Link> pickups to on-site item appraisals, working directly with customers at every stop. You&apos;ll train on valuation, safe handling, and our unique pay-back model that sets us apart from every other hauling company. Explore our <Link href="/locations" className="text-teal-600 underline">nationwide service areas</Link> to see where crews are hiring, or <Link href="/book-junk-removal-service-today" className="text-teal-600 underline">book a pickup</Link> to experience the process from the customer side.</p>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
-            <p>As a We Pay You Junk Removal crew member, you&apos;re not just hauling junk — you&apos;re running a mobile appraisal and removal operation. You&apos;ll work directly with customers, load and transport items, evaluate items for resale value, and deliver an experience that makes people say &quot;I can&apos;t believe a junk removal company just paid me.&quot;</p>
-            <p>This is a physical job — you&apos;ll be lifting, carrying, loading, and driving every day. But it&apos;s also a thinking job. You need to spot the difference between a $50 table and a $500 one, know which appliances are worth appraising, and communicate clearly with customers about values and credits. We train you on all of this — no prior appraisal experience needed.</p>
+            <p>As a We Pay You Junk Removal partner, you&apos;re not just hauling junk — you&apos;re running your own mobile appraisal and removal operation under our brand. You&apos;ll work directly with customers, load and transport items, evaluate items for resale value, and deliver an experience that makes people say &quot;I can&apos;t believe a junk removal company just paid me.&quot;</p>
+            <p>This is a physical job — you&apos;ll be lifting, carrying, loading, and driving every day. But it&apos;s also a business. You need to spot the difference between a $50 table and a $500 one, know which appliances are worth appraising, and communicate clearly with customers about values and credits — that&apos;s where your resale income comes from. This is for people ready to operate, not to be trained from scratch.</p>
           </div>
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              { title: "Competitive Pay", desc: "Hourly base pay plus performance bonuses based on customer ratings and job efficiency." },
-              { title: "Tips & Bonuses", desc: "Customers love our service and tip generously. Plus quarterly bonuses for top performers." },
-              { title: "Full Training", desc: "Multi-week paid training program covering safe handling, appraisal techniques, and customer service." },
-              { title: "Flexible Schedule", desc: "Full-time and part-time positions available. Choose your days and shift preferences." },
-              { title: "Growth Path", desc: "Clear advancement from crew member to team lead to operations manager. We promote from within." },
-              { title: "Benefits", desc: "Health insurance, paid time off, and 401k for full-time crew members." },
+              { title: "$100/hr + $50 Per Extra", desc: "You're the lead at $100/hr with your truck. Each additional laborer you bring is $50/hr. Dump fees are included in your rate." },
+              { title: "60% Resale Share", desc: "Keep 60% of what the items you haul resell for — a second income stream on top of your hourly." },
+              { title: "Own Your Territory", desc: "Grow into the sole We Pay You Junk provider for your area — and your state over time." },
+              { title: "Your Own Schedule", desc: "You're a 1099 partner running your own operation. Pick your days and your jobs." },
+              { title: "Free Franchising", desc: "We guide your local branding and business growth under the brand — a form of free franchising." },
+              { title: "What You Bring", desc: "Your own truck (or a vehicle with a trailer), valid license, and insurance. No drug test, no training — you operate." },
             ].map((item) => (
               <div key={item.title} className="rounded-xl border border-slate-200 bg-white p-6">
                 <h3 className="text-base font-bold text-slate-900 font-heading">{item.title}</h3>
@@ -56,7 +56,7 @@ export default function CareersPage() {
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
             <p>We&apos;re not a typical junk removal company, and this isn&apos;t a typical junk removal job. Our crew members are trained appraisers, customer service professionals, and logistics operators rolled into one. You&apos;ll develop real skills in valuation, customer interaction, and operations management — skills that transfer to careers in real estate, sales, logistics, and business ownership.</p>
             <p>The work environment is different too. Because we share resale value with customers, the energy on every job is positive. Customers are happy — they&apos;re getting money back instead of just paying a bill. That positivity makes the day better for our crews. The tips are better, the reviews are better, and the job satisfaction is higher than anywhere else in the industry.</p>
-            <p>We&apos;re growing fast. We currently operate in {CITY_COUNT} cities and we&apos;re adding more every week. That growth creates opportunities — new team lead positions, new market launches, new operations roles. If you want to grow with a company that&apos;s changing an industry, this is the place.</p>
+            <p>We&apos;re growing fast. We currently operate in {CITY_COUNT} cities and we&apos;re adding more every week. That growth creates opportunities — open territories in new markets and room to expand the one you claim. If you want to build with a company that&apos;s changing an industry, this is the place.</p>
           </div>
         </div>
       </section>
@@ -97,7 +97,7 @@ export default function CareersPage() {
             <p><strong>12:00 - 1:00 PM:</strong> Lunch break. Drop off any resale items at the nearest resale partner location.</p>
             <p><strong>1:00 - 5:00 PM:</strong> Afternoon jobs. Same process — arrive, load, appraise, invoice. Afternoon jobs may include larger projects like estate cleanouts that take 2-3 hours.</p>
             <p><strong>5:00 - 6:00 PM:</strong> Return to dispatch. Unload remaining items for sorting, complete daily paperwork, clean the truck for tomorrow. Day done.</p>
-            <p>Most crew members work 8-9 hour days, 4-5 days per week. Overtime is available and common during busy season (March-June).</p>
+            <p>Most partners work 8-9 hour days, 4-5 days per week — but you set your own schedule and take the jobs you want. Demand is highest during busy season (March-June).</p>
           </div>
         </div>
       </section>
@@ -110,7 +110,7 @@ export default function CareersPage() {
           <p className="mt-4 text-base text-white/70">Send us your name and city and we&apos;ll match you with the nearest open crew position. Learn more about our <Link href="/about" className="text-teal-200 underline">company mission</Link>, browse open <Link href="/locations" className="text-teal-200 underline">locations</Link>, or check out our <Link href="/services" className="text-teal-200 underline">full service list</Link> to see what you&apos;ll be doing every day.</p>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">Email us your name, city, and a brief note about your experience. We&apos;ll get back to you within 48 hours.</p>
           <div className="mt-8">
-            <a href={`mailto:${EMAIL}?subject=Job Application`}><span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">Apply Now — Email {EMAIL}</span></a>
+            <Link href="/apply-for-junk-removal-job"><span className="inline-block rounded-lg bg-white px-8 py-3.5 text-base font-semibold text-teal-700 shadow-lg transition-colors hover:bg-teal-50 font-cta">Apply Now</span></Link>
           </div>
         </div>
       </section>

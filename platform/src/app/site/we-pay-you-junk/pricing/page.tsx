@@ -5,8 +5,8 @@ import { PricingCalculator } from "@/app/site/we-pay-you-junk/_components/Pricin
 import { PHONE, SMS_HREF, PRICING, CITY_COUNT, STATE_COUNT } from "@/app/site/we-pay-you-junk/_data/content";
 
 export const metadata: Metadata = {
-  title: "Junk Removal Pricing — starting at $100/hr Flat Rate, Dump Fees Included, 50% Resale Credit (when applicable)",
-  description: "Junk removal pricing explained. starting at $100/hr flat rate with 1 hour minimum. Dump fees included (an industry first). We credit you 50% (when applicable) of resale value (when applicable) on items worth something. No hidden fees, no contracts.",
+  title: "Junk Removal Pricing — starting at $200/hr Flat Rate, Dump Fees Included, 50% Resale Credit (when applicable)",
+  description: "Junk removal pricing explained. starting at $200/hr flat rate with 1 hour minimum. Dump fees included (an industry first). We credit you 50% (when applicable) of resale value (when applicable) on items worth something. No hidden fees, no contracts.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -19,7 +19,7 @@ export default function PricingPage() {
         <div className="relative mx-auto max-w-5xl px-6 text-center">
           <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-teal-200 font-cta">The Only Junk Removal Company That Pays You Back</p>
           <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl font-heading">
-            Junk Removal Pricing<br /><span className="gradient-text">Starting at $100/hr — That&apos;s It</span>
+            Junk Removal Pricing<br /><span className="gradient-text">Starting at $200/hr — That&apos;s It</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
             One rate. Everything included. Your valuable items earn you money back. Here&apos;s exactly how it works — no fine print, no gotchas.
@@ -39,7 +39,7 @@ export default function PricingPage() {
       <section className="bg-section-white py-16">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">Three Junk Removal Plans With Dump Fees Included</p>
-          <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">Pick Your Crew — starting at $100/hr, $150/hr, or $200/hr Emergency</h2>
+          <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">Pick Your Crew — $200/hr, $300/hr, or +$100 Per Extra Person</h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">1 person crew for small jobs, 2 person crew for most work, or emergency same-day for last-minute deadlines. Every plan includes dump fees and 50% Resale Credit (when applicable). See all <Link href="/services" className="text-teal-700 font-semibold hover:underline">34 services</Link> these plans cover.</p>
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
             {Object.entries(PRICING).map(([key, tier]) => (
@@ -65,7 +65,7 @@ export default function PricingPage() {
             ))}
           </div>
           <div className="mt-10 space-y-5 text-base leading-relaxed text-slate-700">
-            <p>Our pricing is straightforward. $100/hr for a 1-person crew. $250/hr for a 2-person crew. $200/person/hr for emergency same-day. Not $100 plus a fuel surcharge. Not $100 plus dump fees. Not $100 base with a $50 &quot;heavy item fee&quot; when we pick up your fridge. Our crew pulls up, works the job, and the clock runs at your hourly rate from the moment they start loading until they finish the walkthrough. If it takes 47 minutes, you pay the 1 hour minimum. If it takes 2 hours and 15 minutes with a 1-person crew, you pay $225. Simple.</p>
+            <p>Our pricing is straightforward. $200/hr for a 1-person crew. $300/hr for a 2-person crew. Each additional person is +$100/hr. Not $200 plus a fuel surcharge. Not $200 plus dump fees. Not $200 base with a $50 &quot;heavy item fee&quot; when we pick up your fridge. Our crew pulls up, works the job, and the clock runs at your hourly rate from the moment they start loading until they finish the walkthrough. If it takes 47 minutes, you pay the 1 hour minimum. If it takes 2 hours and 15 minutes with a 1-person crew, you pay $450. Simple.</p>
             <p>This is the opposite of how companies like 1-800-GOT-JUNK price things. They look at your stuff, estimate how much truck space it&apos;ll take, and quote you $200-$800. You have no way to verify their volume estimate — and they have every reason to round up. Our model? You watch the clock. There&apos;s nothing to estimate, nothing to dispute, nothing to game. Time is time.</p>
           </div>
         </div>
@@ -98,14 +98,14 @@ export default function PricingPage() {
                 location: "Austin, TX",
                 crew: "1 Person",
                 hours: "2 hrs",
-                cost: "$200",
+                cost: "$400",
                 items: [
                   { name: "Workbench", resale: "$120", credit: "$60" },
                   { name: "Power tools", resale: "$180", credit: "$90" },
                   { name: "Bikes", resale: "$60", credit: "$30" },
                 ],
                 totalCredits: "$180",
-                result: "You pay: $20",
+                result: "You pay: $220",
                 payout: false,
                 compare: "Other companies quoted $450 for the same job",
               },
@@ -114,14 +114,14 @@ export default function PricingPage() {
                 location: "Brooklyn, NY",
                 crew: "2 Person",
                 hours: "4 hrs",
-                cost: "$1,000",
+                cost: "$1,200",
                 items: [
                   { name: "Furniture sets", resale: "$1,800", credit: "$900" },
                   { name: "Appliances", resale: "$600", credit: "$300" },
                   { name: "Electronics & tools", resale: "$1,100", credit: "$550" },
                 ],
                 totalCredits: "$1,750",
-                result: "We pay you: $750",
+                result: "We pay you: $550",
                 payout: true,
                 compare: "Other companies quoted $3,500+ and kept all resale value",
               },
@@ -156,8 +156,8 @@ export default function PricingPage() {
             ))}
           </div>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
-            <p>The garage cleanout is one of our most common jobs — 2 hours of work, a handful of items with resale value, and the customer walks away paying $20 for a job that flat-rate companies quote at $350-$500. The estate cleanout shows what happens when a property is full of quality items — the family didn&apos;t just avoid a $2,000+ bill, they received a $750 check. That&apos;s a $2,750 swing compared to calling 1-800-GOT-JUNK.</p>
-            <p>Even on jobs with zero resale value — pure junk, broken items, construction debris, yard waste — our starting at $100/hr rate is still competitive or cheaper than flat-rate pricing. A 1-hour job costs $100. A 2-hour job costs $200. Try getting a flat-rate company to clear the same amount for that price. The math always works in your favor.</p>
+            <p>The garage cleanout is one of our most common jobs — 2 hours of work, a handful of items with resale value, and the customer walks away paying $220 for a job that flat-rate companies quote at $350-$500. The estate cleanout shows what happens when a property is full of quality items — the family didn&apos;t just avoid a $2,000+ bill, they received a $550 check. That&apos;s a $2,550 swing compared to calling 1-800-GOT-JUNK.</p>
+            <p>Even on jobs with zero resale value — pure junk, broken items, construction debris, yard waste — our starting at $200/hr rate is still competitive or cheaper than flat-rate pricing. A 1-hour job costs $200. A 2-hour job costs $400. Try getting a flat-rate company to clear the same amount for that price. The math always works in your favor.</p>
           </div>
         </div>
       </section>
@@ -185,13 +185,13 @@ export default function PricingPage() {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {[
-                  { service: "Full-Service Junk Removal", slug: "full-service-junk-removal", time: "1.5–3 hrs", crew: "1–2 person", before: "$150–$750", credit: "$50–$300", pay: "$100–$450" },
-                  { service: "Garage Cleanout", slug: "garage-cleanouts", time: "2–3 hrs", crew: "2 person", before: "$500–$750", credit: "$100–$350", pay: "$150–$500" },
-                  { service: "Basement Cleanout", slug: "basement-cleanouts", time: "2–4 hrs", crew: "2 person", before: "$500–$1,000", credit: "$100–$400", pay: "$200–$600" },
-                  { service: "Attic Cleanout", slug: "attic-cleanouts", time: "1.5–3 hrs", crew: "2 person", before: "$375–$750", credit: "$50–$200", pay: "$175–$550" },
-                  { service: "Estate Cleanout", slug: "estate-cleanouts", time: "4–8 hrs", crew: "2 person", before: "$1,000–$2,000", credit: "$500–$2,000+", pay: "$0–$1,000*" },
-                  { service: "Hoarder Cleanout", slug: "hoarder-cleanouts", time: "6–12 hrs", crew: "2 person", before: "$1,500–$3,000", credit: "$200–$800", pay: "$700–$2,200" },
-                  { service: "Storage Unit Cleanout", slug: "storage-unit-cleanouts", time: "1–2 hrs", crew: "1–2 person", before: "$100–$500", credit: "$50–$200", pay: "$50–$300" },
+                  { service: "Full-Service Junk Removal", slug: "full-service-junk-removal", time: "1.5–3 hrs", crew: "1–2 person", before: "$300–$900", credit: "$50–$300", pay: "$250–$600" },
+                  { service: "Garage Cleanout", slug: "garage-cleanouts", time: "2–3 hrs", crew: "2 person", before: "$600–$900", credit: "$100–$350", pay: "$500–$550" },
+                  { service: "Basement Cleanout", slug: "basement-cleanouts", time: "2–4 hrs", crew: "2 person", before: "$600–$1,200", credit: "$100–$400", pay: "$500–$800" },
+                  { service: "Attic Cleanout", slug: "attic-cleanouts", time: "1.5–3 hrs", crew: "2 person", before: "$450–$900", credit: "$50–$200", pay: "$400–$700" },
+                  { service: "Estate Cleanout", slug: "estate-cleanouts", time: "4–8 hrs", crew: "2 person", before: "$1,200–$2,400", credit: "$500–$2,000+", pay: "$400–$700*" },
+                  { service: "Hoarder Cleanout", slug: "hoarder-cleanouts", time: "6–12 hrs", crew: "2 person", before: "$1,800–$3,600", credit: "$200–$800", pay: "$1,600–$2,800" },
+                  { service: "Storage Unit Cleanout", slug: "storage-unit-cleanouts", time: "1–2 hrs", crew: "1–2 person", before: "$200–$600", credit: "$50–$200", pay: "$150–$400" },
                 ].map((row) => (
                   <tr key={row.slug} className="hover:bg-white/50">
                     <td className="py-3 pr-4"><Link href={`/services/${row.slug}`} className="text-teal-700 font-semibold hover:underline">{row.service}</Link></td>
@@ -223,16 +223,16 @@ export default function PricingPage() {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {[
-                  { service: "Furniture Removal", slug: "furniture-removal", time: "1 hr", crew: "1–2 person", before: "$100–$250", credit: "$50–$200", pay: "$50–$100" },
-                  { service: "Appliance Removal", slug: "appliance-removal", time: "1 hr", crew: "1–2 person", before: "$100–$250", credit: "$75–$250", pay: "$0–$100*" },
-                  { service: "Mattress Removal", slug: "mattress-removal", time: "1 hr", crew: "1 person", before: "$100", credit: "$0–$50", pay: "$50–$100" },
-                  { service: "Refrigerator Removal", slug: "refrigerator-removal", time: "1 hr", crew: "1–2 person", before: "$100–$250", credit: "$100–$300", pay: "$0–$100*" },
-                  { service: "TV & Electronics", slug: "tv-electronics-removal", time: "1 hr", crew: "1 person", before: "$100", credit: "$25–$200", pay: "$0–$75" },
-                  { service: "Exercise Equipment", slug: "exercise-equipment-removal", time: "1 hr", crew: "1–2 person", before: "$100–$250", credit: "$50–$500", pay: "$0–$100*" },
-                  { service: "Piano Removal", slug: "piano-removal", time: "1–2 hrs", crew: "2 person", before: "$250–$500", credit: "$50–$500", pay: "$0–$400" },
-                  { service: "Hot Tub Removal", slug: "hot-tub-removal", time: "2–4 hrs", crew: "2 person", before: "$500–$1,000", credit: "$0", pay: "$500–$1,000" },
-                  { service: "Pool Table Removal", slug: "pool-table-removal", time: "1.5–2 hrs", crew: "2 person", before: "$375–$500", credit: "$50–$300", pay: "$75–$450" },
-                  { service: "Tire Removal", slug: "tire-removal", time: "1 hr", crew: "1 person", before: "$100", credit: "$0", pay: "$100" },
+                  { service: "Furniture Removal", slug: "furniture-removal", time: "1 hr", crew: "1–2 person", before: "$200–$300", credit: "$50–$200", pay: "$100–$150" },
+                  { service: "Appliance Removal", slug: "appliance-removal", time: "1 hr", crew: "1–2 person", before: "$200–$300", credit: "$75–$250", pay: "$50–$125*" },
+                  { service: "Mattress Removal", slug: "mattress-removal", time: "1 hr", crew: "1 person", before: "$200", credit: "$0–$50", pay: "$150–$200" },
+                  { service: "Refrigerator Removal", slug: "refrigerator-removal", time: "1 hr", crew: "1–2 person", before: "$200–$300", credit: "$100–$300", pay: "$0–$100*" },
+                  { service: "TV & Electronics", slug: "tv-electronics-removal", time: "1 hr", crew: "1 person", before: "$200", credit: "$25–$200", pay: "$0–$175" },
+                  { service: "Exercise Equipment", slug: "exercise-equipment-removal", time: "1 hr", crew: "1–2 person", before: "$200–$300", credit: "$50–$500", pay: "$0–$150*" },
+                  { service: "Piano Removal", slug: "piano-removal", time: "1–2 hrs", crew: "2 person", before: "$300–$600", credit: "$50–$500", pay: "$100–$250" },
+                  { service: "Hot Tub Removal", slug: "hot-tub-removal", time: "2–4 hrs", crew: "2 person", before: "$600–$1,200", credit: "$0", pay: "$600–$1,200" },
+                  { service: "Pool Table Removal", slug: "pool-table-removal", time: "1.5–2 hrs", crew: "2 person", before: "$450–$600", credit: "$50–$300", pay: "$300–$400" },
+                  { service: "Tire Removal", slug: "tire-removal", time: "1 hr", crew: "1 person", before: "$200", credit: "$0", pay: "$200" },
                 ].map((row) => (
                   <tr key={row.slug} className="hover:bg-white/50">
                     <td className="py-3 pr-4"><Link href={`/services/${row.slug}`} className="text-teal-700 font-semibold hover:underline">{row.service}</Link></td>
@@ -264,10 +264,10 @@ export default function PricingPage() {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {[
-                  { service: "Shed Removal", slug: "shed-removal", time: "2–4 hrs", crew: "2 person", before: "$500–$1,000", credit: "$0–$50", pay: "$450–$1,000" },
-                  { service: "Fence Removal", slug: "fence-removal", time: "2–4 hrs", crew: "2 person", before: "$500–$1,000", credit: "$25–$100", pay: "$400–$975" },
-                  { service: "Deck Removal", slug: "deck-removal", time: "3–6 hrs", crew: "2 person", before: "$750–$1,500", credit: "$0–$50", pay: "$700–$1,500" },
-                  { service: "Trampoline Removal", slug: "trampoline-removal", time: "1–2 hrs", crew: "1–2 person", before: "$100–$500", credit: "$0–$25", pay: "$75–$500" },
+                  { service: "Shed Removal", slug: "shed-removal", time: "2–4 hrs", crew: "2 person", before: "$600–$1,200", credit: "$0–$50", pay: "$600–$1,150" },
+                  { service: "Fence Removal", slug: "fence-removal", time: "2–4 hrs", crew: "2 person", before: "$600–$1,200", credit: "$25–$100", pay: "$575–$1,100" },
+                  { service: "Deck Removal", slug: "deck-removal", time: "3–6 hrs", crew: "2 person", before: "$900–$1,800", credit: "$0–$50", pay: "$900–$1,750" },
+                  { service: "Trampoline Removal", slug: "trampoline-removal", time: "1–2 hrs", crew: "1–2 person", before: "$200–$600", credit: "$0–$25", pay: "$200–$575" },
                 ].map((row) => (
                   <tr key={row.slug} className="hover:bg-white/50">
                     <td className="py-3 pr-4"><Link href={`/services/${row.slug}`} className="text-teal-700 font-semibold hover:underline">{row.service}</Link></td>
@@ -298,11 +298,11 @@ export default function PricingPage() {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {[
-                  { service: "Construction Debris", slug: "construction-debris-removal", time: "1–3 hrs", crew: "1–2 person", before: "$100–$750", credit: "$0–$50", pay: "$100–$700" },
-                  { service: "Renovation Waste", slug: "renovation-waste-removal", time: "1–3 hrs", crew: "1–2 person", before: "$100–$750", credit: "$25–$150", pay: "$75–$600" },
-                  { service: "Yard Waste", slug: "yard-waste-removal", time: "1–2 hrs", crew: "1–2 person", before: "$100–$500", credit: "$0–$25", pay: "$75–$500" },
-                  { service: "Carpet & Flooring", slug: "carpet-flooring-removal", time: "2–4 hrs", crew: "2 person", before: "$500–$1,000", credit: "$0–$200", pay: "$300–$1,000" },
-                  { service: "Scrap Metal", slug: "scrap-metal-removal", time: "1–2 hrs", crew: "1–2 person", before: "$100–$500", credit: "$50–$300", pay: "$0–$300*" },
+                  { service: "Construction Debris", slug: "construction-debris-removal", time: "1–3 hrs", crew: "1–2 person", before: "$200–$900", credit: "$0–$50", pay: "$200–$850" },
+                  { service: "Renovation Waste", slug: "renovation-waste-removal", time: "1–3 hrs", crew: "1–2 person", before: "$200–$900", credit: "$25–$150", pay: "$175–$750" },
+                  { service: "Yard Waste", slug: "yard-waste-removal", time: "1–2 hrs", crew: "1–2 person", before: "$200–$600", credit: "$0–$25", pay: "$200–$575" },
+                  { service: "Carpet & Flooring", slug: "carpet-flooring-removal", time: "2–4 hrs", crew: "2 person", before: "$600–$1,200", credit: "$0–$200", pay: "$600–$1,000" },
+                  { service: "Scrap Metal", slug: "scrap-metal-removal", time: "1–2 hrs", crew: "1–2 person", before: "$200–$600", credit: "$50–$300", pay: "$150–$300*" },
                 ].map((row) => (
                   <tr key={row.slug} className="hover:bg-white/50">
                     <td className="py-3 pr-4"><Link href={`/services/${row.slug}`} className="text-teal-700 font-semibold hover:underline">{row.service}</Link></td>
@@ -334,14 +334,14 @@ export default function PricingPage() {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {[
-                  { service: "Office Cleanout", slug: "office-cleanouts", time: "4–10 hrs", crew: "2 person", before: "$1,000–$2,500", credit: "$500–$5,000+", pay: "$0–$1,500*" },
-                  { service: "Foreclosure Cleanout", slug: "foreclosure-cleanouts", time: "2–4 hrs", crew: "2 person", before: "$500–$1,000", credit: "$100–$500", pay: "$200–$700" },
-                  { service: "Retail Cleanout", slug: "retail-cleanouts", time: "3–6 hrs", crew: "2 person", before: "$750–$1,500", credit: "$200–$800", pay: "$200–$1,000" },
-                  { service: "Warehouse Cleanout", slug: "warehouse-cleanouts", time: "6–12 hrs", crew: "2 person", before: "$1,500–$3,000", credit: "$300–$1,500", pay: "$500–$2,000" },
-                  { service: "Hotel Cleanout", slug: "hotel-cleanouts", time: "4–8 hrs", crew: "2 person", before: "$1,000–$2,000", credit: "$300–$1,000", pay: "$300–$1,200" },
-                  { service: "Property Management", slug: "property-management-cleanouts", time: "1–3 hrs", crew: "1–2 person", before: "$100–$750", credit: "$50–$300", pay: "$50–$450" },
-                  { service: "Church / Nonprofit", slug: "church-nonprofit-cleanouts", time: "3–6 hrs", crew: "2 person", before: "$750–$1,500", credit: "$200–$800", pay: "$200–$1,000" },
-                  { service: "School / University", slug: "school-university-cleanouts", time: "4–8 hrs", crew: "2 person", before: "$1,000–$2,000", credit: "$300–$1,200", pay: "$200–$1,200" },
+                  { service: "Office Cleanout", slug: "office-cleanouts", time: "4–10 hrs", crew: "2 person", before: "$1,200–$3,000", credit: "$500–$5,000+", pay: "$0–$700*" },
+                  { service: "Foreclosure Cleanout", slug: "foreclosure-cleanouts", time: "2–4 hrs", crew: "2 person", before: "$600–$1,200", credit: "$100–$500", pay: "$500–$700" },
+                  { service: "Retail Cleanout", slug: "retail-cleanouts", time: "3–6 hrs", crew: "2 person", before: "$900–$1,800", credit: "$200–$800", pay: "$700–$1,000" },
+                  { service: "Warehouse Cleanout", slug: "warehouse-cleanouts", time: "6–12 hrs", crew: "2 person", before: "$1,800–$3,600", credit: "$300–$1,500", pay: "$1,500–$2,100" },
+                  { service: "Hotel Cleanout", slug: "hotel-cleanouts", time: "4–8 hrs", crew: "2 person", before: "$1,200–$2,400", credit: "$300–$1,000", pay: "$900–$1,400" },
+                  { service: "Property Management", slug: "property-management-cleanouts", time: "1–3 hrs", crew: "1–2 person", before: "$200–$900", credit: "$50–$300", pay: "$150–$600" },
+                  { service: "Church / Nonprofit", slug: "church-nonprofit-cleanouts", time: "3–6 hrs", crew: "2 person", before: "$900–$1,800", credit: "$200–$800", pay: "$700–$1,000" },
+                  { service: "School / University", slug: "school-university-cleanouts", time: "4–8 hrs", crew: "2 person", before: "$1,200–$2,400", credit: "$300–$1,200", pay: "$900–$1,200" },
                 ].map((row) => (
                   <tr key={row.slug} className="hover:bg-white/50">
                     <td className="py-3 pr-4"><Link href={`/services/${row.slug}`} className="text-teal-700 font-semibold hover:underline">{row.service}</Link></td>
@@ -358,7 +358,7 @@ export default function PricingPage() {
           <p className="mt-2 text-xs text-slate-500">* Office cleanouts with quality furniture (Herman Miller, Steelcase) regularly result in payouts to the business.</p>
 
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-base leading-relaxed text-slate-700">
-            <p>All estimates are based on the 1 person crew rate of starting at $100/hr or 2 person crew rate of $250/hr. Emergency same-day pricing is $200/person/hr. Actual costs vary by volume, weight, access, and the resale value of your specific items. The &quot;Avg Credit&quot; column reflects what typical customers receive in 50% Resale Credit (when applicable)s — your actual credit depends on what items you have and their condition. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book now</Link> or <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">text us</a> for a quick estimate based on your specific job.</p>
+            <p>All estimates are based on the 1 person crew rate of $200/hr or 2 person crew rate of $300/hr, plus $100/hr for each additional person. Same-day is available at the same rate. Actual costs vary by volume, weight, access, and the resale value of your specific items. The &quot;Avg Credit&quot; column reflects what typical customers receive in 50% Resale Credit (when applicable)s — your actual credit depends on what items you have and their condition. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book now</Link> or <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">text us</a> for a quick estimate based on your specific job.</p>
           </div>
         </div>
       </section>
@@ -372,7 +372,7 @@ export default function PricingPage() {
 
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div className="rounded-xl border border-slate-200 bg-white p-6">
-              <h3 className="text-lg font-bold text-slate-900 font-heading">1 Person Crew — starting at $100/hr</h3>
+              <h3 className="text-lg font-bold text-slate-900 font-heading">1 Person Crew — starting at $200/hr</h3>
               <ul className="mt-4 space-y-2 text-sm text-slate-600">
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">•</span>1 hour minimum</li>
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">•</span>Single items up to 150 lbs</li>
@@ -384,7 +384,7 @@ export default function PricingPage() {
             </div>
             <div className="rounded-xl border-2 border-accent bg-white p-6 relative">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-0.5 text-xs font-bold text-white">MOST POPULAR</div>
-              <h3 className="text-lg font-bold text-slate-900 font-heading">2 Person Crew — $250/hr</h3>
+              <h3 className="text-lg font-bold text-slate-900 font-heading">2 Person Crew — $300/hr</h3>
               <ul className="mt-4 space-y-2 text-sm text-slate-600">
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">•</span>1 hour minimum</li>
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">•</span>Items up to 500 lbs (pianos, safes, hot tubs)</li>
@@ -396,9 +396,9 @@ export default function PricingPage() {
               </ul>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">
-              <h3 className="text-lg font-bold text-slate-900 font-heading">Emergency Same-Day — $200/person/hr</h3>
+              <h3 className="text-lg font-bold text-slate-900 font-heading">Emergency Same-Day — Same Rate</h3>
               <ul className="mt-4 space-y-2 text-sm text-slate-600">
-                <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">•</span>1 hour minimum per person</li>
+                <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">•</span>$200/hr base + $100/hr per additional person</li>
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">•</span>Guaranteed arrival within 2 hours</li>
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">•</span>Crew size matched to job (1–3 people)</li>
                 <li className="flex items-start gap-2"><span className="text-teal-600 mt-0.5">•</span>Same weight limits as standard crews</li>
@@ -462,13 +462,13 @@ export default function PricingPage() {
       <section className="bg-section-teal py-16">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">Junk Removal Price Comparison — Us vs Everyone Else</p>
-          <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">Why starting at $100/hr Beats Volume-Based Pricing Every Single Time</h2>
+          <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">Why starting at $200/hr Beats Volume-Based Pricing Every Single Time</h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">The junk removal industry has a dirty secret: they&apos;ve been charging you for the service AND keeping 35%+ of your items to resell for profit. Here&apos;s the math on why <Link href="/services" className="text-teal-700 font-semibold hover:underline">our model</Link> always wins — and why theirs was never fair to begin with.</p>
           <div className="mx-auto mt-8 max-w-3xl space-y-5 text-center text-base leading-relaxed text-slate-700">
             <p>Every junk removal company in America — 1-800-GOT-JUNK, Junk King, College Hunks, every local hauler — runs the same play. They charge you $200-$800 per truckload, haul everything away, then sort through your items at their facility. <strong>35% or more of what they took from you gets resold for profit.</strong> Your working fridge, your quality furniture, your power tools — they charged you to take these items and then sold them. You got nothing. They got paid twice. This has been the industry standard for decades, and nobody talked about it until we came along.</p>
             <p>Let&apos;s break down a real scenario. You&apos;ve got a <Link href="/services/garage-cleanouts" className="text-teal-700 font-semibold hover:underline">garage full of stuff</Link> — old furniture, tools, a working fridge, some electronics, and general junk. A flat-rate company shows up, eyeballs it, and says &quot;that&apos;s about three-quarters of a truck — $550.&quot; You can&apos;t argue with their estimate because it&apos;s their truck and their judgment. They load it all, drive away, and sell your fridge for $400, your tools for $300, and your furniture for $500. Their take: $550 removal fee + $1,200 in resale = $1,750. Your take: -$550.</p>
-            <p>Same garage, same stuff, you call us instead. Our crew takes 2 hours = $200. They appraise the fridge ($400 resale, $200 credit to you), the tools ($300, $150 credit), the furniture ($500, $250 credit). Your credits: $600. Your bill: $200 - $600 = we pay you $400. Your take: +$400. That&apos;s a $950 swing on the exact same job.</p>
-            <p>Even when there&apos;s nothing valuable — pure <Link href="/services/construction-debris-removal" className="text-teal-700 font-semibold hover:underline">construction debris</Link>, <Link href="/services/yard-waste-removal" className="text-teal-700 font-semibold hover:underline">yard waste</Link>, broken items — 2 hours starting at $100/hr ($200) beats a flat-rate quote of $350-$500 for the same volume. There is literally no scenario where the other model is cheaper.</p>
+            <p>Same garage, same stuff, you call us instead. Our crew takes 2 hours = $400. They appraise the fridge ($400 resale, $200 credit to you), the tools ($300, $150 credit), the furniture ($500, $250 credit). Your credits: $600. Your bill: $400 - $600 = we pay you $200. Your take: +$200. That&apos;s a $750 swing on the exact same job.</p>
+            <p>Even when there&apos;s nothing valuable — pure <Link href="/services/construction-debris-removal" className="text-teal-700 font-semibold hover:underline">construction debris</Link>, <Link href="/services/yard-waste-removal" className="text-teal-700 font-semibold hover:underline">yard waste</Link>, broken items — 2 hours at $200/hr ($400) beats a flat-rate quote of $350-$500 for the same volume. There is literally no scenario where the other model is cheaper.</p>
           </div>
         </div>
       </section>
@@ -485,7 +485,7 @@ export default function PricingPage() {
             <p><strong>Electronics ($25-$800+ resale):</strong> <Link href="/services/tv-electronics-removal" className="text-teal-700 font-semibold hover:underline">Flat screen TVs</Link> under 5 years, gaming consoles, computers, monitors, audio equipment. Apple products hold value exceptionally well.</p>
             <p><strong>Tools ($25-$500+ resale):</strong> DeWalt, Milwaukee, Makita power tools hold 40-70% of retail for years. Full tool sets, shop equipment, and <Link href="/services/yard-waste-removal" className="text-teal-700 font-semibold hover:underline">lawn equipment</Link> all have active buyers in your area.</p>
             <p><strong>Everything else:</strong> <Link href="/services/exercise-equipment-removal" className="text-teal-700 font-semibold hover:underline">Exercise equipment</Link> (Pelotons hold $500+), <Link href="/services/piano-removal" className="text-teal-700 font-semibold hover:underline">musical instruments</Link>, outdoor furniture, grills, bikes, antiques, collectibles — if it has a buyer, you get credit.</p>
-            <p><strong>No credit (still removed):</strong> Broken furniture, stained mattresses, construction debris, yard waste, household trash. These still get hauled as part of your starting at $100/hr — they just don&apos;t generate credit.</p>
+            <p><strong>No credit (still removed):</strong> Broken furniture, stained mattresses, construction debris, yard waste, household trash. These still get hauled as part of your starting at $200/hr — they just don&apos;t generate credit.</p>
           </div>
         </div>
       </section>
@@ -497,13 +497,13 @@ export default function PricingPage() {
           <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">No Hidden Junk Removal Fees — What We Quote Is What You Pay</h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">We don&apos;t do surcharges, add-ons, or &quot;oh we forgot to mention&quot; line items. Here&apos;s every fee that doesn&apos;t exist when you <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">book with us</Link> — and why other companies charge them.</p>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
-            <p><strong>No dump fees:</strong> Included. Transfer station costs, landfill fees, recycling fees — all baked into the starting at $100/hr.</p>
+            <p><strong>No dump fees:</strong> Included. Transfer station costs, landfill fees, recycling fees — all baked into the starting at $200/hr.</p>
             <p><strong>No heavy item surcharge:</strong> Fridges, pianos, safes, hot tubs — same rate. Other companies charge $50-$200 extra for heavy items.</p>
-            <p><strong>No stair fee:</strong> Third-floor walkup? Basement? Attic with a pull-down ladder? Same starting at $100/hr.</p>
+            <p><strong>No stair fee:</strong> Third-floor walkup? Basement? Attic with a pull-down ladder? Same starting at $200/hr.</p>
             <p><strong>No distance fee:</strong> Doesn&apos;t matter if the dump is 5 miles or 30 miles from your house.</p>
-            <p><strong>No minimum truck load:</strong> Got one lamp and a bag of clothes? $100 for the 1 hour minimum. Other companies won&apos;t show up for less than a quarter-truck fee of $150-$250.</p>
+            <p><strong>No minimum truck load:</strong> Got one lamp and a bag of clothes? $200 for the 1 hour minimum. Other companies won&apos;t show up for less than a quarter-truck fee of $150-$250.</p>
             <p><strong>No contracts:</strong> Every job is standalone. No recurring charges, no subscriptions, no cancellation penalties. Call us when you need us. That&apos;s it.</p>
-            <p><strong>No weekend/holiday markup:</strong> Saturday morning? Sunday afternoon? Fourth of July? Same starting at $100/hr. We work 7AM-8PM, 7 days a week, 365 days a year at the same rate.</p>
+            <p><strong>No weekend/holiday markup:</strong> Saturday morning? Sunday afternoon? Fourth of July? Same starting at $200/hr. We work 7AM-8PM, 7 days a week, 365 days a year at the same rate.</p>
           </div>
         </div>
       </section>
@@ -511,11 +511,11 @@ export default function PricingPage() {
       {/* ===== AVAILABLE EVERYWHERE ===== */}
       <section className="bg-section-white py-16">
         <div className="mx-auto max-w-5xl px-6">
-          <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">Same starting at $100/hr Rate in Every City We Serve</p>
+          <p className="text-center text-sm font-semibold uppercase tracking-widest text-teal-600 font-cta">Same starting at $200/hr Rate in Every City We Serve</p>
           <h2 className="mt-3 text-center text-3xl font-bold text-slate-900 font-heading">Junk Removal Pricing in {CITY_COUNT}+ Cities — Same Rate, Local Crew, Every Time</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">Whether you&apos;re in New York or Nebraska, LA or Little Rock — the rate is starting at $100/hr. Your local crew knows your area, your dump sites, your resale market. Same pricing, local execution. Find your city on our <Link href="/locations" className="text-teal-700 font-semibold hover:underline">locations page</Link>.</p>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-600">Whether you&apos;re in New York or Nebraska, LA or Little Rock — the rate is starting at $200/hr. Your local crew knows your area, your dump sites, your resale market. Same pricing, local execution. Find your city on our <Link href="/locations" className="text-teal-700 font-semibold hover:underline">locations page</Link>.</p>
           <div className="mt-8 space-y-5 text-base leading-relaxed text-slate-700">
-            <p>We don&apos;t charge more in expensive markets or less in rural areas. starting at $100/hr everywhere. What does vary is your crew&apos;s local knowledge — they know which items sell best in your market, which recycling centers are closest, which charities accept donations in your area. That local expertise means faster jobs and more accurate appraisals, which means lower bills and higher credits for you.</p>
+            <p>We don&apos;t charge more in expensive markets or less in rural areas. starting at $200/hr everywhere. What does vary is your crew&apos;s local knowledge — they know which items sell best in your market, which recycling centers are closest, which charities accept donations in your area. That local expertise means faster jobs and more accurate appraisals, which means lower bills and higher credits for you.</p>
             <p>Same-day booking available in most cities for calls placed before noon. <Link href="/book-junk-removal-service-today" className="text-teal-700 font-semibold hover:underline">Book online</Link> or text <a href={SMS_HREF} className="text-teal-700 font-semibold hover:underline">{PHONE}</a>. We&apos;ll confirm pricing, explain the 1 hour minimum, and schedule your pickup. That&apos;s it — no sales pitch, no upsell, no &quot;let me put you on hold while I check with my manager.&quot;</p>
           </div>
         </div>
@@ -525,7 +525,7 @@ export default function PricingPage() {
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 py-16">
         <div className="absolute inset-0 grid-bg opacity-30" />
         <div className="relative mx-auto max-w-5xl px-6 text-center">
-          <h2 className="text-center text-3xl font-bold text-white sm:text-4xl font-heading">starting at $100/hr. Dump Fees Included. 50% Resale Credit (when applicable). Book Now &amp; Save $10.</h2>
+          <h2 className="text-center text-3xl font-bold text-white sm:text-4xl font-heading">starting at $200/hr. Dump Fees Included. 50% Resale Credit (when applicable). Book Now &amp; Save $10.</h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
             Same-day available. No hidden fees. No contracts. Your stuff has value — let us prove it.
           </p>

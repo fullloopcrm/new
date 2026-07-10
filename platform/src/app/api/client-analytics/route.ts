@@ -1,33 +1,28 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { protectAdminAPI } from '@/lib/nycmaid/auth'
-import { getCurrentTenant } from '@/lib/tenant'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
-  // Protect admin route
-  const authError = await protectAdminAPI()
-  if (authError) return authError
-
-  // Tenant isolation: scope every query to the caller's tenant (resolved from
-  // the signed x-tenant-id header middleware injects). Fail closed if there's
-  // no tenant context — without this, the queries below returned EVERY
-  // tenant's client PII + bookings to any holder of a global admin_session.
-  const tenant = await getCurrentTenant()
-  if (!tenant) return NextResponse.json({ error: 'No tenant context' }, { status: 403 })
+  // FL auth: authenticates the caller (admin_token / Clerk) AND scopes to their
+  // tenant. Replaced the legacy nycmaid admin_session gate (dead: admin_users
+  // table removed, /api/auth/login orphaned) — getCurrentTenant alone did NOT
+  // authenticate, it only resolved the domain's tenant from the signed header.
+  const { tenant, error } = await requirePermission('clients.view')
+  if (error) return error
 
   try {
     // Get all clients with referrer info
     const { data: clients } = await supabaseAdmin
       .from('clients')
       .select('*, referrers(name, ref_code)')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
       .order('created_at', { ascending: false })
 
     // Get all completed bookings
     const { data: bookings } = await supabaseAdmin
       .from('bookings')
       .select('*')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
       .eq('status', 'completed')
       .order('start_time', { ascending: false })
 
@@ -35,13 +30,13 @@ export async function GET() {
     const { data: cancelledBookings } = await supabaseAdmin
       .from('bookings')
       .select('id')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
       .eq('status', 'cancelled')
 
     const { data: allBookings } = await supabaseAdmin
       .from('bookings')
       .select('id')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
 
     const now = new Date()
 

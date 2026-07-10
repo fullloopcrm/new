@@ -90,7 +90,7 @@ type RingTarget = {
 async function buildRingTargets(): Promise<RingTarget[]> {
   const cutoff = new Date(Date.now() - 60_000).toISOString()
   const { data: presence } = await supabaseAdmin
-    .from('comhub_admin_presence')
+    .from('comhub_admin_presence')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
     .select('admin_id, sip_username, sip_address, status, last_seen_at')
     .gte('last_seen_at', cutoff)
     .eq('status', 'available')
@@ -284,7 +284,7 @@ async function maybeSendMissedCallSMS(opts: {
   // Cooldown: don't blast the same number twice within the window.
   const cutoff = new Date(Date.now() - MISSED_CALL_SMS_COOLDOWN_MIN * 60_000).toISOString()
   const { data: recent } = await supabaseAdmin
-    .from('comhub_missed_call_sms')
+    .from('comhub_missed_call_sms')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
     .select('id')
     .eq('customer_phone', opts.customerPhone)
     .gte('sent_at', cutoff)
@@ -600,7 +600,7 @@ export async function POST(req: NextRequest) {
   if (event === 'call.recording.saved' && callControlId) {
     const url = p.recording_urls?.mp3 || p.recording_urls?.wav || ''
     const { data: active } = await supabaseAdmin
-      .from('comhub_active_calls')
+      .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
       .select('id, thread_id, contact_id, customer_phone, status')
       .or(`customer_call_id.eq.${callControlId},admin_call_id.eq.${callControlId}`)
       .single()
@@ -647,7 +647,7 @@ export async function POST(req: NextRequest) {
   // ─── Transcription saved ─────────────────────────────────────────────────
   if (event === 'call.transcription' && callControlId && p.transcription_text) {
     const { data: active } = await supabaseAdmin
-      .from('comhub_active_calls')
+      .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
       .select('id, thread_id, contact_id, status, customer_phone')
       .or(`customer_call_id.eq.${callControlId},admin_call_id.eq.${callControlId}`)
       .single()

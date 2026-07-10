@@ -110,7 +110,7 @@ export async function stageClientBatch(
     match_detail: s.match_detail ?? null, target_table: s.target_table ?? null,
   }))
   for (let i = 0; i < rowInserts.length; i += 500) {
-    const { error } = await supabaseAdmin.from('import_rows').insert(rowInserts.slice(i, i + 500))
+    const { error } = await supabaseAdmin.from('import_rows').insert(rowInserts.slice(i, i + 500))  // tenant-scope-ok: insert rows carry tenant_id (built above)
     if (error) throw new Error(`stage rows failed: ${error.message}`)
   }
   return batchId

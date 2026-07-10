@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 
 // 'plan' is retained only as a non-pricing segment label (filtering / announcement targeting).
-// Real revenue is seat-based: monthly_rate ($1,000/admin + $100/team) lives on each tenant row.
+// Real revenue is seat-based: monthly_rate ($2,500/admin + $250/team) lives on each tenant row.
 const PLAN_OPTIONS = ['free', 'starter', 'pro', 'enterprise']
 
 export async function GET() {

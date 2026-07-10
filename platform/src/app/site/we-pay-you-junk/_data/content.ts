@@ -15,36 +15,36 @@ export { SERVICES } from "./services";
 export const PRICING = {
   solo: {
     label: "1 Person Crew",
-    price: "$100",
+    price: "$200",
     unit: "per hour",
     features: ["1 hour minimum", "1 crew member", "Dump fees included (an industry first)", "Same-day available", "50% Resale Credit (when applicable)", "Ideal for small jobs", "Single items & light loads"],
   },
   standard: {
     label: "2 Person Crew",
-    price: "$250",
+    price: "$300",
     unit: "per hour",
     popular: true,
     features: ["1 hour minimum", "2 crew members", "Dump fees included (an industry first)", "Same-day available", "50% Resale Credit (when applicable)", "Most popular option", "Heavy items no problem", "Full cleanouts & estates"],
   },
   emergency: {
-    label: "Emergency Same-Day",
-    price: "$200",
+    label: "Each Additional Person",
+    price: "+$100",
     unit: "per person / per hour",
-    features: ["No minimum wait", "Crew size based on job", "Dump fees included (an industry first)", "Guaranteed 2-hour arrival", "50% Resale Credit (when applicable)", "Priority dispatch", "Evenings & weekends", "Last-minute moves & deadlines"],
+    features: ["Scale the crew to any job", "Dump fees included (an industry first)", "Same-day available", "50% Resale Credit (when applicable)", "Priority dispatch", "Evenings & weekends", "Last-minute moves & deadlines"],
   },
 };
 
 export const TESTIMONIALS = [
-  { name: "Sarah M.", location: "Austin, TX", text: "They cleared my garage in 2 hours and credited me $180 for an old workbench and some power tools I thought were worthless. My bill went from $200 to $20. Unreal.", rating: 5 },
+  { name: "Sarah M.", location: "Austin, TX", text: "They cleared my garage in an hour and credited me $180 for an old workbench and some power tools I thought were worthless. My bill went from $200 to $20. Unreal.", rating: 5 },
   { name: "David R.", location: "Brooklyn, NY", text: "Estate cleanout after my mother passed. The crew was respectful and appraised everything carefully. The credits from her furniture actually covered the entire bill — they cut us a check for $140.", rating: 5 },
-  { name: "Jennifer K.", location: "Denver, CO", text: "Other junk companies wanted $500+ to clear my basement. These guys charged starting at $100/hr, credited me for a vintage desk and some old speakers, and my total was $85. No brainer.", rating: 5 },
+  { name: "Jennifer K.", location: "Denver, CO", text: "Other junk companies wanted $500+ to clear my basement. These guys charged starting at $200/hr, credited me for a vintage desk and some old speakers, and my total was $85. No brainer.", rating: 5 },
   { name: "Marcus T.", location: "Atlanta, GA", text: "I was going to sell my old furniture on Facebook Marketplace but didn't want the hassle. They hauled it all, gave me fair credit for the good pieces, and I basically broke even.", rating: 5 },
   { name: "Lisa P.", location: "Seattle, WA", text: "Office cleanout — they credited us for 12 Herman Miller chairs and a bunch of monitors. We actually got paid $300 after the job was done. Never heard of a junk company doing that.", rating: 5 },
-  { name: "Robert H.", location: "Chicago, IL", text: "Honest, transparent pricing. starting at $100/hr, dump fees included, and they knocked $220 off my bill for items with resale value. Every other company just wanted a flat fee to take everything.", rating: 5 },
+  { name: "Robert H.", location: "Chicago, IL", text: "Honest, transparent pricing. starting at $200/hr, dump fees included, and they knocked $220 off my bill for items with resale value. Every other company just wanted a flat fee to take everything.", rating: 5 },
 ];
 
 export const FAQ = [
-  { q: "How does your pricing work?", a: "Simple — $100 per hour with a 1 hour minimum. Dump fees are baked into the price. No volume charges, no hidden fees. We send the right size crew for your job and the rate stays the same." },
+  { q: "How does your pricing work?", a: "Simple — $200 per hour with a 1 hour minimum. Dump fees are baked into the price. No volume charges, no hidden fees. We send the right size crew for your job and the rate stays the same." },
   { q: "How does the item credit system work?", a: "As we load your items, we identify anything with resale value. We appraise it at fair market value and credit 50% of that amount toward your bill. If you have enough valuable items to cover your entire bill, we pay you the difference." },
   { q: "What counts as a 'valuable' item?", a: "Furniture in good condition, working appliances, electronics, tools, fitness equipment, musical instruments, designer goods — anything we can reasonably resell." },
   { q: "Can I really get PAID for a junk removal?", a: "Yes. If the total resale credits exceed your bill, we cut you a check right there. It happens more than you'd think on estate cleanouts and large office jobs." },

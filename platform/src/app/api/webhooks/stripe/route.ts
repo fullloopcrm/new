@@ -104,7 +104,7 @@ export async function POST(request: Request) {
         if (prospect && !prospect.tenant_id) {
           // Seat-based signup pricing, recomputed server-side from checkout
           // metadata (never from $ stored on the prospect row) so a corrupted
-          // row can't mint a $0 tenant. Defaults to 1 admin ($1,000/mo) when a
+          // row can't mint a $0 tenant. Defaults to 1 admin ($2,500/mo) when a
           // legacy Payment Link supplies no seat metadata.
           const pricing = signupPricing({
             admins: Number(session.metadata?.admins) || 1,

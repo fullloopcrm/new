@@ -40,7 +40,7 @@ export default async function StatePage({ params }: { params: Promise<{ state: s
             Junk Removal in <span className="gradient-text">{state.name}</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
-            Professional junk removal in {state.cities.length} cities across {state.abbreviation}. starting at $100/hr, dump fees included. 50% Resale Credit (when applicable) on valuable items.
+            Professional junk removal in {state.cities.length} cities across {state.abbreviation}. starting at $200/hr, dump fees included. 50% Resale Credit (when applicable) on valuable items.
           </p>
           <CtaButtons variant="dark" />
         </div>

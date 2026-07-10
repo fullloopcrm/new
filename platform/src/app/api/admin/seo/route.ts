@@ -23,7 +23,7 @@ export async function GET() {
       supabaseAdmin.from('seo_fleet_summary').select('*').order('impressions', { ascending: false }),
       supabaseAdmin.from('seo_issue_summary').select('*').order('impressions_at_stake', { ascending: false }),
       supabaseAdmin
-        .from('seo_changes')
+        .from('seo_changes')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
         .select('id,target_url,field,before_value,after_value,rationale')
         .eq('status', 'proposed')
         .order('proposed_at', { ascending: false })
@@ -35,7 +35,7 @@ export async function GET() {
         .order('keywords_ahead', { ascending: false })
         .limit(12),
       supabaseAdmin
-        .from('seo_issues')
+        .from('seo_issues')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
         .select('property,target_url,value,detail')
         .eq('status', 'open')
         .eq('type', 'competitor_gap')
@@ -43,13 +43,13 @@ export async function GET() {
         .limit(20),
       supabaseAdmin.from('seo_site_score').select('property,grade,score,at_goal,on_page1,targets'),
       supabaseAdmin
-        .from('seo_issues')
+        .from('seo_issues')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
         .select('property,target_url,detail')
         .eq('status', 'open')
         .eq('type', 'not_indexed')
         .limit(40),
       supabaseAdmin
-        .from('seo_changes')
+        .from('seo_changes')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
         .select('id,target_url,after_value,rationale')
         .eq('field', 'enrichment')
         .eq('status', 'proposed')

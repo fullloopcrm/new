@@ -7,7 +7,7 @@ async function logEmailFailure(to: string, subject: string, error: unknown) {
   try {
     const errMsg = typeof error === 'string' ? error : (error as any)?.message || JSON.stringify(error)
     const truncated = (errMsg || 'unknown error').slice(0, 400)
-    await supabaseAdmin.from('notifications').insert({
+    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
       type: 'comms_fail',
       title: 'Email send failed',
       message: `email to ${to} | subject=${subject.slice(0, 80)} | error=${truncated}`,

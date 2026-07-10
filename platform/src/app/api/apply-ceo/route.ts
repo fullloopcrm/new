@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
+import { sendEmail } from '@/lib/email'
 
 interface CeoBody {
   name?: string
@@ -100,6 +101,25 @@ export async function POST(request: Request) {
       recipientType: 'admin',
       metadata: { name, email, phone: cleanPhone, resume_url: body.resumeUrl, video_url: body.videoUrl },
     }).catch((err) => console.error('[apply-ceo] notify failed:', err))
+
+    // Applicant confirmation — per-tenant opt-in (selena_config), sent from the
+    // tenant's verified email_from. Non-blocking: never fail the submission.
+    const cfg = (tenant.selena_config ?? {}) as Record<string, unknown>
+    if (email && cfg.lead_confirmation_enabled === true) {
+      const color = (tenant as { primary_color?: string | null }).primary_color || '#111111'
+      const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
+        <h2 style="color:${color};margin:0 0 12px">Thanks for applying, ${name.split(' ')[0]}!</h2>
+        <p style="font-size:15px;line-height:1.5;margin:0 0 12px">We received your Founding CEO application and the founder will personally review it and follow up soon.</p>
+        <p style="font-size:14px;color:#555;margin:16px 0 0">— The ${tenant.name} team</p>
+      </div>`
+      await sendEmail({
+        to: email,
+        from: (tenant as { email_from?: string | null }).email_from || undefined,
+        resendApiKey: (tenant as { resend_api_key?: string | null }).resend_api_key,
+        subject: `We received your application — ${tenant.name}`,
+        html,
+      }).catch((err) => console.error('[apply-ceo] applicant confirmation failed:', err))
+    }
 
     return NextResponse.json({ success: true, id: data.id })
   } catch (err) {

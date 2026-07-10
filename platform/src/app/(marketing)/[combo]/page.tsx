@@ -7,6 +7,10 @@ import {
   webPageSchema,
   breadcrumbSchema,
   localBusinessSchema,
+  softwareApplicationSchema,
+  itemListSchema,
+  organizationSchema,
+  websiteSchema,
 } from "@/lib/schema";
 import {
   findCombo,
@@ -14,7 +18,10 @@ import {
   metros,
   generateIndustrySlug,
   generateComboSlug,
+  generateLocationSlug,
 } from "@/lib/marketing/combos";
+import { buildCityContextSection, stateHubMetro, isHubOrMajorCity } from "@/lib/marketing/cityContext";
+import { SectionBlock, RelatedLinksHub } from "@/components/marketing/SeoSection";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
 import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
@@ -75,6 +82,18 @@ export async function generateMetadata({
   const finalTitle = override?.title || title;
   const finalDescription = override?.description || description;
 
+  // Canonical consolidation: thin long-tail city pages point at the state's
+  // strongest city so Google consolidates signal instead of filtering the whole
+  // same-state/same-trade set as duplicates. Top-3 metros per state (and any
+  // 250k+ city) and any manually-overridden page stay self-canonical.
+  let canonicalUrl = url;
+  if (!override && !isHubOrMajorCity(metro)) {
+    const hub = stateHubMetro(metro.stateAbbr);
+    if (hub && hub.slug !== metro.slug) {
+      canonicalUrl = `https://homeservicesbusinesscrm.com/${generateComboSlug(industry, hub)}`;
+    }
+  }
+
   return {
     title: finalTitle,
     description: finalDescription,
@@ -99,7 +118,7 @@ export async function generateMetadata({
       title: `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — ${statusTag}`,
       description: finalDescription,
     },
-    alternates: { canonical: url },
+    alternates: { canonical: canonicalUrl },
   };
 }
 
@@ -202,6 +221,38 @@ export default async function ComboPage({
     (m) => m.stateAbbr === metro.stateAbbr && m.slug !== metro.slug
   ).slice(0, 6);
 
+  // Genuinely city-unique content section — kills the same-state duplication
+  // that put 96% of the combo network into "Crawled - currently not indexed".
+  const citySection = buildCityContextSection(metro, stateMeta, trade);
+
+  // Rich, city-scoped structured data.
+  const nearbyComboItems = sameStateMetros.map((m) => ({
+    name: `${industry.name} CRM in ${m.city}, ${m.stateAbbr}`,
+    url: `https://homeservicesbusinesscrm.com/${generateComboSlug(industry, m)}`,
+  }));
+  const serviceLd = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "@id": `${pageUrl}/#service`,
+    name: `${industry.name} CRM Software in ${metro.city}, ${metro.stateAbbr}`,
+    description: `Full-cycle ${trade} CRM for ${metro.city}, ${metro.stateAbbr} — AI lead generation, AI sales, scheduling, GPS dispatch, payments, and reviews. One exclusive operator per city.`,
+    serviceType: `${industry.name} CRM`,
+    url: pageUrl,
+    provider: { "@id": "https://homeservicesbusinesscrm.com/#organization" },
+    areaServed: {
+      "@type": "City",
+      name: `${metro.city}, ${metro.stateAbbr}`,
+      containedInPlace: { "@type": "State", name: metro.state },
+    },
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "USD",
+      price: "2500",
+      availability: "https://schema.org/InStock",
+      url: "https://homeservicesbusinesscrm.com/waitlist",
+    },
+  };
+
   return (
     <>
       {/* JSON-LD */}
@@ -218,6 +269,16 @@ export default async function ComboPage({
         data={localBusinessSchema(
           `${metro.city}, ${metro.stateAbbr}`,
           "City"
+        )}
+      />
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={websiteSchema} />
+      <JsonLd data={serviceLd} />
+      <JsonLd data={softwareApplicationSchema("2500", "USD")} />
+      <JsonLd
+        data={itemListSchema(
+          `${industry.name} CRM in nearby ${metro.stateAbbr} markets`,
+          nearbyComboItems
         )}
       />
 
@@ -257,7 +318,14 @@ export default async function ComboPage({
             CRM for {metro.city}, {metro.stateAbbr} — Licensed to One Operator
           </h1>
           <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-4">
-            Full Loop CRM is the only full-cycle CRM built for {trade} businesses,
+            Full Loop CRM is the only full-cycle{" "}
+            <Link
+              href="/"
+              className="text-teal-300 underline underline-offset-2 hover:text-teal-200"
+            >
+              home service CRM
+            </Link>{" "}
+            built for {trade} businesses,
             and we license a single exclusive partner per city. In {metro.city},
             that means one {trade} company gets every AI-generated lead, every
             local SEO asset, and the entire platform — and nobody else.
@@ -301,6 +369,9 @@ export default async function ComboPage({
       {/* ================================================================= */}
       {/* 1b. TERRITORY STATUS BAND — live availability                     */}
       {/* ================================================================= */}
+      {/* City-unique content — badge (short-tail) + title (long-tail) + description */}
+      <SectionBlock section={citySection} alt={false} />
+
       <section className="bg-slate-800 border-y border-slate-700 py-6 px-6">
         <div className="mx-auto max-w-5xl flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -648,6 +719,10 @@ export default async function ComboPage({
               <ul className="space-y-2 text-slate-700 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="text-teal-600 font-bold mt-0.5">&#10003;</span>
+                  Your website, its code &amp; your domain
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-teal-600 font-bold mt-0.5">&#10003;</span>
                   Your client list, contact info & full history
                 </li>
                 <li className="flex items-start gap-2">
@@ -675,7 +750,7 @@ export default async function ComboPage({
               <ul className="space-y-2 text-slate-700 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="text-slate-400 font-bold mt-0.5">&bull;</span>
-                  The SEO lead-generation domains & content
+                  The shared platform infrastructure
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-slate-400 font-bold mt-0.5">&bull;</span>
@@ -792,6 +867,11 @@ export default async function ComboPage({
       {/* ================================================================= */}
       {/* 12. NEARBY MARKETS & RELATED PAGES                                */}
       {/* ================================================================= */}
+      <RelatedLinksHub
+        excludeIndustrySlug={generateIndustrySlug(industry)}
+        excludeLocationSlug={generateLocationSlug(metro)}
+      />
+
       <section className="py-16 px-6 bg-white border-t border-slate-200">
         <div className="mx-auto max-w-5xl">
           {sameStateMetros.length > 0 && (

@@ -32,7 +32,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const updates: Record<string, unknown> = { reviewed_at: new Date().toISOString() }
 
   if (body.action === 'approve') {
-    // Seat-based signup pricing. Self-serve defaults to 1 admin ($1,000/mo);
+    // Seat-based signup pricing. Self-serve defaults to 1 admin ($2,500/mo);
     // an approving admin can pass admins / team_members to pre-load seats.
     const pricing = signupPricing({
       admins: Number(body.admins) || 1,
@@ -44,7 +44,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!platformKey) return NextResponse.json({ error: 'STRIPE_SECRET_KEY not set' }, { status: 500 })
     const stripe = new Stripe(platformKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 
-    // Per-seat line items using the stable platform prices (admin $1,000, team $100),
+    // Per-seat line items using the stable platform prices (admin $2,500, team $250),
     // with real quantities — so the subscription can later be re-synced when seats
     // change on the tenant board. The $25,000 setup fee is paid by bank wire, out of
     // band, and is NOT charged here.

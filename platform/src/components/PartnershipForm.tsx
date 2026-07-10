@@ -3,29 +3,63 @@
 import { useState, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
 
+// Source of truth: the territory-map `service_categories` table (53 trades).
+// Keep this list in sync with those category names so a partner's selected
+// trade matches the territory exclusivity model exactly. "Other" stays last.
 const TRADES = [
-  "Cleaning Services",
-  "Carpet Cleaning",
-  "Pressure Washing",
+  "Aging-in-Place / Home Accessibility Mods",
+  "Air Duct & Dryer Vent Cleaning",
+  "Appliance Repair",
+  "Carpet & Upholstery Cleaning",
+  "Chimney Sweep",
+  "Concrete & Masonry",
+  "Deck Building",
+  "Demolition",
+  "Drywall Repair",
+  "Electrical",
+  "Epoxy / Garage Floor Coating",
+  "Fencing",
+  "Fire Damage Restoration",
+  "Flooring Installation",
+  "Foundation & Waterproofing",
+  "Garage Door Repair",
+  "Gutter Cleaning",
+  "Handyman",
+  "Holiday / Christmas Light Installation",
+  "Home Inspection",
+  "House Cleaning",
+  "HVAC",
+  "Insulation",
+  "Irrigation / Sprinklers",
+  "Junk Removal & Hauling",
   "Landscaping",
   "Lawn Care",
-  "Handyman",
-  "Pest Control",
-  "HVAC",
-  "Plumbing",
-  "Electrical",
-  "Painting",
-  "Junk Removal",
-  "Pool Cleaning",
-  "Roofing",
-  "Appliance Repair",
   "Locksmith",
-  "Flooring",
+  "Mobile Car Detailing",
+  "Mobile Pet Grooming",
+  "Mold Remediation",
+  "Moving Services",
+  "Painting",
+  "Paving",
+  "Pest Control",
+  "Pet Waste Removal",
+  "Plumbing",
+  "Pool Cleaning & Maintenance",
+  "Post-Construction Cleaning",
+  "Pressure Washing",
+  "Remodeling / General Contracting",
+  "Replacement Windows & Doors",
+  "Roofing",
+  "Septic Services",
+  "Siding Installation",
+  "Smart Home & Security Installation",
+  "Snow Removal",
+  "Solar Panel Installation",
+  "Stucco Repair",
+  "Trash Bin / Garbage Can Cleaning",
   "Tree Service",
-  "Mobile Detailing",
+  "Water Damage Restoration",
   "Window Cleaning",
-  "Garage Door Repair",
-  "Fencing",
   "Other",
 ];
 
@@ -539,11 +573,11 @@ export default function PartnershipForm() {
               Plans Starting At
             </p>
             <p className="text-4xl font-extrabold text-white font-heading mb-1">
-              $1,000
+              $2,500
               <span className="text-lg font-normal text-slate-400">/admin/mo</span>
             </p>
             <p className="text-sm text-slate-400 mb-6">
-              + $100/mo per team member. All features included. $25,000 setup. No contracts.
+              + $250/mo per team member. All features included. $25,000 setup. You own everything we build. Cancel anytime.
             </p>
             <ul className="space-y-2 text-sm text-slate-300 text-left">
               {[
