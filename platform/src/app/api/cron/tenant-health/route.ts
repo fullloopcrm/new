@@ -26,6 +26,14 @@ const TEMPLATE_TENANTS = new Set<string>(['the-va-virtual-assistant'])
 // Slugs that are the platform itself, not a customer site — never health-checked.
 const SKIP_SLUGS = new Set<string>(['full-loop-crm'])
 
+// Tenants intentionally NOT served by FL right now — checking them is noise:
+//  - nycmaid: still on its standalone build (FL cutover not done). REMOVE after cutover.
+//  - fla-dumpster-rentals: intentionally left standalone.
+const EXCLUDED_TENANTS = new Set<string>(['nycmaid', 'fla-dumpster-rentals'])
+
+// Tenants whose homepage is in a Next route group (report x-matched-path `/`).
+const ROUTE_GROUP_TENANTS = new Set<string>(['wash-and-fold-nyc', 'wash-and-fold-hoboken'])
+
 const CONCURRENCY = 8
 
 async function mapCapped<T, R>(items: T[], fn: (t: T) => Promise<R>, cap: number): Promise<R[]> {
@@ -65,7 +73,7 @@ export async function GET(request: Request) {
   const slugById = new Map<string, string>()
   for (const t of tenantRows ?? []) {
     slugById.set(t.id, t.slug)
-    if (SKIP_SLUGS.has(t.slug) || !t.domain) continue
+    if (SKIP_SLUGS.has(t.slug) || EXCLUDED_TENANTS.has(t.slug) || !t.domain) continue
     byTenant.set(t.id, { slug: t.slug, domain: t.domain, primary: true })
   }
 
@@ -82,7 +90,7 @@ export async function GET(request: Request) {
   for (const r of tdRows ?? []) {
     if (byTenant.has(r.tenant_id)) continue // tenants.domain already won
     const slug = slugById.get(r.tenant_id)
-    if (!slug || SKIP_SLUGS.has(slug)) continue
+    if (!slug || SKIP_SLUGS.has(slug) || EXCLUDED_TENANTS.has(slug)) continue
     const cur = byTenant.get(r.tenant_id)
     if (!cur || (r.is_primary && !cur.primary)) {
       byTenant.set(r.tenant_id, { slug, domain: r.domain, primary: !!r.is_primary })
@@ -95,7 +103,9 @@ export async function GET(request: Request) {
     targets,
     async (t): Promise<TenantHealth & { tenant_id: string }> => {
       const expected = TEMPLATE_TENANTS.has(t.slug) ? 'template' : t.slug
-      const h = await checkTenant(t.slug, t.domain, expected)
+      const h = await checkTenant(t.slug, t.domain, expected, {
+        routeGroupHome: ROUTE_GROUP_TENANTS.has(t.slug),
+      })
       return { ...h, tenant_id: t.tenant_id }
     },
     CONCURRENCY,

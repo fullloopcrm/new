@@ -75,8 +75,18 @@ async function followFinal(startUrl: string): Promise<
 /**
  * @param expectedSlug the slug this tenant should serve, e.g. 'the-nyc-exterminator'.
  *   Pass 'template' for tenants intentionally on the shared template.
+ * @param opts.routeGroupHome true for tenants whose homepage lives in a Next route
+ *   group (e.g. wash-and-fold's `(marketing)/page.tsx`). Those legitimately report
+ *   `x-matched-path: /` for the homepage, so a bare `/` counts as correctly routed
+ *   as long as it isn't the template — the darkening failure modes still show
+ *   `/site/template`, `/404`, or a loop, which stay caught.
  */
-export async function checkTenant(slug: string, domain: string, expectedSlug = slug): Promise<TenantHealth> {
+export async function checkTenant(
+  slug: string,
+  domain: string,
+  expectedSlug = slug,
+  opts: { routeGroupHome?: boolean } = {},
+): Promise<TenantHealth> {
   const base = `https://${domain}`
   const nocache = () => `?cb=${Date.now()}${Math.floor(performance.now())}`
 
@@ -91,7 +101,10 @@ export async function checkTenant(slug: string, domain: string, expectedSlug = s
     if (!checks.reachable) notes.push(`homepage ${home.status}`)
     matchedPath = home.matchedPath
     const expected = `/site/${expectedSlug}`
-    checks.routing = matchedPath === expected
+    // Route-group-homepage tenants report `/` for the homepage; that's fine as
+    // long as it isn't the template (darkening still shows /site/template).
+    const routeGroupOk = !!opts.routeGroupHome && matchedPath === '/'
+    checks.routing = matchedPath === expected || routeGroupOk
     if (!checks.routing) {
       if (matchedPath === '/site/template') notes.push('SERVING GENERIC TEMPLATE')
       else notes.push(`routes to ${matchedPath || 'unknown'} (want ${expected})`)
