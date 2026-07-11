@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
+import { verifyTelegramWebhook } from '@/lib/telegram-webhook-auth'
 
 export const maxDuration = 60
 
@@ -46,6 +47,14 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  // Authenticity FIRST: only Telegram can produce the secret-token header (set
+  // at setWebhook time). Fail-closed before any body-supplied chat_id is trusted
+  // to drive the owner agent — a forged chat_id alone must not reach askSelena.
+  const verified = verifyTelegramWebhook(req, 'platform-owner')
+  if (!verified.ok) {
+    return NextResponse.json({ ok: false, error: 'unauthorized', reason: verified.reason }, { status: 401 })
+  }
+
   let body: { message?: { chat?: { id?: number | string }; text?: string } } = {}
   try {
     body = await req.json()
