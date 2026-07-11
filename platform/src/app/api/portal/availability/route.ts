@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../auth/token'
+import { buildPortalSlots } from '@/lib/portal-availability'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -26,34 +27,23 @@ export async function GET(request: NextRequest) {
     .lte('start_time', dayEnd)
     .not('status', 'eq', 'cancelled')
 
-  // Generate 30-minute slots from 8am to 6pm
-  const slots: { time: string; available: boolean }[] = []
   const bookedRanges = (bookings || []).map((b) => ({
     start: new Date(b.start_time).getTime(),
     end: new Date(b.end_time || new Date(new Date(b.start_time).getTime() + 2 * 3600000).toISOString()).getTime(),
   }))
 
-  for (let hour = 8; hour <= 18; hour++) {
-    for (const minute of [0, 30]) {
-      // Don't show slots that would end after 9pm
-      if (hour + duration > 21) continue
-      if (hour === 18 && minute === 30) continue
+  // Concurrent worker/crew capacity: a slot is only FULL once overlapping
+  // bookings reach the number of active team members. Previously ANY overlapping
+  // booking blocked the slot, which under-booked every multi-worker tenant.
+  // Falls back to 1 when no team is configured, preserving prior behavior.
+  const { count: activeMembers } = await supabaseAdmin
+    .from('team_members')
+    .select('id', { count: 'exact', head: true })
+    .eq('tenant_id', auth.tid)
+    .eq('status', 'active')
+  const capacity = Math.max(1, activeMembers || 0)
 
-      const slotStart = new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`)
-      const slotEnd = new Date(slotStart.getTime() + duration * 3600000)
-
-      // Check if this slot overlaps with any booking
-      const isBooked = bookedRanges.some(
-        (b) => slotStart.getTime() < b.end && slotEnd.getTime() > b.start
-      )
-
-      const h = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
-      const ampm = hour >= 12 ? 'PM' : 'AM'
-      const timeLabel = `${h}:${String(minute).padStart(2, '0')} ${ampm}`
-
-      slots.push({ time: timeLabel, available: !isBooked })
-    }
-  }
+  const slots = buildPortalSlots(date, duration, bookedRanges, capacity)
 
   return NextResponse.json({ slots })
 }
