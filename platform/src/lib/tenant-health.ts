@@ -13,6 +13,8 @@
  * loads the tenant list and persists results.
  */
 
+import { assertPublicUrl } from './ssrf'
+
 export type HealthStatus = 'pass' | 'fail'
 
 export interface TenantHealth {
@@ -33,6 +35,9 @@ const MAX_HOPS = 8
 const TIMEOUT_MS = 12_000
 
 async function fetchHead(url: string, method: 'GET' | 'HEAD' = 'GET') {
+  // SSRF guard: this follows redirects manually (see followFinal), so validate
+  // every hop's URL before touching the network.
+  await assertPublicUrl(url)
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
   try {
