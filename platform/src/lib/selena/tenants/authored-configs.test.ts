@@ -7,6 +7,7 @@ import { WE_PAY_YOU_JUNK_SLUG, wePayYouJunkConfig } from './we-pay-you-junk'
 import { LANDSCAPING_IN_NYC_SLUG, landscapingInNycConfig } from './landscaping-in-nyc'
 import { THE_FLORIDA_MAID_SLUG, theFloridaMaidConfig } from './the-florida-maid'
 import { NYC_ROADSIDE_SLUG, nycRoadsideConfig } from './nycroadsideemergencyassistance'
+import { THE_ROADSIDE_HELPER_SLUG, theRoadsideHelperConfig } from './theroadsidehelper'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -230,6 +231,36 @@ describe('nycroadsideemergencyassistance — 24/7 roadside dispatch persona', ()
     expect(playbook).toContain('PRICING — DO NOT GUESS')
     expect(playbook).toContain('quote-first')
     expect(playbook).toContain('(212) 470-4068')
+  })
+})
+
+describe('theroadsidehelper — nationwide, no-membership roadside dispatch persona', () => {
+  it('registry resolves the roadside-helper slug to the authored config', () => {
+    expect(getAuthoredConfig(THE_ROADSIDE_HELPER_SLUG)).toBe(theRoadsideHelperConfig)
+  })
+
+  it('resolves to its OWN dispatcher persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(THE_ROADSIDE_HELPER_SLUG)!
+    expect(cfg.identity.business_name).toBe('The Roadside Helper')
+    expect(cfg.voice.persona).toContain('roadside dispatcher')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL one-rate hourly pricing + no-membership pitch (via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(THE_ROADSIDE_HELPER_SLUG)!
+    expect(cfg.pricing.model).toBe('hourly')
+    expect(cfg.pricing.copy).toContain('Roadside, towing & recovery — $149/hr')
+    expect(cfg.pricing.copy).toContain('$124') // first hour booked online
+    expect(cfg.pricing.copy).toContain('No membership')
+  })
+
+  it('serves nationwide and renders a quote-first dispatch flow with the real phone', () => {
+    const cfg = getAuthoredConfig(THE_ROADSIDE_HELPER_SLUG)!
+    expect(cfg.service_area).toContain('nationwide')
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('PRICING — DO NOT GUESS')
+    expect(playbook).toContain('quote-first')
+    expect(playbook).toContain('(888) 944-3001')
   })
 })
 
