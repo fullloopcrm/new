@@ -8,6 +8,7 @@ import { LANDSCAPING_IN_NYC_SLUG, landscapingInNycConfig } from './landscaping-i
 import { THE_FLORIDA_MAID_SLUG, theFloridaMaidConfig } from './the-florida-maid'
 import { NYC_ROADSIDE_SLUG, nycRoadsideConfig } from './nycroadsideemergencyassistance'
 import { THE_ROADSIDE_HELPER_SLUG, theRoadsideHelperConfig } from './theroadsidehelper'
+import { SUNNYSIDE_CLEAN_SLUG, sunnysideCleanConfig } from './sunnyside-clean-nyc'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -261,6 +262,36 @@ describe('theroadsidehelper — nationwide, no-membership roadside dispatch pers
     expect(playbook).toContain('PRICING — DO NOT GUESS')
     expect(playbook).toContain('quote-first')
     expect(playbook).toContain('(888) 944-3001')
+  })
+})
+
+describe('sunnyside-clean-nyc — NYC cleaning, tiered hourly booking persona', () => {
+  it('registry resolves the sunnyside slug to the authored config', () => {
+    expect(getAuthoredConfig(SUNNYSIDE_CLEAN_SLUG)).toBe(sunnysideCleanConfig)
+  })
+
+  it('resolves to its OWN cleaning persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(SUNNYSIDE_CLEAN_SLUG)!
+    expect(cfg.identity.business_name).toBe('Sunnyside Clean NYC')
+    expect(cfg.voice.persona).toContain('cleaning-service manager')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL tiered hourly rates (carried via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(SUNNYSIDE_CLEAN_SLUG)!
+    expect(cfg.pricing.model).toBe('hourly')
+    expect(cfg.pricing.copy).toContain('You provide supplies — $59/hr')
+    expect(cfg.pricing.copy).toContain('We bring everything — $79/hr')
+    expect(cfg.pricing.copy).toContain('Same-day / emergency — $99/hr')
+    expect(cfg.pricing.copy).toContain('do NOT lock in a flat total')
+  })
+
+  it('renders an hourly BOOKING FLOW with real tiers and phone', () => {
+    const cfg = getAuthoredConfig(SUNNYSIDE_CLEAN_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('BOOKING FLOW')
+    expect(playbook).toContain('$59/hr')
+    expect(playbook).toContain('(212) 202-9030')
   })
 })
 
