@@ -87,7 +87,9 @@ describe('getTenantByDomain', () => {
     expect(t?.slug).toBe('acme')
   })
 
-  it('resolves via tenant_domains FIRST and does NOT fall through to tenants.domain', async () => {
+  it('resolves via tenant_domains FIRST and does NOT adopt the tenants.domain fallback tenant', async () => {
+    // No legacy tenants.domain row for this host → the transition cross-check
+    // finds nothing to diverge against, so the tenant_domains result stands.
     resolve = (table, eqs) => {
       if (table === 'tenant_domains' && eqs.domain === 'primary1.com')
         return { data: domainRow({ tenant_id: 't-9', domain: 'primary1.com' }), error: null }
@@ -97,9 +99,9 @@ describe('getTenantByDomain', () => {
     }
 
     const t = await getTenantByDomain('primary1.com')
+    // resolved to the tenant_domains tenant, not any fallback tenant
+    expect(t?.id).toBe('t-9')
     expect(t?.slug).toBe('primary1')
-    // the tenants table must never be queried BY DOMAIN once tenant_domains matched
-    expect(singleCalls.some((c) => c.table === 'tenants' && 'domain' in c.eqs)).toBe(false)
   })
 
   it('surfaces the P1 routing columns from the matched tenant_domains row', async () => {
@@ -143,27 +145,50 @@ describe('getTenantByDomain', () => {
     expect(t?.routingMode).toBeUndefined()
   })
 
-  it('WRONG-TENANT PROBE: tenant_domains wins over a conflicting tenants.domain row', async () => {
+  it('DIVERGENCE REFUSAL: tenant_domains -> A but legacy tenants.domain -> B refuses (throws, serves nothing)', async () => {
     // Same host is claimed by tenant_domains -> t-correct AND by a stale
-    // tenants.domain row -> t-wrong. The resolver must return t-correct and must
-    // NEVER leak the host to t-wrong (the brand-swap failure mode).
+    // tenants.domain row -> t-wrong. During the transition the resolver must NOT
+    // silently pick either — it must refuse loudly so neither tenant is served
+    // under the other's brand (the brand-swap failure mode).
     resolve = (table, eqs) => {
       if (table === 'tenant_domains' && eqs.domain === 'swap.com')
         return { data: domainRow({ tenant_id: 't-correct', domain: 'swap.com' }), error: null }
       if (table === 'tenants' && eqs.id === 't-correct')
         return { data: tenantRow({ id: 't-correct', slug: 'correct-tenant' }), error: null }
-      // a stale tenants.domain row that points the same host at the wrong tenant
+      // a stale tenants.domain row that points the same host at a DIFFERENT tenant
       if (table === 'tenants' && eqs.domain === 'swap.com')
         return { data: tenantRow({ id: 't-wrong', slug: 'wrong-tenant' }), error: null }
       return { data: null, error: null }
     }
 
-    const t = await getTenantByDomain('swap.com')
-    expect(t?.id).toBe('t-correct')
-    expect(t?.slug).toBe('correct-tenant')
-    expect(t?.id).not.toBe('t-wrong')
-    // the wrong tenant must never even be queried by domain
-    expect(singleCalls.some((c) => c.table === 'tenants' && c.eqs.domain === 'swap.com')).toBe(false)
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getTenantByDomain('swap.com')).rejects.toThrow(
+      'TENANT_DIVERGENCE host=swap.com td=t-correct legacy=t-wrong',
+    )
+    // the greppable divergence line was logged
+    expect(errSpy).toHaveBeenCalledWith(
+      'TENANT_DIVERGENCE host=swap.com td=t-correct legacy=t-wrong',
+    )
+    errSpy.mockRestore()
+  })
+
+  it('AGREEMENT: tenant_domains -> A and legacy tenants.domain -> same A proceeds normally', async () => {
+    // Both sources point the host at the same tenant → no divergence → the
+    // tenant_domains-first result is served.
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'agree.com')
+        return { data: domainRow({ tenant_id: 't-same', domain: 'agree.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-same')
+        return { data: tenantRow({ id: 't-same', slug: 'agree-tenant' }), error: null }
+      // legacy row agrees: same tenant id
+      if (table === 'tenants' && eqs.domain === 'agree.com')
+        return { data: tenantRow({ id: 't-same', slug: 'agree-tenant' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const t = await getTenantByDomain('agree.com')
+    expect(t?.id).toBe('t-same')
+    expect(t?.slug).toBe('agree-tenant')
   })
 
   it('WRONG-TENANT PROBE: a dangling tenant_domains pointer resolves to null, not the fallback tenant', async () => {

@@ -103,6 +103,16 @@ export async function getTenantBySlug(slug: string): Promise<TenantInfo | null> 
  * authoritative. If that tenant_id fails to resolve (dangling pointer), we
  * return null rather than falling through to tenants.domain — falling through
  * could resolve the host to a DIFFERENT tenant (the brand-swap failure mode).
+ *
+ * TRANSITION ASSERT-AND-REFUSE guard: while both sources are live, a
+ * tenant_domains match to tenant A is cross-checked against the legacy
+ * tenants.domain row for the same host. If legacy maps the host to a DIFFERENT
+ * tenant B, we do NOT silently pick A — we log a loud, greppable
+ * `TENANT_DIVERGENCE host=<h> td=<A> legacy=<B>` line and throw, so nothing is
+ * served rather than serving one tenant's data under the other's brand. We
+ * proceed with the tenant_domains-first result ONLY when legacy agrees (same
+ * tenant_id) or legacy has no row for the host. Remove this guard once
+ * tenants.domain is retired.
  */
 export async function getTenantByDomain(domain: string): Promise<TenantInfo | null> {
   // Strip www. prefix for lookup
@@ -131,6 +141,23 @@ export async function getTenantByDomain(domain: string): Promise<TenantInfo | nu
       .single()
 
     if (t) {
+      // TRANSITION ASSERT-AND-REFUSE: cross-check the legacy tenants.domain row
+      // for this host. If it maps the SAME host to a DIFFERENT tenant, refuse
+      // rather than silently pick — this is the brand-swap failure mode.
+      const { data: legacy } = await sb
+        .from('tenants')
+        .select('id')
+        .eq('domain', cleanDomain)
+        .single()
+
+      if (legacy && legacy.id !== t.id) {
+        // Loud + greppable. Do NOT cache; do NOT return a tenant.
+        console.error(`TENANT_DIVERGENCE host=${cleanDomain} td=${t.id} legacy=${legacy.id}`)
+        throw new Error(
+          `TENANT_DIVERGENCE host=${cleanDomain} td=${t.id} legacy=${legacy.id}`,
+        )
+      }
+
       const tenant: TenantInfo = {
         id: t.id,
         slug: t.slug,
