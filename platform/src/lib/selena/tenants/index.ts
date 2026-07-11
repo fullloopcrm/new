@@ -23,6 +23,7 @@ import { STRETCH_SERVICE_SLUG, stretchServiceConfig } from './stretch-service'
 import { DSCR_LOAN_SLUG, dscrLoanConfig } from './debt-service-ratio-loan'
 import { HOME_SERVICES_COMPANY_SLUG, homeServicesCompanyConfig } from './the-home-services-company'
 import { NYC_INTERIOR_DESIGNER_SLUG, nycInteriorDesignerConfig } from './the-nyc-interior-designer'
+import { NYC_MARKETING_COMPANY_SLUG, nycMarketingCompanyConfig } from './the-nyc-marketing-company'
 
 const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [EXTERMINATOR_SLUG]: exterminatorConfig,
@@ -41,6 +42,7 @@ const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [DSCR_LOAN_SLUG]: dscrLoanConfig,
   [HOME_SERVICES_COMPANY_SLUG]: homeServicesCompanyConfig,
   [NYC_INTERIOR_DESIGNER_SLUG]: nycInteriorDesignerConfig,
+  [NYC_MARKETING_COMPANY_SLUG]: nycMarketingCompanyConfig,
 }
 
 /**

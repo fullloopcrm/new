@@ -16,6 +16,7 @@ import { STRETCH_SERVICE_SLUG, stretchServiceConfig } from './stretch-service'
 import { DSCR_LOAN_SLUG, dscrLoanConfig } from './debt-service-ratio-loan'
 import { HOME_SERVICES_COMPANY_SLUG, homeServicesCompanyConfig } from './the-home-services-company'
 import { NYC_INTERIOR_DESIGNER_SLUG, nycInteriorDesignerConfig } from './the-nyc-interior-designer'
+import { NYC_MARKETING_COMPANY_SLUG, nycMarketingCompanyConfig } from './the-nyc-marketing-company'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -501,6 +502,35 @@ describe('the-nyc-interior-designer — bespoke interior design, quote-first per
     const playbook = buildPlaybook(cfg)
     expect(playbook).toContain('SELF-BOOK OFFER')
     expect(playbook).toContain('(917) 473-2013')
+  })
+})
+
+describe('the-nyc-marketing-company — full-service marketing agency, quote-first persona', () => {
+  it('registry resolves the marketing-company slug to the authored config', () => {
+    expect(getAuthoredConfig(NYC_MARKETING_COMPANY_SLUG)).toBe(nycMarketingCompanyConfig)
+  })
+
+  it('resolves to its OWN marketing persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(NYC_MARKETING_COMPANY_SLUG)!
+    expect(cfg.identity.business_name).toBe('The NYC Marketing Company')
+    expect(cfg.voice.persona).toContain('marketing strategist')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('states REAL published starting prices, scoped after a free audit (authored copy)', () => {
+    const cfg = getAuthoredConfig(NYC_MARKETING_COMPANY_SLUG)!
+    expect(cfg.pricing.model).toBe('flat')
+    expect(cfg.pricing.copy).toContain('$950/mo')
+    expect(cfg.pricing.copy).toContain('$4,600')
+    expect(cfg.pricing.copy).toContain('never quote a final total')
+  })
+
+  it('renders a quote-first flow with the real phone', () => {
+    const cfg = getAuthoredConfig(NYC_MARKETING_COMPANY_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('PRICING — DO NOT GUESS')
+    expect(playbook).toContain('quote-first')
+    expect(playbook).toContain('(212) 202-9220')
   })
 })
 
