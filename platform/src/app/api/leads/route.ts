@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import { buildLeadNotificationHtml } from './notification-email'
 
 const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
 
@@ -59,17 +60,10 @@ export async function POST(request: Request) {
     await sendEmail({
       to: ADMIN_EMAIL,
       subject: `[FL] New Lead: ${business_name}`,
-      html: `
-        <h2>New Lead Request</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
-        <p><strong>Business:</strong> ${business_name}</p>
-        <p><strong>Industry:</strong> ${industry || 'Not specified'}</p>
-        ${message ? `<p><strong>Message:</strong> ${message}</p>` : ''}
-        <br>
-        <p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/admin">View in Admin</a></p>
-      `,
+      html: buildLeadNotificationHtml(
+        { name, email, phone, business_name, industry, message },
+        process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com',
+      ),
     })
   } catch {
     // Don't fail the request if email fails

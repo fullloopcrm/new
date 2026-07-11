@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { computeFit } from '@/lib/lead-fit'
+import { buildProspectNotificationHtml } from './notification-email'
 
 // Cap free-text fields so a single submission can't balloon to megabytes.
 const MAX_TEXT = 2000
@@ -156,15 +157,7 @@ export async function POST(request: Request) {
         await sendEmail({
           to: adminEmail,
           subject: `New Full Loop lead: ${body.business_name} (${body.trade})`,
-          html: `
-            <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
-              <h2 style="margin:0 0 12px;">New lead from /qualify</h2>
-              <pre style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;white-space:pre-wrap;font-family:inherit;font-size:14px;color:#111827;">${summary}</pre>
-              <p style="color:#6b7280;font-size:13px;margin-top:16px;">
-                Review and approve in <a href="${appUrl}/admin/prospects">${appUrl}/admin/prospects</a>.
-              </p>
-            </div>
-          `,
+          html: buildProspectNotificationHtml(summary, appUrl),
         })
       }
     } catch (alertErr) {
