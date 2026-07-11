@@ -10,7 +10,7 @@ const L = ({ href, children }: { href: string; children: ReactNode }) => (
 
 const faqs: { question: string; answer: ReactNode }[] = [
   {
-    question: "How much does a marketing company in NYC cost?",
+    question: "How much does web design in NYC cost?",
     answer: <span>Our <L href="/nyc-marketing-pricing-guide">pricing</L> is transparent and built for real small businesses. Custom websites start at $4,600. Monthly <L href="/nyc-marketing-company-services-list">SEO</L> is $950/month. Hourly consulting ranges from $100–$250/hr depending on scope. No hidden fees, no surprise invoices. We walk you through exactly what you get during your <L href="https://www.thenycmarketingcompany.com/contact">free strategy session</L>. Every dollar has a reason behind it.</span>,
   },
   {
@@ -154,7 +154,7 @@ export default function ExpandedFAQ() {
             <span className="text-teal-600">Hiring a NYC Marketing Company</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-3xl mx-auto">
-            Honest answers to the most common questions about working with a marketing company in New York City. From <L href="/nyc-marketing-pricing-guide">pricing</L> and contracts to <L href="/nyc-marketing-company-services-list">services</L>, timelines, and what to realistically expect. No BS.
+            Honest answers to the most common questions about working with a web design company in New York City. From <L href="/nyc-marketing-pricing-guide">pricing</L> and contracts to <L href="/nyc-marketing-company-services-list">services</L>, timelines, and what to realistically expect. No BS.
           </p>
         </motion.div>
 

@@ -47,7 +47,7 @@ export default function Competitors() {
             <span className="text-red-500">Right Now</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            While you&apos;re reading this, a business in your neighborhood is hiring a marketing company. Every day you wait, they&apos;re building domain authority and locking in rankings across Brooklyn, Queens, Manhattan, and Long Island.
+            While you&apos;re reading this, a business in your neighborhood is hiring a web design company. Every day you wait, they&apos;re building domain authority and locking in rankings across Brooklyn, Queens, Manhattan, and Long Island.
           </p>
         </motion.div>
 
