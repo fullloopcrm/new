@@ -40,9 +40,14 @@ export async function generateMetadata(): Promise<Metadata> {
   other: {
     'format-detection': 'telephone=yes',
     'geo.region': siteConfig.geo.region,
-    'geo.placename': siteConfig.geo.placename,
-    'geo.position': `${siteConfig.geo.lat};${siteConfig.geo.lng}`,
-    'ICBM': `${siteConfig.geo.lat}, ${siteConfig.geo.lng}`,
+    // MED-4 fail-safe: an unconfigured tenant carries geo 0,0 + placename
+    // 'Your City'. Omit the placename/position/ICBM geo meta rather than emit a
+    // fabricated Gulf-of-Guinea location; real tenants (config-derived) pass.
+    ...((siteConfig.geo.lat !== 0 || siteConfig.geo.lng !== 0) ? {
+      'geo.placename': siteConfig.geo.placename,
+      'geo.position': `${siteConfig.geo.lat};${siteConfig.geo.lng}`,
+      'ICBM': `${siteConfig.geo.lat}, ${siteConfig.geo.lng}`,
+    } : {}),
   },
   }
 }
