@@ -365,8 +365,13 @@ export async function POST(request: Request) {
         }
       }
 
-      // 1. Insert payment row (capture id → post revenue to ledger immediately)
-      const { data: bookingPayment } = await supabaseAdmin.from('payments').insert({
+      // 1. Insert payment row (capture id → post revenue to ledger immediately).
+      // Check the insert error instead of swallowing it: stripe_session_id is
+      // UNIQUE (migration 011), so a CONCURRENT duplicate delivery that raced past
+      // the existence SELECT above loses here on a unique violation (23505). Bail
+      // idempotently rather than continuing into the booking update + cleaner
+      // payout with an unrecorded (duplicate) payment.
+      const { data: bookingPayment, error: bookingPaymentErr } = await supabaseAdmin.from('payments').insert({
         tenant_id: tenantId,
         booking_id: bookingId,
         client_id: booking.client_id,
@@ -377,10 +382,19 @@ export async function POST(request: Request) {
         stripe_session_id: session.id,
         stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
       }).select('id').single()
-      if (bookingPayment?.id) {
-        postPaymentRevenue({ tenantId, paymentId: bookingPayment.id })
-          .catch(err => console.error('[stripe] booking revenue post failed:', err))
+      if (bookingPaymentErr || !bookingPayment?.id) {
+        if ((bookingPaymentErr as { code?: string } | null)?.code === '23505') {
+          // Duplicate delivery raced us on the UNIQUE stripe_session_id — the
+          // first delivery already recorded the payment (and paid the cleaner).
+          return NextResponse.json({ received: true, idempotent: true })
+        }
+        // Genuine insert failure: do NOT proceed to pay the cleaner against a
+        // payment we failed to record. 500 so Stripe redelivers and we retry.
+        console.error(`[stripe] booking payment insert failed for ${bookingId}:`, bookingPaymentErr)
+        return NextResponse.json({ error: 'payment insert failed' }, { status: 500 })
       }
+      postPaymentRevenue({ tenantId, paymentId: bookingPayment.id })
+        .catch(err => console.error('[stripe] booking revenue post failed:', err))
 
       // 2. Update booking
       await supabaseAdmin
