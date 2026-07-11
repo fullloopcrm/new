@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Leave a Review | Your Business',
     description: 'Share your experience with Your Business cleaning service.',
-    url: 'https://www.example.com/reviews/submit',
+    url: '/reviews/submit',
   },
 }
 

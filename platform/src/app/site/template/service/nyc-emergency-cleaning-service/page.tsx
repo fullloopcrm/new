@@ -186,11 +186,11 @@ const faqData = [
 export const metadata: Metadata = {
   title: 'Emergency Cleaning Service NYC — 24/7 Response | Your Business',
   description: 'NYC emergency cleaning — water damage, fire, sewage, biohazard & mold. 24/7 rapid response with pro equipment. What to do, what not to do. Text (555) 555-5555.',
-  alternates: { canonical: 'https://www.example.com/service/nyc-emergency-cleaning-service' },
+  alternates: { canonical: '/service/nyc-emergency-cleaning-service' },
   openGraph: {
     title: 'Emergency Cleaning Service NYC | Your Business',
     description: 'Rapid-response emergency cleaning across NYC. Water damage, fire, biohazard & more. Available 24/7.',
-    url: 'https://www.example.com/service/nyc-emergency-cleaning-service',
+    url: '/service/nyc-emergency-cleaning-service',
   },
 }
 
@@ -214,9 +214,9 @@ export default async function EmergencyCleaningPage() {
     description: 'Professional emergency cleaning service for NYC apartments — water damage, fire, sewage, biohazard, mold, and disaster cleanup. Available 24/7.',
     provider: {
       '@type': 'LocalBusiness',
-      name: 'Your Business',
-      url: 'https://www.example.com',
-      telephone: '+15555555555',
+      name: biz.name,
+      url: biz.url,
+      telephone: biz.phone,
       address: { '@type': 'PostalAddress', addressLocality: 'New York', addressRegion: 'NY', addressCountry: 'US' },
     },
     areaServed: { '@type': 'City', name: 'New York' },

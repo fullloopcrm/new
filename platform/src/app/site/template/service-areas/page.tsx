@@ -24,8 +24,7 @@ const areaFAQs = [
   { question: 'What if I\'m on the border of two neighborhoods?', answer: 'We serve the entire area, not just specific blocks. If you\'re near any of our listed neighborhoods, we cover your location. Just give us your address and we\'ll confirm.' },
 ]
 
-const pageUrl = 'https://www.example.com/service-areas'
-const pageTitle = `Service Areas — ${totalNeighborhoods}+ Neighborhoods in NYC, Long Island, Westchester & NJ | Your Business`
+const pageTitle =`Service Areas — ${totalNeighborhoods}+ Neighborhoods in NYC, Long Island, Westchester & NJ | Your Business`
 const pageDescription = `Your Business serves ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. Same rates everywhere — $59/hr. Find professional cleaning in your neighborhood. (555) 555-5555`
 
 export const metadata: Metadata = {

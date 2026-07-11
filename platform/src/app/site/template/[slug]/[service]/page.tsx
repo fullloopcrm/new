@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!neighborhood || !service) return {}
 
   const area = getArea(neighborhood.area)!
-  const url = `https://www.example.com/${slug}/${serviceSlug}`
+  const url = `/${slug}/${serviceSlug}`
   const title = `${service.name} in ${neighborhood.name}, ${area.name} From $59/hr | Your Business`
   const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. (555) 555-5555`
 

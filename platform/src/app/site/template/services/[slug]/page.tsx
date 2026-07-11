@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const service = getServiceByUrlSlug(slug)
   if (!service) return {}
 
-  const url = `https://www.example.com/services/${slug}`
+  const url = `/services/${slug}`
   const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | 5-Star Rated | Your Business`
   const description = `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 2).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Rated. (555) 555-5555`
 
