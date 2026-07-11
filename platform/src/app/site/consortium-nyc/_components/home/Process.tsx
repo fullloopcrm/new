@@ -71,7 +71,7 @@ export default function Process() {
             Marketing Process
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
-            How Our NYC Marketing Company Gets You{" "}
+            How Our NYC Web Design Company Gets You{" "}
             <span className="text-teal-600">Real Results — Honestly</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-3xl mx-auto">

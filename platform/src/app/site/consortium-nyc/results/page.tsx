@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   keywords: [
     "nyc marketing results",
     "seo case studies nyc",
-    "marketing company results",
+    "web design company results",
     "nyc seo before after",
     "web design case studies new york",
     "local seo results nyc",

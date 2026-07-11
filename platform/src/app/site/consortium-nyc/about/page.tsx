@@ -4,7 +4,7 @@ import AboutPage from "./AboutClient";
 
 const title = "About Consortium NYC | NYC Web Design & Website Design";
 const description =
-  "NYC marketing company with 25+ years experience and over $15.2M in attributable revenue for local businesses. No junior account managers, no outsourcing — senior strategists only. Call/text (212) 202-9220.";
+  "NYC web design company with 25+ years experience and over $15.2M in attributable revenue for local businesses. No junior account managers, no outsourcing — senior strategists only. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/about";
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   keywords: [
     "about Consortium NYC",
-    "NYC marketing company",
+    "NYC web design company",
     "NYC marketing team",
     "about us marketing agency",
     "senior marketing strategists NYC",

@@ -67,7 +67,7 @@ export default function Guarantees() {
             <span className="text-teal-600">New York City Business We Work With</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            No contracts, full transparency, and a dedicated team — commitments most <Link href="/whats-working-in-marketing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">marketing companies</Link> are too afraid to make. Here&apos;s what you get in writing.
+            No contracts, full transparency, and a dedicated team — commitments most <Link href="/whats-working-in-marketing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">web design companies</Link> are too afraid to make. Here&apos;s what you get in writing.
           </p>
         </motion.div>
 

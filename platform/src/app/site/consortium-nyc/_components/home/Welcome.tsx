@@ -24,7 +24,7 @@ export default function Welcome() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 leading-[1.1] font-heading"
         >
-          NYC&apos;s Full-Service <span className="underline decoration-teal-600 underline-offset-4">LOCAL</span> Marketing Company
+          NYC&apos;s Full-Service <span className="underline decoration-teal-600 underline-offset-4">LOCAL</span> Web Design Company
         </motion.h2>
 
         <motion.p

@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     keywords: [
       `${ind.badge.toLowerCase()} marketing`,
       `${ind.badge.toLowerCase()} seo`,
-      `${ind.badge.toLowerCase()} marketing company`,
+      `${ind.badge.toLowerCase()} web design company`,
       `${ind.badge.toLowerCase()} web design`,
       `${ind.badge.toLowerCase()} marketing nyc`,
       `seo for ${ind.badge.toLowerCase()}`,

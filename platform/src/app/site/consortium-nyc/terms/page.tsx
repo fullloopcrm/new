@@ -44,7 +44,7 @@ export default function TermsPage() {
 
             <Section title="2. Services">
               <p>
-                Consortium NYC is a marketing company providing services including but not limited to search engine optimization (SEO), web design and development, branding, digital strategy, business development, marketing automation, and AI chatbot solutions (collectively, &quot;Services&quot;).
+                Consortium NYC is a web design company providing services including but not limited to search engine optimization (SEO), web design and development, branding, digital strategy, business development, marketing automation, and AI chatbot solutions (collectively, &quot;Services&quot;).
               </p>
               <p>
                 Specific service terms, deliverables, timelines, and pricing are outlined in individual service agreements or proposals provided to clients. In the event of a conflict between these Terms and a signed service agreement, the service agreement shall prevail.

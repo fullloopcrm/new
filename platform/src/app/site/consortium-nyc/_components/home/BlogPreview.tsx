@@ -19,7 +19,7 @@ const articles = [
     category: "SEO",
   },
   {
-    title: "How to Choose a Marketing Company (Without Getting Burned)",
+    title: "How to Choose a Web Design Company (Without Getting Burned)",
     excerpt:
       "The agency landscape is full of big promises and little accountability. We break down the exact questions to ask, red flags to watch for, and benchmarks to demand before signing any contract.",
     slug: "how-to-choose-digital-marketing-agency",

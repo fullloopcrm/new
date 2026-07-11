@@ -49,11 +49,11 @@ export default function Timeline() {
           className="text-center mb-20"
         >
           <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            Marketing Company Timeline
+            Web Design Company Timeline
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             What Happens When You Hire a{" "}
-            <span className="text-teal-600">NYC Marketing Company</span>
+            <span className="text-teal-600">NYC Web Design Company</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
             Complete transparency from day one. Here&apos;s exactly what to expect when you partner with a web design company in New York City — from your first <Link href="https://www.thenycmarketingcompany.com/contact" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">free strategy session</Link> to total market domination.

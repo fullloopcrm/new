@@ -547,7 +547,7 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   },
   {
     category: "general",
-    question: "How do I know if my current marketing company is doing a good job?",
+    question: "How do I know if my current web design company is doing a good job?",
     answer: <span>Ask: What keywords am I ranking for? How many leads did marketing generate last month? What&apos;s my cost per lead? If they can&apos;t answer with specific numbers, that&apos;s your answer. We offer an <L href="https://www.thenycmarketingcompany.com/contact">honest free audit</L> — we&apos;ll tell you exactly where you stand, no obligation, no pitch.</span>,
   },
   {
@@ -657,11 +657,11 @@ export default function FAQPageClient() {
               100 Marketing Questions Answered
             </span>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-6 font-heading leading-tight">
-              NYC Marketing Company{" "}
+              NYC Web Design Company{" "}
               <span className="text-teal-400">FAQ</span>
             </h1>
             <p className="text-slate-300 text-lg sm:text-xl max-w-3xl mx-auto mb-8">
-              Honest answers to 100 questions about <L href="/nyc-marketing-company-services-list">SEO</L>, <L href="/nyc-marketing-company-services-list">web design</L>, <L href="/nyc-marketing-pricing-guide">pricing</L>, <L href="/artificial-intelligence-marketing-services-offered">AI automation</L>, and hiring a marketing company for your <L href="/services-areas-we-offer-marketing-services-in">NYC</L> business. No fluff. No sales pitch. Just truth.
+              Honest answers to 100 questions about <L href="/nyc-marketing-company-services-list">SEO</L>, <L href="/nyc-marketing-company-services-list">web design</L>, <L href="/nyc-marketing-pricing-guide">pricing</L>, <L href="/artificial-intelligence-marketing-services-offered">AI automation</L>, and hiring a web design company for your <L href="/services-areas-we-offer-marketing-services-in">NYC</L> business. No fluff. No sales pitch. Just truth.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
@@ -682,7 +682,7 @@ export default function FAQPageClient() {
       </section>
 
       <TipBlurb
-        tip={<>The best question you can ask a marketing company is <strong>&ldquo;show me the data.&rdquo;</strong> If they can&apos;t tell you exactly how many leads they generated last month, <strong>that tells you everything</strong>.</>}
+        tip={<>The best question you can ask a web design company is <strong>&ldquo;show me the data.&rdquo;</strong> If they can&apos;t tell you exactly how many leads they generated last month, <strong>that tells you everything</strong>.</>}
       />
 
       {/* ── STATS TICKER ────────────────────────────────────── */}
@@ -753,7 +753,7 @@ export default function FAQPageClient() {
             <p className="text-slate-600 max-w-2xl mx-auto">
               {activeCategory
                 ? `${filtered.length} questions about ${categories.find((c) => c.id === activeCategory)?.label.toLowerCase()} for NYC businesses.`
-                : "Everything you need to know about hiring a marketing company in NYC, Long Island, and Westchester."}
+                : "Everything you need to know about hiring a web design company in NYC, Long Island, and Westchester."}
             </p>
           </motion.div>
 

@@ -30,7 +30,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
     answer: <span>We&apos;ve served <L href="/industries-we-offer-marketing-services-for">100+ industries</L> over 25 years. Our biggest verticals are <L href="/industries-we-offer-marketing-services-for/home-service-business-marketing">home services</L>, <L href="/industries-we-offer-marketing-services-for/personal-injury-law-firm-marketing">law firms</L>, <L href="/industries-we-offer-marketing-services-for/dental-practice-marketing">dental practices</L>, <L href="/industries-we-offer-marketing-services-for/restaurant-food-service-marketing">restaurants</L>, <L href="/industries-we-offer-marketing-services-for/real-estate-agent-marketing">real estate</L>, <L href="/industries-we-offer-marketing-services-for/hvac-company-marketing">HVAC</L>, <L href="/industries-we-offer-marketing-services-for/roofing-company-marketing">roofing</L>, and <L href="/industries-we-offer-marketing-services-for/contractor-marketing">contractors</L>. But if people search for it on Google, we can rank it. Our data-driven approach works across verticals because we build from actual market data, not templates.</span>,
   },
   {
-    question: "What makes Consortium NYC different from other marketing companies?",
+    question: "What makes Consortium NYC different from other web design companies?",
     answer: <span>You work directly with someone who has 25 years of experience in the exact seat they sit in. No junior account managers, no layers, no runaround. We pick up the phone. We respond same-day. We don&apos;t outsource your work overseas. We don&apos;t lock you into contracts. And we show you <L href="/nyc-marketing-company-portfolio">real results from real businesses</L> — not stock photo case studies. Read more <L href="/about-digital-marketing-agency-consortium-nyc">about us</L>.</span>,
   },
   {
@@ -62,7 +62,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
     answer: <span>That&apos;s one of our specialties. Google Maps (the local map pack) is where most <L href="/industries-we-offer-marketing-services-for/home-service-business-marketing">home service</L> and <L href="/industries-we-offer-marketing-services-for/restaurant-food-service-marketing">local business</L> leads come from. We optimize your Google Business Profile, build local citations across 80+ directories, manage your reviews, and create hyper-local content targeting every <L href="/services-areas-we-offer-marketing-services-in">neighborhood you serve</L>. The result: your business showing up in the map pack when customers search nearby.</span>,
   },
   {
-    question: "How do I know if my current marketing company is doing a good job?",
+    question: "How do I know if my current web design company is doing a good job?",
     answer: <span>Ask them three questions: What keywords am I ranking for? How many leads did marketing generate last month? What&apos;s my cost per lead? If they can&apos;t answer with specific numbers, that&apos;s your answer. We offer a <L href="https://www.thenycmarketingcompany.com/contact">free honest audit</L> — we&apos;ll tell you exactly where you stand, what&apos;s working, what&apos;s not, and what your competitors are doing. No obligation, no pitch.</span>,
   },
   {
@@ -147,11 +147,11 @@ export default function ExpandedFAQ() {
           className="text-center mb-16"
         >
           <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            Marketing Company FAQ
+            Web Design Company FAQ
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
             Frequently Asked Questions About{" "}
-            <span className="text-teal-600">Hiring a NYC Marketing Company</span>
+            <span className="text-teal-600">Hiring a NYC Web Design Company</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-3xl mx-auto">
             Honest answers to the most common questions about working with a web design company in New York City. From <L href="/nyc-marketing-pricing-guide">pricing</L> and contracts to <L href="/nyc-marketing-company-services-list">services</L>, timelines, and what to realistically expect. No BS.

@@ -41,7 +41,7 @@ export default function NotLikeOthers() {
             <span className="text-teal-600">Consortium NYC Over Other Marketing Agencies</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            See why local businesses across Manhattan, Brooklyn, Queens, and Long Island choose a <Link href="/about-marketing-company-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">transparent marketing company</Link> with no contracts, no hidden fees, and <Link href="/nyc-marketing-pricing-guide" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">simple pricing</Link>.
+            See why local businesses across Manhattan, Brooklyn, Queens, and Long Island choose a <Link href="/about-marketing-company-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">transparent web design company</Link> with no contracts, no hidden fees, and <Link href="/nyc-marketing-pricing-guide" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">simple pricing</Link>.
           </p>
         </motion.div>
 

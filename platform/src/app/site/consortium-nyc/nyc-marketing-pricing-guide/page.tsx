@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import TipBlurb from "@/app/site/consortium-nyc/_components/TipBlurb";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-nyc/_lib/schema";
 
-const title = "NYC Marketing Company Pricing Guide | Honest Costs, No Hidden Fees | Consortium NYC";
-const description = "How much does a marketing company in NYC actually cost? Real pricing for SEO, web design, branding, and AI automation. Plus the mistakes 85% of business owners make that cost them thousands. Call/text (212) 202-9220.";
+const title = "NYC Web Design Company Pricing Guide | Honest Costs, No Hidden Fees | Consortium NYC";
+const description = "How much does a web design company in NYC actually cost? Real pricing for SEO, web design, branding, and AI automation. Plus the mistakes 85% of business owners make that cost them thousands. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/nyc-marketing-pricing-guide";
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   keywords: [
     "nyc marketing pricing",
-    "marketing company cost nyc",
+    "web design company cost nyc",
     "seo pricing new york",
     "web design cost nyc",
     "marketing agency pricing guide",
@@ -144,13 +144,13 @@ export default function PricingGuidePage() {
             <span className="text-teal-400">NYC Actually Cost?</span>
           </h1>
           <p className="text-white/70 text-lg max-w-2xl mx-auto">
-            Transparent pricing from a <Link href="/about-digital-marketing-agency-consortium-nyc" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">marketing company with 25 years of experience</Link>. No hidden fees. No surprise invoices. No contracts. Plus the real talk about pricing that nobody else will give you.
+            Transparent pricing from a <Link href="/about-digital-marketing-agency-consortium-nyc" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">web design company with 25 years of experience</Link>. No hidden fees. No surprise invoices. No contracts. Plus the real talk about pricing that nobody else will give you.
           </p>
         </div>
       </section>
 
       <TipBlurb
-        tip={<>If a marketing company <strong>won&apos;t tell you what things cost upfront</strong>, that&apos;s a red flag. We publish our pricing because we believe you deserve to know <strong>what you&apos;re paying for</strong> before you ever get on a call.</>}
+        tip={<>If a web design company <strong>won&apos;t tell you what things cost upfront</strong>, that&apos;s a red flag. We publish our pricing because we believe you deserve to know <strong>what you&apos;re paying for</strong> before you ever get on a call.</>}
       />
 
       {/* The Problem — 85% stat */}
@@ -159,7 +159,7 @@ export default function PricingGuidePage() {
           <div className="rounded-2xl bg-slate-900 p-8 sm:p-12 text-center">
             <p className="text-red-400 text-6xl sm:text-7xl font-extrabold font-mono mb-4">85%</p>
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 font-heading">
-              of business owners have been taken advantage of by a marketing company
+              of business owners have been taken advantage of by a web design company
             </h2>
             <p className="text-white/60 text-sm max-w-2xl mx-auto leading-relaxed">
               According to industry surveys, the vast majority of small business owners feel they&apos;ve overpaid for marketing services that didn&apos;t deliver. The problem isn&apos;t that marketing doesn&apos;t work — it&apos;s that most business owners weren&apos;t informed enough to know what they were buying, what it should cost, and what results to expect. This page exists to fix that.
@@ -198,7 +198,7 @@ export default function PricingGuidePage() {
           </div>
 
           <p className="text-slate-500 text-xs text-center mt-6">
-            Read more in our blog: <Link href="/the-marketing-blog/how-to-choose-digital-marketing-agency" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">How to Choose a Marketing Company (Without Getting Burned)</Link>
+            Read more in our blog: <Link href="/the-marketing-blog/how-to-choose-digital-marketing-agency" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">How to Choose a Web Design Company (Without Getting Burned)</Link>
           </p>
         </div>
       </section>

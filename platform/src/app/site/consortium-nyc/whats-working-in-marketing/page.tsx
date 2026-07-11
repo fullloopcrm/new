@@ -199,7 +199,7 @@ const updates = [
           The result: every site we build scores 90+ on Core Web Vitals, deploys in seconds, and costs less to host than a WordPress site with 12 plugins. This is the same tech stack Fortune 500 companies use — and we bring it to local businesses at <Link href="/nyc-marketing-pricing-guide" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">small business pricing</Link>.
         </p>
         <p>
-          If your current marketing company is still building on WordPress in 2026, ask them why.
+          If your current web design company is still building on WordPress in 2026, ask them why.
         </p>
       </>
     ),
@@ -253,7 +253,7 @@ const updates = [
           We just rolled out <Link href="/industries-we-offer-marketing-services-for" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">105 industry-specific pages</Link> on this site. Not generic &ldquo;we serve restaurants&rdquo; pages — deep, long-tail pages like <Link href="/industries-we-offer-marketing-services-for/personal-injury-law-firm-marketing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">personal injury law firm marketing</Link> and <Link href="/industries-we-offer-marketing-services-for/hvac-company-marketing" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">HVAC company marketing</Link>.
         </p>
         <p>
-          Within 2 weeks, we&apos;re already seeing indexation and early ranking signals for dozens of these pages. The strategy is simple: every industry someone searches for + &ldquo;marketing company&rdquo; should land on a dedicated, optimized page on your site. Not a blog post. Not a generic services page. A real page built for that exact search.
+          Within 2 weeks, we&apos;re already seeing indexation and early ranking signals for dozens of these pages. The strategy is simple: every industry someone searches for + &ldquo;web design company&rdquo; should land on a dedicated, optimized page on your site. Not a blog post. Not a generic services page. A real page built for that exact search.
         </p>
         <p>
           This is the same approach we used to get <Link href="/nyc-marketing-company-portfolio" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">Moodap&trade; to 2,000 page 1 rankings in 2 months</Link>. Programmatic SEO at scale.

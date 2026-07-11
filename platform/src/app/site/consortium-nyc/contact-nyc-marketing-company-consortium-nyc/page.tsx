@@ -3,22 +3,22 @@ import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-n
 import ContactLandingClient from "./ContactLandingClient";
 
 export const metadata: Metadata = {
-  title: "Contact NYC Marketing Company — Free Strategy Session",
+  title: "Contact NYC Web Design Company — Free Strategy Session",
   description:
-    "Schedule a free strategy session with Consortium NYC, New York's top-rated marketing company. SEO, web design, branding, and automation. Call (212) 202-9220.",
+    "Schedule a free strategy session with Consortium NYC, New York's top-rated web design company. SEO, web design, branding, and automation. Call (212) 202-9220.",
   alternates: { canonical: "https://www.consortiumnyc.com/contact-nyc-marketing-company-consortium-nyc" },
   keywords: [
-    "contact nyc marketing company",
+    "contact nyc web design company",
     "nyc marketing agency free consultation",
     "digital marketing consultation new york",
     "hire marketing agency nyc",
     "seo consultation new york city",
     "free strategy session marketing nyc",
     "consortium nyc contact",
-    "best marketing company new york",
+    "best web design company new york",
   ],
   openGraph: {
-    title: "Contact NYC Marketing Company — Free Strategy Session",
+    title: "Contact NYC Web Design Company — Free Strategy Session",
     description:
       "Schedule a free strategy session with Consortium NYC. SEO, web design, branding, automation. Call (212) 202-9220.",
     url: "https://www.consortiumnyc.com/contact-nyc-marketing-company-consortium-nyc",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Contact NYC Marketing Company — Free Strategy Session",
+    title: "Contact NYC Web Design Company — Free Strategy Session",
     description: "Free strategy session. SEO, web design, branding. Call (212) 202-9220.",
     images: ["/og-consortium.jpg"],
   },
@@ -37,7 +37,7 @@ export default function Page() {
     <>
       <JsonLd
         data={webPageSchema(
-          "Contact NYC Marketing Company — Free Strategy Session",
+          "Contact NYC Web Design Company — Free Strategy Session",
           "Schedule a free strategy session with Consortium NYC. SEO, web design, branding, and automation for NYC businesses. Call (212) 202-9220.",
           "https://www.consortiumnyc.com/contact-nyc-marketing-company-consortium-nyc"
         )}

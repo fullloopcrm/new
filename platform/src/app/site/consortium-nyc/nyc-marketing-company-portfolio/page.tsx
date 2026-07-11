@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "marketing results NYC",
     "SEO results proof",
     "NYC business growth",
-    "marketing company portfolio",
+    "web design company portfolio",
     "real SEO results",
   ],
   openGraph: {
@@ -142,7 +142,7 @@ export default function PortfolioPage() {
       <section className="pt-32 pb-12 bg-slate-900">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-teal-400 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            NYC Marketing Company Portfolio
+            NYC Web Design Company Portfolio
           </p>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-6 font-heading">
             Real SEO Results from{" "}

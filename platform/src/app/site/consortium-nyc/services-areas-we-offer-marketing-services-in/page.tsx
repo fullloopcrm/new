@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   keywords: [
     "NYC marketing service areas",
-    "Long Island marketing company",
-    "Westchester marketing company",
-    "NJ marketing company",
+    "Long Island web design company",
+    "Westchester web design company",
+    "NJ web design company",
     "tri-state marketing services",
     "NYC neighborhood marketing",
     "local marketing NYC",

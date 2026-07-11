@@ -46,7 +46,7 @@ export async function generateMetadata({
       `${label.toLowerCase()} ${svc.name.toLowerCase()} ${area.name}`,
       `${svc.name.toLowerCase()} for ${label.toLowerCase()} in ${area.name}`,
       `${label.toLowerCase()} marketing ${area.name}`,
-      `${label.toLowerCase()} marketing company ${area.name}`,
+      `${label.toLowerCase()} web design company ${area.name}`,
       `${area.name} ${label.toLowerCase()} ${svc.name.toLowerCase()}`,
       `best ${svc.name.toLowerCase()} ${label.toLowerCase()} ${regionLabel}`,
       `${label.toLowerCase()} digital marketing ${area.name}`,

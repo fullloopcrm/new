@@ -34,7 +34,7 @@ export default function Testimonials() {
           className="text-center mb-16"
         >
           <p className="text-teal-400 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            Marketing Company Reviews
+            Web Design Company Reviews
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4 font-heading">
             What NYC &amp; Long Island Businesses{" "}

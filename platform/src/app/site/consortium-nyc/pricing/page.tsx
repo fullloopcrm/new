@@ -170,7 +170,7 @@ export default function PricingPage() {
       </section>
 
       <TipBlurb
-        tip={<>If a marketing company <strong>won&apos;t tell you what things cost upfront</strong>, that&apos;s a red flag. We publish our pricing because we believe you deserve to know <strong>what you&apos;re paying for</strong> before you ever get on a call.</>}
+        tip={<>If a web design company <strong>won&apos;t tell you what things cost upfront</strong>, that&apos;s a red flag. We publish our pricing because we believe you deserve to know <strong>what you&apos;re paying for</strong> before you ever get on a call.</>}
       />
 
       {/* ============================================================ */}

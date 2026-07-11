@@ -1079,7 +1079,7 @@ export const testimonials = [
   {
     name: "Anthony Russo",
     business: "Staten Island, NY",
-    text: "Best marketing company in NYC hands down. They don't just talk about results, they deliver them. Our Google rankings went from invisible to page one.",
+    text: "Best web design company in NYC hands down. They don't just talk about results, they deliver them. Our Google rankings went from invisible to page one.",
     rating: 5,
   },
   {
@@ -1112,7 +1112,7 @@ export const faqs = {
   general: [
     {
       question:
-        "What makes Consortium NYC different from other marketing companies?",
+        "What makes Consortium NYC different from other web design companies?",
       answer:
         "We're a local business marketing agency — built specifically for plumbers, dentists, restaurants, HVAC companies, law firms, and other small businesses in NYC, Long Island, and Westchester. We combine SEO, custom web design, and marketing automation into one integrated system that generates real leads and revenue. Every decision is backed by data, not guesswork.",
     },
@@ -1146,7 +1146,7 @@ export const faqs = {
   homepageAll: [
     // ── general (6) ──
     {
-      question: "What makes Consortium NYC different from other marketing companies?",
+      question: "What makes Consortium NYC different from other web design companies?",
       answer: "We're a local business marketing agency — built specifically for plumbers, dentists, restaurants, HVAC companies, law firms, and other small businesses in NYC, Long Island, and Westchester. We combine SEO, custom web design, and marketing automation into one integrated system that generates real leads and revenue. Every decision is backed by data, not guesswork.",
     },
     {
@@ -1171,7 +1171,7 @@ export const faqs = {
     },
     // ── ExpandedFAQ (18) ──
     {
-      question: "How much does a marketing company in NYC cost?",
+      question: "How much does a web design company in NYC cost?",
       answer: "Our pricing is transparent and built for real small businesses. Custom websites start at $4,600. Monthly SEO is $950/month. Hourly consulting ranges from $100–$250/hr depending on scope. No hidden fees, no surprise invoices. We walk you through exactly what you get during your free strategy session. Every dollar has a reason behind it.",
     },
     {
@@ -1191,7 +1191,7 @@ export const faqs = {
       answer: "We've served 100+ industries over 25 years. Our biggest verticals are home services, law firms, dental practices, restaurants, real estate, HVAC, roofing, and contractors. But if people search for it on Google, we can rank it. Our data-driven approach works across verticals because we build from actual market data, not templates.",
     },
     {
-      question: "What makes Consortium NYC different from other marketing companies?",
+      question: "What makes Consortium NYC different from other web design companies?",
       answer: "You work directly with someone who has 25 years of experience in the exact seat they sit in. No junior account managers, no layers, no runaround. We pick up the phone. We respond same-day. We don't outsource your work overseas. We don't lock you into contracts. And we show you real results from real businesses — not stock photo case studies.",
     },
     {
@@ -1223,7 +1223,7 @@ export const faqs = {
       answer: "That's one of our specialties. Google Maps (the local map pack) is where most home service and local business leads come from. We optimize your Google Business Profile, build local citations across 80+ directories, manage your reviews, and create hyper-local content targeting every neighborhood you serve. The result: your business showing up in the map pack when customers search nearby.",
     },
     {
-      question: "How do I know if my current marketing company is doing a good job?",
+      question: "How do I know if my current web design company is doing a good job?",
       answer: "Ask them three questions: What keywords am I ranking for? How many leads did marketing generate last month? What's my cost per lead? If they can't answer with specific numbers, that's your answer. We offer a free honest audit — we'll tell you exactly where you stand, what's working, what's not, and what your competitors are doing. No obligation, no pitch.",
     },
     {

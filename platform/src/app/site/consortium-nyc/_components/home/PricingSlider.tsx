@@ -77,7 +77,7 @@ const tiers = [
   {
     rate: 250,
     name: "Enterprise+",
-    description: "The full NYC Marketing Company experience — everything we offer, fully custom",
+    description: "The full NYC Web Design Company experience — everything we offer, fully custom",
     services: [
       { label: "Everything in Enterprise", href: null },
       { label: "AI Agents", href: "/artificial-intelligence-marketing-services-offered" },
@@ -107,7 +107,7 @@ export default function PricingSlider() {
           className="text-center mb-14"
         >
           <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            Marketing Company Pricing
+            Web Design Company Pricing
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 font-heading">
             The Most Transparent Marketing Pricing for{" "}
