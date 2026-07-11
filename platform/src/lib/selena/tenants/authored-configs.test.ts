@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { getAuthoredConfig } from './index'
 import { EXTERMINATOR_SLUG, exterminatorConfig } from './the-nyc-exterminator'
 import { NYC_TOW_SLUG, nycTowConfig } from './nyc-tow'
+import { NYC_MOBILE_SALON_SLUG, nycMobileSalonConfig } from './nyc-mobile-salon'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -76,6 +77,38 @@ describe('nyc-tow — roadside/towing dispatch persona', () => {
     expect(playbook).toContain('PRICING — DO NOT GUESS')
     expect(playbook).toContain('quote-first')
     expect(playbook).toContain('(212) 470-4068')
+  })
+})
+
+describe('nyc-mobile-salon — mobile beauty booking-concierge persona', () => {
+  it('registry resolves the salon slug to the authored config', () => {
+    expect(getAuthoredConfig(NYC_MOBILE_SALON_SLUG)).toBe(nycMobileSalonConfig)
+  })
+
+  it('resolves to its OWN warm/grateful persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(NYC_MOBILE_SALON_SLUG)!
+    expect(cfg.identity.business_name).toBe('The NYC Mobile Salon')
+    expect(cfg.voice.persona).toContain('warm, welcoming, grateful')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL flat per-service rates (carried via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(NYC_MOBILE_SALON_SLUG)!
+    expect(cfg.pricing.model).toBe('flat')
+    expect(cfg.pricing.copy).toContain('Haircut — $50')
+    expect(cfg.pricing.copy).toContain('Color — $150')
+    expect(cfg.pricing.copy).toContain('Bridal (hair + makeup) — $200')
+    expect(cfg.pricing.copy).toContain('10% off') // recurring discount
+    expect(cfg.pricing.copy).not.toContain('/hr') // flat, not hourly
+  })
+
+  it('renders an appointment BOOKING FLOW with real prices and phone', () => {
+    const cfg = getAuthoredConfig(NYC_MOBILE_SALON_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('BOOKING FLOW')
+    expect(playbook).toContain('PRICING — DO NOT GUESS')
+    expect(playbook).toContain('$150')
+    expect(playbook).toContain('(212) 202-9075')
   })
 })
 

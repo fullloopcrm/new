@@ -9,10 +9,12 @@
 import type { AgentConfig } from '../agent-config'
 import { EXTERMINATOR_SLUG, exterminatorConfig } from './the-nyc-exterminator'
 import { NYC_TOW_SLUG, nycTowConfig } from './nyc-tow'
+import { NYC_MOBILE_SALON_SLUG, nycMobileSalonConfig } from './nyc-mobile-salon'
 
 const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [EXTERMINATOR_SLUG]: exterminatorConfig,
   [NYC_TOW_SLUG]: nycTowConfig,
+  [NYC_MOBILE_SALON_SLUG]: nycMobileSalonConfig,
 }
 
 /**
