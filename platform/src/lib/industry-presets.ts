@@ -130,6 +130,29 @@ export function mapIndustry(raw: string | null | undefined): IndustryKey {
   return 'general'
 }
 
+// --- Archetype / funnel classification -------------------------------------
+//
+// Project/lead verticals: jobs that run days → a year and must be qualified and
+// quoted, NEVER hourly-slot-booked. These default to the quote-first funnel
+// ('pipeline' in funnel_mode terms; agent-config-loader maps that to the
+// quote_first booking model). Everything else books directly ('booking').
+// Operators can still override per-tenant in settings. Kept in sync with the
+// "project (lead) verticals" block of the IndustryKey union above.
+export const PROJECT_LEAD_INDUSTRIES: ReadonlySet<IndustryKey> = new Set<IndustryKey>([
+  'landscaping', 'remodeling', 'roofing', 'siding', 'painting', 'flooring',
+  'concrete', 'deck', 'fencing', 'demolition', 'drywall', 'epoxy',
+  'foundation', 'insulation', 'moving', 'paving', 'windows_doors', 'stucco',
+  'solar', 'smart_home', 'accessibility', 'restoration', 'interior_design',
+])
+
+/**
+ * Default core funnel for a freshly-provisioned tenant, by trade archetype.
+ * Project/lead trades quote-first ('pipeline'); every other trade books directly.
+ */
+export function defaultFunnelMode(industry: IndustryKey): 'booking' | 'pipeline' {
+  return PROJECT_LEAD_INDUSTRIES.has(industry) ? 'pipeline' : 'booking'
+}
+
 const svc = (name: string, description: string, hours: number, rate: number, i: number): DefaultService =>
   ({ name, description, default_duration_hours: hours, default_hourly_rate: rate, sort_order: i })
 

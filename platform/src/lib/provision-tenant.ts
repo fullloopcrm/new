@@ -26,6 +26,7 @@ import {
   type IndustryKey,
   type DefaultService,
   mapIndustry,
+  defaultFunnelMode,
   SERVICE_PRESETS,
   CHECKLIST_BY_INDUSTRY,
 } from './industry-presets'
@@ -39,6 +40,9 @@ const DEFAULT_SELENA_CONFIG = (industry: IndustryKey, tenantName: string, servic
   tone: 'warm_friendly',
   emoji_usage: 'one_per_message',
   language: 'en',
+  // Project/lead trades qualify+quote (multi-day → year-long jobs); every other
+  // trade books directly. Operators can flip this per-tenant in settings.
+  funnel_mode: defaultFunnelMode(industry),
   pricing_rows: services.map(s => ({ label: s.name, price: `$${s.default_hourly_rate}/hr` })),
   time_estimates: services.map(s => ({ label: s.name, hours: s.default_duration_hours })),
   service_areas: [] as string[],

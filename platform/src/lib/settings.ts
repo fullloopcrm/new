@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase'
 import { normalizePrefs } from './comms-prefs'
+import { mapIndustry, defaultFunnelMode } from './industry-presets'
 
 // --- Types ---
 
@@ -213,10 +214,14 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     min_days_ahead: Number(tenant?.min_days_ahead ?? 1),
     allow_same_day: Boolean(tenant?.allow_same_day),
     open_365: Boolean(selenaConfig.open_365),
+    // Explicit selena_config choice wins; otherwise default from the trade
+    // archetype — project/lead verticals quote-first ('pipeline'), everything
+    // else books. This repairs tenants provisioned before funnel_mode was seeded.
     funnel_mode:
       selenaConfig.funnel_mode === 'pipeline' ? 'pipeline'
       : selenaConfig.funnel_mode === 'lead_only' ? 'lead_only'
-      : 'booking',
+      : selenaConfig.funnel_mode === 'booking' ? 'booking'
+      : defaultFunnelMode(mapIndustry(tenant?.industry as string | null | undefined)),
     default_booking_status: (selenaConfig.default_booking_status as string) || 'scheduled',
     require_team_member: Boolean(selenaConfig.require_team_member),
     auto_confirm_bookings: Boolean(selenaConfig.auto_confirm_bookings),
