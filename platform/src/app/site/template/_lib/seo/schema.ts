@@ -64,7 +64,24 @@ export function buildBusiness(config: SiteConfig): Biz {
 
 // ============ REUSABLE REFERENCES (per-biz) ============
 
+// MED-4 fail-safe: an unconfigured template tenant carries geo 0,0 (the Gulf of
+// Guinea — a false location signal) and the placeholder locality 'Your City'.
+// Emitting those as real NAP/geo in JSON-LD is worse than omitting them: Google
+// reads a fabricated address/coordinate. These predicates gate emission so an
+// unset tenant ships NO address/geo (key dropped by JSON.stringify) rather than
+// a fake one. Real tenants (config-derived) and neighborhood/area overrides
+// carry true coordinates and pass.
+function hasRealGeo(b: Biz): boolean {
+  return Number.isFinite(b.lat) && Number.isFinite(b.lng) && (b.lat !== 0 || b.lng !== 0)
+}
+
+function hasRealPlace(b: Biz): boolean {
+  const p = (b.placename || '').trim()
+  return p !== '' && p.toLowerCase() !== 'your city'
+}
+
 function addressObj(b: Biz) {
+  if (!hasRealPlace(b)) return undefined
   return {
     '@type': 'PostalAddress' as const,
     addressLocality: b.placename,
@@ -74,6 +91,7 @@ function addressObj(b: Biz) {
 }
 
 function geoObj(b: Biz) {
+  if (!hasRealGeo(b)) return undefined
   return { '@type': 'GeoCoordinates' as const, latitude: b.lat, longitude: b.lng }
 }
 
@@ -114,6 +132,9 @@ function areaServedObj(b: Biz) {
 }
 
 function serviceAreaObj(b: Biz) {
+  // Without a real midpoint a GeoCircle centered on 0,0 claims an 80km service
+  // radius in the ocean off West Africa. Omit when geo is unset.
+  if (!hasRealGeo(b)) return undefined
   return {
     '@type': 'GeoCircle' as const,
     geoMidpoint: { '@type': 'GeoCoordinates' as const, latitude: b.lat, longitude: b.lng },

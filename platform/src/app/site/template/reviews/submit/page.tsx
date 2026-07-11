@@ -5,19 +5,15 @@ import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import ReviewForm from './ReviewForm'
 
-export async function generateMetadata(): Promise<Metadata> {
-  const config = await getSiteConfig()
-  const brand = config.identity.siteName ?? config.identity.name
-  return {
-    title: `Leave a Review | ${brand}`,
-    description: `Share your experience with ${brand}. Your honest feedback helps other New Yorkers find trusted, reliable cleaning services.`,
-    alternates: { canonical: '/reviews/submit' },
-    openGraph: {
-      title: `Leave a Review | ${brand}`,
-      description: `Share your experience with ${brand} cleaning service.`,
-      url: '/reviews/submit',
-    },
-  }
+export const metadata: Metadata = {
+  title: 'Leave a Review | Your Business',
+  description: 'Share your experience with Your Business. Your honest feedback helps other New Yorkers find trusted, reliable cleaning services.',
+  alternates: { canonical: '/reviews/submit' },
+  openGraph: {
+    title: 'Leave a Review | Your Business',
+    description: 'Share your experience with Your Business cleaning service.',
+    url: '/reviews/submit',
+  },
 }
 
 export default async function ReviewSubmitPage() {

@@ -250,22 +250,6 @@ export default function MarketingConsultingPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — Marketing Consulting Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "Michael T." },
-    reviewBody:
-      "We were spending $12,000 a month on marketing across five different channels and had no idea what was working. The NYC SEO audited everything, cut two channels that were generating zero leads, doubled down on SEO and Google Business Profile, and within 6 months our cost per lead dropped by 60% while lead volume increased by 40%. The strategic clarity alone was worth ten times the consulting fee.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -280,7 +264,6 @@ export default function MarketingConsultingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO

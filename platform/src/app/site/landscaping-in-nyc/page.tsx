@@ -32,29 +32,6 @@ const reviewSchema = {
     { "@type": "AdministrativeArea", name: "Long Island" },
     { "@type": "AdministrativeArea", name: "Westchester County" },
   ],
-  review: [
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Rachel M." },
-      datePublished: "2026-02-18",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-      reviewBody: "They transformed our brownstone backyard in Park Slope into an absolute oasis. Beautiful bluestone patio, native plantings, and a drip irrigation system that keeps everything green with zero effort on our part. Best investment we've made in this house.",
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "David K." },
-      datePublished: "2026-01-25",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-      reviewBody: "Our condo building hired them for a complete rooftop garden installation in Midtown. They handled the structural assessment, DOB permits, waterproofing coordination — everything. The residents are thrilled and it's already boosted our property values.",
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Angela T." },
-      datePublished: "2026-03-05",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-      reviewBody: "We use them for year-round maintenance on our commercial property in Astoria. Spring cleanups, summer flower rotations, fall leaf removal, winter snow clearing. Completely reliable and the property always looks immaculate. Our tenants love it.",
-    },
-  ],
 };
 
 const howToSchema = {

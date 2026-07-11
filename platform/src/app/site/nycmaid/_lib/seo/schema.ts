@@ -14,9 +14,6 @@ const BUSINESS = {
   logo: 'https://www.thenycmaid.com/icon-512.png',
   image: 'https://www.thenycmaid.com/icon-512.png',
   priceRange: '$$',
-  ratingValue: '4.9',
-  ratingCount: '43',
-  reviewCount: '43',
   foundingDate: '2018',
   currenciesAccepted: 'USD',
   paymentAccepted: 'Cash, Credit Card, Debit Card, Apple Pay, Cash App',
@@ -113,15 +110,6 @@ const logoObj = {
   width: 512,
   height: 512,
   caption: 'The NYC Maid Logo',
-}
-
-const aggregateRatingObj = {
-  '@type': 'AggregateRating' as const,
-  ratingValue: BUSINESS.ratingValue,
-  reviewCount: BUSINESS.reviewCount,
-  ratingCount: BUSINESS.ratingCount,
-  bestRating: '5',
-  worstRating: '1',
 }
 
 const openingHoursObj = [
@@ -322,7 +310,7 @@ export function webPageSchema(opts: {
 // LOCAL BUSINESS (full)
 // ================================================================
 
-export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area, opts?: { includeRating?: boolean }) {
+export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
   const areaServed = neighborhood
     ? [
         { '@type': 'Place' as const, name: `${neighborhood.name}${area ? `, ${area.name}` : ''}` },
@@ -359,7 +347,6 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area, op
     hasMap: 'https://maps.google.com/?q=The+NYC+Maid+150+W+47th+St+New+York+NY+10036',
     areaServed,
     serviceArea: serviceAreaObj,
-    ...(opts?.includeRating ? { aggregateRating: aggregateRatingObj } : {}),
     openingHoursSpecification: openingHoursObj,
     contactPoint: contactPoints,
     hasOfferCatalog: {
@@ -592,8 +579,10 @@ export function reviewSchemas(reviews?: typeof CLIENT_REVIEWS) {
 }
 
 // ================================================================
-// REVIEWS PAGE — LocalBusiness with nested reviews + aggregateRating
-// Gives Google the clearest possible signal to show star snippets
+// REVIEWS PAGE — LocalBusiness with nested individual reviews only.
+// Deliberately NO aggregateRating: a self-emitted aggregate star rating is a
+// fabricated trust signal (belongs on Google Business Profile, not our JSON-LD).
+// Real per-review Rating objects from CLIENT_REVIEWS are legitimate.
 // ================================================================
 
 export function reviewsPageSchema() {
@@ -611,14 +600,6 @@ export function reviewsPageSchema() {
       addressRegion: BUSINESS.address.state,
       postalCode: BUSINESS.address.zip,
       addressCountry: BUSINESS.address.country,
-    },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: BUSINESS.ratingValue,
-      reviewCount: BUSINESS.reviewCount,
-      ratingCount: BUSINESS.ratingCount,
-      bestRating: '5',
-      worstRating: '1',
     },
     review: CLIENT_REVIEWS.filter(r => r.text).map(review => ({
       '@type': 'Review',
@@ -811,7 +792,6 @@ export function professionalServiceSchema(service: Service, neighborhood?: Neigh
     address: addressObj,
     geo: neighborhood ? { '@type': 'GeoCoordinates', latitude: neighborhood.lat, longitude: neighborhood.lng } : geoObj,
     areaServed: { '@type': 'Place', name: location },
-    aggregateRating: aggregateRatingObj,
     openingHoursSpecification: openingHoursObj,
     paymentAccepted: BUSINESS.paymentAccepted,
     image: BUSINESS.image,
@@ -863,7 +843,7 @@ export function homepageSchemas() {
       speakable: ['h1', '.hero-description'],
       breadcrumb: [{ name: 'Home', url }],
     }),
-    localBusinessSchema(undefined, undefined, { includeRating: true }),
+    localBusinessSchema(undefined, undefined),
     pricingOffersSchema(),
     serviceItemListSchema(),
     areaItemListSchema(),

@@ -48,18 +48,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!neighborhood || !service) return {}
 
   const area = getArea(neighborhood.area)!
-  const config = await getSiteConfig()
-  const base = config.identity.url.replace(/\/+$/, '')
-  const brand = config.identity.siteName ?? config.identity.name
-  const url = `${base}/${slug}/${serviceSlug}`
-  const title = `${service.name} in ${neighborhood.name}, ${area.name} | ${brand}`
-  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. ${config.contact.phone}`
+  const url = `/${slug}/${serviceSlug}`
+  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $59/hr | Your Business`
+  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. (555) 555-5555`
 
   return {
     title: { absolute: title },
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, type: 'website', siteName: brand, locale: 'en_US' },
+    openGraph: { title, description, url, type: 'website', siteName: 'Your Business', locale: 'en_US' },
     twitter: { card: 'summary_large_image', title, description },
     other: { 'geo.region': `US-${area.state}`, 'geo.placename': neighborhood.name, 'geo.position': `${neighborhood.lat};${neighborhood.lng}`, 'ICBM': `${neighborhood.lat}, ${neighborhood.lng}` },
   }

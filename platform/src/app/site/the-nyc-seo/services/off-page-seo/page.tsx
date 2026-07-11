@@ -252,22 +252,6 @@ export default function OffPageSEOPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — Off-Page SEO & Link Building Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "Michael T." },
-    reviewBody:
-      "Our domain authority went from 12 to 38 in eight months. The NYC SEO earned us backlinks from publications we never thought possible — local news sites, industry trade magazines, even a mention in a NY Post small business feature. Our organic traffic tripled and the leads coming in are significantly higher quality than anything we got from paid ads. Best investment we have made in our business.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -282,7 +266,6 @@ export default function OffPageSEOPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO

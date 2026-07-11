@@ -248,22 +248,6 @@ export default function BrandingPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — Branding Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "Rachel M." },
-    reviewBody:
-      "We hired The NYC SEO to rebrand our plumbing company and the difference was immediate. The old logo looked like clip art. The new brand identity made us look like we had been around for decades — which we have. Within two months of launching the new brand across our website and Google Business Profile, our call volume increased by 40%. Customers told us they called because we looked more professional than the other options. That is exactly what branding is supposed to do.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -278,7 +262,6 @@ export default function BrandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO

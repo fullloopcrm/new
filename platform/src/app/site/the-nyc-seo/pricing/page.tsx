@@ -265,26 +265,6 @@ const faqPageSchema = {
   })),
 };
 
-const reviewSchema = {
-  "@context": "https://schema.org",
-  "@type": "Review",
-  itemReviewed: {
-    "@type": "ProfessionalService",
-    name: "The NYC SEO",
-    url: SITE_URL,
-  },
-  author: {
-    "@type": "Person",
-    name: "David R.",
-  },
-  reviewRating: {
-    "@type": "Rating",
-    ratingValue: "5",
-    bestRating: "5",
-  },
-  reviewBody:
-    "Transparent pricing, zero fluff, and they actually explain what they are doing and why. We went from invisible on Google to generating 200+ leads per month within 8 months. The ROI is undeniable.",
-};
 
 const breadcrumbItems = [{ name: "Pricing", url: "/pricing" }];
 
@@ -300,7 +280,6 @@ export default function PricingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1 — HERO

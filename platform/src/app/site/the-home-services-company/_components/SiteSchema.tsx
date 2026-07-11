@@ -1,4 +1,4 @@
-import { PHONE, EMAIL, CITY_COUNT, STATE_COUNT, HOURS, RATING, REVIEW_COUNT } from "@/app/site/the-home-services-company/_data/content";
+import { PHONE, EMAIL, CITY_COUNT, STATE_COUNT, HOURS } from "@/app/site/the-home-services-company/_data/content";
 import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
 
 const SITE_URL = "https://www.thehomeservicescompany.com";

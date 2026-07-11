@@ -257,22 +257,6 @@ export default function OnPageSEOServicesPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — On-Page SEO Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "Sarah K." },
-    reviewBody:
-      "The NYC SEO completely rebuilt our on-page SEO from the ground up. They rewrote every title tag, restructured our heading hierarchy, optimized all our content for our target keywords, and built an internal linking system that connected all our service and location pages. Within 3 months our organic traffic doubled and we started ranking for keywords we had never appeared for before. Their attention to detail is unmatched.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -287,7 +271,6 @@ export default function OnPageSEOServicesPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO

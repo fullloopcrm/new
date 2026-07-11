@@ -267,22 +267,6 @@ export default function WebDesignPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — Web Design & Development",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "James K." },
-    reviewBody:
-      "We came from a WordPress site that took 4 seconds to load and had terrible mobile experience. The NYC SEO rebuilt us on Next.js and the difference was immediate — sub-1-second loads, perfect Core Web Vitals, and our organic traffic doubled within 3 months. The programmatic pages they built for every neighborhood we serve are generating leads we never would have gotten from our old site. Worth every penny.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -297,7 +281,6 @@ export default function WebDesignPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO

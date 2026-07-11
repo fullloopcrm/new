@@ -7,7 +7,7 @@
 import type { ReactElement } from "react";
 import { createElement, Fragment } from "react";
 
-import { PHONE, EMAIL, RATING, REVIEW_COUNT, FAQ } from "@/app/site/nycroadsideemergencyassistance/_data/content";
+import { PHONE, EMAIL, FAQ } from "@/app/site/nycroadsideemergencyassistance/_data/content";
 import { PRICING } from "@/app/site/nycroadsideemergencyassistance/_data/content";
 import { OFFICES, type Office } from "@/app/site/nycroadsideemergencyassistance/_data/offices";
 import { SERVICES, SERVICE_CATEGORIES, type Service } from "@/app/site/nycroadsideemergencyassistance/_data/services";

@@ -1001,6 +1001,6 @@ export function commonServiceFAQs(service: Service): { question: string; answer:
     { question: 'How do you handle pets during cleaning?', answer: 'We\'re pet-friendly. If you have pets, let us know when booking so we can match you with a pet-comfortable cleaner. We ask that aggressive animals be secured in a separate room during the cleaning for everyone\'s safety.' },
     { question: 'Do you offer gift certificates?', answer: 'Yes — cleaning makes a great gift. Text us at (555) 555-5555 to purchase a gift certificate in any amount. We\'ll send a digital certificate that the recipient can redeem for any service.' },
     { question: 'What happens if something is damaged during cleaning?', answer: 'We carry general liability insurance specifically for this reason. If a cleaner accidentally damages something in your home, report it within 24 hours and we\'ll work with you to resolve it through our insurance coverage.' },
-    { question: 'Do you have a referral program?', answer: 'Yes. Refer a friend and earn money every time they book a cleaning — not just the first time. Visit example.com/referral or text us for details. It\'s one of the most generous referral programs in NYC cleaning.' },
+    { question: 'Do you have a referral program?', answer: 'Yes. Refer a friend and earn money every time they book a cleaning — not just the first time. Visit our referral page or text us for details. It\'s one of the most generous referral programs in NYC cleaning.' },
   ]
 }
