@@ -15,6 +15,8 @@ import { autoAttributeBooking } from '@/lib/attribution'
 import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-properties'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getSettings } from '@/lib/settings'
+import { labelToHour } from '@/lib/time-slots'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
@@ -148,11 +150,8 @@ export async function POST(request: Request) {
     let startTime = body.start_time as string | undefined
     let endTime = body.end_time as string | undefined
     if (body.date && body.time && !startTime) {
-      const timeMap: Record<string, number> = {
-        '9:00 AM': 9, '10:00 AM': 10, '11:00 AM': 11, '12:00 PM': 12,
-        '1:00 PM': 13, '2:00 PM': 14, '3:00 PM': 15, '4:00 PM': 16,
-      }
-      const hour = timeMap[body.time as string] || 9
+      // Parse any slot label (incl. evening/24-7 slots), not just a fixed 9am-4pm map.
+      const hour = labelToHour(body.time as string) ?? 9
       const duration = Number(body.estimated_hours) || 2
       startTime = `${body.date}T${String(hour).padStart(2, '0')}:00:00`
       endTime = `${body.date}T${String(hour + duration).padStart(2, '0')}:00:00`
@@ -163,11 +162,15 @@ export async function POST(request: Request) {
     const tokenExpiresAt = new Date(startTime)
     tokenExpiresAt.setHours(tokenExpiresAt.getHours() + 24)
 
-    // Holiday gate
-    const { isHoliday } = await import('@/lib/holidays')
-    const holidayName = isHoliday(startTime.split('T')[0])
-    if (holidayName) {
-      return NextResponse.json({ error: `We're closed for ${holidayName}. Please choose another date.` }, { status: 400 })
+    // Holiday gate — skipped for open_365 / 24-7 tenants (emergency trades book
+    // on holidays). Mirrors checkAvailability, which already exempts open_365.
+    const { open_365 } = await getSettings(tenant.id)
+    if (!open_365) {
+      const { isHoliday } = await import('@/lib/holidays')
+      const holidayName = isHoliday(startTime.split('T')[0])
+      if (holidayName) {
+        return NextResponse.json({ error: `We're closed for ${holidayName}. Please choose another date.` }, { status: 400 })
+      }
     }
 
     // Same-date duplicate gate
