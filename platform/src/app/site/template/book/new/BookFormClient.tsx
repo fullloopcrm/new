@@ -10,7 +10,7 @@ import type { ServiceOption } from '../../_config/types'
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
     const body = JSON.stringify({
-      domain: typeof window !== 'undefined' ? window.location.hostname : 'example.com',
+      domain: typeof window !== 'undefined' ? window.location.hostname : '',
       page: '/book/new',
       action,
       session_id: sessionId,
@@ -489,7 +489,7 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
             <input
               type="email"
               required
-              placeholder="you@example.com"
+              placeholder="Enter your email"
               value={form.email}
               onChange={(e) => { update('email', e.target.value); setEmailErr('') }}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"

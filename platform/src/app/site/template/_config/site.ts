@@ -23,7 +23,10 @@ export const siteConfig: SiteConfig = {
   contact: {
     phone: '(555) 555-5555',
     phoneDigits: '5555555555',
-    email: 'hello@example.com',
+    // Fail-safe default: empty, never a fabricated placeholder domain. Real
+    // tenants override via the loader; renderers guard '' (hide the email line
+    // rather than ship a fake placeholder address as a live contact).
+    email: '',
     supportPhone: '(555) 555-5556',
     supportPhoneDigits: '5555555556',
   },

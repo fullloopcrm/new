@@ -53,7 +53,10 @@ const testimonials = [
   { text: 'After trying three different cleaning companies in NYC, Your Business is hands down the most affordable and thorough.', name: 'Jenna M', location: 'New York' },
 ]
 
-const homepageFAQs = [
+// Config-derived so the contact answer ships the tenant's real phone/email,
+// never a placeholder domain. Email line omitted when config email is unset.
+function buildHomepageFAQs(contact: { phone: string; email: string }) {
+  return [
   // Pricing & Booking
   { question: 'How much does house cleaning cost in NYC?', answer: 'Our house cleaning services start at $59/hour when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), or $69/hour when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day and emergency service is $89/hour. Final cost depends on home size and service type.' },
   { question: 'Do you charge by the hour or a flat rate?', answer: 'We charge by the hour. This keeps pricing fair — you only pay for the time your space actually needs. No inflated flat-rate quotes.' },
@@ -122,8 +125,9 @@ const homepageFAQs = [
 
   // Referral & Extras
   { question: 'Do you have a referral program?', answer: 'Yes! Refer a friend and earn 10% commission on every cleaning they book — not just the first one. It is recurring income for as long as they stay a client. Sign up on our Referral Program page.' },
-  { question: 'How do I contact you?', answer: 'Text (555) 555-5555, or email hi@example.com. Texting is the fastest way to reach us.' },
-]
+  { question: 'How do I contact you?', answer: `Text ${contact.phone}${contact.email ? `, or email ${contact.email}` : ''}. Texting is the fastest way to reach us.` },
+  ]
+}
 
 export default async function HomePage() {
   const siteConfig = await getSiteConfig()
@@ -144,6 +148,7 @@ export default async function HomePage() {
     return <GenericHome config={siteConfig} />
   }
 
+  const homepageFAQs = buildHomepageFAQs(siteConfig.contact)
   const schemas = [...homepageSchemas(buildBusiness(siteConfig)), faqSchema(homepageFAQs)]
   const homepagePhoto = pickLifestylePhoto('homepage')
 
