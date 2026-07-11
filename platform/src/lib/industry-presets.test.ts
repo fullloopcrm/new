@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   defaultFunnelMode,
   PROJECT_LEAD_INDUSTRIES,
+  pricingShapeFor,
+  priceLabel,
   mapIndustry,
   type IndustryKey,
 } from './industry-presets'
@@ -39,5 +41,31 @@ describe('defaultFunnelMode — project/lead archetype (F1)', () => {
     expect(defaultFunnelMode(mapIndustry('kitchen remodel'))).toBe('pipeline')
     // A cleaning tenant stays on booking.
     expect(defaultFunnelMode(mapIndustry('house cleaning'))).toBe('booking')
+  })
+})
+
+// F3 — flat/per-unit trades must be priced flat, not $/hr, so quote/checkout/
+// invoice math bills the fixed price instead of elapsed-hours × rate.
+describe('pricingShapeFor — flat/per-unit trades (F3)', () => {
+  it('models the seven flat/per-unit trades as flat with a real unit', () => {
+    expect(pricingShapeFor('dumpster')).toEqual({ pricing_model: 'flat', per_unit: 'job' })
+    expect(pricingShapeFor('junk_removal')).toEqual({ pricing_model: 'flat', per_unit: 'job' })
+    expect(pricingShapeFor('laundry')).toEqual({ pricing_model: 'flat', per_unit: 'job' })
+    expect(pricingShapeFor('bin_cleaning')).toEqual({ pricing_model: 'flat', per_unit: 'visit' })
+    expect(pricingShapeFor('pet_waste')).toEqual({ pricing_model: 'flat', per_unit: 'visit' })
+    expect(pricingShapeFor('snow_removal')).toEqual({ pricing_model: 'flat', per_unit: 'visit' })
+    expect(pricingShapeFor('fitness')).toEqual({ pricing_model: 'flat', per_unit: 'visit' })
+  })
+
+  it('leaves genuinely hourly trades hourly', () => {
+    for (const t of ['cleaning', 'plumbing', 'handyman', 'hvac', 'general'] as IndustryKey[]) {
+      expect(pricingShapeFor(t)).toEqual({ pricing_model: 'hourly', per_unit: 'hour' })
+    }
+  })
+
+  it('priceLabel reads by the trade unit', () => {
+    expect(priceLabel(59, pricingShapeFor('cleaning'))).toBe('$59/hr')
+    expect(priceLabel(350, pricingShapeFor('dumpster'))).toBe('$350 flat')
+    expect(priceLabel(20, pricingShapeFor('pet_waste'))).toBe('$20/visit')
   })
 })

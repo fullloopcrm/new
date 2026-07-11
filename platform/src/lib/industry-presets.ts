@@ -153,6 +153,46 @@ export function defaultFunnelMode(industry: IndustryKey): 'booking' | 'pipeline'
   return PROJECT_LEAD_INDUSTRIES.has(industry) ? 'pipeline' : 'booking'
 }
 
+// --- Pricing-unit classification -------------------------------------------
+//
+// Flat / per-unit trades: their preset prices are per-rental / per-visit / per-
+// order flat amounts, NOT $/hr. Provisioning must seed these with
+// pricing_model='flat' + the right per_unit so quote, checkout, and invoice math
+// bill the FIXED price instead of elapsed-hours × rate. Left hourly, a flat
+// "Half Truckload" ($150) would bill 2h × rate at check-out.
+export const FLAT_PRICING_UNIT: Partial<Record<IndustryKey, 'job' | 'visit'>> = {
+  dumpster: 'job',       // flat per rental
+  junk_removal: 'job',   // flat per load
+  bin_cleaning: 'visit', // per bin / per visit
+  pet_waste: 'visit',    // per visit
+  snow_removal: 'visit', // per plow / storm
+  laundry: 'job',        // flat per order
+  fitness: 'visit',      // per session
+}
+
+export interface PricingShape {
+  pricing_model: 'hourly' | 'flat'
+  per_unit: string // one of the service_types per_unit enum values (hour/job/visit/…)
+}
+
+/**
+ * How a trade's seeded services are priced. Hourly by default; flat/per-unit for
+ * the trades in FLAT_PRICING_UNIT.
+ */
+export function pricingShapeFor(industry: IndustryKey): PricingShape {
+  const unit = FLAT_PRICING_UNIT[industry]
+  return unit ? { pricing_model: 'flat', per_unit: unit } : { pricing_model: 'hourly', per_unit: 'hour' }
+}
+
+const PRICE_UNIT_SUFFIX: Record<string, string> = {
+  hour: '/hr', job: ' flat', visit: '/visit', unit: ' each', day: '/day',
+}
+
+/** Display label for the agent pricing_rows table: "$59/hr", "$350 flat", "$20/visit". */
+export function priceLabel(rate: number, shape: PricingShape): string {
+  return `$${rate}${PRICE_UNIT_SUFFIX[shape.per_unit] ?? '/hr'}`
+}
+
 const svc = (name: string, description: string, hours: number, rate: number, i: number): DefaultService =>
   ({ name, description, default_duration_hours: hours, default_hourly_rate: rate, sort_order: i })
 
