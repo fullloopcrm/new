@@ -579,8 +579,10 @@ export function reviewSchemas(reviews?: typeof CLIENT_REVIEWS) {
 }
 
 // ================================================================
-// REVIEWS PAGE — LocalBusiness with nested reviews + aggregateRating
-// Gives Google the clearest possible signal to show star snippets
+// REVIEWS PAGE — LocalBusiness with nested individual reviews only.
+// Deliberately NO aggregateRating: a self-emitted aggregate star rating is a
+// fabricated trust signal (belongs on Google Business Profile, not our JSON-LD).
+// Real per-review Rating objects from CLIENT_REVIEWS are legitimate.
 // ================================================================
 
 export function reviewsPageSchema() {
