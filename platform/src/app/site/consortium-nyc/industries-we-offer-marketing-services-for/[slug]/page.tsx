@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!ind) return {};
   const canonical = `https://www.consortiumnyc.com/industries-we-offer-marketing-services-for/${ind.slug}`;
   return {
-    title: `${ind.name} | SEO, Web Design & Digital Marketing`,
+    title: `${ind.name} | Web Design & Website Design | Consortium NYC`,
     description: `${ind.desc} Custom SEO, web design, branding, and AI automation for ${ind.badge.toLowerCase()} businesses in NYC, Long Island, and Westchester. SEO from $950/mo. Websites from $4,600. No contracts. Call ${PHONE}.`,
     alternates: { canonical },
     keywords: [

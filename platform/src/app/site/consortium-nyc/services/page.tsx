@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-nyc/_lib/schema";
 import ServicesPage from "./ServicesClient";
 
-const title = "NYC Marketing Services | SEO, Web Design, Branding & More";
+const title = "NYC Web Design & Website Design Services | Consortium NYC";
 const description =
   "Full-service marketing for NYC businesses. SEO from $950/mo, custom websites from $4,600, branding, AI automation, and Google Business Profile optimization. No contracts. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/services";

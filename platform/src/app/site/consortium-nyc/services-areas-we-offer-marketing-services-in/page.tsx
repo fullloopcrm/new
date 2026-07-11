@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-nyc/_lib/schema";
 import ServiceAreasClient from "./ServiceAreasClient";
 
-const title = "Service Areas | NYC, Long Island, Westchester & NJ Marketing Company | Consortium NYC";
+const title = "Service Areas | NYC, Long Island & Westchester Web Design | Consortium NYC";
 const description =
   "Marketing services across 80+ neighborhoods in NYC, Long Island, Westchester, and New Jersey. SEO, web design, branding, AI automation, and more for local businesses in the tri-state area. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in";

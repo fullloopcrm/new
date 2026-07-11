@@ -38,7 +38,7 @@ export async function generateMetadata({
   const canonical = `https://www.consortiumnyc.com/industries-we-offer-marketing-services-for/${ind.slug}/${svc.slug}/${area.slug}`;
 
   return {
-    title: `${h1} | ${regionLabel} Marketing Company`,
+    title: `${h1} | ${regionLabel} Web Design`,
     description: `${svc.name} for ${label.toLowerCase()} businesses in ${area.name}${area.region !== area.name ? `, ${area.region}` : ""}. Local SEO from $950/mo, custom websites from $4,600. Data-driven ${svc.name.toLowerCase()} strategies for ${label.toLowerCase()} companies. No contracts. Call ${PHONE}.`,
     alternates: { canonical },
     keywords: [

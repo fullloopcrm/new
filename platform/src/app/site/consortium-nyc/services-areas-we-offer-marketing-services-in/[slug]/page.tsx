@@ -24,12 +24,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const regionLabel = area.region === area.name ? area.name : area.region;
 
   return {
-    title: `${area.name} Marketing Company | SEO, Web Design & Branding | Consortium NYC`,
-    description: `Marketing company serving ${area.name}${area.region !== area.name ? `, ${area.region}` : ""}. Local SEO starting at $950/month, custom websites from $4,600, branding, AI automation, and Google Business Profile optimization for ${area.name} businesses. Call/text (212) 202-9220.`,
+    title: `${area.name} Web Design | Website Design & SEO | Consortium NYC`,
+    description: `Web design & website design for ${area.name}${area.region !== area.name ? `, ${area.region}` : ""} businesses. Custom, SEO-ready websites from $4,600, local SEO from $950/month, branding, and Google Business Profile optimization. Now partnered with The NYC Marketing Co. Call/text (212) 202-9220.`,
     alternates: { canonical: `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.slug}` },
     openGraph: {
-      title: `${area.name} Marketing Company | Consortium NYC`,
-      description: `Local SEO, web design, and branding for ${area.name} businesses. $950/month SEO. $4,600 websites. Call/text (212) 202-9220.`,
+      title: `${area.name} Web Design | Consortium NYC`,
+      description: `Custom web design & website design for ${area.name} businesses. $4,600 websites, $950/month SEO. Call/text (212) 202-9220.`,
       url: `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.slug}`,
     },
   };
@@ -65,7 +65,7 @@ export default async function AreaPage({ params }: { params: Promise<{ slug: str
   return (
     <>
       <JsonLd data={localBusinessSchema(area.name, area.type)} />
-      <JsonLd data={webPageSchema(`${area.name} Marketing Company | Consortium NYC`, `Marketing company serving ${area.name}. Local SEO, web design, branding, and AI automation.`, pageUrl, breadcrumbs)} />
+      <JsonLd data={webPageSchema(`${area.name} Web Design | Consortium NYC`, `Web design & website design serving ${area.name}. Custom SEO-ready websites, local SEO, and branding.`, pageUrl, breadcrumbs)} />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd data={faqSchema(areaFaqs)} />
       {services.slice(0, 6).map((s) => (

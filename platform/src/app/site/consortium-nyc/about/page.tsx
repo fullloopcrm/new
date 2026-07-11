@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-nyc/_lib/schema";
 import AboutPage from "./AboutClient";
 
-const title = "About Consortium NYC | 25+ Years of NYC Marketing";
+const title = "About Consortium NYC | NYC Web Design & Website Design";
 const description =
   "NYC marketing company with 25+ years experience and over $15.2M in attributable revenue for local businesses. No junior account managers, no outsourcing — senior strategists only. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/about";
