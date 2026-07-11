@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const regionLabel = area.region === area.name ? area.name : area.region;
 
   return {
-    title: `${area.name} Web Design | Website Design & SEO | Consortium NYC`,
+    title: `${area.name} Web Design | Website Design & SEO`,
     description: `Web design & website design for ${area.name}${area.region !== area.name ? `, ${area.region}` : ""} businesses. Custom, SEO-ready websites from $4,600, local SEO from $950/month, branding, and Google Business Profile optimization. Now partnered with The NYC Marketing Co. Call/text (212) 202-9220.`,
     alternates: { canonical: `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.slug}` },
     openGraph: {

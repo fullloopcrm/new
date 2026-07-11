@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import TipBlurb from "@/app/site/consortium-nyc/_components/TipBlurb";
 import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-nyc/_lib/schema";
 
-const title = "NYC Web Design Portfolio | Website Projects & Case Studies | Consortium NYC";
+const title = "NYC Web Design Portfolio | Website Projects & Case Studies";
 const description =
   "See real SEO results, traffic growth, and revenue numbers from NYC businesses we've grown from zero. Visit their websites, Google them — every result is verifiable. No stock photos, no fake case studies. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/nyc-marketing-company-portfolio";
