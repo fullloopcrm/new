@@ -4,6 +4,7 @@ import { EMPTY_CHECKLIST } from '@/lib/selena/core'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/nycmaid/notify'
 import { scoreConversation, selfReviewConversation } from '@/lib/nycmaid/conversation-scorer'
+import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 
 export const maxDuration = 60
 
@@ -25,13 +26,20 @@ export async function POST(req: NextRequest) {
       }
 
       // If returning client, try to link to existing client record
-      // TENANT WALL: scope the returning-client lookup to THIS tenant
-      // (x-tenant-id is set + signed by middleware from the domain). Without it,
-      // a phone could match another tenant's client and leak their name here.
-      // No tenant context → skip linking rather than search globally.
-      const reqTenantId = req.headers.get('x-tenant-id')
-      // tenant-scope guard (added by the security work) rejects tenant-less inserts —
-      // scope the conversation to this tenant from the signed header.
+      // TENANT WALL: scope the returning-client lookup to THIS tenant.
+      // x-tenant-id is only trustworthy WITH its middleware-minted x-tenant-sig
+      // companion — verify it the SAME way /api/chat + /api/errors do. A raw
+      // forged x-tenant-id on a main-host request would otherwise select any
+      // tenant here (and leak that tenant's client name via the phone lookup).
+      // An unsigned/forged value is dropped to undefined, so the insert stays
+      // tenant-less and the tenant-scope guard rejects it rather than scoping
+      // the conversation to an attacker's target. No tenant context → skip
+      // linking rather than search globally.
+      const hdrTenantId = req.headers.get('x-tenant-id')
+      const tenantSig = req.headers.get('x-tenant-sig')
+      const reqTenantId = hdrTenantId && verifyTenantHeaderSig(hdrTenantId, tenantSig)
+        ? hdrTenantId
+        : undefined
       if (reqTenantId) insertData.tenant_id = reqTenantId
       if (phone && reqTenantId) {
         const digits = phone.replace(/\D/g, '').slice(-10)
