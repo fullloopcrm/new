@@ -5,6 +5,7 @@ import { NYC_TOW_SLUG, nycTowConfig } from './nyc-tow'
 import { NYC_MOBILE_SALON_SLUG, nycMobileSalonConfig } from './nyc-mobile-salon'
 import { WE_PAY_YOU_JUNK_SLUG, wePayYouJunkConfig } from './we-pay-you-junk'
 import { LANDSCAPING_IN_NYC_SLUG, landscapingInNycConfig } from './landscaping-in-nyc'
+import { THE_FLORIDA_MAID_SLUG, theFloridaMaidConfig } from './the-florida-maid'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -163,6 +164,42 @@ describe('landscaping-in-nyc — bespoke landscaping, quote-first persona', () =
     expect(playbook).toContain('PRICING — DO NOT QUOTE')
     expect(playbook).toContain('quote-first')
     expect(playbook).toContain('(212) 470-9637')
+  })
+})
+
+describe('the-florida-maid — Florida cleaning, hourly booking persona', () => {
+  it('registry resolves the florida-maid slug to the authored config', () => {
+    expect(getAuthoredConfig(THE_FLORIDA_MAID_SLUG)).toBe(theFloridaMaidConfig)
+  })
+
+  it('resolves to its OWN Florida cleaning persona, not the generic default', () => {
+    const cfg = getAuthoredConfig(THE_FLORIDA_MAID_SLUG)!
+    expect(cfg.identity.business_name).toBe('The Florida Maid')
+    expect(cfg.voice.persona).toContain('cleaning-service manager')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL hourly rate (carried via buildPriceCopy) and never a flat total', () => {
+    const cfg = getAuthoredConfig(THE_FLORIDA_MAID_SLUG)!
+    expect(cfg.pricing.model).toBe('hourly')
+    expect(cfg.pricing.copy).toContain('Home Cleaning — $49/hr')
+    expect(cfg.pricing.copy).toContain('do NOT lock in a flat total')
+  })
+
+  it('renders an hourly BOOKING FLOW with self-book offer and real phone', () => {
+    const cfg = getAuthoredConfig(THE_FLORIDA_MAID_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('BOOKING FLOW')
+    expect(playbook).toContain('$49/hr')
+    expect(playbook).toContain('SELF-BOOK OFFER')
+    expect(playbook).toContain('(954) 710-3636')
+  })
+
+  it('is a SEPARATE tenant from nycmaid — florida-maid is authored, nycmaid is not', () => {
+    // the-florida-maid rides the authored registry; nycmaid keeps its verbatim
+    // short-circuit path and must NOT be in the registry.
+    expect(getAuthoredConfig(THE_FLORIDA_MAID_SLUG)).not.toBeNull()
+    expect(getAuthoredConfig('nycmaid')).toBeNull()
   })
 })
 
