@@ -6,7 +6,6 @@ import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 
 
-const pageUrl = 'https://www.example.com/careers/operations-coordinator'
 const pageTitle = 'Part-Time Operations Admin — 10% Per Job, ~$40/hr Last Month | Your Business'
 const pageDescription = 'Your Business is hiring a part-time operations coordinator. Earn 10% of every completed job — paid per job via Zelle. Last month 10% averaged out to about $40/hr. Own the calendar, cleaners, and collections. Aiming for 100 services/week. Apply now.'
 
@@ -48,8 +47,9 @@ export const metadata: Metadata = {
   },
 }
 
-function coordinatorJobPostingSchema() {
+function coordinatorJobPostingSchema(biz: ReturnType<typeof buildBusiness>) {
   const now = new Date()
+  const pageUrl = `${biz.url}/careers/operations-coordinator`
   const datePosted = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()
   const validThrough = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -99,21 +99,23 @@ function coordinatorJobPostingSchema() {
 <p>This is a <strong>1099 independent contractor position</strong>. You are not an employee. You are paid per job, you set your own workflow, and you are responsible for your own taxes. You will receive a 1099-NEC at the end of the year.</p>
 
 <h3>How to Apply</h3>
-<p>Submit your application at <a href="https://www.example.com/apply/operations-coordinator">example.com/apply/operations-coordinator</a>. Include a photo and a 60-second selfie video introduction. If bilingual, speak in both English and Spanish.</p>`,
+<p>Submit your application at <a href="${biz.url}/apply/operations-coordinator">${biz.url}/apply/operations-coordinator</a>. Include a photo and a 60-second selfie video introduction. If bilingual, speak in both English and Spanish.</p>`,
 
     hiringOrganization: {
       '@type': 'Organization',
-      name: 'Your Business',
-      sameAs: 'https://www.example.com',
-      url: 'https://www.example.com',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://www.example.com/icon-512.png',
-        width: 512,
-        height: 512,
-      },
-      telephone: '+1-555-555-5555',
-      email: 'hi@example.com',
+      name: biz.name,
+      sameAs: biz.url,
+      url: biz.url,
+      ...(biz.logo ? {
+        logo: {
+          '@type': 'ImageObject',
+          url: biz.logo,
+          width: 512,
+          height: 512,
+        },
+      } : {}),
+      ...(biz.phone ? { telephone: biz.phone } : {}),
+      ...(biz.email ? { email: biz.email } : {}),
       foundingDate: '2018',
       numberOfEmployees: {
         '@type': 'QuantitativeValue',
@@ -167,7 +169,7 @@ function coordinatorJobPostingSchema() {
 
     identifier: {
       '@type': 'PropertyValue',
-      name: 'Your Business',
+      name: biz.name,
       value: 'ops-coordinator-2026',
     },
 
@@ -190,8 +192,8 @@ function coordinatorJobPostingSchema() {
 
     applicationContact: {
       '@type': 'ContactPoint',
-      telephone: '+1-555-555-5555',
-      email: 'hi@example.com',
+      ...(biz.phone ? { telephone: biz.phone } : {}),
+      ...(biz.email ? { email: biz.email } : {}),
       contactType: 'Human Resources',
       availableLanguage: ['English', 'Spanish'],
     },
@@ -281,7 +283,7 @@ export default async function OperationsCoordinatorPage() {
           { name: 'Careers', url: `${biz.url}/careers` },
           { name: 'Operations Admin', url: careerUrl },
         ]),
-        coordinatorJobPostingSchema(),
+        coordinatorJobPostingSchema(biz),
         faqSchema(faqs),
       ]} />
 

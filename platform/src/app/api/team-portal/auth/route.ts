@@ -61,8 +61,8 @@ export async function POST(request: Request) {
     // across many tenants (per-IP) both get cut off. Correct PINs never reach here.
     const ip = clientIp(request)
     const [byTenant, byIp] = await Promise.all([
-      rateLimitDb(`team_portal_auth_fail:slug:${tenant_slug}`, MAX_FAILED_PER_TENANT, FAILED_WINDOW_MS),
-      rateLimitDb(`team_portal_auth_fail:ip:${ip}`, MAX_FAILED_PER_IP, FAILED_WINDOW_MS),
+      rateLimitDb(`team_portal_auth_fail:slug:${tenant_slug}`, MAX_FAILED_PER_TENANT, FAILED_WINDOW_MS, { failClosed: true }),
+      rateLimitDb(`team_portal_auth_fail:ip:${ip}`, MAX_FAILED_PER_IP, FAILED_WINDOW_MS, { failClosed: true }),
     ])
     if (!byTenant.allowed || !byIp.allowed) {
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })

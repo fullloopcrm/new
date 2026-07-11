@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
 
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  const rl = await rateLimitDb(`referrer_otp_req:${ip}:${email.toLowerCase()}`, 5, 15 * 60 * 1000)
+  const rl = await rateLimitDb(`referrer_otp_req:${ip}:${email.toLowerCase()}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
   }

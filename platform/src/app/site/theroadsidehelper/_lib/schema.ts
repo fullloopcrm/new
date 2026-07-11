@@ -112,13 +112,6 @@ export function localBusinessSchema() {
       areaServed: "US",
       availableLanguage: "en",
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: RATING,
-      reviewCount: REVIEW_COUNT.replace("+", ""),
-      bestRating: "5",
-      worstRating: "1",
-    },
     review: TESTIMONIALS.map((t) => ({
       "@type": "Review",
       author: { "@type": "Person", name: t.name },
@@ -183,12 +176,6 @@ export function serviceSchema(args: { name: string; description: string; slug: s
       },
       availability: "https://schema.org/InStock",
       eligibleRegion: { "@type": "Country", name: "United States" },
-    },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: RATING,
-      reviewCount: REVIEW_COUNT.replace("+", ""),
-      bestRating: "5",
     },
   };
 }

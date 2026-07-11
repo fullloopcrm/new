@@ -18,6 +18,7 @@
  */
 import { supabaseAdmin } from './supabase'
 import { getSettings } from './settings'
+import { safeFetch } from './ssrf'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE RULEBOOK — single source of truth for the new-tenant content standard.
@@ -103,7 +104,7 @@ async function fetchWithTimeout(url: string, ms: number): Promise<Response | nul
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), ms)
   try {
-    return await fetch(url, { signal: ctrl.signal, redirect: 'follow' })
+    return await safeFetch(url, { signal: ctrl.signal })
   } catch {
     return null
   } finally {

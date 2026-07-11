@@ -155,13 +155,6 @@ export function localBusinessSchema(overrides?: { name?: string; url?: string; d
       closes: "21:00",
     },
     sameAs: ["https://instagram.com/thenycmobilesalon"],
-    // aggregateRating values mirror stats[] in constants.ts ("4.9" Average Rating, "5k" Happy New Yorkers)
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: "5000",
-      bestRating: "5",
-    },
   };
 }
 

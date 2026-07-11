@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10) || 10, 25)
   if (q.length < 2) return NextResponse.json({ results: [] })
 
-  const ql = `%${q}%`
+  const ql = `%${sanitizePostgrestValue(q)}%`
 
   const [{ data: clients }, { data: members }] = await Promise.all([
     supabaseAdmin

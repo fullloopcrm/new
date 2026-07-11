@@ -140,13 +140,6 @@ export function organizationSchema() {
     openingHours: "Mo-Su 00:00-23:59",
     areaServed: boroughsAreaServed(),
     sameAs: [] as string[],
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: RATING,
-      reviewCount: REVIEW_COUNT.replace(/\D/g, "") || "300",
-      bestRating: "5",
-      worstRating: "1",
-    },
     contactPoint: OFFICES.map((o) => ({
       "@type": "ContactPoint",
       contactType: "Dispatch",

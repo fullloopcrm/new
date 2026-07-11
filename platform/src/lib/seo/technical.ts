@@ -14,6 +14,7 @@
 // ---------------------------------------------------------------------------
 import { supabaseAdmin } from '@/lib/supabase'
 import { listSitemaps, inspectUrl, type UrlInspection } from './gsc'
+import { safeFetch } from '../ssrf'
 
 const URLS_PER_PROPERTY = 20 // URL Inspection calls per property per run
 const SITEMAP_URL_CAP = 800 // max <loc> entries we parse per property
@@ -83,7 +84,7 @@ async function collectLocs(sitemapUrls: string[]): Promise<string[]> {
     const url = toFetch.shift() as string
     let xml = ''
     try {
-      const res = await fetch(url, { redirect: 'follow' })
+      const res = await safeFetch(url)
       if (!res.ok) continue
       xml = await res.text()
     } catch {

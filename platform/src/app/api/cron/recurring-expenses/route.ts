@@ -4,6 +4,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { postJournalEntry } from '@/lib/ledger'
 
 function advance(d: Date, freq: string): Date {
@@ -65,10 +66,11 @@ export async function POST(request: Request) {
       }
 
       // Find a matching CoA for the expense (by subtype/name)
+      const cat = sanitizePostgrestValue(r.category)
       const { data: coaMatch } = await supabaseAdmin
         .from('chart_of_accounts').select('id')
         .eq('tenant_id', r.tenant_id).eq('type', 'expense')
-        .or(`subtype.eq.${r.category},name.ilike.%${r.category}%`)
+        .or(`subtype.eq.${cat},name.ilike.%${cat}%`)
         .limit(1).maybeSingle()
 
       // Find any bank CoA (or skip if none)

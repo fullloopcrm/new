@@ -10,6 +10,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postJournalEntry } from '@/lib/ledger'
@@ -116,12 +117,13 @@ export async function POST(request: Request, { params }: Params) {
       // based on the expense's category. Find a matching CoA by subtype or name.
       const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
       if (bankCoa) {
+        const cat = sanitizePostgrestValue(ex.category)
         const { data: coaMatch } = await supabaseAdmin
           .from('chart_of_accounts')
           .select('id')
           .eq('tenant_id', tenantId)
           .eq('type', 'expense')
-          .or(`subtype.eq.${ex.category},name.ilike.%${ex.category}%`)
+          .or(`subtype.eq.${cat},name.ilike.%${cat}%`)
           .limit(1)
           .maybeSingle()
         if (coaMatch) {
