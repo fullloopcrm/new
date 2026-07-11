@@ -4,6 +4,8 @@ import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { protectClientAPI } from '@/lib/client-auth'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -12,6 +14,11 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 // Recurring discount: weekly 20%, biweekly/monthly 10%. Only available to
 // repeat clients (must have ≥1 completed booking).
 export async function POST(request: Request) {
+  // Tenant from the request context (subdomain/host), NOT derived from the
+  // body's client_id — deriving tenant from an attacker-supplied id is the IDOR.
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
   const body = await request.json()
   const {
     client_id,
@@ -41,14 +48,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid frequency' }, { status: 400 })
   }
 
-  // Resolve tenant from client
-  const { data: clientRow } = await supabaseAdmin
-    .from('clients')
-    .select('tenant_id')
-    .eq('id', client_id)
-    .single()
-  if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-  const tenantId = clientRow.tenant_id
+  // Ownership gate: the caller's signed client_session must match this tenant
+  // AND this client_id. A forged/other client_id => 403, so a known id cannot
+  // create recurring bookings (and charge) for another client or tenant.
+  const auth = await protectClientAPI(tenant.id, client_id)
+  if (auth instanceof NextResponse) return auth
+  const tenantId = tenant.id
+
+  // Any caller-supplied team member ids (preferred lead + extras) must belong to
+  // THIS tenant — otherwise a client could bind another tenant's cleaner to their
+  // schedule/bookings. Validate up front and reject unknown/cross-tenant ids.
+  const suppliedMemberIds = [...(cleaner_id ? [cleaner_id] : []), ...extras]
+  if (suppliedMemberIds.length > 0) {
+    const { data: validMembers } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .in('id', suppliedMemberIds)
+    const validIds = new Set((validMembers || []).map((m) => m.id))
+    const unknown = suppliedMemberIds.filter((id) => !validIds.has(id))
+    if (unknown.length > 0) {
+      return NextResponse.json({ error: 'Invalid cleaner selection' }, { status: 400 })
+    }
+  }
 
   // Repeat-client gate
   const { count: priorCount } = await supabaseAdmin
