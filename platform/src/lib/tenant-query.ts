@@ -1,12 +1,9 @@
-import { auth } from '@clerk/nextjs/server'
 import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
 import type { Tenant } from './tenant'
-
-const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 
 export type TenantContext = {
   userId: string
@@ -16,7 +13,7 @@ export type TenantContext = {
 }
 
 async function logImpersonationEvent(
-  actorKind: 'pin_admin' | 'clerk_super_admin',
+  actorKind: 'pin_admin',
   actorId: string,
   tenantId: string,
 ): Promise<void> {
@@ -102,58 +99,9 @@ export async function getTenantForRequest(): Promise<TenantContext> {
     }
   }
 
-  // Clerk auth flow
-  const { userId } = await auth()
-  if (!userId) {
-    throw new AuthError('Unauthorized', 401)
-  }
-
-  // Clerk super admin impersonation
-  if (SUPER_ADMIN_IDS.includes(userId) && impersonateId) {
-    const { data: tenant } = await supabaseAdmin
-      .from('tenants')
-      .select('*')
-      .eq('id', impersonateId)
-      .single()
-
-    if (tenant) {
-      await logImpersonationEvent('clerk_super_admin', userId, tenant.id)
-      return {
-        userId,
-        tenantId: tenant.id,
-        tenant,
-        role: 'owner',
-      }
-    }
-  }
-
-  // Normal flow: look up membership
-  const { data: membership } = await supabaseAdmin
-    .from('tenant_members')
-    .select('tenant_id, role')
-    .eq('clerk_user_id', userId)
-    .single()
-
-  if (!membership) {
-    throw new AuthError('No tenant found', 404)
-  }
-
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('*')
-    .eq('id', membership.tenant_id)
-    .single()
-
-  if (!tenant) {
-    throw new AuthError('Tenant not found', 404)
-  }
-
-  return {
-    userId,
-    tenantId: tenant.id,
-    tenant,
-    role: membership.role,
-  }
+  // No admin PIN / tenant-domain token matched. Clerk auth is retired, so there
+  // is no further identity to try — unauthorized.
+  throw new AuthError('Unauthorized', 401)
 }
 
 export class AuthError extends Error {

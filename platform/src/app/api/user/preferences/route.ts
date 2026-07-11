@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // Per-user, per-page preferences. Distinct from tenant-wide settings.
@@ -16,26 +15,10 @@ const VALID_PAGES = new Set([
 ])
 
 async function getMemberId(): Promise<{ memberId: string; tenantId: string } | null> {
-  const { userId } = await auth()
-  if (!userId) return null
-
-  let tenantId: string
-  try {
-    const ctx = await getTenantForRequest()
-    tenantId = ctx.tenantId
-  } catch {
-    return null
-  }
-
-  const { data } = await supabaseAdmin
-    .from('tenant_members')
-    .select('id')
-    .eq('clerk_user_id', userId)
-    .eq('tenant_id', tenantId)
-    .maybeSingle()
-
-  if (!data) return null
-  return { memberId: data.id as string, tenantId }
+  // Per-user preferences were keyed to the Clerk user id. Clerk is retired and
+  // there is no per-user identity anymore, so there is no member to resolve —
+  // GET/PUT below already treat null as "use default (empty) prefs".
+  return null
 }
 
 export async function GET(request: NextRequest) {

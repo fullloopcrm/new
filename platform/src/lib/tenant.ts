@@ -1,11 +1,8 @@
-import { auth } from '@clerk/nextjs/server'
 import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
-
-const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 
 export type Tenant = {
   id: string
@@ -77,23 +74,6 @@ async function getAdminImpersonatedTenant(): Promise<Tenant | null> {
   return tenant
 }
 
-// Check if current user is super admin impersonating a tenant (Clerk-based)
-async function getClerkImpersonatedTenant(userId: string): Promise<Tenant | null> {
-  if (!SUPER_ADMIN_IDS.includes(userId)) return null
-
-  const cookieStore = await cookies()
-  const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
-  if (!impersonateId) return null
-
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('*')
-    .eq('id', impersonateId)
-    .single()
-
-  return tenant
-}
-
 // Get the current tenant for the logged-in user (server-side)
 // Resolve the tenant from the signed x-tenant-id header that middleware
 // injects on tenant custom-domain / subdomain requests. Verifying the sig
@@ -120,33 +100,11 @@ export async function getCurrentTenant(): Promise<Tenant | null> {
   const headerTenant = await getHeaderTenant()
   if (headerTenant) return headerTenant
 
-  // Admin PIN impersonation — no Clerk needed
+  // Admin PIN impersonation — the only remaining auth path (Clerk retired).
   const adminImpersonated = await getAdminImpersonatedTenant()
   if (adminImpersonated) return adminImpersonated
 
-  const { userId } = await auth()
-  if (!userId) return null
-
-  // Clerk super admin impersonation
-  const clerkImpersonated = await getClerkImpersonatedTenant(userId)
-  if (clerkImpersonated) return clerkImpersonated
-
-  // Normal flow: look up which tenant this Clerk user belongs to
-  const { data: membership } = await supabaseAdmin
-    .from('tenant_members')
-    .select('tenant_id, role')
-    .eq('clerk_user_id', userId)
-    .single()
-
-  if (!membership) return null
-
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('*')
-    .eq('id', membership.tenant_id)
-    .single()
-
-  return tenant
+  return null
 }
 
 // Check if current session is an impersonation
@@ -155,13 +113,9 @@ export async function isImpersonating(): Promise<boolean> {
   const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
   if (!impersonateId) return false
 
-  // Admin PIN impersonation
+  // Admin PIN impersonation (the only remaining path — Clerk retired).
   const adminToken = cookieStore.get('admin_token')?.value
   if (adminToken && verifyAdminToken(adminToken)) return true
-
-  // Clerk super admin impersonation
-  const { userId } = await auth()
-  if (userId && SUPER_ADMIN_IDS.includes(userId)) return true
 
   return false
 }

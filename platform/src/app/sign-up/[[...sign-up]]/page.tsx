@@ -1,9 +1,6 @@
-import { SignUp } from '@clerk/nextjs'
+import { redirect } from 'next/navigation'
 
+// Clerk sign-up is retired (self-service signup disabled). Send to the PIN login.
 export default function SignUpPage() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <SignUp afterSignUpUrl="/dashboard" />
-    </div>
-  )
+  redirect('/admin-login')
 }

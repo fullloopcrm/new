@@ -1,6 +1,4 @@
-import { ClerkProvider } from '@clerk/nextjs'
-
-// Clerk is scoped to the segments that use it (see src/app/layout.tsx note).
+// Clerk retired — this segment no longer needs a ClerkProvider wrapper.
 export default function SignInLayout({ children }: { children: React.ReactNode }) {
-  return <ClerkProvider>{children}</ClerkProvider>
+  return <>{children}</>
 }

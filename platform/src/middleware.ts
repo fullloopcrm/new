@@ -1,4 +1,3 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
@@ -57,8 +56,17 @@ function extractSubdomain(hostname: string): string | null {
   return null
 }
 
-// Public routes that don't require auth
-const isPublicRoute = createRouteMatcher([
+// Public routes that don't require auth.
+// Reimplemented without Clerk's createRouteMatcher: each pattern is compiled to
+// an anchored RegExp where the literal token `(.*)` is a wildcard and every other
+// character is matched literally (so `.` in `/sitemap.xml` stays literal).
+function toRoutePattern(p: string): RegExp {
+  const WILD = String.fromCharCode(0)
+  const withWild = p.split('(.*)').join(WILD)
+  const escaped = withWild.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp('^' + escaped.split(WILD).join('.*') + '$')
+}
+const PUBLIC_ROUTE_PATTERNS: RegExp[] = [
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
@@ -146,9 +154,13 @@ const isPublicRoute = createRouteMatcher([
   '/api/errors',               // Client-side error reporting — runs from any page
   '/api/track',                // Visit tracking pixel
   '/api/unsubscribe',          // Email unsubscribe (signed token verified in route)
-])
+].map(toRoutePattern)
 
-export default clerkMiddleware(async (auth, req: NextRequest) => {
+function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_ROUTE_PATTERNS.some((re) => re.test(pathname))
+}
+
+export default async function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
   // --- Canonical www redirect (301) ---
@@ -246,10 +258,10 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // --- Main site / dashboard (existing behavior) ---
-  if (!isPublicRoute(req)) {
-    // Allow admin (PIN-auth) to bypass Clerk on dashboard + its API routes.
-    // admin_token alone is enough — an admin hitting /dashboard directly (no
-    // active impersonation) must not fall through to Clerk's handshake.
+  if (!isPublicRoute(req.nextUrl.pathname)) {
+    // Real auth is admin PIN (admin_token). An admin hitting /dashboard or its
+    // API routes directly (no active impersonation) is allowed through here;
+    // everything else non-public is bounced to the PIN login.
     const adminCookie = req.cookies.get('admin_token')?.value
     if (adminCookie) {
       const p = req.nextUrl.pathname
@@ -282,9 +294,11 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
         return
       }
     }
-    await auth.protect()
+    // No admin PIN cookie on a non-public route → send to the real login.
+    // (Clerk's auth.protect() used to guard here; Clerk login is retired.)
+    return NextResponse.redirect(new URL('/admin-login', req.url))
   }
-})
+}
 
 /**
  * Rewrite the request to the /site route group, passing tenant context via headers.

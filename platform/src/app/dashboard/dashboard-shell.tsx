@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { UserButton } from '@clerk/nextjs'
 import ToastProvider from './toast-provider'
 // import AutoPageSettings from './auto-page-settings' // gear removed for now
 import SelenaBar from './selena-bar'
@@ -434,7 +433,15 @@ export default function DashboardShell({
                 ← Back to Admin
               </Link>
             ) : (
-              <UserButton afterSignOutUrl="/sign-in" />
+              <button
+                onClick={async () => {
+                  await fetch('/api/admin-auth/logout', { method: 'POST' })
+                  window.location.href = '/admin-login'
+                }}
+                style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.04em', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                Sign out
+              </button>
             )}
           </div>
         </div>

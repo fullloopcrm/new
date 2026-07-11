@@ -1,7 +1,5 @@
 import { redirect } from 'next/navigation'
 import { cookies, headers } from 'next/headers'
-import { auth } from '@clerk/nextjs/server'
-import { ClerkProvider } from '@clerk/nextjs'
 import { getCurrentTenant, isImpersonating } from '@/lib/tenant'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
@@ -10,7 +8,6 @@ import { sendEmail } from '@/lib/email'
 import ImpersonationBanner from './impersonation-banner'
 import DashboardShell from './dashboard-shell'
 
-const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
 
 export default async function DashboardLayout({
@@ -39,13 +36,12 @@ export default async function DashboardLayout({
   const tenant = await getCurrentTenant()
 
   if (!tenant) {
-    try {
-      const { userId } = await auth()
-      if (userId && SUPER_ADMIN_IDS.includes(userId)) {
-        redirect('/admin')
-      }
-    } catch {
-      // auth() may fail during admin PIN impersonation — that's ok
+    // Super-admin (PIN) with no active impersonation lands on the platform
+    // admin console; anyone else goes to onboarding. (Was a Clerk super-admin
+    // check; Clerk is retired.)
+    const adminToken = (await cookies()).get('admin_token')?.value
+    if (adminToken && verifyAdminToken(adminToken)) {
+      redirect('/admin')
     }
     redirect('/onboarding')
   }
@@ -76,17 +72,15 @@ export default async function DashboardLayout({
   }
 
   return (
-    <ClerkProvider>
-      <DashboardShell
-        tenantName={tenant.name}
-        primaryColor={tenant.primary_color}
-        industry={tenant.industry}
-        agentName={tenant.agent_name || 'Selena'}
-        impersonationBanner={impersonating ? <ImpersonationBanner tenantName={tenant.name} /> : null}
-        isAdminImpersonation={isAdminImpersonation}
-      >
-        {children}
-      </DashboardShell>
-    </ClerkProvider>
+    <DashboardShell
+      tenantName={tenant.name}
+      primaryColor={tenant.primary_color}
+      industry={tenant.industry}
+      agentName={tenant.agent_name || 'Selena'}
+      impersonationBanner={impersonating ? <ImpersonationBanner tenantName={tenant.name} /> : null}
+      isAdminImpersonation={isAdminImpersonation}
+    >
+      {children}
+    </DashboardShell>
   )
 }
