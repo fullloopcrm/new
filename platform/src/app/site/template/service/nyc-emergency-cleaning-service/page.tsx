@@ -183,15 +183,19 @@ const faqData = [
   { q: 'What areas do you cover for emergency service?', a: 'We cover all five NYC boroughs: Manhattan, Brooklyn, Queens, the Bronx, and Staten Island, plus Long Island (Nassau and western Suffolk), Westchester County, and northern New Jersey for emergency situations. Response times are fastest in Manhattan and Brooklyn.' },
 ]
 
-export const metadata: Metadata = {
-  title: 'Emergency Cleaning Service NYC — 24/7 Response | Your Business',
-  description: 'NYC emergency cleaning — water damage, fire, sewage, biohazard & mold. 24/7 rapid response with pro equipment. What to do, what not to do. Text (555) 555-5555.',
-  alternates: { canonical: 'https://www.example.com/service/nyc-emergency-cleaning-service' },
-  openGraph: {
-    title: 'Emergency Cleaning Service NYC | Your Business',
-    description: 'Rapid-response emergency cleaning across NYC. Water damage, fire, biohazard & more. Available 24/7.',
-    url: 'https://www.example.com/service/nyc-emergency-cleaning-service',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await getSiteConfig()
+  const brand = config.identity.siteName ?? config.identity.name
+  return {
+    title: `Emergency Cleaning Service NYC — 24/7 Response | ${brand}`,
+    description: `NYC emergency cleaning — water damage, fire, sewage, biohazard & mold. 24/7 rapid response with pro equipment. What to do, what not to do. Text ${config.contact.phone}.`,
+    alternates: { canonical: '/service/nyc-emergency-cleaning-service' },
+    openGraph: {
+      title: `Emergency Cleaning Service NYC | ${brand}`,
+      description: 'Rapid-response emergency cleaning across NYC. Water damage, fire, biohazard & more. Available 24/7.',
+      url: '/service/nyc-emergency-cleaning-service',
+    },
+  }
 }
 
 export default async function EmergencyCleaningPage() {
@@ -214,22 +218,24 @@ export default async function EmergencyCleaningPage() {
     description: 'Professional emergency cleaning service for NYC apartments — water damage, fire, sewage, biohazard, mold, and disaster cleanup. Available 24/7.',
     provider: {
       '@type': 'LocalBusiness',
-      name: 'Your Business',
-      url: 'https://www.example.com',
-      telephone: '+15555555555',
-      address: { '@type': 'PostalAddress', addressLocality: 'New York', addressRegion: 'NY', addressCountry: 'US' },
+      name: biz.name,
+      url: biz.url,
+      ...(biz.phone ? { telephone: biz.phone } : {}),
+      address: { '@type': 'PostalAddress', addressLocality: biz.placename, addressRegion: biz.region, addressCountry: 'US' },
     },
-    areaServed: { '@type': 'City', name: 'New York' },
+    areaServed: { '@type': 'City', name: biz.placename },
     serviceType: 'Emergency Cleaning',
     offers: {
       '@type': 'Offer',
       priceRange: '$500-$2000+',
       priceCurrency: 'USD',
     },
-    availableChannel: {
-      '@type': 'ServiceChannel',
-      servicePhone: { '@type': 'ContactPoint', telephone: '+15555555556', contactType: 'customer service', availableLanguage: ['English', 'Spanish'] },
-    },
+    ...(biz.phone ? {
+      availableChannel: {
+        '@type': 'ServiceChannel',
+        servicePhone: { '@type': 'ContactPoint', telephone: biz.phone, contactType: 'customer service', availableLanguage: ['English', 'Spanish'] },
+      },
+    } : {}),
     hoursAvailable: {
       '@type': 'OpeningHoursSpecification',
       dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],

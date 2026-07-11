@@ -76,14 +76,18 @@ export default async function ReviewsPage() {
   // cleaning video testimonials, no NYC-slug links, no hardcoded Google place.
   const c = reviewsContent(config)
   const smsHref = `sms:${config.contact.phoneDigits}`
+  // Only emit an AggregateRating backed by a real, positive integer review count
+  // (Number('') → 0, Number('50+') → NaN both fail) — no fabricated ratings.
+  const reviewCount = Number(config.reviewCount)
+  const hasRealReviews = Number.isInteger(reviewCount) && reviewCount > 0
   const orgLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: config.identity.name,
     url: `${config.identity.url}/reviews`,
     telephone: config.contact.phone,
-    ...(config.reviewCount
-      ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: config.rating.toFixed(1), reviewCount: config.reviewCount } }
+    ...(hasRealReviews
+      ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: config.rating.toFixed(1), reviewCount } }
       : {}),
   }
   const faqLd = {

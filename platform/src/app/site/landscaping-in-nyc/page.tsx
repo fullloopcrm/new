@@ -32,13 +32,6 @@ const reviewSchema = {
     { "@type": "AdministrativeArea", name: "Long Island" },
     { "@type": "AdministrativeArea", name: "Westchester County" },
   ],
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.9",
-    reviewCount: "187",
-    bestRating: "5",
-    worstRating: "1",
-  },
   review: [
     {
       "@type": "Review",
