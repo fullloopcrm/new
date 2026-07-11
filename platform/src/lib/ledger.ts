@@ -125,7 +125,27 @@ export async function postJournalEntry(opts: {
       memo: l.memo || null,
     })),
   })
-  if (error) throw error
+  if (error) {
+    // Concurrency backstop for the check-then-insert idempotency guard. Under a
+    // concurrent duplicate delivery, two callers can both pass journalEntryExists()
+    // before either inserts; the UNIQUE(tenant_id, source, source_id) index added
+    // in migration 061 makes the loser's insert raise a unique violation (23505).
+    // That is NOT a failure — the winner already posted this exact entry — so we
+    // resolve it to the winner's id and return idempotently instead of throwing.
+    // Only source_id-bearing entries are covered by the partial index.
+    if ((error as { code?: string }).code === '23505' && opts.source_id) {
+      const { data: existing } = await supabaseAdmin
+        .from('journal_entries')
+        .select('id')
+        .eq('tenant_id', opts.tenant_id)
+        .eq('source', opts.source || 'manual')
+        .eq('source_id', opts.source_id)
+        .limit(1)
+        .maybeSingle()
+      if (existing?.id) return existing.id as string
+    }
+    throw error
+  }
   if (typeof data !== 'string') throw new Error('post_journal_entry: no entry id returned')
   return data
 }
