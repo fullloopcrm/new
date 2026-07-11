@@ -31,7 +31,7 @@ const SELF_BOOK_DISCOUNT_CENTS = 1000
 function trackEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
     const body = JSON.stringify({
-      domain: typeof window !== 'undefined' ? window.location.hostname : 'example.com',
+      domain: typeof window !== 'undefined' ? window.location.hostname : '',
       page: '/book/standard',
       action,
       session_id: sessionId,
@@ -240,7 +240,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
             {/* Email */}
             <div>
               <label className={labelCls}>Email</label>
-              <input type="email" required placeholder="you@example.com" value={form.email} onChange={(e) => { update('email', e.target.value); setEmailErr('') }} className={inputCls} style={inputStyle} />
+              <input type="email" required placeholder="Enter your email" value={form.email} onChange={(e) => { update('email', e.target.value); setEmailErr('') }} className={inputCls} style={inputStyle} />
               {emailErr && <p className="text-red-600 text-xs mt-1">{emailErr}</p>}
             </div>
 

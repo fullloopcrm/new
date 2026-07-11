@@ -42,12 +42,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const service = getServiceByUrlSlug(slug)
   if (!service) return {}
 
-  const config = await getSiteConfig()
-  const base = config.identity.url.replace(/\/+$/, '')
-  const brand = config.identity.siteName ?? config.identity.name
-  const url = `${base}/services/${slug}`
-  const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | ${brand}`
-  const description = `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 2).join(', ')} & more. From ${service.priceRange.split('–')[0]}. ${config.contact.phone}`
+  const url = `/services/${slug}`
+  const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | 5-Star Rated | Your Business`
+  const description = `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 2).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Rated. (555) 555-5555`
 
   return {
     title: { absolute: title },
@@ -58,7 +55,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url,
       type: 'website',
-      siteName: brand,
+      siteName: 'Your Business',
       locale: 'en_US',
     },
     twitter: {

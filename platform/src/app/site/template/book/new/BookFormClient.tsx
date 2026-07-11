@@ -10,7 +10,7 @@ import type { ServiceOption } from '../../_config/types'
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
     const body = JSON.stringify({
-      domain: typeof window !== 'undefined' ? window.location.hostname : 'example.com',
+      domain: typeof window !== 'undefined' ? window.location.hostname : '',
       page: '/book/new',
       action,
       session_id: sessionId,
@@ -356,7 +356,7 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
             <div className="bg-[rgb(var(--accent-rgb)/0.3)] border border-[var(--accent)] rounded-lg p-4 mb-6">
               <p className="text-xs text-[rgb(var(--brand-rgb)/0.6)] tracking-widest uppercase mb-1">Your PIN</p>
               <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-widest">{pin}</p>
-              <p className="text-xs text-[rgb(var(--brand-rgb)/0.6)] mt-2">Save this — log in at <Link href="/book" className="underline">example.com/book</Link></p>
+              <p className="text-xs text-[rgb(var(--brand-rgb)/0.6)] mt-2">Save this — log in at <Link href="/book" className="underline">your account</Link></p>
             </div>
           )}
           <Link href="/" className="inline-block bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)]">Back home</Link>
@@ -489,7 +489,7 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
             <input
               type="email"
               required
-              placeholder="you@example.com"
+              placeholder="Enter your email"
               value={form.email}
               onChange={(e) => { update('email', e.target.value); setEmailErr('') }}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"
