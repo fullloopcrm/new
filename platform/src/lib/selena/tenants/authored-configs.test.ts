@@ -18,6 +18,7 @@ import { HOME_SERVICES_COMPANY_SLUG, homeServicesCompanyConfig } from './the-hom
 import { NYC_INTERIOR_DESIGNER_SLUG, nycInteriorDesignerConfig } from './the-nyc-interior-designer'
 import { NYC_MARKETING_COMPANY_SLUG, nycMarketingCompanyConfig } from './the-nyc-marketing-company'
 import { CONSORTIUM_NYC_SLUG, consortiumNycConfig } from './consortium-nyc'
+import { NYC_SEO_SLUG, nycSeoConfig } from './the-nyc-seo'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -557,6 +558,35 @@ describe('consortium-nyc — full-service marketing agency (sibling brand), quot
 
   it('renders a quote-first flow with the real phone', () => {
     const cfg = getAuthoredConfig(CONSORTIUM_NYC_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('PRICING — DO NOT GUESS')
+    expect(playbook).toContain('quote-first')
+    expect(playbook).toContain('(212) 202-9220')
+  })
+})
+
+describe('the-nyc-seo — SEO + AI-search specialist, quote-first persona', () => {
+  it('registry resolves the nyc-seo slug to the authored config', () => {
+    expect(getAuthoredConfig(NYC_SEO_SLUG)).toBe(nycSeoConfig)
+  })
+
+  it('resolves to its OWN SEO/AI-search persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(NYC_SEO_SLUG)!
+    expect(cfg.identity.business_name).toBe('The NYC SEO')
+    expect(cfg.voice.persona).toContain('AI-search specialist')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('states REAL starting prices, scoped after a free SEO audit (authored copy)', () => {
+    const cfg = getAuthoredConfig(NYC_SEO_SLUG)!
+    expect(cfg.pricing.model).toBe('flat')
+    expect(cfg.pricing.copy).toContain('$3,500/mo')
+    expect(cfg.pricing.copy).toContain('$2,500+')
+    expect(cfg.pricing.copy).toContain('never quote a final total')
+  })
+
+  it('renders a quote-first flow with the real phone', () => {
+    const cfg = getAuthoredConfig(NYC_SEO_SLUG)!
     const playbook = buildPlaybook(cfg)
     expect(playbook).toContain('PRICING — DO NOT GUESS')
     expect(playbook).toContain('quote-first')
