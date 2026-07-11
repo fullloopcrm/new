@@ -82,7 +82,7 @@ export default function ServiceAreasClient() {
             transition={{ duration: 0.5 }}
             className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-[0.15em] uppercase px-5 py-2.5 mb-6 font-cta"
           >
-            NYC Marketing Company Service Areas
+            NYC Web Design Service Areas
           </motion.div>
 
           <motion.h1

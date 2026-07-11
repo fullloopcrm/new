@@ -60,7 +60,7 @@ export default function Home() {
       <JsonLd
         data={webPageSchema(
           "NYC Web Design & SEO | Consortium NYC",
-          "Full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for businesses in NYC, Long Island, and Westchester.",
+          "NYC web design & website design company building custom, SEO-ready websites for businesses in NYC, Long Island, and Westchester.",
           "https://www.consortiumnyc.com",
           breadcrumbs
         )}

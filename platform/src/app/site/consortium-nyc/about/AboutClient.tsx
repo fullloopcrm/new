@@ -128,7 +128,7 @@ export default function AboutPage() {
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
             className="mt-6 text-lg sm:text-xl text-warm-gray max-w-2xl mx-auto"
           >
-            A data-driven NYC marketing company born in New York City.
+            A data-driven NYC web design company born in New York City.
             We don&apos;t follow playbooks -- we write them.
           </motion.p>
         </div>

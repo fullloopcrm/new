@@ -74,7 +74,7 @@ export default function AreaPageClient({
             </span>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-6 font-heading leading-tight">
               {area.name}{" "}
-              <span className="text-teal-400">Marketing Company</span>
+              <span className="text-teal-400">Web Design</span>
             </h1>
             <p className="text-slate-300 text-lg sm:text-xl max-w-3xl mx-auto mb-4">
               Local <L href="/nyc-marketing-company-services-list">SEO</L>, <L href="/nyc-marketing-company-services-list">web design</L>, <L href="/nyc-marketing-company-services-list">branding</L>, and <L href="/artificial-intelligence-marketing-services-offered">AI automation</L> for businesses in {area.name}. We know this market. We know the competition. We know how to get you to page one.

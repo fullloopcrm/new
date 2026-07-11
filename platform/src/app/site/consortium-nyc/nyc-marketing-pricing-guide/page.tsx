@@ -137,10 +137,10 @@ export default function PricingGuidePage() {
       <section className="pt-32 pb-12 bg-slate-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-teal-400 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            NYC Marketing Company Pricing
+            NYC Web Design Pricing
           </p>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-6 font-heading">
-            How Much Does a Marketing Company in{" "}
+            How Much Does Web Design in{" "}
             <span className="text-teal-400">NYC Actually Cost?</span>
           </h1>
           <p className="text-white/70 text-lg max-w-2xl mx-auto">

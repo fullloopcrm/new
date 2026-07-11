@@ -52,7 +52,7 @@ export default function WhyNYC() {
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-6 font-heading">
             Why Every New York City Business Needs a{" "}
-            <span className="text-teal-600">Marketing Company in 2026</span>
+            <span className="text-teal-600">Web Design Company in 2026</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-3xl mx-auto leading-relaxed">
             The New York metro area is the most competitive local market in the

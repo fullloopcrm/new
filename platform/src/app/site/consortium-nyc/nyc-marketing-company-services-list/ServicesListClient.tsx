@@ -91,7 +91,7 @@ export default function ServicesListClient() {
             transition={{ duration: 0.5 }}
             className="inline-block bg-teal-600 text-white text-xs sm:text-sm font-bold tracking-[0.15em] uppercase px-5 py-2.5 mb-6 font-cta"
           >
-            NYC Marketing Company Services
+            NYC Web Design Services
           </motion.div>
 
           <motion.h1

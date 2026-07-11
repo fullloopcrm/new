@@ -11,7 +11,7 @@ interface TipBlurbProps {
 export default function TipBlurb({
   label = "We think you should know:",
   tip,
-  signature = "— Your local NYC marketing company. People helping people.",
+  signature = "— Your local NYC web design company. People helping people.",
 }: TipBlurbProps) {
   return (
     <section className="py-12 sm:py-16 bg-teal-600">

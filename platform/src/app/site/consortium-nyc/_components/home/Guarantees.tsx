@@ -60,7 +60,7 @@ export default function Guarantees() {
           className="text-center mb-16"
         >
           <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            Marketing Company Guarantees
+            Web Design Guarantees
           </p>
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 font-heading">
             Our Guarantee to Every{" "}

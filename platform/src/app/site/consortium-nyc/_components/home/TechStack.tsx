@@ -128,7 +128,7 @@ export default function TechStack() {
                 Why We&apos;re Different
               </p>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-4 font-heading">
-                The Best Communication of Any Marketing Company in NYC
+                The Best Communication of Any Web Design Company in NYC
               </h3>
               <p className="text-white/70 text-sm leading-relaxed">
                 When you work with Consortium NYC, you&apos;re not handed off to a junior account manager who&apos;s reading from a script. You work directly with someone who has <span className="text-white font-bold">25 years of experience</span> in the exact seat they sit in — strategy, execution, and results. No layers. No runaround. No waiting 3 days for an email back. We pick up the phone. We respond same-day. We treat your business like it&apos;s ours because that&apos;s the only way this works.

@@ -20,7 +20,7 @@ export default function FinalCTA() {
             Schedule a Strategy Session
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 font-heading">
-              NYC&apos;s Most Trusted Marketing Company Is Ready to Grow Your Business
+              NYC&apos;s Most Trusted Web Design Company Is Ready to Grow Your Business
           </h2>
 
           <p className="text-white/80 text-lg sm:text-xl max-w-3xl mx-auto mb-10 leading-relaxed">
