@@ -13,6 +13,7 @@ import { WASH_AND_FOLD_NYC_SLUG, washAndFoldNycConfig } from './wash-and-fold-ny
 import { FLA_DUMPSTER_RENTALS_SLUG, flaDumpsterRentalsConfig } from './fla-dumpster-rentals'
 import { STRETCH_NY_SLUG, stretchNyConfig } from './stretch-ny'
 import { STRETCH_SERVICE_SLUG, stretchServiceConfig } from './stretch-service'
+import { DSCR_LOAN_SLUG, dscrLoanConfig } from './debt-service-ratio-loan'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -412,6 +413,35 @@ describe('stretch-service — nationwide mobile assisted-stretch booking persona
     expect(playbook).toContain('BOOKING FLOW')
     expect(playbook).toContain('$99/hr')
     expect(playbook).toContain('(888) 734-7274')
+  })
+})
+
+describe('debt-service-ratio-loan — DSCR investor-loan lead-intake persona', () => {
+  it('registry resolves the DSCR slug to the authored config', () => {
+    expect(getAuthoredConfig(DSCR_LOAN_SLUG)).toBe(dscrLoanConfig)
+  })
+
+  it('resolves to its OWN loan-intake persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(DSCR_LOAN_SLUG)!
+    expect(cfg.identity.business_name).toBe('DebtServiceRatioLoan.com')
+    expect(cfg.voice.persona).toContain('DSCR-loan concierge')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('is quote_only — regulated lending, the agent NEVER quotes a rate (authored)', () => {
+    const cfg = getAuthoredConfig(DSCR_LOAN_SLUG)!
+    expect(cfg.pricing.model).toBe('quote_only')
+    expect(cfg.pricing.copy).toContain('NEVER quote an interest rate')
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('PRICING — DO NOT QUOTE')
+  })
+
+  it('renders a lead-capture flow (not booking/quote-first) with the real phone', () => {
+    const cfg = getAuthoredConfig(DSCR_LOAN_SLUG)!
+    expect(cfg.booking.model).toBe('lead_only')
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('lead capture')
+    expect(playbook).toContain('(855) 300-3727')
   })
 })
 
