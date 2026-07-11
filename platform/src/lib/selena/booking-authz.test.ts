@@ -69,6 +69,18 @@ vi.mock('@supabase/supabase-js', () => ({
 // Cancel notifies operators; stub it so no real side effect fires in tests.
 vi.mock('@/lib/nycmaid/notify', () => ({ notify: async () => {} }))
 
+// resend_confirmation sends an email on the ALLOW path. Track the calls so a
+// rejected cross-client read can be asserted to send NOTHING, and stub the
+// template so no real mail leaves the process.
+const emailMock = vi.hoisted(() => ({ calls: [] as Array<{ to: string; subject: string }> }))
+vi.mock('@/lib/nycmaid/email', () => ({
+  sendEmail: async (to: string, subject: string) => { emailMock.calls.push({ to, subject }) },
+}))
+vi.mock('@/lib/nycmaid/email-templates', () => ({ emailWrapper: (s: string) => s }))
+// booking_details dynamically imports this only AFTER the ownership gate passes;
+// stub it so the ALLOW path stays a pure read.
+vi.mock('@/lib/client-properties', () => ({ applyPropertyToBookingClient: () => {} }))
+
 import { handleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
 import { isOwnerOfTenant, type YinezResult } from '@/lib/selena/agent'
 import { runTool } from '@/lib/selena/tools'
@@ -83,6 +95,7 @@ const agentResult = (): YinezResult => ({ text: '', toolsCalled: [] })
 beforeEach(() => {
   updateCalls = []
   insertCalls = []
+  emailMock.calls = []
   selectResolver = () => ({ data: null, error: null })
 })
 
@@ -189,6 +202,95 @@ describe('handleCancelBooking — tenant/client authorization', () => {
     expect(updateCalls).toHaveLength(1)
     expect(updateCalls[0].eqs.tenant_id).toBe(TENANT_A)
     expect(updateCalls[0].values.status).toBe('cancelled')
+  })
+})
+
+// ── resend_confirmation / booking_details cross-client READ (F-4) ────────────
+//
+// These two handlers fetched a booking by (id + tenant_id) but never checked
+// client ownership. A caller in tenant A could supply another client's
+// booking_id from the SAME tenant and read that booking's details, or trigger a
+// confirmation email — an intra-tenant cross-client read. The fix adds the same
+// client-ownership gate used by reschedule/cancel.
+
+describe('handleResendConfirmation — client-ownership (F-4)', () => {
+  it('REJECTS a same-tenant booking owned by a different client (no email sent)', async () => {
+    selectResolver = (table) => {
+      if (table === 'sms_conversations') return { data: { client_id: 'client-A', tenant_id: TENANT_A }, error: null }
+      if (table === 'bookings') return { data: { client_id: 'client-OTHER', start_time: '2099-01-01T10:00:00', service_type: 'standard', hourly_rate: 69, clients: { name: 'Victim', email: 'victim@example.com', pin: '1234' }, cleaners: { name: 'Cleaner' } }, error: null }
+      return { data: null, error: null }
+    }
+    const out = await handleTool('resend_confirmation', { booking_id: 'bk-OTHER' }, 'convo-A', coreResult(), TENANT_A)
+    expect(JSON.parse(out).error).toBe('not_your_booking')
+    // The victim's confirmation email must NOT have been sent.
+    expect(emailMock.calls).toHaveLength(0)
+  })
+
+  it("REJECTS a booking_id from another tenant (scoped fetch misses; no email)", async () => {
+    selectResolver = (table, eqs) => {
+      if (table === 'sms_conversations') return { data: { client_id: 'client-A', tenant_id: TENANT_A }, error: null }
+      if (table === 'bookings') {
+        if (eqs.tenant_id === TENANT_B) return { data: { client_id: 'client-B', start_time: '2099-01-01T10:00:00', service_type: 'standard', hourly_rate: 69, clients: { name: 'B', email: 'b@example.com', pin: '9' }, cleaners: { name: 'C' } }, error: null }
+        return { data: null, error: null }
+      }
+      return { data: null, error: null }
+    }
+    const out = await handleTool('resend_confirmation', { booking_id: 'bk-B' }, 'convo-A', coreResult(), TENANT_A)
+    expect(JSON.parse(out).error).toBe('Booking not found')
+    expect(emailMock.calls).toHaveLength(0)
+  })
+
+  it('ALLOWS the owning client to resend their own confirmation (email sent to their address)', async () => {
+    selectResolver = (table) => {
+      if (table === 'sms_conversations') return { data: { client_id: 'client-A', tenant_id: TENANT_A }, error: null }
+      if (table === 'bookings') return { data: { client_id: 'client-A', start_time: '2099-01-01T10:00:00', service_type: 'standard', hourly_rate: 69, clients: { name: 'Real', email: 'real@example.com', pin: '1234' }, cleaners: { name: 'Cleaner' } }, error: null }
+      return { data: null, error: null }
+    }
+    const out = await handleTool('resend_confirmation', { booking_id: 'bk-A' }, 'convo-A', coreResult(), TENANT_A)
+    expect(JSON.parse(out).success).toBe(true)
+    expect(emailMock.calls).toHaveLength(1)
+    expect(emailMock.calls[0].to).toBe('real@example.com')
+  })
+})
+
+describe('handleBookingDetails — client-ownership (F-4)', () => {
+  it('REJECTS a same-tenant booking owned by a different client (no details leaked)', async () => {
+    selectResolver = (table) => {
+      if (table === 'sms_conversations') return { data: { client_id: 'client-A', tenant_id: TENANT_A }, error: null }
+      if (table === 'bookings') return { data: { id: 'bk-OTHER', client_id: 'client-OTHER', tenant_id: TENANT_A, start_time: '2099-01-01T10:00:00', service_type: 'standard', status: 'completed', clients: { name: 'Victim', address: '123 Secret St' } }, error: null }
+      return { data: null, error: null }
+    }
+    const out = await handleTool('booking_details', { booking_id: 'bk-OTHER' }, 'convo-A', coreResult(), TENANT_A)
+    const parsed = JSON.parse(out)
+    expect(parsed.error).toBe('not_your_booking')
+    // No victim data should appear in the rejected response.
+    expect(out).not.toContain('123 Secret St')
+    expect(parsed.client_address).toBeUndefined()
+  })
+
+  it("REJECTS a booking_id from another tenant (scoped fetch misses)", async () => {
+    selectResolver = (table, eqs) => {
+      if (table === 'sms_conversations') return { data: { client_id: 'client-A', tenant_id: TENANT_A }, error: null }
+      if (table === 'bookings') {
+        if (eqs.tenant_id === TENANT_B) return { data: { id: 'bk-B', client_id: 'client-B', tenant_id: TENANT_B, start_time: '2099-01-01T10:00:00', status: 'completed', clients: { name: 'B', address: 'B St' } }, error: null }
+        return { data: null, error: null }
+      }
+      return { data: null, error: null }
+    }
+    const out = await handleTool('booking_details', { booking_id: 'bk-B' }, 'convo-A', coreResult(), TENANT_A)
+    expect(JSON.parse(out).error).toBe('Booking not found')
+  })
+
+  it('ALLOWS the owning client to read their own booking details', async () => {
+    selectResolver = (table) => {
+      if (table === 'sms_conversations') return { data: { client_id: 'client-A', tenant_id: TENANT_A }, error: null }
+      if (table === 'bookings') return { data: { id: 'bk-A', client_id: 'client-A', tenant_id: TENANT_A, start_time: '2099-01-01T10:00:00', service_type: 'standard', status: 'completed', hourly_rate: 69, clients: { name: 'Real', address: '1 My Rd' }, cleaners: { name: 'Cleaner' } }, error: null }
+      return { data: null, error: null }
+    }
+    const out = await handleTool('booking_details', { booking_id: 'bk-A' }, 'convo-A', coreResult(), TENANT_A)
+    const parsed = JSON.parse(out)
+    expect(parsed.error).toBeUndefined()
+    expect(parsed.booking_id).toBe('bk-A')
   })
 })
 

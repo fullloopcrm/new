@@ -1308,9 +1308,12 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
     if (!bookingId) return JSON.stringify({ error: 'No upcoming booking found' })
 
     const { data: booking } = await supabaseAdmin.from('bookings')
-      .select('start_time, service_type, hourly_rate, clients(name, email, pin), cleaners(name)')
+      .select('client_id, start_time, service_type, hourly_rate, clients(name, email, pin), cleaners(name)')
       .eq('id', bookingId).eq('tenant_id', tid).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
+    // Client-ownership: booking_id is caller-supplied. A same-tenant fetch alone lets a
+    // client read/resend another client's confirmation; require the booking to be the caller's.
+    if (booking.client_id !== convo.client_id) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
 
     const client = booking.clients as unknown as { name: string; email: string; pin: string }
     if (!client?.email) return JSON.stringify({ error: 'No email on file' })
@@ -1661,10 +1664,13 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
     if (!bookingId) return JSON.stringify({ error: 'No bookings found for this client' })
 
     const { data: booking } = await supabaseAdmin.from('bookings')
-      .select('id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, actual_hours, hourly_rate, price, cleaner_pay, payment_status, payment_method, status, service_type, cleaners(name), clients(name, address), client_properties(address)')
+      .select('id, client_id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, actual_hours, hourly_rate, price, cleaner_pay, payment_status, payment_method, status, service_type, cleaners(name), clients(name, address), client_properties(address)')
       .eq('id', bookingId).eq('tenant_id', tid).single()
 
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
+    // Client-ownership: booking_id is caller-supplied. A same-tenant fetch alone lets a
+    // client read another client's booking details; require the booking to be the caller's.
+    if (booking.client_id !== convo.client_id) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
 
     // Show the booking's property address (multi-address parity) — overlays the
     // per-booking property onto the client display before we read it.
