@@ -15,6 +15,7 @@ import { STRETCH_NY_SLUG, stretchNyConfig } from './stretch-ny'
 import { STRETCH_SERVICE_SLUG, stretchServiceConfig } from './stretch-service'
 import { DSCR_LOAN_SLUG, dscrLoanConfig } from './debt-service-ratio-loan'
 import { HOME_SERVICES_COMPANY_SLUG, homeServicesCompanyConfig } from './the-home-services-company'
+import { NYC_INTERIOR_DESIGNER_SLUG, nycInteriorDesignerConfig } from './the-nyc-interior-designer'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -471,6 +472,35 @@ describe('the-home-services-company — multi-trade home services, hourly bookin
     expect(playbook).toContain('BOOKING FLOW')
     expect(playbook).toContain('$99/hr')
     expect(playbook).toContain('(888) 700-4001')
+  })
+})
+
+describe('the-nyc-interior-designer — bespoke interior design, quote-first persona', () => {
+  it('registry resolves the interior-designer slug to the authored config', () => {
+    expect(getAuthoredConfig(NYC_INTERIOR_DESIGNER_SLUG)).toBe(nycInteriorDesignerConfig)
+  })
+
+  it('resolves to its OWN interior-design persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(NYC_INTERIOR_DESIGNER_SLUG)!
+    expect(cfg.identity.business_name).toBe('The NYC Interior Designer')
+    expect(cfg.voice.persona).toContain('interior designer')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('is quote_only — bespoke projects priced after a free consultation', () => {
+    const cfg = getAuthoredConfig(NYC_INTERIOR_DESIGNER_SLUG)!
+    expect(cfg.pricing.model).toBe('quote_only')
+    expect(cfg.pricing.copy).toContain('NEVER quote a price')
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('PRICING — DO NOT QUOTE')
+    expect(playbook).toContain('quote-first')
+  })
+
+  it('offers online consultation self-book and renders the real phone', () => {
+    const cfg = getAuthoredConfig(NYC_INTERIOR_DESIGNER_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('SELF-BOOK OFFER')
+    expect(playbook).toContain('(917) 473-2013')
   })
 })
 
