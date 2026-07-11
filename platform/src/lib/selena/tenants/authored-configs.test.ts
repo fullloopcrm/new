@@ -3,6 +3,7 @@ import { getAuthoredConfig } from './index'
 import { EXTERMINATOR_SLUG, exterminatorConfig } from './the-nyc-exterminator'
 import { NYC_TOW_SLUG, nycTowConfig } from './nyc-tow'
 import { NYC_MOBILE_SALON_SLUG, nycMobileSalonConfig } from './nyc-mobile-salon'
+import { WE_PAY_YOU_JUNK_SLUG, wePayYouJunkConfig } from './we-pay-you-junk'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -109,6 +110,35 @@ describe('nyc-mobile-salon — mobile beauty booking-concierge persona', () => {
     expect(playbook).toContain('PRICING — DO NOT GUESS')
     expect(playbook).toContain('$150')
     expect(playbook).toContain('(212) 202-9075')
+  })
+})
+
+describe('we-pay-you-junk — junk removal, hourly + resale-credit persona', () => {
+  it('registry resolves the junk slug to the authored config', () => {
+    expect(getAuthoredConfig(WE_PAY_YOU_JUNK_SLUG)).toBe(wePayYouJunkConfig)
+  })
+
+  it('resolves to its OWN honest/transparent persona, not the generic default', () => {
+    const cfg = getAuthoredConfig(WE_PAY_YOU_JUNK_SLUG)!
+    expect(cfg.identity.business_name).toBe('We Pay You Junk Removal')
+    expect(cfg.voice.persona).toContain('honest, upfront')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL hourly rate + credit policy (rate carried via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(WE_PAY_YOU_JUNK_SLUG)!
+    expect(cfg.pricing.model).toBe('hourly')
+    expect(cfg.pricing.copy).toContain('Junk Removal — $200/hr') // hourly unit present
+    expect(cfg.pricing.copy).toContain('50%') // resale credit
+    expect(cfg.pricing.copy).toContain('we pay YOU the difference')
+  })
+
+  it('renders an hourly BOOKING FLOW with real rate and phone', () => {
+    const cfg = getAuthoredConfig(WE_PAY_YOU_JUNK_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('BOOKING FLOW')
+    expect(playbook).toContain('$200/hr')
+    expect(playbook).toContain('(888) 831-3001')
   })
 })
 
