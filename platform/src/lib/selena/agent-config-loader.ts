@@ -22,11 +22,42 @@ function funnelToPricing(funnel: string, hasHourly: boolean): PricingModel {
   return hasHourly ? 'hourly' : 'flat'
 }
 
+// Checklist keys collected by the booking/contact flow (rate quoted from pricing,
+// day/time scheduled, name/phone/email captured on save), NOT asked as qualifying
+// questions. Everything else in the seeded checklist (service_type, notes,
+// address, bedrooms, trade-specific scope) becomes an intake question the agent
+// asks to qualify the job.
+const NON_INTAKE_CHECKLIST_KEYS = new Set(['rate', 'day', 'time', 'name', 'phone', 'email'])
+
+/**
+ * Derive the agent's ordered qualifying questions from the tenant's seeded
+ * checklist_fields (CHECKLIST_BY_INDUSTRY). Falls back to a generic list when a
+ * tenant has no checklist (empty selena_config). This is the DEFAULT — an owner's
+ * authored qualifying_questions still override it via applyPersonaToConfig.
+ */
+export function intakeFromChecklist(checklist: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(checklist)) return fallback
+  const questions = checklist
+    .filter(
+      (f): f is { key: string; enabled?: boolean; question?: unknown } =>
+        !!f && typeof f === 'object' && typeof (f as { key?: unknown }).key === 'string',
+    )
+    .filter(
+      (f) =>
+        f.enabled !== false &&
+        !NON_INTAKE_CHECKLIST_KEYS.has(f.key) &&
+        typeof f.question === 'string' &&
+        (f.question as string).trim().length > 0,
+    )
+    .map((f) => (f.question as string).trim())
+  return questions.length ? questions : fallback
+}
+
 export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   const [{ data: tenant }, settings] = await Promise.all([
     supabaseAdmin
       .from('tenants')
-      .select('name, phone, email, domain, website_url, industry, agent_name, address')
+      .select('name, phone, email, domain, website_url, industry, agent_name, address, selena_config')
       .eq('id', tenantId)
       .single(),
     getSettings(tenantId),
@@ -55,6 +86,12 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
     ? `What do you need? (${activeServices.map((s) => s.name).join(', ')})`
     : 'What do you need help with?'
 
+  // Intake: prefer the tenant's seeded per-trade checklist (so a pest, roofing, or
+  // HVAC tenant asks proper trade questions) over the generic 3-question fallback.
+  const genericIntake = [serviceList, 'Where are you located?', 'When do you need it?']
+  const checklistFields = (tenant?.selena_config as { checklist_fields?: unknown } | null | undefined)?.checklist_fields
+  const intakeQuestions = intakeFromChecklist(checklistFields, genericIntake)
+
   return {
     identity: {
       agent_name: agentName,
@@ -82,7 +119,7 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
       'Do not promise anything the owner might not honor. Escalate refunds, disputes, and legal threats.',
     ],
     pricing: { model: pricingModel, copy: priceCopy },
-    intake: { questions: [serviceList, 'Where are you located?', 'When do you need it?'] },
+    intake: { questions: intakeQuestions },
     payment: {
       methods: settings.payment_methods || [],
       timing: 'as arranged',
