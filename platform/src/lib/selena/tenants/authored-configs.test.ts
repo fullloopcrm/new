@@ -11,6 +11,7 @@ import { THE_ROADSIDE_HELPER_SLUG, theRoadsideHelperConfig } from './theroadside
 import { SUNNYSIDE_CLEAN_SLUG, sunnysideCleanConfig } from './sunnyside-clean-nyc'
 import { WASH_AND_FOLD_NYC_SLUG, washAndFoldNycConfig } from './wash-and-fold-nyc'
 import { FLA_DUMPSTER_RENTALS_SLUG, flaDumpsterRentalsConfig } from './fla-dumpster-rentals'
+import { STRETCH_NY_SLUG, stretchNyConfig } from './stretch-ny'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -354,6 +355,34 @@ describe('fla-dumpster-rentals — Florida roll-off dumpster, flat-rate quote-fi
     expect(playbook).toContain('PRICING — DO NOT GUESS')
     expect(playbook).toContain('quote-first')
     expect(playbook).toContain('954-710-2332')
+  })
+})
+
+describe('stretch-ny — NYC mobile assisted-stretch booking persona', () => {
+  it('registry resolves the stretch-ny slug to the authored config', () => {
+    expect(getAuthoredConfig(STRETCH_NY_SLUG)).toBe(stretchNyConfig)
+  })
+
+  it('resolves to its OWN wellness persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(STRETCH_NY_SLUG)!
+    expect(cfg.identity.business_name).toBe('Stretch NYC')
+    expect(cfg.voice.persona).toContain('mobile-wellness concierge')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL hourly session rate (carried via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(STRETCH_NY_SLUG)!
+    expect(cfg.pricing.model).toBe('hourly')
+    expect(cfg.pricing.copy).toContain('60-minute mobile stretch session — $99/hr')
+    expect(cfg.pricing.copy).toContain('10%') // weekly recurring discount
+  })
+
+  it('renders an appointment BOOKING FLOW with real rate and phone', () => {
+    const cfg = getAuthoredConfig(STRETCH_NY_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('BOOKING FLOW')
+    expect(playbook).toContain('$99/hr')
+    expect(playbook).toContain('(212) 202-7080')
   })
 })
 
