@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
@@ -161,7 +162,7 @@ async function executeTool(
 
   switch (name) {
     case 'search_clients': {
-      const q = String(input.query || '').trim()
+      const q = sanitizePostgrestValue(String(input.query || '').trim())
       const { data, error } = await supabaseAdmin
         .from('clients')
         .select('id, name, email, phone, address, status, do_not_service, notes')

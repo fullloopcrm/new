@@ -3,6 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 function buildSystemPrompt(tenantName: string, industry: string) {
   return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
@@ -164,7 +165,7 @@ const tools: Anthropic.Tool[] = [
 async function executeTool(name: string, input: Record<string, unknown>, tenantId: string): Promise<string> {
   switch (name) {
     case 'search_clients': {
-      const q = (input.query as string).trim()
+      const q = sanitizePostgrestValue((input.query as string).trim())
       const { data, error } = await supabaseAdmin
         .from('clients')
         .select('id, name, email, phone, address, active, notes')
