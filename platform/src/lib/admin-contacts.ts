@@ -11,7 +11,7 @@
  * is never violated.
  */
 import { supabaseAdmin } from './supabase'
-import { sendEmail } from './email'
+import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
 import type { Tenant } from './tenant'
 
@@ -22,13 +22,13 @@ export interface AdminContact {
   role: string
 }
 
-type TenantLike = Pick<Tenant, 'id' | 'name' | 'email' | 'phone' | 'resend_api_key' | 'telnyx_api_key' | 'telnyx_phone' | 'email_from'> | { id: string }
+type TenantLike = Pick<Tenant, 'id' | 'name' | 'slug' | 'email' | 'phone' | 'resend_api_key' | 'telnyx_api_key' | 'telnyx_phone' | 'email_from'> | { id: string }
 
 async function loadTenant(input: TenantLike | string): Promise<TenantLike | null> {
   if (typeof input === 'string') {
     const { data } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, email_from')
+      .select('id, name, slug, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, email_from')
       .eq('id', input)
       .single()
     return data
@@ -38,7 +38,7 @@ async function loadTenant(input: TenantLike | string): Promise<TenantLike | null
   if (anyT.email === undefined || anyT.phone === undefined || anyT.telnyx_api_key === undefined) {
     const { data } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, email_from')
+      .select('id, name, slug, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, email_from')
       .eq('id', anyT.id as string)
       .single()
     return data
@@ -112,7 +112,7 @@ export async function emailAdmins(
 
   const t = tenant as TenantLike
   const resendKey = (t as { resend_api_key?: string | null }).resend_api_key || null
-  const from = (t as { email_from?: string | null }).email_from || undefined
+  const from = tenantSender(t as { name?: string | null; slug?: string | null; email_from?: string | null })
 
   const tenantId = (tenant as TenantLike).id
   const recipients: string[] = []

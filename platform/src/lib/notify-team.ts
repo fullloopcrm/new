@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, tenantSender } from '@/lib/email'
 
 export interface NotifyTeamMemberOptions {
   tenantId: string
@@ -85,7 +85,7 @@ export async function notifyTeamMember(opts: NotifyTeamMemberOptions): Promise<D
   // 3. Get tenant for API keys
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('telnyx_api_key, telnyx_phone, resend_api_key')
+    .select('telnyx_api_key, telnyx_phone, resend_api_key, name, slug, email_from')
     .eq('id', opts.tenantId)
     .single()
 
@@ -115,6 +115,7 @@ export async function notifyTeamMember(opts: NotifyTeamMemberOptions): Promise<D
         to: member.email,
         subject: opts.emailSubject,
         html: opts.emailHtml,
+        from: tenantSender(tenant),
         resendApiKey: tenant.resend_api_key,
       })
       report.email = true

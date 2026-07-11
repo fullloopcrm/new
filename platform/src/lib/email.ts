@@ -7,6 +7,23 @@ const defaultResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !
   ? new Resend(process.env.RESEND_API_KEY)
   : null
 
+/**
+ * Sender identity for a tenant email. Uses the tenant's own verified sender
+ * (email_from) when set; otherwise an IDENTIFIED address on the verified
+ * fullloopcrm.com apex — "<Tenant Name> <slug@fullloopcrm.com>" — so a
+ * platform-sent email always names the tenant, never a bare Full Loop address.
+ * Auto-falls off the moment the tenant sets their own email_from.
+ */
+export function tenantSender(
+  tenant: { name?: string | null; slug?: string | null; email_from?: string | null } | null | undefined,
+): string {
+  if (tenant?.email_from) return tenant.email_from
+  const name = (tenant?.name || 'Full Loop CRM').replace(/["<>\r\n]/g, '').trim() || 'Full Loop CRM'
+  const local =
+    (tenant?.slug || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'no-reply'
+  return `${name} <${local}@fullloopcrm.com>`
+}
+
 export async function sendEmail({
   to,
   subject,
