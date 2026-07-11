@@ -1,12 +1,22 @@
 -- 055_tenant_domains_routing.backfill.sql
 -- P1 schema lane (W1). Backfills the nullable columns added by
--- 055_tenant_domains_routing.sql for EVERY existing tenant_domains row, from
--- the current source of truth (tenants.slug + the BESPOKE_SITE_TENANTS set in
+-- 055_tenant_domains_routing.sql for EVERY tenant_domains row, from the current
+-- source of truth (tenants.slug + the BESPOKE_SITE_TENANTS set in
 -- src/middleware.ts). MUST run AFTER 055 and BEFORE 056 (the NOT NULL step).
 --
--- Idempotent: every UPDATE is guarded by `... is null`, so re-running will not
--- clobber values already set (including any manual corrections). Safe to run
--- twice.
+-- Steps, in order:
+--   0. COVERAGE SEED  — create one skeleton tenant_domains row per tenants.domain
+--                       that has none yet (so every tenants.domain is covered).
+--   1. routing_mode   — bespoke vs template from the slug list.
+--   2. status         — from the existing active boolean.
+--   3. vercel_project — the single serving project.
+--   4. VERIFICATION   — built-in fail-loud gate (LEADER ORDER 11:57): every
+--                       tenants.domain must have a tenant_domains row at the
+--                       SAME tenant_id, or the whole backfill RAISES/rolls back.
+--
+-- Idempotent: the seed is guarded by NOT EXISTS + ON CONFLICT DO NOTHING, and
+-- every UPDATE is guarded by `... is null`, so re-running will not clobber
+-- values already set (including any manual corrections). Safe to run twice.
 --
 -- ┌─ BACKFILL LOGIC (one line) ─────────────────────────────────────────────┐
 -- │ routing_mode  = 'bespoke' when the row's tenant slug is in the           │
@@ -21,6 +31,36 @@
 -- mirrors that EXACTLY so the DB reflects current runtime routing 1:1. The slug
 -- list below is copied verbatim from src/middleware.ts:401-424 — keep them in
 -- sync until the middleware set is retired in favor of this column.
+
+-- ── STEP 0: coverage seed (must run FIRST) ────────────────────────────────
+-- LEADER ORDER (11:57): the built-in verification at the bottom of this file
+-- requires that EVERY tenants.domain has a tenant_domains row at the SAME
+-- tenant_id. Most tenants have no tenant_domains row yet (043 only seeded
+-- nycmaid), so first create one skeleton row per tenants.domain that is
+-- missing. routing_mode / status / vercel_project are left NULL here and get
+-- populated by the UPDATEs below — DRY: the bespoke-slug list lives in exactly
+-- one place (the routing_mode UPDATE), never duplicated here.
+--
+-- ON CONFLICT (domain) DO NOTHING is load-bearing: if a domain already exists
+-- under a DIFFERENT tenant (a mis-seeded / swapped row), we do NOT overwrite or
+-- reassign it. We leave it, and the verification step FAILS LOUD on the
+-- mismatch instead of silently papering over a cross-tenant swap.
+insert into tenant_domains (tenant_id, domain, active, is_primary, notes)
+select
+  t.id,
+  t.domain,
+  true,
+  -- is_primary only when this tenant has no domain rows yet, so we never create
+  -- a SECOND is_primary=true row for tenants already seeded (e.g. nycmaid/043).
+  not exists (select 1 from tenant_domains td2 where td2.tenant_id = t.id),
+  'Seeded from tenants.domain by 055 backfill (coverage for verification)'
+from tenants t
+where t.domain is not null
+  and t.domain <> ''
+  and not exists (
+    select 1 from tenant_domains td where td.domain = t.domain
+  )
+on conflict (domain) do nothing;
 
 -- ── routing_mode ──────────────────────────────────────────────────────────
 -- ROOT_SITE_TENANTS is currently empty in middleware.ts, so only the
@@ -84,42 +124,59 @@ where vercel_project is null;
 --  WHERE routing_mode IS NULL OR vercel_project IS NULL OR status IS NULL;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- OPEN QUESTION FOR LEADER / JEFF (do not silently resolve):
---   Migration 043 seeded nycmaid's two domains against `tenants.slug =
---   'the-nyc-maid'`, but the bespoke set + site folder use slug 'nycmaid'.
---   If nycmaid's real tenants.slug is 'nycmaid', migration 043 inserted ZERO
---   domain rows (no slug match) and nycmaid has NO tenant_domains rows to
---   backfill — it resolves purely via the tenants.domain fallback. If it is
---   'the-nyc-maid', then its rows exist but the middleware BESPOKE check
---   ('nycmaid') would not match its slug — a latent routing question.
---   This backfill mirrors middleware verbatim (slug -> routing_mode), so it is
---   correct either way for the rows that DO exist. Resolve the slug question
---   before relying on tenant_domains as the sole routing source.
+-- NOTE ON nycmaid slug (context, not a blocker now):
+--   Migration 043 seeded nycmaid's two alias domains against `tenants.slug =
+--   'the-nyc-maid'`, while the bespoke set + site folder use slug 'nycmaid'.
+--   STEP 0 above now seeds nycmaid's CANONICAL tenants.domain regardless of
+--   slug, so coverage no longer depends on that mismatch. routing_mode for
+--   nycmaid still follows the slug list (mirrors middleware verbatim), so if
+--   the real slug is 'the-nyc-maid' its rows resolve as 'template', not
+--   'bespoke' — resolve the slug question before treating tenant_domains as the
+--   SOLE routing source. This does not affect the coverage verification below.
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- ── OPTIONAL, NOT PART OF THIS BACKFILL — leader/Jeff decision ─────────────
--- The order was to backfill "every existing tenant_domains row." Most tenants
--- likely have NO tenant_domains row yet (043 only seeded nycmaid). For those,
--- W2's resolver falls back to tenants.domain, which carries no routing_mode /
--- vercel_project / status. To make tenant_domains the SOLE routing source, one
--- row per tenant-with-a-domain must be inserted. That is a larger change than
--- "backfill existing rows," so it is left here as a reviewed plan, commented
--- out. Enable only after Jeff approves seeding rows for all tenants.
+-- ═══════════════════════════════════════════════════════════════════════════
+-- BUILT-IN VERIFICATION (LEADER ORDER 11:57) — do NOT "pass" on disagreement.
+-- Every tenants.domain (non-empty) must have a tenant_domains row at the SAME
+-- tenant_id. tenant_domains.domain is UNIQUE, so each tenants.domain is exactly
+-- one of: matched / mismatch (td points at a different tenant — the swap
+-- hazard) / orphan (no td row for that domain at all).
 --
--- INSERT INTO tenant_domains
---   (tenant_id, domain, active, is_primary, routing_mode, vercel_project, status, notes)
--- SELECT
---   t.id,
---   t.domain,
---   true,
---   true,
---   CASE WHEN t.slug IN (/* same bespoke list as above */) THEN 'bespoke' ELSE 'template' END,
---   'fullloopcrm',   -- CONFIRM, same as above
---   'active',
---   'Seeded from tenants.domain by 055 backfill (optional gap-fill step)'
--- FROM tenants t
--- WHERE t.domain IS NOT NULL
---   AND NOT EXISTS (
---     SELECT 1 FROM tenant_domains td WHERE td.tenant_id = t.id AND td.domain = t.domain
---   )
--- ON CONFLICT (domain) DO NOTHING;
+-- Run this file with:  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f <this file>
+-- so a RAISE EXCEPTION HALTs with a nonzero exit and rolls the backfill back.
+-- The row-by-row report of offenders lives in
+-- 055_tenant_domains_routing.verify.sql (run that to SEE which rows disagree).
+do $$
+declare
+  matched    bigint;
+  orphans    bigint;
+  mismatches bigint;
+begin
+  select count(*) into matched
+    from tenants t
+    join tenant_domains td on td.domain = t.domain and td.tenant_id = t.id
+   where t.domain is not null and t.domain <> '';
+
+  select count(*) into orphans
+    from tenants t
+   where t.domain is not null and t.domain <> ''
+     and not exists (select 1 from tenant_domains td where td.domain = t.domain);
+
+  select count(*) into mismatches
+    from tenants t
+    join tenant_domains td on td.domain = t.domain
+   where t.domain is not null and t.domain <> '' and td.tenant_id <> t.id;
+
+  raise notice 'tenant_domains coverage: matched=%, orphans=%, mismatches=%',
+    matched, orphans, mismatches;
+
+  if orphans > 0 or mismatches > 0 then
+    raise exception
+      'tenant_domains verification FAILED: % orphan + % mismatch tenants.domain row(s). Run 055_tenant_domains_routing.verify.sql to list them. Backfill rolled back.',
+      orphans, mismatches;
+  end if;
+
+  raise notice
+    'tenant_domains verification PASSED: all % tenants.domain row(s) have a matching tenant_domains row at the same tenant_id.',
+    matched;
+end $$;
