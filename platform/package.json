@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/verify-protected-tenants.mjs",
+    "prebuild": "node scripts/verify-protected-tenants.mjs && node scripts/reconcile-tenant-config.mjs --gate",
     "build": "next build",
     "verify:tenants": "node scripts/verify-protected-tenants.mjs",
     "reconcile:tenants": "node scripts/reconcile-tenant-config.mjs",
+    "reconcile:gate": "node scripts/reconcile-tenant-config.mjs --gate",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
