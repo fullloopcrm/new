@@ -178,12 +178,86 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
   return data
 }
 
-// Get tenant by custom domain
+// Get tenant by custom domain.
+//
+// Reconciled to the SAME resolution contract as the middleware resolver in
+// ./tenant-lookup.ts (see P1-SCHEMA-SPEC.md) so both agree on which tenant a
+// host maps to:
+//   1. tenant_domains FIRST — match the request host to a tenant_id (the P1
+//      source of truth for host routing). select('*') is migration-safe: it
+//      surfaces the new P1 columns once W1's migration lands and simply omits
+//      them beforehand, so the query never breaks against the un-migrated DB.
+//   2. tenants.domain FALLBACK — used only when no active tenant_domains row
+//      exists for the host. Retained (NOT dropped) per the P1 spec.
+//
+// Cross-tenant safety: a matched tenant_domains row is authoritative. If its
+// tenant_id fails to resolve (dangling pointer, or the tenant is not active),
+// return null rather than falling through to tenants.domain — falling through
+// could serve the host as a DIFFERENT tenant (the brand-swap failure mode).
+//
+// TRANSITION ASSERT-AND-REFUSE guard (identical to tenant-lookup's): while both
+// sources are live, a tenant_domains match to tenant A is cross-checked against
+// the legacy tenants.domain row for the same host. If legacy maps the host to a
+// DIFFERENT tenant B, refuse — log a greppable `TENANT_DIVERGENCE host=<h>
+// td=<A> legacy=<B>` line and throw, rather than silently pick one. Proceed
+// with the tenant_domains-first result ONLY when legacy agrees or has no row.
+// Remove this guard once tenants.domain is retired.
+//
+// This resolver keeps tenant.ts's own contract: it returns the FULL Tenant row
+// and only ever resolves ACTIVE tenants (the id/domain loads filter status).
+// The legacy divergence cross-check is status-agnostic (mirrors tenant-lookup)
+// so a stale/inactive legacy row still trips the guard.
 export async function getTenantByDomain(domain: string): Promise<Tenant | null> {
+  // Strip www. prefix so www.<host> and <host> resolve identically (matches
+  // tenant-lookup's normalization — otherwise the two resolvers would diverge
+  // on www hosts).
+  const cleanDomain = domain.replace(/^www\./, '')
+
+  // 1. tenant_domains FIRST (host -> tenant_id).
+  const { data: domainRow } = await supabaseAdmin
+    .from('tenant_domains')
+    .select('*')
+    .eq('domain', cleanDomain)
+    .eq('active', true)
+    .single()
+
+  if (domainRow?.tenant_id) {
+    const { data: t } = await supabaseAdmin
+      .from('tenants')
+      .select('*')
+      .eq('id', domainRow.tenant_id)
+      .eq('status', 'active')
+      .single()
+
+    if (t) {
+      // TRANSITION ASSERT-AND-REFUSE: cross-check the legacy tenants.domain row
+      // for this host. If it maps the SAME host to a DIFFERENT tenant, refuse.
+      const { data: legacy } = await supabaseAdmin
+        .from('tenants')
+        .select('id')
+        .eq('domain', cleanDomain)
+        .single()
+
+      if (legacy && legacy.id !== t.id) {
+        console.error(`TENANT_DIVERGENCE host=${cleanDomain} td=${t.id} legacy=${legacy.id}`)
+        throw new Error(
+          `TENANT_DIVERGENCE host=${cleanDomain} td=${t.id} legacy=${legacy.id}`,
+        )
+      }
+
+      return t
+    }
+
+    // Dangling / inactive tenant_domains pointer: do NOT fall through to
+    // tenants.domain — that could serve the host as a different tenant.
+    return null
+  }
+
+  // 2. Fallback: tenants.domain (legacy source of truth, retained per P1 spec).
   const { data } = await supabaseAdmin
     .from('tenants')
     .select('*')
-    .eq('domain', domain)
+    .eq('domain', cleanDomain)
     .eq('status', 'active')
     .single()
 

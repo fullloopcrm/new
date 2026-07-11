@@ -26,6 +26,9 @@ import {
   type IndustryKey,
   type DefaultService,
   mapIndustry,
+  defaultFunnelMode,
+  pricingShapeFor,
+  priceLabel,
   SERVICE_PRESETS,
   CHECKLIST_BY_INDUSTRY,
 } from './industry-presets'
@@ -39,7 +42,12 @@ const DEFAULT_SELENA_CONFIG = (industry: IndustryKey, tenantName: string, servic
   tone: 'warm_friendly',
   emoji_usage: 'one_per_message',
   language: 'en',
-  pricing_rows: services.map(s => ({ label: s.name, price: `$${s.default_hourly_rate}/hr` })),
+  // Project/lead trades qualify+quote (multi-day → year-long jobs); every other
+  // trade books directly. Operators can flip this per-tenant in settings.
+  funnel_mode: defaultFunnelMode(industry),
+  // Label the price by the trade's real unit — "$350 flat" / "$20/visit" for
+  // flat/per-unit trades, "$59/hr" for hourly — never "/hr" on a flat rate.
+  pricing_rows: services.map(s => ({ label: s.name, price: priceLabel(s.default_hourly_rate, pricingShapeFor(industry)) })),
   time_estimates: services.map(s => ({ label: s.name, hours: s.default_duration_hours })),
   service_areas: [] as string[],
   business_tagline: `${tenantName} — reliable ${industry} service`,
@@ -111,13 +119,18 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
     const services = opts.overrides?.services || SERVICE_PRESETS[industry] || SERVICE_PRESETS.general
     // Seed BOTH the old booking columns (default_hourly_rate/duration) and the
     // SKU columns the quote builder reads (price_cents/item_type/per_unit) so
-    // seeded services don't render as $0 in proposals. Presets are hourly.
+    // seeded services don't render as $0 in proposals. pricing_model/per_unit
+    // come from the trade archetype: flat/per-unit trades (dumpster/junk/bin/
+    // pet_waste/snow/laundry/fitness) bill the FIXED price, not elapsed-hours ×
+    // rate — checkout + invoice math key off pricing_model.
+    const shape = pricingShapeFor(industry)
     const rows = services.map(s => ({
       ...s,
       tenant_id: tenantId,
       active: true,
       item_type: 'service',
-      per_unit: 'hour',
+      pricing_model: shape.pricing_model,
+      per_unit: shape.per_unit,
       price_cents: Math.round(s.default_hourly_rate * 100),
     }))
     const { data: inserted } = await supabaseAdmin.from('service_types').insert(rows).select('id')
