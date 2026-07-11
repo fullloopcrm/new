@@ -123,6 +123,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
+    // Throttle code verification so a 6-digit code can't be brute-forced.
+    // Primary cap is per-phone (identifier): once 5 wrong guesses land in the
+    // window, further attempts against THAT phone's code are blocked regardless
+    // of source IP — which is what actually defeats a brute-force. A looser
+    // per-IP cap adds defense against one host spraying codes across many
+    // phones. (slug isn't part of the verify payload; phone is globally unique.)
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rlPhone = await rateLimitDb(`portal_verify:${phone}`, 5, 15 * 60 * 1000)
+    const rlIp = await rateLimitDb(`portal_verify_ip:${ip}`, 30, 15 * 60 * 1000)
+    if (!rlPhone.allowed || !rlIp.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
+
     const { data: stored } = await supabaseAdmin
       .from('portal_auth_codes')
       .select('code, tenant_id, client_id, expires_at')

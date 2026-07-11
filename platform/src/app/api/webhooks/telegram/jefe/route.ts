@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { askJefe } from '@/lib/jefe/agent'
 import { loadJefeHistory, saveJefeTurn } from '@/lib/jefe/actions'
 import { sendTelegram } from '@/lib/telegram'
+import { verifyTelegramWebhook } from '@/lib/telegram-webhook-auth'
 
 export const maxDuration = 60
 
@@ -16,6 +17,13 @@ const OWNER_CHAT_ID = (process.env.JEFE_OWNER_CHAT_ID || process.env.TELEGRAM_OW
 
 export async function POST(req: Request) {
   if (!BOT_TOKEN) return NextResponse.json({ ok: true, skip: 'no_jefe_bot_token' })
+
+  // Authenticity FIRST: fail-closed on the Telegram secret-token header before a
+  // body-supplied chat_id can drive askJefe (which acts across the whole platform).
+  const verified = verifyTelegramWebhook(req, 'jefe')
+  if (!verified.ok) {
+    return NextResponse.json({ ok: false, error: 'unauthorized', reason: verified.reason }, { status: 401 })
+  }
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
   let body: { message?: TgPost; channel_post?: TgPost } = {}

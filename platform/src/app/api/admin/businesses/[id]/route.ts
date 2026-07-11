@@ -346,7 +346,12 @@ export async function PUT(
       const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
       const origin = host ? `https://${host}` : new URL(request.url).origin
       const { registerTelegramWebhook } = await import('@/lib/telegram')
-      telegramWebhook = await registerTelegramWebhook(rawTelegramToken, `${origin}/api/webhooks/telegram/${t.slug}`)
+      const { deriveTelegramSecret } = await import('@/lib/telegram-webhook-auth')
+      // Scope the secret to this tenant's id so the webhook can fail-closed verify
+      // authenticity. Null when TELEGRAM_WEBHOOK_SECRET is unset (registers without
+      // a secret — the route then fails closed until the env is configured).
+      const secretToken = deriveTelegramSecret(`tenant:${id}`) || undefined
+      telegramWebhook = await registerTelegramWebhook(rawTelegramToken, `${origin}/api/webhooks/telegram/${t.slug}`, secretToken)
     }
   }
 
