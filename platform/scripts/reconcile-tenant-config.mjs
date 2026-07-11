@@ -172,6 +172,25 @@ for (const r of tds) {
   }
 }
 
+// Drift L: a BESPOKE_SITE_TENANTS entry with NO resolvable tenant. The main
+// loop above only iterates DB tenants, so a middleware set entry that points at
+// nothing (tenant deleted or never created) is invisible to it — the domain
+// falls through to the main site while the build guard still PROTECTs the slug,
+// giving false confidence. Resolvability is checked against tenants of ANY
+// status (not the active filter used above) so a legitimately paused/disabled
+// bespoke tenant is not mis-flagged. Since tenant_domains.tenant_id references
+// tenants, "no tenants row" already implies "no tenant_domains row" for the slug.
+if (bespokeSet.size) {
+  const slugList = [...bespokeSet].map((s) => `'${s.replace(/'/g, "''")}'`).join(',')
+  const resolvable = await sql(`select slug from tenants where slug in (${slugList})`)
+  const resolvableSlugs = new Set(resolvable.map((r) => r.slug))
+  for (const slug of bespokeSet) {
+    if (!resolvableSlugs.has(slug)) {
+      add('CRIT', slug, `in BESPOKE_SITE_TENANTS but has NO resolvable tenant (no tenants row of any status) -> middleware routes nothing; the build guard PROTECTs a phantom slug`)
+    }
+  }
+}
+
 // --- Report ---
 const order = { CRIT: 0, WARN: 1, INFO: 2 }
 findings.sort((a, b) => order[a.sev] - order[b.sev])
