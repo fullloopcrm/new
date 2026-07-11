@@ -21,6 +21,7 @@ import { notify } from './notify'
 import { decryptSecret } from './secret-crypto'
 import { postPaymentRevenue } from './finance/post-revenue'
 import { postPayoutToLedger } from './finance/post-labor'
+import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from './finance/cleaner-payout'
 import { effectiveCleanerRate } from './cleaner-pay'
 import { isNycMaid } from './nycmaid/tenant'
 import { parseTimestamp } from './dates'
@@ -214,9 +215,11 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     .eq('id', bookingId)
     .eq('tenant_id', tenantId)
 
-  // Team member auto-pay via Stripe Connect
+  // Team member auto-pay via Stripe Connect. Guarded by the shared booking-keyed
+  // idempotency check so a repeat call (or a Stripe-webhook payout for the same
+  // booking) never double-pays the cleaner.
   let cleanerPaidCents = 0
-  if (teamMember?.stripe_account_id && booking.team_member_id) {
+  if (teamMember?.stripe_account_id && booking.team_member_id && !(await cleanerAlreadyPaid(tenantId, bookingId))) {
     try {
       let payAmountCents: number | null = (booking.team_member_pay as number | null) || null
       if (!payAmountCents) {
@@ -237,57 +240,66 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       if (tipCents > 0 && payAmountCents) payAmountCents += tipCents
 
       if (payAmountCents && payAmountCents > 0) {
-        const stripe = getStripe(tenant.stripe_api_key)
-        const transfer = await stripe.transfers.create({
-          amount: payAmountCents,
-          currency: 'usd',
-          destination: teamMember.stripe_account_id,
-          description: `${label} payment for ${clientName} service${tipCents > 0 ? ` (includes $${tipAmount} tip)` : ''}`,
-          metadata: { booking_id: bookingId, tenant_id: tenantId },
+        // CLAIM the single payout slot BEFORE moving money. A conflict on the
+        // UNIQUE(tenant_id, booking_id) index means another path already claimed
+        // this booking's payout → do not transfer. Closes the concurrency window.
+        const claim = await claimCleanerPayout({
+          tenantId,
+          bookingId,
+          teamMemberId: booking.team_member_id as string,
+          amountCents: payAmountCents - tipCents,
+          tipCents,
         })
+        if (claim.claimed && claim.payoutId) {
+          try {
+            const stripe = getStripe(tenant.stripe_api_key)
+            const transfer = await stripe.transfers.create({
+              amount: payAmountCents,
+              currency: 'usd',
+              destination: teamMember.stripe_account_id,
+              description: `${label} payment for ${clientName} service${tipCents > 0 ? ` (includes $${tipAmount} tip)` : ''}`,
+              metadata: { booking_id: bookingId, tenant_id: tenantId },
+            })
 
-        let payoutId: string | null = null
-        let isInstant = false
-        try {
-          const payout = await stripe.payouts.create(
-            { amount: payAmountCents, currency: 'usd', method: 'instant' },
-            { stripeAccount: teamMember.stripe_account_id },
-          )
-          payoutId = payout.id
-          isInstant = true
-        } catch {
-          // standard schedule fallback — Stripe will pay on default cadence
+            let payoutId: string | null = null
+            let isInstant = false
+            try {
+              const payout = await stripe.payouts.create(
+                { amount: payAmountCents, currency: 'usd', method: 'instant' },
+                { stripeAccount: teamMember.stripe_account_id },
+              )
+              payoutId = payout.id
+              isInstant = true
+            } catch {
+              // standard schedule fallback — Stripe will pay on default cadence
+            }
+
+            cleanerPaidCents = payAmountCents
+
+            await finalizeCleanerPayout({
+              tenantId,
+              payoutId: claim.payoutId,
+              amountCents: payAmountCents - tipCents,
+              tipCents,
+              stripeTransferId: transfer.id,
+              stripePayoutId: payoutId,
+              instant: isInstant,
+            })
+            postPayoutToLedger({ tenantId, payoutId: claim.payoutId })
+              .catch(err => console.error('[payment-processor] payout ledger post failed:', err))
+
+            await supabaseAdmin
+              .from('bookings')
+              .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString(), team_member_pay: payAmountCents })
+              .eq('id', bookingId)
+              .eq('tenant_id', tenantId)
+          } catch (transferErr) {
+            // Transfer failed after we claimed the slot — release the pending claim
+            // so a legitimate retry can re-pay, then surface the error.
+            await releaseCleanerPayout(tenantId, claim.payoutId).catch(() => {})
+            throw transferErr
+          }
         }
-
-        cleanerPaidCents = payAmountCents
-
-        const { data: payoutRow, error: payoutErr } = await supabaseAdmin
-          .from('team_member_payouts')
-          .insert({
-            tenant_id: tenantId,
-            booking_id: bookingId,
-            team_member_id: booking.team_member_id,
-            amount_cents: payAmountCents - tipCents,
-            tip_cents: tipCents,
-            stripe_transfer_id: transfer.id,
-            stripe_payout_id: payoutId,
-            instant: isInstant,
-            status: 'transferred',
-            paid_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single()
-        if (payoutErr) console.error('[payment-processor] payout record failed:', payoutErr)
-        if (payoutRow?.id) {
-          postPayoutToLedger({ tenantId, payoutId: payoutRow.id })
-            .catch(err => console.error('[payment-processor] payout ledger post failed:', err))
-        }
-
-        await supabaseAdmin
-          .from('bookings')
-          .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString(), team_member_pay: payAmountCents })
-          .eq('id', bookingId)
-          .eq('tenant_id', tenantId)
       }
     } catch (err) {
       console.error(`[payment-processor] team member auto-pay from ${label} failed:`, err)

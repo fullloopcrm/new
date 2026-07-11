@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { renderAssistantMarkdown } from './render-markdown'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
@@ -109,9 +110,7 @@ export default function SelenaAIPage() {
                     <div className="relative group">
                       <div className="text-sm whitespace-pre-wrap prose prose-sm max-w-none"
                         dangerouslySetInnerHTML={{
-                          __html: m.content
-                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                            .replace(/\n/g, '<br />')
+                          __html: renderAssistantMarkdown(m.content)
                         }}
                       />
                       <button onClick={() => copyText(m.content)}

@@ -40,16 +40,32 @@ function rgbChannels(hex: string): string {
 }
 
 /**
+ * Only allow well-formed CSS color values into the inlined <style>. Tenant
+ * colors (primary_color / secondary_color) are attacker-settable via the
+ * settings + onboarding APIs (the <input type="color"> is client-side only),
+ * and are interpolated RAW into `--brand: <value>`. A value like
+ * `#fff }</style><script>…</script>` would break out of the style block →
+ * stored XSS on the tenant's public site. Anything that isn't a plain hex /
+ * named / functional color is replaced with a neutral fallback. Breakout chars
+ * (`;{}<>"'` and whitespace inside a bare token) all fail these patterns.
+ */
+const SAFE_COLOR = /^#[0-9a-fA-F]{3,8}$|^[a-zA-Z]+$|^(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\([0-9a-zA-Z%.,/\s+-]+\)$/
+function safeColor(value: string | undefined, fallback: string): string {
+  const v = (value ?? '').trim()
+  return SAFE_COLOR.test(v) ? v : fallback
+}
+
+/**
  * Build the `:root { --brand: … }` CSS block for a tenant's theme. Returned as a
  * plain string to inline in a <style> tag at the layout root (server-rendered
  * per tenant). Falls back to the neutral defaults already present in `theme`.
  */
 export function buildThemeCss(theme: SiteTheme): string {
-  const primary = theme.primary
-  const primaryAlt = theme.primaryAlt ?? theme.primary
-  const accent = theme.accent
-  const accentHover = theme.accentHover ?? theme.accent
-  const surface = theme.surface ?? '#FFFFFF'
+  const primary = safeColor(theme.primary, '#2563eb')
+  const primaryAlt = safeColor(theme.primaryAlt ?? theme.primary, primary)
+  const accent = safeColor(theme.accent, '#0d9488')
+  const accentHover = safeColor(theme.accentHover ?? theme.accent, accent)
+  const surface = safeColor(theme.surface, '#FFFFFF')
 
   const vars: Record<string, string> = {
     '--brand': primary,
