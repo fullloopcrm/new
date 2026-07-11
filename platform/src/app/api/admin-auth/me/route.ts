@@ -6,7 +6,7 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
-import { auth } from '@clerk/nextjs/server'
+import { getOwnerUserId } from '@/lib/owner-session'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
@@ -23,7 +23,7 @@ export async function GET() {
     })
   }
 
-  const { userId } = await auth()
+  const userId = await getOwnerUserId()
   if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { data: member } = await supabaseAdmin

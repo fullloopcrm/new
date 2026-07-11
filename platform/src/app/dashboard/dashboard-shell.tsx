@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { UserButton } from '@clerk/nextjs'
 import ToastProvider from './toast-provider'
 // import AutoPageSettings from './auto-page-settings' // gear removed for now
 import SelenaBar from './selena-bar'
@@ -434,7 +433,7 @@ export default function DashboardShell({
                 ← Back to Admin
               </Link>
             ) : (
-              <UserButton afterSignOutUrl="/sign-in" />
+              <a href="/api/auth/logout" className="text-sm text-gray-500 hover:text-gray-800">Sign out</a>
             )}
           </div>
         </div>

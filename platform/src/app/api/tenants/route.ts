@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getOwnerUserId } from '@/lib/owner-session'
 import { supabaseAdmin } from '@/lib/supabase'
 import { parseServiceArea, withServiceArea } from '@/lib/service-area'
 import { PRICING } from '@/lib/billing-pricing'
 
 export async function POST(request: Request) {
-  const { userId } = await auth()
+  const userId = await getOwnerUserId()
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { getOwnerUserId } from '@/lib/owner-session'
 import { supabaseAdmin } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
 import { logSecurityEvent } from '@/lib/security'
@@ -9,7 +9,7 @@ export default async function AcceptInvitePage({
   params: Promise<{ token: string }>
 }) {
   const { token } = await params
-  const { userId } = await auth()
+  const userId = await getOwnerUserId()
 
   if (!userId) {
     // Not signed in — send back to join page

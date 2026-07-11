@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { getOwnerUserId } from '@/lib/owner-session'
 import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
@@ -124,7 +124,7 @@ export async function getCurrentTenant(): Promise<Tenant | null> {
   const adminImpersonated = await getAdminImpersonatedTenant()
   if (adminImpersonated) return adminImpersonated
 
-  const { userId } = await auth()
+  const userId = await getOwnerUserId()
   if (!userId) return null
 
   // Clerk super admin impersonation
@@ -160,7 +160,7 @@ export async function isImpersonating(): Promise<boolean> {
   if (adminToken && verifyAdminToken(adminToken)) return true
 
   // Clerk super admin impersonation
-  const { userId } = await auth()
+  const userId = await getOwnerUserId()
   if (userId && SUPER_ADMIN_IDS.includes(userId)) return true
 
   return false

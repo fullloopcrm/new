@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { getOwnerUserId } from '@/lib/owner-session'
 import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
@@ -103,7 +103,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
   }
 
   // Clerk auth flow
-  const { userId } = await auth()
+  const userId = await getOwnerUserId()
   if (!userId) {
     throw new AuthError('Unauthorized', 401)
   }
