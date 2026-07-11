@@ -13,6 +13,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { parseTimestamp, formatET } from '@/lib/dates'
@@ -25,16 +26,43 @@ export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   try {
+    // Auth: field-staff bearer token. This route fires real admin + client SMS
+    // (with a pay link), writes the alert timestamp, and can open admin tasks —
+    // it was previously UNAUTHENTICATED, so anyone who knew a bookingId (any
+    // tenant) could spam payment texts and drive charges. Gate on a verified,
+    // active member; scope the booking to that member's tenant + visibility.
+    const { auth, error: authErr } = await requirePortalPermission(req, 'jobs.view_own')
+    if (authErr) return authErr
+
     const { bookingId, force } = await req.json()
     if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
+      .select('id, tenant_id, team_member_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
       .eq('id', bookingId)
       .single()
 
-    if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    // Cross-tenant: never confirm a foreign booking even exists.
+    if (!booking || booking.tenant_id !== auth.tid) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
+
+    // Ownership within the tenant: the caller must have visibility of this
+    // booking's assignee (worker=self, lead=crew, manager=all). Managers may
+    // also act on an as-yet-unassigned job.
+    const allowed = new Set(await scopedMemberIds(auth))
+    const bookingMemberIds: string[] = booking.team_member_id ? [booking.team_member_id as string] : []
+    const { data: extraMembers } = await supabaseAdmin
+      .from('booking_team_members')
+      .select('team_member_id')
+      .eq('tenant_id', auth.tid)
+      .eq('booking_id', bookingId)
+    for (const m of extraMembers || []) bookingMemberIds.push(m.team_member_id as string)
+    const hasVisibility = bookingMemberIds.some((id) => allowed.has(id))
+    if (!hasVisibility && !(bookingMemberIds.length === 0 && auth.role === 'manager')) {
+      return NextResponse.json({ error: 'Not authorized for this booking' }, { status: 403 })
+    }
 
     // Idempotency — if alert already fired in last 30 min and force not set, skip
     if (booking.fifteen_min_alert_time && !force) {

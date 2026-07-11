@@ -34,14 +34,25 @@ export async function sendTelegram(chatId: number | string, text: string, botTok
 // Register a bot's webhook with Telegram so inbound updates hit our route.
 // Called when a tenant saves/updates its bot token in setup — makes the bot
 // live without any manual curl. Pass the RAW (unencrypted) token.
-export async function registerTelegramWebhook(botToken: string, webhookUrl: string): Promise<TelegramSendResult> {
+//
+// secretToken (when set) is registered as Telegram's `secret_token`, so Telegram
+// echoes it back in the X-Telegram-Bot-Api-Secret-Token header on every delivery
+// and our webhook can verify authenticity fail-closed (see telegram-webhook-auth).
+export async function registerTelegramWebhook(
+  botToken: string,
+  webhookUrl: string,
+  secretToken?: string,
+): Promise<TelegramSendResult> {
   const token = botToken.trim()
   if (!token) return { ok: false, status: 0, body: 'no bot token' }
+  const payload: Record<string, unknown> = { url: webhookUrl, allowed_updates: ['message', 'channel_post'] }
+  const secret = (secretToken || '').trim()
+  if (secret) payload.secret_token = secret
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message', 'channel_post'] }),
+      body: JSON.stringify(payload),
     })
     return { ok: r.ok, status: r.status, body: await r.text() }
   } catch (err) {
