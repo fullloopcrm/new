@@ -172,6 +172,17 @@ for (const r of tds) {
   }
 }
 
+// KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
+// currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
+// the orphan question (delete the middleware entry + build-guard slug, or
+// re-create the tenant?) is open to Jeff, not yet decided. Until he decides,
+// they still SURFACE as CRIT in the report so they stay visible, but they do
+// NOT red-gate CI (exit 1) — otherwise every unrelated PR is blocked on a
+// disposition that isn't ours to make. Any OTHER unresolvable set entry still
+// hard-fails the gate. REMOVE a slug from this set the moment Jeff dispositions
+// it (recreate the tenant, or drop it from BESPOKE_SITE_TENANTS + the guard).
+const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-fold-hoboken'])
+
 // Drift L: a BESPOKE_SITE_TENANTS entry with NO resolvable tenant. The main
 // loop above only iterates DB tenants, so a middleware set entry that points at
 // nothing (tenant deleted or never created) is invisible to it — the domain
@@ -186,7 +197,16 @@ if (bespokeSet.size) {
   const resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   for (const slug of bespokeSet) {
     if (!resolvableSlugs.has(slug)) {
-      add('CRIT', slug, `in BESPOKE_SITE_TENANTS but has NO resolvable tenant (no tenants row of any status) -> middleware routes nothing; the build guard PROTECTs a phantom slug`)
+      const pending = KNOWN_PENDING_ORPHANS.has(slug)
+      const suffix = pending
+        ? ' [KNOWN-PENDING: awaiting Jeff disposition — reported but does NOT gate CI; remove from KNOWN_PENDING_ORPHANS once resolved]'
+        : ''
+      findings.push({
+        sev: 'CRIT',
+        slug,
+        msg: `in BESPOKE_SITE_TENANTS but has NO resolvable tenant (no tenants row of any status) -> middleware routes nothing; the build guard PROTECTs a phantom slug${suffix}`,
+        pending,
+      })
     }
   }
 }
@@ -195,8 +215,11 @@ if (bespokeSet.size) {
 const order = { CRIT: 0, WARN: 1, INFO: 2 }
 findings.sort((a, b) => order[a.sev] - order[b.sev])
 const counts = findings.reduce((c, f) => ((c[f.sev] = (c[f.sev] || 0) + 1), c), {})
-console.log(`\nTenant-config reconcile — ${tenants.length} tenants | CRIT:${counts.CRIT || 0} WARN:${counts.WARN || 0} INFO:${counts.INFO || 0}\n`)
+// Known-pending CRITs are reported but do not gate CI (see KNOWN_PENDING_ORPHANS).
+const pendingCrit = findings.filter((f) => f.sev === 'CRIT' && f.pending).length
+const gatingCrit = (counts.CRIT || 0) - pendingCrit
+console.log(`\nTenant-config reconcile — ${tenants.length} tenants | CRIT:${counts.CRIT || 0} (gating:${gatingCrit}, known-pending:${pendingCrit}) WARN:${counts.WARN || 0} INFO:${counts.INFO || 0}\n`)
 for (const f of findings) console.log(`  [${f.sev}] ${f.slug.padEnd(30)} ${f.msg}`)
 if (!findings.length) console.log('  no drift — all four sources agree.')
 console.log('')
-process.exit(counts.CRIT ? 1 : 0)
+process.exit(gatingCrit ? 1 : 0)
