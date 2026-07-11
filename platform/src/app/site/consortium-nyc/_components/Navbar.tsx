@@ -110,9 +110,12 @@ export default function Navbar() {
       >
       <div className="grid grid-cols-[auto_1fr_auto] items-center px-3 sm:px-4 py-4">
         {/* Logo — left */}
-        <Link href="/" className="flex items-center gap-0.5 shrink-0">
+        <Link href="/" className="flex flex-col justify-center shrink-0 leading-none">
           <span className="text-lg font-bold tracking-widest text-white font-heading leading-tight">
             CONSORTIUM<br />NYC
+          </span>
+          <span className="mt-1.5 text-[10px] sm:text-[11px] font-medium tracking-wide text-white/70 font-cta whitespace-nowrap">
+            now partnered with The NYC Marketing Co
           </span>
         </Link>
 

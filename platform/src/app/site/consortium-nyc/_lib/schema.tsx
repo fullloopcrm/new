@@ -14,13 +14,13 @@ export const organizationSchema = {
   },
   image: "https://www.consortiumnyc.com/og-consortium.jpg",
   description:
-    "Consortium NYC is a full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for businesses across NYC, Long Island, and Westchester.",
+    "Consortium NYC is a New York City web design and website design company specializing in custom, high-performance, SEO-ready websites for businesses across NYC, Long Island, and Westchester. Now partnered with The NYC Marketing Co.",
   address: {
     "@type": "PostalAddress",
-    streetAddress: "New York",
+    streetAddress: "150 West 47th Street",
     addressLocality: "New York",
     addressRegion: "NY",
-    postalCode: "10001",
+    postalCode: "10036",
     addressCountry: "US",
   },
   geo: {
@@ -59,14 +59,14 @@ export const organizationSchema = {
     },
   ],
   knowsAbout: [
-    "Search Engine Optimization",
     "Web Design",
-    "Branding",
-    "Digital Marketing Strategy",
-    "Business Development",
-    "Marketing Automation",
+    "Website Design",
+    "Custom Web Development",
+    "Responsive Web Design",
+    "Website Redesign",
+    "Search Engine Optimization",
     "Local SEO",
-    "Content Marketing",
+    "Conversion Rate Optimization",
   ],
 };
 
@@ -76,17 +76,9 @@ export const websiteSchema = {
   "@id": "https://www.consortiumnyc.com/#website",
   url: "https://www.consortiumnyc.com",
   name: "Consortium NYC",
-  description: "NYC Marketing Company | SEO, Branding, Web Design & Automation",
+  description: "NYC Web Design & Website Design Company | Custom, SEO-ready websites for NYC businesses",
   publisher: {
     "@id": "https://www.consortiumnyc.com/#organization",
-  },
-  potentialAction: {
-    "@type": "SearchAction",
-    target: {
-      "@type": "EntryPoint",
-      urlTemplate: "https://www.consortiumnyc.com/search?q={search_term_string}",
-    },
-    "query-input": "required name=search_term_string",
   },
 };
 
@@ -241,21 +233,6 @@ export function articleSchema(
       "@id": url,
     },
     inLanguage: "en-US",
-  };
-}
-
-export function aggregateRatingSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "ProfessionalService",
-    name: "Consortium NYC",
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: "47",
-      bestRating: "5",
-      worstRating: "1",
-    },
   };
 }
 

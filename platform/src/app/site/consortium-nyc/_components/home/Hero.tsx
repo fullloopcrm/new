@@ -8,45 +8,45 @@ import { motion, AnimatePresence } from "framer-motion";
 const slides = [
   {
     name: "NYC",
-    pre: "Your Local NYC Marketing Company",
-    line1: "NYC Marketing Company",
-    line2: "For the Businesses That Run This City",
-    sub: "The most competitive market in the country. We make sure you win it.",
+    pre: "Your Local NYC Web Design Company",
+    line1: "NYC Web Design",
+    line2: "Websites for the Businesses That Run This City",
+    sub: "The most competitive market in the country. We build sites that win it.",
     image: "/consortium-nyc-digital-marketing-agency-nyc.webp",
     href: "/services-areas-we-offer-marketing-services-in/manhattan-marketing-company",
   },
   {
     name: "Queens",
-    pre: "Your Local Queens Marketing Company",
-    line1: "Queens Marketing Company",
-    line2: "For the Borough That Works Harder Than Anyone",
-    sub: "The most diverse borough deserves marketing that actually gets it.",
+    pre: "Your Local Queens Web Design Company",
+    line1: "Queens Web Design",
+    line2: "Websites for the Borough That Works Harder Than Anyone",
+    sub: "The most diverse borough deserves a website that actually gets it.",
     image: "/consortium-nyc-digital-marketing-agency-queens.webp",
     href: "/services-areas-we-offer-marketing-services-in/queens-marketing-company",
   },
   {
     name: "Brooklyn",
-    pre: "Your Local Brooklyn Marketing Company",
-    line1: "Brooklyn Marketing Company",
-    line2: "For the Brands That Built This Borough",
-    sub: "Brands as bold as the borough. Sites that rank and convert.",
+    pre: "Your Local Brooklyn Web Design Company",
+    line1: "Brooklyn Web Design",
+    line2: "Websites for the Brands That Built This Borough",
+    sub: "Sites as bold as the borough. Built to rank and convert.",
     image: "/consortium-nyc-digital-marketing-agency-brooklyn.webp",
     href: "/services-areas-we-offer-marketing-services-in/brooklyn-marketing-company",
   },
   {
     name: "Long Island",
-    pre: "Your Local Long Island Marketing Company",
-    line1: "Long Island Marketing Company",
-    line2: "For the Businesses Your Neighbors Trust",
+    pre: "Your Local Long Island Web Design Company",
+    line1: "Long Island Web Design",
+    line2: "Websites for the Businesses Your Neighbors Trust",
     sub: "Local businesses that show up first win first. We get you there.",
     image: "/consortium-nyc-digital-marketing-agency-long-island.webp",
     href: "/services-areas-we-offer-marketing-services-in/long-island-marketing-company",
   },
   {
     name: "Hoboken",
-    pre: "Your Local Hoboken Marketing Company",
-    line1: "Hoboken Marketing Company",
-    line2: "For the Mile Square City's Best Businesses",
+    pre: "Your Local Hoboken Web Design Company",
+    line1: "Hoboken Web Design",
+    line2: "Websites for the Mile Square City's Best Businesses",
     sub: "Small city reach with big city results. Right across the river.",
     image: "/consortium-nyc-digital-marketing-agency-hoboken.webp",
     href: "/services-areas-we-offer-marketing-services-in/hoboken-marketing-company",
@@ -87,7 +87,7 @@ export default function Hero() {
         >
           <Image
             src={slide.image}
-            alt={`Digital marketing in ${slide.name}`}
+            alt={`Web design in ${slide.name}`}
             fill
             className="object-cover"
             sizes="100vw"
@@ -163,7 +163,7 @@ export default function Hero() {
             href="https://www.thenycmarketingcompany.com/contact"
             className="inline-block px-8 py-4 text-base sm:text-lg font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-700 transition-colors shadow-lg shadow-teal-600/25 font-cta"
           >
-            Schedule a Strategy Session
+            Get a Free Website Quote
           </Link>
           <Link
             href="/results"
@@ -185,7 +185,7 @@ export default function Hero() {
           <Link href="/nyc-marketing-company-services-list" className="text-teal-400 hover:text-teal-300 transition-colors underline underline-offset-2 decoration-teal-400/50">medical</Link>,{" "}
           <Link href="/nyc-marketing-company-services-list" className="text-teal-400 hover:text-teal-300 transition-colors underline underline-offset-2 decoration-teal-400/50">real estate</Link>,{" "}
           <Link href="/nyc-marketing-company-services-list" className="text-teal-400 hover:text-teal-300 transition-colors underline underline-offset-2 decoration-teal-400/50">tech</Link>,{" "}
-          <Link href="/nyc-marketing-company-services-list" className="text-teal-400 hover:text-teal-300 transition-colors underline underline-offset-2 decoration-teal-400/50">e-commerce</Link> &amp; more. Strategies that lower your budget every year &mdash; no ads, just <strong className="text-teal-400">compounding growth</strong>.
+          <Link href="/nyc-marketing-company-services-list" className="text-teal-400 hover:text-teal-300 transition-colors underline underline-offset-2 decoration-teal-400/50">e-commerce</Link> &amp; more. Custom websites engineered to <strong className="text-teal-400">rank and convert</strong> &mdash; built once, working for years.
         </motion.p>
 
         {/* Trust badges */}
