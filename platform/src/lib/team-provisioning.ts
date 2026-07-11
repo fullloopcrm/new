@@ -4,6 +4,7 @@ import { teamApplicationApprovedEmail } from '@/lib/email-templates'
 import { getSettings } from '@/lib/settings'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { geocodeAddress } from '@/lib/geo'
+import { generateTeamPin } from '@/lib/team-pin'
 
 export type ApprovedApplication = {
   id: string
@@ -72,7 +73,7 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
     let inserted = false
     let newMemberId: string | null = null
     for (let attempt = 0; attempt < 4 && !inserted; attempt++) {
-      pin = String(1000 + crypto.randomInt(0, 9000))
+      pin = generateTeamPin()
       const { data: ins, error: insErr } = await supabaseAdmin
         .from('team_members')  // tenant-scope-ok: insert base carries tenant_id (built above)
         .insert({ ...base, pin })
