@@ -4,6 +4,7 @@ import { EXTERMINATOR_SLUG, exterminatorConfig } from './the-nyc-exterminator'
 import { NYC_TOW_SLUG, nycTowConfig } from './nyc-tow'
 import { NYC_MOBILE_SALON_SLUG, nycMobileSalonConfig } from './nyc-mobile-salon'
 import { WE_PAY_YOU_JUNK_SLUG, wePayYouJunkConfig } from './we-pay-you-junk'
+import { LANDSCAPING_IN_NYC_SLUG, landscapingInNycConfig } from './landscaping-in-nyc'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -139,6 +140,29 @@ describe('we-pay-you-junk — junk removal, hourly + resale-credit persona', () 
     expect(playbook).toContain('BOOKING FLOW')
     expect(playbook).toContain('$200/hr')
     expect(playbook).toContain('(888) 831-3001')
+  })
+})
+
+describe('landscaping-in-nyc — bespoke landscaping, quote-first persona', () => {
+  it('registry resolves the landscaping slug to the authored config', () => {
+    expect(getAuthoredConfig(LANDSCAPING_IN_NYC_SLUG)).toBe(landscapingInNycConfig)
+  })
+
+  it('resolves to its OWN landscaping persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(LANDSCAPING_IN_NYC_SLUG)!
+    expect(cfg.identity.business_name).toBe('Landscaping In NYC')
+    expect(cfg.voice.persona).toContain('landscaping pro')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('is quote_only — bespoke jobs are estimated on-site, agent quotes nothing', () => {
+    const cfg = getAuthoredConfig(LANDSCAPING_IN_NYC_SLUG)!
+    expect(cfg.pricing.model).toBe('quote_only')
+    expect(cfg.pricing.copy).toContain('NEVER quote a price')
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('PRICING — DO NOT QUOTE')
+    expect(playbook).toContain('quote-first')
+    expect(playbook).toContain('(212) 470-9637')
   })
 })
 
