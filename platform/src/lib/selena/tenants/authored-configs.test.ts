@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { getAuthoredConfig } from './index'
 import { EXTERMINATOR_SLUG, exterminatorConfig } from './the-nyc-exterminator'
+import { NYC_TOW_SLUG, nycTowConfig } from './nyc-tow'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
+
+const GENERIC_PERSONA = 'professional, warm, and efficient'
 
 /**
  * The per-tenant authored-config layer. The base engine derives a NEUTRAL config
@@ -40,6 +43,39 @@ describe('exterminator wiring — the previously-dead exterminatorAgentConfig', 
     const playbook = buildPlaybook(cfg)
     expect(playbook).toContain('PRICING — DO NOT QUOTE')
     expect(playbook).toContain('212-202-8545')
+  })
+})
+
+describe('nyc-tow — roadside/towing dispatch persona', () => {
+  it('registry resolves the tow slug to the authored config', () => {
+    expect(getAuthoredConfig(NYC_TOW_SLUG)).toBe(nycTowConfig)
+  })
+
+  it('resolves to its OWN dispatcher persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(NYC_TOW_SLUG)!
+    expect(cfg.identity.business_name).toBe('The NYC Towing Service')
+    expect(cfg.voice.persona).toContain('roadside dispatcher')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL flat rates (carried via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(NYC_TOW_SLUG)!
+    expect(cfg.pricing.model).toBe('flat')
+    // The three published tiers from the marketing site.
+    expect(cfg.pricing.copy).toContain('$85')
+    expect(cfg.pricing.copy).toContain('$125')
+    expect(cfg.pricing.copy).toContain('$175')
+    // flat model → no /hr unit on the rate list.
+    expect(cfg.pricing.copy).toContain('Roadside (jump, tire, lockout, gas) — $85')
+    expect(cfg.pricing.copy).not.toContain('$85/hr')
+  })
+
+  it('renders a quote-first dispatch flow with the real phone', () => {
+    const cfg = getAuthoredConfig(NYC_TOW_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('PRICING — DO NOT GUESS')
+    expect(playbook).toContain('quote-first')
+    expect(playbook).toContain('(212) 470-4068')
   })
 })
 

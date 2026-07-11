@@ -9,9 +9,14 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
-import type { ServiceType } from '@/lib/settings'
 import type { AgentConfig, BookingModel, PricingModel } from './agent-config'
 import { getAuthoredConfig } from './tenants'
+import { buildPriceCopy } from './price-copy'
+
+// buildPriceCopy moved to ./price-copy (leaf module) so per-tenant authored
+// configs can reuse it without an import cycle. Re-exported here so existing
+// importers (and tests) that pull it from agent-config-loader keep working.
+export { buildPriceCopy } from './price-copy'
 
 function funnelToBooking(funnel: string, hasHourly: boolean): BookingModel {
   if (funnel === 'lead_only') return 'lead_only'
@@ -22,24 +27,6 @@ function funnelToBooking(funnel: string, hasHourly: boolean): BookingModel {
 function funnelToPricing(funnel: string, hasHourly: boolean): PricingModel {
   if (funnel === 'lead_only' || funnel === 'pipeline') return 'quote_only'
   return hasHourly ? 'hourly' : 'flat'
-}
-
-/**
- * Build the pricing copy the agent may quote for a booking/flat tenant. Carries
- * each active service's REAL configured rate into the prompt. Previously only
- * service NAMES survived here (the per-service dollar rate was dropped upstream
- * in the settings mapping), so a booking tenant's agent literally had no number
- * to quote and could only say "quote your configured rates" — with none present.
- * quote_only tenants quote nothing, so the copy is empty by design.
- */
-export function buildPriceCopy(activeServices: ServiceType[], pricingModel: PricingModel): string {
-  if (pricingModel === 'quote_only') return ''
-  if (!activeServices.length) return 'Quote only your configured rates — never invent a number.'
-  const unit = pricingModel === 'hourly' ? '/hr' : ''
-  const list = activeServices
-    .map((s) => (s.rate > 0 ? `${s.name} — $${s.rate}${unit}` : s.name))
-    .join(', ')
-  return `Services and rates: ${list}. Quote ONLY these configured rates — never invent a total you were not given.`
 }
 
 export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {

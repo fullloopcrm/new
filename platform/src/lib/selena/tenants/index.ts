@@ -8,9 +8,11 @@
 // byte-unchanged. Routing it through here would change its assembled prompt.
 import type { AgentConfig } from '../agent-config'
 import { EXTERMINATOR_SLUG, exterminatorConfig } from './the-nyc-exterminator'
+import { NYC_TOW_SLUG, nycTowConfig } from './nyc-tow'
 
 const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [EXTERMINATOR_SLUG]: exterminatorConfig,
+  [NYC_TOW_SLUG]: nycTowConfig,
 }
 
 /**
