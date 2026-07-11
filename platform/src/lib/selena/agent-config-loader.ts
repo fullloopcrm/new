@@ -9,7 +9,9 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
+import type { ServiceType } from '@/lib/settings'
 import type { AgentConfig, BookingModel, PricingModel } from './agent-config'
+import { getAuthoredConfig } from './tenants'
 
 function funnelToBooking(funnel: string, hasHourly: boolean): BookingModel {
   if (funnel === 'lead_only') return 'lead_only'
@@ -22,15 +24,42 @@ function funnelToPricing(funnel: string, hasHourly: boolean): PricingModel {
   return hasHourly ? 'hourly' : 'flat'
 }
 
+/**
+ * Build the pricing copy the agent may quote for a booking/flat tenant. Carries
+ * each active service's REAL configured rate into the prompt. Previously only
+ * service NAMES survived here (the per-service dollar rate was dropped upstream
+ * in the settings mapping), so a booking tenant's agent literally had no number
+ * to quote and could only say "quote your configured rates" — with none present.
+ * quote_only tenants quote nothing, so the copy is empty by design.
+ */
+export function buildPriceCopy(activeServices: ServiceType[], pricingModel: PricingModel): string {
+  if (pricingModel === 'quote_only') return ''
+  if (!activeServices.length) return 'Quote only your configured rates — never invent a number.'
+  const unit = pricingModel === 'hourly' ? '/hr' : ''
+  const list = activeServices
+    .map((s) => (s.rate > 0 ? `${s.name} — $${s.rate}${unit}` : s.name))
+    .join(', ')
+  return `Services and rates: ${list}. Quote ONLY these configured rates — never invent a total you were not given.`
+}
+
 export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   const [{ data: tenant }, settings] = await Promise.all([
     supabaseAdmin
       .from('tenants')
-      .select('name, phone, email, domain, website_url, industry, agent_name, address')
+      .select('name, phone, email, domain, website_url, industry, agent_name, address, slug')
       .eq('id', tenantId)
       .single(),
     getSettings(tenantId),
   ])
+
+  // Base-engine + per-tenant layer: if this tenant has an authored AgentConfig
+  // (migrated one at a time — exterminator first), use it in place of the
+  // neutral derivation below so it resolves to its OWN persona, not the generic
+  // professional default. The tenant's DB persona (tenants.selena_config) still
+  // folds ON TOP downstream (agent.ts applyPersonaToConfig) — this replaces only
+  // the neutral BASE, never the tenant's own authored persona data.
+  const authored = getAuthoredConfig((tenant as { slug?: string } | null)?.slug)
+  if (authored) return authored
 
   const name = tenant?.name || 'the business'
   const agentName = tenant?.agent_name || 'Jefe'
@@ -44,12 +73,7 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   const bookingModel = funnelToBooking(settings.funnel_mode, hasHourly)
   const pricingModel = funnelToPricing(settings.funnel_mode, hasHourly)
 
-  const priceCopy =
-    pricingModel === 'quote_only'
-      ? ''
-      : activeServices.length
-        ? `Services: ${activeServices.map((s) => s.name).join(', ')}. Quote only your configured rates — never invent a total you were not given.`
-        : 'Quote only your configured rates — never invent a number.'
+  const priceCopy = buildPriceCopy(activeServices, pricingModel)
 
   const serviceList = activeServices.length
     ? `What do you need? (${activeServices.map((s) => s.name).join(', ')})`
