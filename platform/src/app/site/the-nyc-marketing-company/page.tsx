@@ -4,7 +4,6 @@ import {
   webPageSchema,
   faqSchema,
   breadcrumbSchema,
-  aggregateRatingSchema,
 } from "@/app/site/the-nyc-marketing-company/_lib/schema";
 import { faqs } from "@/app/site/the-nyc-marketing-company/_lib/siteData";
 
@@ -67,7 +66,6 @@ export default function Home() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={aggregateRatingSchema()} />
       <JsonLd data={faqSchema(faqs.homepageAll)} />
 
 

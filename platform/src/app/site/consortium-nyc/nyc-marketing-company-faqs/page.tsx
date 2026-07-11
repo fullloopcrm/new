@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     "AI automation for small business",
     "digital marketing FAQ",
   ],
+  alternates: { canonical: "https://www.consortiumnyc.com/nyc-marketing-company-faqs" },
 };
 
 const breadcrumbs = [
