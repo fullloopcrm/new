@@ -21,6 +21,7 @@ import { FLA_DUMPSTER_RENTALS_SLUG, flaDumpsterRentalsConfig } from './fla-dumps
 import { STRETCH_NY_SLUG, stretchNyConfig } from './stretch-ny'
 import { STRETCH_SERVICE_SLUG, stretchServiceConfig } from './stretch-service'
 import { DSCR_LOAN_SLUG, dscrLoanConfig } from './debt-service-ratio-loan'
+import { HOME_SERVICES_COMPANY_SLUG, homeServicesCompanyConfig } from './the-home-services-company'
 
 const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [EXTERMINATOR_SLUG]: exterminatorConfig,
@@ -37,6 +38,7 @@ const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [STRETCH_NY_SLUG]: stretchNyConfig,
   [STRETCH_SERVICE_SLUG]: stretchServiceConfig,
   [DSCR_LOAN_SLUG]: dscrLoanConfig,
+  [HOME_SERVICES_COMPANY_SLUG]: homeServicesCompanyConfig,
 }
 
 /**

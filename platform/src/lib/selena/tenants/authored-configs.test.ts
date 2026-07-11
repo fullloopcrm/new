@@ -14,6 +14,7 @@ import { FLA_DUMPSTER_RENTALS_SLUG, flaDumpsterRentalsConfig } from './fla-dumps
 import { STRETCH_NY_SLUG, stretchNyConfig } from './stretch-ny'
 import { STRETCH_SERVICE_SLUG, stretchServiceConfig } from './stretch-service'
 import { DSCR_LOAN_SLUG, dscrLoanConfig } from './debt-service-ratio-loan'
+import { HOME_SERVICES_COMPANY_SLUG, homeServicesCompanyConfig } from './the-home-services-company'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -442,6 +443,34 @@ describe('debt-service-ratio-loan — DSCR investor-loan lead-intake persona', (
     const playbook = buildPlaybook(cfg)
     expect(playbook).toContain('lead capture')
     expect(playbook).toContain('(855) 300-3727')
+  })
+})
+
+describe('the-home-services-company — multi-trade home services, hourly booking persona', () => {
+  it('registry resolves the home-services slug to the authored config', () => {
+    expect(getAuthoredConfig(HOME_SERVICES_COMPANY_SLUG)).toBe(homeServicesCompanyConfig)
+  })
+
+  it('resolves to its OWN home-services persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(HOME_SERVICES_COMPANY_SLUG)!
+    expect(cfg.identity.business_name).toBe('The Home Services Company')
+    expect(cfg.voice.persona).toContain('home-services coordinator')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL $99/hr labor floor with estimate-first nuance (via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(HOME_SERVICES_COMPANY_SLUG)!
+    expect(cfg.pricing.model).toBe('hourly')
+    expect(cfg.pricing.copy).toContain('Home service call (any trade) — $99/hr')
+    expect(cfg.pricing.copy).toContain('do NOT lock in a flat total')
+  })
+
+  it('renders an appointment BOOKING FLOW with real rate and phone', () => {
+    const cfg = getAuthoredConfig(HOME_SERVICES_COMPANY_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('BOOKING FLOW')
+    expect(playbook).toContain('$99/hr')
+    expect(playbook).toContain('(888) 700-4001')
   })
 })
 
