@@ -20,7 +20,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (match) await supabaseAdmin.storage.from('uploads').remove([match[1]])
   }
 
-  const { error } = await supabaseAdmin.from('booking_notes').delete().eq('id', id)
+  const { error } = await supabaseAdmin.from('booking_notes').delete().eq('id', id).eq('tenant_id', ctx.tenantId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }

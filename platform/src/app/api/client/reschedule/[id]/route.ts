@@ -8,6 +8,7 @@ import { smsJobRescheduled } from '@/lib/sms-templates'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 
 function fmtDate(iso: string, tz: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -41,6 +42,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const auth = await protectClientAPI(tenant.id, oldBooking.client_id)
   if (auth instanceof NextResponse) return auth
+
+  // If the client supplies a team member, it must belong to this tenant.
+  if (body.team_member_id) {
+    const foreign = await findForeignRef(tenant.id, [
+      { table: 'team_members', ids: [body.team_member_id] },
+    ])
+    if (foreign) return NextResponse.json({ error: 'Unknown team member for this account' }, { status: 400 })
+  }
 
   const tz = tenant.timezone || 'America/New_York'
   const oldDate = fmtDate(oldBooking.start_time, tz)

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
@@ -45,6 +46,11 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
     const fields = pick(body, ['name', 'email', 'phone', 'address', 'status', 'source', 'notes', 'preferred_team_member_id', 'sms_consent'])
+
+    if (fields.preferred_team_member_id) {
+      const foreign = await findForeignRef(tenantId, [{ table: 'team_members', ids: [fields.preferred_team_member_id as string] }])
+      if (foreign) return NextResponse.json({ error: 'Unknown team member for this account' }, { status: 400 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('clients')

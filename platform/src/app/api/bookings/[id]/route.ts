@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { checkMemberDayOff } from '@/lib/availability'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
@@ -50,6 +51,17 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
     const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
+
+    // Reject any client/member/service-type id that isn't this tenant's —
+    // prevents re-pointing a booking at another tenant's records via body ids.
+    const foreign = await findForeignRef(tenantId, [
+      { table: 'clients', ids: [fields.client_id as string] },
+      { table: 'team_members', ids: [fields.team_member_id as string] },
+      { table: 'service_types', ids: [fields.service_type_id as string] },
+    ])
+    if (foreign) {
+      return NextResponse.json({ error: `Unknown ${foreign.table.replace(/s$/, '').replace('_', ' ')} for this account` }, { status: 400 })
+    }
 
     // Check if team member has the day off or doesn't work that day
     if (fields.team_member_id && !body.force) {

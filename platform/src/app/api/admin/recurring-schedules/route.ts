@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { generateToken } from '@/lib/tokens'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
@@ -116,6 +117,16 @@ export async function POST(request: Request) {
     .eq('tenant_id', tenantId)
     .single()
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+  // Same for property + team member — a forged foreign id would otherwise
+  // propagate onto every generated booking in the series.
+  const foreign = await findForeignRef(tenantId, [
+    { table: 'client_properties', ids: [property_id] },
+    { table: 'team_members', ids: [teamMemberId] },
+  ])
+  if (foreign) {
+    return NextResponse.json({ error: `Unknown ${foreign.table.replace(/s$/, '').replace(/_/g, ' ')} for this account` }, { status: 400 })
+  }
 
   // Dates: use those provided by the frontend, else generate 6 weeks.
   let dates: string[] = Array.isArray(body.dates)

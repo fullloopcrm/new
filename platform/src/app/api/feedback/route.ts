@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import { requireAdmin } from '@/lib/require-admin'
 
 // SQL to create table:
 // CREATE TABLE platform_feedback (
@@ -14,8 +15,10 @@ import { sendEmail } from '@/lib/email'
 // CREATE INDEX idx_feedback_status ON platform_feedback(status);
 
 export async function GET() {
-  // Admin only — used by /admin/feedback
-  // No auth check here since admin layout handles it
+  // Platform-admin only — a client layout does NOT protect an API route.
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   const { data, error } = await supabaseAdmin
     .from('platform_feedback')
     .select('*')
@@ -81,7 +84,10 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  // Mark feedback as read / add notes — admin use
+  // Mark feedback as read / add notes — platform-admin only.
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   try {
     const body = await request.json()
     const { id, status, admin_notes } = body

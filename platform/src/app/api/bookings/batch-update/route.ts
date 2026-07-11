@@ -2,8 +2,18 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
+import { pick } from '@/lib/validate'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { audit } from '@/lib/audit'
 import { notify } from '@/lib/notify'
+
+// Columns a batch update is allowed to set. Excludes tenant_id/id so a caller
+// can't mass-assign a booking into another tenant.
+const BATCH_UPDATE_FIELDS = [
+  'client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time',
+  'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate',
+  'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price',
+] as const
 
 /**
  * Batch update multiple bookings in parallel.
@@ -25,8 +35,27 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'updates array required' }, { status: 400 })
     }
 
+    // Whitelist settable columns (drops tenant_id/id so a booking can't be
+    // reassigned to another tenant via mass-assignment).
+    const sanitized = updates.map((u: { id: string; data: Record<string, unknown> }) => ({
+      id: u.id,
+      data: pick(u.data || {}, BATCH_UPDATE_FIELDS as unknown as string[]),
+    }))
+
+    // Reject any FK id that isn't this tenant's, across all updates.
+    const uniq = (vals: unknown[]): string[] =>
+      [...new Set(vals.filter((v): v is string => typeof v === 'string' && v.length > 0))]
+    const foreign = await findForeignRef(tenantId, [
+      { table: 'clients', ids: uniq(sanitized.map(u => u.data.client_id)) },
+      { table: 'team_members', ids: uniq(sanitized.map(u => u.data.team_member_id)) },
+      { table: 'service_types', ids: uniq(sanitized.map(u => u.data.service_type_id)) },
+    ])
+    if (foreign) {
+      return NextResponse.json({ error: `Unknown ${foreign.table.replace(/s$/, '').replace(/_/g, ' ')} for this account` }, { status: 400 })
+    }
+
     const results = await Promise.all(
-      updates.map(async (u: { id: string; data: Record<string, unknown> }) => {
+      sanitized.map(async (u: { id: string; data: Record<string, unknown> }) => {
         const { data, error } = await supabaseAdmin
           .from('bookings')
           .update(u.data)

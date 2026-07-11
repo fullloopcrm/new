@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { supabaseAdmin } from '@/lib/supabase'
 import { postPayrollToLedger } from '@/lib/finance/post-labor'
 
@@ -59,6 +60,15 @@ export async function POST(request: Request) {
   try {
     const { tenantId } = tenant
     const { team_member_id, amount, method, period_start, period_end } = await request.json()
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ error: 'A positive amount is required' }, { status: 400 })
+    }
+
+    const foreign = await findForeignRef(tenantId, [{ table: 'team_members', ids: [team_member_id] }])
+    if (foreign) {
+      return NextResponse.json({ error: 'Unknown team member for this account' }, { status: 400 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('payroll_payments')

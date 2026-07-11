@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { audit } from '@/lib/audit'
 import { checkMemberDayOff } from '@/lib/availability'
 import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
@@ -94,6 +95,18 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
+
+    // Reject any FK id that isn't this tenant's — prevents creating a booking
+    // pointed at another tenant's client/property/member/service-type.
+    const foreign = await findForeignRef(tenantId, [
+      { table: 'clients', ids: [validated.client_id as string] },
+      { table: 'client_properties', ids: [validated.property_id as string] },
+      { table: 'team_members', ids: [validated.team_member_id as string] },
+      { table: 'service_types', ids: [validated.service_type_id as string] },
+    ])
+    if (foreign) {
+      return NextResponse.json({ error: `Unknown ${foreign.table.replace(/s$/, '').replace(/_/g, ' ')} for this account` }, { status: 400 })
+    }
 
     // Tenant rule: require_team_member forces a team_member_id at create time.
     if (settings.require_team_member && !validated.team_member_id) {

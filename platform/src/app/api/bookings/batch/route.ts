@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { findForeignRef } from '@/lib/verify-tenant-refs'
 import { generateToken } from '@/lib/tokens'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
@@ -51,6 +52,18 @@ export async function POST(request: Request) {
       schedule_id: (b.schedule_id as string) || schedule_id || null,
     }
   })
+
+  // Reject any FK id that isn't this tenant's before bulk-inserting.
+  const uniq = (vals: unknown[]): string[] =>
+    [...new Set(vals.filter((v): v is string => typeof v === 'string' && v.length > 0))]
+  const foreign = await findForeignRef(tenantId, [
+    { table: 'clients', ids: uniq(rows.map(r => r.client_id)) },
+    { table: 'team_members', ids: uniq(rows.map(r => r.team_member_id)) },
+    { table: 'service_types', ids: uniq(rows.map(r => r.service_type_id)) },
+  ])
+  if (foreign) {
+    return NextResponse.json({ error: `Unknown ${foreign.table.replace(/s$/, '').replace(/_/g, ' ')} for this account` }, { status: 400 })
+  }
 
   const { data, error } = await supabaseAdmin
     .from('bookings')  // tenant-scope-ok: insert payload carries tenant_id (built above)
