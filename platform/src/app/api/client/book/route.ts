@@ -252,7 +252,7 @@ export async function POST(request: Request) {
         team_member_id: null,
         start_time: startTime,
         end_time: endTime,
-        service_type: (body.service_type as string) || 'Standard Cleaning',
+        service_type: (body.service_type as string) || (isNycMaid(tenant.id) ? 'Standard Cleaning' : 'Service'),
         status: 'pending',
         price: bkPrice,
         hourly_rate: bkHourlyRate,
