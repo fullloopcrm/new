@@ -15,7 +15,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'PIN and tenant required' }, { status: 400 })
   }
 
-  const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${pin}`, 5, 15 * 60 * 1000)
+  // Rate-limit bucket must NOT include the PIN. Keying on the PIN gave every
+  // guessed value its own fresh 5-attempt budget, so an attacker could walk the
+  // whole PIN space unthrottled. Key on slug+IP instead: 5 PIN guesses per IP
+  // per tenant per 15 min, which both throttles enumeration and locks out a
+  // spraying host for the rest of the window.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${ip}`, 5, 15 * 60 * 1000)
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
