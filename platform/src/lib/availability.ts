@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { isHoliday } from '@/lib/holidays'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
+import { hourToLabel, slotStartHours } from '@/lib/time-slots'
 
 export interface AvailabilitySlot {
   time: string
@@ -21,14 +22,7 @@ export interface TeamMemberAvailability {
   conflict?: string
 }
 
-const BUSINESS_START = 9
-const BUSINESS_END = 17
 const BUFFER_MINUTES = 60 // travel buffer between jobs — aligned with smart-schedule + schedule-monitor
-
-const TIME_LABELS: Record<number, string> = {
-  9: '9:00 AM', 10: '10:00 AM', 11: '11:00 AM', 12: '12:00 PM',
-  13: '1:00 PM', 14: '2:00 PM', 15: '3:00 PM', 16: '4:00 PM'
-}
 
 const toMinutes = (timeStr: string) => {
   const timePart = timeStr.split('T')[1] || '00:00'
@@ -131,9 +125,11 @@ export async function checkAvailability(
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
   }
 
-  // Open-365 tenants (e.g. nycmaid) never treat a holiday as closed.
-  const { open_365 } = await getSettings(tenantId)
-  if (!open_365) {
+  // Open-365 tenants (e.g. nycmaid, 24-7 emergency trades) never treat a holiday
+  // as closed. The business-hours window is per-tenant too, so a 24-7 trade that
+  // sets 0–24 hours can surface any-time slots.
+  const settings = await getSettings(tenantId)
+  if (!settings.open_365) {
     const holidayName = isHoliday(date)
     if (holidayName) {
       return { slots: [], message: `Closed for ${holidayName}` }
@@ -148,11 +144,10 @@ export async function checkAvailability(
 
   const existingBookings = await getBookingsForDay(tenantId, date)
   const durationMin = durationHours * 60
-  const lastStartHour = BUSINESS_END - durationHours
 
   const slots: AvailabilitySlot[] = []
 
-  for (let hour = BUSINESS_START; hour <= Math.min(lastStartHour, 16); hour++) {
+  for (const hour of slotStartHours(settings.business_hours_start, settings.business_hours_end, durationHours)) {
     const slotStartMin = hour * 60
     const slotEndMin = slotStartMin + durationMin
 
@@ -164,9 +159,7 @@ export async function checkAvailability(
       return !result.conflict
     })
 
-    if (TIME_LABELS[hour]) {
-      slots.push({ time: TIME_LABELS[hour], available: hasAvailableMember })
-    }
+    slots.push({ time: hourToLabel(hour), available: hasAvailableMember })
   }
 
   return { slots }
