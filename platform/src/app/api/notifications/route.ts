@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 
 export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const body = await request.json()
     const { type, booking_id, message } = body
 
     if (type === '15min_warning') {
-      // Insert in-app notification for admin
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: tenantId,
+      // Insert in-app notification for admin (tenant_id stamped by tenantDb)
+      await db.from('notifications').insert({
         type: '15min_warning',
         title: '15-Min Heads Up',
         message: message || '15-minute warning sent',
@@ -24,11 +24,10 @@ export async function POST(request: NextRequest) {
 
       // Also send SMS to client if booking has a client with phone
       if (booking_id) {
-        const { data: booking } = await supabaseAdmin
+        const { data: booking } = await db
           .from('bookings')
           .select('client_id, check_in_time, hourly_rate, clients(name, phone)')
           .eq('id', booking_id)
-          .eq('tenant_id', tenantId)
           .single()
 
         if (booking?.client_id) {
@@ -70,12 +69,12 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const markRead = request.nextUrl.searchParams.get('mark_read')
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('notifications')
       .select('*')
-      .eq('tenant_id', tenantId)
       .eq('recipient_type', 'admin')
       .order('created_at', { ascending: false })
       .limit(50)
@@ -85,18 +84,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Count unread
-    const { count: unread } = await supabaseAdmin
+    const { count: unread } = await db
       .from('notifications')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
       .eq('recipient_type', 'admin')
       .is('metadata->read', null)
 
     if (markRead === 'true') {
-      // Mark all as read by updating metadata
+      // Mark all as read by updating metadata. tenantDb adds .eq(tenant_id) so a
+      // stray id from another tenant can never be flipped here.
       const ids = (data || []).map((n) => n.id)
       if (ids.length > 0) {
-        await supabaseAdmin
+        await db
           .from('notifications')
           .update({ metadata: { read: true } })
           .in('id', ids)

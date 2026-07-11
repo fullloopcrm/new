@@ -2,16 +2,15 @@
  * Deals (sales pipeline) — CRUD. Tenant-scoped. Ported from nycmaid.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
-    const { data: deals, error } = await supabaseAdmin
+    const { data: deals, error } = await tenantDb(tenantId)
       .from('deals')
       .select('*, clients(id, name, email, phone, address, status, created_at)')
-      .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .order('follow_up_at', { ascending: true, nullsFirst: false })
       .limit(500)
@@ -30,6 +29,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const body = await request.json()
     const {
       client_id,
@@ -50,10 +50,9 @@ export async function POST(request: Request) {
     // Only block duplicate open deal on same client if no title was given
     // (same client can have multiple distinct deals when titled).
     if (client_id && !title) {
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await db
         .from('deals')
         .select('id')
-        .eq('tenant_id', tenantId)
         .eq('client_id', client_id)
         .in('stage', ['new', 'qualifying', 'quoted', 'pending'])
         .limit(1)
@@ -62,10 +61,9 @@ export async function POST(request: Request) {
       }
     }
 
-    const { data: deal, error } = await supabaseAdmin
+    const { data: deal, error } = await db
       .from('deals')
       .insert({
-        tenant_id: tenantId,
         client_id: client_id || null,
         title: title || null,
         stage: stage || 'new',
@@ -81,8 +79,7 @@ export async function POST(request: Request) {
       .single()
     if (error) throw error
 
-    await supabaseAdmin.from('deal_activities').insert({
-      tenant_id: tenantId,
+    await db.from('deal_activities').insert({
       deal_id: deal.id,
       type: 'auto_created',
       description: 'Added to sales board',
@@ -99,6 +96,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id, follow_up_at, follow_up_note, notes, stage } = await request.json()
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
@@ -129,17 +127,16 @@ export async function PUT(request: Request) {
       updates.closed_at = new Date().toISOString()
     }
 
-    const { data: deal, error } = await supabaseAdmin
+    const { data: deal, error } = await db
       .from('deals')
       .update(updates)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select('*, clients(id, name, email, phone, address, status)')
       .single()
     if (error) throw error
 
     if (activities.length > 0) {
-      await supabaseAdmin.from('deal_activities').insert(activities)  // tenant-scope-ok: insert payload carries tenant_id (built above)
+      await db.from('deal_activities').insert(activities)  // tenant_id stamped by tenantDb wrapper
     }
 
     return NextResponse.json(deal)
@@ -156,7 +153,7 @@ export async function DELETE(request: Request) {
     const { id } = await request.json()
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-    const { error } = await supabaseAdmin.from('deals').delete().eq('id', id).eq('tenant_id', tenantId)
+    const { error } = await tenantDb(tenantId).from('deals').delete().eq('id', id)
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (err) {
