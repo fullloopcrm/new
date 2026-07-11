@@ -19,6 +19,7 @@ import { SUNNYSIDE_CLEAN_SLUG, sunnysideCleanConfig } from './sunnyside-clean-ny
 import { WASH_AND_FOLD_NYC_SLUG, washAndFoldNycConfig } from './wash-and-fold-nyc'
 import { FLA_DUMPSTER_RENTALS_SLUG, flaDumpsterRentalsConfig } from './fla-dumpster-rentals'
 import { STRETCH_NY_SLUG, stretchNyConfig } from './stretch-ny'
+import { STRETCH_SERVICE_SLUG, stretchServiceConfig } from './stretch-service'
 
 const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [EXTERMINATOR_SLUG]: exterminatorConfig,
@@ -33,6 +34,7 @@ const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [WASH_AND_FOLD_NYC_SLUG]: washAndFoldNycConfig,
   [FLA_DUMPSTER_RENTALS_SLUG]: flaDumpsterRentalsConfig,
   [STRETCH_NY_SLUG]: stretchNyConfig,
+  [STRETCH_SERVICE_SLUG]: stretchServiceConfig,
 }
 
 /**

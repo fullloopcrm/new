@@ -12,6 +12,7 @@ import { SUNNYSIDE_CLEAN_SLUG, sunnysideCleanConfig } from './sunnyside-clean-ny
 import { WASH_AND_FOLD_NYC_SLUG, washAndFoldNycConfig } from './wash-and-fold-nyc'
 import { FLA_DUMPSTER_RENTALS_SLUG, flaDumpsterRentalsConfig } from './fla-dumpster-rentals'
 import { STRETCH_NY_SLUG, stretchNyConfig } from './stretch-ny'
+import { STRETCH_SERVICE_SLUG, stretchServiceConfig } from './stretch-service'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -383,6 +384,34 @@ describe('stretch-ny — NYC mobile assisted-stretch booking persona', () => {
     expect(playbook).toContain('BOOKING FLOW')
     expect(playbook).toContain('$99/hr')
     expect(playbook).toContain('(212) 202-7080')
+  })
+})
+
+describe('stretch-service — nationwide mobile assisted-stretch booking persona', () => {
+  it('registry resolves the stretch-service slug to the authored config', () => {
+    expect(getAuthoredConfig(STRETCH_SERVICE_SLUG)).toBe(stretchServiceConfig)
+  })
+
+  it('resolves to its OWN wellness persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(STRETCH_SERVICE_SLUG)!
+    expect(cfg.identity.business_name).toBe('Stretch Service')
+    expect(cfg.voice.persona).toContain('mobile-wellness concierge')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL hourly session rate and serves nationwide (via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(STRETCH_SERVICE_SLUG)!
+    expect(cfg.pricing.model).toBe('hourly')
+    expect(cfg.pricing.copy).toContain('60-minute mobile stretch session — $99/hr')
+    expect(cfg.service_area).toContain('nationwide')
+  })
+
+  it('renders an appointment BOOKING FLOW with real rate and phone', () => {
+    const cfg = getAuthoredConfig(STRETCH_SERVICE_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('BOOKING FLOW')
+    expect(playbook).toContain('$99/hr')
+    expect(playbook).toContain('(888) 734-7274')
   })
 })
 
