@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
-import { auth } from '@clerk/nextjs/server'
+import { getOwnerUserId } from '@/lib/owner-session'
 import { redirect } from 'next/navigation'
 import JoinClient from './join-client'
 
@@ -54,7 +54,7 @@ export default async function JoinPage({
   }
 
   // Check if user is already signed in
-  const { userId } = await auth()
+  const userId = await getOwnerUserId()
 
   if (userId) {
     // Already signed in — accept the invite directly

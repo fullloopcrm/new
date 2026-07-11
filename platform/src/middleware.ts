@@ -1,6 +1,12 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+
+// Local path matcher — replaces Clerk's createRouteMatcher. Patterns use the
+// same '(.*)' glob syntax; each is anchored and tested against the pathname.
+function createRouteMatcher(patterns: string[]) {
+  const res = patterns.map((p) => new RegExp('^' + p.replace(/\(\.\*\)/g, '.*') + '$'))
+  return (req: NextRequest) => res.some((re) => re.test(req.nextUrl.pathname))
+}
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
 import { signTenantHeader } from '@/lib/tenant-header-sig'
 
@@ -148,7 +154,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/unsubscribe',          // Email unsubscribe (signed token verified in route)
 ])
 
-export default clerkMiddleware(async (auth, req: NextRequest) => {
+export default async function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
   // --- Canonical www redirect (301) ---
@@ -282,9 +288,12 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
         return
       }
     }
-    await auth.protect()
+    // Owner login is dormant (moved off Clerk). Protected owner routes that
+    // aren't admin-impersonated redirect to sign-in until the session-based
+    // owner login is wired (P5).
+    return NextResponse.redirect(new URL('/sign-in', req.url))
   }
-})
+}
 
 /**
  * Rewrite the request to the /site route group, passing tenant context via headers.

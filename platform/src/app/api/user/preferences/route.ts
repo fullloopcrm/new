@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getOwnerUserId } from '@/lib/owner-session'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -16,7 +16,7 @@ const VALID_PAGES = new Set([
 ])
 
 async function getMemberId(): Promise<{ memberId: string; tenantId: string } | null> {
-  const { userId } = await auth()
+  const userId = await getOwnerUserId()
   if (!userId) return null
 
   let tenantId: string
