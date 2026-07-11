@@ -18,7 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/admin-contacts'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, tenantSender } from '@/lib/email'
 import { adminNewClientEmail } from '@/lib/email-templates'
 import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
         try {
           await sendEmail({
             to: email,
-            from: (tenant as { email_from?: string | null }).email_from || undefined,
+            from: tenantSender(tenant as { name?: string | null; slug?: string | null; email_from?: string | null }),
             resendApiKey: tenant.resend_api_key,
             subject: `We received your application — ${tenant.name}`,
             html: customerConfirmationHtml({
@@ -406,7 +406,7 @@ export async function POST(request: NextRequest) {
       try {
         await sendEmail({
           to: email,
-          from: (tenant as { email_from?: string | null }).email_from || undefined,
+          from: tenantSender(tenant as { name?: string | null; slug?: string | null; email_from?: string | null }),
           resendApiKey: tenant.resend_api_key,
           subject: `We got your request — ${tenant.name}`,
           html: customerConfirmationHtml({

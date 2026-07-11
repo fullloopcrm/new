@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './supabase'
-import { sendEmail } from './email'
+import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
 import { isCommEnabled } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
@@ -128,7 +128,7 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, primary_color, logo_url, address')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address')
     .eq('id', tenantId)
     .single()
 
@@ -269,6 +269,7 @@ export async function notify({
         to: email,
         subject: title,
         html: htmlBody || `<p>${message.replace(/\n/g, '<br>')}</p>`,
+        from: tenantSender(tenant),
         resendApiKey: tenant.resend_api_key,
       })
       sent = true
@@ -315,6 +316,7 @@ export async function notify({
           to: email,
           subject: title,
           html: htmlBody || `<p>${message.replace(/\n/g, '<br>')}</p>`,
+          from: tenantSender(tenant),
           resendApiKey: tenant.resend_api_key,
         })
         sent = true
