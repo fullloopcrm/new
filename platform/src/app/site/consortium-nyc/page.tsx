@@ -8,9 +8,9 @@ import {
 import { faqs } from "@/app/site/consortium-nyc/_lib/siteData";
 
 export const metadata: Metadata = {
-  title: "NYC Web Design & SEO Company | Consortium NYC",
+  title: "NYC Web Design & Website Design Company | Consortium NYC",
   description:
-    "Custom NYC web design that ranks. Consortium NYC builds fast, SEO-engineered websites — custom sites from $4,600, SEO from $950/mo. 25+ years, 100+ industries, no contracts. Call/text (212) 202-9220.",
+    "NYC web design & website design that ranks. Consortium NYC builds fast, SEO-engineered custom websites — from $4,600, SEO from $950/mo. Now partnered with The NYC Marketing Co. 25+ years, no contracts. Call/text (212) 202-9220.",
   alternates: { canonical: "https://www.consortiumnyc.com" },
 };
 
