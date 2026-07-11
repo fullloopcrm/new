@@ -9,10 +9,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const rlKeys: string[] = []
 const rlCounts = new Map<string, number>()
+const rlOpts = new Map<string, { failClosed?: boolean }>()
 
 vi.mock('@/lib/rate-limit-db', () => ({
-  rateLimitDb: async (bucketKey: string, max: number) => {
+  rateLimitDb: async (bucketKey: string, max: number, _windowMs: number, opts: { failClosed?: boolean } = {}) => {
     rlKeys.push(bucketKey)
+    rlOpts.set(bucketKey, opts)
     const n = rlCounts.get(bucketKey) ?? 0
     if (n >= max) return { allowed: false, remaining: 0 }
     rlCounts.set(bucketKey, n + 1)
@@ -66,6 +68,7 @@ function guess(code: string) {
 beforeEach(() => {
   rlKeys.length = 0
   rlCounts.clear()
+  rlOpts.clear()
 })
 
 describe('portal/auth verify_code brute-force', () => {
@@ -83,5 +86,11 @@ describe('portal/auth verify_code brute-force', () => {
   it('throttles per-phone identifier (regression: verify_code previously had NO limit)', async () => {
     await POST(guess('999999'))
     expect(rlKeys).toContain(`portal_verify:${PHONE}`)
+  })
+
+  it('opts BOTH verify throttles into failClosed (regression: merge-miss failed OPEN on DB error)', async () => {
+    await POST(guess('999999'))
+    expect(rlOpts.get(`portal_verify:${PHONE}`)?.failClosed).toBe(true)
+    expect(rlOpts.get('portal_verify_ip:8.8.8.8')?.failClosed).toBe(true)
   })
 })

@@ -116,8 +116,8 @@ export async function POST(request: Request) {
     // per-IP cap adds defense against one host spraying codes across many
     // phones. (slug isn't part of the verify payload; phone is globally unique.)
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rlPhone = await rateLimitDb(`portal_verify:${phone}`, 5, 15 * 60 * 1000)
-    const rlIp = await rateLimitDb(`portal_verify_ip:${ip}`, 30, 15 * 60 * 1000)
+    const rlPhone = await rateLimitDb(`portal_verify:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
+    const rlIp = await rateLimitDb(`portal_verify_ip:${ip}`, 30, 15 * 60 * 1000, { failClosed: true })
     if (!rlPhone.allowed || !rlIp.allowed) {
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
