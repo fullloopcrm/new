@@ -435,7 +435,11 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   const response = NextResponse.rewrite(url)
   response.headers.set('x-tenant-id', tenantId)
   response.headers.set('x-tenant-slug', tenantSlug)
-  response.headers.set('x-tenant-sig', tenantSig)
+  // NB: never echo x-tenant-sig on the RESPONSE. The sig is a static
+  // HMAC(secret, tenantId) with no nonce/expiry; returning it to the client
+  // hands out a permanent forge-token that defeats the "only middleware can
+  // mint the sig" guarantee. Downstream code reads the sig from the REQUEST
+  // headers (set below), which never reach the client.
 
   // The national VA SEO pages (1,500+) are force-dynamic because they read
   // tenant headers, but their content is identical for every visitor on this

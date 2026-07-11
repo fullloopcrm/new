@@ -18,6 +18,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { getPersona, renderPersonaExtras } from '@/lib/selena/persona-file'
 import { getAgentConfig } from '@/lib/selena/agent-config-loader'
+import { safeFetch } from '../ssrf'
 
 const MODEL = 'claude-sonnet-5'
 const MIN_LEN = 350 // enrichment must be substantial
@@ -66,7 +67,7 @@ async function tenantKnowledge(tid: string): Promise<{ block: string; facts: str
 // --- existing page text (so the block adds, not duplicates) ----------------
 async function fetchPageText(url: string): Promise<string> {
   try {
-    const res = await fetch(url, { redirect: 'follow' })
+    const res = await safeFetch(url)
     if (!res.ok) return ''
     const html = await res.text()
     return html

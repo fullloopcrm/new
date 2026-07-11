@@ -6,6 +6,12 @@ import { normalizePrefs } from './comms-prefs'
 export interface ServiceType {
   name: string
   default_hours: number
+  // Configured per-service rate (hourly or flat, per the tenant's pricing
+  // model), sourced from service_types.default_hourly_rate. 0 when unset.
+  // Carried so the agent can quote REAL dollar figures — previously this was
+  // dropped in the mapping below, leaving only the averaged standard_rate and
+  // no per-service price the agent could actually quote.
+  rate: number
   active: boolean
 }
 
@@ -175,6 +181,7 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
   const serviceTypes: ServiceType[] = services.map((s) => ({
     name: s.name,
     default_hours: Number(s.default_duration_hours ?? 2),
+    rate: Number(s.default_hourly_rate ?? 0),
     active: s.active !== false,
   }))
 

@@ -33,13 +33,6 @@ const reviewSchema = {
     { "@type": "AdministrativeArea", name: "Westchester County" },
     { "@type": "AdministrativeArea", name: "New Jersey" },
   ],
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.9",
-    reviewCount: "187",
-    bestRating: "5",
-    worstRating: "1",
-  },
   review: [
     {
       "@type": "Review",

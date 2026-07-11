@@ -43,14 +43,6 @@ export const organizationSchema = {
   priceRange: "$99/hour",
   currenciesAccepted: "USD",
   paymentAccepted: "Cash, Credit Card, Venmo, Zelle, CashApp",
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "5.0",
-    ratingCount: "31",
-    reviewCount: "31",
-    bestRating: "5",
-    worstRating: "1",
-  },
   review: [
     {
       "@type": "Review",
@@ -551,12 +543,6 @@ export function localBusinessSchema(areaName: string, borough: string) {
     parentOrganization: {
       "@id": `${SITE_URL}/#organization`,
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "5.0",
-      reviewCount: "31",
-      bestRating: "5",
-    },
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",
@@ -720,13 +706,6 @@ export const productSchema = {
   image: `${SITE_URL}/og-image.jpg`,
   url: `${SITE_URL}/pricing`,
   category: "Health & Wellness Services",
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "5.0",
-    reviewCount: "31",
-    bestRating: "5",
-    worstRating: "1",
-  },
   offers: {
     "@type": "AggregateOffer",
     lowPrice: "89.00",

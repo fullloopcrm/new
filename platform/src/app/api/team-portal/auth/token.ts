@@ -22,9 +22,13 @@ export function createToken(memberId: string, tenantId: string, payRate?: number
 export function verifyToken(token: string): { id: string; tid: string; role: string } | null {
   try {
     const [payloadB64, sig] = token.split('.')
+    if (!payloadB64 || !sig) return null
     const payload = Buffer.from(payloadB64, 'base64').toString()
     const expected = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
-    if (sig !== expected) return null
+    // Constant-time compare to avoid leaking signature bytes via timing.
+    const sigBuf = Buffer.from(sig)
+    const expBuf = Buffer.from(expected)
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null
     const data = JSON.parse(payload)
     if (data.exp < Date.now()) return null
     return { id: data.id, tid: data.tid, role: data.r || 'worker' }
