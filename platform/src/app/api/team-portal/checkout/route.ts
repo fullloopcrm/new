@@ -7,6 +7,7 @@ import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
+import { cleanerAlreadyPaid } from '@/lib/finance/cleaner-payout'
 import { sendPushToClient } from '@/lib/push'
 
 export async function POST(request: Request) {
@@ -178,7 +179,10 @@ export async function POST(request: Request) {
       : null
     const clientName = (booking.clients as unknown as { name?: string } | null)?.name || 'a client'
 
-    if (reportedMethod && updatedPriceCents) {
+    // Shared booking-keyed idempotency guard: a repeat checkout for an
+    // already-paid booking must not run the payment pipeline again (which would
+    // double-pay the cleaner via Stripe Connect).
+    if (reportedMethod && updatedPriceCents && !(await cleanerAlreadyPaid(auth.tid, data.id))) {
       // Shared pipeline: marks paid, inserts payment row, transfers the cleaner
       // via Stripe Connect, and notifies client/cleaner/admin — same path as the
       // Stripe webhook. Non-blocking.

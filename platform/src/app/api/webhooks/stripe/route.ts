@@ -16,6 +16,7 @@ import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
+import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
@@ -416,9 +417,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, partial: true })
       }
 
-      // 4. Auto-pay cleaner if connected to Stripe Connect
+      // 4. Auto-pay cleaner if connected to Stripe Connect. Shared booking-keyed
+      // idempotency guard: never pay twice if the cleaner-checkout path (or a
+      // webhook retry) already paid this booking's cleaner.
       let payoutSent = false
-      if (tm?.stripe_account_id && booking.team_member_id) {
+      let payoutClaimId: string | null = null
+      if (tm?.stripe_account_id && booking.team_member_id && !(await cleanerAlreadyPaid(tenantId, bookingId))) {
         try {
           // Cleaner is paid THEIR rate × hours (NYC Maid parity) — NOT the
           // client's total. Prefer the breakdown stored at closeout/recap
@@ -433,44 +437,65 @@ export async function POST(request: Request) {
           const cleanerHours = Math.max(0.5, cleanerPaidHours((hours || 0) * 60))
           const cleanerBaseCents = storedPay && storedPay > 0 ? storedPay : Math.round(cleanerHours * cleanerRate * 100)
           const cleanerCents = cleanerBaseCents + tipCents
-          const transfer = await stripe.transfers.create({
-            amount: cleanerCents,
-            currency: 'usd',
-            destination: tm.stripe_account_id,
-            transfer_group: bookingId,
-            metadata: { booking_id: bookingId, tenant_id: tenantId },
+
+          // CLAIM the single payout slot BEFORE moving money. A conflict on the
+          // UNIQUE(tenant_id, booking_id) index means the cleaner-checkout path
+          // (or a webhook retry) already claimed this booking → do not transfer.
+          const claim = await claimCleanerPayout({
+            tenantId,
+            bookingId,
+            teamMemberId: booking.team_member_id as string,
+            amountCents: cleanerBaseCents,
+            tipCents,
           })
-          // NYC Maid parity: push an INSTANT payout to the cleaner's bank so
-          // funds land immediately, not on the standard Connect schedule. The
-          // transfer already landed; a failed instant payout is non-fatal.
-          if (isNycMaid(tenantId)) {
-            await stripe.payouts.create(
-              { amount: cleanerCents, currency: 'usd', method: 'instant' },
-              { stripeAccount: tm.stripe_account_id },
-            ).catch((err) => console.error('[stripe] NYC Maid instant payout failed (transfer landed):', err))
-          }
-          const { data: payoutRow } = await supabaseAdmin.from('team_member_payouts').insert({
-            tenant_id: tenantId,
-            team_member_id: booking.team_member_id,
-            booking_id: bookingId,
-            amount_cents: cleanerCents - tipCents,
-            tip_cents: tipCents,
-            stripe_transfer_id: transfer.id,
-            status: 'transferred',
-            paid_at: new Date().toISOString(),
-          }).select('id').single()
-          if (payoutRow?.id) {
-            postPayoutToLedger({ tenantId, payoutId: payoutRow.id })
+          if (claim.claimed && claim.payoutId) {
+            payoutClaimId = claim.payoutId
+            const transfer = await stripe.transfers.create({
+              amount: cleanerCents,
+              currency: 'usd',
+              destination: tm.stripe_account_id,
+              transfer_group: bookingId,
+              metadata: { booking_id: bookingId, tenant_id: tenantId },
+            })
+            // NYC Maid parity: push an INSTANT payout to the cleaner's bank so
+            // funds land immediately, not on the standard Connect schedule. The
+            // transfer already landed; a failed instant payout is non-fatal.
+            let stripePayoutId: string | null = null
+            let isInstant = false
+            if (isNycMaid(tenantId)) {
+              try {
+                const po = await stripe.payouts.create(
+                  { amount: cleanerCents, currency: 'usd', method: 'instant' },
+                  { stripeAccount: tm.stripe_account_id },
+                )
+                stripePayoutId = po.id
+                isInstant = true
+              } catch (err) {
+                console.error('[stripe] NYC Maid instant payout failed (transfer landed):', err)
+              }
+            }
+            await finalizeCleanerPayout({
+              tenantId,
+              payoutId: claim.payoutId,
+              amountCents: cleanerBaseCents,
+              tipCents,
+              stripeTransferId: transfer.id,
+              stripePayoutId,
+              instant: isInstant,
+            })
+            postPayoutToLedger({ tenantId, payoutId: claim.payoutId })
               .catch(err => console.error('[stripe] payout ledger post failed:', err))
+            await supabaseAdmin
+              .from('bookings')
+              .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString(), team_member_pay: cleanerCents })
+              .eq('id', bookingId)
+              .eq('tenant_id', tenantId)
+            payoutSent = true
           }
-          await supabaseAdmin
-            .from('bookings')
-            .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString(), team_member_pay: cleanerCents })
-            .eq('id', bookingId)
-            .eq('tenant_id', tenantId)
-          payoutSent = true
         } catch (payoutErr) {
           console.error('[stripe] cleaner payout failed:', payoutErr)
+          // Transfer failed after claiming — release the pending claim so a retry can re-pay.
+          if (payoutClaimId) await releaseCleanerPayout(tenantId, payoutClaimId).catch(() => {})
           await supabaseAdmin.from('admin_tasks').insert({
             tenant_id: tenantId,
             type: 'payout_failed',
