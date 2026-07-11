@@ -13,6 +13,7 @@ import { NYC_MOBILE_SALON_SLUG, nycMobileSalonConfig } from './nyc-mobile-salon'
 import { WE_PAY_YOU_JUNK_SLUG, wePayYouJunkConfig } from './we-pay-you-junk'
 import { LANDSCAPING_IN_NYC_SLUG, landscapingInNycConfig } from './landscaping-in-nyc'
 import { THE_FLORIDA_MAID_SLUG, theFloridaMaidConfig } from './the-florida-maid'
+import { NYC_ROADSIDE_SLUG, nycRoadsideConfig } from './nycroadsideemergencyassistance'
 
 const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [EXTERMINATOR_SLUG]: exterminatorConfig,
@@ -21,6 +22,7 @@ const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [WE_PAY_YOU_JUNK_SLUG]: wePayYouJunkConfig,
   [LANDSCAPING_IN_NYC_SLUG]: landscapingInNycConfig,
   [THE_FLORIDA_MAID_SLUG]: theFloridaMaidConfig,
+  [NYC_ROADSIDE_SLUG]: nycRoadsideConfig,
 }
 
 /**

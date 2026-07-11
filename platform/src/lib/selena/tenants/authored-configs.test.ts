@@ -6,6 +6,7 @@ import { NYC_MOBILE_SALON_SLUG, nycMobileSalonConfig } from './nyc-mobile-salon'
 import { WE_PAY_YOU_JUNK_SLUG, wePayYouJunkConfig } from './we-pay-you-junk'
 import { LANDSCAPING_IN_NYC_SLUG, landscapingInNycConfig } from './landscaping-in-nyc'
 import { THE_FLORIDA_MAID_SLUG, theFloridaMaidConfig } from './the-florida-maid'
+import { NYC_ROADSIDE_SLUG, nycRoadsideConfig } from './nycroadsideemergencyassistance'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -200,6 +201,35 @@ describe('the-florida-maid — Florida cleaning, hourly booking persona', () => 
     // short-circuit path and must NOT be in the registry.
     expect(getAuthoredConfig(THE_FLORIDA_MAID_SLUG)).not.toBeNull()
     expect(getAuthoredConfig('nycmaid')).toBeNull()
+  })
+})
+
+describe('nycroadsideemergencyassistance — 24/7 roadside dispatch persona', () => {
+  it('registry resolves the roadside slug to the authored config', () => {
+    expect(getAuthoredConfig(NYC_ROADSIDE_SLUG)).toBe(nycRoadsideConfig)
+  })
+
+  it('resolves to its OWN dispatcher persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(NYC_ROADSIDE_SLUG)!
+    expect(cfg.identity.business_name).toBe('NYC Roadside Emergency Assistance')
+    expect(cfg.voice.persona).toContain('roadside dispatcher')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL one-rate hourly pricing (carried via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(NYC_ROADSIDE_SLUG)!
+    expect(cfg.pricing.model).toBe('hourly')
+    expect(cfg.pricing.copy).toContain('Roadside, towing & recovery — $149/hr')
+    expect(cfg.pricing.copy).toContain('$124') // first hour booked online
+    expect(cfg.pricing.copy).toContain('1-hour minimum')
+  })
+
+  it('renders a quote-first dispatch flow with the real phone', () => {
+    const cfg = getAuthoredConfig(NYC_ROADSIDE_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('PRICING — DO NOT GUESS')
+    expect(playbook).toContain('quote-first')
+    expect(playbook).toContain('(212) 470-4068')
   })
 })
 
