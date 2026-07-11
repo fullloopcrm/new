@@ -1484,9 +1484,18 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
 async function handleRescheduleBooking(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
     const bookingId = input.booking_id as string
-    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, tenant_id').eq('id', bookingId).single()
+    // Cross-tenant trust boundary: resolve tenant + client from the CONVERSATION,
+    // never from the fetched booking row. Deriving tid from the row let a caller
+    // in tenant A reschedule tenant B's booking by supplying B's booking_id.
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+    const callerClientId = (convo as { client_id?: string } | null)?.client_id
+    if (!callerClientId) return JSON.stringify({ error: 'no_account', message: 'No client account on this conversation.' })
+    // Scope the fetch to the caller's tenant so a foreign booking_id resolves to nothing.
+    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, tenant_id').eq('id', bookingId).eq('tenant_id', tid).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
-    const tid = (booking as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    // Client-ownership: the booking must belong to the caller, not merely to their tenant.
+    if (booking.client_id !== callerClientId) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time and one-time bookings cannot be rescheduled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
@@ -1506,9 +1515,17 @@ async function handleCancelBooking(input: Record<string, unknown>, conversationI
   try {
     const bookingId = input.booking_id as string
     const reason = (input.reason as string) || 'Client requested'
-    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, clients(name), tenant_id').eq('id', bookingId).single()
+    // Cross-tenant trust boundary: resolve tenant + client from the CONVERSATION,
+    // never from the fetched booking row (see handleRescheduleBooking).
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+    const callerClientId = (convo as { client_id?: string } | null)?.client_id
+    if (!callerClientId) return JSON.stringify({ error: 'no_account', message: 'No client account on this conversation.' })
+    // Scope the fetch to the caller's tenant so a foreign booking_id resolves to nothing.
+    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, clients(name), tenant_id').eq('id', bookingId).eq('tenant_id', tid).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
-    const tid = (booking as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    // Client-ownership: the booking must belong to the caller, not merely to their tenant.
+    if (booking.client_id !== callerClientId) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })

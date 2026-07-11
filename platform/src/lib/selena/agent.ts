@@ -171,11 +171,41 @@ async function resolveTenantForConversation(conversationId: string): Promise<str
   return getCurrentTenantId()
 }
 
-export function isOwner(phone: string | null | undefined): boolean {
+const normPhone = (p: string): string => p.replace(/\D/g, '').slice(-10)
+
+/**
+ * Per-tenant owner check. A phone is the owner of tenant T iff it matches T's
+ * own `owner_phone`. This is the ONLY cross-tenant-safe source: the owner of
+ * tenant A must NEVER be treated as the owner of tenant B.
+ *
+ * The legacy global `OWNER_PHONES` env was authored specifically for The NYC
+ * Maid (loadContext hardcodes "the business owner" for it, and Jeff's phone
+ * lives there). We honor it ONLY for the nycmaid tenant so we don't dark Jeff's
+ * live owner access — it is deliberately NOT consulted for any other tenant.
+ */
+export async function isOwnerOfTenant(phone: string | null | undefined, tenantId: string): Promise<boolean> {
   if (!phone) return false
-  const list = (process.env.OWNER_PHONES || '').split(',').map((p) => p.replace(/\D/g, '').slice(-10)).filter(Boolean)
-  const norm = phone.replace(/\D/g, '').slice(-10)
-  return list.includes(norm)
+  const norm = normPhone(phone)
+  if (!norm) return false
+
+  try {
+    const { data } = await supabaseAdmin
+      .from('tenants')
+      .select('owner_phone')
+      .eq('id', tenantId)
+      .single()
+    const ownerPhone = (data as { owner_phone?: string | null } | null)?.owner_phone
+    if (ownerPhone && normPhone(ownerPhone) === norm) return true
+  } catch {
+    // fall through — a DB hiccup must not silently grant owner access
+  }
+
+  if (tenantId === NYCMAID_TENANT_ID) {
+    const list = (process.env.OWNER_PHONES || '').split(',').map(normPhone).filter(Boolean)
+    if (list.includes(norm)) return true
+  }
+
+  return false
 }
 
 // nycmaid's well-known UUID — when the tenant being served IS nycmaid, the
@@ -257,11 +287,12 @@ wins. Period.
 export async function loadContext(tenantId: string, phone: string | null, _conversationId: string): Promise<string> {
   const parts: string[] = []
 
-  if (isOwner(phone)) {
-    parts.push('CONTEXT: You are talking to Jeff, the owner of The NYC Maid. Use admin tools freely. Be terse with real numbers.')
+  const ownerCaller = await isOwnerOfTenant(phone, tenantId)
+  if (ownerCaller) {
+    parts.push('CONTEXT: You are talking to the business owner. Use admin tools freely. Be terse with real numbers.')
   }
 
-  if (phone && !isOwner(phone)) {
+  if (phone && !ownerCaller) {
     const last10 = phone.replace(/\D/g, '').slice(-10)
     // Phone may match multiple client rows (duplicates created by lead intake vs. booking flow).
     // .maybeSingle() returned null on dupes, so Yinez was treating returning clients as brand-new.

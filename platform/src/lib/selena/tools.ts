@@ -4,7 +4,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
-import { isOwner, type YinezResult } from '@/lib/selena/agent'
+import { isOwnerOfTenant, type YinezResult } from '@/lib/selena/agent'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
@@ -77,7 +77,7 @@ export async function runTool(
   // If the caller isn't the owner, refuse before the side-effect runs.
   // Returning an error string (not throwing) lets the model see "not allowed"
   // and recover with a normal client-facing reply instead of dumping ops data.
-  if (!CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !isOwner(phone)) {
+  if (!CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !(await isOwnerOfTenant(phone, tid))) {
     console.warn('[Yinez:owner_tool_blocked]', { name, phone, conversationId })
     return JSON.stringify({
       error: 'owner_only_tool',
