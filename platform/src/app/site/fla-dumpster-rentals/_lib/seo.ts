@@ -78,12 +78,6 @@ export function getLocalBusinessSchema(
     },
     serviceType: service.name,
     priceRange: service.priceRange,
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: String(service.avgRating),
-      reviewCount: String(service.reviewCount),
-      bestRating: "5",
-    },
   };
 }
 
@@ -114,12 +108,6 @@ export function getServiceSchema(service: Service) {
           name: cs,
         },
       })),
-    },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: String(service.avgRating),
-      reviewCount: String(service.reviewCount),
-      bestRating: "5",
     },
   };
 }
@@ -187,12 +175,6 @@ export function getOrganizationSchema() {
       postalCode: "33394",
       addressCountry: "US",
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: "1247",
-      bestRating: "5",
-    },
   };
 }
 
@@ -218,12 +200,6 @@ export function getHomePageSchema() {
         name: "Florida",
       },
       priceRange: "$275 - $750",
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: "4.9",
-        reviewCount: "1247",
-        bestRating: "5",
-      },
       openingHoursSpecification: {
         "@type": "OpeningHoursSpecification",
         dayOfWeek: [
