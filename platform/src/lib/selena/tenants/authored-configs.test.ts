@@ -10,6 +10,7 @@ import { NYC_ROADSIDE_SLUG, nycRoadsideConfig } from './nycroadsideemergencyassi
 import { THE_ROADSIDE_HELPER_SLUG, theRoadsideHelperConfig } from './theroadsidehelper'
 import { SUNNYSIDE_CLEAN_SLUG, sunnysideCleanConfig } from './sunnyside-clean-nyc'
 import { WASH_AND_FOLD_NYC_SLUG, washAndFoldNycConfig } from './wash-and-fold-nyc'
+import { FLA_DUMPSTER_RENTALS_SLUG, flaDumpsterRentalsConfig } from './fla-dumpster-rentals'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -323,6 +324,36 @@ describe('wash-and-fold-nyc — per-pound laundry pickup/delivery persona', () =
     expect(playbook).toContain('BOOKING FLOW')
     expect(playbook).toContain('$3/lb')
     expect(playbook).toContain('(917) 970-6002')
+  })
+})
+
+describe('fla-dumpster-rentals — Florida roll-off dumpster, flat-rate quote-first persona', () => {
+  it('registry resolves the dumpster slug to the authored config', () => {
+    expect(getAuthoredConfig(FLA_DUMPSTER_RENTALS_SLUG)).toBe(flaDumpsterRentalsConfig)
+  })
+
+  it('resolves to its OWN dumpster persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(FLA_DUMPSTER_RENTALS_SLUG)!
+    expect(cfg.identity.business_name).toBe('Florida Dumpster Rentals')
+    expect(cfg.voice.persona).toContain('dumpster-rental pro')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL flat starting rates by size (carried via buildPriceCopy)', () => {
+    const cfg = getAuthoredConfig(FLA_DUMPSTER_RENTALS_SLUG)!
+    expect(cfg.pricing.model).toBe('flat')
+    expect(cfg.pricing.copy).toContain('10 yard roll-off — $275')
+    expect(cfg.pricing.copy).toContain('20 yard roll-off — $350')
+    expect(cfg.pricing.copy).toContain('30 yard roll-off — $450')
+    expect(cfg.pricing.copy).not.toContain('$275/hr') // flat, not hourly
+  })
+
+  it('renders a quote-first flow with the real phone', () => {
+    const cfg = getAuthoredConfig(FLA_DUMPSTER_RENTALS_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('PRICING — DO NOT GUESS')
+    expect(playbook).toContain('quote-first')
+    expect(playbook).toContain('954-710-2332')
   })
 })
 
