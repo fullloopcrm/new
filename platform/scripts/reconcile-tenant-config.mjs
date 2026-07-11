@@ -11,9 +11,12 @@
  * mis-route (see the 2026-07-10 outage). This surfaces every disagreement so
  * we can design the authoritative registry around real data. READ-ONLY.
  *
- *   node scripts/reconcile-tenant-config.mjs
+ *   node scripts/reconcile-tenant-config.mjs           (manual: hard-fails if no token)
+ *   node scripts/reconcile-tenant-config.mjs --gate    (build gate: skips if no token / API down)
  *
- * Needs SUPABASE_ACCESS_TOKEN_FULLLOOP in ~/.env.local (Mgmt API).
+ * Token: process.env.SUPABASE_ACCESS_TOKEN_FULLLOOP (Vercel build env) OR ~/.env.local (local dev).
+ * In --gate mode a missing token or transient Mgmt-API failure SKIPS (exit 0) so it can never
+ * break a deploy; only a confirmed CRIT drift fails the build (exit 1).
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -22,13 +25,23 @@ import { dirname, join } from 'node:path'
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REF = 'cetnrttgtoajzjacfbhe'
 
+const GATE = process.argv.includes('--gate')
+const skip = (msg) => { console.warn(`[reconcile] ${msg} — skipping drift gate (exit 0)`); process.exit(0) }
+
+// Token: env var first (Vercel build env), then ~/.env.local (local dev).
+// The file read is wrapped: in CI there is no ~/.env.local and it must NOT throw.
 const env = {}
-readFileSync(join(process.env.HOME, '.env.local'), 'utf8').split('\n').forEach((l) => {
-  const m = l.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
-  if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '').trim()
-})
-const TOK = env.SUPABASE_ACCESS_TOKEN_FULLLOOP
-if (!TOK) { console.error('missing SUPABASE_ACCESS_TOKEN_FULLLOOP'); process.exit(1) }
+try {
+  readFileSync(join(process.env.HOME || '', '.env.local'), 'utf8').split('\n').forEach((l) => {
+    const m = l.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
+    if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '').trim()
+  })
+} catch { /* no local env file (e.g. Vercel build) — fall back to process.env below */ }
+const TOK = process.env.SUPABASE_ACCESS_TOKEN_FULLLOOP || env.SUPABASE_ACCESS_TOKEN_FULLLOOP
+if (!TOK) {
+  if (GATE) skip('SUPABASE_ACCESS_TOKEN_FULLLOOP not set in build env (add it to Vercel to enable the drift gate)')
+  console.error('missing SUPABASE_ACCESS_TOKEN_FULLLOOP'); process.exit(1)
+}
 
 async function sql(query) {
   const r = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
@@ -61,10 +74,17 @@ const hasHome = (slug) => {
 const findings = []
 const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
-const [tenants, tds] = await Promise.all([
-  sql("select id, slug, domain, status from tenants where status in ('active','live','setup')"),
-  sql('select tenant_id, domain, active, is_primary from tenant_domains'),
-])
+let tenants, tds
+try {
+  ;[tenants, tds] = await Promise.all([
+    sql("select id, slug, domain, status from tenants where status in ('active','live','setup')"),
+    sql('select tenant_id, domain, active, is_primary from tenant_domains'),
+  ])
+} catch (e) {
+  // In build-gate mode, never fail a deploy on a transient Mgmt-API/network error.
+  if (GATE) skip(`Mgmt-API query failed (${String(e).slice(0, 120)})`)
+  throw e
+}
 const tdByTenant = new Map()
 for (const r of tds) {
   if (!tdByTenant.has(r.tenant_id)) tdByTenant.set(r.tenant_id, [])
