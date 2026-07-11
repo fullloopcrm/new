@@ -95,10 +95,10 @@ vi.mock('@/lib/rate-limit-db', () => ({
 
 import { POST } from './route'
 
-// The route only calls request.json(); a minimal stub avoids env-specific
-// Request/Response construction differences.
+// The route calls request.json() and (for the verify throttle) request.headers.get();
+// a minimal stub avoids env-specific Request/Response construction differences.
 function req(body: unknown): Request {
-  return { json: async () => body } as unknown as Request
+  return { json: async () => body, headers: { get: () => null } } as unknown as Request
 }
 
 beforeEach(() => {
