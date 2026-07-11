@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifySvix } from '@/lib/webhook-verify'
+import { resolveTenantIdForInboundEmail } from '@/lib/inbound-email-tenant'
 
 export async function POST(request: Request) {
   try {
@@ -31,10 +32,22 @@ export async function POST(request: Request) {
       const d = data as unknown as Record<string, unknown>
       const join = (v: unknown) =>
         Array.isArray(v) ? v.map(String).join(', ') : typeof v === 'string' ? v : null
+      const toAddress = join(d.to)
+
+      // Scope the row to the tenant that owns the recipient address. Fail closed:
+      // if no tenant resolves, DROP the message rather than write an unscoped
+      // (globally-visible) inbound_emails row that would leak across tenants.
+      const tenantId = await resolveTenantIdForInboundEmail(toAddress)
+      if (!tenantId) {
+        console.error(`[resend inbound] no tenant for recipient "${toAddress}" — dropping unscoped inbound email`)
+        return NextResponse.json({ ok: true, dropped: 'no_tenant' })
+      }
+
       await supabaseAdmin.from('inbound_emails').insert({
+        tenant_id: tenantId,
         resend_email_id: (d.email_id as string) || (d.id as string) || null,
         from_address: join(d.from),
-        to_address: join(d.to),
+        to_address: toAddress,
         subject: (d.subject as string) || null,
         text_body: (d.text as string) || null,
         html_body: (d.html as string) || null,
