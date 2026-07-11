@@ -259,22 +259,6 @@ export default function AISearchOptimizationPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — AI Search Optimization Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "Rachel M." },
-    reviewBody:
-      "The NYC SEO was one of the only agencies we talked to that even understood AI search optimization. Within 3 months, our business started appearing in ChatGPT and Perplexity recommendations for our target keywords. The leads coming from AI search are some of the highest quality we have ever seen — people who already know our name and have decided to hire us before they even call. This is the future and they are way ahead of everyone else.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -289,7 +273,6 @@ export default function AISearchOptimizationPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO

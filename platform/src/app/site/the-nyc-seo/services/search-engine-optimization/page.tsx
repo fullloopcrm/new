@@ -259,22 +259,6 @@ export default function TechnicalSEOPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — Technical SEO Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "Michael T." },
-    reviewBody:
-      "Our WordPress site was loading in 6 seconds and failing every Core Web Vitals metric. The NYC SEO migrated us to Next.js, implemented structured data across all 800+ pages, and fixed every crawl issue we had. Within 3 months our page speed was under 1 second, indexation went from 60% to 98%, and we started ranking for keywords we had been stuck on page 3 for. The technical SEO work alone was worth the investment.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -289,7 +273,6 @@ export default function TechnicalSEOPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO
