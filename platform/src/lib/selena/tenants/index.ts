@@ -16,6 +16,7 @@ import { THE_FLORIDA_MAID_SLUG, theFloridaMaidConfig } from './the-florida-maid'
 import { NYC_ROADSIDE_SLUG, nycRoadsideConfig } from './nycroadsideemergencyassistance'
 import { THE_ROADSIDE_HELPER_SLUG, theRoadsideHelperConfig } from './theroadsidehelper'
 import { SUNNYSIDE_CLEAN_SLUG, sunnysideCleanConfig } from './sunnyside-clean-nyc'
+import { WASH_AND_FOLD_NYC_SLUG, washAndFoldNycConfig } from './wash-and-fold-nyc'
 
 const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [EXTERMINATOR_SLUG]: exterminatorConfig,
@@ -27,6 +28,7 @@ const AUTHORED_CONFIGS: Record<string, AgentConfig> = {
   [NYC_ROADSIDE_SLUG]: nycRoadsideConfig,
   [THE_ROADSIDE_HELPER_SLUG]: theRoadsideHelperConfig,
   [SUNNYSIDE_CLEAN_SLUG]: sunnysideCleanConfig,
+  [WASH_AND_FOLD_NYC_SLUG]: washAndFoldNycConfig,
 }
 
 /**

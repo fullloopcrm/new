@@ -9,6 +9,7 @@ import { THE_FLORIDA_MAID_SLUG, theFloridaMaidConfig } from './the-florida-maid'
 import { NYC_ROADSIDE_SLUG, nycRoadsideConfig } from './nycroadsideemergencyassistance'
 import { THE_ROADSIDE_HELPER_SLUG, theRoadsideHelperConfig } from './theroadsidehelper'
 import { SUNNYSIDE_CLEAN_SLUG, sunnysideCleanConfig } from './sunnyside-clean-nyc'
+import { WASH_AND_FOLD_NYC_SLUG, washAndFoldNycConfig } from './wash-and-fold-nyc'
 import { exterminatorAgentConfig } from '../agent-config'
 import { buildPlaybook } from '../build-playbook'
 import { assertNycmaidInvariant } from '../prompt-assembler'
@@ -292,6 +293,36 @@ describe('sunnyside-clean-nyc — NYC cleaning, tiered hourly booking persona', 
     expect(playbook).toContain('BOOKING FLOW')
     expect(playbook).toContain('$59/hr')
     expect(playbook).toContain('(212) 202-9030')
+  })
+})
+
+describe('wash-and-fold-nyc — per-pound laundry pickup/delivery persona', () => {
+  it('registry resolves the wash-and-fold slug to the authored config', () => {
+    expect(getAuthoredConfig(WASH_AND_FOLD_NYC_SLUG)).toBe(washAndFoldNycConfig)
+  })
+
+  it('resolves to its OWN laundry persona, not the generic professional default', () => {
+    const cfg = getAuthoredConfig(WASH_AND_FOLD_NYC_SLUG)!
+    expect(cfg.identity.business_name).toBe('The NYC Wash and Fold Service Company')
+    expect(cfg.voice.persona).toContain('laundry-service manager')
+    expect(cfg.voice.persona).not.toContain(GENERIC_PERSONA)
+  })
+
+  it('quotes its REAL per-pound rate, minimum, and rush fee (authored copy)', () => {
+    const cfg = getAuthoredConfig(WASH_AND_FOLD_NYC_SLUG)!
+    expect(cfg.pricing.model).toBe('flat')
+    expect(cfg.pricing.copy).toContain('$3/lb')
+    expect(cfg.pricing.copy).toContain('$39 minimum')
+    expect(cfg.pricing.copy).toContain('+$20') // same-day rush
+    expect(cfg.pricing.copy).toContain('never invent a flat total')
+  })
+
+  it('renders an appointment BOOKING FLOW with real per-pound pricing and phone', () => {
+    const cfg = getAuthoredConfig(WASH_AND_FOLD_NYC_SLUG)!
+    const playbook = buildPlaybook(cfg)
+    expect(playbook).toContain('BOOKING FLOW')
+    expect(playbook).toContain('$3/lb')
+    expect(playbook).toContain('(917) 970-6002')
   })
 })
 
