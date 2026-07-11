@@ -82,9 +82,6 @@ export default async function ReviewsPage() {
     name: config.identity.name,
     url: `${config.identity.url}/reviews`,
     telephone: config.contact.phone,
-    ...(config.reviewCount
-      ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: config.rating.toFixed(1), reviewCount: config.reviewCount } }
-      : {}),
   }
   const faqLd = {
     '@context': 'https://schema.org',

@@ -32,9 +32,6 @@ export function LongformArticle({
     url: config.identity.url,
     telephone: config.contact.phone,
     ...(config.identity.logo ? { logo: config.identity.logo } : {}),
-    ...(config.reviewCount
-      ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: config.rating.toFixed(1), reviewCount: config.reviewCount } }
-      : {}),
   }
   const faqLd = content.faq.length > 0
     ? {

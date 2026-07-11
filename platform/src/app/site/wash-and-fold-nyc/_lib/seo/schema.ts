@@ -14,9 +14,6 @@ const BUSINESS = {
   logo: 'https://www.washandfoldnyc.com/opengraph-image',
   image: 'https://www.washandfoldnyc.com/opengraph-image',
   priceRange: '$$',
-  ratingValue: '5.0',
-  ratingCount: '16',
-  reviewCount: '16',
   foundingDate: '2024',
   currenciesAccepted: 'USD',
   paymentAccepted: 'Cash, Credit Card, Debit Card, Zelle (hi@washandfoldnyc.com), Venmo, Apple Pay',
@@ -81,14 +78,6 @@ const logoObj = {
   caption: 'The NYC Wash and Fold Service Company Logo',
 }
 
-const aggregateRatingObj = {
-  '@type': 'AggregateRating' as const,
-  ratingValue: BUSINESS.ratingValue,
-  reviewCount: BUSINESS.reviewCount,
-  ratingCount: BUSINESS.ratingCount,
-  bestRating: '5',
-  worstRating: '1',
-}
 
 const openingHoursObj = [
   { '@type': 'OpeningHoursSpecification' as const, dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], opens: '07:00', closes: '19:00' },
@@ -321,7 +310,6 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
     hasMap: 'https://maps.google.com/?q=Wash+and+Fold+NYC+150+W+47th+St+New+York+NY+10036',
     areaServed,
     serviceArea: serviceAreaObj,
-    aggregateRating: aggregateRatingObj,
     openingHoursSpecification: openingHoursObj,
     contactPoint: contactPoints,
     hasOfferCatalog: {
@@ -717,7 +705,6 @@ export function professionalServiceSchema(service: Service, neighborhood?: Neigh
     address: addressObj,
     geo: neighborhood ? { '@type': 'GeoCoordinates', latitude: neighborhood.lat, longitude: neighborhood.lng } : geoObj,
     areaServed: { '@type': 'Place', name: location },
-    aggregateRating: aggregateRatingObj,
     openingHoursSpecification: openingHoursObj,
     paymentAccepted: BUSINESS.paymentAccepted,
     image: BUSINESS.image,

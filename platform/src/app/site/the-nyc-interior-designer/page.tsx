@@ -33,36 +33,6 @@ const reviewSchema = {
     { "@type": "AdministrativeArea", name: "Westchester County" },
     { "@type": "AdministrativeArea", name: "New Jersey" },
   ],
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.9",
-    reviewCount: "187",
-    bestRating: "5",
-    worstRating: "1",
-  },
-  review: [
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Rachel M." },
-      datePublished: "2026-02-18",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-      reviewBody: "They completely transformed our pre-war apartment on the Upper West Side. The kitchen redesign maximized every inch, and the living room feels twice as large with their space planning. They handled the co-op board approval seamlessly. Best investment we've made in this apartment.",
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "David K." },
-      datePublished: "2026-01-25",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-      reviewBody: "We hired them to design our new condo in Hudson Yards from scratch. They handled everything — furniture selection, custom closets, lighting design, window treatments. The result is stunning and every piece was delivered and installed without a single issue. Incredible attention to detail.",
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Angela T." },
-      datePublished: "2026-03-05",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-      reviewBody: "They staged our Tribeca loft for sale and it went under contract in 5 days at above asking. The staging completely transformed how buyers perceived the space. They handled the furniture rental, styling, and even coordinated with our real estate photographer. Worth every penny.",
-    },
-  ],
 };
 
 const howToSchema = {

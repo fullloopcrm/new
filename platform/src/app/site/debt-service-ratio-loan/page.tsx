@@ -17,36 +17,6 @@ const reviewSchema = {
     { "@type": "PostalAddress", streetAddress: "801 S Figueroa St", addressLocality: "Los Angeles", addressRegion: "CA", postalCode: "90017", addressCountry: "US" },
     { "@type": "PostalAddress", streetAddress: "254 Commercial St", addressLocality: "Portland", addressRegion: "ME", postalCode: "04101", addressCountry: "US" },
   ],
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.9",
-    reviewCount: "312",
-    bestRating: "5",
-    worstRating: "1",
-  },
-  review: [
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Marcus T." },
-      datePublished: "2026-02-14",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-      reviewBody: "Closed on my 7th rental property using a DSCR loan through a lender I found here. The calculator helped me see exactly where I stood before I even applied. Closed in 18 days.",
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Jennifer K." },
-      datePublished: "2026-01-22",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-      reviewBody: "As a self-employed investor, conventional loans were a nightmare. DSCR lending changed everything. This site explained the process better than any loan officer I spoke with.",
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "David R." },
-      datePublished: "2026-03-01",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-      reviewBody: "Used the DSCR calculator to analyze 12 properties before pulling the trigger on a duplex in Atlanta. The city-specific guide had exactly the local market insight I needed.",
-    },
-  ],
 };
 
 const howToSchema = {

@@ -125,12 +125,6 @@ export default function BestDumpsterRentalFloridaPage() {
                 name: "Florida",
               },
               priceRange: "$275 - $750",
-              aggregateRating: {
-                "@type": "AggregateRating",
-                ratingValue: "4.9",
-                reviewCount: "1247",
-                bestRating: "5",
-              },
             },
             getFAQPageSchema(faqs),
           ]),

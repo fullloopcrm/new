@@ -1,4 +1,4 @@
-import { PHONE, EMAIL, CITY_COUNT, STATE_COUNT, HOURS, RATING, REVIEW_COUNT } from "@/app/site/the-home-services-company/_data/content";
+import { PHONE, EMAIL, CITY_COUNT, STATE_COUNT, HOURS } from "@/app/site/the-home-services-company/_data/content";
 import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
 
 const SITE_URL = "https://www.thehomeservicescompany.com";
@@ -17,13 +17,6 @@ export function SiteSchema() {
     areaServed: { "@type": "Country", name: "United States" },
     description: `One phone number for 40 home services across ${CITY_COUNT} cities in all ${STATE_COUNT} states. Starting at $99/hour with upfront pricing, licensed and insured technicians, same-day availability.`,
     openingHours: HOURS,
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: RATING,
-      reviewCount: REVIEW_COUNT.replace("+", ""),
-      bestRating: "5",
-      worstRating: "1",
-    },
     hasOfferCatalog: {
       "@type": "OfferCatalog",
       name: "40 Home Services",

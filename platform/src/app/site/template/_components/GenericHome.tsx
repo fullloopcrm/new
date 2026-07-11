@@ -31,9 +31,6 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
     telephone: config.contact.phone,
     ...(config.identity.logo ? { image: config.identity.logo } : {}),
     areaServed: config.geo.placename,
-    ...(config.reviewCount
-      ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: config.rating.toFixed(1), reviewCount: config.reviewCount } }
-      : {}),
   }
   const faqLd = {
     '@context': 'https://schema.org',

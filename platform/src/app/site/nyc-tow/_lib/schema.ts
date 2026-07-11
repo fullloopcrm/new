@@ -7,7 +7,7 @@
 import type { ReactElement } from "react";
 import { createElement, Fragment } from "react";
 
-import { PHONE, EMAIL, RATING, REVIEW_COUNT, FAQ } from "@/app/site/nyc-tow/_data/content";
+import { PHONE, EMAIL, FAQ } from "@/app/site/nyc-tow/_data/content";
 import { PRICING } from "@/app/site/nyc-tow/_data/content";
 import { OFFICES, type Office } from "@/app/site/nyc-tow/_data/offices";
 import { SERVICES, SERVICE_CATEGORIES, type Service } from "@/app/site/nyc-tow/_data/services";
@@ -140,13 +140,6 @@ export function organizationSchema() {
     openingHours: "Mo-Su 00:00-23:59",
     areaServed: boroughsAreaServed(),
     sameAs: [] as string[],
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: RATING,
-      reviewCount: REVIEW_COUNT.replace(/\D/g, "") || "300",
-      bestRating: "5",
-      worstRating: "1",
-    },
     contactPoint: OFFICES.map((o) => ({
       "@type": "ContactPoint",
       contactType: "Dispatch",
