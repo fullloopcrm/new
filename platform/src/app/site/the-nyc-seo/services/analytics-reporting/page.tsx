@@ -248,22 +248,6 @@ export default function AnalyticsReportingPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — Analytics & Reporting Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "James K." },
-    reviewBody:
-      "Before The NYC SEO, we had no idea which pages were generating calls and which were dead weight. Their analytics setup showed us that 3 pages were driving 80% of our leads — and 47 pages were generating zero. We restructured our content strategy based on the data and doubled our lead volume in 4 months without spending an extra dollar on ads.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -278,7 +262,6 @@ export default function AnalyticsReportingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO

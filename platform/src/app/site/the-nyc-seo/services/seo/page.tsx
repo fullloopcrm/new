@@ -258,22 +258,6 @@ export default function SEOServicesPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — SEO Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "David R." },
-    reviewBody:
-      "We hired The NYC SEO to rebuild our website and handle our SEO. Within 4 months we were ranking top 3 for our primary keywords across Brooklyn and Manhattan. The programmatic pages they built generated more leads in 90 days than our old WordPress site did in 2 years. Highly recommend.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -288,7 +272,6 @@ export default function SEOServicesPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO

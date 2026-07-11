@@ -256,22 +256,6 @@ export default function AIContentGenerationPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — AI Content Generation Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "James K." },
-    reviewBody:
-      "We needed location pages for every neighborhood we serve and The NYC SEO built over 800 unique pages in under 3 weeks. Every page reads like it was written by someone who knows the neighborhood. The schema markup and internal linking were already done — we did not have to touch a thing. Our organic traffic tripled in 4 months.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -286,7 +270,6 @@ export default function AIContentGenerationPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO
