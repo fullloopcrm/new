@@ -19,12 +19,17 @@
  * The store handle `h` is created per-test with `vi.hoisted(...)` (so the
  * `vi.mock('@/lib/supabase', …)` factory can reach it) and passed in here.
  *
- * Supported query surface:
+ * Supported query surface (superset across the finance money tests):
  *   from(table)
  *     .select(cols?, { head }) .insert(p) .update(p) .upsert(p, opts)
- *     .eq(col,val) .in(col,vals) .not() .order() .range() .limit()
+ *     .eq(col,val) .in(col,vals) .gt(col,val) .gte(col,val) .lt(col,val)
+ *     .not() .order() .range() .limit()
  *     .single() .maybeSingle() .then(...)   // awaiting the chain = "many"
  *   rpc('post_journal_entry', params)
+ *
+ * Window ops: `gt` compares numerically; `gte`/`lt` compare stringwise (what the
+ * invoice monthly-count window in money-spine relies on). These are inert for the
+ * adjustment/edge tests, which never call them.
  */
 import type { FakeStoreHandle } from './supabase-fake'
 
@@ -33,6 +38,9 @@ type State = {
   op: 'select' | 'insert' | 'update' | 'upsert'
   eqs: Record<string, unknown>
   ins: Array<{ col: string; vals: unknown[] }>
+  gts: Array<{ col: string; val: unknown }>
+  gtes: Array<{ col: string; val: unknown }>
+  lts: Array<{ col: string; val: unknown }>
   head: boolean
   payload: unknown
   upsertOpts: { onConflict?: string; ignoreDuplicates?: boolean } | null
@@ -41,6 +49,9 @@ type State = {
 function matches(r: Record<string, unknown>, s: State): boolean {
   if (!Object.entries(s.eqs).every(([k, v]) => r[k] === v)) return false
   for (const i of s.ins) if (!i.vals.includes(r[i.col])) return false
+  for (const g of s.gts) if (!(Number(r[g.col]) > Number(g.val))) return false
+  for (const g of s.gtes) if (!(String(r[g.col]) >= String(g.val))) return false
+  for (const l of s.lts) if (!(String(r[l.col]) < String(l.val))) return false
   return true
 }
 
@@ -48,14 +59,16 @@ function postJournalEntryRpc(h: FakeStoreHandle, params: Record<string, unknown>
   h.seq += 1
   const entryId = `je-${h.seq}`
   ;(h.store.journal_entries ||= []).push({
-    id: entryId, tenant_id: params.p_tenant_id, entry_date: params.p_entry_date,
-    memo: params.p_memo ?? null, source: params.p_source ?? 'manual', source_id: params.p_source_id ?? null,
+    id: entryId, tenant_id: params.p_tenant_id, entity_id: params.p_entity_id ?? null,
+    entry_date: params.p_entry_date, memo: params.p_memo ?? null,
+    source: params.p_source ?? 'manual', source_id: params.p_source_id ?? null,
   })
   const lineRows = h.store.journal_entry_lines ||= []
   for (const l of (params.p_lines as Array<Record<string, unknown>>) || []) {
     lineRows.push({
       entry_id: entryId, tenant_id: params.p_tenant_id, coa_id: l.coa_id,
       debit_cents: Number(l.debit_cents) || 0, credit_cents: Number(l.credit_cents) || 0,
+      memo: l.memo ?? null,
     })
   }
   return { data: entryId, error: null }
@@ -97,7 +110,7 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
 export function makeLedgerSupabaseFake(h: FakeStoreHandle) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, ins: [], head: false, payload: null, upsertOpts: null }
+      const state: State = { table, op: 'select', eqs: {}, ins: [], gts: [], gtes: [], lts: [], head: false, payload: null, upsertOpts: null }
       const chain: Record<string, unknown> = {
         select: (_c?: unknown, opts?: { head?: boolean }) => { if (opts?.head) state.head = true; return chain },
         insert: (p: unknown) => { state.op = 'insert'; state.payload = p; return chain },
@@ -105,6 +118,9 @@ export function makeLedgerSupabaseFake(h: FakeStoreHandle) {
         upsert: (p: unknown, opts?: State['upsertOpts']) => { state.op = 'upsert'; state.payload = p; state.upsertOpts = opts ?? null; return chain },
         eq: (c: string, v: unknown) => { state.eqs[c] = v; return chain },
         in: (c: string, v: unknown[]) => { state.ins.push({ col: c, vals: v }); return chain },
+        gt: (c: string, v: unknown) => { state.gts.push({ col: c, val: v }); return chain },
+        gte: (c: string, v: unknown) => { state.gtes.push({ col: c, val: v }); return chain },
+        lt: (c: string, v: unknown) => { state.lts.push({ col: c, val: v }); return chain },
         not: () => chain, order: () => chain, range: () => chain, limit: () => chain,
         single: () => Promise.resolve(runQuery(h, state, 'single')),
         maybeSingle: () => Promise.resolve(runQuery(h, state, 'maybeSingle')),
