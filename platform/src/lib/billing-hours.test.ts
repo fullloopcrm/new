@@ -1,0 +1,70 @@
+import { describe, it, expect } from 'vitest'
+import { clientBilledHours, cleanerPaidHours } from './billing-hours'
+
+/**
+ * Half-hour rounding for BILLING (client) vs PAY (cleaner). The whole reason
+ * this module exists is that the two use DIFFERENT grace windows — client rounds
+ * up past 10 min, cleaner only past 15 min — and copy-pasted drift once caused
+ * cleaners to be overpaid for running a few minutes over. The load-bearing
+ * invariant: in the 10..15-min-over band the client is billed the extra half
+ * hour but the cleaner is NOT. Both must always land on a clean .0 or .5.
+ */
+
+describe('billing-hours — client vs cleaner grace divergence', () => {
+  it('in the 10<x<=15 over-band, client bills the extra half hour but cleaner does not', () => {
+    // 2h12m: 4 full half-hours + 12 min remainder.
+    const raw = 132
+    expect(clientBilledHours(raw)).toBe(2.5) // 12 > 10 grace → rounds up
+    expect(cleanerPaidHours(raw)).toBe(2.0) // 12 <= 15 grace → does NOT round up
+  })
+
+  it('past 15 min over, both round up (cleaner grace also crossed)', () => {
+    const raw = 136 // remainder 16
+    expect(clientBilledHours(raw)).toBe(2.5)
+    expect(cleanerPaidHours(raw)).toBe(2.5)
+  })
+
+  it('under both graces, neither rounds up', () => {
+    const raw = 128 // remainder 8
+    expect(clientBilledHours(raw)).toBe(2.0)
+    expect(cleanerPaidHours(raw)).toBe(2.0)
+  })
+})
+
+describe('billing-hours — grace boundaries are strict (> not >=)', () => {
+  it('client: exactly 10 min over does NOT round up; 11 does', () => {
+    expect(clientBilledHours(40)).toBe(0.5) // remainder 10, 10 > 10 is false
+    expect(clientBilledHours(41)).toBe(1.0) // remainder 11
+  })
+
+  it('cleaner: exactly 15 min over does NOT round up; 16 does', () => {
+    expect(cleanerPaidHours(45)).toBe(0.5) // remainder 15, 15 > 15 is false
+    expect(cleanerPaidHours(46)).toBe(1.0) // remainder 16
+  })
+})
+
+describe('billing-hours — always lands on a half-hour grid', () => {
+  it.each([0, 5, 10, 15, 29, 30, 44, 59, 60, 137, 600])(
+    'both helpers return a multiple of 0.5 for %i raw minutes',
+    (m) => {
+      for (const v of [clientBilledHours(m), cleanerPaidHours(m)]) {
+        expect(v % 0.5).toBe(0)
+        expect(v).toBeGreaterThanOrEqual(0)
+      }
+    },
+  )
+
+  it('clamps negative/zero minutes to 0 (no negative billing or pay)', () => {
+    expect(clientBilledHours(0)).toBe(0)
+    expect(cleanerPaidHours(0)).toBe(0)
+    expect(clientBilledHours(-30)).toBe(0)
+    expect(cleanerPaidHours(-999)).toBe(0)
+  })
+
+  it('exact half-hour multiples never over-round for either party', () => {
+    expect(clientBilledHours(30)).toBe(0.5)
+    expect(cleanerPaidHours(30)).toBe(0.5)
+    expect(clientBilledHours(60)).toBe(1.0)
+    expect(cleanerPaidHours(60)).toBe(1.0)
+  })
+})
