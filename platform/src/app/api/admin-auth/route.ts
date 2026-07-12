@@ -103,7 +103,7 @@ export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
   const ua = request.headers.get('user-agent') || 'unknown'
 
-  const rl = await rateLimitDb(`admin_auth:${ip}`, 5, 15 * 60 * 1000)
+  const rl = await rateLimitDb(`admin_auth:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
