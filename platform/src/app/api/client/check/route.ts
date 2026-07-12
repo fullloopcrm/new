@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 
@@ -7,20 +7,18 @@ async function findClient(tenantId: string, input: string) {
   const trimmed = input.trim()
   if (!trimmed) return null
 
-  const { data: byEmail } = await supabaseAdmin
+  const { data: byEmail } = await tenantDb(tenantId)
     .from('clients')
     .select('id, phone, email, name')
-    .eq('tenant_id', tenantId)
     .ilike('email', trimmed)
     .maybeSingle()
   if (byEmail) return byEmail
 
   const digits = trimmed.replace(/\D/g, '')
   if (digits.length >= 7) {
-    const { data: clients } = await supabaseAdmin
+    const { data: clients } = await tenantDb(tenantId)
       .from('clients')
       .select('id, phone, email, name')
-      .eq('tenant_id', tenantId)
     if (clients) {
       const match = clients.find(c => {
         const cDigits = (c.phone || '').replace(/\D/g, '')
