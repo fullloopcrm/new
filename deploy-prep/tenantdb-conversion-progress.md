@@ -3,8 +3,16 @@
 **Status:** file-only audit / no route converted by this doc
 **Author:** W2 (resolver + tenant-isolation lane)
 **Date:** 2026-07-12
-**Worktree:** `p1-w2` @ `96995a46` (counts regenerated against this tree)
+**Worktree:** `p1-w2` @ `c407cbf6` (counts regenerated against this tree)
 **Maps:** `tenantdb-rollout-plan.md` (order + §5 exceptions) · `tenantdb-conversion-batch-plan.md` (next 20) · `tenantdb-triage.md`
+
+> **Also this session (non-conversion, leader QUEUE 3-DEEP item (a)):** fixed
+> `cron/tenant-health` to read `tenant_domains` FIRST / `tenants.domain`
+> fallback-only, matching the reconciled resolver order in `tenant.ts` /
+> `tenant-lookup.ts` (it had the precedence backwards, with a stale comment
+> claiming otherwise). Added `route.precedence.test.ts` incl. a wrong-tenant
+> probe proving a stale `tenants.domain` value is never used once a
+> `tenant_domains` row exists. Commit `e2cbce20`.
 
 ---
 
@@ -19,17 +27,17 @@ UNCONV=$(comm -23 <(echo "$ALL") <(echo "$CONV"))
 
 ---
 
-## 2. Current counts (tip `96995a46`)
+## 2. Current counts (tip `c407cbf6`)
 
 | Bucket | Count |
 |---|---:|
 | **Total** API `route.ts` | **498** |
-| **Converted** (use `tenantDb`) | **67** |
-| ├─ with a `*.isolation.test.ts` probe | **67** |
+| **Converted** (use `tenantDb`) | **70** |
+| ├─ with a `*.isolation.test.ts` probe | **70** |
 | └─ **without** a probe (coverage gap → §4) | **0** |
-| **Unconverted** | **431** |
-| ├─ touch DB via `supabaseAdmin` | 378 |
-| │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~134 |
+| **Unconverted** | **428** |
+| ├─ touch DB via `supabaseAdmin` | ~375 |
+| │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~131 |
 | │  ├─ EASY: tenant in hand via `requirePermission` only | 35 |
 | │  └─ HARD: derive tenant elsewhere (cron/webhook/portal/public/admin-token) | 213 |
 | └─ no direct `supabaseAdmin` (no tenant-table DB → NO-OP tier) | 65 |
@@ -123,6 +131,48 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
 > cross-tenant tables. Commits `21fd58c4`, `7a865611`, `96995a46`. Full suite
 > **413 passed / 37 skipped** after (`tsc --noEmit` clean).
 >
+> **Batch-8 trio landed (this session):** `recurring-expenses` (GET+POST),
+> `deals/[id]/activities` (GET+POST), `clients/enriched` (GET) — routes 68–70
+> below, one commit each, each with an isolation probe. All EASY: `recurring-
+> expenses` is a standalone single-table route (not under `finance/`), no
+> caller FK; `deals/[id]/activities` verifies deal ownership via a scoped
+> lookup before any read/write (no caller-supplied cross-tenant FK — the
+> `deal_id` comes from the URL and is ownership-checked); `clients/enriched`
+> is 4 parallel GET-only reads (clients, bookings, recurring_schedules,
+> team_members), already `.eq('tenant_id')`-scoped, no by-id caller input.
+> **IDOR lens applied:** `deals/[id]/activities`'s ownership guard now runs
+> through tenantDb, so a foreign tenant's `deal_id` resolves to 404 (probed) —
+> confirmed no leak. No FK-injection, no Storage/cross-tenant tables. Full
+> suite **426 passed / 37 skipped** after (`tsc --noEmit` clean). Commits
+> `a3f69140`, `2d1a8b03`, `c407cbf6`.
+>
+> **IDOR lens finding this session (leader order (b)) — 2 pre-existing FK-
+> injection rows spotted while scanning candidates, NOT fixed (out of the
+> "EASY" scope for this batch, mirrors the finance P4/P5/P6 skip pattern):**
+> `reviews` POST accepts a caller-supplied `client_id` with no check that it
+> belongs to the acting tenant — a forged `client_id` for a foreign tenant's
+> client lets the acting tenant's review embed (`clients(name)`) surface that
+> foreign client's name on GET. `deals/[id]` PATCH accepts caller-supplied
+> `client_id`/`owner_id` in its `assignables` list with the same gap — the
+> deal row itself stays correctly tenant-scoped, but the embedded
+> `clients(id,name,email,phone,address)` join on GET would leak a foreign
+> client's PII if `client_id` were forged to point cross-tenant. Both are
+> pre-existing (not introduced or worsened by this session), unrelated to
+> `tenant_domains`/`tenants.domain` precedence, and `tenantDb` alone would NOT
+> fix either — they need a caller-supplied-FK ownership guard (verify the
+> referenced `client_id` belongs to `tenantId` before accepting it), same as
+> the finance FK-injection rows in §5. Flagging for a future gated pass; not
+> converted here.
+>
+> **Also noted (settings/\* unconverted group is NO-OP tier, not EASY):**
+> `settings/notifications`, `settings/page-config`, `settings/team`,
+> `settings/permissions`, `settings/portal-permissions`,
+> `settings/request-automation`, `settings/route` all read/write the `tenants`
+> table itself keyed by `id` (the tenant's own row), never a `tenant_id`-
+> scoped child table — `tenantDb` explicitly excludes `tenants` (see its own
+> doc comment: "Platform tables that have no tenant_id ... must still use
+> supabaseAdmin directly"). Not conversion candidates.
+>
 > **IDOR lens sweep this session (leader order (b)) — no new findings.** Scanned
 > every unconverted dynamic-segment (`[id]`/`[token]`) route with a by-id read.
 > Result: every owner-authed (`getTenantForRequest`/`requirePermission`) by-id
@@ -184,24 +234,28 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
                                              65 admin/analytics/live-feed
                                              66 leads/attribution
                                              67 admin/find-cleaner/recent
+                                             68 recurring-expenses
+                                             69 deals/[id]/activities
+                                             70 clients/enriched
 ```
 
 > Rows 47–49 (CLIENTS trio), 50–52 (finance READ trio), 53–55 (READ trio:
 > `clients/analytics`, `bookings/stats`, `pipeline`), 56–58 (Batch-4 trio:
 > `jobs`, `settings/services`, `deals/at-risk`), 59–61 (Batch-5 trio:
 > `catalog`, `team`, `settings/services/[id]`), 62–64 (Batch-6 READ trio:
-> `bookings/closeout`, `audit`, `security/events`) and 65–67 (Batch-7 READ trio:
+> `bookings/closeout`, `audit`, `security/events`), 65–67 (Batch-7 READ trio:
 > `admin/analytics/live-feed`, `leads/attribution`, `admin/find-cleaner/recent`)
-> are appended in insertion order, not merged into the alphabetized 1–46 grid
-> above.
+> and 68–70 (Batch-8 trio: `recurring-expenses`, `deals/[id]/activities`,
+> `clients/enriched`) are appended in insertion order, not merged into the
+> alphabetized 1–46 grid above.
 
 ---
 
 ## 4. Isolation-probe coverage gap — CLOSED (0 converted routes without a probe)
 
-> **Resolved.** Every one of the 46 converted routes now ships a co-located
+> **Resolved.** Every one of the 70 converted routes now ships a co-located
 > `*.isolation.test.ts`. The table + history below are kept as the record of how
-> the 18-route gap was closed; the gap itself is **0** as of tip `817a4917`.
+> the 18-route gap was closed; the gap itself is **0** as of tip `c407cbf6`.
 
 Historically these were **already converted** but shipped without a probe — the
 highest-value place to add probes, because the conversion was done but its
@@ -314,12 +368,24 @@ needed; both tests pass.
 > bucket (`'new'`, label "Lead"). Added `route.regression.test.ts` (non-vacuous:
 > RED/500 before, GREEN/200 after).
 
+**Batch-6 READ trio, Batch-7 READ trio: see §3 notes above.**
+
+**Batch-8 trio DONE this session** (leader QUEUE 3-DEEP, file-only, non-gated):
+`recurring-expenses` (GET+POST), `deals/[id]/activities` (GET+POST),
+`clients/enriched` (GET) — EASY, no FK-injection; details in §3 above. Full
+suite **426 passed / 37 skipped** after (`tsc --noEmit` clean). Commits
+`a3f69140`, `2d1a8b03`, `c407cbf6`. **Also flagged, not converted:** `reviews`
+POST and `deals/[id]` PATCH both accept a caller-supplied `client_id` with no
+tenant-ownership check (FK-injection — same class as the finance P4/P5/P6
+rows); needs a guard before conversion, see §3 note.
+
 **After Batch 1 (remaining batch-2 order):** `quotes` (list GET + a multi-table
 create POST — NOT a low-risk read; convert as its own gated unit) → `finance/receipts`
 (partial — leave `tenants`) → ~~`finance/cleaner-income`~~ ✅ → `finance/payroll`
 (POST insert/update — not a pure read) → ~~`finance/pending`~~ ✅ →
 ~~`finance/audit-log`~~ ✅ → ~~`clients/analytics`~~ ✅ → the remaining
-~115 EASY routes (`bookings/*`, `deals/*`, `jobs/*`, `schedules/*`, `settings/*`).
+~112 EASY routes (`bookings/*`, `deals/*`, `jobs/*`, `schedules/*` — note
+`settings/*`'s unconverted remainder is NO-OP tier per §3, not EASY).
 HARD tiers (admin-token / portal / cron / webhook) convert only after their
 tenant-resolution path is explicit + verified (rollout-plan §4 Tiers 2–4).
 
