@@ -38,7 +38,11 @@ export function tenantDb(tenantId: string) {
       return {
         /** SELECT auto-filtered to this tenant. */
         select: (columns = '*', opts?: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean }) =>
-          base.select(columns, opts).eq('tenant_id', tenantId),
+          // Cast to the '*' overload for TYPING ONLY — the real column string still
+          // reaches PostgREST unchanged. Without this, TS resolves the generic
+          // string-select overload and collapses every result to GenericStringError,
+          // breaking named-field access at every call site (see p1-w1/p1-w2).
+          base.select(columns as '*', opts).eq('tenant_id', tenantId),
 
         /** INSERT with tenant_id stamped on every row (overrides any caller value). */
         insert: (rows: Row | Row[]) => base.insert(stamp(rows, tenantId)),
