@@ -3,7 +3,7 @@
 **Status:** file-only audit / no route converted by this doc
 **Author:** W2 (resolver + tenant-isolation lane)
 **Date:** 2026-07-12
-**Worktree:** `p1-w2` @ `bdd9c1c7` (counts regenerated against this tree)
+**Worktree:** `p1-w2` @ `afa62a98` (counts regenerated against this tree)
 **Maps:** `tenantdb-rollout-plan.md` (order + §5 exceptions) · `tenantdb-conversion-batch-plan.md` (next 20) · `tenantdb-triage.md`
 
 ---
@@ -19,15 +19,15 @@ UNCONV=$(comm -23 <(echo "$ALL") <(echo "$CONV"))
 
 ---
 
-## 2. Current counts (tip `bdd9c1c7`)
+## 2. Current counts (tip `afa62a98`)
 
 | Bucket | Count |
 |---|---:|
 | **Total** API `route.ts` | **498** |
-| **Converted** (use `tenantDb`) | **61** |
-| ├─ with a `*.isolation.test.ts` probe | **61** |
+| **Converted** (use `tenantDb`) | **64** |
+| ├─ with a `*.isolation.test.ts` probe | **64** |
 | └─ **without** a probe (coverage gap → §4) | **0** |
-| **Unconverted** | **437** |
+| **Unconverted** | **434** |
 | ├─ touch DB via `supabaseAdmin` | 378 |
 | │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~134 |
 | │  ├─ EASY: tenant in hand via `requirePermission` only | 35 |
@@ -93,6 +93,18 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
 > tenant_id stamped). update/delete-by-id paths rely on tenantDb's injected
 > `.eq('tenant_id')` so a foreign id is a no-op. No FK-injection, no
 > Storage/cross-tenant tables. Commits `091b6216`, `3bc5d564`, `bdd9c1c7`.
+>
+> **Batch-6 READ trio landed (this session):** `bookings/closeout` (GET),
+> `audit` (GET), `security/events` (GET) — routes 62–64 below, one commit each,
+> each with an isolation probe. All EASY GET-only single-table reads, already
+> `.eq('tenant_id')`-scoped (conversion = drop the explicit filter for tenantDb's
+> injected one): `bookings/closeout` reads `bookings` (needs-closeout +
+> recently-closed lists, embeds clients/team_members); `audit` reads `audit_logs`
+> with `{ count: 'exact' }` (probe asserts the total counts only the acting
+> tenant); `security/events` reads `security_events`. **No by-id caller input on
+> any of the three → no IDOR surface** (IDOR lens applied per leader order (b);
+> nothing to flag). No FK-injection, no Storage/cross-tenant tables. Commits
+> `bookings/closeout`, `audit`, `afa62a98` (`security/events`).
 
 ```
  1 admin/comhub/contacts/[id]/context        24 finance/bank-transactions
@@ -133,13 +145,17 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
                                              59 catalog
                                              60 team
                                              61 settings/services/[id]
+                                             62 bookings/closeout
+                                             63 audit
+                                             64 security/events
 ```
 
 > Rows 47–49 (CLIENTS trio), 50–52 (finance READ trio), 53–55 (READ trio:
 > `clients/analytics`, `bookings/stats`, `pipeline`), 56–58 (Batch-4 trio:
-> `jobs`, `settings/services`, `deals/at-risk`) and 59–61 (Batch-5 trio:
-> `catalog`, `team`, `settings/services/[id]`) are appended in insertion order,
-> not merged into the alphabetized 1–46 grid above.
+> `jobs`, `settings/services`, `deals/at-risk`), 59–61 (Batch-5 trio:
+> `catalog`, `team`, `settings/services/[id]`) and 62–64 (Batch-6 READ trio:
+> `bookings/closeout`, `audit`, `security/events`) are appended in insertion
+> order, not merged into the alphabetized 1–46 grid above.
 
 ---
 
