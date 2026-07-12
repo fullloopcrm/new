@@ -3,7 +3,7 @@
 **Status:** file-only audit / no route converted by this doc
 **Author:** W2 (resolver + tenant-isolation lane)
 **Date:** 2026-07-12
-**Worktree:** `p1-w2` @ `cd976d7c` (counts regenerated against this tree)
+**Worktree:** `p1-w2` @ `6b8a133d` (counts regenerated against this tree)
 **Maps:** `tenantdb-rollout-plan.md` (order + §5 exceptions) · `tenantdb-conversion-batch-plan.md` (next 20) · `tenantdb-triage.md`
 
 ---
@@ -19,22 +19,22 @@ UNCONV=$(comm -23 <(echo "$ALL") <(echo "$CONV"))
 
 ---
 
-## 2. Current counts (tip `cd976d7c`)
+## 2. Current counts (tip `6b8a133d`)
 
 | Bucket | Count |
 |---|---:|
 | **Total** API `route.ts` | **498** |
-| **Converted** (use `tenantDb`) | **55** |
-| ├─ with a `*.isolation.test.ts` probe | **55** |
+| **Converted** (use `tenantDb`) | **58** |
+| ├─ with a `*.isolation.test.ts` probe | **58** |
 | └─ **without** a probe (coverage gap → §4) | **0** |
-| **Unconverted** | **443** |
+| **Unconverted** | **440** |
 | ├─ touch DB via `supabaseAdmin` | 381 |
 | │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~134 |
 | │  ├─ EASY: tenant in hand via `requirePermission` only | 35 |
 | │  └─ HARD: derive tenant elsewhere (cron/webhook/portal/public/admin-token) | 213 |
 | └─ no direct `supabaseAdmin` (no tenant-table DB → NO-OP tier) | 65 |
 
-> **Probe coverage is now 100% of converted routes (55/55, 0 gap).** Every
+> **Probe coverage is now 100% of converted routes (58/58, 0 gap).** Every
 > `tenantDb` route ships a co-located `*.isolation.test.ts` wrong-tenant probe.
 > The EASY-unconverted sub-counts above are approximate — regenerate per §1 before
 > relying on them (each conversion moves a route from EASY into Converted).
@@ -74,6 +74,15 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
 > tenant-scoped table (`bookings`×2, `deals`), already `.eq('tenant_id')`-scoped
 > (conversion = `.eq` cleanup + hardening), no FK-injection, no Storage/cross-tenant
 > tables. Commits `8a574e14`, `be1a8e3c`, `cd976d7c`.
+>
+> **Batch-4 trio landed (this session):** `jobs` (GET), `settings/services`
+> (GET+POST), `deals/at-risk` (GET+POST) — routes 56–58 below, one commit each,
+> each with an isolation probe. All EASY/mechanical: `jobs` reads a single
+> `jobs` table (embedded clients+job_payments); `settings/services` reads/inserts
+> `service_types` (validated fields, tenant_id stamped — no caller FK);
+> `deals/at-risk` reads clients/bookings/deals and its POST updates `clients`
+> scoped by tenantDb (foreign client_id matches no row). No FK-injection, no
+> Storage/cross-tenant tables. Commits `c0df3b45`, `f1d239ea`, `6b8a133d`.
 
 ```
  1 admin/comhub/contacts/[id]/context        24 finance/bank-transactions
@@ -108,11 +117,15 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
                                              53 clients/analytics
                                              54 bookings/stats
                                              55 pipeline
+                                             56 jobs
+                                             57 settings/services
+                                             58 deals/at-risk
 ```
 
-> Rows 47–49 (CLIENTS trio), 50–52 (finance READ trio) and 53–55 (READ trio:
-> `clients/analytics`, `bookings/stats`, `pipeline`) are appended in insertion
-> order, not merged into the alphabetized 1–46 grid above.
+> Rows 47–49 (CLIENTS trio), 50–52 (finance READ trio), 53–55 (READ trio:
+> `clients/analytics`, `bookings/stats`, `pipeline`) and 56–58 (Batch-4 trio:
+> `jobs`, `settings/services`, `deals/at-risk`) are appended in insertion order,
+> not merged into the alphabetized 1–46 grid above.
 
 ---
 
@@ -193,7 +206,7 @@ rows #6/#7/#11 (`finance/expenses` P5, `finance/bank-accounts` P4,
   real read leaks on conversion; do those with a witness/probe.
 
 **Two work-streams, prioritized:**
-1. **Probe coverage: DONE** — all 55 converted routes have a probe (gap 0).
+1. **Probe coverage: DONE** — all 58 converted routes have a probe (gap 0).
 2. **Convert the remaining 8 Batch-1 routes** (per batch-plan) — gated on leader GO,
    each with `tsc --noEmit` + its probe + FK-injection guard where flagged
    (P1/P2/P4/P5/P6).
@@ -208,12 +221,19 @@ top-level tenant-scoped table each, no FK-injection. Full suite **389 passed /
 37 skipped** after (`tsc --noEmit` clean). Commits `8a574e14`, `be1a8e3c`,
 `cd976d7c`.
 
-> **Noticed (not fixed — out of scope):** `pipeline/route.ts` groups deals by
-> stage into `byStage`, initialized only for the 6 real `PIPELINE_STAGES` values;
-> an unknown/`null` stage falls to `byStage['lead'].push(...)`, but `'lead'` is
-> never a key → runtime `TypeError` on any deal with a non-canonical stage. The
-> conversion did not touch this path (the probe seeds a valid `'new'` stage). Flag
-> for a separate fix.
+**Batch-4 trio DONE this session** (leader QUEUE 3-DEEP, file-only, non-gated):
+`jobs` (GET), `settings/services` (GET+POST), `deals/at-risk` (GET+POST) — EASY
+low-risk routes over single tenant-scoped tables, no FK-injection (POSTs stamp
+tenant_id / scope updates via tenantDb). Full suite **395 passed / 37 skipped**
+after (`tsc --noEmit` clean). Commits `c0df3b45`, `f1d239ea`, `6b8a133d`.
+
+> **~~Noticed~~ FIXED this session (commit `3ffbe355`):** `pipeline/route.ts`
+> grouped deals into `byStage`, initialized only for the 6 real `PIPELINE_STAGES`
+> values; an unknown/`null` stage fell to `byStage['lead'].push(...)`, but
+> `'lead'` was never a key → runtime `TypeError` (→ 500) on any deal with a
+> non-canonical stage. Fix normalizes orphan-stage deals into the first canonical
+> bucket (`'new'`, label "Lead"). Added `route.regression.test.ts` (non-vacuous:
+> RED/500 before, GREEN/200 after).
 
 **After Batch 1 (remaining batch-2 order):** `quotes` (list GET + a multi-table
 create POST — NOT a low-risk read; convert as its own gated unit) → `finance/receipts`
