@@ -163,11 +163,17 @@ export async function POST(request: Request) {
     const tokenExpiresAt = new Date(startTime)
     tokenExpiresAt.setHours(tokenExpiresAt.getHours() + 24)
 
-    // Holiday gate
+    // Holiday gate — bypassed for open-365, 24/7, and emergency-available
+    // tenants (e.g. towing/roadside), same rule checkAvailability() uses so
+    // the slot picker and the submit endpoint never disagree.
     const { isHoliday } = await import('@/lib/holidays')
-    const holidayName = isHoliday(startTime.split('T')[0])
-    if (holidayName) {
-      return NextResponse.json({ error: `We're closed for ${holidayName}. Please choose another date.` }, { status: 400 })
+    const { getSettings, isAlwaysOpenTenant } = await import('@/lib/settings')
+    const tenantSettings = await getSettings(tenant.id)
+    if (!isAlwaysOpenTenant(tenantSettings)) {
+      const holidayName = isHoliday(startTime.split('T')[0])
+      if (holidayName) {
+        return NextResponse.json({ error: `We're closed for ${holidayName}. Please choose another date.` }, { status: 400 })
+      }
     }
 
     // Same-date duplicate gate

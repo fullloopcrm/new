@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { isHoliday } from '@/lib/holidays'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
-import { getSettings } from '@/lib/settings'
+import { getSettings, isAlwaysOpenTenant } from '@/lib/settings'
 
 export interface AvailabilitySlot {
   time: string
@@ -23,11 +23,23 @@ export interface TeamMemberAvailability {
 
 const BUSINESS_START = 9
 const BUSINESS_END = 17
+const BUSINESS_DISPLAY_CAP_HOUR = 16 // last standard-hours slot shown (existing 9-5 tenants)
+const ALWAYS_OPEN_START = 0
+const ALWAYS_OPEN_END = 24 // 24/7 or emergency tenants — full day, capped by duration fitting before midnight
 const BUFFER_MINUTES = 60 // travel buffer between jobs — aligned with smart-schedule + schedule-monitor
 
 const TIME_LABELS: Record<number, string> = {
   9: '9:00 AM', 10: '10:00 AM', 11: '11:00 AM', 12: '12:00 PM',
   13: '1:00 PM', 14: '2:00 PM', 15: '3:00 PM', 16: '4:00 PM'
+}
+
+/** Hour (0-23) → "H:00 AM/PM" label, for hours outside the standard TIME_LABELS map. */
+function hourLabel(hour: number): string {
+  if (TIME_LABELS[hour]) return TIME_LABELS[hour]
+  const h = hour % 24
+  const displayHour = h % 12 === 0 ? 12 : h % 12
+  const period = h >= 12 ? 'PM' : 'AM'
+  return `${displayHour}:00 ${period}`
 }
 
 const toMinutes = (timeStr: string) => {
@@ -131,9 +143,13 @@ export async function checkAvailability(
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
   }
 
-  // Open-365 tenants (e.g. nycmaid) never treat a holiday as closed.
-  const { open_365 } = await getSettings(tenantId)
-  if (!open_365) {
+  // Open-365, 24/7, and emergency-available tenants never treat a holiday as
+  // closed, and their business-hours window is bypassed below too — a tow
+  // truck or emergency-restoration tenant self-booking at 2am shouldn't be
+  // rejected by an 8am-6pm gate meant for a standard 9-5 tenant.
+  const settings = await getSettings(tenantId)
+  const alwaysOpen = isAlwaysOpenTenant(settings)
+  if (!alwaysOpen) {
     const holidayName = isHoliday(date)
     if (holidayName) {
       return { slots: [], message: `Closed for ${holidayName}` }
@@ -148,11 +164,14 @@ export async function checkAvailability(
 
   const existingBookings = await getBookingsForDay(tenantId, date)
   const durationMin = durationHours * 60
-  const lastStartHour = BUSINESS_END - durationHours
+  const windowStart = alwaysOpen ? ALWAYS_OPEN_START : BUSINESS_START
+  const windowEnd = alwaysOpen ? ALWAYS_OPEN_END : BUSINESS_END
+  const lastStartHour = windowEnd - durationHours
+  const displayCapHour = alwaysOpen ? windowEnd - 1 : BUSINESS_DISPLAY_CAP_HOUR
 
   const slots: AvailabilitySlot[] = []
 
-  for (let hour = BUSINESS_START; hour <= Math.min(lastStartHour, 16); hour++) {
+  for (let hour = windowStart; hour <= Math.min(lastStartHour, displayCapHour); hour++) {
     const slotStartMin = hour * 60
     const slotEndMin = slotStartMin + durationMin
 
@@ -164,9 +183,7 @@ export async function checkAvailability(
       return !result.conflict
     })
 
-    if (TIME_LABELS[hour]) {
-      slots.push({ time: TIME_LABELS[hour], available: hasAvailableMember })
-    }
+    slots.push({ time: hourLabel(hour), available: hasAvailableMember })
   }
 
   return { slots }
@@ -186,6 +203,9 @@ export async function checkPortalAvailability(
   date: string,
   durationHours: number
 ): Promise<AvailabilitySlot[]> {
+  const settings = await getSettings(tenantId)
+  const alwaysOpen = isAlwaysOpenTenant(settings)
+
   const team = await getTeamForDay(tenantId, date)
   const capacity = team.length
 
@@ -207,11 +227,17 @@ export async function checkPortalAvailability(
 
   const slots: AvailabilitySlot[] = []
 
-  for (let hour = 8; hour <= 18; hour++) {
+  // 24/7 or emergency-available tenants get the full day (start window 0-23,
+  // must finish before midnight); standard tenants keep the 8am-6:30pm window
+  // finishing by 9pm.
+  const loopStart = alwaysOpen ? 0 : 8
+  const loopEnd = alwaysOpen ? 23 : 18
+  const latestFinishHour = alwaysOpen ? 24 : 21
+
+  for (let hour = loopStart; hour <= loopEnd; hour++) {
     for (const minute of [0, 30]) {
-      // Don't show slots that would end after 9pm
-      if (hour + durationHours > 21) continue
-      if (hour === 18 && minute === 30) continue
+      if (hour + durationHours > latestFinishHour) continue
+      if (hour === loopEnd && minute === 30 && !alwaysOpen) continue
 
       const slotStart = new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`)
       const slotEnd = new Date(slotStart.getTime() + durationHours * 3600000)

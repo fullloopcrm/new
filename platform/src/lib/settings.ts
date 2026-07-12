@@ -35,6 +35,15 @@ export interface TenantSettings {
   // treated as closed for booking/availability. Default OFF (federal holidays
   // block, per lib/holidays.ts). Stored in tenants.selena_config jsonb.
   open_365: boolean
+  // When true, the business runs 24/7 (e.g. towing, roadside, emergency
+  // restoration) — the holiday gate AND the 8am-6pm business-hours window
+  // are both bypassed for self-booking. Stored in tenants.selena_config jsonb.
+  is_24_7: boolean
+  // When true, the tenant takes emergency/urgent-response jobs outside normal
+  // hours — same bypass as is_24_7. Distinct flag because a tenant can offer
+  // emergency service without being fully 24/7 in its regular ops. Stored in
+  // tenants.selena_config jsonb.
+  emergency_available: boolean
   // Which funnel this tenant runs:
   //  'booking'   = direct book → schedule → pay → review (cleanings, appts)
   //  'pipeline'  = lead → quote/proposal → close → schedule → pay → review
@@ -213,6 +222,8 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     min_days_ahead: Number(tenant?.min_days_ahead ?? 1),
     allow_same_day: Boolean(tenant?.allow_same_day),
     open_365: Boolean(selenaConfig.open_365),
+    is_24_7: Boolean(selenaConfig.is_24_7),
+    emergency_available: Boolean(selenaConfig.emergency_available),
     funnel_mode:
       selenaConfig.funnel_mode === 'pipeline' ? 'pipeline'
       : selenaConfig.funnel_mode === 'lead_only' ? 'lead_only'
@@ -283,4 +294,16 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
 
   settingsCache.set(tenantId, { data: settings, time: now })
   return settings
+}
+
+/**
+ * True when a tenant should bypass the holiday gate AND the standard
+ * business-hours window for self-booking — open_365 (no holiday closures),
+ * is_24_7 (round-the-clock ops), and emergency_available (urgent jobs outside
+ * normal hours) all mean the same thing to the gate: don't reject the slot.
+ */
+export function isAlwaysOpenTenant(
+  settings: Pick<TenantSettings, 'open_365' | 'is_24_7' | 'emergency_available'>
+): boolean {
+  return settings.open_365 || settings.is_24_7 || settings.emergency_available
 }
