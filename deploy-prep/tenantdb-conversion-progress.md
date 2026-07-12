@@ -3,7 +3,7 @@
 **Status:** file-only audit / no route converted by this doc
 **Author:** W2 (resolver + tenant-isolation lane)
 **Date:** 2026-07-12
-**Worktree:** `p1-w2` @ `76d6f500` (counts regenerated against this tree)
+**Worktree:** `p1-w2` @ `bd5e253d` (counts regenerated against this tree)
 **Maps:** `tenantdb-rollout-plan.md` (order + §5 exceptions) · `tenantdb-conversion-batch-plan.md` (next 20) · `tenantdb-triage.md`
 
 ---
@@ -19,22 +19,22 @@ UNCONV=$(comm -23 <(echo "$ALL") <(echo "$CONV"))
 
 ---
 
-## 2. Current counts (tip `76d6f500`)
+## 2. Current counts (tip `bd5e253d`)
 
 | Bucket | Count |
 |---|---:|
 | **Total** API `route.ts` | **498** |
-| **Converted** (use `tenantDb`) | **49** |
-| ├─ with a `*.isolation.test.ts` probe | **49** |
+| **Converted** (use `tenantDb`) | **52** |
+| ├─ with a `*.isolation.test.ts` probe | **52** |
 | └─ **without** a probe (coverage gap → §4) | **0** |
-| **Unconverted** | **449** |
-| ├─ touch DB via `supabaseAdmin` | 387 |
+| **Unconverted** | **446** |
+| ├─ touch DB via `supabaseAdmin` | 384 |
 | │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~137 |
-| │  ├─ EASY: tenant in hand via `requirePermission` only | 38 |
+| │  ├─ EASY: tenant in hand via `requirePermission` only | 35 |
 | │  └─ HARD: derive tenant elsewhere (cron/webhook/portal/public/admin-token) | 213 |
 | └─ no direct `supabaseAdmin` (no tenant-table DB → NO-OP tier) | 65 |
 
-> **Probe coverage is now 100% of converted routes (49/49, 0 gap).** Every
+> **Probe coverage is now 100% of converted routes (52/52, 0 gap).** Every
 > `tenantDb` route ships a co-located `*.isolation.test.ts` wrong-tenant probe.
 > The EASY-unconverted sub-counts above are approximate — regenerate per §1 before
 > relying on them (each conversion moves a route from EASY into Converted).
@@ -48,17 +48,25 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
 
 ---
 
-## 3. The 49 converted routes (paths relative to `src/app/api/`)
+## 3. The 52 converted routes (paths relative to `src/app/api/`)
 
 > Batch-1 finance conversions landed this lane: #1–5,#8,#9,#10,#12 =
 > `finance/summary`, `finance/revenue`, `finance/pnl`, `finance/cash-flow`,
 > `finance/ar-aging`, `finance/bank-transactions`, `finance/chart-of-accounts`,
 > `finance/entities`, `finance/reconcile-candidates`. All are probed.
 >
-> **Batch-1 CLIENTS trio landed (this session):** #17 `clients` (list+create),
+> **Batch-1 CLIENTS trio landed (prior session):** #17 `clients` (list+create),
 > #18 `clients/[id]` (GET/PUT/DELETE), #19 `clients/stats` — routes 47–49 in the
 > table below, one commit each, each with an isolation probe. All EASY/mechanical,
 > no FK-injection. Commits `5ea2e4d9`, `d6060f8c`, `76d6f500`.
+>
+> **Batch-2 READ trio landed (this session):** `finance/cleaner-income` (GET),
+> `finance/pending` (GET), `finance/audit-log` (GET) — routes 50–52 below, one
+> commit each, each with an isolation probe. All EASY low-risk reads, already
+> `.eq('tenant_id')`-scoped (conversion = hardening + `.eq` cleanup), no FK-injection,
+> no cross-tenant/Storage tables. Commits `c29bb584`, `71f4e856`, `bd5e253d`.
+> `audit-log`'s probe also asserts the injected `.eq('tenant_id')` excludes
+> NULL-tenant rows (mig 038 made `audit_log.tenant_id` nullable) — behavior preserved.
 
 ```
  1 admin/comhub/contacts/[id]/context        24 finance/bank-transactions
@@ -87,10 +95,13 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
                                              47 clients
                                              48 clients/[id]
                                              49 clients/stats
+                                             50 finance/cleaner-income
+                                             51 finance/pending
+                                             52 finance/audit-log
 ```
 
-> Rows 47–49 (CLIENTS trio, this session) are appended in insertion order, not
-> merged into the alphabetized 1–46 grid above.
+> Rows 47–49 (CLIENTS trio) and 50–52 (finance READ trio, this session) are
+> appended in insertion order, not merged into the alphabetized 1–46 grid above.
 
 ---
 
@@ -171,15 +182,22 @@ rows #6/#7/#11 (`finance/expenses` P5, `finance/bank-accounts` P4,
   real read leaks on conversion; do those with a witness/probe.
 
 **Two work-streams, prioritized:**
-1. **Probe coverage: DONE** — all 49 converted routes have a probe (gap 0).
+1. **Probe coverage: DONE** — all 52 converted routes have a probe (gap 0).
 2. **Convert the remaining 8 Batch-1 routes** (per batch-plan) — gated on leader GO,
    each with `tsc --noEmit` + its probe + FK-injection guard where flagged
    (P1/P2/P4/P5/P6).
 
-**After Batch 1:** `quotes` → `finance/receipts` → `finance/cleaner-income` →
-`finance/payroll` → `finance/pending` → `finance/audit-log` → `clients/analytics` →
-the remaining ~118 EASY routes (`bookings/*`, `deals/*`, `jobs/*`, `schedules/*`,
-`settings/*`). HARD tiers (admin-token / portal / cron / webhook) convert only after
-their tenant-resolution path is explicit + verified (rollout-plan §4 Tiers 2–4).
+**Batch-2 READ trio DONE this session** (leader QUEUE 3-DEEP, file-only, non-gated):
+`finance/cleaner-income`, `finance/pending`, `finance/audit-log` — EASY low-risk
+reads pulled forward from the batch-2 list. Full suite **386 passed / 37 skipped**
+after (`tsc --noEmit` clean).
+
+**After Batch 1 (remaining batch-2 order):** `quotes` → `finance/receipts`
+(partial — leave `tenants`) → ~~`finance/cleaner-income`~~ ✅ → `finance/payroll`
+(POST insert/update — not a pure read) → ~~`finance/pending`~~ ✅ →
+~~`finance/audit-log`~~ ✅ → `clients/analytics` (next easy GET) → the remaining
+~118 EASY routes (`bookings/*`, `deals/*`, `jobs/*`, `schedules/*`, `settings/*`).
+HARD tiers (admin-token / portal / cron / webhook) convert only after their
+tenant-resolution path is explicit + verified (rollout-plan §4 Tiers 2–4).
 
 **This doc converts nothing** — it is the live count + the ordered next step.
