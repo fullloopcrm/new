@@ -45,6 +45,7 @@ vi.mock('@/lib/supabase', () => {
             error: null,
           }
         }
+        if (table === 'tenants') return { data: { id: 'tenant-1' }, error: null }
         return { data: null, error: null }
       },
       maybeSingle: async () => {
@@ -60,6 +61,7 @@ vi.mock('@/lib/supabase', () => {
             error: null,
           }
         }
+        if (table === 'tenants') return { data: { id: 'tenant-1' }, error: null }
         return { data: null, error: null }
       },
     }
@@ -76,7 +78,7 @@ function guess(code: string) {
   return new Request('https://x/api/portal/auth', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-forwarded-for': '8.8.8.8' },
-    body: JSON.stringify({ action: 'verify_code', phone: PHONE, code }),
+    body: JSON.stringify({ action: 'verify_code', phone: PHONE, code, tenant_slug: 'acme' }),
   })
 }
 

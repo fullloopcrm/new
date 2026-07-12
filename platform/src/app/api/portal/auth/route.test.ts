@@ -80,7 +80,8 @@ function builder(table: string) {
     order: () => chain,
     limit: () => chain,
     single: async () => resolveSingle(table, eqs),
-    maybeSingle:,  }
+    maybeSingle: async () => resolveSingle(table, eqs),
+  }
   return chain
 }
 
@@ -95,10 +96,15 @@ vi.mock('@/lib/rate-limit-db', () => ({
 
 import { POST } from './route'
 
-// The route only calls request.json(); a minimal stub avoids env-specific
-// Request/Response construction differences.
+// The route calls request.json() and request.headers.get() (the verify_code
+// per-IP throttle reads x-forwarded-for). A minimal stub avoids env-specific
+// Request/Response construction differences; the header getter returns null so
+// the IP falls back to 'unknown'.
 function req(body: unknown): Request {
-  return { json: async () => body } as unknown as Request
+  return {
+    json: async () => body,
+    headers: { get: () => null },
+  } as unknown as Request
 }
 
 beforeEach(() => {

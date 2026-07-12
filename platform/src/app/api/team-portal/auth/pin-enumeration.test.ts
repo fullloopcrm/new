@@ -3,9 +3,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 /**
  * team-portal/auth PIN-enumeration regression. The rate-limit bucket used to be
  * keyed on the PIN VALUE (`team_portal_auth:<slug>:<pin>`), so every guessed PIN
- * got its own fresh 5-attempt budget and an attacker could walk the entire PIN
- * space unthrottled. The bucket must be keyed on slug+IP so guesses against a
- * tenant share one budget and enumeration is actually throttled/locked out.
+ * got its own fresh budget and an attacker could walk the entire PIN space
+ * unthrottled. The fix counts FAILED attempts on two PIN-free fail buckets —
+ * per tenant (`team_portal_auth_fail:slug:<slug>`, cap 10) and per IP
+ * (`team_portal_auth_fail:ip:<ip>`, cap 20) — so distinct PIN guesses against a
+ * tenant share one budget and enumeration is throttled/locked out. The PIN is
+ * never part of a bucket key.
  */
 
 // Records every bucket key the route computes and enforces a real per-key cap.
@@ -63,24 +66,25 @@ beforeEach(() => {
 })
 
 describe('team-portal/auth PIN enumeration', () => {
-  it('throttles guessing across DIFFERENT PINs from one IP (shared slug+IP bucket)', async () => {
+  it('throttles guessing across DIFFERENT PINs from one IP (shared per-tenant fail bucket)', async () => {
     const statuses: number[] = []
-    for (let i = 0; i < 6; i++) {
-      // Six DISTINCT PIN guesses. Under the old per-PIN key these would each get
-      // a fresh budget and never 429.
+    for (let i = 0; i < 11; i++) {
+      // Eleven DISTINCT PIN guesses. Under the old per-PIN key each would get a
+      // fresh budget and never 429; the per-tenant fail bucket (cap 10) shares one
+      // budget across all guesses, so the 11th is locked out.
       const res = await POST(req(String(100000 + i)))
       statuses.push(res.status)
     }
-    expect(statuses.slice(0, 5).every((s) => s === 401)).toBe(true)
-    expect(statuses[5]).toBe(429)
+    expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true)
+    expect(statuses[10]).toBe(429)
   })
 
-  it('bucket key is slug+IP and never contains the PIN', async () => {
+  it('bucket keys are slug/IP only and never contain the PIN', async () => {
     await POST(req('424242'))
     expect(rlKeys.length).toBeGreaterThan(0)
-    for (const k of rlKeys) {
-      expect(k).toBe('team_portal_auth:acme:9.9.9.9')
-      expect(k).not.toContain('424242')
-    }
+    expect(new Set(rlKeys)).toEqual(
+      new Set(['team_portal_auth_fail:slug:acme', 'team_portal_auth_fail:ip:9.9.9.9'])
+    )
+    for (const k of rlKeys) expect(k).not.toContain('424242')
   })
 })
