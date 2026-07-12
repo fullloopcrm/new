@@ -31,6 +31,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 // Import the fake BEFORE any module that pulls @/lib/supabase (e.g. ./ledger),
 // so its binding is initialized before the hoisted vi.mock factory fires.
 import { makeLedgerSupabaseFake } from '@/test/ledger-supabase-fake'
+import {
+  PLATFORM_ADMIN_LOOKUP as ADMIN_LOOKUP,
+  PLATFORM_MEMBER_LOOKUP as MEMBER_LOOKUP,
+  PLATFORM_SETUP_LOOKUP as SETUP_LOOKUP,
+} from '@/test/platform-billing-lookup-keys'
 import { DEFAULT_CHART } from './ledger'
 
 // ---- hoisted state the vi.mock factories close over --------------------------
@@ -41,13 +46,11 @@ const sfx = vi.hoisted(() => ({
   updateCalls: [] as Array<{ id: string; params: Record<string, unknown> }>,
 }))
 
-// Mirror platform-billing.ts's module-private lookup_key constants. If those
-// constants ever drift, ensurePlatformPrices() won't match a returned price and
-// will fall through to products.create — which throws below, failing LOUD rather
-// than silently minting a phantom price.
-const ADMIN_LOOKUP = 'fl_admin_seat_monthly_2500'
-const MEMBER_LOOKUP = 'fl_team_seat_monthly_250'
-const SETUP_LOOKUP = 'fl_setup_fee_onetime'
+// The three lookup_key constants are shared via @/test/platform-billing-lookup-keys
+// (imported above, aliased). They mirror platform-billing.ts's module-private
+// constants; if those drift, ensurePlatformPrices() won't match a returned price and
+// falls through to products.create — which throws below, failing LOUD rather than
+// silently minting a phantom price. Centralized so drift is reconciled in one place.
 
 // ---- in-memory Supabase fake (ledger RPC + upsert idempotency) ---------------
 // Shared with money-adjustments.test.ts via @/test/ledger-supabase-fake.

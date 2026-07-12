@@ -17,13 +17,17 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PRICING } from './billing-pricing'
+import {
+  PLATFORM_ADMIN_LOOKUP as ADMIN_LOOKUP,
+  PLATFORM_MEMBER_LOOKUP as MEMBER_LOOKUP,
+  PLATFORM_SETUP_LOOKUP as SETUP_LOOKUP,
+} from '@/test/platform-billing-lookup-keys'
 
-// Mirror platform-billing.ts's module-private lookup_key constants. If they
-// drift, ensurePlatformPrices() won't match and falls to products.create, which
-// throws below — failing loud rather than minting a phantom price.
-const ADMIN_LOOKUP = 'fl_admin_seat_monthly_2500'
-const MEMBER_LOOKUP = 'fl_team_seat_monthly_250'
-const SETUP_LOOKUP = 'fl_setup_fee_onetime'
+// The three lookup_key constants are shared via @/test/platform-billing-lookup-keys
+// (imported above, aliased). They mirror platform-billing.ts's module-private
+// constants; if those drift, ensurePlatformPrices() won't match a returned price and
+// falls to products.create — which throws below, failing loud rather than minting a
+// phantom price. Centralized so drift-vs-source is reconciled in one place.
 
 const cap = vi.hoisted(() => ({ sessions: [] as Array<Record<string, unknown>> }))
 
