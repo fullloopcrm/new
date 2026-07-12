@@ -20,6 +20,14 @@ import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
+
+/** Trade-neutral fallback when no service_type is supplied — the tenant's own
+ * first-ranked preset for its industry, not a hardcoded cleaning term. */
+function defaultServiceType(industry: string | null | undefined): string {
+  return SERVICE_PRESETS[(industry as IndustryKey) || 'general']?.[0]?.name
+    || SERVICE_PRESETS.general[0].name
+}
 
 function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
@@ -249,7 +257,7 @@ export async function POST(request: Request) {
         team_member_id: null,
         start_time: startTime,
         end_time: endTime,
-        service_type: (body.service_type as string) || 'Standard Cleaning',
+        service_type: (body.service_type as string) || defaultServiceType(tenant.industry),
         status: 'pending',
         price: bkPrice,
         hourly_rate: bkHourlyRate,

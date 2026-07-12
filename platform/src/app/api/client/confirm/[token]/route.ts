@@ -58,15 +58,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   const client = booking.clients as unknown as { name?: string; phone?: string } | null
 
   if (client?.phone) {
-    await sendSMS(client.phone, `Got it — terms accepted for ${startTime}. We're assigning your cleaner now and will send your full booking confirmation with cleaner details once locked in.`, {
+    await sendSMS(client.phone, `Got it — terms accepted for ${startTime}. We're assigning your service pro now and will send your full booking confirmation with team details once locked in.`, {
       skipConsent: true, smsType: 'terms_accepted', bookingId: booking.id,
     }).catch(() => {})
   }
-  await smsAdmins(booking.tenant_id, `✓ ${client?.name || 'Client'} accepted terms (one-tap link) — booking ${startTime} ready to assign cleaner.`).catch(() => {})
+  await smsAdmins(booking.tenant_id, `✓ ${client?.name || 'Client'} accepted terms (one-tap link) — booking ${startTime} ready to assign a team member.`).catch(() => {})
   await notify({
     type: 'booking_confirmed_by_client',
     title: `${client?.name || 'Client'} accepted terms`,
-    message: `${client?.name || 'Client'} tapped the confirm link — terms accepted, ready to assign cleaner for ${startTime}.`,
+    message: `${client?.name || 'Client'} tapped the confirm link — terms accepted, ready to assign a team member for ${startTime}.`,
     booking_id: booking.id,
     url: '/admin/bookings',
   }).catch(() => {})
