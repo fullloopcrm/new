@@ -2,6 +2,8 @@
 // EMAIL TEMPLATES - GOOGLE/APPLE STYLE
 // ============================================
 
+import { escapeHtml, safeUrl } from '@/lib/escape-html'
+
 export const emailWrapper = (content: string) => `
 <!DOCTYPE html>
 <html>
@@ -22,7 +24,7 @@ export const emailWrapper = (content: string) => `
           <tr>
             <td bgcolor="#ffffff" style="background-color: #ffffff; border-radius: 12px; padding: 40px;">
               <div style="margin: 0 0 24px 0;">
-                <a href="https://www.thenycmobilesalon.com"><img src="https://www.thenycmobilesalon.com/logo.png" alt="The NYC Mobile Salon" width="160" height="48" style="width: 160px; height: auto; display: block;" /></a>
+                <a href="${safeUrl('https://www.thenycmobilesalon.com')}"><img src="${safeUrl('https://www.thenycmobilesalon.com/logo.png')}" alt="The NYC Mobile Salon" width="160" height="48" style="width: 160px; height: auto; display: block;" /></a>
               </div>
               ${content}
             </td>
@@ -50,13 +52,13 @@ const primaryButton = (text: string, href: string) => `
   <tr>
     <td align="left">
       <!--[if mso]>
-      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:52px;v-text-anchor:middle;width:240px;" arcsize="15%" fillcolor="#2563eb" stroke="f">
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${safeUrl(href)}" style="height:52px;v-text-anchor:middle;width:240px;" arcsize="15%" fillcolor="#2563eb" stroke="f">
         <w:anchorlock/>
         <center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:bold;">${text}</center>
       </v:roundrect>
       <![endif]-->
       <!--[if !mso]><!-->
-      <a href="${href}" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; -webkit-text-fill-color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; mso-hide: all;">${text}</a>
+      <a href="${safeUrl(href)}" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; -webkit-text-fill-color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; mso-hide: all;">${text}</a>
       <!--<![endif]-->
     </td>
   </tr>
@@ -103,12 +105,12 @@ export function clientBookingReceivedEmail(booking: any) {
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">We received your booking request!</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, thank you for choosing NYC Mobile Salon. We're reviewing your request and will confirm shortly.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(clientName)}, thank you for choosing NYC Mobile Salon. We're reviewing your request and will confirm shortly.</p>
 
     ${infoTable(`
       ${infoRow('Date', date)}
       ${infoRow('Time', startTime)}
-      ${infoRow('Service', booking.service_type || 'Beauty Service')}
+      ${infoRow('Service', escapeHtml(booking.service_type || 'Beauty Service'))}
       ${infoRow('Status', '<strong style="color: #f59e0b;">Pending Confirmation</strong>')}
     `)}
 
@@ -120,8 +122,8 @@ export function clientBookingReceivedEmail(booking: any) {
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 24px 0 0 0;">
       <p style="margin: 0 0 4px 0; color: #333; font-size: 14px; font-weight: 600;">Your Client Portal</p>
       <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Login:</strong> <a href="https://www.thenycmobilesalon.com/book" style="color: #000;">thenycmobilesalon.com/book</a></p>
-      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Email:</strong> ${booking.clients.email}</p>
-      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${booking.clients.pin}</span></p>
+      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Email:</strong> ${escapeHtml(booking.clients.email)}</p>
+      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${escapeHtml(booking.clients.pin)}</span></p>
     </div>
     ` : ''}
 
@@ -149,24 +151,24 @@ export function clientConfirmationEmail(booking: any) {
   const cleanerPhotoUrl = booking.cleaners?.photo_url
   const cleanerPhotoHtml = cleanerPhotoUrl ? `
     <div style="text-align: left; margin: 0 0 24px 0;">
-      <img src="${cleanerPhotoUrl}" alt="${cleanerFirst}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #eee;" />
-      <p style="color: #666; font-size: 14px; margin: 8px 0 0 0;">Your stylist: <strong>${cleanerFirst}</strong></p>
+      <img src="${safeUrl(cleanerPhotoUrl)}" alt="${escapeHtml(cleanerFirst)}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #eee;" />
+      <p style="color: #666; font-size: 14px; margin: 8px 0 0 0;">Your stylist: <strong>${escapeHtml(cleanerFirst)}</strong></p>
     </div>
   ` : ''
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Your appointment is confirmed!</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, thank you for giving us the opportunity to be your mobile beauty service provider. Here's everything you need to know.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(clientName)}, thank you for giving us the opportunity to be your mobile beauty service provider. Here's everything you need to know.</p>
 
     ${cleanerPhotoHtml}
 
     ${infoTable(`
       ${infoRow('Date', date)}
       ${infoRow('Time', startTime)}
-      ${infoRow('Address', booking.clients?.address || 'On file')}
-      ${infoRow('Service', booking.service_type)}
-      ${infoRow('Stylist', cleanerName)}
-      ${isRecurring ? infoRow('Schedule', booking.recurring_type) : ''}
+      ${infoRow('Address', escapeHtml(booking.clients?.address || 'On file'))}
+      ${infoRow('Service', escapeHtml(booking.service_type))}
+      ${infoRow('Stylist', escapeHtml(cleanerName))}
+      ${isRecurring ? infoRow('Schedule', escapeHtml(booking.recurring_type)) : ''}
       ${infoRow('Estimate', `${estimatedRange} hrs × $${hourlyRate}/hr`)}
     `)}
 
@@ -174,7 +176,7 @@ export function clientConfirmationEmail(booking: any) {
 
     <h2 style="font-size: 18px; font-weight: 600; color: #000; margin: 0 0 16px 0;">What to expect</h2>
     <p style="color: #333; font-size: 14px; line-height: 1.7; margin: 0 0 16px 0;">
-      ${cleanerFirst} is usually right on time, but we allow up to 30 minutes for traffic and delays. Once ${cleanerFirst} arrives, they'll provide a thorough, quality service. If you'd like to adjust anything, just let ${cleanerFirst} know — that's the best part about our hourly pricing model.
+      ${escapeHtml(cleanerFirst)} is usually right on time, but we allow up to 30 minutes for traffic and delays. Once ${escapeHtml(cleanerFirst)} arrives, they'll provide a thorough, quality service. If you'd like to adjust anything, just let ${escapeHtml(cleanerFirst)} know — that's the best part about our hourly pricing model.
     </p>
 
     ${divider()}
@@ -196,7 +198,7 @@ export function clientConfirmationEmail(booking: any) {
 
     ${divider()}
 
-    ${hourlyRate === 49 ? noteBox('<strong>Supplies needed:</strong> Please have any personal products or tools ready that you prefer your stylist to use.', 'warning') : noteBox('<strong>All supplies included!</strong> ' + cleanerFirst + ' will bring everything needed — no need to prepare anything.', 'success')}
+    ${hourlyRate === 49 ? noteBox('<strong>Supplies needed:</strong> Please have any personal products or tools ready that you prefer your stylist to use.', 'warning') : noteBox('<strong>All supplies included!</strong> ' + escapeHtml(cleanerFirst) + ' will bring everything needed — no need to prepare anything.', 'success')}
 
     ${noteBox(`<strong>Tipping:</strong> Tips are always appreciated but never required. 100% of all tips included with Apple Pay and Zelle (hi@thenycmobilesalon.com) go directly to your stylist.`, 'info')}
 
@@ -213,8 +215,8 @@ export function clientConfirmationEmail(booking: any) {
     </p>
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 12px 0;">
       <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Login:</strong> <a href="https://www.thenycmobilesalon.com/book" style="color: #000;">thenycmobilesalon.com/book</a></p>
-      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Email:</strong> ${booking.clients.email}</p>
-      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${booking.clients.pin}</span></p>
+      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Email:</strong> ${escapeHtml(booking.clients.email)}</p>
+      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${escapeHtml(booking.clients.pin)}</span></p>
     </div>
     ` : ''}
 
@@ -241,12 +243,12 @@ export function clientReminderEmail(booking: any, daysOut: string) {
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Reminder: Appointment ${daysOut}</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, just a friendly reminder.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(clientName)}, just a friendly reminder.</p>
 
     ${infoTable(`
       ${infoRow('Date', date)}
       ${infoRow('Time', startTime)}
-      ${infoRow('Stylist', cleanerName)}
+      ${infoRow('Stylist', escapeHtml(cleanerName))}
     `)}
 
     ${primaryButton('View Details', 'https://www.thenycmobilesalon.com/book')}
@@ -270,11 +272,11 @@ export function clientCancellationEmail(booking: any) {
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Appointment cancelled</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, your appointment has been cancelled.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(clientName)}, your appointment has been cancelled.</p>
 
     ${infoTable(`
       ${infoRow('Date', date)}
-      ${infoRow('Service', booking.service_type)}
+      ${infoRow('Service', escapeHtml(booking.service_type))}
     `)}
 
     ${primaryButton('Book Again', 'https://www.thenycmobilesalon.com/book')}
@@ -292,7 +294,7 @@ export function clientThankYouEmail(clientName: string) {
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Thank you — we truly appreciate you!</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${firstName},</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(firstName)},</p>
 
     <p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
       Thank you for giving us the opportunity to be your mobile beauty service provider. We hope you loved your experience and we look forward to seeing you again!
@@ -334,7 +336,7 @@ export function clientPaymentDueEmail(booking: any, amount: string) {
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Time to wrap up — payment due</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, ${cleanerName} is finishing up your appointment.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(clientName)}, ${escapeHtml(cleanerName)} is finishing up your appointment.</p>
 
     <div style="background: #f0f7ff; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: left;">
       <p style="margin: 0 0 8px 0; color: #1e40af; font-size: 14px;">Amount due</p>
@@ -377,19 +379,19 @@ export function cleanerAssignmentEmail(booking: any) {
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0;">New job assigned</h1>
     <p style="color: #666; font-size: 14px; margin: 4px 0 24px 0;">Nuevo trabajo asignado</p>
     
-    <p style="color: #444; font-size: 15px; margin: 0 0 24px 0;">Hi ${firstName} / Hola ${firstName}</p>
+    <p style="color: #444; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(firstName)} / Hola ${escapeHtml(firstName)}</p>
 
     ${infoTable(`
       ${infoRow('Date / Fecha', `${date}<br><span style="color:#666;font-size:12px">${dateES}</span>`)}
       ${infoRow('Time / Hora', startTime)}
-      ${infoRow('Client / Cliente', booking.clients?.name || 'TBD')}
-      ${infoRow('Service / Servicio', booking.service_type)}
+      ${infoRow('Client / Cliente', escapeHtml(booking.clients?.name || 'TBD'))}
+      ${infoRow('Service / Servicio', escapeHtml(booking.service_type))}
     `)}
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Address / Dirección</p>
-      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${address}</p>
-      <a href="${mapsLink}" style="color: #0066cc; font-size: 14px;">Open in Maps / Abrir en Mapas →</a>
+      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${escapeHtml(address)}</p>
+      <a href="${safeUrl(mapsLink)}" style="color: #0066cc; font-size: 14px;">Open in Maps / Abrir en Mapas →</a>
     </div>
 
     ${hourlyRate === 49
@@ -397,7 +399,7 @@ export function cleanerAssignmentEmail(booking: any) {
       : noteBox('<strong>✓ Bring all supplies</strong><br><span style="font-size:12px">Trae todos los suministros y equipos.</span>', 'success')
     }
 
-    ${booking.notes ? noteBox(`<strong>Notes / Notas:</strong> ${booking.notes}`, 'warning') : ''}
+    ${booking.notes ? noteBox(`<strong>Notes / Notas:</strong> ${escapeHtml(booking.notes)}`, 'warning') : ''}
 
     ${primaryButton('Open Team Portal / Abrir Portal', 'https://www.thenycmobilesalon.com/team')}
 
@@ -432,12 +434,12 @@ export function cleanerDailySummaryEmail(cleanerName: string, bookings: any[]) {
       const hourlyRate = b.hourly_rate || 75
       jobsList += `
         <div style="border: 1px solid #eee; border-radius: 8px; padding: 16px; margin: 8px 0;">
-          <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: #000;">${startTime} – ${b.clients?.name || 'Client'}</p>
-          <p style="margin: 0 0 8px 0; font-size: 14px;"><a href="${mapsLink}" style="color: #0066cc;">${address}</a></p>
+          <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: #000;">${startTime} – ${escapeHtml(b.clients?.name || 'Client')}</p>
+          <p style="margin: 0 0 8px 0; font-size: 14px;"><a href="${safeUrl(mapsLink)}" style="color: #0066cc;">${escapeHtml(address)}</a></p>
           <span style="display: inline-block; background: ${hourlyRate === 49 ? '#fffbeb' : '#f0fdf4'}; color: ${hourlyRate === 49 ? '#92400e' : '#166534'}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
             ${hourlyRate === 49 ? '📦 Client products / Productos del cliente' : '💼 Bring supplies / Trae suministros'}
           </span>
-          ${b.notes ? `<p style="margin: 12px 0 0 0; padding: 10px; background: #fffbeb; border-radius: 4px; color: #92400e; font-size: 13px;">${b.notes}</p>` : ''}
+          ${b.notes ? `<p style="margin: 12px 0 0 0; padding: 10px; background: #fffbeb; border-radius: 4px; color: #92400e; font-size: 13px;">${escapeHtml(b.notes)}</p>` : ''}
         </div>
       `
     }
@@ -447,7 +449,7 @@ export function cleanerDailySummaryEmail(cleanerName: string, bookings: any[]) {
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0;">Your next 3 days</h1>
     <p style="color: #666; font-size: 14px; margin: 4px 0 0 0;">Tus pr&#243;ximos 3 d&#237;as</p>
 
-    <p style="color: #444; font-size: 15px; margin: 16px 0 0 0;">Hi ${firstName} — ${bookings.length} job${bookings.length === 1 ? '' : 's'} coming up / Hola ${firstName} — ${bookings.length} trabajo${bookings.length === 1 ? '' : 's'}</p>
+    <p style="color: #444; font-size: 15px; margin: 16px 0 0 0;">Hi ${escapeHtml(firstName)} — ${bookings.length} job${bookings.length === 1 ? '' : 's'} coming up / Hola ${escapeHtml(firstName)} — ${bookings.length} trabajo${bookings.length === 1 ? '' : 's'}</p>
 
     ${jobsList}
 
@@ -471,12 +473,12 @@ export function cleanerCancellationEmail(booking: any) {
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0;">Job cancelled</h1>
     <p style="color: #666; font-size: 14px; margin: 4px 0 24px 0;">Trabajo cancelado</p>
     
-    <p style="color: #444; font-size: 15px; margin: 0 0 24px 0;">Hi ${firstName} / Hola ${firstName}</p>
+    <p style="color: #444; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(firstName)} / Hola ${escapeHtml(firstName)}</p>
 
     ${infoTable(`
       ${infoRow('Date / Fecha', `${date}<br><span style="color:#666;font-size:12px">${dateES}</span>`)}
       ${infoRow('Time / Hora', time)}
-      ${infoRow('Client / Cliente', booking.clients?.name || 'N/A')}
+      ${infoRow('Client / Cliente', escapeHtml(booking.clients?.name || 'N/A'))}
     `)}
 
     ${primaryButton('View Schedule / Ver Horario', 'https://www.thenycmobilesalon.com/team')}
@@ -498,12 +500,12 @@ export function referralWelcomeEmail(referrer: { name: string; ref_code: string;
   const referralLink = `https://www.thenycmobilesalon.com/book?ref=${referrer.ref_code}`
   
   const content = `
-    <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Welcome to the team, ${firstName}!</h1>
+    <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Welcome to the team, ${escapeHtml(firstName)}!</h1>
     <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">You're now part of The NYC Mobile Salon referral program.</p>
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: left;">
       <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Your referral code</p>
-      <p style="margin: 0; font-size: 32px; font-weight: 700; color: #000; letter-spacing: 2px;">${referrer.ref_code}</p>
+      <p style="margin: 0; font-size: 32px; font-weight: 700; color: #000; letter-spacing: 2px;">${escapeHtml(referrer.ref_code)}</p>
     </div>
 
     <div style="background: #f0fdf4; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -537,7 +539,7 @@ export function referralCommissionEmail(referrer: any, booking: any, commission:
   
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">You earned $${commissionDollars}!</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Nice work, ${firstName}. Your referral just completed a service.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Nice work, ${escapeHtml(firstName)}. Your referral just completed a service.</p>
 
     ${infoTable(`
       ${infoRow('Service total', `$${bookingTotal}`)}
@@ -548,7 +550,7 @@ export function referralCommissionEmail(referrer: any, booking: any, commission:
     ${primaryButton('View Dashboard', `https://www.thenycmobilesalon.com/referral-dashboard?code=${referrer.ref_code}`)}
 
     <p style="color: #666; font-size: 14px; text-align: left; margin: 24px 0 0 0;">
-      Keep sharing: <strong>thenycmobilesalon.com/book?ref=${referrer.ref_code}</strong>
+      Keep sharing: <strong>thenycmobilesalon.com/book?ref=${escapeHtml(referrer.ref_code)}</strong>
     </p>
   `
 
@@ -564,10 +566,10 @@ export function newReferrerAdminEmail(referrer: { name: string; email: string; p
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New referrer signed up</h1>
 
     ${infoTable(`
-      ${infoRow('Name', referrer.name)}
-      ${infoRow('Email', referrer.email)}
-      ${infoRow('Phone', referrer.phone || 'Not provided')}
-      ${infoRow('Code', `<code style="background:#f5f5f5;padding:4px 8px;border-radius:4px;">${referrer.ref_code}</code>`)}
+      ${infoRow('Name', escapeHtml(referrer.name))}
+      ${infoRow('Email', escapeHtml(referrer.email))}
+      ${infoRow('Phone', escapeHtml(referrer.phone || 'Not provided'))}
+      ${infoRow('Code', `<code style="background:#f5f5f5;padding:4px 8px;border-radius:4px;">${escapeHtml(referrer.ref_code)}</code>`)}
       ${infoRow('Payout', `${referrer.preferred_payout === 'apple_cash' ? 'Apple Cash' : 'Zelle'} – ${referrer.zelle_email || referrer.email}`)}
     `)}
 
@@ -585,12 +587,12 @@ export function newBookingAdminEmail(booking: any) {
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New booking</h1>
 
     ${infoTable(`
-      ${infoRow('Client', booking.clients?.name || 'Unknown')}
+      ${infoRow('Client', escapeHtml(booking.clients?.name || 'Unknown'))}
       ${infoRow('Date', `${date} at ${time}`)}
-      ${infoRow('Service', booking.service_type)}
-      ${infoRow('Address', booking.clients?.address || 'On file')}
-      ${infoRow('Stylist', booking.cleaners?.name || 'Unassigned')}
-      ${booking.ref_code ? infoRow('Referral', booking.ref_code) : ''}
+      ${infoRow('Service', escapeHtml(booking.service_type))}
+      ${infoRow('Address', escapeHtml(booking.clients?.address || 'On file'))}
+      ${infoRow('Stylist', escapeHtml(booking.cleaners?.name || 'Unassigned'))}
+      ${booking.ref_code ? infoRow('Referral', escapeHtml(booking.ref_code)) : ''}
     `)}
 
     ${primaryButton('View Booking', 'https://www.thenycmobilesalon.com/admin/bookings')}
@@ -624,11 +626,11 @@ export function cleanerWelcomeEmail(cleaner: { name: string; pin: string; phone:
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0;">Welcome to The NYC Mobile Salon!</h1>
     <p style="color: #666; font-size: 14px; margin: 4px 0 24px 0;">¡Bienvenido/a a The NYC Mobile Salon!</p>
 
-    <p style="color: #444; font-size: 15px; margin: 0 0 24px 0;">Hi ${firstName} / Hola ${firstName}</p>
+    <p style="color: #444; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(firstName)} / Hola ${escapeHtml(firstName)}</p>
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: left;">
       <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Your PIN / Tu PIN</p>
-      <p style="margin: 0; font-size: 36px; font-weight: 700; color: #000; letter-spacing: 6px;">${cleaner.pin}</p>
+      <p style="margin: 0; font-size: 36px; font-weight: 700; color: #000; letter-spacing: 6px;">${escapeHtml(cleaner.pin)}</p>
       <p style="margin: 12px 0 0 0; color: #999; font-size: 12px;">Last 4 digits of your phone / Últimos 4 dígitos de tu teléfono</p>
     </div>
 
@@ -676,7 +678,7 @@ export function verificationCodeEmail(code: string, clientName?: string) {
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Your verification code</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${firstName}, use this code to access your account.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(firstName)}, use this code to access your account.</p>
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: left;">
       <p style="margin: 0; font-size: 36px; font-weight: 700; color: #000; letter-spacing: 8px;">${code}</p>
@@ -701,12 +703,12 @@ export function adminNewClientEmail(client: { name: string; phone?: string; emai
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New client added</h1>
 
     ${infoTable(`
-      ${infoRow('Name', client.name)}
-      ${client.phone ? infoRow('Phone', client.phone) : ''}
-      ${client.email ? infoRow('Email', client.email) : ''}
-      ${client.address ? infoRow('Address', client.address) : ''}
-      ${client.referral_info ? infoRow('Referred by', client.referral_info + (client.referrer_matched ? ' (matched)' : ' (unmatched)')) : ''}
-      ${client.notes ? infoRow('Notes', client.notes) : ''}
+      ${infoRow('Name', escapeHtml(client.name))}
+      ${client.phone ? infoRow('Phone', escapeHtml(client.phone)) : ''}
+      ${client.email ? infoRow('Email', escapeHtml(client.email)) : ''}
+      ${client.address ? infoRow('Address', escapeHtml(client.address)) : ''}
+      ${client.referral_info ? infoRow('Referred by', escapeHtml(client.referral_info) + (client.referrer_matched ? ' (matched)' : ' (unmatched)')) : ''}
+      ${client.notes ? infoRow('Notes', escapeHtml(client.notes)) : ''}
     `)}
 
     ${primaryButton('View Clients', 'https://www.thenycmobilesalon.com/admin/clients')}
@@ -722,15 +724,15 @@ export function adminNewBookingRequestEmail(booking: any, details: { time?: stri
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New booking request</h1>
 
     ${infoTable(`
-      ${infoRow('Client', booking.clients?.name || 'Unknown')}
-      ${infoRow('Email', booking.clients?.email || '-')}
-      ${infoRow('Phone', booking.clients?.phone || '-')}
-      ${infoRow('Address', booking.clients?.address || '-')}
+      ${infoRow('Client', escapeHtml(booking.clients?.name || 'Unknown'))}
+      ${infoRow('Email', escapeHtml(booking.clients?.email || '-'))}
+      ${infoRow('Phone', escapeHtml(booking.clients?.phone || '-'))}
+      ${infoRow('Address', escapeHtml(booking.clients?.address || '-'))}
       ${infoRow('Date', date)}
       ${details.time ? infoRow('Time', details.time) : ''}
-      ${infoRow('Service', booking.service_type)}
+      ${infoRow('Service', escapeHtml(booking.service_type))}
       ${infoRow('Rate', '$' + booking.hourly_rate + '/hr')}
-      ${details.ref_code ? infoRow('Referral Code', details.ref_code) : ''}
+      ${details.ref_code ? infoRow('Referral Code', escapeHtml(details.ref_code)) : ''}
       ${details.referred_by ? infoRow('Referred By', details.referred_by) : ''}
     `)}
 
@@ -746,11 +748,11 @@ export function adminDailyNotificationDigestEmail(data: {
   texts: { client: string; type: string; time: string }[]
 }) {
   const emailRows = data.emails.length > 0
-    ? data.emails.map(e => infoRow(e.type, `${e.client} · ${e.time}`)).join('')
+    ? data.emails.map(e => infoRow(escapeHtml(e.type), `${escapeHtml(e.client)} · ${escapeHtml(e.time)}`)).join('')
     : '<tr><td style="padding: 8px 0; color: #999; font-size: 14px;" colspan="2">No emails sent today</td></tr>'
 
   const smsRows = data.texts.length > 0
-    ? data.texts.map(t => infoRow(t.type, `${t.client} · ${t.time}`)).join('')
+    ? data.texts.map(t => infoRow(escapeHtml(t.type), `${escapeHtml(t.client)} · ${escapeHtml(t.time)}`)).join('')
     : '<tr><td style="padding: 8px 0; color: #999; font-size: 14px;" colspan="2">No texts sent today</td></tr>'
 
   const content = `
@@ -775,7 +777,7 @@ export function adminDailyNotificationDigestEmail(data: {
 }
 
 export function adminPendingRemindersEmail(pendingBookings: { client_name: string; date: string; service_type: string }[]) {
-  const rows = pendingBookings.map(b => infoRow(b.client_name, `${b.date} · ${b.service_type}`)).join('')
+  const rows = pendingBookings.map(b => infoRow(escapeHtml(b.client_name), `${escapeHtml(b.date)} · ${escapeHtml(b.service_type)}`)).join('')
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #dc2626; margin: 0 0 8px 0;">Pending Bookings Need Attention</h1>
@@ -822,12 +824,12 @@ export function adminDailyOpsRecapEmail(data: {
 
   const jobRow = (j: DailyOpsJob, showReminders: boolean) => `
     <tr style="border-bottom: 1px solid #eee;">
-      <td style="padding: 10px 8px; font-size: 14px; color: #000; font-weight: 500;">${j.clientName}</td>
-      <td style="padding: 10px 8px; font-size: 14px; color: #666;">${j.cleanerName}</td>
+      <td style="padding: 10px 8px; font-size: 14px; color: #000; font-weight: 500;">${escapeHtml(j.clientName)}</td>
+      <td style="padding: 10px 8px; font-size: 14px; color: #666;">${escapeHtml(j.cleanerName)}</td>
       <td style="padding: 10px 8px; font-size: 14px; color: #666;">${j.time}</td>
       <td style="padding: 10px 8px; font-size: 14px; color: #000; text-align: right;">${fmt(j.revenue)}</td>
       <td style="padding: 10px 8px; font-size: 14px; color: #666; text-align: right;">${fmt(j.laborCost)}</td>
-      <td style="padding: 10px 8px; font-size: 14px; color: ${j.paymentStatus === 'paid' ? '#16a34a' : '#dc2626'}; text-align: center;">${j.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}${j.paymentMethod ? ' (' + j.paymentMethod + ')' : ''}</td>
+      <td style="padding: 10px 8px; font-size: 14px; color: ${j.paymentStatus === 'paid' ? '#16a34a' : '#dc2626'}; text-align: center;">${j.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}${j.paymentMethod ? ' (' + escapeHtml(j.paymentMethod) + ')' : ''}</td>
       ${showReminders ? `<td style="padding: 10px 8px; font-size: 14px; text-align: center;">${j.remindersEmailed ? '\u2709\uFE0F' : '\u2717'} ${j.remindersSmsed ? '\uD83D\uDCF1' : '\u2717'}</td>` : ''}
     </tr>`
 
@@ -901,14 +903,14 @@ export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: st
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Your appointment has been rescheduled</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${clientName}, your appointment has been updated.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(clientName)}, your appointment has been updated.</p>
 
     ${infoTable(`
       ${infoRow('New Date', newDate)}
       ${infoRow('New Time', newTime)}
       ${infoRow('Previous', `${oldDate} at ${oldTime}`)}
-      ${infoRow('Stylist', cleanerName)}
-      ${infoRow('Service', booking.service_type)}
+      ${infoRow('Stylist', escapeHtml(cleanerName))}
+      ${infoRow('Service', escapeHtml(booking.service_type))}
     `)}
 
     ${primaryButton('View in Portal', 'https://www.thenycmobilesalon.com/book')}
@@ -927,15 +929,15 @@ export function adminRescheduleEmail(booking: any, oldDate: string, oldTime: str
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Booking rescheduled by client</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">${booking.clients?.name || 'A client'} has rescheduled their appointment.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">${escapeHtml(booking.clients?.name || 'A client')} has rescheduled their appointment.</p>
 
     ${infoTable(`
-      ${infoRow('Client', booking.clients?.name || 'Unknown')}
+      ${infoRow('Client', escapeHtml(booking.clients?.name || 'Unknown'))}
       ${infoRow('New Date', newDate)}
       ${infoRow('New Time', newTime)}
       ${infoRow('Previous', `${oldDate} at ${oldTime}`)}
-      ${infoRow('Service', booking.service_type)}
-      ${infoRow('Stylist', booking.cleaners?.name || 'Unassigned')}
+      ${infoRow('Service', escapeHtml(booking.service_type))}
+      ${infoRow('Stylist', escapeHtml(booking.cleaners?.name || 'Unassigned'))}
     `)}
 
     ${primaryButton('View Booking', 'https://www.thenycmobilesalon.com/admin/bookings')}
@@ -956,7 +958,7 @@ export function cleanerRescheduleEmail(booking: any, oldDate: string, oldTime: s
     <h1 style="font-size: 24px; font-weight: 600; color: #f59e0b; margin: 0;">Job rescheduled</h1>
     <p style="color: #666; font-size: 14px; margin: 4px 0 24px 0;">Trabajo reprogramado</p>
 
-    <p style="color: #444; font-size: 15px; margin: 0 0 24px 0;">Hi ${firstName} / Hola ${firstName}</p>
+    <p style="color: #444; font-size: 15px; margin: 0 0 24px 0;">Hi ${escapeHtml(firstName)} / Hola ${escapeHtml(firstName)}</p>
 
     ${noteBox(`<strong>This job has been moved.</strong> Please note the new date and time.<br><span style="font-size:12px">Este trabajo ha sido reprogramado. Por favor, tome nota de la nueva fecha y hora.</span>`, 'warning')}
 
@@ -964,14 +966,14 @@ export function cleanerRescheduleEmail(booking: any, oldDate: string, oldTime: s
       ${infoRow('New Date / Nueva Fecha', `${newDate}<br><span style="color:#666;font-size:12px">${newDateES}</span>`)}
       ${infoRow('New Time / Nueva Hora', newTime)}
       ${infoRow('Previous / Anterior', `${oldDate} at ${oldTime}`)}
-      ${infoRow('Client / Cliente', booking.clients?.name || 'TBD')}
-      ${infoRow('Service / Servicio', booking.service_type)}
+      ${infoRow('Client / Cliente', escapeHtml(booking.clients?.name || 'TBD'))}
+      ${infoRow('Service / Servicio', escapeHtml(booking.service_type))}
     `)}
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Address / Dirección</p>
-      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${address}</p>
-      <a href="${mapsLink}" style="color: #0066cc; font-size: 14px;">Open in Maps / Abrir en Mapas →</a>
+      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${escapeHtml(address)}</p>
+      <a href="${safeUrl(mapsLink)}" style="color: #0066cc; font-size: 14px;">Open in Maps / Abrir en Mapas →</a>
     </div>
 
     ${primaryButton('Open Team Portal / Abrir Portal', 'https://www.thenycmobilesalon.com/team')}
@@ -989,7 +991,7 @@ export function referralSignupNotifyEmail(referrerName: string, bookingDate: str
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">New referral signup!</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Great news, ${firstName}! Someone signed up using your referral link.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">Great news, ${escapeHtml(firstName)}! Someone signed up using your referral link.</p>
 
     ${infoTable(`
       ${infoRow('Service Date', bookingDate)}
