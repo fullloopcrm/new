@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
 
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
 
   try {
     const { tenantId } = tenantCtx
+    const db = tenantDb(tenantId)
     const { campaign_id, client_ids } = await request.json()
 
     if (!campaign_id) {
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     // Fetch campaign and verify ownership + draft status
-    const { data: campaign } = await supabaseAdmin
+    const { data: campaign } = await db
       .from('campaigns')
       .select('*')
       .eq('id', campaign_id)
@@ -36,13 +38,13 @@ export async function POST(request: Request) {
     }
 
     // Mark as sending
-    await supabaseAdmin
+    await db
       .from('campaigns')
       .update({ status: 'sending' })
       .eq('id', campaign_id)
 
     // Fetch audience
-    let query = supabaseAdmin
+    let query = db
       .from('clients')
       .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent')
       .eq('tenant_id', tenantId)
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
     const { data: clients } = await query
 
     if (!clients || clients.length === 0) {
-      await supabaseAdmin
+      await db
         .from('campaigns')
         .update({ status: 'sent', total_recipients: 0, sent_count: 0, failed_count: 0, sent_at: new Date().toISOString() })
         .eq('id', campaign_id)
@@ -83,11 +85,11 @@ export async function POST(request: Request) {
     const hasSMS = !!(tenantConfig?.telnyx_api_key && tenantConfig?.telnyx_phone)
 
     if (sendEmail && !hasEmail) {
-      await supabaseAdmin.from('campaigns').update({ status: 'draft' }).eq('id', campaign_id)
+      await db.from('campaigns').update({ status: 'draft' }).eq('id', campaign_id)
       return NextResponse.json({ error: 'Email not configured. Add Resend API key in Settings before sending email campaigns.' }, { status: 400 })
     }
     if (sendSms && !hasSMS) {
-      await supabaseAdmin.from('campaigns').update({ status: 'draft' }).eq('id', campaign_id)
+      await db.from('campaigns').update({ status: 'draft' }).eq('id', campaign_id)
       return NextResponse.json({ error: 'SMS not configured. Add Telnyx API key in Settings before sending SMS campaigns.' }, { status: 400 })
     }
 
@@ -127,7 +129,7 @@ export async function POST(request: Request) {
 
     // Insert recipient rows
     if (recipientRows.length > 0) {
-      await supabaseAdmin.from('campaign_recipients').insert(recipientRows)  // tenant-scope-ok: insert payload carries tenant_id (built above)
+      await db.from('campaign_recipients').insert(recipientRows)  // tenant-scope-ok: insert payload carries tenant_id (built above)
     }
 
     // Send emails
@@ -147,7 +149,7 @@ export async function POST(request: Request) {
           recipientId: row.client_id,
           metadata: { campaignId: campaign_id },
         })
-        await supabaseAdmin
+        await db
           .from('campaign_recipients')
           .update({ status: 'sent' })
           .eq('campaign_id', campaign_id)
@@ -156,7 +158,7 @@ export async function POST(request: Request) {
         sentCount++
       } catch (e) {
         console.error(`Campaign email failed for ${row.recipient}:`, e)
-        await supabaseAdmin
+        await db
           .from('campaign_recipients')
           .update({ status: 'failed' })
           .eq('campaign_id', campaign_id)
@@ -182,7 +184,7 @@ export async function POST(request: Request) {
           recipientId: row.client_id,
           metadata: { campaignId: campaign_id },
         })
-        await supabaseAdmin
+        await db
           .from('campaign_recipients')
           .update({ status: 'sent' })
           .eq('campaign_id', campaign_id)
@@ -191,7 +193,7 @@ export async function POST(request: Request) {
         sentCount++
       } catch (e) {
         console.error(`Campaign SMS failed for ${row.recipient}:`, e)
-        await supabaseAdmin
+        await db
           .from('campaign_recipients')
           .update({ status: 'failed' })
           .eq('campaign_id', campaign_id)
@@ -206,7 +208,7 @@ export async function POST(request: Request) {
     const totalRecipients = emailRecipients.length + smsRecipients.length
 
     // Update campaign with final stats
-    await supabaseAdmin
+    await db
       .from('campaigns')
       .update({
         status: 'sent',
@@ -231,6 +233,7 @@ export async function PUT(request: Request) {
 
   try {
     const { tenantId } = tenantCtx
+    const db = tenantDb(tenantId)
     const { campaign_id } = await request.json()
 
     if (!campaign_id) {
@@ -238,7 +241,7 @@ export async function PUT(request: Request) {
     }
 
     // Verify campaign belongs to tenant
-    const { data: campaign } = await supabaseAdmin
+    const { data: campaign } = await db
       .from('campaigns')
       .select('*')
       .eq('id', campaign_id)
@@ -250,7 +253,7 @@ export async function PUT(request: Request) {
     }
 
     // Fetch failed/pending recipients
-    const { data: recipients } = await supabaseAdmin
+    const { data: recipients } = await db
       .from('campaign_recipients')
       .select('*')
       .eq('campaign_id', campaign_id)
@@ -277,14 +280,14 @@ export async function PUT(request: Request) {
           recipientId: row.client_id,
           metadata: { campaignId: campaign_id },
         })
-        await supabaseAdmin
+        await db
           .from('campaign_recipients')
           .update({ status: 'sent' })
           .eq('id', row.id)
         sentCount++
       } catch (e) {
         console.error(`Retry failed for ${row.recipient}:`, e)
-        await supabaseAdmin
+        await db
           .from('campaign_recipients')
           .update({ status: 'failed' })
           .eq('id', row.id)
@@ -294,7 +297,7 @@ export async function PUT(request: Request) {
     }
 
     // Update campaign stats
-    const { data: allRecipients } = await supabaseAdmin
+    const { data: allRecipients } = await db
       .from('campaign_recipients')
       .select('status')
       .eq('campaign_id', campaign_id)
@@ -302,7 +305,7 @@ export async function PUT(request: Request) {
     const totalSent = allRecipients?.filter((r) => r.status === 'sent').length || 0
     const totalFailed = allRecipients?.filter((r) => r.status === 'failed').length || 0
 
-    await supabaseAdmin
+    await db
       .from('campaigns')
       .update({
         sent_count: totalSent,

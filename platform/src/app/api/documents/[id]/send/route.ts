@@ -3,7 +3,8 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
@@ -17,9 +18,10 @@ export async function POST(_request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
 
-    const { data: doc } = await supabaseAdmin
+    const { data: doc } = await db
       .from('documents')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -30,7 +32,9 @@ export async function POST(_request: Request, { params }: Params) {
       return NextResponse.json({ error: `Already ${doc.status}` }, { status: 400 })
     }
 
-    const { data: signers } = await supabaseAdmin
+    // Child reads/updates are by document_id/id; tenantDb GAINS a tenant filter
+    // (document_signers/fields carry tenant_id). Storage + tenants stay direct.
+    const { data: signers } = await db
       .from('document_signers')
       .select('*')
       .eq('document_id', id)
@@ -39,7 +43,7 @@ export async function POST(_request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Add at least one signer before sending' }, { status: 400 })
     }
 
-    const { count: fieldCount } = await supabaseAdmin
+    const { count: fieldCount } = await db
       .from('document_fields')
       .select('id', { count: 'exact', head: true })
       .eq('document_id', id)
@@ -59,7 +63,7 @@ export async function POST(_request: Request, { params }: Params) {
 
     // Transition doc status
     const now = new Date().toISOString()
-    await supabaseAdmin
+    await db
       .from('documents')
       .update({ status: 'sent', sent_at: now, original_sha256: hash })
       .eq('id', id)
@@ -119,7 +123,7 @@ export async function POST(_request: Request, { params }: Params) {
       }
 
       if (r.email?.ok || r.sms?.ok) {
-        await supabaseAdmin
+        await db
           .from('document_signers')
           .update({ status: 'sent', sent_at: now })
           .eq('id', s.id)
