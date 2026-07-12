@@ -7,7 +7,15 @@ each apex-canonical tenant's sitemap advertise its canonical (apex) host.
 diffs below are ready to paste, but W3 does not apply or deploy them. The leader/Jeff
 applies after review.
 
+> **Superseded-for-sufficiency by `sitemap-apex-clean-full-spec.md`.** This file is the
+> *sitemap-`<loc>`-only* one-liner. The FULL apex-clean edit enumeration (all
+> canonical/og/robots/JSON-LD refs per tenant, so a deploy lands apex-clean) lives in that
+> companion spec. **Count correction (re-verified 2026-07-12):** the "247 / 268" www-literal
+> figures below are stale — the current verified counts are **consortium-nyc = 149**,
+> **the-nyc-marketing-company = 269**, **the-nyc-interior-designer = 11**. Use the full spec.
+
 **Companion docs:**
+- `sitemap-apex-clean-full-spec.md` — the FULL per-tenant apex-clean edit enumeration (completes this file).
 - `sitemap-www-vs-apex-detection.md` — the *post-deploy* go/no-go detector (curl each
   live domain, assert no `www.` in `<loc>`). This file is the *pre-deploy* fix it clears.
 - `seo-canonical-audit.md` — Flag 4, the same www-vs-apex class at the canonical-tag layer.
