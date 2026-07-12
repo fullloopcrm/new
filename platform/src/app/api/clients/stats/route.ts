@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
     const now = new Date()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
@@ -17,11 +18,11 @@ export async function GET() {
       { data: revenueData },
       { data: sourceData },
     ] = await Promise.all([
-      supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'active'),
-      supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', monthStart),
-      supabaseAdmin.from('bookings').select('price, client_id').eq('tenant_id', tenantId).eq('payment_status', 'paid'),
-      supabaseAdmin.from('clients').select('source').eq('tenant_id', tenantId),
+      db.from('clients').select('id', { count: 'exact', head: true }),
+      db.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      db.from('clients').select('id', { count: 'exact', head: true }).gte('created_at', monthStart),
+      db.from('bookings').select('price, client_id').eq('payment_status', 'paid'),
+      db.from('clients').select('source'),
     ])
 
     // Calculate total revenue and avg LTV
