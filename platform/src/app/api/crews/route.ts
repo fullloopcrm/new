@@ -5,18 +5,19 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
-    const { data: crews, error } = await supabaseAdmin
+    const { data: crews, error } = await tenantDb(tenantId)
       .from('crews')
       .select('id, name, color, active, crew_members(team_member_id, team_members(id, name))')
-      .eq('tenant_id', tenantId)
       .order('name', { ascending: true })
     if (error) throw error
     type MemberRow = { team_member_id: string; team_members: { name: string | null } | { name: string | null }[] | null }
-    const shaped = (crews || []).map((c) => ({
+    type CrewRow = { id: string; name: string; color: string | null; active: boolean; crew_members: MemberRow[] | null }
+    const shaped = ((crews || []) as unknown as CrewRow[]).map((c) => ({
       id: c.id, name: c.name, color: c.color, active: c.active,
       members: ((c.crew_members || []) as MemberRow[]).map((m) => {
         const tm = Array.isArray(m.team_members) ? m.team_members[0] : m.team_members
@@ -39,9 +40,9 @@ export async function POST(request: Request) {
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     const memberIds = Array.isArray(body.member_ids) ? (body.member_ids as string[]) : []
 
-    const { data: crew, error } = await supabaseAdmin
+    const { data: crew, error } = await tenantDb(tenantId)
       .from('crews')
-      .insert({ tenant_id: tenantId, name, color: (body.color as string) || null })
+      .insert({ name, color: (body.color as string) || null })
       .select('id')
       .single()
     if (error || !crew) throw error || new Error('insert failed')
@@ -62,12 +63,21 @@ export async function PATCH(request: Request) {
     const id = body.id as string | undefined
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
+    const db = tenantDb(tenantId)
+
+    // Verify the crew belongs to THIS tenant before any mutation, including
+    // member replacement below — crew_members has no tenant_id column of its
+    // own, so without this check a caller could pass a foreign tenant's crew
+    // id and setMembers() would wipe and rewrite that tenant's roster.
+    const { data: owned } = await db.from('crews').select('id').eq('id', id).maybeSingle()
+    if (!owned) return NextResponse.json({ error: 'Crew not found' }, { status: 404 })
+
     const patch: Record<string, unknown> = {}
     if (typeof body.name === 'string') patch.name = body.name.trim()
     if ('color' in body) patch.color = (body.color as string) || null
     if ('active' in body) patch.active = !!body.active
     if (Object.keys(patch).length) {
-      await supabaseAdmin.from('crews').update(patch).eq('id', id).eq('tenant_id', tenantId)
+      await db.from('crews').update(patch).eq('id', id)
     }
     if (Array.isArray(body.member_ids)) {
       await setMembers(tenantId, id, body.member_ids as string[])
@@ -85,7 +95,7 @@ export async function DELETE(request: Request) {
     const { tenantId } = await getTenantForRequest()
     const id = new URL(request.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    await supabaseAdmin.from('crews').delete().eq('id', id).eq('tenant_id', tenantId)
+    await tenantDb(tenantId).from('crews').delete().eq('id', id)
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -95,11 +105,15 @@ export async function DELETE(request: Request) {
 }
 
 // Replace a crew's members with the given set (verified to belong to the tenant).
+// crew_members has no tenant_id column of its own — callers MUST verify the
+// crewId belongs to tenantId before calling this (see the PATCH ownership
+// check above); this function trusts that check and only re-verifies the
+// member ids themselves.
 async function setMembers(tenantId: string, crewId: string, memberIds: string[]) {
   await supabaseAdmin.from('crew_members').delete().eq('crew_id', crewId)
   if (memberIds.length === 0) return
-  const { data: valid } = await supabaseAdmin
-    .from('team_members').select('id').eq('tenant_id', tenantId).in('id', memberIds)
-  const rows = (valid || []).map((m) => ({ crew_id: crewId, team_member_id: m.id }))
+  const { data: valid } = await tenantDb(tenantId)
+    .from('team_members').select('id').in('id', memberIds)
+  const rows = ((valid || []) as unknown as { id: string }[]).map((m) => ({ crew_id: crewId, team_member_id: m.id }))
   if (rows.length) await supabaseAdmin.from('crew_members').insert(rows)
 }
