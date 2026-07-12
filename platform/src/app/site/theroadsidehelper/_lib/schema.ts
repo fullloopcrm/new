@@ -303,7 +303,9 @@ export function placeSchema(args: { city: string; state: string; stateAbbr: stri
 // JSON-LD script tag helper
 // ============================================================
 export function jsonLd(schema: object): string {
-  return JSON.stringify(schema);
+  // Escape `<` -> `<` so a `</script>` in any string value cannot break out
+  // of the <script type="application/ld+json"> element (JSON-LD XSS vector).
+  return JSON.stringify(schema).replace(/</g, "\\u003c");
 }
 
 // ============================================================
@@ -313,5 +315,5 @@ export function graph(schemas: object[]): string {
   return JSON.stringify({
     "@context": "https://schema.org",
     "@graph": schemas,
-  });
+  }).replace(/</g, "\\u003c");
 }

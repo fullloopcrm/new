@@ -125,7 +125,7 @@ JSON-LD (`__html: JSON.stringify(schema)`) rendered from **static, operator-auth
   (`JsonLd.test.tsx`). **This is the pattern every JSON-LD injection should use.**
   (Hardened in commit `cf17dc25`.)
 
-### 2.2 WEAK-but-static — per-site JSON-LD helpers — **LOW / monitor**
+### 2.2 WEAK-but-static — per-site JSON-LD helpers — **LOW / monitor** — ✅ HELPERS HARDENED (p1-w3)
 - `src/app/site/theroadsidehelper/_lib/schema.ts` `jsonLd()` / `graph()` = **bare
   `JSON.stringify`, no `<`-escape.** Plus many per-site pages with inline
   `__html: JSON.stringify(...)` (nyc-mobile-salon, the-nyc-seo, the-nyc-exterminator,
@@ -135,6 +135,23 @@ JSON-LD (`__html: JSON.stringify(schema)`) rendered from **static, operator-auth
   any of these schemas is fed tenant- or user-sourced strings containing `</script>`.
 - **Recommendation:** route all JSON-LD through the hardened `template/_components/JsonLd.tsx`
   helper (or copy its `.replace(/</g,'\\u003c')`); don't hand-roll `JSON.stringify`.
+- **REMEDIATION (p1-w3):** added canonical serializer `safeJsonLd()` to
+  `src/lib/escape-html.ts` (`JSON.stringify(x).replace(/</g,'\\u003c')`, unit-tested).
+  Hardened **every reusable per-site JSON-LD helper** — the 6 bare `JsonLd` components
+  (`components/site`, `components/marketing`, `wash-and-fold-nyc`, `nycmaid`,
+  `wash-and-fold-hoboken`, `the-florida-maid`) now call `safeJsonLd()`; the 11 `_lib/schema`
+  serializers (theroadsidehelper `jsonLd`+`graph`, nycroadsideemergencyassistance, nyc-tow,
+  debt-service-ratio-loan, landscaping-in-nyc, consortium-nyc, the-nyc-marketing-company,
+  stretch-service, stretch-ny, the-nyc-interior-designer, `src/lib/schema.tsx`) now inline the
+  canonical `.replace(/</g,'\\u003c')` escape. Every page routing through these helpers is now
+  latent-XSS-proof. (`template/_components/JsonLd.tsx` and `we-pay-you-junk` were already hardened.)
+- **RESIDUE — NOT swept (documented safe, per "leave purely-static blocks documented as safe"):**
+  ~166 site pages still hand-roll `__html: JSON.stringify(...)` **inline** (not via a helper) —
+  overwhelmingly static operator SEO content (nyc-mobile-salon, the-nyc-seo, the-nyc-exterminator,
+  fla-dumpster-rentals, nyc-classifieds, etc.). These carry **no user/tenant data today**, so they
+  are LOW and left as-is rather than mechanically edited across 166 files. **Constraint:** any new
+  JSON-LD (esp. anything DB/user-sourced — e.g. nyc-classifieds porch posts / business profiles)
+  MUST use `safeJsonLd()`, never a bare `JSON.stringify`.
 
 ### 2.3 SAFE — per-tenant theme CSS
 - `src/app/site/template/layout.tsx:61` `__html: buildThemeCss(config.theme)`.
@@ -161,6 +178,11 @@ JSON-LD (`__html: JSON.stringify(schema)`) rendered from **static, operator-auth
   `<a>` links — the reason it's raw HTML). Low risk today; **becomes XSS if blog
   content is ever moved to the DB / made user-editable.** Track as a constraint on
   future CMS work.
+- **REMEDIATION (p1-w3):** verified all 4 source `post` from local `_lib` modules with
+  **zero DB/supabase access** → confirmed purely static. Left the raw HTML **as-is on
+  purpose** — `escapeHtml()` would destroy the intended inline `<a>` links. Instead each
+  block now carries an inline `SAFE:` comment stating it is static/operator-authored and
+  spelling out the "sanitize the moment this goes DB-sourced or user-editable" constraint.
 
 ### 2.5 SAFE-ish — static third-party script tags
 - GA/`gtag`, MS Clarity, Tawk.to, `dataLayer` injections in various `site/*/layout.tsx`
@@ -253,8 +275,8 @@ guard weakened.
 | 1.1 | `post_journal_entry` trusts caller-supplied `p_tenant_id` + granted to `authenticated` + unpinned `search_path` | **HIGH** | flag — prepare REVOKE/assert + `SET search_path` migration (leader runs DDL) |
 | 1.2 | `cpa_token_bump_usage` unpinned `search_path` | LOW | note — add `SET search_path` |
 | 2.4a | `dashboard/ai/page.tsx` renders `m.content` unescaped | MEDIUM | flag — escape before transform |
-| 2.4b | Blog `__html: p` (4 sites), static content | LOW | monitor — XSS if content moves to DB |
-| 2.2 | Per-site JSON-LD helpers use bare `JSON.stringify` | LOW | monitor — route through hardened helper |
+| 2.4b | Blog `__html: p` (4 sites), static content | LOW | ✅ verified static (no DB) + documented-safe inline (p1-w3); sanitize if→DB |
+| 2.2 | Per-site JSON-LD helpers use bare `JSON.stringify` | LOW | ✅ helpers hardened via `safeJsonLd()` (p1-w3); ~166 inline static pages left documented-safe |
 | 3 | Email templates interpolate data with no HTML-escape / URL validation | MEDIUM | flag — add `escapeHtml()` + URL allowlist |
 | 5 | Cross-tenant self-attack suite | — | **GREEN 114/114** |
 

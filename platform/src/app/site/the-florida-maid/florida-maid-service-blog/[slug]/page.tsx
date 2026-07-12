@@ -94,6 +94,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               {section.heading && (
                 <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#CC6222] tracking-wide mt-10 mb-4">{section.heading}</h2>
               )}
+              {/* SAFE: `p` is static, operator-authored blog copy from a local _lib
+                  module (BLOG_POSTS) — no DB, no user/tenant input. Raw HTML is
+                  intentional: paragraphs carry inline <a> links (hence the [&_a] styles).
+                  CONSTRAINT: if this content ever becomes DB-sourced or user-editable it
+                  becomes an XSS sink and MUST be sanitized (security audit §2.4b). */}
               {section.paragraphs.map((p, j) => (
                 <p key={j} className="text-gray-700 leading-relaxed mb-4 [&_a]:text-[#CC6222] [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-2 [&_a]:decoration-[#34D399] hover:[&_a]:decoration-[#CC6222]" dangerouslySetInnerHTML={{ __html: p }} />
               ))}

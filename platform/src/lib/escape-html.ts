@@ -36,3 +36,19 @@ export function safeUrl(url: unknown): string {
   if (scheme && !ALLOWED_URL_SCHEMES.has(scheme[1].toLowerCase())) return '#'
   return escapeHtml(raw)
 }
+
+/**
+ * Serialize a value for injection into a `<script type="application/ld+json">`
+ * via dangerouslySetInnerHTML. Escapes `<` to its `<` unicode form so a
+ * `</script>` sequence inside a string value cannot break out of the script
+ * element (the JSON-LD XSS vector). This is the canonical JSON-LD serializer —
+ * use it for every JSON-LD sink instead of a bare `JSON.stringify`.
+ *
+ * NOTE: do NOT use escapeHtml() here — inside JSON, `<` must become `<`,
+ * not `&lt;`. `&lt;` would corrupt the structured-data payload that crawlers
+ * parse, while still (incidentally) blocking the breakout. The unicode escape
+ * is both safe AND preserves valid JSON.
+ */
+export function safeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c')
+}

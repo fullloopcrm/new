@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { escapeHtml, safeUrl } from './escape-html'
+import { escapeHtml, safeUrl, safeJsonLd } from './escape-html'
 
 describe('escapeHtml', () => {
   it('escapes the five HTML-significant characters', () => {
@@ -71,5 +71,39 @@ describe('safeUrl', () => {
 
   it('allows relative and anchor URLs', () => {
     expect(safeUrl('/dashboard')).toBe('/dashboard')
+  })
+})
+
+describe('safeJsonLd', () => {
+  it('produces valid JSON that round-trips', () => {
+    const data = { '@type': 'Organization', name: 'Acme' }
+    expect(JSON.parse(safeJsonLd(data))).toEqual(data)
+  })
+
+  it('escapes < so a </script> in a value cannot break out of the script tag', () => {
+    const out = safeJsonLd({ name: 'Acme</script><script>alert(1)</script>' })
+    // no literal `<` survives — the HTML parser's script-close scan needs `</`,
+    // so escaping `<` alone (not `>`) is sufficient to prevent breakout.
+    expect(out).not.toContain('</script>')
+    expect(out).not.toContain('<script>')
+    expect(out).not.toContain('<')
+    expect(out).toContain('\\u003c/script>')
+  })
+
+  it('escapes a bare < angle bracket in any string value', () => {
+    expect(safeJsonLd({ a: '1 < 2' })).toBe('{"a":"1 \\u003c 2"}')
+  })
+
+  it('the escaped output still parses back to the original string', () => {
+    const original = '</script><img src=x onerror=alert(1)>'
+    const parsed = JSON.parse(safeJsonLd({ v: original }))
+    expect(parsed.v).toBe(original)
+  })
+
+  it('serializes arrays (multi-schema @graph style)', () => {
+    const arr = [{ '@type': 'A' }, { '@type': 'B</script>' }]
+    const out = safeJsonLd(arr)
+    expect(out).not.toContain('</script>')
+    expect(JSON.parse(out)).toEqual(arr)
   })
 })
