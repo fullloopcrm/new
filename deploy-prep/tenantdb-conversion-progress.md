@@ -24,10 +24,10 @@ UNCONV=$(comm -23 <(echo "$ALL") <(echo "$CONV"))
 | Bucket | Count |
 |---|---:|
 | **Total** API `route.ts` | **498** |
-| **Converted** (use `tenantDb`) | **37** |
-| ├─ with a `*.isolation.test.ts` probe | **19** |
-| └─ **without** a probe (coverage gap → §4) | **18** |
-| **Unconverted** | **461** |
+| **Converted** (use `tenantDb`) | **40** |
+| ├─ with a `*.isolation.test.ts` probe | **28** |
+| └─ **without** a probe (coverage gap → §4) | **12** |
+| **Unconverted** | **458** |
 | ├─ touch DB via `supabaseAdmin` | 396 |
 | │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | 145 |
 | │  ├─ EASY: tenant in hand via `requirePermission` only | 38 |
@@ -43,7 +43,11 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
 
 ---
 
-## 3. The 37 converted routes (paths relative to `src/app/api/`)
+## 3. The 40 converted routes (paths relative to `src/app/api/`)
+
+> +3 this session (Batch-1 #1–3, all probed): `finance/summary`,
+> `finance/revenue`, `finance/pnl`.
+
 
 ```
  1 admin/comhub/contacts/[id]/context     20 documents/[id]/duplicate
@@ -93,9 +97,29 @@ wrong-tenant behavior is unverified. **Bold = touches sensitive data / money / P
 | 14 | `admin/comhub/threads` · `.../contacts/[id]/context` · `.../contacts/[id]/notes` | comhub CRM (admin-token auth) |
 | 15 | `admin/recurring-schedules/[id]/regenerate` | schedule regen |
 
-**5 probes added this session** (previously in this gap, now covered):
-`finance/bank-transactions/[id]`, `finance/receipts/attach`, `quotes/[id]/convert`,
-`documents/[id]/signers`, `clients/import` — commit `7c902261`.
+**Probes added, prior session** (5): `finance/bank-transactions/[id]`,
+`finance/receipts/attach`, `quotes/[id]/convert`, `documents/[id]/signers`,
+`clients/import` — commit `7c902261`.
+
+**Probes added THIS session** (6 of the 18 gap rows — the money/PII-priority ones):
+`payments/link`, `finance/bank-transactions/accept-suggestions`, `selena`, `sms`,
+`team-portal/checkout`, `documents/[id]/send` — commits `bb80f0fe`, `be7a7876`.
+**12 gap rows remain unprobed:** `campaigns/send`·`campaigns/[id]/send`, `chat`,
+`google/reviews`, `bookings/batch`, `dashboard/import/batch/[id]`,
+`documents/[id]/duplicate`, `team-portal/checkin`,
+`admin/comhub/threads`·`.../contacts/[id]/context`·`.../contacts/[id]/notes`,
+`admin/recurring-schedules/[id]/regenerate`.
+
+**Also this session (payment-capture coverage, biggest live-money surface):**
+`webhooks/stripe/route.tenant-scope.test.ts` (deposit + booking state transitions
++ wrong-tenant probes) and public checkout-session CREATE tests for
+`invoices/public/[token]/checkout` + `quotes/public/[token]/deposit-checkout`
+— commits `2b072033`, `687a0f4e`.
+
+**Conversions THIS session (3, Batch-1 #1–3):** `finance/summary`,
+`finance/revenue`, `finance/pnl` — GET routes, already scoped, converted to
+`tenantDb` (hardening) each with a probe — commit `13701c85`. Harness gained a
+no-op `.or` + `.lt` operator (full suite 340 tests green after).
 
 ---
 
