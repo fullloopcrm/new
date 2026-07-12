@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
         .from('sms_conversation_messages')
         .select('direction, message, created_at')
         .eq('conversation_id', convoId)
+        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: true })
       return NextResponse.json({ messages: messages || [] })
     }
