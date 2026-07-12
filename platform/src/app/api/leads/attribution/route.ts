@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getSettings } from '@/lib/settings'
 
 export async function GET() {
@@ -14,10 +14,9 @@ export async function GET() {
     const since = new Date(Date.now() - windowMs).toISOString()
 
     // Get referrer breakdown from visits
-    const { data: visits } = await supabaseAdmin
+    const { data: visits } = await tenantDb(tenantId)
       .from('website_visits')
       .select('referrer')
-      .eq('tenant_id', tenantId)
       .gte('created_at', since)
       .not('referrer', 'is', null)
 
