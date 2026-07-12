@@ -49,7 +49,7 @@ const DAY_SHORT: Record<number, string> = {
  * with the smart-schedule scorer instead of drifting from it.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getTeamForDay(tenantId: string, date: string): Promise<any[]> {
+export async function getTeamForDay(tenantId: string, date: string): Promise<any[]> {
   const { data: allMembers } = await supabaseAdmin
     .from('team_members')
     .select('*')
@@ -170,6 +170,65 @@ export async function checkAvailability(
   }
 
   return { slots }
+}
+
+/**
+ * Customer-portal availability: 30-minute slots, 8am–6:30pm start window,
+ * capacity-aware. Portal bookings are created UNASSIGNED (no team_member_id —
+ * an admin/smart-schedule assigns a crew afterward), so a slot isn't "full"
+ * until every working crew that day already has an overlapping job. This
+ * replaces the old any-overlap-blocks-everyone check, which treated a single
+ * booked crew as blocking the whole tenant regardless of how many other crews
+ * were free that day.
+ */
+export async function checkPortalAvailability(
+  tenantId: string,
+  date: string,
+  durationHours: number
+): Promise<AvailabilitySlot[]> {
+  const team = await getTeamForDay(tenantId, date)
+  const capacity = team.length
+
+  const dayStart = `${date}T00:00:00`
+  const dayEnd = `${date}T23:59:59`
+
+  const { data: bookings } = await supabaseAdmin
+    .from('bookings')
+    .select('start_time, end_time')
+    .eq('tenant_id', tenantId)
+    .gte('start_time', dayStart)
+    .lte('start_time', dayEnd)
+    .not('status', 'eq', 'cancelled')
+
+  const bookedRanges = (bookings || []).map((b) => ({
+    start: new Date(b.start_time).getTime(),
+    end: new Date(b.end_time || new Date(new Date(b.start_time).getTime() + 2 * 3600000).toISOString()).getTime(),
+  }))
+
+  const slots: AvailabilitySlot[] = []
+
+  for (let hour = 8; hour <= 18; hour++) {
+    for (const minute of [0, 30]) {
+      // Don't show slots that would end after 9pm
+      if (hour + durationHours > 21) continue
+      if (hour === 18 && minute === 30) continue
+
+      const slotStart = new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`)
+      const slotEnd = new Date(slotStart.getTime() + durationHours * 3600000)
+
+      const overlapping = bookedRanges.filter(
+        (b) => slotStart.getTime() < b.end && slotEnd.getTime() > b.start
+      ).length
+
+      const h = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
+      const ampm = hour >= 12 ? 'PM' : 'AM'
+      const timeLabel = `${h}:${String(minute).padStart(2, '0')} ${ampm}`
+
+      slots.push({ time: timeLabel, available: capacity > 0 && overlapping < capacity })
+    }
+  }
+
+  return slots
 }
 
 /**
