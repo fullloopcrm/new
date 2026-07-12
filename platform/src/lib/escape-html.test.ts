@@ -5,12 +5,12 @@ describe('escapeHtml', () => {
   it('neutralizes a script-tag injection payload', () => {
     const payload = `<script>alert('xss')</script>`
     const out = escapeHtml(payload)
-    expect(out).toBe('&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;')
+    expect(out).toBe('&lt;script&gt;alert(&#039;xss&#039;)&lt;/script&gt;')
     expect(out).not.toContain('<script>')
   })
 
   it('escapes all five HTML-significant characters', () => {
-    expect(escapeHtml(`& < > " '`)).toBe('&amp; &lt; &gt; &quot; &#39;')
+    expect(escapeHtml(`& < > " '`)).toBe('&amp; &lt; &gt; &quot; &#039;')
   })
 
   it('escapes an attribute-breakout payload', () => {
