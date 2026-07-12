@@ -147,7 +147,35 @@ refactor-noise.
 
 ---
 
-## 6. Graduation path to a real gate (Jeff-gated)
+## 6. Why this prototype is NOT redundant with the existing blocking gate
+
+The platform already has a **blocking** tenant-isolation gate —
+`scripts/audit-tenant-scope.mjs`, wired into `.github/workflows/ci.yml`
+("Tenant-isolation guard" step) and `.github/workflows/tenant-scope.yml` — that
+sounds like it covers the same ground. It does not, for one specific reason:
+its `idLookup` exemption treats **any** `.eq('id'|'*_id'|'*token*', …)` match as
+inherently safe ("globally unique keys are row-scoped, not a leak"). That
+reasoning holds for tokens (unguessable secrets) but not for `id` — a caller
+from any tenant can supply any *other* tenant's row id. `.eq('id', id)` with no
+sibling `.eq('tenant_id', …)` is precisely the IDOR shape this document exists
+to catch, and the live blocking gate's own logic waves it through.
+
+**Verified, not assumed:** `node scripts/audit-tenant-scope.mjs` (the exact
+command CI runs) reports **0** offenders on this tree today. This prototype's
+analyzer — same bug class, no id/token exemption — baselines **178** candidate
+chains. The gap is the exemption, not a difference in what code exists.
+Regression-locked in `src/lib/tenant-scope-guard-idor-blindspot.test.ts`
+(source-reads the live script's actual regex lines so it fails loudly if the
+logic changes, then proves a textbook by-id IDOR chain is `idLookup`-exempted
+by the live gate but flagged by this prototype's analyzer).
+
+**Not touched:** `audit-tenant-scope.mjs` / `ci.yml` / `tenant-scope.yml` are
+live, already-blocking gates. Tightening the `idLookup` exemption would newly
+red-gate an unknown share of the 178 candidates fleet-wide — a call for the
+leader/Jeff, not a unilateral edit from this prototype lane. Flagged, not
+applied.
+
+## 7. Graduation path to a real gate (Jeff-gated)
 
 1. **Triage the 99 non-admin signatures** → move confirmed-safe tables into
    `CROSS_TENANT_TABLES`, fix real IDORs, shrinking the baseline toward ∅.
