@@ -43,6 +43,7 @@ export interface SeedBooking {
   price?: number | null
   pay_rate?: number | null      // booking-level cleaner-rate fallback
   team_member_pay?: number | null
+  check_in_time?: string | null // ISO string; only consulted when actual_hours + price are both unset
   tm?: SeedTeamMember | null     // omit → no team member (payout branch skipped)
 }
 
@@ -59,7 +60,7 @@ export function seedBooking(h: SeedHandle, id: string, b: SeedBooking = {}): voi
     hourly_rate: b.hourly_rate ?? null,
     pay_rate: b.pay_rate ?? null,
     price: b.price ?? null,
-    check_in_time: null,
+    check_in_time: b.check_in_time ?? null,
     start_time: null,
     clients: { name: 'Pat', phone: null, address: null },
     team_members: b.tm
