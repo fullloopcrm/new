@@ -26,6 +26,7 @@ import {
   type IndustryKey,
   type DefaultService,
   mapIndustry,
+  defaultFunnelMode,
   SERVICE_PRESETS,
   CHECKLIST_BY_INDUSTRY,
 } from './industry-presets'
@@ -39,6 +40,12 @@ const DEFAULT_SELENA_CONFIG = (industry: IndustryKey, tenantName: string, servic
   tone: 'warm_friendly',
   emoji_usage: 'one_per_message',
   language: 'en',
+  // CRITICAL (F1): must be set at provisioning time. Project/lead verticals
+  // (remodeling, roofing, restoration, etc.) never book an hourly self-serve
+  // slot — leaving this unset silently falls back to 'booking' in
+  // lib/settings.ts, which is wrong for those 23 industries. See
+  // defaultFunnelMode() in ./industry-presets.
+  funnel_mode: defaultFunnelMode(industry),
   pricing_rows: services.map(s => ({ label: s.name, price: `$${s.default_hourly_rate}/hr` })),
   time_estimates: services.map(s => ({ label: s.name, hours: s.default_duration_hours })),
   service_areas: [] as string[],
