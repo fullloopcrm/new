@@ -46,11 +46,14 @@ export async function POST(request: Request) {
 
     const code = generateCode()
 
-    // Delete any existing unused codes for this phone
+    // Delete any existing unused codes for this phone — scoped to THIS tenant.
+    // Without the tenant_id filter, the same phone across two tenants would let
+    // tenant A's send_code call delete tenant B's still-valid pending code.
     await supabaseAdmin
       .from('portal_auth_codes')
       .delete()
       .eq('phone', phone)
+      .eq('tenant_id', tenant.id)
       .eq('used', false)
 
     // Insert new code
