@@ -2,6 +2,7 @@ import { supabaseAdmin } from './supabase'
 
 type AuditAction =
   | 'client.created' | 'client.updated' | 'client.deleted'
+  | 'client.deletion_requested' | 'client.deletion_cancelled'
   | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.status_changed' | 'booking.batch_updated'
   | 'team.created' | 'team.updated' | 'team.deleted'
   | 'schedule.created' | 'schedule.updated' | 'schedule.deleted' | 'schedule.paused'
