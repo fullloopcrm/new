@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
@@ -8,10 +8,9 @@ export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('sort_order')
 
     if (error) {
@@ -30,6 +29,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const body = await request.json()
 
     const { data: fields, error: vError } = validate(body, {
@@ -45,18 +45,18 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 
     // Get max sort_order
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('service_types')
       .select('sort_order')
-      .eq('tenant_id', tenantId)
       .order('sort_order', { ascending: false })
       .limit(1)
 
     const sortOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0
 
-    const { data, error } = await supabaseAdmin
+    // tenantDb.insert stamps tenant_id (overriding any caller value).
+    const { data, error } = await db
       .from('service_types')
-      .insert({ ...fields, tenant_id: tenantId, sort_order: sortOrder })
+      .insert({ ...fields, sort_order: sortOrder })
       .select()
       .single()
 
