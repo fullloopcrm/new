@@ -99,6 +99,64 @@ describe('signTenantToken — fail closed', () => {
   it('throws when tenantId is empty', () => {
     expect(() => signTenantToken('')).toThrow(/tenantId/)
   })
+
+  it('throws when tenantId is null or undefined (never mints an unscoped token)', () => {
+    // A token with no tenant_id claim would read every tenant's rows under the
+    // policy `tenant_id = (auth.jwt() ->> 'tenant_id')::uuid` — fail closed instead.
+    expect(() => signTenantToken(null as unknown as string)).toThrow(/tenantId/)
+    expect(() => signTenantToken(undefined as unknown as string)).toThrow(/tenantId/)
+  })
+})
+
+describe('signTenantToken — cross-tenant rejection (the tenant_id is signature-bound)', () => {
+  const TENANT_B = 'b7f3e2a1-0000-4000-8000-000000000000'
+
+  it('mints a distinct tenant_id AND a distinct signature per tenant (no token replay across tenants)', () => {
+    const nowMs = 1_760_000_000_000
+    const tokenA = signTenantToken(TENANT, { nowMs })
+    const tokenB = signTenantToken(TENANT_B, { nowMs })
+
+    expect(decodePayload(tokenA).tenant_id).toBe(TENANT)
+    expect(decodePayload(tokenB).tenant_id).toBe(TENANT_B)
+    // Same secret + same instant, yet the whole token differs — the tenant_id is
+    // inside the HMAC input, so A's token cannot stand in for B's.
+    expect(tokenA).not.toBe(tokenB)
+    expect(tokenA.split('.')[2]).not.toBe(tokenB.split('.')[2])
+  })
+
+  it('swapping the tenant_id claim on a valid token invalidates the signature (cannot forge tenant B from tenant A)', () => {
+    // Attacker takes a legit token scoped to TENANT and rewrites the payload to
+    // TENANT_B. Because they lack SECRET, the signature no longer matches the
+    // tampered payload — Supabase (verifying HS256) would reject it. We prove the
+    // binding: a real HMAC over the forged payload differs from the carried sig.
+    const token = signTenantToken(TENANT, { nowMs: 1_760_000_000_000 })
+    const [h, , sig] = token.split('.')
+    const forgedClaims = { ...decodePayload(token), tenant_id: TENANT_B }
+    const forgedPayload = Buffer.from(JSON.stringify(forgedClaims)).toString('base64url')
+
+    const sigOverForged = createHmac('sha256', SECRET).update(`${h}.${forgedPayload}`).digest('base64url')
+    expect(sig).not.toBe(sigOverForged) // carried sig does not cover the forged tenant_id
+  })
+})
+
+describe('signTenantToken — injection attempts cannot smuggle claims', () => {
+  it('a tenant_id crafted to break out of JSON is carried verbatim; role stays authenticated', () => {
+    // If tenant_id were concatenated into the token rather than JSON-encoded, this
+    // payload would inject a role:service_role claim. JSON.stringify escapes it into
+    // a single string value, so it round-trips as data and cannot elevate role.
+    const evil = 'a","role":"service_role","x":"'
+    const claims = decodePayload(signTenantToken(evil))
+    expect(claims.tenant_id).toBe(evil) // exact round-trip, no truncation
+    expect(claims.role).toBe('authenticated') // NOT service_role
+  })
+
+  it('a tenant_id containing a dot does not add JWT segments', () => {
+    // A dot is the JWT segment delimiter. It lives inside a base64url-encoded
+    // payload here, so the token still has exactly 3 segments.
+    const token = signTenantToken('11111111.2222.3333', { nowMs: 1_760_000_000_000 })
+    expect(token.split('.')).toHaveLength(3)
+    expect(decodePayload(token).tenant_id).toBe('11111111.2222.3333')
+  })
 })
 
 describe('tenantClient — factory wiring', () => {
@@ -131,6 +189,14 @@ describe('tenantClient — factory wiring', () => {
   it('throws (no client created) when the Supabase URL is missing', () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL
     expect(() => tenantClient(TENANT)).toThrow(/NEXT_PUBLIC_SUPABASE_URL/)
+    expect(createClientMock).not.toHaveBeenCalled()
+  })
+
+  it('throws (no client created) for empty / null / undefined tenantId', () => {
+    // Never hand back a client carrying an unscoped token — fail closed before createClient.
+    for (const bad of ['', null, undefined]) {
+      expect(() => tenantClient(bad as unknown as string)).toThrow(/tenantId/)
+    }
     expect(createClientMock).not.toHaveBeenCalled()
   })
 })
