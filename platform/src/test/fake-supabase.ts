@@ -13,7 +13,7 @@
  * It supports only the surface the suite exercises:
  *   from(table)
  *     .select(cols, { count })  .insert(rows)  .update(vals)  .delete()  .upsert(rows,{onConflict})
- *     .eq(col,val) .neq .in(col,vals) .gte .lte .order() .range()
+ *     .eq(col,val) .neq .in(col,vals) .gte .lte .order() .range() .limit(n)
  *     .single() .maybeSingle()  and thenable (await) resolution
  *
  * Not a general-purpose mock — do not grow it beyond what a test needs.
@@ -74,6 +74,7 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   private orderAsc = true
   private rangeFrom: number | null = null
   private rangeTo: number | null = null
+  private limitN: number | null = null
 
   constructor(
     private readonly store: Map<string, Row[]>,
@@ -117,6 +118,10 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   range(from: number, to: number): this {
     this.rangeFrom = from
     this.rangeTo = to
+    return this
+  }
+  limit(n: number): this {
+    this.limitN = n
     return this
   }
   /** insert(...).select() etc. — selecting after a write just returns written rows. */
@@ -176,6 +181,9 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     }
     if (this.rangeFrom !== null && this.rangeTo !== null) {
       result = result.slice(this.rangeFrom, this.rangeTo + 1)
+    }
+    if (this.limitN !== null) {
+      result = result.slice(0, this.limitN)
     }
     return { data: result, error: null, count: this.wantCount ? total : null }
   }
