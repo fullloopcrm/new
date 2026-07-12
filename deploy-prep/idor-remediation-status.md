@@ -123,3 +123,34 @@ Coverage: super-admin token boundary regression-locked elsewhere
 - SAFE buckets below the P0/P1/P2 line were classified by auth type + key
   provenance, not a full line-audit of every handler (except `jobs/[id]`, now
   line-audited + locked here).
+
+## Related findings this round — adjacent, NOT this bug class
+
+The 18:00 live read-only curl probe (`/tmp/w4-report-20260712-180037.md`)
+surfaced two more issues in tenant resolution / routing. Neither is a
+cross-tenant read IDOR (the bug class this tracker covers — see disposition
+legend above), so they get their own docs rather than a row in the tables
+above, but they're cross-referenced here so this stays the single place to
+check tenant-safety status:
+
+| # | Finding | Class | Severity | Doc |
+|---|---------|-------|----------|-----|
+| — | `www.thenycmaid.com` API routes return Next.js's generic 404 (deployment likely aliased to a stale/wrong Vercel build); static/ISR pages still 200 from an ~8h-stale edge cache | Infra / deployment-binding, not app-code | **HIGH** — flagship tenant's own domain, unknown scope beyond the 2 routes probed | `deploy-prep/nycmaid-stale-deployment-finding.md` |
+| — | `/api/tenants/public` (plural, slug lookup) missing from `middleware.ts` `isPublicRoute` — 307s to `/sign-in` before the route's own (auth-free) handler runs | Middleware registration gap, fails **closed** (no leak) | MEDIUM — broken-as-designed, no live symptom today (only caller sits behind a 410'd route) | `deploy-prep/tenants-public-route-not-registered.md` + witness `src/middleware.tenants-public-not-public.witness.test.ts` |
+
+Why these aren't IDOR-tracker rows: this tracker's bug class requires (1) a
+per-tenant auth boundary, (2) a caller-supplied lookup key, (3) no
+`tenant_id`/ownership scope on the read (see recap at top of file). The
+nycmaid finding is a deployment/infra issue with no code-level auth or
+tenant-scoping involved. The `/api/tenants/public` finding fails **closed**
+(redirects to sign-in, returns nothing) — the opposite failure mode of an
+IDOR, which fails open. Both stay tracked because they touch the same
+"tenant resolution is correct and reachable" property this file's rollup
+implicitly assumes.
+
+## Revision log
+
+- **2026-07-12 (this round):** No new IDOR-class item found or triaged this
+  round — the read-only curl probe's findings are the two adjacent-but-
+  different-class issues in the table above. Prior rollup (P0 fixed / P1
+  safe-fragile / P2 needs-fix / ~34 safe) is unchanged.
