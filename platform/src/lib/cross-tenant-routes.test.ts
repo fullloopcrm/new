@@ -1,9 +1,10 @@
 /**
- * CROSS-TENANT SELF-ATTACK — real route handlers (booking / portal / selena).
+ * CROSS-TENANT SELF-ATTACK — real route handlers (booking / portal / selena /
+ * errors / team-portal).
  *
  * Extends the 46c53454 suite (crypto gates in cross-tenant-attack.test.ts,
  * foreign-id DB isolation in cross-tenant-db.test.ts, resolver integration in
- * cross-tenant-resolver.test.ts) by driving three ACTUAL Next.js route
+ * cross-tenant-resolver.test.ts) by driving ACTUAL Next.js route
  * handlers end-to-end, with only the network boundary faked.
  *
  * Routes covered (one per family, picked because none had a dedicated test):
@@ -13,6 +14,12 @@
  *     token via verifyPortalToken — id+tenant BOTH bound in the token)
  *   - selena:  src/app/api/selena/route.ts GET ?convoId= (operator dashboard,
  *     admin_token cookie via getTenantForRequest)
+ *   - errors:  src/app/api/errors/route.ts POST (public, unauthenticated —
+ *     tenant attribution only from a signed x-tenant-id/x-tenant-sig header
+ *     pair, never from the request body)
+ *   - team-portal: src/app/api/team-portal/jobs/claim/route.ts POST
+ *     (field-staff bearer token via verifyToken — booking_id is caller-
+ *     supplied, tenant_id filter must stop a cross-tenant claim)
  *
  * The selena case caught a REAL bug: the convoId branch queried
  * sms_conversation_messages by conversation_id alone, with no check that the
@@ -33,6 +40,7 @@ vi.hoisted(() => {
   process.env.ADMIN_TOKEN_SECRET = 'test-admin-token-secret'
   process.env.TENANT_HEADER_SIG_SECRET = 'test-tenant-header-secret'
   process.env.PORTAL_SECRET = 'test-portal-secret'
+  process.env.TEAM_PORTAL_SECRET = 'test-team-portal-secret'
 })
 
 vi.mock('next/headers', () => ({
@@ -60,15 +68,19 @@ import { createToken as createPortalToken } from '@/app/api/portal/auth/token'
 import { GET as bookingGET, PUT as bookingPUT, DELETE as bookingDELETE } from '@/app/api/bookings/[id]/route'
 import { GET as portalBookingGET, PUT as portalBookingPUT } from '@/app/api/portal/bookings/[id]/route'
 import { GET as selenaGET } from '@/app/api/selena/route'
+import { POST as errorsPOST } from '@/app/api/errors/route'
+import { createToken as createTeamToken } from '@/app/api/team-portal/auth/token'
+import { POST as jobsClaimPOST } from '@/app/api/team-portal/jobs/claim/route'
 
 const A_ID = '11111111-1111-1111-1111-111111111111'
 const B_ID = '22222222-2222-2222-2222-222222222222'
 const fake = supabaseAdmin as unknown as FakeSupabase
 
 const ids = {
-  booking: { a: 'bk-a', b: 'bk-b' },
+  booking: { a: 'bk-a', b: 'bk-b', aOpen: 'bk-a-open', bOpen: 'bk-b-open' },
   client: { a: 'cl-a', a2: 'cl-a2', b: 'cl-b' },
   convo: { a: 'convo-a', b: 'convo-b' },
+  member: { a: 'tm-a', b: 'tm-b' },
 }
 
 function reseed() {
@@ -87,6 +99,12 @@ function reseed() {
   fake._seed('bookings', [
     { id: ids.booking.a, tenant_id: A_ID, client_id: ids.client.a, status: 'scheduled', start_time: '2026-07-01', notes: 'orig-a' },
     { id: ids.booking.b, tenant_id: B_ID, client_id: ids.client.b, status: 'scheduled', start_time: '2026-07-02', notes: 'orig-b' },
+    { id: ids.booking.aOpen, tenant_id: A_ID, client_id: ids.client.a, status: 'scheduled', start_time: '2099-01-01', team_member_id: null },
+    { id: ids.booking.bOpen, tenant_id: B_ID, client_id: ids.client.b, status: 'scheduled', start_time: '2099-01-01', team_member_id: null },
+  ])
+  fake._seed('team_members', [
+    { id: ids.member.a, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 20, max_jobs_per_day: null },
+    { id: ids.member.b, tenant_id: B_ID, status: 'active', role: 'worker', pay_rate: 22, max_jobs_per_day: null },
   ])
   fake._seed('sms_conversations', [
     { id: ids.convo.a, tenant_id: A_ID, phone: '+15550001', name: 'A Convo', client_id: null, state: 'active', booking_checklist: null },
@@ -219,5 +237,102 @@ describe('CROSS-TENANT ATTACK · selena family — /api/selena?convoId= (was a R
       .select('direction, message, created_at')
       .eq('conversation_id', ids.convo.b)
     expect((data as { message: string }[])[0].message).toContain('SSN')
+  })
+})
+
+describe('CROSS-TENANT ATTACK · errors family — /api/errors (unauthenticated, signed-header tenant attribution)', () => {
+  it('a genuine signed x-tenant-id/x-tenant-sig header pair attributes the error to that tenant (positive control)', async () => {
+    const req = new Request('http://x', {
+      method: 'POST',
+      headers: { 'x-tenant-id': A_ID, 'x-tenant-sig': signTenantHeader(A_ID) },
+      body: JSON.stringify({ message: 'positive-control-boom', source: 'test' }),
+    })
+    const res = await errorsPOST(req)
+    expect(res.status).toBe(200)
+    const logged = fake._all('error_logs').find((r) => r.message === 'positive-control-boom')
+    expect(logged?.tenant_id).toBe(A_ID)
+  })
+
+  it("REJECTS a body-supplied tenantId — a caller cannot attribute a junk error to tenant B just by putting it in the JSON body", async () => {
+    const req = new Request('http://x', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'forged-body-tenant', source: 'test', tenantId: B_ID }),
+    })
+    const res = await errorsPOST(req)
+    expect(res.status).toBe(200)
+    const logged = fake._all('error_logs').find((r) => r.message === 'forged-body-tenant')
+    expect(logged?.tenant_id).toBeNull()
+  })
+
+  it("REJECTS tenant A's signature replayed under tenant B's header id — files as anonymous, not attributed to EITHER tenant", async () => {
+    const req = new Request('http://x', {
+      method: 'POST',
+      headers: { 'x-tenant-id': B_ID, 'x-tenant-sig': signTenantHeader(A_ID) },
+      body: JSON.stringify({ message: 'cross-sig-replay', source: 'test' }),
+    })
+    const res = await errorsPOST(req)
+    expect(res.status).toBe(200)
+    const logged = fake._all('error_logs').find((r) => r.message === 'cross-sig-replay')
+    expect(logged?.tenant_id).toBeNull()
+  })
+
+  it('REJECTS a tampered signature (single flipped char) — files as anonymous', async () => {
+    const sig = signTenantHeader(A_ID)
+    const flipped = (sig[0] === 'a' ? 'b' : 'a') + sig.slice(1)
+    const req = new Request('http://x', {
+      method: 'POST',
+      headers: { 'x-tenant-id': A_ID, 'x-tenant-sig': flipped },
+      body: JSON.stringify({ message: 'tampered-sig', source: 'test' }),
+    })
+    const res = await errorsPOST(req)
+    expect(res.status).toBe(200)
+    const logged = fake._all('error_logs').find((r) => r.message === 'tampered-sig')
+    expect(logged?.tenant_id).toBeNull()
+  })
+})
+
+describe('CROSS-TENANT ATTACK · team-portal family — /api/team-portal/jobs/claim', () => {
+  it("worker A claims tenant A's own unassigned job (positive control)", async () => {
+    const token = createTeamToken(ids.member.a, A_ID, 20, 'worker')
+    const req = new Request('http://x', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ booking_id: ids.booking.aOpen }),
+    })
+    const res = await jobsClaimPOST(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.booking.team_member_id).toBe(ids.member.a)
+  })
+
+  it("worker A CANNOT claim tenant B's unassigned job by passing tenant B's booking_id — the tenant_id filter finds no matching row → 409, B's booking stays unassigned", async () => {
+    const token = createTeamToken(ids.member.a, A_ID, 20, 'worker')
+    const req = new Request('http://x', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ booking_id: ids.booking.bOpen }),
+    })
+    const res = await jobsClaimPOST(req)
+    expect(res.status).toBe(409)
+    const bRow = fake._all('bookings').find((r) => r.id === ids.booking.bOpen)!
+    expect(bRow.team_member_id).toBeNull()
+    expect(bRow.tenant_id).toBe(B_ID)
+  })
+
+  it('REJECTS the claim entirely with no bearer token → 401, before any query runs', async () => {
+    const req = new Request('http://x', { method: 'POST', body: JSON.stringify({ booking_id: ids.booking.aOpen }) })
+    const res = await jobsClaimPOST(req)
+    expect(res.status).toBe(401)
+  })
+
+  it("LEAK CONTROL: updating bookings by id ALONE (no tenant_id filter) WOULD let worker A claim tenant B's job — proves the route's .eq('tenant_id', auth.tid) filter above is load-bearing", async () => {
+    const { data } = await supabaseAdmin
+      .from('bookings')
+      .update({ team_member_id: ids.member.a })
+      .eq('id', ids.booking.bOpen)
+      .is('team_member_id', null)
+      .select()
+      .maybeSingle()
+    expect((data as { team_member_id: string } | null)?.team_member_id).toBe(ids.member.a)
   })
 })
