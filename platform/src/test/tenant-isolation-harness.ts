@@ -41,7 +41,7 @@ export interface Harness {
 }
 
 type Filter =
-  | { kind: 'eq' | 'neq' | 'gt' | 'gte' | 'lte'; col: string; val: unknown }
+  | { kind: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'; col: string; val: unknown }
   | { kind: 'in'; col: string; val: unknown[] }
   | { kind: 'is'; col: string; val: unknown }
 
@@ -62,6 +62,8 @@ function matches(rows: Row[], filters: Filter[]): Row[] {
           return (cur as number) > (f.val as number)
         case 'gte':
           return (cur as number) >= (f.val as number)
+        case 'lt':
+          return (cur as number) < (f.val as number)
         case 'lte':
           return (cur as number) <= (f.val as number)
         default:
@@ -169,8 +171,13 @@ export function createTenantDbHarness(seed: Seed): Harness {
         is: (col: string, val: unknown) => push({ kind: 'is', col, val }),
         gt: (col: string, val: unknown) => push({ kind: 'gt', col, val }),
         gte: (col: string, val: unknown) => push({ kind: 'gte', col, val }),
+        lt: (col: string, val: unknown) => push({ kind: 'lt', col, val }),
         lte: (col: string, val: unknown) => push({ kind: 'lte', col, val }),
         not: () => chain,
+        // `.or(...)` is a no-op in the harness (like `.not`): its PostgREST filter
+        // string isn't parsed here. Probes that need `.or` must not depend on it to
+        // prove isolation — the `.eq('tenant_id')` tenantDb injects is what filters.
+        or: () => chain,
         order: () => chain,
         limit: (n: number) => {
           limitN = n
