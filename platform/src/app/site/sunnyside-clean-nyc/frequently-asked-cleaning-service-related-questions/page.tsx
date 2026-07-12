@@ -149,6 +149,7 @@ export default function FAQPage() {
                     <h2 className="font-semibold text-[#1E2A4A] text-left pr-4">{faq.question}</h2>
                     <span className="text-gray-400 group-open:rotate-45 transition-transform text-2xl flex-shrink-0">+</span>
                   </summary>
+                  {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                   <div className="px-5 md:px-6 pb-5 md:pb-6 text-gray-600 leading-relaxed" dangerouslySetInnerHTML={{ __html: faq.answer }} />
                 </details>
               ))}

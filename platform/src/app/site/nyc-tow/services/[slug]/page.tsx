@@ -242,6 +242,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
               <div key={item.step} className="text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-600 text-lg font-bold text-white">{item.step}</div>
                 <h3 className="mt-4 text-lg font-bold text-slate-900 font-heading">{item.title}</h3>
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <p className="mt-2 text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: item.desc }} />
               </div>
             ))}

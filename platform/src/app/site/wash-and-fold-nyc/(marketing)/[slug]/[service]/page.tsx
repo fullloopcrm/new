@@ -441,6 +441,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
               { icon: '&#128230;', label: 'Never Mixed', detail: 'Your order processed alone' },
             ].map(b => (
               <div key={b.label} className="bg-[#F0F8FF] border border-[#4BA3D4]/10 rounded-xl p-4 text-center">
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <span className="text-2xl text-[#4BA3D4]" dangerouslySetInnerHTML={{ __html: b.icon }} />
                 <p className="text-xs font-semibold text-[#1a3a5c] mt-2">{b.label}</p>
                 <p className="text-xs text-gray-400 mt-1">{b.detail}</p>

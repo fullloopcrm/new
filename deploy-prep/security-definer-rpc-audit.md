@@ -203,7 +203,8 @@ Hardening with `escapeHtml()` would **corrupt** the intended markup, so these ar
   `item.detail`, `item.body`, `req`); `the-home-services-company` `page.tsx` (`card.title`,
   `card.desc`) and `pricing` (`item.a`); `sunnyside-clean-nyc` FAQ (`faq.answer`, via the
   `L()` link helper); `wash-and-fold-nyc` `[slug]/[service]` (`b.icon`, HTML-entity glyphs).
-  Lowest risk of the set; documented centrally here rather than per-line.
+  Lowest risk of the set (data literal and sink colocated). Each sink now also carries an
+  inline `SAFE:` note pointing back to this section.
 - **ALREADY HARDENED (no action):** `nyc-classifieds/blog/[slug]/BlogPostClient.tsx` `md()`
   **escapes first** (`escHtml(s)` then bold/link transforms, `safeHref()` on the URL) —
   correct even if `post.content` were dynamic. `dashboard/ai` render + `render-assistant-markdown`

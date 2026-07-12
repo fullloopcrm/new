@@ -93,6 +93,7 @@ export default function CareersPage() {
             ].map((req) => (
               <div key={req} className="flex items-start gap-3">
                 <span className="text-teal-600 mt-0.5">✓</span>
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <span className="text-sm text-slate-700" dangerouslySetInnerHTML={{ __html: req }} />
               </div>
             ))}

@@ -247,6 +247,7 @@ export default function PricingPage() {
             ].map((item, i) => (
               <div key={i} className="rounded-xl border border-slate-200 bg-white p-6">
                 <h3 className="text-base font-bold text-slate-900 font-heading">{item.q}</h3>
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <p className="mt-2 text-base leading-relaxed text-slate-700" dangerouslySetInnerHTML={{ __html: item.a }} />
               </div>
             ))}
