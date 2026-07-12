@@ -1,0 +1,223 @@
+/**
+ * CROSS-TENANT SELF-ATTACK — real route handlers (booking / portal / selena).
+ *
+ * Extends the 46c53454 suite (crypto gates in cross-tenant-attack.test.ts,
+ * foreign-id DB isolation in cross-tenant-db.test.ts, resolver integration in
+ * cross-tenant-resolver.test.ts) by driving three ACTUAL Next.js route
+ * handlers end-to-end, with only the network boundary faked.
+ *
+ * Routes covered (one per family, picked because none had a dedicated test):
+ *   - booking: src/app/api/bookings/[id]/route.ts        (operator dashboard,
+ *     admin_token cookie via getTenantForRequest/requirePermission)
+ *   - portal:  src/app/api/portal/bookings/[id]/route.ts (client-portal bearer
+ *     token via verifyPortalToken — id+tenant BOTH bound in the token)
+ *   - selena:  src/app/api/selena/route.ts GET ?convoId= (operator dashboard,
+ *     admin_token cookie via getTenantForRequest)
+ *
+ * The selena case caught a REAL bug: the convoId branch queried
+ * sms_conversation_messages by conversation_id alone, with no check that the
+ * conversation belonged to the requesting tenant — tenant A could read tenant
+ * B's full SMS transcript (PII: name/phone/address/email) by guessing a
+ * convoId. Fixed in the same commit as this test by adding the tenant-verify
+ * lookup that the sibling src/app/api/admin/selena/route.ts already had.
+ */
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { FakeSupabase } from '@/test/fake-supabase'
+
+const env = vi.hoisted(() => ({
+  cookies: new Map<string, string>(),
+  headers: new Map<string, string>(),
+}))
+
+vi.hoisted(() => {
+  process.env.ADMIN_TOKEN_SECRET = 'test-admin-token-secret'
+  process.env.TENANT_HEADER_SIG_SECRET = 'test-tenant-header-secret'
+  process.env.PORTAL_SECRET = 'test-portal-secret'
+})
+
+vi.mock('next/headers', () => ({
+  cookies: async () => ({
+    get: (name: string) => {
+      const v = env.cookies.get(name)
+      return v === undefined ? undefined : { name, value: v }
+    },
+  }),
+  headers: async () => ({
+    get: (name: string) => env.headers.get(name) ?? null,
+  }),
+}))
+
+vi.mock('@/lib/supabase', async () => {
+  const { createFakeSupabase } = await import('@/test/fake-supabase')
+  const fake = createFakeSupabase()
+  return { supabase: fake, supabaseAdmin: fake, __fake: fake }
+})
+
+import { supabaseAdmin } from '@/lib/supabase'
+import { signTenantHeader } from './tenant-header-sig'
+import { createTenantAdminToken } from '@/app/api/admin-auth/route'
+import { createToken as createPortalToken } from '@/app/api/portal/auth/token'
+import { GET as bookingGET, PUT as bookingPUT, DELETE as bookingDELETE } from '@/app/api/bookings/[id]/route'
+import { GET as portalBookingGET, PUT as portalBookingPUT } from '@/app/api/portal/bookings/[id]/route'
+import { GET as selenaGET } from '@/app/api/selena/route'
+
+const A_ID = '11111111-1111-1111-1111-111111111111'
+const B_ID = '22222222-2222-2222-2222-222222222222'
+const fake = supabaseAdmin as unknown as FakeSupabase
+
+const ids = {
+  booking: { a: 'bk-a', b: 'bk-b' },
+  client: { a: 'cl-a', a2: 'cl-a2', b: 'cl-b' },
+  convo: { a: 'convo-a', b: 'convo-b' },
+}
+
+function reseed() {
+  fake._store.clear()
+  env.cookies.clear()
+  env.headers.clear()
+  fake._seed('tenants', [
+    { id: A_ID, name: 'Tenant A', slug: 'a', status: 'active', selena_config: null },
+    { id: B_ID, name: 'Tenant B', slug: 'b', status: 'active', selena_config: null },
+  ])
+  fake._seed('clients', [
+    { id: ids.client.a, tenant_id: A_ID, name: 'A Client', phone: '+15550001', address: '1 A St', email: 'a@example.com', do_not_service: false },
+    { id: ids.client.a2, tenant_id: A_ID, name: 'A2 Client', phone: '+15550002', address: '2 A St', email: 'a2@example.com', do_not_service: false },
+    { id: ids.client.b, tenant_id: B_ID, name: 'B Client', phone: '+15550003', address: '1 B St', email: 'b@example.com', do_not_service: false },
+  ])
+  fake._seed('bookings', [
+    { id: ids.booking.a, tenant_id: A_ID, client_id: ids.client.a, status: 'scheduled', start_time: '2026-07-01', notes: 'orig-a' },
+    { id: ids.booking.b, tenant_id: B_ID, client_id: ids.client.b, status: 'scheduled', start_time: '2026-07-02', notes: 'orig-b' },
+  ])
+  fake._seed('sms_conversations', [
+    { id: ids.convo.a, tenant_id: A_ID, phone: '+15550001', name: 'A Convo', client_id: null, state: 'active', booking_checklist: null },
+    { id: ids.convo.b, tenant_id: B_ID, phone: '+15550003', name: 'B Convo', client_id: null, state: 'active', booking_checklist: null },
+  ])
+  fake._seed('sms_conversation_messages', [
+    { id: 'msg-a', conversation_id: ids.convo.a, direction: 'inbound', message: 'A secret message', created_at: '2026-07-01' },
+    { id: 'msg-b', conversation_id: ids.convo.b, direction: 'inbound', message: 'B secret message — SSN 555-00-1234', created_at: '2026-07-02' },
+  ])
+}
+beforeEach(reseed)
+
+function paramsFor(id: string): { params: Promise<{ id: string }> } {
+  return { params: Promise.resolve({ id }) }
+}
+
+function setAdminSessionFor(tenantId: string): void {
+  env.headers.set('x-tenant-id', tenantId)
+  env.headers.set('x-tenant-sig', signTenantHeader(tenantId))
+  env.cookies.set('admin_token', createTenantAdminToken(tenantId, 'tm-owner', 'owner'))
+}
+
+describe('CROSS-TENANT ATTACK · booking family — /api/bookings/[id]', () => {
+  it('tenant A GET of its OWN booking succeeds (positive control)', async () => {
+    setAdminSessionFor(A_ID)
+    const res = await bookingGET(new Request('http://x'), paramsFor(ids.booking.a))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.booking.id).toBe(ids.booking.a)
+  })
+
+  it("tenant A GET of tenant B's booking id → 404, no data leak", async () => {
+    setAdminSessionFor(A_ID)
+    const res = await bookingGET(new Request('http://x'), paramsFor(ids.booking.b))
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.booking).toBeUndefined()
+  })
+
+  it("tenant A PUT targeting tenant B's booking id mutates nothing — B's row survives untouched", async () => {
+    setAdminSessionFor(A_ID)
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ notes: 'HACKED' }) })
+    await bookingPUT(req, paramsFor(ids.booking.b))
+    const bRow = fake._all('bookings').find((r) => r.id === ids.booking.b)!
+    expect(bRow.notes).toBe('orig-b')
+    expect(bRow.tenant_id).toBe(B_ID)
+  })
+
+  it("tenant A DELETE targeting tenant B's booking id removes nothing — B's row survives", async () => {
+    setAdminSessionFor(A_ID)
+    const res = await bookingDELETE(new Request('http://x', { method: 'DELETE' }), paramsFor(ids.booking.b))
+    expect(res.status).toBe(200) // route reports success:true even on a 0-row scoped delete
+    expect(fake._all('bookings').some((r) => r.id === ids.booking.b)).toBe(true)
+  })
+
+  it('REJECTS the request entirely with no admin session → 401, before any query runs', async () => {
+    const res = await bookingGET(new Request('http://x'), paramsFor(ids.booking.a))
+    expect(res.status).toBe(401)
+  })
+})
+
+describe('CROSS-TENANT ATTACK · portal family — /api/portal/bookings/[id]', () => {
+  it("client A's OWN portal token reads its OWN booking (positive control)", async () => {
+    const token = createPortalToken(ids.client.a, A_ID)
+    const req = new Request('http://x', { headers: { authorization: `Bearer ${token}` } })
+    const res = await portalBookingGET(req, paramsFor(ids.booking.a))
+    expect(res.status).toBe(200)
+  })
+
+  it("client A's portal token CANNOT read tenant B's booking id (tenant_id bound in token) → 404", async () => {
+    const token = createPortalToken(ids.client.a, A_ID)
+    const req = new Request('http://x', { headers: { authorization: `Bearer ${token}` } })
+    const res = await portalBookingGET(req, paramsFor(ids.booking.b))
+    expect(res.status).toBe(404)
+  })
+
+  it("client A's portal token CANNOT read a DIFFERENT client's booking in the SAME tenant (client_id bound in token) → 404", async () => {
+    // booking A belongs to client A, not client A2 — proves client_id scoping,
+    // not just tenant_id scoping, gates the row.
+    const token = createPortalToken(ids.client.a2, A_ID)
+    const req = new Request('http://x', { headers: { authorization: `Bearer ${token}` } })
+    const res = await portalBookingGET(req, paramsFor(ids.booking.a))
+    expect(res.status).toBe(404)
+  })
+
+  it("client A's portal token CANNOT cancel tenant B's booking via PUT — B's row survives untouched", async () => {
+    const token = createPortalToken(ids.client.a, A_ID)
+    const req = new Request('http://x', {
+      method: 'PUT',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status: 'cancelled' }),
+    })
+    const res = await portalBookingPUT(req, paramsFor(ids.booking.b))
+    expect(res.status).toBe(404)
+    const bRow = fake._all('bookings').find((r) => r.id === ids.booking.b)!
+    expect(bRow.status).toBe('scheduled')
+  })
+
+  it('REJECTS a forged tenant id inside a tampered token (bad hmac) → 401', async () => {
+    const token = createPortalToken(ids.client.a, A_ID)
+    const [payloadB64, sig] = token.split('.')
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString())
+    payload.tid = B_ID
+    const forged = Buffer.from(JSON.stringify(payload)).toString('base64') + '.' + sig
+    const req = new Request('http://x', { headers: { authorization: `Bearer ${forged}` } })
+    const res = await portalBookingGET(req, paramsFor(ids.booking.b))
+    expect(res.status).toBe(401)
+  })
+})
+
+describe('CROSS-TENANT ATTACK · selena family — /api/selena?convoId= (was a REAL IDOR, now fixed)', () => {
+  it("tenant A reading its OWN convoId returns its OWN messages (positive control)", async () => {
+    setAdminSessionFor(A_ID)
+    const res = await selenaGET(new Request(`http://x?convoId=${ids.convo.a}`) as unknown as import('next/server').NextRequest)
+    const body = await res.json()
+    expect(body.messages.length).toBe(1)
+    expect(body.messages[0].message).toBe('A secret message')
+  })
+
+  it("tenant A passing tenant B's convoId gets EMPTY messages — cannot read B's SMS transcript", async () => {
+    setAdminSessionFor(A_ID)
+    const res = await selenaGET(new Request(`http://x?convoId=${ids.convo.b}`) as unknown as import('next/server').NextRequest)
+    const body = await res.json()
+    expect(body.messages).toEqual([])
+  })
+
+  it("LEAK CONTROL: querying sms_conversation_messages by conversation_id ALONE (no tenant check) DOES return B's message — proves the ownership lookup above is load-bearing", async () => {
+    const { data } = await supabaseAdmin
+      .from('sms_conversation_messages')
+      .select('direction, message, created_at')
+      .eq('conversation_id', ids.convo.b)
+    expect((data as { message: string }[])[0].message).toContain('SSN')
+  })
+})
