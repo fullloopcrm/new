@@ -3,8 +3,8 @@
  * entry against the bank's coa and the chosen coa.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postJournalEntry, normalizeDescription } from '@/lib/ledger'
 
@@ -15,10 +15,13 @@ export async function PATCH(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb auto-scopes every query; the update-by-id calls below GAIN a
+    // tenant_id filter they previously lacked.
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
 
-    const { data: txn } = await supabaseAdmin
+    const { data: txn } = await db
       .from('bank_transactions')
       .select('*, bank_accounts(coa_id)')
       .eq('tenant_id', tenantId)
@@ -27,7 +30,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!txn) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     if (body.status === 'ignored') {
-      await supabaseAdmin
+      await db
         .from('bank_transactions')
         .update({ status: 'ignored' })
         .eq('id', id)
@@ -37,7 +40,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!body.coa_id) return NextResponse.json({ error: 'coa_id required' }, { status: 400 })
 
     // Confirm coa_id belongs to this tenant — the FK alone doesn't scope tenancy.
-    const { data: coaRow } = await supabaseAdmin
+    const { data: coaRow } = await db
       .from('chart_of_accounts')
       .select('id')
       .eq('id', body.coa_id)
@@ -67,7 +70,7 @@ export async function PATCH(request: Request, { params }: Params) {
       lines,
     })
 
-    await supabaseAdmin
+    await db
       .from('bank_transactions')
       .update({
         coa_id: body.coa_id,
@@ -80,7 +83,7 @@ export async function PATCH(request: Request, { params }: Params) {
     // Update learning pattern
     const pattern = normalizeDescription(txn.description).slice(0, 64)
     if (pattern) {
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await db
         .from('categorization_patterns')
         .select('id, hit_count')
         .eq('tenant_id', tenantId)
@@ -88,12 +91,12 @@ export async function PATCH(request: Request, { params }: Params) {
         .eq('coa_id', body.coa_id)
         .maybeSingle()
       if (existing) {
-        await supabaseAdmin
+        await db
           .from('categorization_patterns')
           .update({ hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() })
           .eq('id', existing.id)
       } else {
-        await supabaseAdmin.from('categorization_patterns').insert({
+        await db.from('categorization_patterns').insert({
           tenant_id: tenantId,
           pattern,
           coa_id: body.coa_id,
