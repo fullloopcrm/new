@@ -184,3 +184,43 @@ describe('NULL target — unverified, never a page (design §5.4)', () => {
     expect(verdict).not.toBe('mismatch')
   })
 })
+
+// ===========================================================================
+// FLAGGED-BUT-UNTESTED INVARIANT (P1/W1 queue item c): the `alias` type is a
+// CHECK-valid value (§3) with NO §5 compare rule. Until now nothing pinned what
+// the monitor does with a fully-backfilled alias row — the exact hole where a
+// misconfigured domain slips through. These assertions freeze that behavior and
+// make the design gap loud so it can't ship silently.
+// ===========================================================================
+describe('alias dns_target_type — CHECK admits it, but §5 defines no compare rule (design gap)', () => {
+  it('the CHECK accepts alias, so a real row can carry type=alias with a set target', () => {
+    // §3 domain includes alias — a backfill (apex ALIAS/ANAME where the registrar
+    // supports it) can legitimately write this value. The column will hold it.
+    expect(checkAcceptsTargetType('alias')).toBe(true)
+  })
+
+  it('CHARACTERIZATION + FLAG: a fully-backfilled alias row is NOT compared — a misconfigured alias never pages', () => {
+    // type=alias, expected apex IP set, and the LIVE answer points somewhere else
+    // (9.9.9.9 != 76.76.21.21). For an apex_a row this is a hard 'mismatch' (§5.2).
+    // For alias there is no §5 branch, so evaluateDnsTarget falls through to
+    // 'unverified-target' — the monitor treats a genuinely BROKEN alias domain as
+    // merely "not backfilled" and never alerts. This is the gap, pinned as current
+    // behavior, NOT endorsed. Fix = design + implement an alias compare rule in
+    // spec §5 (apex-style A/AAAA contains, since ALIAS/ANAME flatten to A at
+    // resolve time) and add its own ok/mismatch assertions here.
+    const misconfigured = evaluateDnsTarget('alias', '76.76.21.21', { ips: ['9.9.9.9'] })
+    expect(misconfigured).toBe('unverified-target')
+    expect(misconfigured).not.toBe('mismatch') // <-- the alarming part: NOT flagged as broken
+  })
+
+  it('the gap is invisible to triage — a broken alias is indistinguishable from an un-backfilled row', () => {
+    // Same verdict whether the alias target is genuinely missing (NULL) or present
+    // but wrong. Triage cannot tell "we have no rule for this type" from "not yet
+    // backfilled," so the coverage hole hides inside the benign info signal.
+    const notBackfilled = evaluateDnsTarget('alias', null, {})
+    const backfilledButWrong = evaluateDnsTarget('alias', '76.76.21.21', { ips: ['9.9.9.9'] })
+    expect(notBackfilled).toBe('unverified-target')
+    expect(backfilledButWrong).toBe('unverified-target')
+    expect(backfilledButWrong).toBe(notBackfilled) // collapses to one signal — the invisibility
+  })
+})
