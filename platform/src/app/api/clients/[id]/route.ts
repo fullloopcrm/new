@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
@@ -13,11 +13,10 @@ export async function GET(
     const { tenantId } = await getTenantForRequest()
     const { id } = await params
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('clients')
       .select('*')
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .single()
 
     if (error || !data) {
@@ -46,11 +45,10 @@ export async function PUT(
     const body = await request.json()
     const fields = pick(body, ['name', 'email', 'phone', 'address', 'status', 'source', 'notes', 'preferred_team_member_id', 'sms_consent'])
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('clients')
       .update(fields)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -80,11 +78,10 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
 
-    const { error } = await supabaseAdmin
+    const { error } = await tenantDb(tenantId)
       .from('clients')
       .delete()
       .eq('id', id)
-      .eq('tenant_id', tenantId)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
