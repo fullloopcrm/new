@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
-    const { data: channels, error } = await supabaseAdmin
+    const { data: channels, error } = await db
       .from('connect_channels')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('type', { ascending: true })
       .order('created_at', { ascending: true })
 
@@ -20,7 +20,7 @@ export async function GET() {
     let lastMessages: Record<string, { body: string; sender_name: string; created_at: string }> = {}
 
     if (channelIds.length > 0) {
-      const { data: msgs } = await supabaseAdmin
+      const { data: msgs } = await db
         .from('connect_messages')
         .select('channel_id, body, sender_name, created_at')
         .in('channel_id', channelIds)
@@ -49,6 +49,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { name, type, client_id } = await request.json()
 
     if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
@@ -57,20 +58,18 @@ export async function POST(request: NextRequest) {
 
     // Auto-create general channel if it doesn't exist
     if (channelType === 'general') {
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await db
         .from('connect_channels')
         .select('id')
-        .eq('tenant_id', tenantId)
         .eq('type', 'general')
         .single()
 
       if (existing) return NextResponse.json({ channel: existing })
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('connect_channels')
       .insert({
-        tenant_id: tenantId,
         name,
         type: channelType,
         client_id: client_id || null,
