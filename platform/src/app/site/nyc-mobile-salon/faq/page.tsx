@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { faqSchema, breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
@@ -167,12 +168,12 @@ export default function FAQPage() {
       {/* JSON-LD */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema(faqs)) }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             breadcrumbSchema([
               { name: "Home", url: "/" },
               { name: "FAQ", url: "/faq" },

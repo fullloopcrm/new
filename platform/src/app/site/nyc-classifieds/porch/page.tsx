@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { buildMetadata, itemListSchema, speakableSchema } from '@/app/site/nyc-classifieds/_lib/seo'
@@ -84,11 +85,11 @@ export default async function PorchPage() {
   return (
     <>
       <PorchRedirect />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(forumLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(porchFaqLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(porchSpeakLd) }} />
-      {itemsLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemsLd) }} />}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(forumLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(porchFaqLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(porchSpeakLd) }} />
+      {itemsLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(itemsLd) }} />}
       <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
         <PorchClient />
       </Suspense>

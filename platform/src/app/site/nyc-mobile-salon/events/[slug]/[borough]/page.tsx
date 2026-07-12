@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -64,11 +65,11 @@ export default async function EventBoroughPage({ params }: Props) {
   return (
     <>
       {/* JSON-LD: Service */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         serviceSchema(`${evt.name} in ${boro}`, `${evt.description} — mobile event beauty in ${boro}.`, boro)
       ) }} />
       {/* JSON-LD: Breadcrumb */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         breadcrumbSchema([
           { name: "Home", url: "/" },
           { name: "Events", url: "/events" },
@@ -77,7 +78,7 @@ export default async function EventBoroughPage({ params }: Props) {
         ])
       ) }} />
       {/* JSON-LD: FAQ */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         faqSchema(faqs)
       ) }} />
 

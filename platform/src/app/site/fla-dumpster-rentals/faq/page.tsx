@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PHONE, SITE_URL, EMAIL, ADDRESS } from "@/app/site/fla-dumpster-rentals/_lib/seo";
@@ -181,7 +182,7 @@ export default function FAQPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(allFaqs)),
+          __html: safeJsonLd(getFAQPageSchema(allFaqs)),
         }}
       />
 

@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -66,11 +67,11 @@ export default async function ServiceNeighborhoodPage({ params }: Props) {
   return (
     <>
       {/* JSON-LD: Service */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         serviceSchema(`${svc.name} in ${hood}, ${boro}`, `Mobile ${svcLower} in ${hood}, ${boro}. ${svc.description}.`, `${hood}, ${boro}`)
       ) }} />
       {/* JSON-LD: Breadcrumb */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         breadcrumbSchema([
           { name: "Home", url: "/" },
           { name: "Services", url: "/services" },
@@ -80,7 +81,7 @@ export default async function ServiceNeighborhoodPage({ params }: Props) {
         ])
       ) }} />
       {/* JSON-LD: FAQ */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema(faqs)) }} />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={isWomens ? { background: "linear-gradient(135deg, #E8A0BF 0%, #D4749B 100%)" } : { background: "linear-gradient(135deg, #1a1a1a 0%, #0c2340 50%, #1a1a1a 100%)" }}>

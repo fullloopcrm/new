@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import { PHONE, EMAIL, CITY_COUNT, STATE_COUNT, HOURS } from "@/app/site/the-home-services-company/_data/content";
 import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
 
@@ -55,8 +56,8 @@ export function SiteSchema() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(organization) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(website) }} />
     </>
   );
 }
@@ -94,7 +95,7 @@ export function LocalBusinessSchema({
     areaServed: { "@type": "City", name: cityName },
   };
   return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }
 
@@ -110,7 +111,7 @@ export function BreadcrumbSchema({ items }: { items: { name: string; url: string
     })),
   };
   return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }
 
@@ -139,7 +140,7 @@ export function ServiceSchema({ serviceName, description }: { serviceName: strin
     },
   };
   return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }
 
@@ -157,6 +158,6 @@ export function FAQSchema({ items }: { items: { q: string; a: string }[] }) {
     })),
   };
   return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }

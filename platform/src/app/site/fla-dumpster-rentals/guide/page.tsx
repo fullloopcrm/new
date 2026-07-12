@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -43,19 +44,19 @@ export default function GuidePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getEducationPageSchema()),
+          __html: safeJsonLd(getEducationPageSchema()),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(guideFaqs)),
+          __html: safeJsonLd(getFAQPageSchema(guideFaqs)),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             getBreadcrumbSchema([
               { name: "Home", url: "/" },
               { name: "Complete Guide", url: "/guide" },

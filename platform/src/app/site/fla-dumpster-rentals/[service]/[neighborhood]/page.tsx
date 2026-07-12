@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -78,7 +79,7 @@ export default async function MoneyPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             getLocalBusinessSchema(service, neighborhood)
           ),
         }}
@@ -86,13 +87,13 @@ export default async function MoneyPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(service.faqs)),
+          __html: safeJsonLd(getFAQPageSchema(service.faqs)),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbSchema),
+          __html: safeJsonLd(breadcrumbSchema),
         }}
       />
 

@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { faqSchema, breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
@@ -39,10 +40,10 @@ function Sparkle({ className = "" }: { className?: string }) {
 export default function HowItWorksPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         faqSchema(faqs)
       ) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         breadcrumbSchema([{ name: "Home", url: "/" }, { name: "How It Works", url: "/how-it-works" }])
       ) }} />
 

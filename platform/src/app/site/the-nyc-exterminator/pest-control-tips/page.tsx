@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllTips, getTipCategories } from "@/app/site/the-nyc-exterminator/_data/tips";
@@ -69,13 +70,13 @@ export default function PestControlTipsPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(masterFaqs)),
+          __html: safeJsonLd(getFAQPageSchema(masterFaqs)),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonLd({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
             name: "NYC Pest Control Tips & Expert Guide",

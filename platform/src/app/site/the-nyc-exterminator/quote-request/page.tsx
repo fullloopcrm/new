@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import Breadcrumbs from "@/app/site/the-nyc-exterminator/_components/Breadcrumbs";
@@ -63,8 +64,8 @@ export default function QuoteRequestPage() {
 
   return (
     <div className="text-white">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema) }} />
 
       {/* ───────── HERO ───────── */}
       <section className="bg-[#0A0A0A] pb-20 pt-8">

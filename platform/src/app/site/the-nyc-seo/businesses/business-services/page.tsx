@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getServicesByCategorySlug, getRegions } from "@/app/site/the-nyc-seo/_lib/data";
@@ -181,15 +182,15 @@ export default function BusinessServicesPage() {
     <div className="text-white">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(orgSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(serviceSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema) }}
       />
 
       {/* ── 1. Hero ──────────────────────────────────────────── */}

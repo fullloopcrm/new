@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE_NAME, SITE_DOMAIN, PHONE, PHONE_HREF, SMS_HREF, EMAIL, services } from "@/app/site/landscaping-in-nyc/_lib/siteData";
@@ -164,7 +165,7 @@ export default function PricingPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonLd({
             "@context": "https://schema.org",
             "@type": "WebPage",
             name: `NYC Landscaping Prices & Cost Guide 2026 | ${SITE_NAME}`,

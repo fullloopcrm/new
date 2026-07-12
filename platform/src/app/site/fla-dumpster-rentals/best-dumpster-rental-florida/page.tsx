@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import Breadcrumbs from "@/app/site/fla-dumpster-rentals/_components/Breadcrumbs";
@@ -103,7 +104,7 @@ export default function BestDumpsterRentalFloridaPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
+          __html: safeJsonLd([
             {
               "@context": "https://schema.org",
               "@type": "LocalBusiness",

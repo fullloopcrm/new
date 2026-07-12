@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -166,15 +167,15 @@ export default async function JoinServiceNeighborhoodPage({ params }: Props) {
       {/* ── JSON-LD ──────────────────────────────────────────────── */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jobPostingLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema(faqs)) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema(breadcrumbs)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbSchema(breadcrumbs)) }}
       />
 
       {/* ── 1. Hero ──────────────────────────────────────────────── */}

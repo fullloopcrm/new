@@ -1,6 +1,7 @@
 // @ts-nocheck
 'use client'
 
+import { safeJsonLd } from '@/lib/escape-html'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import ListingGrid from '@/app/site/nyc-classifieds/_components/ListingGrid'
@@ -422,8 +423,8 @@ export default function BusinessProfileClient({ slug, category }: { slug: string
 
   return (
     <PreLaunchGate>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbLd) }} />
       <style>{`
         .bp-grid { display: grid; grid-template-columns: 1fr 340px; gap: 32px; }
         .bp-cta-row { display: flex; gap: 10px; flex-wrap: wrap; }

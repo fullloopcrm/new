@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { neighborhoods, boroughNames } from "@/app/site/nyc-mobile-salon/_lib/constants";
@@ -213,7 +214,7 @@ export default function LocationsPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             faqSchema(faqs.map((f) => ({ q: f.q, a: f.a }))),
           ),
         }}
@@ -221,7 +222,7 @@ export default function LocationsPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             breadcrumbSchema([
               { name: "Home", url: "/" },
               { name: "Locations", url: "/locations" },
@@ -231,7 +232,7 @@ export default function LocationsPage() {
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema()) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(localBusinessSchema()) }}
       />
 
       {/* ─── 1. Hero ────────────────────────────────────────────────────── */}

@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { faqSchema, breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
@@ -211,13 +212,13 @@ export default function FoundingCEOPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqSchema(faqs)),
+          __html: safeJsonLd(faqSchema(faqs)),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             breadcrumbSchema([
               { name: "Home", url: "/" },
               { name: "Founding CEO", url: "/founding-ceo-position-search" },
@@ -228,7 +229,7 @@ export default function FoundingCEOPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonLd({
             "@context": "https://schema.org",
             "@type": "JobPosting",
             title: "Founding CEO / Head of Operations",

@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { neighborhoods, boroughNames } from "@/app/site/nyc-mobile-salon/_lib/constants";
@@ -207,13 +208,13 @@ export default function JoinPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqSchema(faqs)),
+          __html: safeJsonLd(faqSchema(faqs)),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             breadcrumbSchema([
               { name: "Home", url: "/" },
               { name: "Join Our Team", url: "/join" },
@@ -224,7 +225,7 @@ export default function JoinPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonLd({
             "@context": "https://schema.org",
             "@type": "JobPosting",
             title: "Licensed Mobile Beauty Professional — NYC",

@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { eventCategories, boroughNames, neighborhoods } from "@/app/site/nyc-mobile-salon/_lib/constants";
@@ -99,10 +100,10 @@ function Sparkle({ className = "" }: { className?: string }) {
 export default function EventsPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         faqSchema(eventFaqs)
       ) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         breadcrumbSchema([{ name: "Home", url: "/" }, { name: "Events", url: "/events" }])
       ) }} />
 

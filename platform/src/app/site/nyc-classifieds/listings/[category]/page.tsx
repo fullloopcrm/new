@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { categories, categoryBySlug, slugify } from '@/app/site/nyc-classifieds/_lib/data'
@@ -121,10 +122,10 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
-      {faqLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(speakableLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbLd) }} />
+      {faqLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqLd) }} />}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(speakableLd) }} />
       <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
         <CategoryPageClient categorySlug={category} />
       </Suspense>

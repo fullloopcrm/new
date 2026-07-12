@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -205,7 +206,7 @@ export default async function BoroughPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
+          __html: safeJsonLd([
             localBusinessSchema({ areaServed: `${name}, New York City` }),
             breadcrumbSchema([
               { name: "Home", url: "/" },

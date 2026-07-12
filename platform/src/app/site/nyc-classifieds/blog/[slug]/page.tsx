@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -74,7 +75,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   return (
     <>
       {schemas.map((s, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(s) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(s) }} />
       ))}
       <BlogPostClient
         post={post}

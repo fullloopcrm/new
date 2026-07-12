@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -100,7 +101,7 @@ export default function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(homeFaqs)),
+          __html: safeJsonLd(getFAQPageSchema(homeFaqs)),
         }}
       />
 

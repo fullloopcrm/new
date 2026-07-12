@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { testimonials } from "@/app/site/nyc-mobile-salon/_lib/constants";
@@ -147,7 +148,7 @@ export default function ReviewsPage() {
   return (
     <>
       {/* JSON-LD */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
 
       {/* ── 1. Hero ─────────────────────────────────────────────────── */}
       <section

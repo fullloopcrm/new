@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllNeighborhoods, getNeighborhoodsByRegion } from "@/app/site/the-nyc-exterminator/_lib/data";
@@ -127,7 +128,7 @@ export default function CareersPage() {
     <div>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbSchema) }}
       />
 
       {/* Hero Section */}

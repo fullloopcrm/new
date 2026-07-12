@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { buildMetadata, SITE_URL } from '@/app/site/nyc-classifieds/_lib/seo'
@@ -26,7 +27,7 @@ export default function SearchPage() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(searchSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(searchSchema) }} />
       <Suspense fallback={<div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading...</div>}>
         <SearchClient />
       </Suspense>

@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import FoundingCEOApplicationForm from "@/app/site/nyc-mobile-salon/_components/FoundingCEOApplicationForm";
 import { breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
@@ -23,7 +24,7 @@ export default function FoundingCEOApplicationPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             breadcrumbSchema([
               { name: "Home", url: "/" },
               { name: "Founding CEO", url: "/founding-ceo-position-search" },
