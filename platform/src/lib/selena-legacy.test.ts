@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getQuickReplies, EMPTY_CHECKLIST } from './selena-legacy'
+import { getQuickReplies, getNextStep, EMPTY_CHECKLIST } from './selena-legacy'
 
 // F5: getQuickReplies() must never leak cleaning-specific vocabulary
 // ("Cleaning", "Deep clean", bed/bath sizes) into a non-cleaning trade's
@@ -37,5 +37,27 @@ describe('getQuickReplies — trade-neutral vocabulary (F5)', () => {
     const replies = getQuickReplies(askingServiceType, nextStepServiceType)
 
     expect(replies.some((r) => CLEANING_WORDS.test(r))).toBe(false)
+  })
+})
+
+// Sweep finding: DEFAULT_CHECKLIST_FIELDS (used whenever a tenant hasn't
+// configured its own checklist_fields) hardcoded the 'bedrooms' step to ask
+// "how many bedrooms and bathrooms" and offer "1 bed 1 bath" style quick
+// replies for EVERY tenant — the same class of bug as F5's service_type leak,
+// just in the size/scope step instead of the service-type step. A towing or
+// HVAC tenant that never configured checklist_fields would still get this.
+const askingBedrooms = { ...EMPTY_CHECKLIST, status: 'collecting' as const, service_type: 'Local Tow' }
+
+describe('bedrooms/size step — trade-neutral default (sweep)', () => {
+  it('getNextStep does not ask a non-cleaning trade about bedrooms/bathrooms when unconfigured', () => {
+    const next = getNextStep(askingBedrooms) // no config → DEFAULT_CHECKLIST_FIELDS
+    expect(next.field).toBe('bedrooms')
+    expect(CLEANING_WORDS.test(next.instruction)).toBe(false)
+  })
+
+  it('getQuickReplies offers no bed/bath quick replies for the bedrooms step when unconfigured', () => {
+    const nextStepBedrooms = { field: 'bedrooms', instruction: 'Ask for whatever size/scope detail is relevant to this job.' }
+    const replies = getQuickReplies(askingBedrooms, nextStepBedrooms)
+    expect(replies).toEqual([])
   })
 })

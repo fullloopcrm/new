@@ -203,7 +203,11 @@ async function selenaError(tenantId: string, context: string, err: unknown, conv
 
 const DEFAULT_CHECKLIST_FIELDS: Array<{ key: string; enabled: boolean; required: boolean; question: string; sms_options: string }> = [
   { key: 'service_type', enabled: true, required: true, question: 'Ask what type of service they need.', sms_options: '' },
-  { key: 'bedrooms', enabled: true, required: true, question: 'Ask how many bedrooms and bathrooms (or relevant size details).', sms_options: '1 bed 1 bath,2 bed 1 bath,3 bed 2 bath' },
+  // No trade-specific default sms_options here — a tenant with no configured
+  // checklist_fields must NOT get bed/bath quick-reply options (same class of
+  // leak as the service_type fallback below: towing, HVAC, plumbing, etc would
+  // see cleaning-specific size vocabulary they never asked to offer).
+  { key: 'bedrooms', enabled: true, required: true, question: 'Ask for whatever size/scope detail is relevant to this job (e.g. rooms, vehicles, units, sq ft) — skip if not applicable to this service.', sms_options: '' },
   { key: 'rate', enabled: true, required: true, question: 'Give pricing and ask which rate.', sms_options: '' },
   { key: 'day', enabled: true, required: true, question: 'Ask what day works best.', sms_options: 'Mon,Tue,Wed,Thu,Fri,Sat,Sun' },
   { key: 'time', enabled: true, required: true, question: 'Ask what time works best.', sms_options: '8am,10am,12pm,2pm,4pm' },
@@ -296,7 +300,7 @@ export function getQuickReplies(cl: BookingChecklist, next: NextStep, serviceTyp
   // clean" to every non-cleaning trade — towing, HVAC, plumbing, etc).
   switch (next.field) {
     case 'service_type': return serviceTypes?.slice(0, 4) || ['I need a service', 'Get a quote']
-    case 'bedrooms': return ['1 bed 1 bath', '2 bed 1 bath', '3 bed 2 bath']
+    case 'bedrooms': return []
     case 'rate': return []
     case 'day': return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     case 'time': return ['8am', '10am', '12pm', '2pm', '4pm']
