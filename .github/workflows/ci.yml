@@ -7,6 +7,18 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: every job here only reads the checkout and runs Node
+# tooling — none of them need write scopes on the repo, packages, or actions.
+# Default GITHUB_TOKEN is read-only for the checkout; nothing is granted more.
+permissions:
+  contents: read
+
+# One in-flight run per ref; a newer push to the same PR cancels the older run
+# so we don't burn runner minutes type-checking a commit that's already stale.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     working-directory: platform
