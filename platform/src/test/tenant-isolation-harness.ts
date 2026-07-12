@@ -44,6 +44,15 @@ type Filter =
   | { kind: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'; col: string; val: unknown }
   | { kind: 'in'; col: string; val: unknown[] }
   | { kind: 'is'; col: string; val: unknown }
+  | { kind: 'ilike'; col: string; val: string }
+
+// Translate a SQL LIKE/ILIKE pattern (`%` = any run, `_` = any char) into a
+// case-insensitive anchored RegExp. Everything else is escaped literally.
+function ilikeToRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const body = escaped.replace(/%/g, '.*').replace(/_/g, '.')
+  return new RegExp(`^${body}$`, 'i')
+}
 
 function matches(rows: Row[], filters: Filter[]): Row[] {
   return rows.filter((r) =>
@@ -56,6 +65,8 @@ function matches(rows: Row[], filters: Filter[]): Row[] {
           return cur !== f.val
         case 'in':
           return f.val.includes(cur)
+        case 'ilike':
+          return typeof cur === 'string' && ilikeToRegex(f.val).test(cur)
         case 'is':
           return f.val === null ? cur === null || cur === undefined : cur === f.val
         case 'gt':
@@ -177,6 +188,7 @@ export function createTenantDbHarness(seed: Seed): Harness {
         neq: (col: string, val: unknown) => push({ kind: 'neq', col, val }),
         in: (col: string, val: unknown[]) => push({ kind: 'in', col, val }),
         is: (col: string, val: unknown) => push({ kind: 'is', col, val }),
+        ilike: (col: string, val: string) => push({ kind: 'ilike', col, val }),
         gt: (col: string, val: unknown) => push({ kind: 'gt', col, val }),
         gte: (col: string, val: unknown) => push({ kind: 'gte', col, val }),
         lt: (col: string, val: unknown) => push({ kind: 'lt', col, val }),
