@@ -12,6 +12,8 @@ applies after review.
   live domain, assert no `www.` in `<loc>`). This file is the *pre-deploy* fix it clears.
 - `seo-canonical-audit.md` — Flag 4, the same www-vs-apex class at the canonical-tag layer.
 - `platform/src/lib/sitemap-presence.test.ts` — the on-disk sitemap-route invariant (runs in CI).
+- `platform/src/lib/seo-sitemap-canonical-host.test.ts` — CI guard that fails if any site's
+  sitemap host diverges from its layout canonical host (catches a partial apply of this plan).
 
 ---
 
@@ -68,20 +70,33 @@ apex fix for the 3 sitemaps") is literally true for the sitemap `<loc>` output, 
 of the three sites have a larger www→apex inconsistency that these edits do **not** fully
 resolve. Verified 2026-07-12:
 
-### `the-nyc-interior-designer` — the edit is COMPREHENSIVE, not sitemap-only
+### `the-nyc-interior-designer` — necessary but not sufficient (has a split-brain risk)
 
-`SITE_DOMAIN` is the site's single source of truth: it feeds the sitemap **and** every
-per-page `alternates.canonical`, `og:url`, JSON-LD `@id`/breadcrumb URL across the site
-(`page.tsx`, `apply/page.tsx`, `contact/page.tsx`, `areas/[borough]/[area]/page.tsx`, …).
-So this one edit correctly flips **canonical tags, OpenGraph, and structured data to the
-apex too** — which is exactly what apex-canonical requires, so it's a *bonus*, not a
-regression. But a reviewer must know it is **not** a sitemap-only change: it changes the
-canonical host advertised on every page of that site. Grep to confirm before applying:
+`SITE_DOMAIN` feeds the sitemap **and** the site's *sub-page* metadata — per-page
+`alternates.canonical`, `og:url`, JSON-LD URLs in `page.tsx`, `apply/page.tsx`,
+`contact/page.tsx`, `areas/[borough]/[area]/page.tsx`, etc. Editing it flips all of
+those to apex. **BUT the root `layout.tsx` and several `_lib` files hardcode
+`https://www.thenycinteriordesigner.com` as literals, NOT via `SITE_DOMAIN`** — verified
+2026-07-12, **11 www literals across 5 files**:
+
+- `…/the-nyc-interior-designer/layout.tsx:33,63,96` — `metadataBase`, `og:url`, **`canonical`** (the homepage's canonical tag)
+- `…/the-nyc-interior-designer/_lib/schema.tsx` — JSON-LD org/site URLs
+- `…/the-nyc-interior-designer/_lib/settings.ts`, `…/_lib/email-templates.ts`
+
+So applying the `SITE_DOMAIN` edit ALONE moves the sitemap + sub-page canonicals to
+apex while the **homepage canonical / OG / metadataBase stay `www`** — a split-brain
+between the homepage (www) and the rest of the site (apex). This is the same
+necessary-but-not-sufficient class as the other two sites, just with far fewer
+stragglers (11 literals in 5 files vs 247/268). The
+`platform/src/lib/seo-sitemap-canonical-host.test.ts` CI guard fails on exactly this
+drift (sitemap host ≠ layout canonical host).
 
 ```bash
+# Enumerate BOTH what SITE_DOMAIN covers AND the www literals it does NOT:
 grep -rn "SITE_DOMAIN" platform/src/app/site/the-nyc-interior-designer/ | grep -v node_modules
-# Every hit moves to apex. Confirm none needs to stay www (e.g. an absolute asset URL
-# hosted only on www). As of 2026-07-12 all consumers are canonical/URL uses — safe.
+grep -rn "www\.thenycinteriordesigner\.com" platform/src/app/site/the-nyc-interior-designer/ | grep -v node_modules
+# The second list (minus _lib/siteData.ts itself) is what stays www after the one-line
+# edit — flip those too for a consistent apex site.
 ```
 
 ### `consortium-nyc` & `the-nyc-marketing-company` — the edit is NECESSARY BUT NOT SUFFICIENT
@@ -113,8 +128,10 @@ decision is that these two are actually intended to be **www-canonical** (which 
 contradict `APEX_CANONICAL_DOMAINS` in middleware and mean the *middleware set* is the
 bug, not the sitemap), then do NOT apply their sitemap edits and instead reconcile the
 middleware set. That www-vs-apex canonical-host decision is above this file's pay grade —
-flagging it for the leader/Jeff. `the-nyc-interior-designer` has no such ambiguity: its
-single edit already makes the whole site consistently apex.
+flagging it for the leader/Jeff. `the-nyc-interior-designer` has less to migrate (11 www
+literals in 5 files, mostly centralized behind `SITE_DOMAIN`) but is NOT a one-edit job
+either — its homepage `layout.tsx` canonical/OG/metadataBase are separate www literals
+(see its section above).
 
 ---
 
