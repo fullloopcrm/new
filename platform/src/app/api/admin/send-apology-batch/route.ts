@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     const { data: clients } = await supabaseAdmin
       .from('clients')
-      .select('id, name, phone, do_not_service, sms_opt_in')
+      .select('id, name, phone, do_not_service, sms_consent')
       .eq('tenant_id', tenantId)
       .in('id', clientIds)
 
@@ -53,7 +53,10 @@ export async function POST(request: NextRequest) {
     for (const c of clients) {
       // DNS = never contact
       if (c.do_not_service) { skippedDns++; continue }
-      if (c.sms_opt_in === false) { skippedOptOut++; continue }
+      // TCPA opt-out guard: canonical column is clients.sms_consent (migrations
+      // 007/013). Inbound STOP (webhooks/telnyx) sets sms_consent=false, NOT the
+      // dead sms_opt_in column — reading the latter texted opted-out clients.
+      if (c.sms_consent === false) { skippedOptOut++; continue }
       if (!c.phone) { skippedNoPhone++; continue }
 
       const text = (message || `Hi ${c.name?.split(' ')[0] || 'there'} — we owe you an apology. Your next booking is ${creditPct}% off, on us. 😊 — ${tenantRow?.name || ''}`).trim()
