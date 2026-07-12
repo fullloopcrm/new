@@ -3,6 +3,7 @@ import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
 import { isCommEnabled } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
+import { escapeHtml } from './escape-html'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
@@ -268,7 +269,7 @@ export async function notify({
       await sendEmail({
         to: email,
         subject: title,
-        html: htmlBody || `<p>${message.replace(/\n/g, '<br>')}</p>`,
+        html: htmlBody || `<p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
         from: tenantSender(tenant),
         resendApiKey: tenant.resend_api_key,
       })
@@ -315,7 +316,7 @@ export async function notify({
         await sendEmail({
           to: email,
           subject: title,
-          html: htmlBody || `<p>${message.replace(/\n/g, '<br>')}</p>`,
+          html: htmlBody || `<p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
           from: tenantSender(tenant),
           resendApiKey: tenant.resend_api_key,
         })

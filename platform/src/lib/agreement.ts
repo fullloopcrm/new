@@ -5,6 +5,7 @@
  * anytime, ownership, and a signature block. Rendered per-lead from their seats.
  */
 import { PRICING } from './billing-pricing'
+import { escapeHtml } from './escape-html'
 
 export interface AgreementOpts {
   businessName: string
@@ -47,9 +48,10 @@ export function buildAgreement(o: AgreementOpts): { title: string; html: string 
   const fmt = (n: number) => `$${n.toLocaleString()}`
   const setup = PRICING.setupFee
   const half = Math.round(setup / 2)
-  const contact = o.contactName || 'the undersigned'
-  const state = o.governingState || '[State]'
-  const date = o.effectiveDate || '________________'
+  const contact = escapeHtml(o.contactName || 'the undersigned')
+  const state = escapeHtml(o.governingState || '[State]')
+  const date = escapeHtml(o.effectiveDate || '________________')
+  const businessName = escapeHtml(o.businessName)
 
   const li = (s: string) => `<li style="margin:6px 0;line-height:1.55;">${s}</li>`
   const clause = (n: string, title: string, body: string) => `
@@ -63,10 +65,10 @@ export function buildAgreement(o: AgreementOpts): { title: string; html: string 
   <div style="font-family:system-ui,-apple-system,sans-serif;max-width:680px;margin:0 auto;padding:32px 28px;color:#0f172a;">
     <div style="font-size:13px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#0d9488;margin-bottom:6px;">Full Loop<span style="color:#94a3b8;">/</span></div>
     <h1 style="font-size:24px;margin:0 0 4px;">Service Agreement</h1>
-    <p style="color:#64748b;font-size:13px;margin:0 0 24px;">Effective ${date} · between <strong>Full Loop CRM</strong> ("Full Loop") and <strong>${o.businessName}</strong> ("Client").</p>
+    <p style="color:#64748b;font-size:13px;margin:0 0 24px;">Effective ${date} · between <strong>Full Loop CRM</strong> ("Full Loop") and <strong>${businessName}</strong> ("Client").</p>
 
     ${clause('1', 'What\'s included', `
-      Full Loop provides an all-inclusive platform and done-for-you setup${o.territoryName ? ` for the <strong>${o.territoryName}</strong> territory` : ''}. Included:
+      Full Loop provides an all-inclusive platform and done-for-you setup${o.territoryName ? ` for the <strong>${escapeHtml(o.territoryName)}</strong> territory` : ''}. Included:
       <ul style="margin:8px 0 0;padding-left:20px;">${INCLUDED.map(li).join('')}</ul>
       <p style="margin:12px 0 0;color:#64748b;font-size:13px;line-height:1.6;"><strong>In beta:</strong> ${BETA.join(', ')} are in active development and included at no extra cost when available, but are provided as-is and are not guaranteed deliverables or part of the build scope.</p>
     `)}
@@ -115,7 +117,7 @@ export function buildAgreement(o: AgreementOpts): { title: string; html: string 
         <tr>
           <td style="width:50%;padding-right:16px;vertical-align:bottom;">
             <div style="border-bottom:1px solid #94a3b8;height:32px;"></div>
-            <div style="color:#64748b;font-size:12px;margin-top:4px;">Client — ${contact}, ${o.businessName}</div>
+            <div style="color:#64748b;font-size:12px;margin-top:4px;">Client — ${contact}, ${businessName}</div>
           </td>
           <td style="width:50%;vertical-align:bottom;">
             <div style="border-bottom:1px solid #94a3b8;height:32px;"></div>
