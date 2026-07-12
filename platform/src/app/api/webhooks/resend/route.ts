@@ -27,6 +27,8 @@ export async function POST(request: Request) {
     }
 
     // Inbound email (Resend "Enable Receiving") → store for the admin inbox.
+    // tenant-scope-ok: N/A for tenantDb — this is the platform-wide receiving
+    // address; the tenant (if any) isn't known until the row is triaged.
     if (type === 'email.received') {
       const d = data as unknown as Record<string, unknown>
       const join = (v: unknown) =>
@@ -49,7 +51,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    // Look up campaign recipient by resend_email_id
+    // Look up campaign recipient by resend_email_id.
+    // tenant-scope-ok: N/A for tenantDb — Resend's delivery event only carries
+    // its own email_id, not our tenant_id; this lookup IS the tenant resolution,
+    // same pattern as telnyx/route.ts's delivery-status branch.
     const { data: recipient } = await supabaseAdmin
       .from('campaign_recipients')
       .select('id, campaign_id, status')

@@ -17,7 +17,7 @@ export const maxDuration = 60
 
 async function logEvent(tenantId: string, type: string, title: string, message: string) {
   await supabaseAdmin
-    .from('notifications')
+    .from('notifications')  // tenant-scope-ok: tenant_id stamped from the caller's already-resolved tenantId
     .insert({ tenant_id: tenantId, type, title, message: message.slice(0, 4000) })
     .then(() => {}, () => {})
 }
@@ -38,6 +38,8 @@ interface TenantBot {
 }
 
 async function loadTenantBot(slug: string): Promise<TenantBot | null> {
+  // tenant-scope-ok: N/A for tenantDb — this IS the tenant resolution step
+  // (lookup by slug), so there is no tenantId yet to scope by.
   const { data } = await supabaseAdmin
     .from('tenants')
     .select('id, slug, telegram_bot_token, telegram_chat_id')

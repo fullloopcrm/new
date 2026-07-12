@@ -3,6 +3,15 @@
  * Handles: checkout completion, payments table insert, tip detection,
  * cleaner auto-payout via Stripe Connect (when team_member has stripe_account_id),
  * client/cleaner/admin notifications.
+ *
+ * tenantDb triage (P1/W2 c): N/A for this whole file. tenant_id is derived
+ * per-event from Stripe metadata / an existence lookup (booking id, quote id,
+ * invoice id, prospect id) that differs by event type and branch — several
+ * branches (self-serve tenant signup: entities/prospects/tenant_invites) run
+ * BEFORE any tenant exists at all. Every downstream read/write already
+ * carries an explicit `.eq('tenant_id', …)` filter or stamp; idempotency on
+ * the money-moving paths is handled separately (see the payments UNIQUE
+ * constraint + the payout idempotencyKey added in this same branch).
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'

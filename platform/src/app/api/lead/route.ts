@@ -8,7 +8,7 @@
  * same destination as /api/contact, so leads land in the tenant backend.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
 import { trackError } from '@/lib/error-tracking'
@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
     if (!tenant) {
       return NextResponse.json({ error: 'Tenant not found for this host' }, { status: 404 })
     }
+    const db = tenantDb(tenant.id)
 
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
     const limit = await rateLimitDb(`lead:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
@@ -81,10 +82,9 @@ export async function POST(request: NextRequest) {
       const appPhone = phoneRaw.replace(/\D/g, '')
       try {
         if (appPhone) {
-          const { data: dupe } = await supabaseAdmin
+          const { data: dupe } = await db
             .from('team_applications')
             .select('id')
-            .eq('tenant_id', tenant.id)
             .eq('phone', appPhone)
             .ilike('name', name)
             .limit(1)
@@ -92,10 +92,9 @@ export async function POST(request: NextRequest) {
           if (dupe) return NextResponse.json({ success: true, application_id: dupe.id, deduped: true })
         }
 
-        const { data: appRow, error: appErr } = await supabaseAdmin
+        const { data: appRow, error: appErr } = await db
           .from('team_applications')
           .insert({
-            tenant_id: tenant.id,
             name,
             email,
             phone: appPhone || null,
@@ -177,29 +176,26 @@ export async function POST(request: NextRequest) {
 
     // Dedupe by phone only when we have a usable number.
     const { data: existing } = cleanPhone.length >= 7
-      ? await supabaseAdmin
+      ? await db
           .from('clients')
           .select('id')
-          .eq('tenant_id', tenant.id)
           .ilike('phone', `%${cleanPhone.slice(-10)}%`)
           .limit(1)
       : { data: null as { id: string }[] | null }
 
     if (existing && existing.length > 0) {
-      const { data: updated, error } = await supabaseAdmin
+      const { data: updated, error } = await db
         .from('clients')
         .update({ name, email, notes, active: true, status: 'active' })
         .eq('id', existing[0].id)
-        .eq('tenant_id', tenant.id)
         .select('id')
         .single()
       if (error) throw error
       clientId = updated.id
     } else {
-      const { data: inserted, error } = await supabaseAdmin
+      const { data: inserted, error } = await db
         .from('clients')
         .insert({
-          tenant_id: tenant.id,
           name,
           email,
           phone,
@@ -212,10 +208,9 @@ export async function POST(request: NextRequest) {
       clientId = inserted.id
     }
 
-    await supabaseAdmin
+    await db
       .from('portal_leads')
       .insert({
-        tenant_id: tenant.id,
         name,
         email,
         phone,
@@ -231,10 +226,9 @@ export async function POST(request: NextRequest) {
     // Non-blocking — a form submit never fails on a pipeline error.
     const leadSource = body.source || body.type || 'lead-form'
     try {
-      const { data: openDeal } = await supabaseAdmin
+      const { data: openDeal } = await db
         .from('deals')
         .select('id')
-        .eq('tenant_id', tenant.id)
         .eq('client_id', clientId)
         .in('stage', ['new', 'qualifying', 'quoted', 'pending'])
         .order('created_at', { ascending: false })
@@ -242,22 +236,22 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
       const nowIso = new Date().toISOString()
       if (openDeal) {
-        await supabaseAdmin.from('deal_activities').insert({
-          tenant_id: tenant.id, deal_id: openDeal.id, type: 'note',
+        await db.from('deal_activities').insert({
+          deal_id: openDeal.id, type: 'note',
           description: `New web submission [${leadSource}]${notes ? `\n${notes}` : ''}`,
           metadata: { source: leadSource },
         })
-        await supabaseAdmin.from('deals').update({ last_activity_at: nowIso }).eq('id', openDeal.id).eq('tenant_id', tenant.id)
+        await db.from('deals').update({ last_activity_at: nowIso }).eq('id', openDeal.id)
       } else {
-        const { data: newDeal } = await supabaseAdmin.from('deals').insert({
-          tenant_id: tenant.id, client_id: clientId,
+        const { data: newDeal } = await db.from('deals').insert({
+          client_id: clientId,
           title: name || 'New lead', stage: 'new', mode: 'sales',
           value_cents: 0, probability: 10, source: leadSource,
           notes: notes || null, status: 'active', last_activity_at: nowIso,
         }).select('id').single()
         if (newDeal) {
-          await supabaseAdmin.from('deal_activities').insert({
-            tenant_id: tenant.id, deal_id: newDeal.id, type: 'note',
+          await db.from('deal_activities').insert({
+            deal_id: newDeal.id, type: 'note',
             description: `Lead captured via web form [${leadSource}]${notes ? `\n${notes}` : ''}`,
             metadata: { source: leadSource },
           })

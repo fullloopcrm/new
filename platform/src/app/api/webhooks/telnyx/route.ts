@@ -1,3 +1,11 @@
+// tenantDb triage (P1/W2 c): N/A for this whole file. The delivery-status
+// branch resolves rows by Telnyx's own message id (cross-tenant lookup —
+// there is no tenantId yet). The inbound-SMS branch resolves tenant by
+// telnyx_phone lookup mid-handler, same pattern already marked
+// `tenant-scope-ok: webhook resolves tenant from the verified event payload`
+// on telegram/route.ts + telegram/[tenant]/route.ts + telnyx-voice/route.ts;
+// every write below that point already carries an explicit
+// tenant_id/tenantId filter or stamp.
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
