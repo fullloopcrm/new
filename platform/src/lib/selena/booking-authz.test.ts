@@ -108,20 +108,27 @@ afterEach(() => {
 describe('handleRescheduleBooking — tenant/client authorization', () => {
   it('REJECTS a booking_id that belongs to another tenant (no write)', async () => {
     // Caller conversation is in tenant A. The booking_id they supply belongs to
-    // tenant B. The scoped fetch (id + tenant_id=A) must resolve to nothing.
+    // tenant B. The booking GENUINELY EXISTS in the DB — the mock serves the row
+    // for any read EXCEPT one scoped to the caller's own tenant (A). This models
+    // the pre-fix bug directly: the old handler fetched by id ALONE (no tenant
+    // filter) and derived the tenant from the returned row, so it would resolve
+    // tenant B's booking and proceed to write. Only a read scoped to tenant_id=A
+    // — the fix — misses. If the tenant scope is dropped, this test fails.
     selectResolver = (table, eqs) => {
       if (table === 'sms_conversations') return { data: { client_id: 'client-A', tenant_id: TENANT_A }, error: null }
       if (table === 'bookings') {
-        // Only tenant B owns this booking — a fetch scoped to tenant A misses.
-        if (eqs.tenant_id === TENANT_B) return { data: { id: 'bk-B', tenant_id: TENANT_B, client_id: 'client-B', recurring_type: 'weekly', start_time: '2099-01-01T10:00:00' }, error: null }
-        return { data: null, error: null }
+        if (eqs.tenant_id === TENANT_A) return { data: null, error: null }
+        return { data: { id: 'bk-B', tenant_id: TENANT_B, client_id: 'client-B', recurring_type: 'weekly', start_time: '2099-01-01T10:00:00' }, error: null }
       }
       return { data: null, error: null }
     }
 
     const out = await handleTool('reschedule_booking', { booking_id: 'bk-B', new_date: '2099-02-01', new_time: '2:00 PM' }, 'convo-A', coreResult(), TENANT_A)
     const parsed = JSON.parse(out)
+    // Rejected on the tenant scope, never surfacing tenant B's booking...
     expect(parsed.error).toBe('Booking not found')
+    expect(parsed.success).toBeUndefined()
+    // ...and no cross-tenant write occurred.
     expect(updateCalls).toHaveLength(0)
   })
 
