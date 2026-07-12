@@ -3,7 +3,7 @@
 **Status:** file-only audit / no route converted by this doc
 **Author:** W2 (resolver + tenant-isolation lane)
 **Date:** 2026-07-12
-**Worktree:** `p1-w2` @ `817a4917` (counts regenerated against this tree)
+**Worktree:** `p1-w2` @ `76d6f500` (counts regenerated against this tree)
 **Maps:** `tenantdb-rollout-plan.md` (order + §5 exceptions) · `tenantdb-conversion-batch-plan.md` (next 20) · `tenantdb-triage.md`
 
 ---
@@ -19,22 +19,22 @@ UNCONV=$(comm -23 <(echo "$ALL") <(echo "$CONV"))
 
 ---
 
-## 2. Current counts (tip `817a4917`)
+## 2. Current counts (tip `76d6f500`)
 
 | Bucket | Count |
 |---|---:|
 | **Total** API `route.ts` | **498** |
-| **Converted** (use `tenantDb`) | **46** |
-| ├─ with a `*.isolation.test.ts` probe | **46** |
+| **Converted** (use `tenantDb`) | **49** |
+| ├─ with a `*.isolation.test.ts` probe | **49** |
 | └─ **without** a probe (coverage gap → §4) | **0** |
-| **Unconverted** | **452** |
-| ├─ touch DB via `supabaseAdmin` | 390 |
-| │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~140 |
+| **Unconverted** | **449** |
+| ├─ touch DB via `supabaseAdmin` | 387 |
+| │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~137 |
 | │  ├─ EASY: tenant in hand via `requirePermission` only | 38 |
 | │  └─ HARD: derive tenant elsewhere (cron/webhook/portal/public/admin-token) | 213 |
 | └─ no direct `supabaseAdmin` (no tenant-table DB → NO-OP tier) | 65 |
 
-> **Probe coverage is now 100% of converted routes (46/46, 0 gap).** Every
+> **Probe coverage is now 100% of converted routes (49/49, 0 gap).** Every
 > `tenantDb` route ships a co-located `*.isolation.test.ts` wrong-tenant probe.
 > The EASY-unconverted sub-counts above are approximate — regenerate per §1 before
 > relying on them (each conversion moves a route from EASY into Converted).
@@ -48,12 +48,17 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
 
 ---
 
-## 3. The 46 converted routes (paths relative to `src/app/api/`)
+## 3. The 49 converted routes (paths relative to `src/app/api/`)
 
 > Batch-1 finance conversions landed this lane: #1–5,#8,#9,#10,#12 =
 > `finance/summary`, `finance/revenue`, `finance/pnl`, `finance/cash-flow`,
 > `finance/ar-aging`, `finance/bank-transactions`, `finance/chart-of-accounts`,
-> `finance/entities`, `finance/reconcile-candidates`. All 46 are probed.
+> `finance/entities`, `finance/reconcile-candidates`. All are probed.
+>
+> **Batch-1 CLIENTS trio landed (this session):** #17 `clients` (list+create),
+> #18 `clients/[id]` (GET/PUT/DELETE), #19 `clients/stats` — routes 47–49 in the
+> table below, one commit each, each with an isolation probe. All EASY/mechanical,
+> no FK-injection. Commits `5ea2e4d9`, `d6060f8c`, `76d6f500`.
 
 ```
  1 admin/comhub/contacts/[id]/context        24 finance/bank-transactions
@@ -79,7 +84,13 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
 21 documents/[id]/send                       44 sms
 22 documents/[id]/signers                    45 team-portal/checkin
 23 finance/ar-aging                          46 team-portal/checkout
+                                             47 clients
+                                             48 clients/[id]
+                                             49 clients/stats
 ```
+
+> Rows 47–49 (CLIENTS trio, this session) are appended in insertion order, not
+> merged into the alphabetized 1–46 grid above.
 
 ---
 
@@ -144,21 +155,24 @@ rows #6/#7/#11 (`finance/expenses` P5, `finance/bank-accounts` P4,
 
 ## 5. Next batch (conversion — leader-gated)
 
-**Batch-1 progress: 9 of 20 converted** (`tenantdb-conversion-batch-plan.md`
-#1–5,#8,#9,#10,#12 — all finance, all probed). **Still to do in Batch 1:**
+**Batch-1 progress: 12 of 20 converted** (`tenantdb-conversion-batch-plan.md`
+#1–5,#8,#9,#10,#12 finance + **#17,#18,#19 clients (this session)** — all probed).
+**Still to do in Batch 1:**
 - **#6 `finance/expenses` (P5), #7 `finance/bank-accounts` (P4), #11
   `finance/periods` (P6)** — FK-injection rows; `tenantDb` alone is NOT the fix.
   Convert **and** add the caller-supplied-FK ownership guard, then flip the witness.
 - **#13 `finance/statements`** — convert 4 `bank_statements` accesses; **LEAVE**
   `supabaseAdmin.storage.from('finance')` (Storage bucket, not a table).
+- ~~#17–19 clients~~ **DONE this session** (mechanical, no FK) — commits
+  `5ea2e4d9`, `d6060f8c`, `76d6f500`.
 - **#14 `invoices` (P2), #15 `documents/[id]/fields`, #16 `documents/[id]/void`,
-  #17–19 clients, #20 `bookings` (P1)** — the UNSCOPED-TODAY live-leak rows
+  #20 `bookings` (P1)** — the UNSCOPED-TODAY live-leak rows
   (`documents/[id]/fields`, `documents/[id]/void`, `bookings::service_types`) close
   real read leaks on conversion; do those with a witness/probe.
 
 **Two work-streams, prioritized:**
-1. **Probe coverage: DONE** — all 46 converted routes have a probe (gap 0).
-2. **Convert the remaining 11 Batch-1 routes** (per batch-plan) — gated on leader GO,
+1. **Probe coverage: DONE** — all 49 converted routes have a probe (gap 0).
+2. **Convert the remaining 8 Batch-1 routes** (per batch-plan) — gated on leader GO,
    each with `tsc --noEmit` + its probe + FK-injection guard where flagged
    (P1/P2/P4/P5/P6).
 
