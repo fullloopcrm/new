@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { verifyToken } from '../auth/token'
 
-// GET  /api/team-portal/messages?team_member_id=<uuid>  — team member's comhub thread with admin.
-// POST /api/team-portal/messages { team_member_id, body } — team member messages admin (lands in Comhub).
-// Auth: trust-based via team_member_id, consistent with the rest of /api/team-portal/*.
+// GET  /api/team-portal/messages  — team member's comhub thread with admin.
+// POST /api/team-portal/messages { body } — team member messages admin (lands in Comhub).
+// Auth: team-portal Bearer token (verifyToken, same as checkin/checkout).
+// team_member_id is derived from the token — a caller-supplied team_member_id
+// is no longer trusted (was an open IDOR: anyone could read/post to any
+// member's admin-comms thread — deploy-prep/none-write-routes-triage.md row 9).
 // Ported from standalone nycmaid (/api/team/messages); cleaner_id -> team_member_id, tenant-scoped.
 
-async function resolveThread(teamMemberId: string): Promise<{ contactId: string | null; threadId: string | null; tenantId: string | null }> {
+async function resolveThread(teamMemberId: string, tenantId: string): Promise<{ contactId: string | null; threadId: string | null; tenantId: string | null }> {
   const { data: member } = await supabaseAdmin
     .from('team_members')
     .select('id, name, phone, email, tenant_id')
     .eq('id', teamMemberId)
+    .eq('tenant_id', tenantId)
     .single()
   if (!member) return { contactId: null, threadId: null, tenantId: null }
 
@@ -35,10 +40,12 @@ async function resolveThread(teamMemberId: string): Promise<{ contactId: string 
 }
 
 export async function GET(req: NextRequest) {
-  const teamMemberId = new URL(req.url).searchParams.get('team_member_id') || new URL(req.url).searchParams.get('cleaner_id')
-  if (!teamMemberId) return NextResponse.json({ error: 'Missing team_member_id' }, { status: 400 })
+  const token = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = verifyToken(token)
+  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { threadId } = await resolveThread(teamMemberId)
+  const { threadId } = await resolveThread(auth.id, auth.tid)
   if (!threadId) return NextResponse.json({ messages: [] })
 
   const { data, error } = await supabaseAdmin
@@ -54,13 +61,17 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null) as { team_member_id?: string; cleaner_id?: string; body?: string } | null
-  const teamMemberId = body?.team_member_id || body?.cleaner_id
-  if (!teamMemberId || !body?.body?.trim()) {
-    return NextResponse.json({ error: 'team_member_id and body required' }, { status: 400 })
+  const token = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = verifyToken(token)
+  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+  const body = await req.json().catch(() => null) as { body?: string } | null
+  if (!body?.body?.trim()) {
+    return NextResponse.json({ error: 'body required' }, { status: 400 })
   }
 
-  const { contactId, threadId, tenantId } = await resolveThread(teamMemberId)
+  const { contactId, threadId, tenantId } = await resolveThread(auth.id, auth.tid)
   if (!contactId || !threadId) return NextResponse.json({ error: 'team member not found' }, { status: 404 })
 
   const { data: msg, error } = await supabaseAdmin

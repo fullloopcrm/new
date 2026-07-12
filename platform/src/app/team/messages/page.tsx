@@ -25,10 +25,13 @@ export default function TeamMessagesPage() {
   const endRef = useRef<HTMLDivElement>(null)
 
   const memberId = auth?.member.id ?? null
+  const token = auth?.token ?? null
 
-  const fetchMessages = useCallback(async (id: string) => {
+  const fetchMessages = useCallback(async (authToken: string) => {
     try {
-      const res = await fetch(`/api/team-portal/messages?team_member_id=${id}`)
+      const res = await fetch('/api/team-portal/messages', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
       const data = await res.json()
       setMessages(data.messages || [])
     } catch {
@@ -39,31 +42,31 @@ export default function TeamMessagesPage() {
   }, [])
 
   useEffect(() => {
-    if (!memberId) return
-    fetchMessages(memberId)
-    const interval = setInterval(() => fetchMessages(memberId), 5000)
+    if (!token) return
+    fetchMessages(token)
+    const interval = setInterval(() => fetchMessages(token), 5000)
     return () => clearInterval(interval)
-  }, [memberId, fetchMessages])
+  }, [token, fetchMessages])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length])
 
   const send = async () => {
-    if (!memberId || !composer.trim() || sending) return
+    if (!token || !composer.trim() || sending) return
     setSending(true)
     const body = composer.trim()
     setComposer('')
     try {
       const res = await fetch('/api/team-portal/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ team_member_id: memberId, body }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ body }),
       })
       if (!res.ok) {
         setComposer(body)
       } else {
-        fetchMessages(memberId)
+        fetchMessages(token)
       }
     } catch {
       setComposer(body)
