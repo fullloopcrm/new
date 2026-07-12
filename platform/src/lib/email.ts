@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { randomUUID } from 'crypto'
 import { withRetry } from './retry'
 import { decryptSecret } from './secret-crypto'
 
@@ -49,6 +50,13 @@ export async function sendEmail({
     throw new Error('Email not configured — no Resend API key available')
   }
 
+  // One key for this logical send, reused across every retry attempt below.
+  // Resend recognizes repeated requests with the same idempotencyKey as the
+  // same operation and returns the original result instead of sending again —
+  // this is what makes it safe to keep retrying (including on timeouts,
+  // unlike sendSMS) without risking a duplicate email.
+  const idempotencyKey = randomUUID()
+
   return withRetry(async () => {
     const sender = from || 'Full Loop CRM <hello@fullloopcrm.com>'
 
@@ -65,7 +73,7 @@ export async function sendEmail({
       subject,
       html,
       ...(attachments && attachments.length ? { attachments } : {}),
-    })
+    }, { idempotencyKey })
 
     if (error) {
       // Don't retry validation errors (bad email, unsubscribed, etc)

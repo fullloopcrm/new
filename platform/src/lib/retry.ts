@@ -8,6 +8,16 @@ export interface RetryOptions {
   baseDelayMs?: number     // default 1000 (1s)
   maxDelayMs?: number      // default 30000 (30s)
   onRetry?: (attempt: number, error: unknown) => void
+  /**
+   * Extra veto on top of the built-in 4xx check, for callers whose side
+   * effect isn't safe to repeat on an AMBIGUOUS failure (e.g. a request
+   * timeout, where the receiving end may have already processed the first
+   * attempt before we gave up waiting for the response) — e.g. outbound
+   * SMS/email, where retrying blind risks sending the message twice.
+   * Return false to stop retrying that error. Defaults to always-retryable
+   * (only the built-in 4xx check applies) so existing callers are unaffected.
+   */
+  isRetryable?: (error: unknown) => boolean
 }
 
 export async function withRetry<T>(
@@ -19,6 +29,7 @@ export async function withRetry<T>(
     baseDelayMs = 1000,
     maxDelayMs = 30000,
     onRetry,
+    isRetryable,
   } = options
 
   let lastError: unknown
@@ -33,6 +44,10 @@ export async function withRetry<T>(
 
       // Don't retry on 4xx client errors (bad request, auth, not found)
       if (isClientError(error)) break
+
+      // Don't retry when the caller has flagged this outcome as ambiguous —
+      // retrying could duplicate a side effect that may have already happened.
+      if (isRetryable && !isRetryable(error)) break
 
       const delay = Math.min(baseDelayMs * Math.pow(2, attempt - 1), maxDelayMs)
       onRetry?.(attempt, error)
