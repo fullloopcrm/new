@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 // GET — fetch jobs needing close-out + recently closed
 export async function GET() {
@@ -9,10 +9,9 @@ export async function GET() {
 
     // Jobs needing close-out: completed/in_progress but not fully closed
     // "Fully closed" = payment_status is paid AND team_paid is true
-    const { data: needsCloseout } = await supabaseAdmin
+    const { data: needsCloseout } = await tenantDb(tenantId)
       .from('bookings')
       .select('id, service_type, start_time, end_time, status, price, hourly_rate, pay_rate, actual_hours, team_pay, payment_status, payment_method, team_paid, discount_enabled, check_in_time, check_out_time, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name)')
-      .eq('tenant_id', tenantId)
       .in('status', ['completed', 'in_progress', 'paid'])
       .or('payment_status.neq.paid,team_paid.is.null,team_paid.eq.false')
       .order('start_time', { ascending: false })
@@ -20,10 +19,9 @@ export async function GET() {
 
     // Recently closed (last 7 days) — fully paid + team paid
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    const { data: recentlyClosed } = await supabaseAdmin
+    const { data: recentlyClosed } = await tenantDb(tenantId)
       .from('bookings')
       .select('id, service_type, start_time, price, payment_method, team_pay, clients(name), team_members!bookings_team_member_id_fkey(name)')
-      .eq('tenant_id', tenantId)
       .eq('payment_status', 'paid')
       .eq('team_paid', true)
       .gte('check_out_time', sevenDaysAgo)
