@@ -100,7 +100,7 @@
 --     TENANT_TABLES list (that list is stale for these three). This migration
 --     adds tenant_isolation so they match the other 129 tenant tables. Safe:
 --     the to_regclass + tenant_id-column guards skip any that a given DB lacks.
---     FOLLOW-UP (not in this file): add these three to TENANT_TABLES in
+--     DONE (companion change): these three are now in TENANT_TABLES in
 --     audit-tenant-scope.mjs so the app-layer .eq('tenant_id') gate covers them.
 --
 -- ── EXCLUDED — DELIBERATELY KEPT DENY-ALL (do NOT weaken) ────────────────────
