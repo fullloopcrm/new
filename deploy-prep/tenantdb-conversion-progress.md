@@ -3,7 +3,7 @@
 **Status:** file-only audit / no route converted by this doc
 **Author:** W2 (resolver + tenant-isolation lane)
 **Date:** 2026-07-12
-**Worktree:** `p1-w2` @ `afa62a98` (counts regenerated against this tree)
+**Worktree:** `p1-w2` @ `96995a46` (counts regenerated against this tree)
 **Maps:** `tenantdb-rollout-plan.md` (order + §5 exceptions) · `tenantdb-conversion-batch-plan.md` (next 20) · `tenantdb-triage.md`
 
 ---
@@ -19,15 +19,15 @@ UNCONV=$(comm -23 <(echo "$ALL") <(echo "$CONV"))
 
 ---
 
-## 2. Current counts (tip `afa62a98`)
+## 2. Current counts (tip `96995a46`)
 
 | Bucket | Count |
 |---|---:|
 | **Total** API `route.ts` | **498** |
-| **Converted** (use `tenantDb`) | **64** |
-| ├─ with a `*.isolation.test.ts` probe | **64** |
+| **Converted** (use `tenantDb`) | **67** |
+| ├─ with a `*.isolation.test.ts` probe | **67** |
 | └─ **without** a probe (coverage gap → §4) | **0** |
-| **Unconverted** | **434** |
+| **Unconverted** | **431** |
 | ├─ touch DB via `supabaseAdmin` | 378 |
 | │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~134 |
 | │  ├─ EASY: tenant in hand via `requirePermission` only | 35 |
@@ -105,6 +105,39 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
 > any of the three → no IDOR surface** (IDOR lens applied per leader order (b);
 > nothing to flag). No FK-injection, no Storage/cross-tenant tables. Commits
 > `bookings/closeout`, `audit`, `afa62a98` (`security/events`).
+>
+> **Batch-7 READ trio landed (this session):** `admin/analytics/live-feed` (GET),
+> `leads/attribution` (GET), `admin/find-cleaner/recent` (GET) — routes 65–67
+> below, one commit each, each with an isolation probe. All EASY GET-only reads,
+> already `.eq('tenant_id')`-scoped (conversion = drop the explicit filter for
+> tenantDb's injected one): `live-feed` reads a single `lead_clicks` table
+> (`.eq('action','visit')` preserved); `attribution` reads a single
+> `website_visits` table (`.gte('created_at')` window preserved, `getSettings`
+> mocked in the probe); `find-cleaner/recent` reads `cleaner_broadcasts` then
+> fans out `cleaner_broadcast_recipients` via `.in('broadcast_id', ids)` where
+> ids derive from the tenant's own broadcasts (not caller input). **No by-id
+> caller input on any of the three -> no IDOR surface.** `find-cleaner/recent`'s
+> probe also seeds a FORGED foreign-tenant recipient pointing at this tenant's
+> broadcast_id and asserts it's excluded — proving the recipients read is
+> tenant-scoped, not merely id-list-filtered. No FK-injection, no Storage/
+> cross-tenant tables. Commits `21fd58c4`, `7a865611`, `96995a46`. Full suite
+> **413 passed / 37 skipped** after (`tsc --noEmit` clean).
+>
+> **IDOR lens sweep this session (leader order (b)) — no new findings.** Scanned
+> every unconverted dynamic-segment (`[id]`/`[token]`) route with a by-id read.
+> Result: every owner-authed (`getTenantForRequest`/`requirePermission`) by-id
+> read on a tenant-scoped table is either directly `.eq('tenant_id')`-scoped or
+> guard-gated by a prior scoped ownership fetch (404-if-not-owned) before any
+> unscoped update/re-fetch-by-id. Verified guard order on `documents/[id]/void`,
+> `finance/bank-transactions/[id]/match`, `invoices/[id]/record-payment`,
+> `jobs/[id]/sessions/[sessionId]`, `quotes/[id]/send`. The `tid=0` by-id routes
+> are platform-admin (`requireAdmin`, cross-tenant by design:
+> `admin/bookings/[id]/closeout-summary`, `admin/prospects/[id]`) or
+> platform-global tables (`platform_announcements`, `prospects`, `tenants`);
+> public `/[token]` routes are token-scoped. Nothing to flag. (Defense-in-depth
+> note, not a bug: the guard-gated unscoped update/re-fetch-by-id writes stay
+> correct only while their guard remains — converting those routes to tenantDb
+> makes the write itself belt-and-suspenders; already the rollout's intent.)
 
 ```
  1 admin/comhub/contacts/[id]/context        24 finance/bank-transactions
@@ -148,14 +181,19 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
                                              62 bookings/closeout
                                              63 audit
                                              64 security/events
+                                             65 admin/analytics/live-feed
+                                             66 leads/attribution
+                                             67 admin/find-cleaner/recent
 ```
 
 > Rows 47–49 (CLIENTS trio), 50–52 (finance READ trio), 53–55 (READ trio:
 > `clients/analytics`, `bookings/stats`, `pipeline`), 56–58 (Batch-4 trio:
 > `jobs`, `settings/services`, `deals/at-risk`), 59–61 (Batch-5 trio:
-> `catalog`, `team`, `settings/services/[id]`) and 62–64 (Batch-6 READ trio:
-> `bookings/closeout`, `audit`, `security/events`) are appended in insertion
-> order, not merged into the alphabetized 1–46 grid above.
+> `catalog`, `team`, `settings/services/[id]`), 62–64 (Batch-6 READ trio:
+> `bookings/closeout`, `audit`, `security/events`) and 65–67 (Batch-7 READ trio:
+> `admin/analytics/live-feed`, `leads/attribution`, `admin/find-cleaner/recent`)
+> are appended in insertion order, not merged into the alphabetized 1–46 grid
+> above.
 
 ---
 
