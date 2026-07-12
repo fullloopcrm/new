@@ -27,7 +27,7 @@
 
 | # | SEO category | Verdict | Blocks deploy? | Source of truth |
 |---|---|---|---|---|
-| 1 | **OG / Twitter social images** (11 sites broken) | 🚢 SHIP-IN-WAVE | No | [`og-image-fix-plan.md`](./og-image-fix-plan.md), [`../platform/deploy-prep/og-image-coverage-audit.md`](../platform/deploy-prep/og-image-coverage-audit.md) |
+| 1 | **OG / Twitter social images** (11 sites broken) | 🚢 SHIP-IN-WAVE · 🧪 GUARDED (asset-existence, tracked-RED) | No | [`og-image-fix-plan.md`](./og-image-fix-plan.md), [`../platform/deploy-prep/og-image-coverage-audit.md`](../platform/deploy-prep/og-image-coverage-audit.md) |
 | 2 | **Canonical / metadataBase** — 2 exact fixes | 🚢 SHIP-IN-WAVE · 🧪 GUARDED (tracked-RED) | No | [`seo-canonical-audit.md`](./seo-canonical-audit.md), [`seo-remediation-spec.md`](./seo-remediation-spec.md) |
 | 2b | **Canonical** — apex-vs-www + clone/host (Flags 1/3/4) | 🔒 GATED (domain decision) | No | [`seo-meta-consistency-final.md`](./seo-meta-consistency-final.md) |
 | 3 | **Metadata completeness** (title + description) | ✅ GO · 🧪 GUARDED | No | `seo-metadata-completeness.test.ts` |
@@ -76,8 +76,11 @@ Metadata completeness, JSON-LD XSS-safety, and indexing safety are all green and
 | Metadata completeness | `platform/src/lib/seo-metadata-completeness.test.ts` | every site has non-empty `title` + `description` |
 | Indexing safety | `platform/src/lib/seo-indexing-safety.test.ts` | noindex set == 11-page allowlist; no homepage deindexed |
 | **Sitemap presence (this session)** | `platform/src/lib/sitemap-presence.test.ts` | every `TENANTS_WITH_RICH_SITEMAP` slug has a served sitemap route; no orphan rich sitemap |
+| **OG/social image assets (this session)** | `platform/src/lib/seo-og-image-assets.test.ts` | every local image referenced in a site `layout.tsx` OG/Twitter/icon metadata exists in `public/`; §1 C1 (`/og-image.jpg` × 5) is tracked-RED and flips on fix |
 
-All four derive their tenant/host facts from `src/middleware.ts` at test time, so the guards cannot drift from the real routing rule.
+The first four derive their tenant/host facts from `src/middleware.ts` at test time, so the guards cannot drift from the real routing rule. The OG-asset guard reads each site's `layout.tsx` + `public/` directly.
+
+> **New finding while writing the OG-asset guard (not in the OG audit):** `stretch-ny/layout.tsx:112-113` hardcodes `<link rel="icon" href="/favicon.png">` and `<link rel="apple-touch-icon" href="/apple-touch-icon.png">` — both root paths are **missing** from `public/` (only `public/favicons/` exists). Broken favicon + apple-touch-icon on stretch-ny. Tracked-RED in the guard; ship-in-wave with the OG fixes.
 
 ---
 
