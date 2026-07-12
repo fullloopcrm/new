@@ -104,9 +104,23 @@ export async function POST(request: Request) {
   }
 
   if (action === 'verify_code') {
-    const { phone, code } = body
-    if (!phone || !code) {
-      return NextResponse.json({ error: 'Phone and code required' }, { status: 400 })
+    const { phone, code, tenant_slug } = body
+    if (!phone || !code || !tenant_slug) {
+      return NextResponse.json({ error: 'Phone, code, and tenant required' }, { status: 400 })
+    }
+
+    // Resolve the tenant the user is logging into so the code lookup is scoped
+    // to that business. Without this, a phone+code row belonging to a DIFFERENT
+    // tenant could satisfy verification (cross-tenant authentication).
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('id')
+      .eq('slug', tenant_slug)
+      .eq('status', 'active')
+      .single()
+
+    if (!tenant) {
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
     // Throttle code verification so a 6-digit code can't be brute-forced.
@@ -126,6 +140,7 @@ export async function POST(request: Request) {
       .from('portal_auth_codes')
       .select('code, tenant_id, client_id, expires_at')
       .eq('phone', phone)
+      .eq('tenant_id', tenant.id)
       .eq('used', false)
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
@@ -140,12 +155,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
     }
 
-    // Mark as used
+    // Mark as used — scoped to the resolved tenant so a colliding phone+code row
+    // in another tenant is never consumed by this verification.
     await supabaseAdmin
       .from('portal_auth_codes')
       .update({ used: true })
       .eq('phone', phone)
       .eq('code', code)
+      .eq('tenant_id', tenant.id)
 
     const token = createToken(stored.client_id, stored.tenant_id)
 
@@ -157,13 +174,13 @@ export async function POST(request: Request) {
       .single()
 
     // Get tenant info
-    const { data: tenant } = await supabaseAdmin
+    const { data: tenantInfo } = await supabaseAdmin
       .from('tenants')
       .select('id, name, primary_color, logo_url')
       .eq('id', stored.tenant_id)
       .single()
 
-    return NextResponse.json({ token, client, tenant })
+    return NextResponse.json({ token, client, tenant: tenantInfo })
   }
 
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 })

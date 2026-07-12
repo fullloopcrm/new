@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   const { searchParams } = new URL(req.url)
   const kind = searchParams.get('kind') || 'contact'
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   const offset = parseInt(searchParams.get('offset') || '0', 10) || 0
 
   const join = kind === 'channel' ? 'comhub_contacts' : 'comhub_contacts!left'
-  let query = supabaseAdmin
+  let query = db
     .from('comhub_threads')
     .select(`
       id, contact_id, channel, kind, name, slug, description,
@@ -98,7 +99,8 @@ export async function GET(req: NextRequest) {
 
   if (filter === 'unresponded' && threads.length > 0) {
     const ids = threads.map(t => t.id)
-    const { data: lastMsgs } = await supabaseAdmin
+    // by-thread_id read GAINS a tenant filter (comhub_messages carries tenant_id)
+    const { data: lastMsgs } = await db
       .from('comhub_messages')
       .select('thread_id, direction, sent_at')
       .in('thread_id', ids)

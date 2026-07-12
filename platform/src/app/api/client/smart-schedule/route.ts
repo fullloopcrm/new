@@ -54,11 +54,15 @@ export async function GET(request: Request) {
     if (!tenantId) {
       return NextResponse.json({ cleaners: [] })
     }
+    // team_members has no boolean `active` column — schema uses `status`
+    // ('inactive' = off-boarded). Match the scored path in src/lib/smart-schedule.ts
+    // (.neq('status','inactive')) so the fallback picker and the scored list agree
+    // on who's a valid team member instead of silently returning nothing.
     const { data: all } = await supabaseAdmin
       .from('team_members')
       .select('id, name')
       .eq('tenant_id', tenantId)
-      .eq('active', true)
+      .neq('status', 'inactive')
       .order('name')
     const cleaners = (all || []).map(c => ({
       id: c.id,

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena-legacy'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 const TEST_TAG = 'selena-email-test'
 
@@ -111,23 +112,19 @@ export async function POST(request: NextRequest) {
     convo = created
   }
 
-  await supabaseAdmin.from('sms_conversation_messages').insert({
-    conversation_id: convo.id,
-    tenant_id: tenantId,
-    direction: 'inbound',
-    message,
-  })
+  await insertConversationMessage(
+    { conversation_id: convo.id, direction: 'inbound', message },
+    { expectedTenantId: tenantId },
+  )
 
   const result = await askSelena(tenantId, 'email', message, convo.id, client.phone || undefined)
   const reply = result.text || ''
 
   if (reply) {
-    await supabaseAdmin.from('sms_conversation_messages').insert({
-      conversation_id: convo.id,
-      tenant_id: tenantId,
-      direction: 'outbound',
-      message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
-    })
+    await insertConversationMessage(
+      { conversation_id: convo.id, direction: 'outbound', message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim() },
+      { expectedTenantId: tenantId },
+    )
   }
 
   interface ResultWithExtras { intent?: string; bookingCreated?: boolean }

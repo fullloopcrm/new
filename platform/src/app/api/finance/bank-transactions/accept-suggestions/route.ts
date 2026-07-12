@@ -3,8 +3,8 @@
  * Posts journal entries for each, bumps categorization_patterns.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { normalizeDescription, postJournalEntry } from '@/lib/ledger'
 
@@ -13,10 +13,13 @@ export async function POST(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb auto-scopes every query; the update-by-id calls below GAIN a
+    // tenant_id filter they previously lacked.
+    const db = tenantDb(tenantId)
     const body = await request.json().catch(() => ({}))
     const threshold = Math.max(0, Math.min(1, Number(body.threshold) || 0.8))
 
-    const { data: txns } = await supabaseAdmin
+    const { data: txns } = await db
       .from('bank_transactions')
       .select('id, txn_date, description, amount_cents, suggested_coa_id, suggested_confidence, bank_account_id')
       .eq('tenant_id', tenantId)
@@ -31,7 +34,7 @@ export async function POST(request: Request) {
 
     // Pre-fetch bank accounts' coa_ids
     const bankIds = [...new Set(txns.map(t => t.bank_account_id))]
-    const { data: bankRows } = await supabaseAdmin
+    const { data: bankRows } = await db
       .from('bank_accounts')
       .select('id, coa_id')
       .eq('tenant_id', tenantId)
@@ -60,7 +63,7 @@ export async function POST(request: Request) {
           source_id: t.id,
           lines,
         })
-        await supabaseAdmin
+        await db
           .from('bank_transactions')
           .update({ coa_id: t.suggested_coa_id, status: 'posted', journal_entry_id: entryId })
           .eq('id', t.id)
@@ -68,7 +71,7 @@ export async function POST(request: Request) {
         // Bump pattern
         const pattern = normalizeDescription(t.description).slice(0, 64)
         if (pattern) {
-          const { data: existing } = await supabaseAdmin
+          const { data: existing } = await db
             .from('categorization_patterns')
             .select('id, hit_count')
             .eq('tenant_id', tenantId)
@@ -76,12 +79,12 @@ export async function POST(request: Request) {
             .eq('coa_id', t.suggested_coa_id)
             .maybeSingle()
           if (existing) {
-            await supabaseAdmin
+            await db
               .from('categorization_patterns')
               .update({ hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() })
               .eq('id', existing.id)
           } else {
-            await supabaseAdmin.from('categorization_patterns').insert({
+            await db.from('categorization_patterns').insert({
               tenant_id: tenantId, pattern, coa_id: t.suggested_coa_id, hit_count: 1,
             })
           }

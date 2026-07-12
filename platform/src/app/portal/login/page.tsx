@@ -45,7 +45,7 @@ export default function PortalLoginPage() {
     const res = await fetch('/api/portal/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'verify_code', phone, code }),
+      body: JSON.stringify({ action: 'verify_code', phone, code, tenant_slug: slug }),
     })
     const data = await res.json()
     if (!res.ok) {

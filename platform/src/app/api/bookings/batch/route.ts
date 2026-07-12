@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 import { sendEmail } from '@/lib/email'
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
   const { tenant, error: authError } = await requirePermission('bookings.create')
   if (authError) return authError
   const { tenantId } = tenant
+  const db = tenantDb(tenantId)
 
   const body = await request.json()
   const bookingInputs = body.bookings as Array<Record<string, unknown>> | undefined
@@ -53,8 +55,8 @@ export async function POST(request: Request) {
     }
   })
 
-  const { data, error } = await supabaseAdmin
-    .from('bookings')  // tenant-scope-ok: insert payload carries tenant_id (built above)
+  const { data, error } = await db
+    .from('bookings')  // tenantDb stamps tenant_id (rows already carry it — idempotent)
     .insert(rows)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 

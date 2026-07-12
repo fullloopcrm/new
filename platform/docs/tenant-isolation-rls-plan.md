@@ -59,6 +59,27 @@ begins enforcing for paths already migrated. No big-bang, no lockout.
 - Run against a **branch/sandbox DB first**, verify service_role still reads
   everything (proves inertness), then prod. Zero app impact.
 
+> **⚠️ NULL-tenant rows go invisible under this policy — flag for the leader (W2, p1-w2).**
+> `USING (tenant_id = (auth.jwt()->>'tenant_id')::uuid)` matches nothing when a
+> row's `tenant_id` is NULL, so once a table's paths run through the scoped
+> client, any pre-existing NULL-tenant rows **disappear from every tenant's
+> view** (only `service_role` still sees them) until they are backfilled.
+> This bites **`sms_conversation_messages`** hardest: app inserts historically
+> omitted `tenant_id` and leaned on the column DEFAULT (nycmaid) added by
+> `migrations/2026_05_09_tenant_id_core.sql`. As of p1-w2 every app insert now
+> stamps `tenant_id` derived from the parent conversation
+> (`src/lib/sms-messages.ts`), so **new** rows are correct — but:
+> 1. Confirm the Stage-0 backfill (`UPDATE … SET tenant_id = … WHERE tenant_id IS NULL`
+>    + `SET NOT NULL`) from `2026_05_09_tenant_id_core.sql` actually ran on this
+>    table in prod **before** flipping its call sites onto `tenantClient`, or
+>    historical messages vanish from the tenant UI.
+> 2. Separately, rows written pre-p1-w2 for **non-nycmaid** tenants were stamped
+>    as **nycmaid** by the DEFAULT (not NULL) — the policy would then expose them
+>    to nycmaid and hide them from their real tenant. A one-time reconciliation
+>    (re-derive `tenant_id` from `sms_conversations.tenant_id` via the
+>    `conversation_id` FK) is needed to correct existing rows. Prepare as a DB
+>    script FILE; **leader runs prod DDL after Jeff approves** — not run here.
+
 **Stage 2 — Scoped client helper**
 - `src/lib/tenant-supabase.ts` → `tenantClient(tenantId)`: supabase-js client
   whose auth token is a short-lived JWT `{ role:'authenticated', tenant_id }`

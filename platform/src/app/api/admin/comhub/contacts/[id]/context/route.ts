@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
@@ -10,9 +10,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const { id } = await ctx.params
 
-  const { data: contact, error: cErr } = await supabaseAdmin
+  const { data: contact, error: cErr } = await db
     .from('comhub_contacts')
     .select('id, name, phone, email, client_id, team_member_id')
     .eq('id', id)
@@ -25,7 +26,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   if (!clientId && contact.phone) {
     const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await supabaseAdmin
+    const { data: matched } = await db
       .from('clients')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -34,7 +35,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     if (matched && matched.length > 0) clientId = matched[0].id
   }
   if (!clientId && contact.email) {
-    const { data: matched } = await supabaseAdmin
+    const { data: matched } = await db
       .from('clients')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -44,7 +45,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   }
   if (!teamMemberId && contact.phone) {
     const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await supabaseAdmin
+    const { data: matched } = await db
       .from('team_members')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -53,7 +54,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     if (matched && matched.length > 0) teamMemberId = matched[0].id
   }
   if (!teamMemberId && contact.email) {
-    const { data: matched } = await supabaseAdmin
+    const { data: matched } = await db
       .from('team_members')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -63,7 +64,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   }
 
   if ((clientId && clientId !== contact.client_id) || (teamMemberId && teamMemberId !== contact.team_member_id)) {
-    await supabaseAdmin
+    await db
       .from('comhub_contacts')
       .update({
         client_id: clientId || contact.client_id,
@@ -81,13 +82,13 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   let outstandingCents = 0
 
   if (clientId) {
-    const { data: c } = await supabaseAdmin
+    const { data: c } = await db
       .from('clients')
       .select('id, name, email, phone, address, status, active, do_not_service, sms_consent, notes, created_at')
       .eq('id', clientId)
       .single()
     client = c
-    const { data: bks } = await supabaseAdmin
+    const { data: bks } = await db
       .from('bookings')
       .select('id, start_time, end_time, service_type, status, payment_status, hourly_rate, actual_hours, price, partial_payment_cents, team_member_id, team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
@@ -95,7 +96,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .order('start_time', { ascending: false })
       .limit(10)
     recentBookings = (bks || []) as Array<Record<string, unknown>>
-    const { count } = await supabaseAdmin
+    const { count } = await db
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
@@ -114,7 +115,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   }
 
   if (teamMemberId) {
-    const { data: tm } = await supabaseAdmin
+    const { data: tm } = await db
       .from('team_members')
       .select('id, name, email, phone, active, hourly_rate, avg_rating, rating_count, has_car, created_at')
       .eq('id', teamMemberId)

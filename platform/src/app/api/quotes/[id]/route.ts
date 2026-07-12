@@ -2,7 +2,7 @@
  * Quote by id — read, update (draft-only), delete.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { normalizeLineItems, computeTotals, logQuoteEvent } from '@/lib/quote'
 
@@ -11,8 +11,9 @@ type Params = { params: Promise<{ id: string }> }
 export async function GET(_request: Request, { params }: Params) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('quotes')
       .select('*, clients(id, name, email, phone, address)')
       .eq('tenant_id', tenantId)
@@ -21,7 +22,7 @@ export async function GET(_request: Request, { params }: Params) {
     if (error) throw error
     if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const { data: activity } = await supabaseAdmin
+    const { data: activity } = await db
       .from('quote_activity')
       .select('id, event_type, detail, created_at, ip_address, user_agent')
       .eq('quote_id', id)
@@ -39,10 +40,11 @@ export async function GET(_request: Request, { params }: Params) {
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('quotes')
       .select('status')
       .eq('tenant_id', tenantId)
@@ -62,7 +64,7 @@ export async function PATCH(request: Request, { params }: Params) {
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
     if ('line_items' in body || 'tax_rate_bps' in body || 'discount_cents' in body) {
-      const { data: current } = await supabaseAdmin
+      const { data: current } = await db
         .from('quotes')
         .select('line_items, tax_rate_bps, discount_cents')
         .eq('id', id)
@@ -87,7 +89,7 @@ export async function PATCH(request: Request, { params }: Params) {
       const dval = Math.max(0, Math.round(Number(body.deposit_value) || 0))
       let total = updates.total_cents as number | undefined
       if (total == null) {
-        const { data: c2 } = await supabaseAdmin.from('quotes').select('total_cents').eq('id', id).single()
+        const { data: c2 } = await db.from('quotes').select('total_cents').eq('id', id).single()
         total = Number(c2?.total_cents) || 0
       }
       updates.deposit_type = dtype
@@ -115,7 +117,7 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.fulfillment_type = body.fulfillment_type
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('quotes')
       .update(updates)
       .eq('tenant_id', tenantId)
@@ -145,8 +147,9 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('quotes')
       .select('status')
       .eq('tenant_id', tenantId)
@@ -156,7 +159,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     if (existing.status === 'accepted' || existing.status === 'converted') {
       return NextResponse.json({ error: 'Cannot delete accepted or converted quotes' }, { status: 400 })
     }
-    const { error } = await supabaseAdmin.from('quotes').delete().eq('tenant_id', tenantId).eq('id', id)
+    const { error } = await db.from('quotes').delete().eq('tenant_id', tenantId).eq('id', id)
     if (error) throw error
     return NextResponse.json({ ok: true })
   } catch (err) {

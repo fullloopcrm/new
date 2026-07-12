@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -89,6 +89,8 @@ export async function POST(request: Request) {
 
   try {
     const { tenantId } = tenant
+    // Auto-scoping wrapper: reads + inserts are forced to this tenant (P1 hardening).
+    const db = tenantDb(tenantId)
     const body = await request.json()
 
     if (!Array.isArray(body.clients)) {
@@ -114,10 +116,9 @@ export async function POST(request: Request) {
     }
 
     // Load existing clients for duplicate detection
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('clients')
       .select('email, phone')
-      .eq('tenant_id', tenantId)
 
     const existingEmails = new Set(
       (existing || []).map(c => c.email?.toLowerCase()).filter(Boolean) as string[]
@@ -154,7 +155,8 @@ export async function POST(request: Request) {
       if (email) existingEmails.add(email)
       if (phone.length >= 10) existingPhones.add(phone)
 
-      validRows.push({ ...result.data, tenant_id: tenantId, source: result.data.source || 'csv_import' })
+      // tenant_id is stamped by tenantDb on insert (below), not here.
+      validRows.push({ ...result.data, source: result.data.source || 'csv_import' })
     }
 
     let imported = 0
@@ -162,8 +164,8 @@ export async function POST(request: Request) {
       const batchSize = 200
       for (let i = 0; i < validRows.length; i += batchSize) {
         const batch = validRows.slice(i, i + batchSize)
-        const { data, error } = await supabaseAdmin
-          .from('clients')  // tenant-scope-ok: insert payload carries tenant_id (built above)
+        const { data, error } = await db
+          .from('clients')  // tenant_id stamped by tenantDb wrapper
           .insert(batch)
           .select('id')
 

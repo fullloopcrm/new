@@ -4,15 +4,17 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+// crew_members has NO tenant_id column (join table keyed by crew_id + team_member_id),
+// so it cannot be tenant-scoped by tenantDb and stays on supabaseAdmin.
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
-    const { data: crews, error } = await supabaseAdmin
+    const { data: crews, error } = await tenantDb(tenantId)
       .from('crews')
       .select('id, name, color, active, crew_members(team_member_id, team_members(id, name))')
-      .eq('tenant_id', tenantId)
       .order('name', { ascending: true })
     if (error) throw error
     type MemberRow = { team_member_id: string; team_members: { name: string | null } | { name: string | null }[] | null }
@@ -39,9 +41,9 @@ export async function POST(request: Request) {
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     const memberIds = Array.isArray(body.member_ids) ? (body.member_ids as string[]) : []
 
-    const { data: crew, error } = await supabaseAdmin
+    const { data: crew, error } = await tenantDb(tenantId)
       .from('crews')
-      .insert({ tenant_id: tenantId, name, color: (body.color as string) || null })
+      .insert({ name, color: (body.color as string) || null })
       .select('id')
       .single()
     if (error || !crew) throw error || new Error('insert failed')
@@ -67,7 +69,7 @@ export async function PATCH(request: Request) {
     if ('color' in body) patch.color = (body.color as string) || null
     if ('active' in body) patch.active = !!body.active
     if (Object.keys(patch).length) {
-      await supabaseAdmin.from('crews').update(patch).eq('id', id).eq('tenant_id', tenantId)
+      await tenantDb(tenantId).from('crews').update(patch).eq('id', id)
     }
     if (Array.isArray(body.member_ids)) {
       await setMembers(tenantId, id, body.member_ids as string[])
@@ -85,7 +87,7 @@ export async function DELETE(request: Request) {
     const { tenantId } = await getTenantForRequest()
     const id = new URL(request.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    await supabaseAdmin.from('crews').delete().eq('id', id).eq('tenant_id', tenantId)
+    await tenantDb(tenantId).from('crews').delete().eq('id', id)
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -95,6 +97,11 @@ export async function DELETE(request: Request) {
 }
 
 // Replace a crew's members with the given set (verified to belong to the tenant).
+// NOTE: crew_members has no tenant_id, so its delete/insert here are scoped only
+// by crew_id. The crew's tenant ownership is NOT re-verified in this helper — a
+// PATCH with another tenant's crew id would reach the delete. tenantDb cannot
+// close this (no tenant_id column); it needs a crew-ownership guard. Flagged to
+// LEADER (matches W1's "worth a closer human look" on crews).
 async function setMembers(tenantId: string, crewId: string, memberIds: string[]) {
   // SECURITY: re-verify the crew belongs to this tenant BEFORE mutating its
   // members. crew_members has no tenant_id column, so a bare
@@ -106,8 +113,8 @@ async function setMembers(tenantId: string, crewId: string, memberIds: string[])
   if (!owned) return
   await supabaseAdmin.from('crew_members').delete().eq('crew_id', crewId)
   if (memberIds.length === 0) return
-  const { data: valid } = await supabaseAdmin
-    .from('team_members').select('id').eq('tenant_id', tenantId).in('id', memberIds)
+  const { data: valid } = await tenantDb(tenantId)
+    .from('team_members').select('id').in('id', memberIds)
   const rows = (valid || []).map((m) => ({ crew_id: crewId, team_member_id: m.id }))
   if (rows.length) await supabaseAdmin.from('crew_members').insert(rows)
 }

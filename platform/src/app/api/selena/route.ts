@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena-legacy'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 const CHECKLIST_FIELDS = ['service_type', 'bedrooms', 'bathrooms', 'rate', 'day', 'time', 'name', 'phone', 'address', 'email']
 
 export async function GET(req: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { searchParams } = new URL(req.url)
     const convoId = searchParams.get('convoId')
     const since = searchParams.get('since')
@@ -22,7 +25,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ messages: messages || [] })
     }
 
-    let query = supabaseAdmin
+    let query = db
       .from('sms_conversations')
       .select('id, phone, name, client_id, state, created_at, updated_at, completed_at, expired, outcome, summary, booking_checklist, booking_id')
       .eq('tenant_id', tenantId)
@@ -76,7 +79,7 @@ export async function GET(req: NextRequest) {
       totalMessages += count || 0
     }
 
-    const { data: errorLog } = await supabaseAdmin
+    const { data: errorLog } = await db
       .from('notifications')
       .select('id, type, title, message, created_at')
       .eq('tenant_id', tenantId)
@@ -105,11 +108,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { conversationId } = await req.json()
     if (!conversationId) return NextResponse.json({ error: 'conversationId required' }, { status: 400 })
 
     // 1. Load the conversation (scoped to tenant)
-    const { data: convo } = await supabaseAdmin
+    const { data: convo } = await db
       .from('sms_conversations')
       .select('id, phone, client_id, booking_checklist, tenant_id')
       .eq('id', conversationId)
@@ -118,7 +122,7 @@ export async function POST(req: NextRequest) {
     if (!convo) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
 
     // 2. Expire the stuck conversation
-    await supabaseAdmin.from('sms_conversations').update({
+    await db.from('sms_conversations').update({
       expired: true,
       outcome: 'reset',
       summary: 'Admin reset — conversation was stuck',
@@ -144,7 +148,7 @@ export async function POST(req: NextRequest) {
         } catch {}
       }
 
-      const { data: newConvo } = await supabaseAdmin.from('sms_conversations')
+      const { data: newConvo } = await db.from('sms_conversations')
         .insert({ phone: cleanPhone, state: 'active', client_id: convo.client_id, booking_checklist: prefilled, tenant_id: tenantId })
         .select('id').single()
       newConvoId = newConvo?.id || null
@@ -167,11 +171,10 @@ export async function POST(req: NextRequest) {
 
         // Log the outbound
         if (newConvoId) {
-          await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-            conversation_id: newConvoId,
-            direction: 'outbound',
-            message: recoveryMsg,
-          })
+          await insertConversationMessage(
+            { conversation_id: newConvoId, direction: 'outbound', message: recoveryMsg },
+            { expectedTenantId: tenantId },
+          )
         }
       }
     }

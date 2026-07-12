@@ -2,8 +2,8 @@
  * Document signers — add/list. Draft only.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { generateSignerToken, isEditableStatus } from '@/lib/documents'
 
@@ -14,8 +14,9 @@ export async function GET(_request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('document_signers')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -34,11 +35,12 @@ export async function POST(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
     if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 })
 
-    const { data: doc } = await supabaseAdmin
+    const { data: doc } = await db
       .from('documents')
       .select('status')
       .eq('tenant_id', tenantId)
@@ -49,12 +51,13 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Cannot add signers to a sent document. Void first.' }, { status: 400 })
     }
 
-    const { count } = await supabaseAdmin
+    // count-by-document_id GAINS a tenant filter via tenantDb.
+    const { count } = await db
       .from('document_signers')
       .select('id', { count: 'exact', head: true })
       .eq('document_id', id)
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('document_signers')
       .insert({
         tenant_id: tenantId,

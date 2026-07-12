@@ -22,6 +22,7 @@ import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { randomInt } from 'crypto'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 interface CollectBody {
   name?: string
@@ -280,12 +281,10 @@ export async function POST(request: NextRequest) {
             }).catch((e) => console.error('[portal/collect] sms err:', e))
           }
 
-          await supabaseAdmin.from('sms_conversation_messages').insert({
-            conversation_id: convo_id,
-            tenant_id: tenant.id,
-            direction: 'outbound',
-            message: recapMsg,
-          }).then(() => {}, () => {})
+          await insertConversationMessage(
+            { conversation_id: convo_id, direction: 'outbound', message: recapMsg },
+            { expectedTenantId: tenant.id },
+          )
         }
       } catch (chatbotErr) {
         console.error('[portal/collect] chatbot handoff error:', chatbotErr)
