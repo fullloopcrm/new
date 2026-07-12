@@ -2,16 +2,15 @@
  * Quote templates — list + create. Tenant-scoped.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('quote_templates')
       .select('*')
-      .eq('tenant_id', tenantId)
       .eq('active', true)
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true })
@@ -28,10 +27,9 @@ export async function POST(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
     const body = await request.json()
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('quote_templates')
       .insert({
-        tenant_id: tenantId,
         name: body.name,
         industry: body.industry || null,
         title_template: body.title_template || null,
