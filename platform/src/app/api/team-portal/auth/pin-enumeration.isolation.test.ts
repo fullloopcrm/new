@@ -42,6 +42,11 @@ vi.mock('@/lib/supabase', () => {
         if (table === 'tenants') return { data: { id: 'tenant-1', name: 'T', phone: '+15550000000' }, error: null }
         return { data: null, error: null }
       },
+      maybeSingle: async () => {
+        // Every tenant slug resolves; every PIN is invalid → 401 (never a login).
+        if (table === 'tenants') return { data: { id: 'tenant-1', name: 'T', phone: '+15550000000' }, error: null }
+        return { data: null, error: null }
+      },
     }
     return c
   }

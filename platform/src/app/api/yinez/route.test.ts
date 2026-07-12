@@ -35,6 +35,7 @@ const h = vi.hoisted(() => {
       limit: () => builder,
       // clients returning-client lookup terminates here
       single: () => Promise.resolve({ data: null, error: null }),
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
       insert: (payload: Record<string, unknown>) => {
         if (table === 'sms_conversations') captured.convoInsert = payload
         // Supports both shapes: `.insert(x)` awaited directly (messages) and

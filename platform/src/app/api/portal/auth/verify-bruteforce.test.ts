@@ -47,6 +47,21 @@ vi.mock('@/lib/supabase', () => {
         }
         return { data: null, error: null }
       },
+      maybeSingle: async () => {
+        if (table === 'portal_auth_codes') {
+          // A real, unexpired code exists — but the attacker never guesses it.
+          return {
+            data: {
+              code: '000000',
+              tenant_id: 'tenant-1',
+              client_id: 'client-1',
+              expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+            },
+            error: null,
+          }
+        }
+        return { data: null, error: null }
+      },
     }
     return c
   }

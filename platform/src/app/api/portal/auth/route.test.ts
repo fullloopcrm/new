@@ -80,7 +80,7 @@ function builder(table: string) {
     order: () => chain,
     limit: () => chain,
     single: async () => resolveSingle(table, eqs),
-  }
+    maybeSingle:,  }
   return chain
 }
 

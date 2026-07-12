@@ -65,6 +65,22 @@ vi.mock('@/lib/supabase', () => {
         if (table === 'tenants') return { data: { id: 'tenant-1', name: 'Real Tenant' }, error: null }
         return { data: null, error: null }
       },
+      maybeSingle: async () => {
+        if (table === 'portal_auth_codes') {
+          return {
+            data: {
+              code: STORED_CODE,
+              tenant_id: 'tenant-1',
+              client_id: 'client-1',
+              expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+            },
+            error: null,
+          }
+        }
+        if (table === 'clients') return { data: { id: 'client-1', name: 'Real Client' }, error: null }
+        if (table === 'tenants') return { data: { id: 'tenant-1', name: 'Real Tenant' }, error: null }
+        return { data: null, error: null }
+      },
     }
     return c
   }

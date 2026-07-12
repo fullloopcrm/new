@@ -39,12 +39,12 @@ const h = vi.hoisted(() => {
       ilike: () => builder,
       limit: () => builder,
       single: () => Promise.resolve({ data: null, error: null }),
-      insert: (payload: Record<string, unknown>) => {
+      maybeSingle:,      insert: (payload: Record<string, unknown>) => {
         if (table === 'sms_conversations') captured.convoInsert = payload
         return {
           select: () => ({
             single: () => Promise.resolve({ data: { id: 'convo-1' }, error: null }),
-          }),
+            maybeSingle:,          }),
           then: (resolve: (v: unknown) => unknown) => resolve({ data: null, error: null }),
         }
       },
