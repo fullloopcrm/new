@@ -4,6 +4,7 @@ import { EMPTY_CHECKLIST } from '@/lib/selena/core'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/nycmaid/notify'
 import { scoreConversation, selfReviewConversation } from '@/lib/nycmaid/conversation-scorer'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 export const maxDuration = 60
 
@@ -65,9 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Log inbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      conversation_id: conversationId, direction: 'inbound', message,
-    })
+    await insertConversationMessage({ conversation_id: conversationId, direction: 'inbound', message })
 
     const result = await askSelena('web', message, conversationId, phone || undefined)
     // No canned dead-end. Empty reply surfaces as "no response" to the widget,
@@ -75,7 +74,7 @@ export async function POST(req: NextRequest) {
     const reply = result.text || ''
 
     // Log outbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
+    await insertConversationMessage({
       conversation_id: conversationId, direction: 'outbound', message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
     })
 

@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 export const maxDuration = 60
 
@@ -114,10 +115,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
     return NextResponse.json({ ok: true, error: 'convo_lookup_threw' })
   }
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-    .insert({ conversation_id: convoId, direction: 'inbound', message: text })
-    .then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: convoId, direction: 'inbound', message: text },
+    { expectedTenantId: tenant.id },
+  )
 
   let reply = ''
   try {
@@ -133,10 +134,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
     reply = `[agent error] ${errMsg.slice(0, 400)}`
   }
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-    .insert({ conversation_id: convoId, direction: 'outbound', message: reply })
-    .then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: convoId, direction: 'outbound', message: reply },
+    { expectedTenantId: tenant.id },
+  )
 
   const send = await sendTelegram(chatId, reply, botToken)
   if (!send.ok) {

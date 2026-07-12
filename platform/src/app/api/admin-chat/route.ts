@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { askSelena } from '@/lib/selena/agent'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 export const maxDuration = 60
 
@@ -67,18 +68,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-    .insert({ conversation_id: sessionId, direction: 'inbound', message })
-    .then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: sessionId, direction: 'inbound', message },
+    { expectedTenantId: tenant.tenantId },
+  )
 
   const result = await askSelena('web', message, sessionId, ownerPhone)
   const reply = result.text || '(no reply)'
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-    .insert({ conversation_id: sessionId, direction: 'outbound', message: reply })
-    .then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: sessionId, direction: 'outbound', message: reply },
+    { expectedTenantId: tenant.tenantId },
+  )
 
   return NextResponse.json({ reply, sessionId, toolsCalled: result.toolsCalled })
 }

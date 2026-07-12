@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies } from '@/lib/selena-legacy'
 import { askSelena as askYinez } from '@/lib/selena/agent'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 export const maxDuration = 60
 
@@ -76,9 +76,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Log inbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      conversation_id: conversationId, direction: 'inbound', message,
-    })
+    await insertConversationMessage(
+      { conversation_id: conversationId, direction: 'inbound', message },
+      { expectedTenantId: tenantId },
+    )
 
     // NYC Maid runs the REAL Yinez agent (src/lib/selena/agent) — warm voice,
     // self-book redirect, memory/skills. Other tenants stay on the legacy
@@ -99,10 +100,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Log outbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      conversation_id: conversationId, direction: 'outbound',
-      message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
-    })
+    await insertConversationMessage(
+      {
+        conversation_id: conversationId, direction: 'outbound',
+        message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
+      },
+      { expectedTenantId: tenantId },
+    )
 
     // Booking notification
     if (bookingCreated) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 export const maxDuration = 60
 
@@ -111,10 +112,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, error: 'convo_lookup_threw' })
   }
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-    .insert({ conversation_id: convoId, direction: 'inbound', message: text })
-    .then(() => {}, () => {})
+  await insertConversationMessage({ conversation_id: convoId, direction: 'inbound', message: text })
 
   // Run Yinez with full error visibility
   let reply = ''
@@ -131,10 +129,7 @@ export async function POST(req: Request) {
     reply = `[yinez error] ${errMsg.slice(0, 500)}`
   }
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-    .insert({ conversation_id: convoId, direction: 'outbound', message: reply })
-    .then(() => {}, () => {})
+  await insertConversationMessage({ conversation_id: convoId, direction: 'outbound', message: reply })
 
   const send = await sendTelegram(chatId, reply)
   if (!send.ok) {

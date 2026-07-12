@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 // GET /api/sms
 // ?conversation_id=X  → messages for that conversation
@@ -125,15 +126,10 @@ export async function POST(request: NextRequest) {
 
     // Insert outbound message
     const now = new Date().toISOString()
-    const { data: msg, error: msgError } = await supabaseAdmin
-      .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      .insert({
-        conversation_id: convoId,
-        direction: 'outbound',
-        message,
-      })
-      .select()
-      .single()
+    const { data: msg, error: msgError } = await insertConversationMessage(
+      { conversation_id: convoId, direction: 'outbound', message },
+      { expectedTenantId: tenantId, returnRow: true },
+    )
 
     if (msgError) {
       return NextResponse.json({ error: msgError.message }, { status: 500 })

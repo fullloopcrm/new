@@ -7,6 +7,7 @@ import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 export const maxDuration = 60
 
@@ -616,11 +617,10 @@ export async function POST(request: Request) {
               convo = newConvo
 
               // Log inbound message to conversation
-              await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-                conversation_id: convo.id,
-                direction: 'inbound',
-                message: text,
-              })
+              await insertConversationMessage(
+                { conversation_id: convo.id, direction: 'inbound', message: text },
+                { expectedTenantId: tenantId },
+              )
 
               // Send greeting
               const firstName = clientName?.split(' ')[0]
@@ -631,11 +631,10 @@ export async function POST(request: Request) {
               await sendSMS({ to: from, body: greeting, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
 
               // Log outbound greeting
-              await supabaseAdmin.from('sms_conversation_messages').insert({
-                conversation_id: convo.id,
-                direction: 'outbound',
-                message: greeting,
-              })
+              await insertConversationMessage(
+                { conversation_id: convo.id, direction: 'outbound', message: greeting },
+                { expectedTenantId: tenantId },
+              )
 
               // Log to client transcript if client exists
               if (client) {
@@ -652,11 +651,10 @@ export async function POST(request: Request) {
           }
 
           // Ongoing conversation — log inbound and route to AI
-          await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-            conversation_id: convo.id,
-            direction: 'inbound',
-            message: text,
-          })
+          await insertConversationMessage(
+            { conversation_id: convo.id, direction: 'inbound', message: text },
+            { expectedTenantId: tenantId },
+          )
 
           // NYC Maid runs the REAL Yinez agent (warm voice, self-book redirect,
           // memory/skills). Other tenants stay on the legacy engine. Pass the
@@ -680,11 +678,10 @@ export async function POST(request: Request) {
             })
 
             // Log outbound to conversation
-            await supabaseAdmin.from('sms_conversation_messages').insert({
-              conversation_id: convo.id,
-              direction: 'outbound',
-              message: aiResult.text,
-            })
+            await insertConversationMessage(
+              { conversation_id: convo.id, direction: 'outbound', message: aiResult.text },
+              { expectedTenantId: tenantId },
+            )
 
             // Log to client transcript
             const clientId = client?.id || convo.client_id
