@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
 
@@ -11,6 +12,7 @@ export async function GET(
   if (authError) return authError
 
   const { id } = await params
+  const db = tenantDb(id)
 
   const [
     { data: tenant },
@@ -20,10 +22,10 @@ export async function GET(
     { count: team_members },
   ] = await Promise.all([
     supabaseAdmin.from('tenants').select('*').eq('id', id).single(),
-    supabaseAdmin.from('tenant_members').select('*').eq('tenant_id', id),
-    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', id),
-    supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', id),
-    supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', id),
+    db.from('tenant_members').select('*'),
+    db.from('clients').select('id', { count: 'exact', head: true }),
+    db.from('bookings').select('id', { count: 'exact', head: true }),
+    db.from('team_members').select('id', { count: 'exact', head: true }),
   ])
 
   if (!tenant) {
@@ -31,10 +33,9 @@ export async function GET(
   }
 
   // Revenue for this tenant
-  const { data: revenueData } = await supabaseAdmin
+  const { data: revenueData } = await db
     .from('bookings')
     .select('final_price')
-    .eq('tenant_id', id)
     .in('status', ['paid', 'completed'])
 
   const revenue = (revenueData || []).reduce((sum, b) => sum + (b.final_price || 0), 0)

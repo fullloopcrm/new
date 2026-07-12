@@ -7,7 +7,7 @@
  *   DELETE ?user_id=UUID
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { hashAdminPin, generateAdminPin } from '@/lib/admin-pin'
 
@@ -18,10 +18,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (authError) return authError
   const { id } = await params
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(id)
     .from('tenant_members')
     .select('id, email, name, role, clerk_user_id, phone, created_at, pin_hash, pin_set_at, pin_last_login')
-    .eq('tenant_id', id)
     .order('created_at', { ascending: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -42,20 +41,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { name, role, email, phone } = await request.json().catch(() => ({}))
   if (!name || typeof name !== 'string') return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   const memberRole = VALID_ROLES.includes(role) ? role : 'staff'
+  const db = tenantDb(id)
 
   let pin = generateAdminPin()
   for (let i = 0; i < 5; i++) {
-    const { data: clash } = await supabaseAdmin
+    const { data: clash } = await db
       .from('tenant_members').select('id')
-      .eq('tenant_id', id).eq('pin_hash', hashAdminPin(pin)).maybeSingle()
+      .eq('pin_hash', hashAdminPin(pin)).maybeSingle()
     if (!clash) break
     pin = generateAdminPin()
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('tenant_members')
     .insert({
-      tenant_id: id, name: name.trim(), role: memberRole,
+      name: name.trim(), role: memberRole,
       email: email ? String(email).trim().toLowerCase() : null,
       phone: phone ? String(phone).trim() : null,
       pin_hash: hashAdminPin(pin), pin_set_at: new Date().toISOString(),
@@ -75,8 +75,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const userId = new URL(request.url).searchParams.get('user_id')
   if (!userId) return NextResponse.json({ error: 'user_id required' }, { status: 400 })
 
-  const { error } = await supabaseAdmin
-    .from('tenant_members').delete().eq('tenant_id', id).eq('id', userId)
+  const { error } = await tenantDb(id)
+    .from('tenant_members').delete().eq('id', userId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

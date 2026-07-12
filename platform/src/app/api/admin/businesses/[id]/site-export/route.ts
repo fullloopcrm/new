@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { exportSiteToZip } from '@/lib/site-export'
 
@@ -23,10 +23,9 @@ export async function GET(
 
   // Resolve the tenant's primary public domain. Prefer the primary flag, else
   // the first active domain. (tenant_domains uses is_primary in prod.)
-  const { data: domains } = await supabaseAdmin
+  const { data: domains } = await tenantDb(id)
     .from('tenant_domains')
     .select('domain, is_primary')
-    .eq('tenant_id', id)
     .eq('active', true)
 
   const primary =
