@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { parseTimestamp } from '@/lib/dates'
 import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
@@ -22,12 +22,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
   }
 
+  // tenantDb auto-scopes every query to auth.tid (the tenant HMAC-bound in the
+  // portal token). SELECT/UPDATE/INSERT are tenant-filtered/stamped automatically.
+  const db = tenantDb(auth.tid)
+
   // Get booking with check-in time + the fields needed to compute the bill.
-  const { data: booking } = await supabaseAdmin
+  const { data: booking } = await db
     .from('bookings')
     .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
     .eq('id', booking_id)
-    .eq('tenant_id', auth.tid)
     .single()
 
   if (!booking || booking.team_member_id !== auth.id) {
@@ -41,11 +44,10 @@ export async function POST(request: Request) {
   let servicePriceCents: number | null = null
   let minChargeCents: number | null = null
   if (booking.service_type_id) {
-    const { data: st } = await supabaseAdmin
+    const { data: st } = await db
       .from('service_types')
       .select('pricing_model, price_cents, min_charge_cents')
       .eq('id', booking.service_type_id as string)
-      .eq('tenant_id', auth.tid)
       .single()
     if (st) {
       pricingModel = (st.pricing_model as string) || 'hourly'
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('bookings')
     .update({
       check_out_time: checkOutTime.toISOString(),
@@ -120,18 +122,16 @@ export async function POST(request: Request) {
   // ledger their cut on completion. Idempotent via UNIQUE(booking_id); a no-op
   // when there's no referrer. (Referrer-notification email not ported — flagged.)
   if (booking.referrer_id && updatedPriceCents && updatedPriceCents > 0) {
-    const { data: ref } = await supabaseAdmin
+    const { data: ref } = await db
       .from('referrers')
       .select('id, commission_rate, total_earned, email, name')
       .eq('id', booking.referrer_id as string)
-      .eq('tenant_id', auth.tid)
       .single()
     if (ref) {
       const rate = Number(ref.commission_rate) || 0.10
       const commissionCents = Math.round(updatedPriceCents * rate)
       const clientName = (booking.clients as unknown as { name?: string } | null)?.name || null
-      const { error: commErr } = await supabaseAdmin.from('referral_commissions').insert({
-        tenant_id: auth.tid,
+      const { error: commErr } = await db.from('referral_commissions').insert({
         booking_id: booking.id,
         referrer_id: ref.id,
         client_name: clientName,
@@ -143,13 +143,12 @@ export async function POST(request: Request) {
       // commErr is expected (and ignored) when a commission already exists for
       // this booking — the UNIQUE(booking_id) constraint makes re-checkout safe.
       if (!commErr) {
-        await supabaseAdmin
+        await db
           .from('referrers')
           .update({ total_earned: (ref.total_earned || 0) + commissionCents })
           .eq('id', ref.id)
           .then(() => {}, () => {})
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: auth.tid,
+        await db.from('notifications').insert({
           type: 'referral_converted',
           title: 'Referral commission',
           message: `Referrer earned $${(commissionCents / 100).toFixed(2)} on ${clientName || 'a'} booking`,
@@ -211,10 +210,10 @@ export async function POST(request: Request) {
         if (coords) {
           const dist = calculateDistance(lat, lng, coords.lat, coords.lng)
           if (dist > MAX_DISTANCE_MILES) {
-            await supabaseAdmin
+            await db
               .from('bookings')
               .update({ notes: ((data as { notes?: string | null }).notes || '') + `\n\n[GPS check-out flagged: ${dist.toFixed(2)} mi from address]` })
-              .eq('id', data.id).eq('tenant_id', auth.tid)
+              .eq('id', data.id)
               .then(() => {}, () => {})
             nmSmsAdmins(`GPS MISMATCH on checkout: ${clientName} — ${dist.toFixed(2)} mi from the job address.`).catch(() => {})
           }

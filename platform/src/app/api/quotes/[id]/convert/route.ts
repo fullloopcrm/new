@@ -4,7 +4,7 @@
  * Idempotent — re-calling returns the existing booking.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { logQuoteEvent } from '@/lib/quote'
 
@@ -15,11 +15,13 @@ export async function POST(request: Request, { params }: Params) {
     const { tenantId } = await getTenantForRequest()
     const { id } = await params
     const body = await request.json().catch(() => ({}))
+    // tenantDb auto-scopes every query to the authenticated owner's tenant;
+    // update-by-id below GAINS a tenant_id filter it previously lacked.
+    const db = tenantDb(tenantId)
 
-    const { data: quote, error: qErr } = await supabaseAdmin
+    const { data: quote, error: qErr } = await db
       .from('quotes')
       .select('*')
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
     if (qErr || !quote) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -37,20 +39,18 @@ export async function POST(request: Request, { params }: Params) {
     let clientId = quote.client_id as string | null
     if (!clientId) {
       const existing = quote.contact_email
-        ? await supabaseAdmin
+        ? await db
             .from('clients')
             .select('id')
-            .eq('tenant_id', tenantId)
             .eq('email', quote.contact_email)
             .maybeSingle()
         : { data: null }
       if (existing.data?.id) {
         clientId = existing.data.id
       } else {
-        const { data: newClient, error: cErr } = await supabaseAdmin
+        const { data: newClient, error: cErr } = await db
           .from('clients')
           .insert({
-            tenant_id: tenantId,
             name: quote.contact_name || quote.title || 'Quote Client',
             email: quote.contact_email || null,
             phone: quote.contact_phone || null,
@@ -63,7 +63,7 @@ export async function POST(request: Request, { params }: Params) {
         if (cErr) throw cErr
         clientId = newClient.id
       }
-      await supabaseAdmin.from('quotes').update({ client_id: clientId }).eq('id', id)
+      await db.from('quotes').update({ client_id: clientId }).eq('id', id)
     }
 
     // bookings.start_time is NOT NULL. If no time is given, place a 'pending'
@@ -79,10 +79,9 @@ export async function POST(request: Request, { params }: Params) {
       bkStatus = 'pending'
     }
 
-    const { data: booking, error: bErr } = await supabaseAdmin
+    const { data: booking, error: bErr } = await db
       .from('bookings')
       .insert({
-        tenant_id: tenantId,
         client_id: clientId,
         start_time: startTime,
         end_time: endTime,
@@ -95,7 +94,7 @@ export async function POST(request: Request, { params }: Params) {
       .single()
     if (bErr) throw bErr
 
-    await supabaseAdmin
+    await db
       .from('quotes')
       .update({
         status: 'converted',
