@@ -28,7 +28,9 @@ The "claim" is nothing more than **advancing a process-local variable `OFF`.** I
 
 **Two failure modes, one root:**
 
-1. **Duplicate drivers (observed live).** On 2026-07-12, `pgrep -fl worker-driver` showed *two* `bash .../.worker-driver.sh` PIDs for W1, W3, and W5 simultaneously. Each has its own `OFF`. When a `LEADER->W3:` line lands, **both** W3 drivers see it, both advance their own `OFF`, both spawn `claude -p` for the same order → the order runs twice. For a `LEADER->ALL:` line, every duplicated worker double-runs. This is the "offset-race."
+1. **Duplicate drivers (structural risk — NOT currently live).** If two `bash .../.worker-driver.sh` processes ever coexist for one worker, each has its own `OFF`. When a `LEADER->W3:` line lands, **both** W3 drivers see it, both advance their own `OFF`, both spawn `claude -p` for the same order → the order runs twice. For a `LEADER->ALL:` line, every duplicated worker double-runs. This is the "offset-race."
+
+   **Correction (LEADER, 2026-07-12):** an earlier note here claimed live double-execution because `pgrep -fl worker-driver` showed *two* PIDs for W1/W3/W5. That was a **false positive** — the 2nd PID per worker is the driver's own transient work-subshell (a child, `PPID` = the driver), not a second driver. DRY/idle workers drop to 1 PID; busy workers show 2. So there is **no active double-run today.** The offset-race remains a real *structural* vulnerability (it would fire the instant a genuine second driver appears — cron re-launch, crash-respawn overlap, manual double-start), which is why the fix below still stands. Only the "duplicates are running right now" claim is retracted.
 
 2. **Overlapping invocations of one order.** Even with a single driver, a `claude -p` run can take minutes. If a second driver (from cron re-launch) starts during that window, it reprocesses everything after *its* fresh `OFF` — which includes the still-in-flight order.
 
@@ -57,7 +59,7 @@ fi
 
 - `flock -n` is non-blocking: the second driver fails fast and exits, so cron re-launches are harmless.
 - The lock is released by the kernel when the holder dies (crash-safe — no stale lockfile to clean).
-- **This alone eliminates the observed double-run**, because both failure modes require ≥2 drivers per worker.
+- **This alone eliminates the double-run failure mode**, because both failure modes require ≥2 drivers per worker — the lock guarantees at most one.
 
 macOS note: `flock(1)` is not part of the base OS. Options: install `util-linux`/`flock` via Homebrew, or use the `/usr/bin/shlock` idiom, or an atomic-mkdir lock (below). The mkdir approach needs no extra binary.
 
@@ -116,9 +118,9 @@ printf 'done=%s\n' "$(date +%s)" >> "$CLAIM"
 
 ## 4. Recommendation
 
-1. **Ship Layer A (singleton lock) first.** It is ~6 lines, crash-safe with `flock`, and directly kills the observed duplicate-driver double-run. Prefer `flock` if the binary is available; otherwise the atomic-`mkdir` variant (no dependency).
+1. **Ship Layer A (singleton lock) first.** It is ~6 lines, crash-safe with `flock`, and closes the structural offset-race by guaranteeing at most one driver per worker. Prefer `flock` if the binary is available; otherwise the atomic-`mkdir` variant (no dependency).
 2. **Add Layer B (claim ledger) as hardening** so that even a rogue second process can never execute the same order twice. Keys are content+offset derived, so `LEADER->ALL` lines are claimed per-worker.
-3. Clear the existing duplicate drivers **once, by hand** (or via `fleet-supervisor.sh --reap`) before landing the lock, so every worker starts from a clean 1-driver baseline.
+3. No live duplicate drivers need clearing first (the earlier "two PIDs" reading was a transient work-subshell, not a second driver — see §1 correction). Confirm a clean 1-driver-per-worker baseline (`pgrep -fl worker-driver` on idle workers → 1 PID each) before landing the lock; `fleet-supervisor.sh --reap` remains available only if a genuine duplicate ever appears.
 
 ## 5. Interaction with other Q items
 

@@ -20,7 +20,9 @@ Logs to `/tmp/fleet-supervisor.log`. Backoff state lives in `/tmp/fleet-supervis
 
 ## Why it is deliberately timid
 
-As of 2026-07-12, `pgrep -fl worker-driver` showed **two** driver PIDs for several workers at once (W1: 27879+29642, W3: 17343+29626, W5: 24095+29664). That is the live **offset-race double-run** bug (see `atomic-queue-claim-design.md`). A supervisor that blindly respawns can never *create* a duplicate, but it must not pretend the existing duplicates are healthy either — so it warns, and only reaps on an explicit flag. **The correct permanent fix is a singleton lock inside the driver, not this supervisor.** This script is a stopgap that keeps a *crashed* worker alive; it does not fix the duplication root cause.
+**Correction (LEADER, 2026-07-12):** an earlier version of this note read the "two PIDs per worker" from `pgrep -fl worker-driver` as live duplicate drivers. That was a **false positive** — the 2nd PID is the driver's own transient work-subshell (a child, `PPID` = the driver), not a second driver. DRY/idle workers show 1 PID; busy workers show 2. So there are **no live duplicate drivers**, and the supervisor's `>1` WARN path is guarding against a *structural* possibility (a genuine second driver from cron re-launch / crash-respawn overlap), not something happening right now. The real bug is the **offset-race** — latent, not active — whose permanent fix is a singleton lock inside the driver (see `atomic-queue-claim-design.md`), **not** this supervisor. This script is a stopgap that keeps a *crashed* worker alive; it does not fix the offset-race root cause.
+
+Because the two-PID reading was a subshell (not a duplicate), the supervisor must be careful **not** to WARN on a worker's transient work-subshell. The pgrep pattern must match only the driver process itself (anchored on the driver script path), not its children, or every busy worker would trip a false duplicate WARN. Flag for the `--reap` path especially: never reap a child work-subshell mistaking it for a duplicate driver.
 
 ## How to run (when Jeff clears it)
 
