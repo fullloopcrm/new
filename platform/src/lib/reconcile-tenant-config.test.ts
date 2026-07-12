@@ -103,6 +103,43 @@ describe('computeFindings — mismatch (2026-07-10 silent mis-route class)', () 
   })
 })
 
+describe('computeFindings — second mismatch (Drift F: one domain, two tenants)', () => {
+  it('red-gates a CRIT when the SAME domain is claimed by more than one tenant', () => {
+    // Two tenants both point at shared-domain.com. Whichever the resolver
+    // matches first wins and the other silently serves the wrong tenant's site —
+    // a distinct mis-route class from Drift G, and the collision detector
+    // (domainClaims) is otherwise unexercised. Neither is bespoke and neither
+    // has a folder, so Drift F is the ONLY CRIT; the two Drift-E "no folder"
+    // notices are INFO and must not gate.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'alpha-site', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'beta-site', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(), // neither bespoke → no Drift C/D/G noise
+      hasHome: neverHome, // no folder → isolates Drift F from folder-based CRITs
+      resolvableSlugs: null, // skip Drift L
+    })
+
+    const crit = findings.find((f) => f.sev === 'CRIT')
+    expect(crit).toBeDefined()
+    expect(crit!.msg).toContain('claimed by MULTIPLE tenants')
+    expect(crit!.slug).toContain('alpha')
+    expect(crit!.slug).toContain('beta')
+
+    const { counts, gatingCrit } = summarize(findings)
+    expect(counts.CRIT).toBe(1) // exactly the collision, no other CRIT
+    expect(gatingCrit).toBe(1) // the double-claim MUST fail CI
+  })
+})
+
 describe('computeFindings — orphan gate (Drift L known-pending exemption)', () => {
   it('reports both orphans but only the non-pending one gates CI', () => {
     // No tenants rows resolve either slug; both are bespoke-routed phantoms.
