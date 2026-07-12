@@ -2,16 +2,16 @@
  * Recurring expenses (rent, insurance, software subs, etc.)
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
-    const { data, error } = await supabaseAdmin
+    const db = tenantDb(tenantId)
+    const { data, error } = await db
       .from('recurring_expenses')
       .select('*')
-      .eq('tenant_id', tenantId)
       .eq('active', true)
       .order('next_due_date', { ascending: true, nullsFirst: false })
     if (error) throw error
@@ -30,10 +30,10 @@ export async function POST(request: Request) {
     if (!body.label || !body.amount_cents || !body.frequency) {
       return NextResponse.json({ error: 'label, amount_cents, frequency required' }, { status: 400 })
     }
-    const { data, error } = await supabaseAdmin
+    const db = tenantDb(tenantId)
+    const { data, error } = await db
       .from('recurring_expenses')
       .insert({
-        tenant_id: tenantId,
         label: body.label,
         category: body.category || null,
         amount_cents: Number(body.amount_cents),
