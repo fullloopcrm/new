@@ -3,7 +3,7 @@
 **Status:** file-only audit / no route converted by this doc
 **Author:** W2 (resolver + tenant-isolation lane)
 **Date:** 2026-07-12
-**Worktree:** `p1-w2` @ `6b8a133d` (counts regenerated against this tree)
+**Worktree:** `p1-w2` @ `bdd9c1c7` (counts regenerated against this tree)
 **Maps:** `tenantdb-rollout-plan.md` (order + §5 exceptions) · `tenantdb-conversion-batch-plan.md` (next 20) · `tenantdb-triage.md`
 
 ---
@@ -19,22 +19,22 @@ UNCONV=$(comm -23 <(echo "$ALL") <(echo "$CONV"))
 
 ---
 
-## 2. Current counts (tip `6b8a133d`)
+## 2. Current counts (tip `bdd9c1c7`)
 
 | Bucket | Count |
 |---|---:|
 | **Total** API `route.ts` | **498** |
-| **Converted** (use `tenantDb`) | **58** |
-| ├─ with a `*.isolation.test.ts` probe | **58** |
+| **Converted** (use `tenantDb`) | **61** |
+| ├─ with a `*.isolation.test.ts` probe | **61** |
 | └─ **without** a probe (coverage gap → §4) | **0** |
-| **Unconverted** | **440** |
-| ├─ touch DB via `supabaseAdmin` | 381 |
+| **Unconverted** | **437** |
+| ├─ touch DB via `supabaseAdmin` | 378 |
 | │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~134 |
 | │  ├─ EASY: tenant in hand via `requirePermission` only | 35 |
 | │  └─ HARD: derive tenant elsewhere (cron/webhook/portal/public/admin-token) | 213 |
 | └─ no direct `supabaseAdmin` (no tenant-table DB → NO-OP tier) | 65 |
 
-> **Probe coverage is now 100% of converted routes (58/58, 0 gap).** Every
+> **Probe coverage is now 100% of converted routes (61/61, 0 gap).** Every
 > `tenantDb` route ships a co-located `*.isolation.test.ts` wrong-tenant probe.
 > The EASY-unconverted sub-counts above are approximate — regenerate per §1 before
 > relying on them (each conversion moves a route from EASY into Converted).
@@ -83,6 +83,16 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
 > `deals/at-risk` reads clients/bookings/deals and its POST updates `clients`
 > scoped by tenantDb (foreign client_id matches no row). No FK-injection, no
 > Storage/cross-tenant tables. Commits `c0df3b45`, `f1d239ea`, `6b8a133d`.
+>
+> **Batch-5 trio landed (this session):** `catalog` (GET/POST/PATCH/DELETE),
+> `team` (GET/POST), `settings/services/[id]` (PUT/DELETE) — routes 59–61 below,
+> one commit each, each with an isolation probe. All EASY single-table, no embed,
+> no caller FK: `catalog` + `settings/services/[id]` are CRUD over `service_types`
+> (completing that table's family alongside the converted `settings/services`
+> list); `team` reads/inserts `team_members` (whitelist fields + generated pin,
+> tenant_id stamped). update/delete-by-id paths rely on tenantDb's injected
+> `.eq('tenant_id')` so a foreign id is a no-op. No FK-injection, no
+> Storage/cross-tenant tables. Commits `091b6216`, `3bc5d564`, `bdd9c1c7`.
 
 ```
  1 admin/comhub/contacts/[id]/context        24 finance/bank-transactions
@@ -120,11 +130,15 @@ DB routes that are near-mechanical swaps. HARD is therefore `396 − 183 = 213`.
                                              56 jobs
                                              57 settings/services
                                              58 deals/at-risk
+                                             59 catalog
+                                             60 team
+                                             61 settings/services/[id]
 ```
 
 > Rows 47–49 (CLIENTS trio), 50–52 (finance READ trio), 53–55 (READ trio:
-> `clients/analytics`, `bookings/stats`, `pipeline`) and 56–58 (Batch-4 trio:
-> `jobs`, `settings/services`, `deals/at-risk`) are appended in insertion order,
+> `clients/analytics`, `bookings/stats`, `pipeline`), 56–58 (Batch-4 trio:
+> `jobs`, `settings/services`, `deals/at-risk`) and 59–61 (Batch-5 trio:
+> `catalog`, `team`, `settings/services/[id]`) are appended in insertion order,
 > not merged into the alphabetized 1–46 grid above.
 
 ---
@@ -226,6 +240,17 @@ top-level tenant-scoped table each, no FK-injection. Full suite **389 passed /
 low-risk routes over single tenant-scoped tables, no FK-injection (POSTs stamp
 tenant_id / scope updates via tenantDb). Full suite **395 passed / 37 skipped**
 after (`tsc --noEmit` clean). Commits `c0df3b45`, `f1d239ea`, `6b8a133d`.
+
+**Batch-5 trio DONE this session** (leader QUEUE 3-DEEP, file-only, non-gated):
+`catalog` (GET/POST/PATCH/DELETE), `team` (GET/POST), `settings/services/[id]`
+(PUT/DELETE) — EASY single-table routes, no embed, no FK-injection (`catalog` +
+`settings/services/[id]` are CRUD over `service_types`; `team` over
+`team_members`, whitelist fields + generated pin). Full suite **405 passed / 37
+skipped** after (`tsc --noEmit` clean). Commits `091b6216`, `3bc5d564`,
+`bdd9c1c7`. Also verified: the `/api/client/smart-schedule` fallback-picker
+`.eq('active',true)` bug was already fixed + regression-tested in commit
+`20eb27ca` (`.neq('status','inactive')` to match the scored path) — no new work
+needed; both tests pass.
 
 > **~~Noticed~~ FIXED this session (commit `3ffbe355`):** `pipeline/route.ts`
 > grouped deals into `byStage`, initialized only for the 6 real `PIPELINE_STAGES`
