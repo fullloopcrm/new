@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -20,15 +20,15 @@ export async function PATCH(
 ) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
     const { status } = await request.json()
 
     // Get current booking
-    const { data: booking } = await supabaseAdmin
+    const { data: booking } = await db
       .from('bookings')
       .select('status')
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .single()
 
     if (!booking) {
@@ -43,11 +43,10 @@ export async function PATCH(
       )
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('bookings')
       .update({ status })
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -66,10 +65,9 @@ export async function PATCH(
       : null
     if (dealStage) {
       try {
-        await supabaseAdmin
+        await db
           .from('deals')
           .update({ stage: dealStage })
-          .eq('tenant_id', tenantId)
           .eq('booking_id', id)
           .eq('mode', 'booking')
       } catch (dealErr) {
