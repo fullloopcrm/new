@@ -36,9 +36,22 @@ export function tenantDb(tenantId: string) {
     from(table: string) {
       const base = supabaseAdmin.from(table)
       return {
-        /** SELECT auto-filtered to this tenant. */
+        /**
+         * SELECT auto-filtered to this tenant.
+         *
+         * `columns` is cast to `'*'` for TYPING ONLY — the real column string is
+         * still passed to PostgREST at runtime. Two reasons this is deliberate:
+         *   1. Widening the literal to `string` makes supabase's parser resolve the
+         *      row to `GenericStringError` (a compile error on every `.data` field).
+         *   2. Making the wrapper generic over the column literal makes tsc's
+         *      conditional-type machinery blow up (heap OOM) against the untyped
+         *      service_role client.
+         * The tradeoff: callers get `data: any` from the wrapper instead of a
+         * column-narrowed shape. Acceptable — the service_role client is already
+         * untyped, and tenant-safety (not row typing) is this wrapper's job.
+         */
         select: (columns = '*', opts?: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean }) =>
-          base.select(columns, opts).eq('tenant_id', tenantId),
+          base.select(columns as '*', opts).eq('tenant_id', tenantId),
 
         /** INSERT with tenant_id stamped on every row (overrides any caller value). */
         insert: (rows: Row | Row[]) => base.insert(stamp(rows, tenantId)),
