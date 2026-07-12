@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
@@ -9,6 +9,7 @@ import { getSettings } from '@/lib/settings'
 export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const url = request.nextUrl
     const search = url.searchParams.get('search') || ''
     const status = url.searchParams.get('status') || ''
@@ -16,10 +17,10 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
     const offset = (page - 1) * limit
 
-    let query = supabaseAdmin
+    // tenantDb auto-injects .eq('tenant_id', tenantId) on the select below.
+    let query = db
       .from('clients')
       .select('*', { count: 'exact' })
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
 
   try {
     const { tenantId } = tenant
+    const db = tenantDb(tenantId)
     const body = await request.json()
     const settings = await getSettings(tenantId)
 
@@ -80,20 +82,18 @@ export async function POST(request: Request) {
     const duplicateChecks = []
     if (fields?.email) {
       duplicateChecks.push(
-        supabaseAdmin
+        db
           .from('clients')
           .select('id, name, email, phone')
-          .eq('tenant_id', tenantId)
           .eq('email', fields.email)
           .limit(1)
       )
     }
     if (fields?.phone) {
       duplicateChecks.push(
-        supabaseAdmin
+        db
           .from('clients')
           .select('id, name, email, phone')
-          .eq('tenant_id', tenantId)
           .eq('phone', fields.phone)
           .limit(1)
       )
@@ -114,9 +114,10 @@ export async function POST(request: Request) {
       }, { status: 409 })
     }
 
-    const { data, error } = await supabaseAdmin
+    // tenantDb.insert stamps tenant_id last, so a forged body value can't win.
+    const { data, error } = await db
       .from('clients')
-      .insert({ ...fields, tenant_id: tenantId })
+      .insert({ ...fields })
       .select()
       .single()
 
