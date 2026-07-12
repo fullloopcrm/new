@@ -1,10 +1,14 @@
 # IDOR Lint Guard — Spec (PROTOTYPE)
 
-**Author:** W3 · **Status:** prototype, non-blocking · **Date:** 2026-07-12
+**Author:** W3 · **Status:** prototype, non-blocking · **Date:** 2026-07-12 (finalized)
 
 Executable companion: `src/lib/idor-route-guard.ts` (analyzer),
-`src/lib/idor-route-guard.test.ts` (fixtures + tree ratchet),
-`src/lib/idor-route-guard.baseline.json` (frozen current-tree offender set).
+`src/lib/idor-route-guard.test.ts` (fixtures + tree ratchet, rides the existing
+required CI gate), `src/lib/idor-route-guard.baseline.json` (frozen
+current-tree offender set), `scripts/idor-lint-guard.ts` (standalone CLI —
+same check, runnable outside vitest: `npx tsx scripts/idor-lint-guard.ts`),
+`deploy-prep/idor-lint-guard.sample.yml` (proposal-only sample CI job for the
+CLI — not wired into `.github/workflows`, see §7).
 
 ---
 
@@ -184,6 +188,11 @@ applied.
 3. **Add the `.eq('slug'|'token'|'code', …)` vectors** once the `id` vector is clean.
 4. Only after the baseline is small and understood: propose a dedicated
    `idor-guard` job (or `--reporter` annotation) in `ci.yml` — a **workflow
-   edit**, so it goes to Jeff.
+   edit**, so it goes to Jeff. `deploy-prep/idor-lint-guard.sample.yml` is the
+   drop-in reference for that job — it ships with `continue-on-error: true`
+   (non-blocking by construction) and lives outside `.github/workflows/` so it
+   cannot execute until someone deliberately copies it in.
 
-Until then: prototype, non-blocking beyond the ratchet, informative.
+Until then: prototype, non-blocking beyond the ratchet, informative. The
+standalone CLI (`scripts/idor-lint-guard.ts`) exists today for local/manual
+use and as the sample job's executable — it is not invoked by any workflow.

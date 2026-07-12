@@ -1,0 +1,53 @@
+# SAMPLE GitHub Actions job — PROPOSAL ONLY, NOT WIRED.
+#
+# This file intentionally lives in deploy-prep/, not .github/workflows/, so it
+# cannot execute. It is a copy-pasteable reference for the leader/Jeff showing
+# how the standalone idor-lint-guard check (scripts/idor-lint-guard.ts) COULD
+# be added as its own CI job.
+#
+# Why non-blocking even if adopted verbatim: `continue-on-error: true` below
+# means this job reports (annotates the PR, visible in the Actions tab) but
+# never fails the required check, so merges are never gated on it. Converting
+# it into a real blocking gate is a deliberate follow-up — see
+# idor-lint-guard-spec.md §7 "Graduation path to a real gate (Jeff-gated)".
+#
+# To adopt: copy the `idor-lint-guard` job below into .github/workflows/ci.yml
+# (or a new dedicated workflow file, matching the style of tenant-scope.yml)
+# and remove `continue-on-error` only once the baseline has been triaged down
+# per the spec's graduation path. That edit — like any .github/workflows
+# change — is Jeff's call, not this lane's.
+
+name: idor-lint-guard (SAMPLE — do not enable without review)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: idor-lint-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  idor-lint-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Non-blocking: a red run here is a signal to look, not a merge-blocker.
+    # The fixture + ratchet tests in idor-route-guard.test.ts already run
+    # inside the existing REQUIRED `verify` job (ci.yml) via the unfiltered
+    # `npx vitest run` step — this job only adds a standalone, readable report.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+      - name: Install dependencies
+        working-directory: platform
+        run: npm ci
+      - name: IDOR route guard (reporting-only)
+        working-directory: platform
+        run: npx tsx scripts/idor-lint-guard.ts
