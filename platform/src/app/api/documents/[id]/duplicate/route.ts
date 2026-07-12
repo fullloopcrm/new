@@ -4,7 +4,8 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { DOCUMENTS_BUCKET, documentOriginalPath, generateSignerToken, logDocEvent } from '@/lib/documents'
 
@@ -15,9 +16,13 @@ export async function POST(_request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb scopes documents/document_signers/document_fields; the child reads
+    // (by document_id) + the original_path update (by id) GAIN a tenant filter.
+    // Storage stays on supabaseAdmin (no tenant_id on a bucket).
+    const db = tenantDb(tenantId)
     const { id } = await params
 
-    const { data: src } = await supabaseAdmin
+    const { data: src } = await db
       .from('documents')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -55,7 +60,7 @@ export async function POST(_request: Request, { params }: Params) {
         .from(DOCUMENTS_BUCKET)
         .upload(newPath, new Uint8Array(arrayBuf), { contentType: 'application/pdf', upsert: true })
     }
-    await supabaseAdmin.from('documents').update({ original_path: newPath }).eq('id', newDoc.id)
+    await db.from('documents').update({ original_path: newPath }).eq('id', newDoc.id)
 
     // Copy signers (with fresh tokens + pending status)
     const { data: srcSigners } = await supabaseAdmin
@@ -111,7 +116,7 @@ export async function POST(_request: Request, { params }: Params) {
         })
         .filter((f): f is NonNullable<typeof f> => !!f)
       if (newFields.length > 0) {
-        await supabaseAdmin.from('document_fields').insert(newFields)
+        await db.from('document_fields').insert(newFields)
       }
     }
 
