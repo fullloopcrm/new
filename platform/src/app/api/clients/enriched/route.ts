@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getSettings } from '@/lib/settings'
 
 type Stage = 'lead' | 'first' | 'active' | 'vip' | 'risk' | 'lapsed' | 'dns'
@@ -119,27 +119,24 @@ export async function GET(_request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
     const settings = await getSettings(tenantId)
+    const db = tenantDb(tenantId)
 
     const [clientsResult, bookingsResult, schedulesResult, teamResult] = await Promise.all([
-      supabaseAdmin
+      db
         .from('clients')
         .select('id, name, email, phone, address, status, source, created_at')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false }),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('id, client_id, team_member_id, price, start_time, status, payment_status')
-        .eq('tenant_id', tenantId)
         .order('start_time', { ascending: false }),
-      supabaseAdmin
+      db
         .from('recurring_schedules')
         .select('client_id, recurring_type, day_of_week, preferred_time, status')
-        .eq('tenant_id', tenantId)
         .neq('status', 'cancelled'),
-      supabaseAdmin
+      db
         .from('team_members')
-        .select('id, name')
-        .eq('tenant_id', tenantId),
+        .select('id, name'),
     ])
 
     const clients = (clientsResult.data || []) as Array<Record<string, unknown>>
