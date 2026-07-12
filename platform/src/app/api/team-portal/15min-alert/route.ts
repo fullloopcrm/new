@@ -20,21 +20,36 @@ import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { verifyToken } from '../auth/token'
 
 export const maxDuration = 300
 
+// Auth: team-portal Bearer token (verifyToken, same as checkin/checkout).
+// Previously this had ZERO authentication — anyone who knew/guessed a
+// bookingId could trigger a real client-facing "pay now" SMS + admin alerts
+// on demand (deploy-prep/none-write-routes-triage.md row 6). The team app
+// already sends the token (src/app/team/page.tsx handleHeadsUp); this just
+// starts checking it.
 export async function POST(req: NextRequest) {
   try {
+    const token = req.headers.get('authorization')?.replace('Bearer ', '')
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = verifyToken(token)
+    if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
     const { bookingId, force } = await req.json()
     if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
+      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, team_member_id, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
       .eq('id', bookingId)
+      .eq('tenant_id', auth.tid)
       .single()
 
-    if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    if (!booking || booking.team_member_id !== auth.id) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
 
     // Idempotency — if alert already fired in last 30 min and force not set, skip
     if (booking.fifteen_min_alert_time && !force) {
