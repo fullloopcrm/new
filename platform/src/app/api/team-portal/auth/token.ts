@@ -12,7 +12,7 @@ function getSecret(): string {
 }
 
 export function createToken(memberId: string, tenantId: string, payRate?: number | null, role?: string | null): string {
-  const payload = JSON.stringify({ id: memberId, tid: tenantId, pr: payRate || 0, r: role || 'worker', exp: Date.now() + 24 * 3600 * 1000 })
+  const payload = JSON.stringify({ id: memberId, tid: tenantId, pr: payRate || 0, r: role || 'worker', scope: 'team', exp: Date.now() + 24 * 3600 * 1000 })
   const hmac = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
   return Buffer.from(payload).toString('base64') + '.' + hmac
 }
@@ -26,6 +26,13 @@ export function verifyToken(token: string): { id: string; tid: string; role: str
     const expected = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
     if (sig !== expected) return null
     const data = JSON.parse(payload)
+    // Scope gate: TEAM_PORTAL_SECRET is shared with the referrer portal
+    // (referrer-portal-auth.ts), which mints scope:'ref'. Reject any token
+    // carrying a foreign scope so a referrer token can never be replayed here.
+    // Legacy team tokens minted before this field existed carry no scope and
+    // are grandfathered (24h TTL → the window self-closes within a day of
+    // deploy, without logging out field staff mid-shift).
+    if (data.scope && data.scope !== 'team') return null
     if (data.exp < Date.now()) return null
     return { id: data.id, tid: data.tid, role: data.r || 'worker' }
   } catch {

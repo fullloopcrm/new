@@ -49,8 +49,9 @@ import { getTenantForRequest, AuthError } from './tenant-query'
 import { signTenantHeader } from './tenant-header-sig'
 import { createTenantAdminToken, createAdminToken } from '@/app/api/admin-auth/route'
 import { protectClientAPI, createClientSession } from './client-auth'
-import { requirePortalPermission } from './team-portal-auth'
+import { requirePortalPermission, scopedMemberIds } from './team-portal-auth'
 import { createToken as createTeamToken } from '@/app/api/team-portal/auth/token'
+import { createReferrerToken } from './referrer-portal-auth'
 
 const A_ID = '11111111-1111-1111-1111-111111111111'
 const B_ID = '22222222-2222-2222-2222-222222222222'
@@ -166,5 +167,51 @@ describe('CROSS-TENANT ATTACK · requirePortalPermission (tenant-scoped member l
   it('REJECTS a request with no bearer token → 401', async () => {
     const { error } = await requirePortalPermission(new Request('http://tenant.example/x'), 'jobs.view_own')
     expect(error?.status).toBe(401)
+  })
+
+  it('REJECTS a referrer bearer token at the team gate (scope gate, end-to-end) → 401', async () => {
+    // A referrer token is HMAC-valid under the shared TEAM_PORTAL_SECRET, but the
+    // scope:'ref' field is refused by the team verifier — so it never reaches the
+    // member lookup. Proves the fix holds through the real request gate.
+    const refTok = createReferrerToken('tm-a', A_ID)
+    const { auth, error } = await requirePortalPermission(req(refTok), 'jobs.view_own')
+    expect(auth).toBeNull()
+    expect(error?.status).toBe(401)
+  })
+})
+
+describe('CROSS-TENANT ATTACK · scopedMemberIds (team_member visibility scoping)', () => {
+  beforeEach(() => {
+    // Extra same/other-tenant members + crews, appended after the base reseed.
+    fake._seed('team_members', [
+      { id: 'tm-a2', tenant_id: A_ID, name: 'A Worker 2', status: 'active' },
+      { id: 'tm-b2', tenant_id: B_ID, name: 'B Worker 2', status: 'active' },
+    ])
+    // tm-a (lead) shares crew cr-a with tm-a2. tm-b shares crew cr-b under tenant B.
+    fake._seed('crew_members', [
+      { crew_id: 'cr-a', team_member_id: 'tm-a' },
+      { crew_id: 'cr-a', team_member_id: 'tm-a2' },
+      { crew_id: 'cr-b', team_member_id: 'tm-b' },
+      { crew_id: 'cr-b', team_member_id: 'tm-b2' },
+    ])
+  })
+
+  it('a manager in A sees only active A members — never B (positive control + isolation)', async () => {
+    const ids = await scopedMemberIds({ id: 'tm-a', tid: A_ID, role: 'manager' })
+    expect(ids.sort()).toEqual(['tm-a', 'tm-a2'])
+    expect(ids).not.toContain('tm-b')
+    expect(ids).not.toContain('tm-b2')
+  })
+
+  it('a lead in A sees only same-crew A peers — a B member sharing no crew is invisible', async () => {
+    const ids = await scopedMemberIds({ id: 'tm-a', tid: A_ID, role: 'lead' })
+    expect(ids.sort()).toEqual(['tm-a', 'tm-a2'])
+    expect(ids).not.toContain('tm-b')
+    expect(ids).not.toContain('tm-b2')
+  })
+
+  it('a worker sees only themselves regardless of tenant crowding', async () => {
+    const ids = await scopedMemberIds({ id: 'tm-a', tid: A_ID, role: 'worker' })
+    expect(ids).toEqual(['tm-a'])
   })
 })

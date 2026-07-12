@@ -65,6 +65,15 @@ function forgePayloadTenant(token: string, newTenantId: string): string {
   return Buffer.from(JSON.stringify(payload)).toString('base64') + '.' + sig
 }
 
+/** Mint a CORRECTLY-signed team token with an arbitrary payload (using the same
+ *  TEAM_PORTAL_SECRET the real signer uses). Lets us simulate a legacy scope-less
+ *  token or a foreign-scope token that is genuinely signed — not just tampered. */
+function mintTeamTokenRaw(payload: Record<string, unknown>): string {
+  const body = JSON.stringify(payload)
+  const hmac = crypto.createHmac('sha256', process.env.TEAM_PORTAL_SECRET as string).update(body).digest('hex')
+  return Buffer.from(body).toString('base64') + '.' + hmac
+}
+
 describe('CROSS-TENANT ATTACK · signed tenant header (forged headers)', () => {
   it('accepts a genuine sig for its own tenant (positive control)', () => {
     expect(verifyTenantHeaderSig(A.id, signTenantHeader(A.id))).toBe(true)
@@ -198,6 +207,35 @@ describe('CROSS-TENANT ATTACK · team-portal bearer token', () => {
     const decoded = verifyTeamToken(t)
     expect(decoded?.tid).toBe(A.id)
     expect(decoded?.tid).not.toBe(B.id)
+  })
+
+  // Scope gate (symmetric counterpart to the referrer block below). TEAM_PORTAL_SECRET
+  // is shared with the referrer portal, so a referrer token is HMAC-valid here; only
+  // the scope:'team' vs scope:'ref' field stops the cross-scope replay.
+  it("REJECTS a referrer token replayed against the team verifier (scope gate)", () => {
+    const refTok = createReferrerToken(A.referrerId, A.id)
+    expect(verifyTeamToken(refTok)).toBeNull()
+  })
+
+  it("REJECTS a token carrying any foreign scope, even correctly signed", () => {
+    // A validly-signed token whose scope is neither 'team' nor absent must be
+    // refused — proves the gate keys on scope, not just on the referrer shape.
+    const forgedScope = mintTeamTokenRaw({
+      id: A.memberId, tid: A.id, pr: 0, r: 'manager', scope: 'admin',
+      exp: Date.now() + 3600_000,
+    })
+    expect(verifyTeamToken(forgedScope)).toBeNull()
+  })
+
+  it("grandfathers a legacy scope-less team token (backward compat, 24h TTL window)", () => {
+    // Tokens minted before the scope field existed carry no scope. They stay
+    // valid so a deploy does not log out field staff mid-shift; the 24h TTL
+    // closes the window within a day. (A referrer token can never look like
+    // this — it always carries scope:'ref'.)
+    const legacy = mintTeamTokenRaw({
+      id: A.memberId, tid: A.id, pr: 0, r: 'lead', exp: Date.now() + 3600_000,
+    })
+    expect(verifyTeamToken(legacy)).toEqual({ id: A.memberId, tid: A.id, role: 'lead' })
   })
 })
 
