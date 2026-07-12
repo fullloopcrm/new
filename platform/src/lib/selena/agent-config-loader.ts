@@ -22,11 +22,19 @@ function funnelToPricing(funnel: string, hasHourly: boolean): PricingModel {
   return hasHourly ? 'hourly' : 'flat'
 }
 
+interface ChecklistField {
+  key: string
+  enabled: boolean
+  required: boolean
+  question: string
+  sms_options?: string
+}
+
 export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   const [{ data: tenant }, settings] = await Promise.all([
     supabaseAdmin
       .from('tenants')
-      .select('name, phone, email, domain, website_url, industry, agent_name, address')
+      .select('name, phone, email, domain, website_url, industry, agent_name, address, selena_config')
       .eq('id', tenantId)
       .single(),
     getSettings(tenantId),
@@ -55,6 +63,16 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
     ? `What do you need? (${activeServices.map((s) => s.name).join(', ')})`
     : 'What do you need help with?'
 
+  // provision-tenant.ts seeds tenants.selena_config.checklist_fields from
+  // CHECKLIST_BY_INDUSTRY[industry] at signup, so every non-cleaning trade
+  // (hvac, roofing, plumbing, ...) already has its own qualifying checklist
+  // sitting in the DB. Before this, intake always fell back to the generic
+  // 3-question list below and that per-trade checklist was never read.
+  const rawChecklist = (tenant?.selena_config as { checklist_fields?: ChecklistField[] } | null)?.checklist_fields
+  const checklistQuestions = Array.isArray(rawChecklist)
+    ? rawChecklist.filter((f) => f.enabled).map((f) => f.question)
+    : []
+
   return {
     identity: {
       agent_name: agentName,
@@ -82,7 +100,9 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
       'Do not promise anything the owner might not honor. Escalate refunds, disputes, and legal threats.',
     ],
     pricing: { model: pricingModel, copy: priceCopy },
-    intake: { questions: [serviceList, 'Where are you located?', 'When do you need it?'] },
+    intake: {
+      questions: checklistQuestions.length ? checklistQuestions : [serviceList, 'Where are you located?', 'When do you need it?'],
+    },
     payment: {
       methods: settings.payment_methods || [],
       timing: 'as arranged',
