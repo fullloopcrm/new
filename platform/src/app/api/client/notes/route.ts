@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 
@@ -14,11 +14,10 @@ export async function GET(request: Request) {
   const auth = await protectClientAPI(tenant.id, clientId)
   if (auth instanceof NextResponse) return auth
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(tenant.id)
     .from('clients')
     .select('notes')
     .eq('id', clientId)
-    .eq('tenant_id', tenant.id)
     .single()
 
   if (error || !data) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
@@ -40,11 +39,10 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Notes must be a string of 500 characters or less' }, { status: 400 })
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.id)
     .from('clients')
     .update({ notes })
     .eq('id', client_id)
-    .eq('tenant_id', tenant.id)
 
   if (error) return NextResponse.json({ error: 'Failed to save notes' }, { status: 500 })
   return NextResponse.json({ success: true })
