@@ -6,7 +6,7 @@
  * Tenant-scoped. Ported from nycmaid.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 interface ClientRow {
@@ -33,27 +33,25 @@ interface BookingRow {
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
-    const { data: allClients } = await supabaseAdmin
+    const { data: allClients } = await db
       .from('clients')
       .select('id, name, email, phone, address, status, created_at, do_not_service, last_outreach_at, outreach_count, outreach_status')
-      .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .neq('do_not_service', true)
       .order('created_at', { ascending: false })
       .limit(10000)
 
-    const { data: bookings } = await supabaseAdmin
+    const { data: bookings } = await db
       .from('bookings')
       .select('client_id, start_time, status, price')
-      .eq('tenant_id', tenantId)
       .in('status', ['completed', 'scheduled', 'in_progress'])
       .limit(10000)
 
-    const { data: activeDeals } = await supabaseAdmin
+    const { data: activeDeals } = await db
       .from('deals')
       .select('client_id')
-      .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
     const onSalesBoard = new Set(((activeDeals as Array<{ client_id: string }> | null) || []).map(d => d.client_id))
@@ -115,11 +113,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { client_id, action, current_count } = await request.json()
     if (!client_id) return NextResponse.json({ error: 'client_id is required' }, { status: 400 })
 
+    // tenantDb.update auto-filters .eq('tenant_id') — a foreign client_id matches
+    // no row, so cross-tenant outreach writes are impossible.
     if (action === 'touch') {
-      await supabaseAdmin
+      await db
         .from('clients')
         .update({
           last_outreach_at: new Date().toISOString(),
@@ -127,25 +128,21 @@ export async function POST(request: Request) {
           outreach_status: 'active',
         })
         .eq('id', client_id)
-        .eq('tenant_id', tenantId)
     } else if (action === 'not_interested') {
-      await supabaseAdmin
+      await db
         .from('clients')
         .update({ outreach_status: 'not_interested' })
         .eq('id', client_id)
-        .eq('tenant_id', tenantId)
     } else if (action === 'pause') {
-      await supabaseAdmin
+      await db
         .from('clients')
         .update({ outreach_status: 'paused' })
         .eq('id', client_id)
-        .eq('tenant_id', tenantId)
     } else if (action === 'reset') {
-      await supabaseAdmin
+      await db
         .from('clients')
         .update({ outreach_status: 'none', outreach_count: 0, last_outreach_at: null })
         .eq('id', client_id)
-        .eq('tenant_id', tenantId)
     }
 
     return NextResponse.json({ success: true })
