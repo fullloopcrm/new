@@ -22,14 +22,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeLedgerSupabaseFake } from '@/test/ledger-supabase-fake'
 import { tenant, seedBooking } from '@/test/payment-processor-fixtures'
+import { makeStripePayoutSpies } from '@/test/stripe-payout-fake'
 
 const h = vi.hoisted(() => ({ seq: 0, store: {} as Record<string, Array<Record<string, unknown>>> }))
 const postPayoutToLedger = vi.hoisted(() => vi.fn())
 
-const stripeCalls = vi.hoisted(() => ({
-  transfers: vi.fn((args: Record<string, unknown>) => Promise.resolve({ id: 'tr_1', ...args })),
-  payouts: vi.fn(() => Promise.resolve({ id: 'po_1' })),
-}))
+const stripeCalls = makeStripePayoutSpies()
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeLedgerSupabaseFake(h), supabase: makeLedgerSupabaseFake(h) }))
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(() => Promise.resolve()) }))

@@ -28,13 +28,11 @@ import { makeLedgerSupabaseFake } from '@/test/ledger-supabase-fake'
 import { tenant as baseTenant, seedBooking } from '@/test/payment-processor-fixtures'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { REGION_PREMIUM_RATE } from '@/lib/cleaner-pay'
+import { makeStripePayoutSpies } from '@/test/stripe-payout-fake'
 
 const h = vi.hoisted(() => ({ seq: 0, store: {} as Record<string, Array<Record<string, unknown>>> }))
 
-const stripeCalls = vi.hoisted(() => ({
-  transfers: vi.fn((args: Record<string, unknown>) => Promise.resolve({ id: 'tr_1', ...args })),
-  payouts: vi.fn(() => Promise.resolve({ id: 'po_1' })),
-}))
+const stripeCalls = makeStripePayoutSpies()
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeLedgerSupabaseFake(h), supabase: makeLedgerSupabaseFake(h) }))
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(() => Promise.resolve()) }))
