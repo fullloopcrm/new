@@ -49,9 +49,11 @@ function checkAcceptsTargetType(value: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 // §5 — the A3 monitor's compare rules, transcribed.
 // Only status='active' domains are asserted (§5 intro); a NULL target yields an
-// info signal, never a page (§5.4). apex_a: the answer SET must contain the
+// info signal, never a page (§5.5). apex_a: the answer SET must contain the
 // expected value (§5.2). cname: the observed CNAME must end in the expected
-// vercel-dns.com target, host-normalized (§5.3).
+// vercel-dns.com target, host-normalized (§5.3). alias: an ALIAS/ANAME flattens
+// to A/AAAA at resolve time, so it is compared apex-style — the answer SET must
+// contain the expected value (§5.4). Every CHECK-valid type now has a rule.
 // ---------------------------------------------------------------------------
 type MonitorVerdict = 'ok' | 'mismatch' | 'unverified-target'
 
@@ -72,21 +74,23 @@ const normHost = (s: string): string => s.trim().replace(/\.$/, '').toLowerCase(
 
 /**
  * Evaluate one active domain's live DNS answer against its expected target,
- * per the design §5. `alias` is a valid CHECK value but §5 defines explicit
- * compare rules only for apex_a and cname; this contract deliberately does NOT
- * invent an alias compare rule (a future spec revision must define it, and add
- * its own assertions here).
+ * per the design §5. `alias` is compared apex-style: an ALIAS/ANAME record
+ * flattens to A/AAAA at resolve time (§5.4), so it uses the same "answer set
+ * CONTAINS the expected value" rule as apex_a (§5.2). Every CHECK-valid
+ * dns_target_type now has a defined compare rule — no type falls silently
+ * through to 'unverified-target' merely because the spec forgot it.
  */
 function evaluateDnsTarget(
   type: DnsTargetType | null,
   expected: string | null,
   observed: DnsObservation,
 ): MonitorVerdict {
-  // §5.4 — not backfilled yet: info signal, never a page.
+  // §5.5 — not backfilled yet: info signal, never a page.
   if (type === null || expected === null) return 'unverified-target'
 
-  if (type === 'apex_a') {
-    // §5.2 — assert the answer SET CONTAINS the expected apex IP.
+  if (type === 'apex_a' || type === 'alias') {
+    // §5.2 (apex_a) + §5.4 (alias) — an ALIAS/ANAME flattens to A/AAAA at resolve
+    // time, so both assert the resolved answer SET CONTAINS the expected apex IP.
     return (observed.ips ?? []).includes(expected) ? 'ok' : 'mismatch'
   }
 
@@ -97,7 +101,8 @@ function evaluateDnsTarget(
     return normHost(seen).endsWith(normHost(expected)) ? 'ok' : 'mismatch'
   }
 
-  // alias — compare rule not specified by §5; unreachable in this contract.
+  // Exhaustive: every non-null CHECK-valid type is handled above. A NULL type
+  // already returned 'unverified-target'. This is unreachable for valid inputs.
   return 'unverified-target'
 }
 
@@ -169,7 +174,7 @@ describe('cname compare — observed CNAME must end in the expected target, host
   })
 })
 
-describe('NULL target — unverified, never a page (design §5.4)', () => {
+describe('NULL target — unverified, never a page (design §5.5)', () => {
   it('a not-yet-backfilled row (NULL type or NULL target) yields an info signal, not a mismatch', () => {
     expect(evaluateDnsTarget(null, null, {})).toBe('unverified-target')
     expect(evaluateDnsTarget(null, '76.76.21.21', { ips: ['76.76.21.21'] })).toBe('unverified-target')
@@ -186,41 +191,52 @@ describe('NULL target — unverified, never a page (design §5.4)', () => {
 })
 
 // ===========================================================================
-// FLAGGED-BUT-UNTESTED INVARIANT (P1/W1 queue item c): the `alias` type is a
-// CHECK-valid value (§3) with NO §5 compare rule. Until now nothing pinned what
-// the monitor does with a fully-backfilled alias row — the exact hole where a
-// misconfigured domain slips through. These assertions freeze that behavior and
-// make the design gap loud so it can't ship silently.
+// GAP CLOSED (P1/W1 16:43 queue item a). `alias` is a CHECK-valid dns_target_type
+// (§3) that PREVIOUSLY had NO §5 compare rule: a fully-backfilled-but-WRONG alias
+// row fell through to 'unverified-target' and never paged, indistinguishable from a
+// not-yet-backfilled NULL row (this was the gap the prior commit c386b2a5
+// characterized). The design now defines the alias rule (§5.4): an ALIAS/ANAME
+// flattens to A/AAAA at resolve time, so it is compared apex-style — the answer set
+// must CONTAIN the expected value. These assertions pin the CLOSED contract: a
+// wrong alias is now a hard 'mismatch' (it pages), DISTINGUISHABLE from NULL/unverified.
 // ===========================================================================
-describe('alias dns_target_type — CHECK admits it, but §5 defines no compare rule (design gap)', () => {
+describe('alias dns_target_type — compared apex-style (§5.4); a wrong-but-backfilled alias is a mismatch, distinct from NULL (gap CLOSED)', () => {
   it('the CHECK accepts alias, so a real row can carry type=alias with a set target', () => {
     // §3 domain includes alias — a backfill (apex ALIAS/ANAME where the registrar
     // supports it) can legitimately write this value. The column will hold it.
     expect(checkAcceptsTargetType('alias')).toBe(true)
   })
 
-  it('CHARACTERIZATION + FLAG: a fully-backfilled alias row is NOT compared — a misconfigured alias never pages', () => {
-    // type=alias, expected apex IP set, and the LIVE answer points somewhere else
-    // (9.9.9.9 != 76.76.21.21). For an apex_a row this is a hard 'mismatch' (§5.2).
-    // For alias there is no §5 branch, so evaluateDnsTarget falls through to
-    // 'unverified-target' — the monitor treats a genuinely BROKEN alias domain as
-    // merely "not backfilled" and never alerts. This is the gap, pinned as current
-    // behavior, NOT endorsed. Fix = design + implement an alias compare rule in
-    // spec §5 (apex-style A/AAAA contains, since ALIAS/ANAME flatten to A at
-    // resolve time) and add its own ok/mismatch assertions here.
-    const misconfigured = evaluateDnsTarget('alias', '76.76.21.21', { ips: ['9.9.9.9'] })
-    expect(misconfigured).toBe('unverified-target')
-    expect(misconfigured).not.toBe('mismatch') // <-- the alarming part: NOT flagged as broken
+  it('ok when the resolved answer set CONTAINS the expected apex IP (ALIAS flattens to A)', () => {
+    expect(evaluateDnsTarget('alias', '76.76.21.21', { ips: ['76.76.21.21'] })).toBe('ok')
+    // multi-answer set still ok as long as the expected value is present
+    expect(evaluateDnsTarget('alias', '76.76.21.21', { ips: ['1.2.3.4', '76.76.21.21'] })).toBe('ok')
   })
 
-  it('the gap is invisible to triage — a broken alias is indistinguishable from an un-backfilled row', () => {
-    // Same verdict whether the alias target is genuinely missing (NULL) or present
-    // but wrong. Triage cannot tell "we have no rule for this type" from "not yet
-    // backfilled," so the coverage hole hides inside the benign info signal.
+  it('CLOSES THE GAP: a fully-backfilled but WRONG alias now pages (mismatch), not a silent info signal', () => {
+    // type=alias, expected apex IP set, and the LIVE answer points somewhere else
+    // (9.9.9.9 != 76.76.21.21). Under the old contract this fell through to
+    // 'unverified-target' and never alerted. The §5.4 alias rule now treats it
+    // exactly like a broken apex_a — a hard 'mismatch' that pages. (Reverses the
+    // c386b2a5 characterization deliberately: the gap is now fixed at the contract.)
+    const misconfigured = evaluateDnsTarget('alias', '76.76.21.21', { ips: ['9.9.9.9'] })
+    expect(misconfigured).toBe('mismatch')
+    expect(misconfigured).not.toBe('unverified-target') // no longer hidden in the benign signal
+  })
+
+  it('a broken alias is now DISTINGUISHABLE from an un-backfilled row (the whole point of closing the gap)', () => {
+    // NULL target = genuinely not backfilled -> unverified (info, never a page).
+    // Present-but-wrong target = misconfigured -> mismatch (pages). Triage can now
+    // tell the two apart; they no longer collapse to one signal.
     const notBackfilled = evaluateDnsTarget('alias', null, {})
     const backfilledButWrong = evaluateDnsTarget('alias', '76.76.21.21', { ips: ['9.9.9.9'] })
     expect(notBackfilled).toBe('unverified-target')
-    expect(backfilledButWrong).toBe('unverified-target')
-    expect(backfilledButWrong).toBe(notBackfilled) // collapses to one signal — the invisibility
+    expect(backfilledButWrong).toBe('mismatch')
+    expect(backfilledButWrong).not.toBe(notBackfilled) // distinguishable — gap closed
+  })
+
+  it('an alias whose target resolves to NOTHING is a mismatch, not unverified (a set target that answers empty is broken, not un-backfilled)', () => {
+    // expected is present (backfilled) but the live answer set is empty -> broken.
+    expect(evaluateDnsTarget('alias', '76.76.21.21', { ips: [] })).toBe('mismatch')
   })
 })

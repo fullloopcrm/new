@@ -124,10 +124,18 @@ the watchdog never pages on a domain not meant to be live):
    resolvers; assert the answer set **contains** `dns_target`.
 3. For `dns_target_type = 'cname'`: resolve `CNAME`; assert it ends in the
    expected `vercel-dns.com` target.
-4. `NULL` target → emit an **`unverified-target`** info signal (not a page): the
+4. For `dns_target_type = 'alias'`: an apex `ALIAS`/`ANAME` record **flattens to
+   `A`/`AAAA` at resolve time** (that is the whole point of ALIAS/ANAME — the
+   registrar answers the apex with the target's `A` records). So the monitor
+   resolves `A`/`AAAA` and asserts the answer set **contains** `dns_target`,
+   exactly like `apex_a`. A backfilled-but-**wrong** alias is therefore a hard
+   `mismatch`, distinguishable from a `NULL` (`unverified-target`) row — this
+   closes the gap where `alias` was a CHECK-valid `dns_target_type` (§3) with no
+   §5 compare rule, so a misconfigured alias could never page.
+5. `NULL` target → emit an **`unverified-target`** info signal (not a page): the
    row hasn't been backfilled, so the monitor can only check resolvability, not
    correctness. This makes the coverage gap visible instead of silently passing.
-5. On mismatch → the DNS alert names **observed vs expected** (both concrete
+6. On mismatch → the DNS alert names **observed vs expected** (both concrete
    values), so triage starts from a root cause, not "down."
 
 ---
