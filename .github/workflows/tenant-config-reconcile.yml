@@ -16,6 +16,16 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: this gate only reads the checkout (and, when the secret is
+# present, issues read-only SELECTs to Supabase). It never needs write scopes.
+permissions:
+  contents: read
+
+# One in-flight run per ref; a newer push to the same PR supersedes the old run.
+concurrency:
+  group: tenant-config-reconcile-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   reconcile:
     runs-on: ubuntu-latest
@@ -25,6 +35,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      # Contract gate: with NO Management-API secret the script MUST exit 0
+      # (skip green) so forks and secret-less branches are never red-gated by a
+      # missing credential. Force an empty token AND an empty HOME (so the
+      # ~/.env.local fallback cannot find one either) and assert the clean-skip
+      # path fires. Runs first so a broken guard fails fast, before any real query.
+      - name: Verify token-guard skips clean without a secret (no secret = green)
+        working-directory: platform
+        env:
+          SUPABASE_ACCESS_TOKEN_FULLLOOP: ''
+        run: |
+          export HOME="$(mktemp -d)"
+          out="$(node scripts/reconcile-tenant-config.mjs)"
+          echo "$out"
+          echo "$out" | grep -q 'skipping (exit 0)' \
+            || { echo '::error::reconcile did not clean-skip without a secret'; exit 1; }
+
       - name: Reconcile tenant config (read-only drift gate)
         working-directory: platform
         env:
