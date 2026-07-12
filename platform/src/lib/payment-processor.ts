@@ -244,7 +244,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
           destination: teamMember.stripe_account_id,
           description: `${label} payment for ${clientName} service${tipCents > 0 ? ` (includes $${tipAmount} tip)` : ''}`,
           metadata: { booking_id: bookingId, tenant_id: tenantId },
-        })
+        }, { idempotencyKey: `payout-${bookingId}` })
 
         let payoutId: string | null = null
         let isInstant = false

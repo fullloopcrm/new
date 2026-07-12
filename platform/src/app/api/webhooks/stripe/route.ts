@@ -453,7 +453,7 @@ export async function POST(request: Request) {
             destination: tm.stripe_account_id,
             transfer_group: bookingId,
             metadata: { booking_id: bookingId, tenant_id: tenantId },
-          })
+          }, { idempotencyKey: `payout-${bookingId}` })
           // NYC Maid parity: push an INSTANT payout to the cleaner's bank so
           // funds land immediately, not on the standard Connect schedule. The
           // transfer already landed; a failed instant payout is non-fatal.
