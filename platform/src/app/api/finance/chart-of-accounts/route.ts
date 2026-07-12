@@ -2,7 +2,7 @@
  * Chart of Accounts — list + create + seed defaults.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { seedChartOfAccounts } from '@/lib/ledger'
@@ -12,10 +12,10 @@ export async function GET() {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
-    const { data, error } = await supabaseAdmin
+    // tenantDb auto-injects .eq('tenant_id', tenantId) on the read below.
+    const { data, error } = await tenantDb(tenantId)
       .from('chart_of_accounts')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('code', { ascending: true })
     if (error) throw error
     return NextResponse.json({ accounts: data || [] })
@@ -42,10 +42,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'code, name, type required' }, { status: 400 })
     }
 
-    const { data, error } = await supabaseAdmin
+    // tenantDb.insert stamps tenant_id last, so a forged body value can't win.
+    const { data, error } = await tenantDb(tenantId)
       .from('chart_of_accounts')
       .insert({
-        tenant_id: tenantId,
         code: body.code,
         name: body.name,
         type: body.type,
