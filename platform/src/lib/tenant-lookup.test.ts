@@ -33,7 +33,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: (table: string) => builder(table) }),
 }))
 
-import { getTenantByDomain } from './tenant-lookup'
+import { getTenantByDomain, getTenantBySlug } from './tenant-lookup'
 
 const tenantRow = (over: Partial<Record<string, unknown>> = {}) => ({
   id: 't-1',
@@ -119,5 +119,61 @@ describe('getTenantByDomain', () => {
     expect(second?.slug).toBe('cached5')
     expect(second).toEqual(first)
     expect(singleCalls.length).toBe(callsAfterFirst) // no new DB calls on the cache hit
+  })
+})
+
+describe('getTenantBySlug — subdomain resolver (resolver-flip guard)', () => {
+  it('resolves the tenant for an exact slug and scopes the query to that slug', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'acme-slug'
+        ? { data: tenantRow({ slug: 'acme-slug' }), error: null }
+        : { data: null, error: null }
+
+    const t = await getTenantBySlug('acme-slug')
+    expect(t?.slug).toBe('acme-slug')
+    // The lookup must be scoped by the requested slug — never a broad/unscoped
+    // fetch that could return a different tenant (the brand-swap failure mode).
+    expect(singleCalls[0].table).toBe('tenants')
+    expect(singleCalls[0].eqs.slug).toBe('acme-slug')
+  })
+
+  it('does NOT serve a different tenant when the slug does not match', async () => {
+    // Only 'real-tenant' exists; a request for 'ghost-slug' must return null,
+    // not fall back to some other row.
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'real-tenant'
+        ? { data: tenantRow({ slug: 'real-tenant' }), error: null }
+        : { data: null, error: null }
+
+    expect(await getTenantBySlug('ghost-slug')).toBeNull()
+  })
+
+  it('returns null when Supabase reports an error (no partial/other tenant leaked)', async () => {
+    resolve = () => ({ data: null, error: { message: 'boom' } })
+    expect(await getTenantBySlug('errslug')).toBeNull()
+  })
+
+  it('negative-caches a miss — a second lookup for an unknown slug does not re-query', async () => {
+    resolve = () => ({ data: null, error: null })
+    const first = await getTenantBySlug('missing-slug')
+    const callsAfterFirst = singleCalls.length
+    const second = await getTenantBySlug('missing-slug')
+    expect(first).toBeNull()
+    expect(second).toBeNull()
+    expect(singleCalls.length).toBe(callsAfterFirst) // negative cache hit, no new DB call
+  })
+
+  it('caches a resolved tenant — a second lookup does not re-query', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'cached-slug'
+        ? { data: tenantRow({ slug: 'cached-slug' }), error: null }
+        : { data: null, error: null }
+
+    const first = await getTenantBySlug('cached-slug')
+    const callsAfterFirst = singleCalls.length
+    const second = await getTenantBySlug('cached-slug')
+    expect(second?.slug).toBe('cached-slug')
+    expect(second).toEqual(first)
+    expect(singleCalls.length).toBe(callsAfterFirst)
   })
 })

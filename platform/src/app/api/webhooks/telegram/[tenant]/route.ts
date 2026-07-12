@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { verifyTelegramWebhook } from '@/lib/telegram-webhook-auth'
 
 export const maxDuration = 60
 
@@ -51,6 +52,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   const tenant = await loadTenantBot(slug)
   if (!tenant) return NextResponse.json({ ok: true, skip: 'unknown_tenant' })
   if (!tenant.telegram_bot_token) return NextResponse.json({ ok: true, skip: 'no_bot_token' })
+
+  // Authenticity FIRST: the secret token is scoped to THIS tenant's id, so a
+  // forged update (even with the right chat_id) can't drive this tenant's owner
+  // agent, and a secret minted for tenant A can't be replayed against tenant B.
+  const verified = verifyTelegramWebhook(req, `tenant:${tenant.id}`)
+  if (!verified.ok) {
+    return NextResponse.json({ ok: false, error: 'unauthorized', reason: verified.reason }, { status: 401 })
+  }
 
   const botToken = decryptSecret(tenant.telegram_bot_token)
 

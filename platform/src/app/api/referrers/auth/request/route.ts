@@ -4,6 +4,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { sendEmail } from '@/lib/email'
 import { hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { randomInt } from 'crypto'
 
 const OTP_TTL_MS = 10 * 60 * 1000
 
@@ -40,7 +41,8 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (referrer) {
-    const code = String(Math.floor(100000 + Math.random() * 900000))
+    // Crypto RNG — Math.random() is predictable and unsafe for a login OTP.
+    const code = String(100000 + randomInt(0, 900000))
     await supabaseAdmin
       .from('referrers')
       .update({ otp_hash: hashOtp(code), otp_expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString() })
