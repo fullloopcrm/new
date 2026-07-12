@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(request: Request) {
@@ -9,10 +9,10 @@ export async function POST(request: Request) {
   const { domain } = await request.json().catch(() => ({}))
   if (!domain) return NextResponse.json({ error: 'Missing domain' }, { status: 400 })
 
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.tenantId)
     .from('blocked_referrers')
     .upsert(
-      { tenant_id: tenant.tenantId, domain: domain.toLowerCase() },
+      { domain: domain.toLowerCase() },
       { onConflict: 'tenant_id,domain' }
     )
 
@@ -27,10 +27,9 @@ export async function DELETE(request: Request) {
   const { domain } = await request.json().catch(() => ({}))
   if (!domain) return NextResponse.json({ error: 'Missing domain' }, { status: 400 })
 
-  await supabaseAdmin
+  await tenantDb(tenant.tenantId)
     .from('blocked_referrers')
     .delete()
-    .eq('tenant_id', tenant.tenantId)
     .eq('domain', domain.toLowerCase())
 
   return NextResponse.json({ success: true })
