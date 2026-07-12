@@ -1,6 +1,6 @@
 // Employee notes log. `id` is the team_member_id. POST appends a note.
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 const NOTE_KINDS = ['note', 'writeup', 'kudos', 'review']
@@ -11,11 +11,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   try {
     const { tenantId } = tenant
     const { id } = await ctx.params
+    const db = tenantDb(tenantId)
 
-    const { data: member } = await supabaseAdmin
+    const { data: member } = await db
       .from('team_members')
       .select('id')
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .maybeSingle()
     if (!member) return NextResponse.json({ error: 'employee not found' }, { status: 404 })
@@ -30,10 +30,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!text) return NextResponse.json({ error: 'body required' }, { status: 400 })
     const kind = body.kind && NOTE_KINDS.includes(body.kind) ? body.kind : 'note'
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('hr_notes')
       .insert({
-        tenant_id: tenantId,
         team_member_id: id,
         author_id: null, // author_id is UUID-typed; Clerk/PIN ids aren't UUIDs — record the name instead.
         author_name: body.author_name?.trim() || null,

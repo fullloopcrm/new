@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET(request: Request) {
@@ -14,10 +14,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status') || 'open,acknowledged'
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(ctx.tenantId)
     .from('schedule_issues')
     .select('*')
-    .eq('tenant_id', ctx.tenantId)
     .in('status', status.split(','))
     .order('severity', { ascending: true })
     .order('created_at', { ascending: false })
@@ -46,11 +45,10 @@ export async function PUT(request: Request) {
     if (resolution_note) update.resolution_note = resolution_note
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(ctx.tenantId)
     .from('schedule_issues')
     .update(update)
     .eq('id', id)
-    .eq('tenant_id', ctx.tenantId)
     .select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

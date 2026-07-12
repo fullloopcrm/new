@@ -9,7 +9,7 @@
  */
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
 type Row = {
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
   const { tenant, error: authError } = await requirePermission('bookings.create')
   if (authError) return authError
   const { tenantId } = tenant
+  const db = tenantDb(tenantId)
 
   try {
     const body = await request.json()
@@ -51,8 +52,8 @@ export async function POST(request: Request) {
 
     // Load the tenant's clients + staff once, build match maps.
     const [{ data: clients }, { data: staff }] = await Promise.all([
-      supabaseAdmin.from('clients').select('id, name, phone').eq('tenant_id', tenantId),
-      supabaseAdmin.from('team_members').select('id, name').eq('tenant_id', tenantId),
+      db.from('clients').select('id, name, phone'),
+      db.from('team_members').select('id, name'),
     ])
     const byPhone = new Map<string, string>()
     const byName = new Map<string, string>()
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
         const dowRaw = (r.day_of_week || '').trim().toLowerCase()
         const dow = dowRaw in DOW ? DOW[dowRaw] : /^[0-6]$/.test(dowRaw) ? Number(dowRaw) : null
         recurring.push({
-          tenant_id: tenantId, client_id: clientId, team_member_id: staffId,
+          client_id: clientId, team_member_id: staffId,
           recurring_type: rt, day_of_week: dow, preferred_time: r.preferred_time || null,
           duration_hours: dur, notes: r.notes || null, status: 'active',
         })
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
         const end = new Date(d.getTime() + dur * 3600_000)
         const fmt = (x: Date) => x.toISOString().slice(0, 19) // timestamp without tz
         bookings.push({
-          tenant_id: tenantId, client_id: clientId, team_member_id: staffId,
+          client_id: clientId, team_member_id: staffId,
           service_type: r.service_type || null, start_time: fmt(d), end_time: fmt(end),
           status: 'scheduled', price: priceCents(r.price), team_size: 1,
           notes: r.notes || null,
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
     const insertBatched = async (table: string, list: Record<string, unknown>[]) => {
       let n = 0
       for (let i = 0; i < list.length; i += 200) {
-        const { data, error } = await supabaseAdmin.from(table).insert(list.slice(i, i + 200)).select('id')
+        const { data, error } = await db.from(table).insert(list.slice(i, i + 200)).select('id')
         if (error) errors.push(`${table} batch ${Math.floor(i / 200) + 1}: ${error.message}`)
         else n += data?.length || 0
       }

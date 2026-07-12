@@ -88,7 +88,16 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
   }
 
   if (state.op === 'update') {
-    for (const r of rows) if (matches(r, state)) Object.assign(r, state.payload as object)
+    const updated: Array<Record<string, unknown>> = []
+    for (const r of rows) {
+      if (matches(r, state)) {
+        Object.assign(r, state.payload as object)
+        updated.push(r)
+      }
+    }
+    if (terminal === 'many') return { data: updated, error: null }
+    if (terminal === 'single') return { data: updated[0] ?? null, error: updated[0] ? null : { message: 'no rows' } }
+    if (terminal === 'maybeSingle') return { data: updated[0] ?? null, error: null }
     return { data: null, error: null }
   }
 
