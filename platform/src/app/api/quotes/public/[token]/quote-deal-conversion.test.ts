@@ -13,72 +13,17 @@
  * delivery. logQuoteEvent runs for real against the fake.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { makeSupabaseFake } from '@/test/supabase-fake'
 
 // ── shared mutable store, hoisted so vi.mock factories can reach it ──
 const h = vi.hoisted(() => ({ seq: 0, store: {} as Record<string, Array<Record<string, unknown>>> }))
 
-type State = {
-  table: string
-  op: 'select' | 'insert' | 'update'
-  eqs: Record<string, unknown>
-  payload: unknown
-}
-
-function matches(r: Record<string, unknown>, s: State): boolean {
-  return Object.entries(s.eqs).every(([k, v]) => r[k] === v)
-}
-
-function runQuery(state: State, terminal: 'single' | 'maybeSingle' | 'many') {
-  const rows = h.store[state.table] || (h.store[state.table] = [])
-
-  if (state.op === 'insert') {
-    const payload = Array.isArray(state.payload) ? state.payload : [state.payload]
-    const inserted = payload.map((p: Record<string, unknown>) => {
-      const row: Record<string, unknown> = { ...p }
-      if (row.id == null) { h.seq += 1; row.id = `${state.table}-${h.seq}` }
-      rows.push(row)
-      return row
-    })
-    if (terminal === 'many') return { data: inserted, error: null }
-    return { data: inserted[0] ?? null, error: null }
-  }
-
-  if (state.op === 'update') {
-    for (const r of rows) if (matches(r, state)) Object.assign(r, state.payload as object)
-    return { data: null, error: null }
-  }
-
-  // Return detached copies — real PostgREST hands back JSON, never a live row.
-  // (The accept route updates a deal then re-reads dealRow.stage for the activity
-  // metadata; a live reference would read the just-written value.)
-  const found = rows.filter((r) => matches(r, state)).map((r) => ({ ...r }))
-  if (terminal === 'single') return { data: found[0] ?? null, error: found[0] ? null : { message: 'no rows' } }
-  if (terminal === 'maybeSingle') return { data: found[0] ?? null, error: null }
-  return { data: found, error: null }
-}
-
-function makeClient() {
-  return {
-    from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, payload: null }
-      const chain: Record<string, unknown> = {
-        select: () => chain,
-        insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
-        update: (payload: unknown) => { state.op = 'update'; state.payload = payload; return chain },
-        eq: (col: string, val: unknown) => { state.eqs[col] = val; return chain },
-        order: () => chain,
-        limit: () => chain,
-        single: () => Promise.resolve(runQuery(state, 'single')),
-        maybeSingle: () => Promise.resolve(runQuery(state, 'maybeSingle')),
-        then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-          Promise.resolve(runQuery(state, 'many')).then(res, rej),
-      }
-      return chain
-    },
-  }
-}
-
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeClient(), supabase: makeClient() }))
+// Detached reads: the accept route updates a deal then re-reads dealRow.stage for
+// the activity metadata; PostgREST hands back JSON, never a live row.
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: makeSupabaseFake(h, { detachReads: true }),
+  supabase: makeSupabaseFake(h, { detachReads: true }),
+}))
 // Best-effort side effects — stub so the test isolates the deal conversion.
 vi.mock('@/lib/jobs', () => ({ convertSaleToJob: async () => ({ job_id: 'job-x' }) }))
 vi.mock('@/lib/notify', () => ({ notify: async () => {} }))

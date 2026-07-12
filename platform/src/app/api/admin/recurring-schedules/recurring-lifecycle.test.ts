@@ -15,6 +15,7 @@
  *      (404) and writes nothing, so the schedule can't straddle tenants.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { makeSupabaseFake } from '@/test/supabase-fake'
 
 // ── shared mutable store, hoisted so vi.mock factories can reach it ──
 const h = vi.hoisted(() => ({
@@ -23,68 +24,7 @@ const h = vi.hoisted(() => ({
   store: {} as Record<string, Array<Record<string, unknown>>>,
 }))
 
-type State = {
-  table: string
-  op: 'select' | 'insert' | 'update' | 'delete'
-  eqs: Record<string, unknown>
-  payload: unknown
-}
-
-function matches(r: Record<string, unknown>, s: State): boolean {
-  return Object.entries(s.eqs).every(([k, v]) => r[k] === v)
-}
-
-function runQuery(state: State, terminal: 'single' | 'maybeSingle' | 'many') {
-  const rows = h.store[state.table] || (h.store[state.table] = [])
-
-  if (state.op === 'insert') {
-    const payload = Array.isArray(state.payload) ? state.payload : [state.payload]
-    const inserted = payload.map((p: Record<string, unknown>) => {
-      const row: Record<string, unknown> = { ...p }
-      if (row.id == null) {
-        h.seq += 1
-        row.id = `${state.table}-${h.seq}`
-      }
-      rows.push(row)
-      return row
-    })
-    if (terminal === 'many') return { data: inserted, error: null }
-    return { data: inserted[0] ?? null, error: null }
-  }
-
-  if (state.op === 'update') {
-    for (const r of rows) if (matches(r, state)) Object.assign(r, state.payload as object)
-    return { data: null, error: null }
-  }
-
-  const found = rows.filter((r) => matches(r, state))
-  if (terminal === 'single') return { data: found[0] ?? null, error: found[0] ? null : { message: 'no rows' } }
-  if (terminal === 'maybeSingle') return { data: found[0] ?? null, error: null }
-  return { data: found, error: null }
-}
-
-function makeClient() {
-  return {
-    from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, payload: null }
-      const chain: Record<string, unknown> = {
-        select: () => chain,
-        insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
-        update: (payload: unknown) => { state.op = 'update'; state.payload = payload; return chain },
-        eq: (col: string, val: unknown) => { state.eqs[col] = val; return chain },
-        order: () => chain,
-        limit: () => chain,
-        single: () => Promise.resolve(runQuery(state, 'single')),
-        maybeSingle: () => Promise.resolve(runQuery(state, 'maybeSingle')),
-        then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-          Promise.resolve(runQuery(state, 'many')).then(res, rej),
-      }
-      return chain
-    },
-  }
-}
-
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeClient(), supabase: makeClient() }))
+vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeSupabaseFake(h), supabase: makeSupabaseFake(h) }))
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: async () => ({ tenant: { tenantId: h.tenantId }, error: null }),
 }))

@@ -21,6 +21,7 @@
  * the fire-and-forget revenue post are stubbed so the test isolates state.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { makeSupabaseFake } from '@/test/supabase-fake'
 
 // ── shared mutable store, hoisted so vi.mock factories can reach it ──
 const h = vi.hoisted(() => ({
@@ -28,23 +29,6 @@ const h = vi.hoisted(() => ({
   seq: 0,
   store: {} as Record<string, Array<Record<string, unknown>>>,
 }))
-
-type State = {
-  table: string
-  op: 'select' | 'insert' | 'update' | 'delete'
-  eqs: Record<string, unknown>
-  gtes: Array<{ col: string; val: unknown }>
-  lts: Array<{ col: string; val: unknown }>
-  head: boolean
-  payload: unknown
-}
-
-function matches(r: Record<string, unknown>, s: State): boolean {
-  if (!Object.entries(s.eqs).every(([k, v]) => r[k] === v)) return false
-  for (const g of s.gtes) if (!(String(r[g.col]) >= String(g.val))) return false
-  for (const l of s.lts) if (!(String(r[l.col]) < String(l.val))) return false
-  return true
-}
 
 // Emulates the DB trigger that recomputes an invoice when a payment lands.
 function applyPaymentTrigger(payment: Record<string, unknown>) {
@@ -62,63 +46,18 @@ function applyPaymentTrigger(payment: Record<string, unknown>) {
   }
 }
 
-function runQuery(state: State, terminal: 'single' | 'maybeSingle' | 'many') {
-  const rows = h.store[state.table] || (h.store[state.table] = [])
-
-  if (state.op === 'insert') {
-    const payload = Array.isArray(state.payload) ? state.payload : [state.payload]
-    const inserted = payload.map((p: Record<string, unknown>) => {
-      const row: Record<string, unknown> = { created_at: '2026-07-12T00:00:00.000Z', ...p }
-      if (row.id == null) {
-        h.seq += 1
-        row.id = `${state.table}-${h.seq}`
-      }
-      rows.push(row)
-      if (state.table === 'payments') applyPaymentTrigger(row)
-      return row
-    })
-    if (terminal === 'many') return { data: inserted, error: null }
-    return { data: inserted[0] ?? null, error: null }
-  }
-
-  if (state.op === 'update') {
-    for (const r of rows) if (matches(r, state)) Object.assign(r, state.payload as object)
-    return { data: null, error: null }
-  }
-
-  const found = rows.filter((r) => matches(r, state))
-  if (state.head) return { count: found.length, data: null, error: null }
-  if (terminal === 'single') return { data: found[0] ?? null, error: found[0] ? null : { message: 'no rows' } }
-  if (terminal === 'maybeSingle') return { data: found[0] ?? null, error: null }
-  return { data: found, error: null }
-}
-
-function makeClient() {
-  return {
-    from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, gtes: [], lts: [], head: false, payload: null }
-      const chain: Record<string, unknown> = {
-        select: (_cols?: unknown, opts?: { head?: boolean }) => { if (opts?.head) state.head = true; return chain },
-        insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
-        update: (payload: unknown) => { state.op = 'update'; state.payload = payload; return chain },
-        eq: (col: string, val: unknown) => { state.eqs[col] = val; return chain },
-        gte: (col: string, val: unknown) => { state.gtes.push({ col, val }); return chain },
-        lt: (col: string, val: unknown) => { state.lts.push({ col, val }); return chain },
-        not: () => chain,
-        order: () => chain,
-        limit: () => chain,
-        single: () => Promise.resolve(runQuery(state, 'single')),
-        maybeSingle: () => Promise.resolve(runQuery(state, 'maybeSingle')),
-        then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-          Promise.resolve(runQuery(state, 'many')).then(res, rej),
-      }
-      return chain
+// ── module mocks ──
+// insertDefaults mirrors the old fake's created_at default; afterInsert emulates
+// the DB trigger that recomputes an invoice when a payment row lands.
+vi.mock('@/lib/supabase', () => {
+  const opts = {
+    insertDefaults: { created_at: '2026-07-12T00:00:00.000Z' },
+    afterInsert: (row: Record<string, unknown>, table: string) => {
+      if (table === 'payments') applyPaymentTrigger(row)
     },
   }
-}
-
-// ── module mocks ──
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeClient(), supabase: makeClient() }))
+  return { supabaseAdmin: makeSupabaseFake(h, opts), supabase: makeSupabaseFake(h, opts) }
+})
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: async () => ({ tenant: { tenantId: h.tenantId }, error: null }),
 }))
