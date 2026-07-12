@@ -1,9 +1,9 @@
 # STAGE-0 INTEGRATION RUNBOOK — WAVE-2 RE-INTEGRATION
 
 **Purpose:** the exact, guided procedure to re-integrate the four P1 worker
-branches (`p1-w1` … `p1-w4`) on top of the security base, resolve the three known
-conflicts, and prove the result with a full rebuild gate — **before** anyone
-pushes or merges to `main`.
+branches (`p1-w1` … `p1-w4`) on top of the security base, resolve the **observed**
+merge conflicts (**1** on the w4 merge, **7** on the w1 merge — see §4), and prove
+the result with a full rebuild gate — **before** anyone pushes or merges to `main`.
 
 > **Docs only.** This file executes nothing. It is written by autonomous worker
 > **W3** (file-only lane). Every command below is safe to run locally in a
@@ -80,83 +80,139 @@ instead of `-b`. If it has diverged, pick a fresh name (`integ/wave2-b`).
 
 ---
 
-## 4. THE MERGES + THE THREE KNOWN CONFLICTS
+## 4. THE MERGES + THE OBSERVED CONFLICTS
 
 Merge one branch at a time. **Stop and resolve** before the next merge — never
 carry an unresolved index forward.
 
 ```bash
-git merge --no-ff p1-w4    # (A)
-git merge --no-ff p1-w1    # (B)  ← tenant-query.test.ts conflict lands here
-git merge --no-ff p1-w3    # (C)  ← SEO/schema conflicts resolve to w3
+git merge --no-ff p1-w4    # (A)  ← 1 conflict: team-portal/auth/route.ts (already DONE: ef3512fd)
+git merge --no-ff p1-w1    # (B)  ← 7 conflicts (see 4B) — the real work is here
+git merge --no-ff p1-w3    # (C)  ← SEO/schema authority: schema.tsx + JsonLd resolve to w3
 git merge --no-ff p1-w2    # (D)  ← docs only, expect clean
 ```
 
-### Conflict 1 — `platform/src/lib/tenant-query.test.ts` (w1 ∩ w4)
+> **These are not predictions.** The conflict sets below were reproduced against
+> the actual tips (`git merge-tree ef3512fd p1-w1`) on 2026-07-11 in worktree
+> p1-w3. Step A is already merged on `integ/wave2-2026-07-11` at **`ef3512fd`**.
 
-**Reality (verified):** this file exists on **both** `p1-w1` and `p1-w4`, and the
-two versions **diverge substantially** — `git diff p1-w1 p1-w4` on this file is
-**110 insertions / 180 deletions**. This is **not** two disjoint test sets you can
-blindly concatenate; w4 rewrote large parts. The "union + dedupe" instruction is
-the *intent*, but treat it as a **real manual merge**, not a mechanical paste.
+### 4A. Step A — `git merge p1-w4` → **1 conflict** (DONE: `ef3512fd`)
 
-**Resolution:**
-1. Open the conflicted file. For each `describe`/`test` block, keep the **superset
-   of behaviors**: every assertion that exists on either side must survive.
-2. Where both sides test the *same* behavior with different phrasing, keep **one**
-   copy (dedupe) — prefer the w4 phrasing since w4 landed first and is the newer
-   rewrite.
-3. Do not leave two `describe` blocks with the same name importing the same
-   symbols — that is the classic union-merge breakage.
-4. **Prove it in isolation before continuing the merge chain:**
-   ```bash
-   git add platform/src/lib/tenant-query.test.ts
-   npx vitest run platform/src/lib/tenant-query.test.ts
-   ```
-   Both the w1-origin cases (recurring/date-gen adjacent) and the w4-origin cases
-   (cross-tenant authz) must be present and green. If a case vanished, you
-   over-deduped — go back.
+Single conflict: **`platform/src/app/api/team-portal/auth/route.ts`** (content).
+- **base** (`6a052a58`) already had the failed-attempt buckets
+  `team_portal_auth_fail:slug:<slug>` + `team_portal_auth_fail:ip:<ip>`.
+- **w4** added a pre-check bucket `team_portal_auth:<slug>:<ip>` (5 / 15 min).
+- **Resolution taken = union (keep both):** w4's `team_portal_auth:<slug>:<ip>`
+  pre-check **plus** base's two `team_portal_auth_fail:*` buckets. Verified: the
+  resolved blob on `ef3512fd` contains all three `rateLimitDb(...)` calls.
 
-### Conflict 2 — yinez + inbound-email tenant fixes (w3 ∩ w4)
+This file **conflicts again at step B** against w1 — see 4B(2). Nothing more to do
+for step A; it is committed.
 
-**Reality (verified):** the security fix commit appears on both branches with
-**different SHAs** (`016ee7d7` on w3, `b1f84ca3` on w4) but the resulting file
-**content is identical** at the tips for:
-- `platform/src/app/api/yinez/route.ts`
-- `platform/src/lib/inbound-email-tenant.ts`
-- `platform/src/lib/migrations/062_add_tenant_id_inbound_emails.sql`
+### 4B. Step B — `git merge p1-w1` → **7 conflicts**
 
-Because the content is byte-identical, **git auto-resolves these** — expect **no
-conflict markers**. Nothing to do by hand.
+Exact paths and resolution per file. Resolve **all seven**, `git add` each, then
+run the isolated checks in 4C before proceeding to step C.
 
-**One asymmetry to know:** `p1-w4` additionally carries a test file that `p1-w3`
-does **not** have:
-```
-platform/src/app/api/yinez/route.isolation.test.ts
-```
-Since p1-w4 merges **first** (step A), this file is already in the tree by the time
-p1-w3 merges. It is a **pure add** — no conflict — and it **must be kept**. Do not
-delete it thinking it's a w3/w4 duplicate; w3 never had it.
+**(1) `platform/src/app/api/client/login/route.ts`** (content) — **KEEP BOTH guards.**
+- w4/base side: two-layer rate limit — per-IP `client-login:<tenant>:<ip>` (5/10min)
+  **and** per-tenant `client-login-tenant:<tenant>` (100/10min).
+- w1 side: single `client-login:<tenant>:<ip>` **with `{ failClosed: true }`**.
+- **Resolve to:** keep w4's **two** buckets **and** add `{ failClosed: true }` to
+  both `rateLimitDb(...)` calls. Do **not** collapse to w1's single bucket — that
+  drops the distributed-PIN-spray (per-tenant) cap.
 
-### Conflict 3 — SEO / JSON-LD / schema files → **take p1-w3**
+**(2) `platform/src/app/api/team-portal/auth/route.ts`** (content) — **KEEP BOTH guards. ⚠ SECURITY.**
+- w4 side (in tree from step A): bucket keyed on **`team_portal_auth:<slug>:<ip>`**.
+  Keying on the IP (not the PIN) **is the fix** — see the comment on that side.
+- w1 side: bucket keyed on **`team_portal_auth:<slug>:<pin>`** with `{ failClosed: true }`.
+- **Resolve to:** w4's **`<slug>:<ip>`** bucket key **+** w1's **`{ failClosed: true }`**
+  flag, and preserve the base `team_portal_auth_fail:*` buckets from step A.
+- **⚠ Do NOT take w1's line verbatim.** Keying on `<pin>` gives every guessed PIN a
+  fresh 5-attempt budget → unthrottled PIN enumeration. This is the single most
+  dangerous mis-resolution in the set.
 
-**Reality (verified):** p1-w3 is the SEO/schema hardening lane. Files under
-`platform/src/app/site/**/_lib/{seo,schema}*` and the JSON-LD template
-(`platform/src/app/site/template/_components/JsonLd.tsx` + its test) are p1-w3's
-authoritative surface.
+**(3) `platform/src/app/site/consortium-nyc/_lib/schema.tsx`** (content) — **defer to w3 (take-w3-SEO).**
+- w1 side **adds** `aggregateRatingSchema()` (a `ProfessionalService` AggregateRating).
+- p1-w3 commit **`a604b132`** — *"remove fabricated self-serving AggregateRating from
+  all bespoke sites (CRITICAL-1)"* — **deletes** exactly this.
+- **Resolve to:** unblock step B however (keeping w1's add is fine); the file is
+  reconciled at **step C**, where **w3 is authoritative and wins.**
+- **Invariant to verify after step C:** `aggregateRatingSchema` must **NOT** exist
+  in the final tree. `git grep aggregateRatingSchema` on the integ tip must return
+  nothing. Keeping w1's fabricated rating past step C re-opens CRITICAL-1.
 
-**Resolution:** on **any** conflict in an SEO/schema/JSON-LD file, take the
-**p1-w3** version:
+**(4) `platform/src/lib/escape-html.ts`** (add/add) — **take ONE impl + normalize one test.**
+- Two independent `escapeHtml` impls that escape the **same 5 chars** and differ
+  **only** in the apostrophe entity: base/w4 emits **`&#039;`**, w1 emits **`&#39;`**.
+  Both are valid and XSS-safe; browsers render both as `'`.
+- **Recommended: keep the base/w4 impl (`&#039;`)** — it is the security-base
+  version already depended on by `leads`/`prospects` notification paths.
+- **Then normalize the losing test:** w1's `platform/src/lib/escape-html.test.ts`
+  asserts `&#39;` and will **fail** against the `&#039;` impl → change that one
+  assertion to `&#039;`. (Base/w4's `platform/src/app/api/email-html-escape.test.ts`
+  already asserts `&#039;`.) If you keep w1's impl instead, do the mirror edit to
+  `email-html-escape.test.ts`. **Exactly one test-expectation edit either way** —
+  it is a normalization, not a behavior change. Skipping it fails the rebuild gate
+  on a phantom "regression."
+
+**(5) `platform/src/lib/quote.test.ts`** (add/add, 6 hunks) — **union tests.**
+**(6) `platform/src/lib/rate-limit-db.test.ts`** (add/add, 1 hunk) — **union tests.**
+**(7) `platform/src/lib/tenant-query.test.ts`** (add/add, 3 hunks) — **union tests (careful).**
+
+For (5)–(7): keep the **superset of behaviors** — every `test`/`it` assertion on
+either side survives. Where both sides cover the *same* behavior with different
+phrasing, keep **one** copy (prefer the w4/base phrasing). Do **not** leave two
+same-named `describe` blocks re-importing the same symbols. **`tenant-query.test.ts`
+diverges the most** (w4 rewrote large parts) — treat it as a real manual merge, not
+a mechanical paste; if the total test count drops sharply you over-deduped.
+
+### 4B-note. What did NOT conflict (do not go looking for these)
+
+Predicted-but-absent in the observed merge — git auto-resolved them, so **leave
+them alone**:
+- **yinez / inbound-email tenant fixes** (`api/yinez/route.ts`,
+  `lib/inbound-email-tenant.ts`, `migrations/062_add_tenant_id_inbound_emails.sql`) —
+  content is byte-identical across branches; merges clean, **no markers**.
+- **`api/yinez/route.isolation.test.ts`** — present only on p1-w4, a **pure add**,
+  already in the tree from step A. **Keep it**; it is not a w3/w4 duplicate.
+
+### 4C. Prove the step-B resolutions in isolation (before step C)
+
 ```bash
-git checkout --theirs <path>   # 'theirs' == the branch being merged, i.e. p1-w3, during step C
+git add platform/src/app/api/client/login/route.ts \
+        platform/src/app/api/team-portal/auth/route.ts \
+        platform/src/app/site/consortium-nyc/_lib/schema.tsx \
+        platform/src/lib/escape-html.ts \
+        platform/src/lib/quote.test.ts \
+        platform/src/lib/rate-limit-db.test.ts \
+        platform/src/lib/tenant-query.test.ts
+npx vitest run platform/src/lib/escape-html.test.ts \
+               platform/src/app/api/email-html-escape.test.ts \
+               platform/src/lib/quote.test.ts \
+               platform/src/lib/rate-limit-db.test.ts \
+               platform/src/lib/tenant-query.test.ts
+```
+All green before you `git merge --no-ff p1-w3`. If a case vanished from a union
+test, you over-deduped — go back.
+
+### 4D. Step C — `git merge p1-w3`: SEO / JSON-LD / schema → **take p1-w3**
+
+p1-w3 is the SEO/schema hardening lane and is **authoritative** on `schema.tsx`,
+`platform/src/app/site/template/_components/JsonLd.tsx` (+ its test), and anything
+under `platform/src/app/site/**/_lib/{seo,schema}*`.
+
+```bash
+git checkout --theirs <path>   # in `git merge p1-w3`, --theirs == p1-w3, --ours == integ
 git add <path>
 ```
-> Verify `--theirs` resolves to p1-w3 in your git version before trusting it — in a
-> `git merge p1-w3`, `--theirs` is p1-w3 and `--ours` is the in-progress integ
-> branch. When unsure, open the file and keep the p1-w3 content explicitly.
+> Confirm `--theirs` is p1-w3 in your git before trusting it; when unsure, open the
+> file and keep the p1-w3 content explicitly.
 
-Steps B and D are not expected to touch SEO/schema files; if one does, that is a
-**surprise** — stop and inspect, do not auto-resolve.
+After step C, run the schema invariant from 4B(3):
+`git grep aggregateRatingSchema` → **must be empty.** Step D (p1-w2) is docs only;
+expect clean. If B or D touches an SEO/schema file, that is a **surprise** — stop
+and inspect, do not auto-resolve.
 
 ---
 
@@ -176,7 +232,8 @@ npx tsc --noEmit     # 3. zero type errors
 **Pass criteria:**
 - [ ] `npm run build` exits 0, no unresolved-module / build errors.
 - [ ] `vitest run` — **0 failed**. Note the total count; if it dropped sharply vs
-      the individual branches, a merge silently ate tests (suspect Conflict 1).
+      the individual branches, a merge silently ate tests (suspect the union-test
+      resolutions 4B(5)–(7), esp. `tenant-query.test.ts`).
 - [ ] `tsc --noEmit` — **0 errors**.
 
 If any fails: fix in the integration worktree, re-run **all three**, do not
@@ -208,7 +265,10 @@ Handing it to `main` is a separate, Jeff-approved LEADER action — see
   git branch -D integ/wave2
   ```
   No worker lane is affected — they are separate worktrees.
-- **Test count dropped after §4:** re-open `tenant-query.test.ts`; you almost
-  certainly over-deduped Conflict 1. The union must be a superset.
+- **Test count dropped after §4:** re-open the union tests 4B(5)–(7) —
+  `tenant-query.test.ts` first; you almost certainly over-deduped. The union must
+  be a superset.
+- **`escapeHtml` test fails on `&#039;` vs `&#39;`:** that is expected until you do
+  the one-line normalization in 4B(4) — it is not a real regression.
 - **A gated action feels necessary to unblock:** it isn't. Stop, report to LEADER,
   wait for Jeff. Nothing in re-integration requires a push, deploy, or prod write.
