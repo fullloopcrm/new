@@ -3,21 +3,21 @@
  * + forecast + stage totals. One request feeds the Kanban view.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { PIPELINE_STAGES, computeForecast, computeStageTotals } from '@/lib/pipeline'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const url = new URL(request.url)
     const includeClosed = url.searchParams.get('include_closed') !== '0'
     const monthsAhead = Math.min(12, Number(url.searchParams.get('months')) || 6)
 
-    const { data: deals, error } = await supabaseAdmin
+    const { data: deals, error } = await db
       .from('deals')
       .select('*, clients(id, name, email, phone)')
-      .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .order('stage_changed_at', { ascending: false, nullsFirst: false })
       .limit(500)
