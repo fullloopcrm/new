@@ -1,4 +1,10 @@
--- 061_nycmaid_routing_reconcile.sql
+-- 063_nycmaid_routing_reconcile.sql
+-- RENUMBERED 061 -> 063 (2026-07-12): 061 collided with W2's
+-- 061_unique_journal_entries.sql, and 062 is already taken by
+-- 062_add_tenant_id_inbound_emails.sql (integ/wave2 run-order pack). 063 is the
+-- next free slot. See 063_nycmaid_routing_reconcile.RENUMBER.md. Apply order is
+-- unaffected: this reconcile still runs after the 055 backfill and 056/059/060,
+-- and is independent of 061/062 (different tables).
 -- P1 schema lane (W1). FLAGSHIP ROUTING RECONCILE — FILE ONLY, do NOT execute
 -- here; the leader runs prod DDL after Jeff approves.
 --
@@ -50,7 +56,7 @@
 -- too: it only writes CHECK-valid values, and every INSERT supplies
 -- routing_mode/status/vercel_project so it does not violate the 056 NOT NULLs.
 -- Run so a failure HALTs and rolls back:
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f 061_nycmaid_routing_reconcile.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f 063_nycmaid_routing_reconcile.sql
 --
 -- The two live alias domains are copied verbatim from 043 (the only source that
 -- names them). Keep in sync with 043 if that seed ever changes.
@@ -88,10 +94,10 @@ begin
 
   if v_matches = 0 then
     raise exception
-      '061 reconcile ABORTED: no tenant with slug in (nycmaid, the-nyc-maid). Flagship not found — nothing to reconcile, and guessing would be wrong.';
+      '063 reconcile ABORTED: no tenant with slug in (nycmaid, the-nyc-maid). Flagship not found — nothing to reconcile, and guessing would be wrong.';
   elsif v_matches > 1 then
     raise exception
-      '061 reconcile ABORTED: % tenants claim slug in (nycmaid, the-nyc-maid). Ambiguous flagship identity — refusing to touch any row until resolved by hand.',
+      '063 reconcile ABORTED: % tenants claim slug in (nycmaid, the-nyc-maid). Ambiguous flagship identity — refusing to touch any row until resolved by hand.',
       v_matches;
   end if;
 
@@ -108,7 +114,7 @@ begin
 
   if v_swap > 0 then
     raise exception
-      '061 reconcile ABORTED: % of nycmaid''s alias domain(s) are owned by a DIFFERENT tenant_id than the flagship (%). Cross-tenant swap — fix the ownership by hand before reconciling routing.',
+      '063 reconcile ABORTED: % of nycmaid''s alias domain(s) are owned by a DIFFERENT tenant_id than the flagship (%). Cross-tenant swap — fix the ownership by hand before reconciling routing.',
       v_swap, v_tenant_id;
   end if;
 
@@ -140,7 +146,7 @@ begin
       'bespoke',
       'active',
       coalesce((select vercel_project from existing_vercel), 'fullloopcrm'),
-      'Reconciled by migration 061 (nycmaid slug/routing reconcile)'
+      'Reconciled by migration 063 (nycmaid slug/routing reconcile)'
     from unnest(v_domains) as d
     on conflict (domain) do nothing
     returning 1
@@ -165,7 +171,7 @@ begin
   select count(*) into v_updated from upd;
 
   raise notice
-    '061 reconcile OK: flagship tenant_id=%, alias rows inserted=%, rows set bespoke/backfilled=%.',
+    '063 reconcile OK: flagship tenant_id=%, alias rows inserted=%, rows set bespoke/backfilled=%.',
     v_tenant_id, v_inserted, v_updated;
 
   -- 5. POST-VERIFY (in-transaction; rolls back on failure). Every domain row of
@@ -185,23 +191,23 @@ begin
 
   if v_nonbespoke > 0 then
     raise exception
-      '061 post-verify FAILED: % flagship domain row(s) are still NOT bespoke. Rolled back.',
+      '063 post-verify FAILED: % flagship domain row(s) are still NOT bespoke. Rolled back.',
       v_nonbespoke;
   end if;
 
   if v_missing > 0 then
     raise exception
-      '061 post-verify FAILED: % of nycmaid''s alias domain(s) still absent for the flagship tenant. Rolled back.',
+      '063 post-verify FAILED: % of nycmaid''s alias domain(s) still absent for the flagship tenant. Rolled back.',
       v_missing;
   end if;
 
   raise notice
-    '061 post-verify PASSED: all flagship domain rows are bespoke and both alias domains are present under tenant_id=%.',
+    '063 post-verify PASSED: all flagship domain rows are bespoke and both alias domains are present under tenant_id=%.',
     v_tenant_id;
 end $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- POST-VERIFY (read-only; re-run any time after 061 to confirm the end state).
+-- POST-VERIFY (read-only; re-run any time after 063 to confirm the end state).
 -- Expect: every row routing_mode = 'bespoke'; thenycmaid.com and
 -- thenewyorkcitymaid.com both present under the same tenant_id.
 -- ═══════════════════════════════════════════════════════════════════════════

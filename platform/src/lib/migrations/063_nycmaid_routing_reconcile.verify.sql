@@ -1,10 +1,10 @@
--- 061_nycmaid_routing_reconcile.verify.sql
+-- 063_nycmaid_routing_reconcile.verify.sql
 -- P1 schema lane (W1). Standalone, read-only verification for the flagship
 -- (nycmaid) routing reconcile. Everything here reads only; the final DO gate
--- writes NOTHING — it only RAISES. Safe to run any time before/after 061.
+-- writes NOTHING — it only RAISES. Safe to run any time before/after 063.
 --
 -- HOW TO RUN (so a failure HALTs with a nonzero exit code):
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f 061_nycmaid_routing_reconcile.verify.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f 063_nycmaid_routing_reconcile.verify.sql
 --
 -- Identity is slug-agnostic: the flagship is the ONE tenant whose slug is in
 -- ('nycmaid', 'the-nyc-maid'). No other tenant claims either slug.
@@ -46,7 +46,7 @@ begin
 
   if v_matches <> 1 then
     raise exception
-      '061 verify FAILED: expected exactly 1 flagship tenant (slug in nycmaid/the-nyc-maid), found %.',
+      '063 verify FAILED: expected exactly 1 flagship tenant (slug in nycmaid/the-nyc-maid), found %.',
       v_matches;
   end if;
 
@@ -67,16 +67,16 @@ begin
     from tenant_domains
    where tenant_id = v_tenant_id and routing_mode is distinct from 'bespoke';
 
-  raise notice '061 verify: flagship=%, missing_alias=%, mis_owned_alias=%, non_bespoke_rows=%',
+  raise notice '063 verify: flagship=%, missing_alias=%, mis_owned_alias=%, non_bespoke_rows=%',
     v_tenant_id, v_missing, v_swap, v_nonbespoke;
 
   if v_missing > 0 or v_swap > 0 or v_nonbespoke > 0 then
     raise exception
-      '061 verify FAILED: missing_alias=%, mis_owned_alias=%, non_bespoke_rows=%. See sections 2 and 3 above.',
+      '063 verify FAILED: missing_alias=%, mis_owned_alias=%, non_bespoke_rows=%. See sections 2 and 3 above.',
       v_missing, v_swap, v_nonbespoke;
   end if;
 
   raise notice
-    '061 verify PASSED: flagship % has both alias domains and every domain row routes bespoke.',
+    '063 verify PASSED: flagship % has both alias domains and every domain row routes bespoke.',
     v_tenant_id;
 end $$;
