@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET() {
@@ -22,12 +23,11 @@ export async function GET() {
     .limit(5)
 
   // Get read IDs for this tenant
-  const { data: reads } = await supabaseAdmin
+  const { data: reads } = await tenantDb(tenant.id)
     .from('platform_announcement_reads')
     .select('announcement_id')
-    .eq('tenant_id', tenant.id)
 
-  const readIds = new Set((reads || []).map((r) => r.announcement_id))
+  const readIds = new Set(((reads as { announcement_id: string }[] | null) || []).map((r) => r.announcement_id))
   const unread = (announcements || []).filter((a) => !readIds.has(a.id))
 
   return NextResponse.json({ unread })
@@ -43,11 +43,10 @@ export async function POST(request: Request) {
   }
   const { announcement_id } = await request.json()
 
-  await supabaseAdmin
+  await tenantDb(tenant.id)
     .from('platform_announcement_reads')
     .upsert({
       announcement_id,
-      tenant_id: tenant.id,
     }, { onConflict: 'announcement_id,tenant_id' })
 
   return NextResponse.json({ ok: true })
