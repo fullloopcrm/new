@@ -1,18 +1,24 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { verifyPortalToken } from '../../portal/auth/token'
 
-// GET /api/client/preferred-cleaner?client_id=X
-// Returns the client's current preferred team member + the list of team
-// members they've actually worked with.
+// GET /api/client/preferred-cleaner
+// Auth: client portal Bearer token (same as /api/portal/*) — identifies the
+// client, no caller-supplied client_id is trusted. Returns the client's
+// current preferred team member + the list of team members they've actually
+// worked with.
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const clientId = searchParams.get('client_id')
-  if (!clientId) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = verifyPortalToken(token)
+  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  const clientId = auth.id
 
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('preferred_team_member_id, tenant_id')
     .eq('id', clientId)
+    .eq('tenant_id', auth.tid)
     .single()
 
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
@@ -44,15 +50,21 @@ export async function GET(request: Request) {
 }
 
 // PUT /api/client/preferred-cleaner
-// body: { client_id, preferred_cleaner_id (or null to clear) }
+// Auth: client portal Bearer token. body: { preferred_cleaner_id (or null to clear) }
 export async function PUT(request: Request) {
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = verifyPortalToken(token)
+  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  const clientId = auth.id
+
   const body = await request.json()
-  if (!body.client_id) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
 
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('tenant_id')
-    .eq('id', body.client_id)
+    .eq('id', clientId)
+    .eq('tenant_id', auth.tid)
     .single()
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
@@ -71,7 +83,8 @@ export async function PUT(request: Request) {
   const { error } = await supabaseAdmin
     .from('clients')
     .update({ preferred_team_member_id: body.preferred_cleaner_id || null })
-    .eq('id', body.client_id)
+    .eq('id', clientId)
+    .eq('tenant_id', auth.tid)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
