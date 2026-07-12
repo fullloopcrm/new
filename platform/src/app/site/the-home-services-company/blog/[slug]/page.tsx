@@ -117,6 +117,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
               {/* Article content */}
               <div id="article-content" className="space-y-5 text-base leading-relaxed text-slate-700">
+                {/* SAFE: `paragraph` is static, operator-authored blog copy from a local
+                    module (BLOG_POSTS in _data/blog-posts) — no DB, no user/tenant input.
+                    Raw HTML is intentional: paragraphs carry inline <a> links.
+                    CONSTRAINT: if this content ever becomes DB-sourced or user-editable it
+                    becomes an XSS sink and MUST be sanitized (security audit §2.4b). */}
                 {post.content.map((paragraph, i) => (
                   <p key={i} dangerouslySetInnerHTML={{ __html: paragraph }} />
                 ))}

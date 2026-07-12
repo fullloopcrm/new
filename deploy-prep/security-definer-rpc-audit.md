@@ -184,6 +184,33 @@ JSON-LD (`__html: JSON.stringify(schema)`) rendered from **static, operator-auth
   block now carries an inline `SAFE:` comment stating it is static/operator-authored and
   spelling out the "sanitize the moment this goes DB-sourced or user-editable" constraint.
 
+### 2.4b Full raw-HTML content-sink inventory — **verified static (p1-w3, second pass)**
+
+Follow-up sweep of **every** `dangerouslySetInnerHTML` that injects a bare field/string
+(not JSON-LD, not a serializer). All confirmed **static, operator-authored**, with raw HTML
+used deliberately for inline `<a>` links / HTML entities (`&amp;`, `&apos;`, `&#9733;`).
+Hardening with `escapeHtml()` would **corrupt** the intended markup, so these are
+**verify-safe + documented**, not escaped:
+
+- **Additional blog `__html: p` / `paragraph` pages** (4, beyond the §2.4 four): top-level
+  `nyc-maid-service-blog/[slug]`, `debt-service-ratio-loan/blog/[slug]`,
+  `landscaping-in-nyc/blog/[slug]`, `the-home-services-company/blog/[slug]`. Sources are
+  local static modules (`@/lib/seo/blog-data`, `_lib/blogPosts`, `_data/blog-posts`) with
+  **zero DB/supabase**. Each now carries the same inline `SAFE:` + CONSTRAINT comment.
+- **Inline-literal-array sinks** — data literal and sink **colocated in the same file**, so
+  the value is provably static (would require rewriting the page to become dynamic):
+  `nyc-tow` + `nycroadsideemergencyassistance` careers/pricing/services (`item.desc`,
+  `item.detail`, `item.body`, `req`); `the-home-services-company` `page.tsx` (`card.title`,
+  `card.desc`) and `pricing` (`item.a`); `sunnyside-clean-nyc` FAQ (`faq.answer`, via the
+  `L()` link helper); `wash-and-fold-nyc` `[slug]/[service]` (`b.icon`, HTML-entity glyphs).
+  Lowest risk of the set; documented centrally here rather than per-line.
+- **ALREADY HARDENED (no action):** `nyc-classifieds/blog/[slug]/BlogPostClient.tsx` `md()`
+  **escapes first** (`escHtml(s)` then bold/link transforms, `safeHref()` on the URL) —
+  correct even if `post.content` were dynamic. `dashboard/ai` render + `render-assistant-markdown`
+  escape (§2.4 / prior commits).
+- **CONSTRAINT (unchanged):** any of these that migrates to DB-sourced / user-editable content
+  MUST switch to `escapeHtml()` (text) or a sanitizing markdown renderer before shipping.
+
 ### 2.5 SAFE-ish — static third-party script tags
 - GA/`gtag`, MS Clarity, Tawk.to, `dataLayer` injections in various `site/*/layout.tsx`
   (`__html: \`…\``) are **hardcoded strings**; the only interpolations are build-time

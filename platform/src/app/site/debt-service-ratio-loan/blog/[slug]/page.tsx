@@ -93,6 +93,11 @@ export default async function BlogPostPage({ params }: Props) {
           {post.content.map((section, i) => (
             <div key={i} id={`section-${i}`} className={i > 0 ? "mt-12" : ""}>
               <h2 className="text-2xl font-bold text-slate-900 font-heading">{section.heading}</h2>
+              {/* SAFE: `p` is static, operator-authored blog copy from a local module
+                  (blogPosts in _lib/blogPosts) — no DB, no user/tenant input. Raw HTML is
+                  intentional: paragraphs carry inline <a> links.
+                  CONSTRAINT: if this content ever becomes DB-sourced or user-editable it
+                  becomes an XSS sink and MUST be sanitized (security audit §2.4b). */}
               {section.paragraphs.map((p, j) => (
                 <p key={j} className="mt-4 text-base leading-relaxed text-slate-600" dangerouslySetInnerHTML={{ __html: p }} />
               ))}
