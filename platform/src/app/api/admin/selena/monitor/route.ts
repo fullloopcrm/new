@@ -9,12 +9,13 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { safeEqual } from '@/lib/secret-compare'
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.ELCHAPO_MONITOR_KEY
   if (!expected) return false
   const key = request.headers.get('x-monitor-key') || request.nextUrl.searchParams.get('key')
-  return key === expected
+  return safeEqual(key, expected)
 }
 
 async function resolveTenantId(param: string | null): Promise<string | null> {

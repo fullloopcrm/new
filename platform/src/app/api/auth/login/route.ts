@@ -4,6 +4,7 @@ import { createSessionCookie, hashPassword } from '@/lib/nycmaid/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/nycmaid/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
+import { safeEqual } from '@/lib/secret-compare'
 
 // In-memory rate limiting
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>()
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const adminPassword = (process.env.ADMIN_PASSWORD || '').trim()
+    const adminPassword = process.env.ADMIN_PASSWORD?.trim() || null
 
     // Try user-based login first (email + password)
     if (email && password) {
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     // Fallback: legacy PIN-based login
-    if (password === adminPassword) {
+    if (safeEqual(password, adminPassword)) {
       loginAttempts.delete(ip)
 
       const session = createSessionCookie()

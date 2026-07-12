@@ -10,12 +10,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { safeEqual } from '@/lib/secret-compare'
 
 async function authorize(req: NextRequest): Promise<{ tenantId: string } | NextResponse> {
   const monitorKey = req.headers.get('x-monitor-key') || req.nextUrl.searchParams.get('key')
   const tenantParam = req.nextUrl.searchParams.get('tenant_id')
 
-  if (monitorKey && process.env.ELCHAPO_MONITOR_KEY && monitorKey === process.env.ELCHAPO_MONITOR_KEY) {
+  if (safeEqual(monitorKey, process.env.ELCHAPO_MONITOR_KEY)) {
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenant_id query param required for monitor key access' }, { status: 400 })
     }

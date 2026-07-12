@@ -17,6 +17,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fetchUnreadEmails, markEmailRead, type ImapConfig } from '@/lib/email-monitor'
 import { detectPaymentEmail, parsePaymentEmail, type EmailPayment } from '@/lib/payment-email-parser'
 import { sendSMS } from '@/lib/sms'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const maxDuration = 60
 
@@ -34,13 +35,13 @@ interface TenantRow {
 
 async function authorize(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
-  if (auth === `Bearer ${process.env.CRON_SECRET}`) return true
+  if (safeEqual(auth, process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : undefined)) return true
   const url = req.nextUrl
   const key = url.searchParams.get('key')
-  if (key && process.env.ELCHAPO_MONITOR_KEY && key === process.env.ELCHAPO_MONITOR_KEY) return true
+  if (safeEqual(key, process.env.ELCHAPO_MONITOR_KEY)) return true
   try {
     const body = await req.json()
-    if (body?.key && process.env.ELCHAPO_MONITOR_KEY && body.key === process.env.ELCHAPO_MONITOR_KEY) return true
+    if (safeEqual(body?.key, process.env.ELCHAPO_MONITOR_KEY)) return true
   } catch {}
   return false
 }
