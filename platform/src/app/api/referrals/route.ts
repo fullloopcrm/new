@@ -1,25 +1,24 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('referrals')
       .select('*, clients!referrals_referrer_client_id_fkey(name)')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
     if (error) {
       // Fallback without join if FK doesn't match
-      const { data: fallback } = await supabaseAdmin
+      const { data: fallback } = await db
         .from('referrals')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
 
       return NextResponse.json({ referrals: fallback })
@@ -37,6 +36,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const body = await request.json()
 
     const { data: fields, error: vError } = validate(body, {
@@ -57,9 +57,9 @@ export async function POST(request: Request) {
       delete validated.code
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('referrals')
-      .insert({ ...validated, tenant_id: tenantId })
+      .insert(validated)
       .select()
       .single()
 
