@@ -40,15 +40,6 @@ async function resolveVoiceTenant(toDid: string | undefined): Promise<VoiceTenan
   return { ok: true, tenantId: matches[0].id }
 }
 
-// Comma-separated E.164 list. We dial them one at a time, 25s each, until
-// someone picks up. If the list is exhausted with no pickup, drop the
-// caller into voicemail.
-const ADMIN_RING_LIST = (process.env.ADMIN_RING_LIST || process.env.ADMIN_FORWARD_PHONE || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean)
-
-const VOICEMAIL_NOTIFY_PHONE = (process.env.VOICEMAIL_NOTIFY_PHONE || ADMIN_RING_LIST[0] || '').trim()
 const ADMIN_LEG_TIMEOUT_SECS = Number(process.env.ADMIN_LEG_TIMEOUT_SECS || '25')
 const VOICEMAIL_MAX_LENGTH_SECS = Number(process.env.VOICEMAIL_MAX_LENGTH_SECS || '120')
 const MISSED_CALL_SMS_COOLDOWN_MIN = Number(process.env.MISSED_CALL_SMS_COOLDOWN_MIN || '60')
@@ -114,14 +105,33 @@ type RingTarget = {
   amd: boolean // whether to use answering-machine detection
 }
 
-// Build the ordered list of admin endpoints to dial. Online softphones
-// first (browser dialer), then cell numbers from ADMIN_RING_LIST. If no
-// softphones are online, this just returns the cell list.
-async function buildRingTargets(): Promise<RingTarget[]> {
+// Per-tenant PSTN fallback numbers, sourced from each admin's own voice
+// settings (the same table the /admin/comhub/voice/settings UI writes to).
+// Ordered by admin_id for deterministic ring order.
+async function getTenantAdminCellPhones(tenantId: string): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from('comhub_admin_voice_settings')
+    .select('admin_id, fallback_cell_phone')
+    .eq('tenant_id', tenantId)
+    .order('admin_id', { ascending: true })
+
+  return (data ?? [])
+    .map(row => (row.fallback_cell_phone || '').trim())
+    .filter(Boolean)
+}
+
+// Build the ordered list of admin endpoints to dial for this tenant's call.
+// Online softphones first (browser dialer), then this tenant's configured
+// cell numbers. If no softphones are online, this just returns the cell
+// list. TENANT-SCOPED: both presence and cell numbers are filtered to
+// tenantId — an unrelated tenant's online admin or configured cell must
+// never ring for this call.
+async function buildRingTargets(tenantId: string): Promise<RingTarget[]> {
   const cutoff = new Date(Date.now() - 60_000).toISOString()
   const { data: presence } = await supabaseAdmin
-    .from('comhub_admin_presence')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
+    .from('comhub_admin_presence')
     .select('admin_id, sip_username, sip_address, status, last_seen_at')
+    .eq('tenant_id', tenantId)
     .gte('last_seen_at', cutoff)
     .eq('status', 'available')
     .order('last_seen_at', { ascending: false })
@@ -136,7 +146,8 @@ async function buildRingTargets(): Promise<RingTarget[]> {
     }
   }
 
-  const phoneTargets: RingTarget[] = ADMIN_RING_LIST.map(p => ({
+  const cellPhones = await getTenantAdminCellPhones(tenantId)
+  const phoneTargets: RingTarget[] = cellPhones.map(p => ({
     kind: 'phone' as const,
     destination: p,
     label: p,
@@ -358,19 +369,21 @@ async function maybeSendMissedCallSMS(opts: {
 }
 
 async function notifyVoicemailToAdmin(opts: {
+  tenantId: string
   customerPhone: string
   threadId: string
   recordingUrl: string | null
   transcript: string | null
 }): Promise<void> {
-  if (!VOICEMAIL_NOTIFY_PHONE) return
+  const [notifyPhone] = await getTenantAdminCellPhones(opts.tenantId)
+  if (!notifyPhone) return
   const lines = [
     `📞 New voicemail from ${opts.customerPhone}`,
     opts.transcript ? `Transcript: ${opts.transcript.slice(0, 400)}` : null,
     opts.recordingUrl ? `Audio: ${opts.recordingUrl}` : null,
     `Thread: https://www.thenycmaid.com/admin/comhub?thread=${opts.threadId}`,
   ].filter(Boolean) as string[]
-  await sendSMS(VOICEMAIL_NOTIFY_PHONE, lines.join('\n'), {
+  await sendSMS(notifyPhone, lines.join('\n'), {
     skipCircuit: true,
     smsType: 'voicemail_alert',
   })
@@ -539,7 +552,7 @@ export async function POST(req: NextRequest) {
     // harmless for SIP-URI transfer (the transfer moves the leg).
     await telnyxAction(callControlId, 'answer', {})
 
-    const ringTargets = await buildRingTargets()
+    const ringTargets = await buildRingTargets(tenantId)
     if (ringTargets.length === 0) {
       await startVoicemail({
         tenantId,
@@ -620,7 +633,7 @@ export async function POST(req: NextRequest) {
       // If we already bridged, hangup of admin leg is just end of conversation.
       if (active.status === 'bridged') return NextResponse.json({ ok: true })
 
-      const ringTargets = await buildRingTargets()
+      const ringTargets = await buildRingTargets(active.tenant_id)
       if (nextIndex < ringTargets.length) {
         const nextCallId = await dialRingTarget({
           target: ringTargets[nextIndex],
@@ -685,6 +698,7 @@ export async function POST(req: NextRequest) {
 
     if (isVoicemail) {
       await notifyVoicemailToAdmin({
+        tenantId: active.tenant_id,
         customerPhone: active.customer_phone,
         threadId: active.thread_id,
         recordingUrl: url,
@@ -727,6 +741,7 @@ export async function POST(req: NextRequest) {
       // If the transcript is for a voicemail, push it to admin too.
       if (active.status === 'voicemail') {
         await notifyVoicemailToAdmin({
+          tenantId: active.tenant_id,
           customerPhone: active.customer_phone,
           threadId: active.thread_id,
           recordingUrl: null,
