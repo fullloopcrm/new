@@ -2,7 +2,7 @@
  * Bank transactions list — for review/categorization UI.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
@@ -12,6 +12,8 @@ export async function GET(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb auto-injects .eq('tenant_id', tenantId) on the read below.
+    const db = tenantDb(tenantId)
     const url = new URL(request.url)
     const status = url.searchParams.get('status')
     const bankAccountId = url.searchParams.get('bank_account_id')
@@ -20,10 +22,9 @@ export async function GET(request: Request) {
     const entityId = entityIdFromUrl(url)
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 200)
 
-    let q = supabaseAdmin
+    let q = db
       .from('bank_transactions')
       .select('*, bank_accounts(id, name, mask, entity_id), chart_of_accounts!bank_transactions_coa_id_fkey(id, code, name)')
-      .eq('tenant_id', tenantId)
       .order('txn_date', { ascending: false })
       .limit(limit)
 
