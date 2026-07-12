@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 
@@ -19,19 +19,17 @@ export async function GET(request: Request) {
   const auth = await protectClientAPI(tenant.id, clientId)
   if (auth instanceof NextResponse) return auth
 
-  const { data: client } = await supabaseAdmin
+  const { data: client } = await tenantDb(tenant.id)
     .from('clients')
     .select('preferred_team_member_id, tenant_id')
     .eq('id', clientId)
-    .eq('tenant_id', tenant.id)
     .single()
 
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
-  const { data: pastJobs } = await supabaseAdmin
+  const { data: pastJobs } = await tenantDb(tenant.id)
     .from('bookings')
     .select('team_member_id, team_members!bookings_team_member_id_fkey(id, name)')
-    .eq('tenant_id', tenant.id)
     .eq('client_id', clientId)
     .not('team_member_id', 'is', null)
     .order('start_time', { ascending: false })
@@ -69,22 +67,20 @@ export async function PUT(request: Request) {
   if (auth instanceof NextResponse) return auth
 
   if (body.preferred_cleaner_id) {
-    const { data: member } = await supabaseAdmin
+    const { data: member } = await tenantDb(tenant.id)
       .from('team_members')
       .select('id, active')
       .eq('id', body.preferred_cleaner_id)
-      .eq('tenant_id', tenant.id)
       .single()
     if (!member || member.active === false) {
       return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
     }
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.id)
     .from('clients')
     .update({ preferred_team_member_id: body.preferred_cleaner_id || null })
     .eq('id', body.client_id)
-    .eq('tenant_id', tenant.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
