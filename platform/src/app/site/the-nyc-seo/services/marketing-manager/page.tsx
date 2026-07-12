@@ -248,22 +248,6 @@ export default function MarketingManagerPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — Fractional Marketing Manager Services",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "Rachel M." },
-    reviewBody:
-      "We were spending $12,000 a month across three different agencies with no one driving the bus. Within 90 days of bringing on The NYC SEO as our fractional marketing manager, they cut $4,000 in wasted spend, consolidated our reporting, and increased our qualified leads by 35%. Best marketing decision we ever made.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -278,7 +262,6 @@ export default function MarketingManagerPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO

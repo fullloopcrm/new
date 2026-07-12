@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import JsonLd from '@/app/site/template/_components/JsonLd'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { homeContent } from '@/app/site/template/_lib/content/longform'
@@ -16,12 +17,6 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
   const services = config.services.filter((s) => !s.emergency)
   const smsHref = `sms:${config.contact.phoneDigits}`
 
-  // Only surface a rating when it's backed by a real, positive integer review
-  // count. Number('') → 0 and Number('50+') → NaN both fail this, so a tenant
-  // without real reviews shows no stars and emits no AggregateRating markup.
-  const reviewCount = Number(config.reviewCount)
-  const hasRealReviews = Number.isInteger(reviewCount) && reviewCount > 0
-
   const cta =
     config.funnelMode === 'lead_only'
       ? { label: 'Get in touch', href: '/contact' }
@@ -37,9 +32,6 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
     telephone: config.contact.phone,
     ...(config.identity.logo ? { image: config.identity.logo } : {}),
     areaServed: config.geo.placename,
-    ...(hasRealReviews
-      ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: config.rating.toFixed(1), reviewCount } }
-      : {}),
   }
   const faqLd = {
     '@context': 'https://schema.org',
@@ -49,16 +41,16 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
 
   return (
     <div>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
+      <JsonLd data={orgLd} />
+      <JsonLd data={faqLd} />
 
       {/* Hero */}
       <section className="bg-[var(--brand)] text-white">
         <div className="max-w-6xl mx-auto px-6 py-20 md:py-28">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-6 text-sm text-white/70">
-            {hasRealReviews && (<>
+            {config.reviewCount && (<>
               <span className="text-[var(--accent)] font-semibold">★ {config.rating.toFixed(1)}</span>
-              <span>{reviewCount} reviews</span>
+              <span>{config.reviewCount} reviews</span>
               <span className="hidden sm:inline text-white/20">|</span>
             </>)}
             <span>Licensed &amp; insured</span>

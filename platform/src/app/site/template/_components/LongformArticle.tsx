@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import JsonLd from '@/app/site/template/_components/JsonLd'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import type { LongformPage } from '@/app/site/template/_lib/content/longform'
 
@@ -25,12 +26,6 @@ export function LongformArticle({
   const smsHref = `sms:${config.contact.phoneDigits}`
   const defaultCtaBody = `Tell us what you need and we'll take it from there — a clear quote, a time that works, and work we stand behind.`
 
-  // Only emit an AggregateRating backed by a real, positive integer review count.
-  // Number('') → 0 and Number('50+') → NaN both fail, so a tenant without real
-  // reviews emits no rating markup (avoids fake-review Google manual-action risk).
-  const reviewCount = Number(config.reviewCount)
-  const hasRealReviews = Number.isInteger(reviewCount) && reviewCount > 0
-
   const orgLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
@@ -38,9 +33,6 @@ export function LongformArticle({
     url: config.identity.url,
     telephone: config.contact.phone,
     ...(config.identity.logo ? { logo: config.identity.logo } : {}),
-    ...(hasRealReviews
-      ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: config.rating.toFixed(1), reviewCount } }
-      : {}),
   }
   const faqLd = content.faq.length > 0
     ? {
@@ -56,8 +48,8 @@ export function LongformArticle({
 
   return (
     <div>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }} />
-      {faqLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />}
+      <JsonLd data={orgLd} />
+      {faqLd && <JsonLd data={faqLd} />}
 
       {/* Hero */}
       <section className="bg-[var(--brand)] text-white">

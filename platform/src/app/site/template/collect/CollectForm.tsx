@@ -129,7 +129,7 @@ export default function CollectForm({ config }: { config: SiteConfig }) {
 
           <div>
             <label className={labelCls}>Email</label>
-            <input type="email" placeholder="you@example.com" value={form.email} onChange={(e) => { update('email', e.target.value); setEmailErr('') }} className={inputCls} style={inputStyle} />
+            <input type="email" placeholder="Enter your email" value={form.email} onChange={(e) => { update('email', e.target.value); setEmailErr('') }} className={inputCls} style={inputStyle} />
             {emailErr && <p className="text-red-600 text-xs mt-1">{emailErr}</p>}
           </div>
 

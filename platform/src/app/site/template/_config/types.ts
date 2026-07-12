@@ -14,7 +14,7 @@ export interface SiteIdentity {
   name: string
   /** Optional legal entity name */
   legalName?: string
-  /** Canonical site origin, no trailing slash, e.g. "https://www.example.com" */
+  /** Canonical site origin, no trailing slash, e.g. "https://www.yourdomain.com" */
   url: string
   /** OpenGraph siteName; falls back to `name` when omitted */
   siteName?: string

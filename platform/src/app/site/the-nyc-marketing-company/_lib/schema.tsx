@@ -244,14 +244,6 @@ export function articleSchema(
   };
 }
 
-export function aggregateRatingSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "ProfessionalService",
-    name: "The NYC Marketing Company",
-  };
-}
-
 export function JsonLd({ data }: { data: Record<string, unknown> | Record<string, unknown>[] }) {
   return (
     <script

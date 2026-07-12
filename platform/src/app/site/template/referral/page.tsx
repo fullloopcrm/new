@@ -190,7 +190,7 @@ function ReferrerPortalContent() {
             </div>
           )}
         </div>
-        <div className="mt-8 text-center text-sm text-gray-500"><p>Questions? hi@example.com</p></div>
+        <div className="mt-8 text-center text-sm text-gray-500"><p>Questions? Reach out through the contact page on the main site.</p></div>
       </main>
     </div>
   )

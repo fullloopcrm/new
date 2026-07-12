@@ -254,22 +254,6 @@ export default function GBPPage() {
     })),
   };
 
-  const reviewSchema = {
-    "@context": "https://schema.org",
-    "@type": "Review",
-    itemReviewed: {
-      "@type": "ProfessionalService",
-      name: "The NYC SEO — Google Business Profile Optimization",
-    },
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    author: { "@type": "Person", name: "Anthony M." },
-    reviewBody:
-      "The NYC SEO completely overhauled our Google Business Profile and within 3 months we went from invisible in Maps to showing up in the top 3 for every major keyword in our area. Our review count tripled thanks to their automated system and we are getting 40% more calls directly from our GBP listing. Best investment we have made in marketing.",
-  };
 
   const breadcrumbItems = [
     { name: "Services", url: "/services" },
@@ -284,7 +268,6 @@ export default function GBPPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewSchema) }} />
 
       {/* ============================================================
           SECTION 1: HERO
