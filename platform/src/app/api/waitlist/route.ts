@@ -8,7 +8,7 @@
  *   auth — tenant is resolved from the signed middleware header. Rate-limited.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
@@ -26,6 +26,28 @@ interface WaitlistEntry {
   source: string
 }
 
+interface WaitlistTableRow {
+  id: string
+  name: string | null
+  phone: string | null
+  service_type: string | null
+  preferred_date: string | null
+  preferred_time: string | null
+  created_at: string
+  client_id: string | null
+  source: string | null
+}
+
+interface SmsConvoRow {
+  id: string
+  name: string | null
+  phone: string | null
+  service_type: string | null
+  booking_checklist: Record<string, unknown> | null
+  created_at: string
+  client_id: string | null
+}
+
 export async function GET() {
   let tenantId: string
   try {
@@ -38,15 +60,14 @@ export async function GET() {
   const entries: WaitlistEntry[] = []
 
   // Dedicated table. Missing table (not migrated yet) must not break the panel.
-  const { data: rows, error: tableErr } = await supabaseAdmin
+  const { data: rows, error: tableErr } = await tenantDb(tenantId)
     .from('waitlist')
     .select('id, name, phone, service_type, preferred_date, preferred_time, created_at, client_id, source, status')
-    .eq('tenant_id', tenantId)
     .neq('status', 'expired')
     .order('created_at', { ascending: false })
     .limit(50)
   if (!tableErr) {
-    for (const r of rows || []) {
+    for (const r of (rows || []) as unknown as WaitlistTableRow[]) {
       entries.push({
         id: r.id,
         name: r.name,
@@ -62,15 +83,14 @@ export async function GET() {
   }
 
   // Legacy SMS-conversation waitlist.
-  const { data: convos } = await supabaseAdmin
+  const { data: convos } = await tenantDb(tenantId)
     .from('sms_conversations')
     .select('id, name, phone, service_type, booking_checklist, created_at, client_id')
-    .eq('tenant_id', tenantId)
     .eq('outcome', 'waitlisted')
     .eq('expired', false)
     .order('created_at', { ascending: false })
     .limit(50)
-  for (const row of convos || []) {
+  for (const row of (convos || []) as unknown as SmsConvoRow[]) {
     const checklist = (row.booking_checklist as Record<string, unknown> | null) || {}
     entries.push({
       id: row.id,
@@ -129,8 +149,7 @@ export async function POST(request: Request) {
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
   const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null)
 
-  const { error } = await supabaseAdmin.from('waitlist').insert({
-    tenant_id: tenant.id,
+  const { error } = await tenantDb(tenant.id).from('waitlist').insert({
     name,
     phone,
     email: str(body.email),
