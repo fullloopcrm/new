@@ -305,12 +305,12 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   },
   {
     category: "industries",
-    question: "What digital marketing do HVAC companies in NYC need?",
+    question: "What web design do HVAC companies in NYC need?",
     answer: <span><L href="/industries-we-offer-marketing-services-for/hvac-company-marketing">HVAC companies</L> need seasonal SEO strategies — AC repair content dominates summer searches, heating repair in winter. We build landing pages for every service and <L href="/services-areas-we-offer-marketing-services-in">neighborhood</L>, optimize your GBP for emergency searches, and implement <L href="/artificial-intelligence-marketing-services-offered">AI automation</L> for after-hours lead capture. The businesses that pick up the phone first win the job.</span>,
   },
   {
     category: "industries",
-    question: "How should a law firm in NYC approach digital marketing?",
+    question: "How should a law firm in NYC approach web design?",
     answer: <span><L href="/industries-we-offer-marketing-services-for/law-firm-marketing">Law firm marketing</L> requires EEAT-focused content (Experience, Expertise, Authoritativeness, Trustworthiness), practice area landing pages, attorney bio optimization, and local SEO for each <L href="/services-areas-we-offer-marketing-services-in">borough</L> you serve. <L href="/industries-we-offer-marketing-services-for/personal-injury-law-firm-marketing">Personal injury</L>, <L href="/industries-we-offer-marketing-services-for/criminal-defense-lawyer-marketing">criminal defense</L>, and <L href="/industries-we-offer-marketing-services-for/family-law-attorney-marketing">family law</L> are the most competitive — and where we specialize.</span>,
   },
   {
@@ -377,7 +377,7 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   },
   {
     category: "areas",
-    question: "Do you offer marketing services for Staten Island businesses?",
+    question: "Do you offer web design services for Staten Island businesses?",
     answer: <span>Yes. <L href="/services-areas-we-offer-marketing-services-in/staten-island-marketing-company">Staten Island</L> is often overlooked by NYC agencies, which means less SEO competition and faster results. We serve businesses in <L href="/services-areas-we-offer-marketing-services-in/st-george-marketing-company">St. George</L>, <L href="/services-areas-we-offer-marketing-services-in/tottenville-marketing-company">Tottenville</L>, <L href="/services-areas-we-offer-marketing-services-in/new-dorp-marketing-company">New Dorp</L>, and <L href="/services-areas-we-offer-marketing-services-in/great-kills-marketing-company">Great Kills</L>. Staten Island businesses can dominate local search with the right <L href="/nyc-marketing-pricing-guide">investment</L>.</span>,
   },
   {
@@ -415,7 +415,7 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   {
     category: "branding",
     question: "Do you design truck wraps, signage, and print materials?",
-    answer: <span>Yes. Your brand should be consistent everywhere — <L href="/nyc-marketing-company-services-list">website</L>, Google Business Profile, truck wraps, business cards, signage, uniforms, and social media. We design all print and physical materials using your brand guidelines. For <L href="/industries-we-offer-marketing-services-for/home-service-business-marketing">home service businesses</L>, a branded truck is one of the best local marketing investments you can make.</span>,
+    answer: <span>Yes. Your brand should be consistent everywhere — <L href="/nyc-marketing-company-services-list">website</L>, Google Business Profile, truck wraps, business cards, signage, uniforms, and social media. We design all print and physical materials using your brand guidelines. For <L href="/industries-we-offer-marketing-services-for/home-service-business-marketing">home service businesses</L>, a branded truck is one of the best local web design investments you can make.</span>,
   },
 
   // ─── AI & Automation (73–80) ───
@@ -557,7 +557,7 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   },
   {
     category: "general",
-    question: "What is the difference between a marketing agency and a marketing consultant?",
+    question: "What is the difference between a web design agency and a marketing consultant?",
     answer: <span>Agencies have teams, overhead, and often junior staff doing the work. Consultants have expertise but limited execution capacity. Consortium NYC is the best of both — you get <L href="/about-digital-marketing-agency-consortium-nyc">senior-level strategy AND execution</L> without the agency markup. We build, implement, and manage everything in-house.</span>,
   },
   {

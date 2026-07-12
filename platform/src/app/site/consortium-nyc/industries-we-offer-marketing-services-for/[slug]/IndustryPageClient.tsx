@@ -246,7 +246,7 @@ export default function IndustryPageClient({
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} transition={{ duration: 0.5 }} className="text-center mb-14">
             <span className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 block font-cta">Our Services</span>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-heading mb-4">
-              Marketing Services for {label} Businesses
+              Web Design Services for {label} Businesses
             </h2>
             <p className="text-slate-500 max-w-2xl mx-auto">
               Every service is tailored to the {lb} industry. No generic templates — custom strategy based on your competitive landscape.

@@ -47,7 +47,7 @@ export default function BlogPreview() {
           </h2>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
             Actionable strategies and honest analysis from the team that lives
-            and breathes digital marketing in the tri-state area.
+            and breathes web design in the tri-state area.
           </p>
         </motion.div>
 

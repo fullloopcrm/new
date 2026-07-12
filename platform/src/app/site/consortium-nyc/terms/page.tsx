@@ -5,7 +5,7 @@ import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-n
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "Terms of Service for Consortium NYC. Read our terms governing the use of our website and digital marketing services. Call (212) 202-9220 with questions.",
+    "Terms of Service for Consortium NYC. Read our terms governing the use of our website and web design services. Call (212) 202-9220 with questions.",
   alternates: { canonical: "https://www.consortiumnyc.com/terms" },
   robots: { index: true, follow: true },
 };
@@ -18,7 +18,7 @@ export default function TermsPage() {
       <JsonLd
         data={webPageSchema(
           "Terms of Service",
-          "Terms of Service for Consortium NYC. Terms governing use of our website and digital marketing services.",
+          "Terms of Service for Consortium NYC. Terms governing use of our website and web design services.",
           "https://www.consortiumnyc.com/terms"
         )}
       />

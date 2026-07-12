@@ -15,13 +15,13 @@ const regions = [
     title: "New York City",
     color: "#0f766e",
     content:
-      "8.3 million people. Millions of daily searches. The most competitive local market in the country. In NYC, you're not just competing with the shop next door — you're competing with thousands of businesses fighting for the same eyeballs. If your website isn't optimized for local search, Google Maps, and mobile-first experiences, you're invisible to the exact customers walking past your door every day. The businesses dominating NYC search results didn't get there by accident. They invested in SEO and digital marketing while their competitors were still relying on word-of-mouth and hope.",
+      "8.3 million people. Millions of daily searches. The most competitive local market in the country. In NYC, you're not just competing with the shop next door — you're competing with thousands of businesses fighting for the same eyeballs. If your website isn't optimized for local search, Google Maps, and mobile-first experiences, you're invisible to the exact customers walking past your door every day. The businesses dominating NYC search results didn't get there by accident. They invested in SEO and web design while their competitors were still relying on word-of-mouth and hope.",
   },
   {
     title: "Long Island",
     color: "#0d9488",
     content:
-      "Nassau and Suffolk County represent one of the most underserved digital marketing markets in the tri-state area. Suburban consumers search differently than urban ones — they plan ahead, they comparison shop, and they read reviews religiously. Most Long Island businesses are still running on outdated websites and zero SEO strategy, which means the opportunity is massive. The first businesses to dominate Long Island local search are going to lock in a competitive advantage that takes years to overcome. That window is closing fast as national franchises pour money into programmatic local SEO.",
+      "Nassau and Suffolk County represent one of the most underserved web design markets in the tri-state area. Suburban consumers search differently than urban ones — they plan ahead, they comparison shop, and they read reviews religiously. Most Long Island businesses are still running on outdated websites and zero SEO strategy, which means the opportunity is massive. The first businesses to dominate Long Island local search are going to lock in a competitive advantage that takes years to overcome. That window is closing fast as national franchises pour money into programmatic local SEO.",
   },
   {
     title: "Westchester County",
@@ -122,7 +122,7 @@ export default function WhyNYC() {
         >
           <p className="text-slate-600 text-lg mb-6 max-w-2xl mx-auto">
             The market isn&apos;t slowing down. Your competitors aren&apos;t
-            waiting. The question isn&apos;t whether you need digital marketing —
+            waiting. The question isn&apos;t whether you need web design —
             it&apos;s how much longer you can afford to go without it.
           </p>
           <Link

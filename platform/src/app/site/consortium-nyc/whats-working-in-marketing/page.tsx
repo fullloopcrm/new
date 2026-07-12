@@ -6,7 +6,7 @@ import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-n
 
 const title = "What's Working in Marketing Right Now | Consortium NYC";
 const description =
-  "Real-time notes, updates, and observations from the team at Consortium NYC. What's actually working in SEO, web design, and digital marketing — no fluff, no theory. Call/text (212) 202-9220.";
+  "Real-time notes, updates, and observations from the team at Consortium NYC. What's actually working in SEO, web design, and web design — no fluff, no theory. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/whats-working-in-marketing";
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     "what works in marketing 2026",
     "SEO strategies NYC",
     "marketing updates",
-    "digital marketing trends",
+    "web design trends",
     "NYC marketing insights",
     "SEO tips NYC businesses",
   ],

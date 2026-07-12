@@ -129,7 +129,7 @@ export default function Home() {
       {/* 14b. Neighborhood photo slider */}
       <NeighborhoodSlider />
 
-      {/* 15. Why NYC needs digital marketing */}
+      {/* 15. Why NYC needs web design */}
       <WhyNYC />
 
       {/* 16. Competitor urgency */}
@@ -153,7 +153,7 @@ export default function Home() {
       {/* 23. Guarantees */}
       <Guarantees />
 
-      {/* 24. What is digital marketing (SEO content) */}
+      {/* 24. What is web design (SEO content) */}
       <WhatIsDigitalMarketing />
 
       {/* 25. Free resources */}

@@ -15,9 +15,9 @@ export const metadata: Metadata = {
     "about Consortium NYC",
     "NYC web design company",
     "NYC marketing team",
-    "about us marketing agency",
+    "about us web design agency",
     "senior marketing strategists NYC",
-    "NYC digital marketing agency",
+    "NYC web design company",
   ],
   openGraph: {
     title,

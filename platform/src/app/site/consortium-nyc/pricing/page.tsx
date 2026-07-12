@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     "transparent marketing pricing",
     "affordable seo nyc",
     "website design pricing new york",
-    "no contract marketing agency nyc",
+    "no contract web design agency nyc",
   ],
   openGraph: {
     title: pTitle,

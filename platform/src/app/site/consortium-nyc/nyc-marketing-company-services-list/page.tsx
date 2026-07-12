@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     "branding services NYC",
     "programmatic SEO",
     "CRM development NYC",
-    "digital marketing services list",
+    "web design services list",
   ],
   openGraph: {
     title,

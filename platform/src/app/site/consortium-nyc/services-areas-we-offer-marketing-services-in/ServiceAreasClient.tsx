@@ -366,7 +366,7 @@ export default function ServiceAreasClient() {
                               {area.name}
                             </h3>
                             <p className="text-white/60 text-sm leading-relaxed mb-3">
-                              SEO, web design &amp; marketing services for businesses in {area.name}.
+                              SEO, web design &amp; web design services for businesses in {area.name}.
                             </p>
                             <span className="text-teal-400 text-sm font-bold font-cta group-hover:underline">
                               View Services &rarr;

@@ -17,7 +17,7 @@ const certifications = [
   },
   {
     title: "Clutch Top Agency 2025",
-    description: "Recognized Leader in Digital Marketing",
+    description: "Recognized Leader in Web Design",
   },
   {
     title: "10+ Years Experience",

@@ -44,11 +44,11 @@ export default function AreasServed() {
             Web Design Company Service Areas
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
-            Local Marketing Across{" "}
+            Local Web Design Across{" "}
             <span className="text-teal-600">80+ Neighborhoods &amp; Cities</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-3xl mx-auto">
-            Hyper-local marketing strategies for businesses in every neighborhood across NYC, Long Island, Westchester, and Northern New Jersey. Every location gets its own keyword strategy, competitor analysis, and <Link href="/nyc-marketing-company-services-list" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">local SEO plan</Link>. See our <Link href="/industries-we-offer-marketing-services-for" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">100+ industries served</Link> or <Link href="/nyc-marketing-pricing-guide" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">transparent pricing</Link>.
+            Hyper-local web design strategies for businesses in every neighborhood across NYC, Long Island, Westchester, and Northern New Jersey. Every location gets its own keyword strategy, competitor analysis, and <Link href="/nyc-marketing-company-services-list" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">local SEO plan</Link>. See our <Link href="/industries-we-offer-marketing-services-for" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">100+ industries served</Link> or <Link href="/nyc-marketing-pricing-guide" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">transparent pricing</Link>.
           </p>
         </motion.div>
 

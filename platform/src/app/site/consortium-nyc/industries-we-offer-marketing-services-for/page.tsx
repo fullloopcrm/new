@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   keywords: [
     "NYC marketing by industry",
-    "industry marketing services",
+    "industry web design services",
     "home service marketing NYC",
     "law firm marketing NYC",
     "restaurant marketing NYC",

@@ -114,7 +114,7 @@ export default function PricingSlider() {
             <span className="text-teal-600">NYC &amp; Long Island Businesses</span>
           </h2>
           <p className="mt-4 text-slate-600 text-lg max-w-2xl mx-auto">
-            No contracts, no hidden fees, no surprises. Slide to your budget and see exactly what <Link href="/nyc-marketing-company-services-list" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">marketing services</Link> are included. View our full <Link href="/nyc-marketing-pricing-guide" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">pricing guide</Link>.
+            No contracts, no hidden fees, no surprises. Slide to your budget and see exactly what <Link href="/nyc-marketing-company-services-list" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">web design services</Link> are included. View our full <Link href="/nyc-marketing-pricing-guide" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">pricing guide</Link>.
           </p>
         </motion.div>
 

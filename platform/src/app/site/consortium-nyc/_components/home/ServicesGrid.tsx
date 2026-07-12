@@ -50,10 +50,10 @@ export default function ServicesGrid() {
           className="text-center mb-16"
         >
           <p className="text-teal-600 text-sm font-semibold tracking-[0.2em] uppercase mb-4 font-cta">
-            Marketing Services
+            Web Design Services
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 font-heading">
-            Full-Service Marketing for{" "}
+            Full-Service Web Design for{" "}
             <span className="text-teal-600">New York City Businesses</span>
           </h2>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">

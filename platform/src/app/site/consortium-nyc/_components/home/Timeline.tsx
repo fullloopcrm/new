@@ -32,7 +32,7 @@ const milestones = [
   {
     label: "Month 6",
     title: "Domination",
-    desc: "Top rankings locked in. Predictable lead volume every month. Scaling conversations begin. You're not wondering if digital marketing works anymore — you're deciding how much more to invest.",
+    desc: "Top rankings locked in. Predictable lead volume every month. Scaling conversations begin. You're not wondering if web design works anymore — you're deciding how much more to invest.",
   },
 ];
 

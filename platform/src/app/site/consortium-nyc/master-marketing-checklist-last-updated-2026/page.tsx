@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   keywords: [
     "marketing checklist 2026",
     "SEO checklist NYC",
-    "digital marketing checklist",
+    "web design checklist",
     "web design checklist",
     "Google Business Profile checklist",
     "content strategy checklist",

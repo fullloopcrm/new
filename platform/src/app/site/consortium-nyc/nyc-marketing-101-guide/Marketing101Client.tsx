@@ -724,7 +724,7 @@ export default function Marketing101Client() {
               The complete marketing playbook — from your first Google listing to building a machine that runs without you. 25 years of experience distilled into 101 actionable lessons. Each one gives you the step, the issue, the advice, and the secret tip.
             </p>
             <p className="text-slate-400 text-sm max-w-2xl mx-auto mb-8">
-              Covers <L href="/nyc-marketing-company-services-list">SEO</L>, <L href="/nyc-marketing-company-services-list">web design</L>, <L href="/nyc-marketing-company-services-list">branding</L>, <L href="/artificial-intelligence-marketing-services-offered">AI automation</L>, <L href="/services-areas-we-offer-marketing-services-in">local marketing</L>, <L href="/nyc-marketing-pricing-guide">pricing</L>, and everything in between for <L href="/industries-we-offer-marketing-services-for">100+ industries</L> across <L href="/services-areas-we-offer-marketing-services-in">NYC, Long Island &amp; Westchester</L>.
+              Covers <L href="/nyc-marketing-company-services-list">SEO</L>, <L href="/nyc-marketing-company-services-list">web design</L>, <L href="/nyc-marketing-company-services-list">branding</L>, <L href="/artificial-intelligence-marketing-services-offered">AI automation</L>, <L href="/services-areas-we-offer-marketing-services-in">local web design</L>, <L href="/nyc-marketing-pricing-guide">pricing</L>, and everything in between for <L href="/industries-we-offer-marketing-services-for">100+ industries</L> across <L href="/services-areas-we-offer-marketing-services-in">NYC, Long Island &amp; Westchester</L>.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link

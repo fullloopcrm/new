@@ -9,9 +9,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://www.consortiumnyc.com/contact-nyc-marketing-company-consortium-nyc" },
   keywords: [
     "contact nyc web design company",
-    "nyc marketing agency free consultation",
-    "digital marketing consultation new york",
-    "hire marketing agency nyc",
+    "nyc web design agency free consultation",
+    "web design consultation new york",
+    "hire web design agency nyc",
     "seo consultation new york city",
     "free strategy session marketing nyc",
     "consortium nyc contact",

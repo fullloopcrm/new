@@ -87,7 +87,7 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
     "@context": "https://schema.org",
     "@type": "ProfessionalService",
     "@id": `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}/#localbusiness`,
-    name: `Consortium NYC - ${area} Digital Marketing`,
+    name: `Consortium NYC - ${area} Web Design`,
     image: "https://www.consortiumnyc.com/og-consortium.jpg",
     url: `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}`,
     telephone: "+1-212-202-9220",
@@ -107,7 +107,7 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
     },
     hasOfferCatalog: {
       "@type": "OfferCatalog",
-      name: "Digital Marketing Services",
+      name: "Web Design Services",
       itemListElement: [
         { "@type": "Offer", itemOffered: { "@type": "Service", name: "SEO" } },
         { "@type": "Offer", itemOffered: { "@type": "Service", name: "Web Design" } },

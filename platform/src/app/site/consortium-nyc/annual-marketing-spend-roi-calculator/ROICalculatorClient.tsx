@@ -31,7 +31,7 @@ export default function ROICalculator() {
             <span className="text-teal-400">Your NYC Business</span>
           </h1>
           <p className="text-white/70 text-lg max-w-2xl mx-auto">
-            Plug in your real numbers and see what SEO and digital marketing can do for your bottom line. No email required. No sales pitch. Just math.
+            Plug in your real numbers and see what SEO and web design can do for your bottom line. No email required. No sales pitch. Just math.
           </p>
         </div>
       </section>

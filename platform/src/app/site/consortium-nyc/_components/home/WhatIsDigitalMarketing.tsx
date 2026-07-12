@@ -45,7 +45,7 @@ export default function WhatIsDigitalMarketing() {
             viewport={{ once: true, margin: "-50px" }}
           >
             <h3 className="text-2xl font-bold text-slate-900 mb-4 font-heading">
-              Digital Marketing in 2026: More Critical Than Ever
+              Web Design in 2026: More Critical Than Ever
             </h3>
             <p className="mb-4">
               Digital marketing is the practice of reaching, engaging, and
@@ -65,7 +65,7 @@ export default function WhatIsDigitalMarketing() {
               For NYC businesses specifically, the stakes are even higher. You&apos;re
               competing in one of the most saturated, aggressive markets on the
               planet. There are 230,000+ small businesses in New York City alone.
-              The ones that win? They&apos;re the ones with a digital marketing
+              The ones that win? They&apos;re the ones with a web design
               strategy that actually works.
             </p>
           </motion.div>
@@ -115,7 +115,7 @@ export default function WhatIsDigitalMarketing() {
               <strong className="text-teal-600">
                 Search Engine Optimization (SEO):
               </strong>{" "}
-              The highest-ROI digital marketing channel, period. Organic search
+              The highest-ROI web design channel, period. Organic search
               drives 53% of all website traffic and produces leads that convert
               at 14.6% — compared to 1.7% for outbound methods. SEO compounds
               over time. Every month you invest, your returns grow.
@@ -169,7 +169,7 @@ export default function WhatIsDigitalMarketing() {
               Why Integrated Strategies Beat Single-Channel Approaches
             </h3>
             <p className="mb-4">
-              Businesses that use three or more digital marketing channels see
+              Businesses that use three or more web design channels see
               287% higher purchase rates than single-channel businesses. That&apos;s
               not a typo. The data is overwhelming: integrated strategies
               dominate.
@@ -208,7 +208,7 @@ export default function WhatIsDigitalMarketing() {
               right outside your door.
             </p>
             <p className="mb-4">
-              Local digital marketing is the great equalizer. A well-optimized
+              Local web design is the great equalizer. A well-optimized
               local business can outrank national chains in Google Maps and local
               search results. We&apos;ve seen it happen hundreds of times: a
               restaurant in Astoria outranking Yelp. A law firm in Midtown

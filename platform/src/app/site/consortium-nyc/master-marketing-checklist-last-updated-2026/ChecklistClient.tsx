@@ -101,7 +101,7 @@ export default function MarketingChecklist() {
             Free Marketing Checklist
           </p>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-6 font-heading">
-            The 2026 Digital Marketing Checklist for{" "}
+            The 2026 Web Design Checklist for{" "}
             <span className="text-teal-400">NYC Businesses</span>
           </h1>
           <p className="text-white/70 text-lg max-w-2xl mx-auto">

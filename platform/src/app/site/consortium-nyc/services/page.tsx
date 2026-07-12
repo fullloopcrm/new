@@ -4,7 +4,7 @@ import ServicesPage from "./ServicesClient";
 
 const title = "NYC Web Design & Website Design Services";
 const description =
-  "Full-service marketing for NYC businesses. SEO from $950/mo, custom websites from $4,600, branding, AI automation, and Google Business Profile optimization. No contracts. Call/text (212) 202-9220.";
+  "Full-service web design for NYC businesses. SEO from $950/mo, custom websites from $4,600, branding, AI automation, and Google Business Profile optimization. No contracts. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/services";
 
 export const metadata: Metadata = {
@@ -12,13 +12,13 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: url },
   keywords: [
-    "NYC marketing services",
+    "NYC web design services",
     "SEO services NYC",
     "web design NYC",
     "branding NYC",
     "AI marketing automation",
     "Google Business Profile optimization",
-    "NYC digital marketing",
+    "NYC web design",
   ],
   openGraph: {
     title,

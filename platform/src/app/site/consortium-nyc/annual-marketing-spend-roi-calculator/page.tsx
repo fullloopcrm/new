@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     "SEO ROI calculator",
     "marketing spend calculator",
     "NYC marketing budget",
-    "digital marketing ROI",
+    "web design ROI",
     "annual marketing spend",
     "marketing investment calculator",
   ],

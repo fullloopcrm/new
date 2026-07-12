@@ -57,7 +57,7 @@ export default function ServicesPage() {
       <JsonLd
         data={webPageSchema(
           "Our Services | Consortium NYC",
-          "Explore our full suite of digital marketing services including SEO, web design, branding, digital strategy, business development, and automation for NYC businesses.",
+          "Explore our full suite of web design services including SEO, web design, branding, digital strategy, business development, and automation for NYC businesses.",
           "https://www.consortiumnyc.com/services"
         )}
       />
@@ -93,7 +93,7 @@ export default function ServicesPage() {
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
             className="mt-6 text-lg sm:text-xl text-warm-gray max-w-2xl mx-auto"
           >
-            Full-spectrum digital marketing solutions engineered for growth.
+            Full-spectrum web design solutions engineered for growth.
             From SEO to automation, we build integrated systems that drive
             measurable results for NYC businesses.
           </motion.p>

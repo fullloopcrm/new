@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     "web design company cost nyc",
     "seo pricing new york",
     "web design cost nyc",
-    "marketing agency pricing guide",
+    "web design agency pricing guide",
     "affordable marketing nyc",
     "seo cost per month nyc",
     "branding agency pricing new york",
@@ -162,7 +162,7 @@ export default function PricingGuidePage() {
               of business owners have been taken advantage of by a web design company
             </h2>
             <p className="text-white/60 text-sm max-w-2xl mx-auto leading-relaxed">
-              According to industry surveys, the vast majority of small business owners feel they&apos;ve overpaid for marketing services that didn&apos;t deliver. The problem isn&apos;t that marketing doesn&apos;t work — it&apos;s that most business owners weren&apos;t informed enough to know what they were buying, what it should cost, and what results to expect. This page exists to fix that.
+              According to industry surveys, the vast majority of small business owners feel they&apos;ve overpaid for web design services that didn&apos;t deliver. The problem isn&apos;t that marketing doesn&apos;t work — it&apos;s that most business owners weren&apos;t informed enough to know what they were buying, what it should cost, and what results to expect. This page exists to fix that.
             </p>
           </div>
         </div>

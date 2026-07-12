@@ -128,11 +128,11 @@ export default function AreaPageClient({
               className="flex-1"
             >
               <span className="text-teal-600 text-sm font-semibold tracking-[0.15em] uppercase mb-3 block font-cta">
-                Local Marketing in {area.name}
+                Local Web Design in {area.name}
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-6 font-heading">
                 Why {area.name} Businesses Need{" "}
-                <span className="text-teal-600">Hyper-Local Marketing</span>
+                <span className="text-teal-600">Hyper-Local Web Design</span>
               </h2>
               <div className="space-y-4 text-slate-600 leading-relaxed">
                 <p>
@@ -227,7 +227,7 @@ export default function AreaPageClient({
               <span className="text-teal-600">Dominate Online</span>
             </h2>
             <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-              Six core <L href="/nyc-marketing-company-services-list">marketing services</L> — each tailored to the {area.name} market. Every service amplifies the others.
+              Six core <L href="/nyc-marketing-company-services-list">web design services</L> — each tailored to the {area.name} market. Every service amplifies the others.
             </p>
           </motion.div>
 
@@ -417,7 +417,7 @@ export default function AreaPageClient({
               <span className="text-teal-600">FAQ</span>
             </h2>
             <p className="text-slate-600 max-w-2xl mx-auto">
-              Common questions about marketing services for {area.name} businesses. More answers at our <L href="/nyc-marketing-company-faqs">full FAQ page (100 questions)</L>.
+              Common questions about web design services for {area.name} businesses. More answers at our <L href="/nyc-marketing-company-faqs">full FAQ page (100 questions)</L>.
             </p>
           </motion.div>
 

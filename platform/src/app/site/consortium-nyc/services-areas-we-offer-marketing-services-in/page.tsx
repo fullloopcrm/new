@@ -16,9 +16,9 @@ export const metadata: Metadata = {
     "Long Island web design company",
     "Westchester web design company",
     "NJ web design company",
-    "tri-state marketing services",
+    "tri-state web design services",
     "NYC neighborhood marketing",
-    "local marketing NYC",
+    "local web design NYC",
   ],
   openGraph: {
     title,

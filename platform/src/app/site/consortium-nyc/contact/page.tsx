@@ -5,22 +5,22 @@ import ContactPageClient from "./ContactPageClient";
 export const metadata: Metadata = {
   title: "Contact Us — Schedule a Free Strategy Session",
   description:
-    "Get in touch with Consortium NYC. Schedule a free strategy consultation for SEO, web design, branding, and digital marketing in NYC, Long Island, and Westchester. Call (212) 202-9220.",
+    "Get in touch with Consortium NYC. Schedule a free strategy consultation for SEO, web design, branding, and web design in NYC, Long Island, and Westchester. Call (212) 202-9220.",
   alternates: { canonical: "https://www.consortiumnyc.com/contact" },
   keywords: [
     "contact consortium nyc",
-    "nyc marketing agency contact",
+    "nyc web design agency contact",
     "free strategy session nyc",
-    "digital marketing consultation new york",
+    "web design consultation new york",
     "seo consultation nyc",
     "web design quote nyc",
     "marketing rfp new york",
-    "hire marketing agency nyc",
+    "hire web design agency nyc",
   ],
   openGraph: {
     title: "Contact Consortium NYC — Free Strategy Session",
     description:
-      "Schedule a free strategy consultation for SEO, web design, branding, and digital marketing in NYC. Call (212) 202-9220.",
+      "Schedule a free strategy consultation for SEO, web design, branding, and web design in NYC. Call (212) 202-9220.",
     url: "https://www.consortiumnyc.com/contact",
     images: [{ url: "/og-consortium.jpg", width: 1200, height: 630, alt: "Contact Consortium NYC" }],
   },
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Contact Consortium NYC — Free Strategy Session",
     description:
-      "Schedule a free strategy consultation. SEO, web design, branding, digital marketing. Call (212) 202-9220.",
+      "Schedule a free strategy consultation. SEO, web design, branding, web design. Call (212) 202-9220.",
     images: ["/og-consortium.jpg"],
   },
 };
@@ -39,7 +39,7 @@ export default function ContactPage() {
       <JsonLd
         data={webPageSchema(
           "Contact Us — Schedule a Free Strategy Session",
-          "Get in touch with Consortium NYC. Schedule a free strategy consultation for SEO, web design, branding, and digital marketing in NYC, Long Island, and Westchester. Call (212) 202-9220.",
+          "Get in touch with Consortium NYC. Schedule a free strategy consultation for SEO, web design, branding, and web design in NYC, Long Island, and Westchester. Call (212) 202-9220.",
           "https://www.consortiumnyc.com/contact"
         )}
       />

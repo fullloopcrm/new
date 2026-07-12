@@ -163,7 +163,7 @@ export default function AboutPage() {
             className="space-y-6 text-warm-gray text-lg leading-relaxed"
           >
             <p>
-              Consortium NYC was founded with a simple belief: digital marketing
+              Consortium NYC was founded with a simple belief: web design
               should be measurable, transparent, and relentlessly focused on
               results. Too many agencies hide behind jargon and vanity metrics.
               We built something different -- an agency where every strategy is

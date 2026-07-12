@@ -225,7 +225,7 @@ export const serviceCategories: ServiceCategory[] = [
     shortDesc:
       "Strategic content creation that attracts, educates, and converts your ideal customers.",
     description:
-      "Great content is the foundation of every successful digital marketing strategy. We create targeted content that positions your local business as the go-to authority in your industry. From blog posts to video, every piece is designed to drive traffic and build trust with NYC customers.",
+      "Great content is the foundation of every successful web design strategy. We create targeted content that positions your local business as the go-to authority in your industry. From blog posts to video, every piece is designed to drive traffic and build trust with NYC customers.",
     metaTitle: "NYC Content Marketing | Blog Writing & SEO Content Strategy",
     metaDescription: "Strategic content marketing for NYC businesses — blog writing, SEO content, content calendars, and thought leadership that drives organic traffic and builds authority. Consortium NYC. Call (212) 202-9220.",
     icon: "pen",
@@ -1028,7 +1028,7 @@ export const industries = [
   { name: "Medical Device Marketing", slug: "medical-device-marketing", badge: "Med Devices", desc: "Reach healthcare providers and procurement teams searching for medical equipment and device solutions." },
   { name: "Dispensary & Cannabis Marketing", slug: "dispensary-cannabis-marketing", badge: "Cannabis", desc: "Compliant marketing for dispensaries and cannabis brands. SEO that works within advertising restrictions." },
   { name: "Supplement & Nutrition Marketing", slug: "supplement-nutrition-marketing", badge: "Supplements", desc: "E-commerce SEO for supplement brands, nutrition companies, and health product retailers." },
-  { name: "Law Firm Marketing", slug: "law-firm-marketing", badge: "Law Firms", desc: "Full-service marketing for law firms of every size and specialty. SEO, web design, and lead generation that fills your case pipeline." },
+  { name: "Law Firm Marketing", slug: "law-firm-marketing", badge: "Law Firms", desc: "Full-service web design for law firms of every size and specialty. SEO, web design, and lead generation that fills your case pipeline." },
   { name: "Personal Trainer Marketing", slug: "personal-trainer-marketing", badge: "Personal Trainers", desc: "Get more clients searching for personal training near them. Local SEO and brand building for independent trainers and studios." },
   { name: "Retail Store Marketing", slug: "retail-store-marketing", badge: "Retail", desc: "Drive foot traffic and online sales for brick-and-mortar retailers. Local SEO, Google Business, and e-commerce optimization." },
 ];
@@ -1114,7 +1114,7 @@ export const faqs = {
       question:
         "What makes Consortium NYC different from other web design companies?",
       answer:
-        "We're a local business marketing agency — built specifically for plumbers, dentists, restaurants, HVAC companies, law firms, and other small businesses in NYC, Long Island, and Westchester. We combine SEO, custom web design, and marketing automation into one integrated system that generates real leads and revenue. Every decision is backed by data, not guesswork.",
+        "We're a local business web design agency — built specifically for plumbers, dentists, restaurants, HVAC companies, law firms, and other small businesses in NYC, Long Island, and Westchester. We combine SEO, custom web design, and marketing automation into one integrated system that generates real leads and revenue. Every decision is backed by data, not guesswork.",
     },
     {
       question: "What areas do you serve?",
@@ -1147,7 +1147,7 @@ export const faqs = {
     // ── general (6) ──
     {
       question: "What makes Consortium NYC different from other web design companies?",
-      answer: "We're a local business marketing agency — built specifically for plumbers, dentists, restaurants, HVAC companies, law firms, and other small businesses in NYC, Long Island, and Westchester. We combine SEO, custom web design, and marketing automation into one integrated system that generates real leads and revenue. Every decision is backed by data, not guesswork.",
+      answer: "We're a local business web design agency — built specifically for plumbers, dentists, restaurants, HVAC companies, law firms, and other small businesses in NYC, Long Island, and Westchester. We combine SEO, custom web design, and marketing automation into one integrated system that generates real leads and revenue. Every decision is backed by data, not guesswork.",
     },
     {
       question: "What areas do you serve?",

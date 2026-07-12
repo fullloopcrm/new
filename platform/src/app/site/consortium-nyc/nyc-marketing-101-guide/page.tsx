@@ -3,7 +3,7 @@ import { JsonLd, webPageSchema, breadcrumbSchema } from "@/app/site/consortium-n
 import Marketing101Client from "./Marketing101Client";
 
 const title = "Marketing 101: 101 Lessons From Startup to 25-Year Veteran | NYC Marketing Guide | Consortium NYC";
-const description = "101 marketing lessons every business owner needs — from day-one startup basics to advanced strategies used by 25-year veterans. SEO, web design, branding, local marketing, AI automation, and more for NYC businesses. Call/text (212) 202-9220.";
+const description = "101 marketing lessons every business owner needs — from day-one startup basics to advanced strategies used by 25-year veterans. SEO, web design, branding, local web design, AI automation, and more for NYC businesses. Call/text (212) 202-9220.";
 const url = "https://www.consortiumnyc.com/nyc-marketing-101-guide";
 
 export const metadata: Metadata = {
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
     "marketing for small business NYC",
     "how to market my business in NYC",
     "SEO basics for beginners",
-    "local marketing guide NYC",
-    "digital marketing tips small business",
+    "local web design guide NYC",
+    "web design tips small business",
     "marketing strategy for startups",
     "NYC small business marketing guide",
     "how to get customers NYC",

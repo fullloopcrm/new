@@ -12,7 +12,7 @@ const resources = [
     href: "/the-free-human+ai-seo-marketing-review",
   },
   {
-    title: "2026 Digital Marketing Checklist",
+    title: "2026 Web Design Checklist",
     description:
       "The 45-point checklist our team uses for every single client. SEO, local search, content, website optimization, and AI automation — every box you need to check to dominate online this year.",
     cta: "Use the Checklist",
@@ -21,7 +21,7 @@ const resources = [
   {
     title: "ROI Calculator",
     description:
-      "See exactly what digital marketing can do for your bottom line. Plug in your numbers and get a clear projection of traffic, leads, and revenue. Know before you invest.",
+      "See exactly what web design can do for your bottom line. Plug in your numbers and get a clear projection of traffic, leads, and revenue. Know before you invest.",
     cta: "Calculate Your ROI",
     href: "/annual-marketing-spend-roi-calculator",
   },
@@ -89,7 +89,7 @@ export default function FreeResources() {
                 >
                   {resource.title === "Free SEO Audit"
                     ? "S"
-                    : resource.title === "2026 Digital Marketing Checklist"
+                    : resource.title === "2026 Web Design Checklist"
                     ? "C"
                     : "R"}
                 </span>
