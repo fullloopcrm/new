@@ -6,6 +6,10 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+// booking_assignees has no tenant_id column (join table keyed by
+// booking_id/team_member_id, both already tenant-scoped upstream) — stays on
+// supabaseAdmin; tenantDb would try to stamp a column that doesn't exist.
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent } from '@/lib/jobs'
 
@@ -14,6 +18,7 @@ type Params = { params: Promise<{ id: string }> }
 export async function POST(request: Request, { params }: Params) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = (await request.json().catch(() => ({}))) as {
       start_time?: string
@@ -30,10 +35,9 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'start_time required' }, { status: 400 })
     }
 
-    const { data: job, error: jErr } = await supabaseAdmin
+    const { data: job, error: jErr } = await db
       .from('jobs')
       .select('id, client_id, title')
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
     if (jErr || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
@@ -50,10 +54,10 @@ export async function POST(request: Request, { params }: Params) {
     const assignees = new Set<string>()
     let crewId: string | null = null
     if (body.crew_id) {
-      const { data: crew } = await supabaseAdmin
+      const { data: crew } = await db
         .from('crews')
         .select('id, crew_members(team_member_id)')
-        .eq('id', body.crew_id).eq('tenant_id', tenantId).maybeSingle()
+        .eq('id', body.crew_id).maybeSingle()
       if (crew) {
         crewId = crew.id
         for (const m of (crew.crew_members || []) as { team_member_id: string }[]) assignees.add(m.team_member_id)
@@ -64,17 +68,16 @@ export async function POST(request: Request, { params }: Params) {
       ...(body.team_member_id ? [body.team_member_id] : []),
     ]
     if (explicit.length) {
-      const { data: valid } = await supabaseAdmin
-        .from('team_members').select('id').eq('tenant_id', tenantId).in('id', explicit)
+      const { data: valid } = await db
+        .from('team_members').select('id').in('id', explicit)
       for (const m of valid || []) assignees.add(m.id)
     }
     const assigneeList = [...assignees]
     const leadId = body.team_member_id && assignees.has(body.team_member_id) ? body.team_member_id : (assigneeList[0] ?? null)
 
-    const { data: booking, error: bErr } = await supabaseAdmin
+    const { data: booking, error: bErr } = await db
       .from('bookings')
       .insert({
-        tenant_id: tenantId,
         client_id: job.client_id,
         job_id: id,
         team_member_id: leadId,
