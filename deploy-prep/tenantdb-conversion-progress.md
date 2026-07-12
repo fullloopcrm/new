@@ -32,10 +32,10 @@ UNCONV=$(comm -23 <(echo "$ALL") <(echo "$CONV"))
 | Bucket | Count |
 |---|---:|
 | **Total** API `route.ts` | **498** |
-| **Converted** (use `tenantDb`) | **70** |
-| ├─ with a `*.isolation.test.ts` probe | **70** |
+| **Converted** (use `tenantDb`) | **75** (see Batch-9 below, tip `de4a1bc6`) |
+| ├─ with a `*.isolation.test.ts` probe | **75** |
 | └─ **without** a probe (coverage gap → §4) | **0** |
-| **Unconverted** | **428** |
+| **Unconverted** | **423** |
 | ├─ touch DB via `supabaseAdmin` | ~375 |
 | │  ├─ EASY: tenant already in hand (`getTenantForRequest`) | ~131 |
 | │  ├─ EASY: tenant in hand via `requirePermission` only | 35 |
@@ -388,5 +388,33 @@ create POST — NOT a low-risk read; convert as its own gated unit) → `finance
 `settings/*`'s unconverted remainder is NO-OP tier per §3, not EASY).
 HARD tiers (admin-token / portal / cron / webhook) convert only after their
 tenant-resolution path is explicit + verified (rollout-plan §4 Tiers 2–4).
+
+**Batch-9 (5) landed this session** (leader QUEUE 3-DEEP 18:58, file-only,
+non-gated): `deals/[id]/stage` (POST), `schedules/[id]/pause` (POST+DELETE),
+`bookings/[id]/status` (PATCH), `jobs/[id]/sessions` (POST), `jobs/[id]/payments`
+(PATCH) — routes 71–75 below, one commit each, each with an isolation probe.
+All EASY: id comes from the URL and is used as the tenantDb-scoped lookup key on
+every read/write, so no separate ownership guard was needed before conversion.
+No FK-injection on caller-supplied body fields either — `jobs/[id]/sessions`'s
+`crew_id`/`assignee_ids`/`team_member_id` are validated against this tenant's own
+`crews`/`team_members` via tenantDb before use (a foreign id is silently dropped,
+never attached to the new booking — probed). **Left on `supabaseAdmin`, not
+converted:** `booking_assignees` (pure join table, no `tenant_id` column — same
+class as the `crew_members` landmine in §0 of the batch plan; both its FKs are
+already tenant-owned by the time it's written) and `schedules/[id]/pause`'s
+`tenants` lookup (keyed by the tenant's own id, no `tenant_id` column, NO-OP tier
+per §3). No Storage/cross-tenant tables otherwise. Full suite **442 passed / 37
+skipped** after (`tsc --noEmit` clean). Commits `03d4a188`, `27efa104`,
+`0c4e1950`, `823192b9`, `de4a1bc6`.
+
+```
+                                             71 deals/[id]/stage
+                                             72 schedules/[id]/pause
+                                             73 bookings/[id]/status
+                                             74 jobs/[id]/sessions
+                                             75 jobs/[id]/payments
+```
+
+**Updated counts (tip `de4a1bc6`):** Converted **75**/498, all 75 probed (0 gap).
 
 **This doc converts nothing** — it is the live count + the ordered next step.
