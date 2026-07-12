@@ -1,5 +1,10 @@
 # DR Restore Drill — Plan (PLAN ONLY — do NOT run)
 
+**Also answers:** the leader's later request for `deploy-prep/dr-restore-drill-plan.md` (19:33 order) —
+that filename doesn't exist separately; this document already covers RTO/RPO targets (§4), scratch-project
+restore steps (§5), and post-restore validation checks (§5.6–§5.8, §6) in full. Not duplicating it under a
+second filename — extending this one if anything further is needed.
+
 **Worker:** W6 · **Branch:** p1-w6 · **Date:** 2026-07-12
 **Status:** file-only plan. **Nothing in this document has been executed.** No Supabase project was
 created, no restore was attempted, no prod credential was touched. This is the concrete execution plan
