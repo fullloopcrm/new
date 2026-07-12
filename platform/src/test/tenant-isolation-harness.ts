@@ -89,6 +89,8 @@ export function createTenantDbHarness(seed: Seed): Harness {
       let insertRows: Row[] = []
       let updateValues: Row = {}
       let limitN: number | undefined
+      let rangeFrom: number | undefined
+      let rangeTo: number | undefined
 
       const push = (f: Filter) => {
         filters.push(f)
@@ -114,7 +116,13 @@ export function createTenantDbHarness(seed: Seed): Harness {
         }
         // select
         let hit = matches(rows(), filters)
-        if (typeof limitN === 'number') hit = hit.slice(0, limitN)
+        // `.range(from, to)` is inclusive on both ends (PostgREST semantics) and
+        // takes precedence over `.limit` when both are chained.
+        if (typeof rangeFrom === 'number' && typeof rangeTo === 'number') {
+          hit = hit.slice(rangeFrom, rangeTo + 1)
+        } else if (typeof limitN === 'number') {
+          hit = hit.slice(0, limitN)
+        }
         if (selectOpts.head) return { data: null, error: null, count: hit.length }
         if (selectOpts.count) return { data: hit, error: null, count: hit.length }
         return { data: hit, error: null }
@@ -181,6 +189,11 @@ export function createTenantDbHarness(seed: Seed): Harness {
         order: () => chain,
         limit: (n: number) => {
           limitN = n
+          return chain
+        },
+        range: (from: number, to: number) => {
+          rangeFrom = from
+          rangeTo = to
           return chain
         },
         single: async () => first(),
