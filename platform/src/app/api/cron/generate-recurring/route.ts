@@ -5,7 +5,6 @@ import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { getBookingAddress } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
-import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
@@ -14,13 +13,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // NYC Maid parity: auto-resume paused schedules whose pause window elapsed
-  // (tenant-scoped). Safe no-op if the column/rows don't exist.
+  // Auto-resume paused schedules whose pause window elapsed, across ALL
+  // tenants — this cron runs platform-wide by design (see the unscoped
+  // `recurring_schedules` fetch below). Originally NYC Maid-only; generalized
+  // so every tenant's paused-then-elapsed schedules resume, not just one.
+  // Safe no-op if the column/rows don't exist.
   const todayStr = new Date().toISOString().split('T')[0]
   const { data: resumable } = await supabaseAdmin
-    .from('recurring_schedules')
+    .from('recurring_schedules')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     .select('id')
-    .eq('tenant_id', NYCMAID_TENANT_ID)
     .eq('status', 'paused')
     .lte('paused_until', todayStr)
   for (const s of resumable || []) {
