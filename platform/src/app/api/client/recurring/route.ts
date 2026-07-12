@@ -4,17 +4,29 @@ import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { verifyPortalToken } from '../../portal/auth/token'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
 // it from there.
 //
+// Auth: client portal Bearer token (verifyPortalToken) — client_id/tenant_id
+// are derived from the token, never trusted from the request body. Without
+// this, an unauthenticated caller could create a real recurring booking
+// series (with real pricing) against any client and overwrite their
+// preferred_team_member_id (deploy-prep/none-write-routes-triage.md row 3).
+//
 // Recurring discount: weekly 20%, biweekly/monthly 10%. Only available to
 // repeat clients (must have ≥1 completed booking).
 export async function POST(request: Request) {
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const portalAuth = verifyPortalToken(token)
+  if (!portalAuth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  const client_id = portalAuth.id
+
   const body = await request.json()
   const {
-    client_id,
     property_id,
     frequency,
     start_date,
@@ -41,14 +53,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid frequency' }, { status: 400 })
   }
 
-  // Resolve tenant from client
+  // Resolve tenant from the token (not the client row) — belt-and-suspenders
+  // confirmation that the client row still belongs to the tenant on the token.
   const { data: clientRow } = await supabaseAdmin
     .from('clients')
     .select('tenant_id')
     .eq('id', client_id)
+    .eq('tenant_id', portalAuth.tid)
     .single()
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-  const tenantId = clientRow.tenant_id
+  const tenantId = portalAuth.tid
 
   // Repeat-client gate
   const { count: priorCount } = await supabaseAdmin
