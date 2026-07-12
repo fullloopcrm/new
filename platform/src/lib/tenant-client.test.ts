@@ -199,4 +199,66 @@ describe('tenantClient — factory wiring', () => {
     }
     expect(createClientMock).not.toHaveBeenCalled()
   })
+
+  it('disables session persistence and auto-refresh (token is per-request, must not be stored/refreshed)', () => {
+    // A persisted or auto-refreshed session would outlive the one request and could be
+    // reused across tenants — exactly the bypass tenantClient exists to prevent. Pin the
+    // per-request, no-storage posture at the factory boundary.
+    tenantClient(TENANT)
+    const [, , opts] = createClientMock.mock.calls[0] as unknown as [
+      string,
+      string,
+      { auth: { persistSession: boolean; autoRefreshToken: boolean } },
+    ]
+    expect(opts.auth.persistSession).toBe(false)
+    expect(opts.auth.autoRefreshToken).toBe(false)
+  })
+
+  it('does NOT fail closed on a missing anon key — passes "" (Bearer token, not anon key, carries the claims)', () => {
+    // Only URL + JWT secret are fail-closed invariants. The anon key merely selects the
+    // apikey header; PostgREST reads the DB role + tenant_id from the Bearer JWT. Document
+    // that absence of the anon key still yields a (tenant-scoped) client with "" anon.
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    expect(() => tenantClient(TENANT)).not.toThrow()
+    const [, anon, opts] = createClientMock.mock.calls[0] as unknown as [
+      string,
+      string,
+      { global: { headers: { Authorization: string } } },
+    ]
+    expect(anon).toBe('')
+    // The scope still comes from the Bearer token, not the (empty) anon key.
+    const claims = decodePayload(opts.global.headers.Authorization.slice('Bearer '.length))
+    expect(claims.tenant_id).toBe(TENANT)
+  })
+})
+
+describe('signTenantToken — encoding + numeric-claim edge cases', () => {
+  it('every segment is base64url (no +, /, or = padding) so the JWT is URL/header-safe', () => {
+    const token = signTenantToken(TENANT, { nowMs: 1_760_000_000_123 })
+    for (const seg of token.split('.')) {
+      expect(seg).not.toMatch(/[+/=]/)
+      expect(seg.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('iat and exp are integer epoch SECONDS even for a non-round clock (Math.floor, no fractions)', () => {
+    // A fractional exp is a spec violation and some verifiers reject it. 1_760_000_000_123ms
+    // must floor to 1_760_000_000s, not 1_760_000_000.123.
+    const claims = decodePayload(signTenantToken(TENANT, { nowMs: 1_760_000_000_123 }))
+    expect(claims.iat).toBe(1_760_000_000)
+    expect(claims.exp).toBe(1_760_000_000 + TOKEN_TTL_SECONDS)
+    expect(Number.isInteger(claims.iat)).toBe(true)
+    expect(Number.isInteger(claims.exp)).toBe(true)
+    expect((claims.exp as number) - (claims.iat as number)).toBe(TOKEN_TTL_SECONDS)
+  })
+
+  it('a positive opts.secret override actually signs the token (verifies under that secret)', () => {
+    // Complements the "different secret does NOT verify against SECRET" test with the
+    // positive direction: opts.secret is the real signing key, not ignored.
+    const override = 'a-different-but-valid-secret'
+    const token = signTenantToken(TENANT, { secret: override, nowMs: 1_760_000_000_000 })
+    const [h, p, sig] = token.split('.')
+    const reference = createHmac('sha256', override).update(`${h}.${p}`).digest('base64url')
+    expect(sig).toBe(reference)
+  })
 })
