@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies } from '@/lib/selena-legacy'
+import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies, getSelenaConfig } from '@/lib/selena-legacy'
 import { askSelena as askYinez } from '@/lib/selena/agent'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import { getSettings } from '@/lib/settings'
 
 export const maxDuration = 60
 
@@ -91,7 +92,16 @@ export async function POST(req: NextRequest) {
       const result = await askSelena(tenantId, 'web', message, conversationId, phone || undefined)
       reply = result.text || 'Something went wrong. Please try again or call us directly.'
       const checklist = result.checklist || EMPTY_CHECKLIST
-      quickReplies = getQuickReplies(checklist, getNextStep(checklist))
+      // Pass the tenant's own service types + checklist config through so quick
+      // replies stay trade-neutral — without these, getQuickReplies() falls back
+      // to hardcoded cleaning-specific options ("Cleaning", "Deep clean", bed/bath
+      // sizes) for every non-cleaning trade (towing, HVAC, plumbing, etc).
+      const [config, settings] = await Promise.all([
+        getSelenaConfig(tenantId),
+        getSettings(tenantId),
+      ])
+      const serviceTypeNames = settings.service_types.filter(st => st.active).map(st => st.name)
+      quickReplies = getQuickReplies(checklist, getNextStep(checklist, config), serviceTypeNames, config)
       bookingCreated = !!result.bookingCreated
     }
 

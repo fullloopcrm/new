@@ -124,7 +124,7 @@ export function clearSelenaConfigCache(tenantId?: string) {
   else configCache.clear()
 }
 
-async function getSelenaConfig(tenantId: string): Promise<SelenaConfig> {
+export async function getSelenaConfig(tenantId: string): Promise<SelenaConfig> {
   const now = Date.now()
   const cached = configCache.get(tenantId)
   if (cached && now - cached.time < CONFIG_CACHE_TTL) return cached.data
@@ -290,9 +290,12 @@ export function getQuickReplies(cl: BookingChecklist, next: NextStep, serviceTyp
     if (opts.length > 0) return opts
   }
 
-  // Fallback defaults
+  // Fallback defaults. service_type has no trade-specific default — a tenant
+  // whose active service_types + checklist_fields sms_options are both empty
+  // must NOT fall back to cleaning vocabulary (was leaking "Cleaning"/"Deep
+  // clean" to every non-cleaning trade — towing, HVAC, plumbing, etc).
   switch (next.field) {
-    case 'service_type': return serviceTypes?.slice(0, 4) || ['Cleaning', 'Deep clean', 'Move-in/out']
+    case 'service_type': return serviceTypes?.slice(0, 4) || ['I need a service', 'Get a quote']
     case 'bedrooms': return ['1 bed 1 bath', '2 bed 1 bath', '3 bed 2 bath']
     case 'rate': return []
     case 'day': return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
