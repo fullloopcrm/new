@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET(request: NextRequest) {
@@ -15,10 +15,9 @@ export async function GET(request: NextRequest) {
   const offset = Number(request.nextUrl.searchParams.get('offset')) || 0
   const entityType = request.nextUrl.searchParams.get('entity_type')
 
-  let query = supabaseAdmin
+  let query = tenantDb(tenant.tenantId)
     .from('audit_logs')
     .select('*', { count: 'exact' })
-    .eq('tenant_id', tenant.tenantId)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
