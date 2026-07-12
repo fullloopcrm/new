@@ -8,7 +8,7 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type JobStatus, type RawSession } from '@/lib/jobs'
 
 type Params = { params: Promise<{ id: string }> }
@@ -18,9 +18,10 @@ const VALID_STATUS: JobStatus[] = ['unscheduled', 'scheduled', 'in_progress', 'c
 export async function GET(_request: Request, { params }: Params) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
 
-    const { data: job, error } = await supabaseAdmin
+    const { data: job, error } = await db
       .from('jobs')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -29,8 +30,8 @@ export async function GET(_request: Request, { params }: Params) {
     if (error || !job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const [payments, sessions, events] = await Promise.all([
-      supabaseAdmin.from('job_payments').select('*').eq('job_id', id).order('sort_order'),
-      supabaseAdmin
+      db.from('job_payments').select('*').eq('job_id', id).order('sort_order'),
+      db
         .from('bookings')
         .select(
           'id, start_time, end_time, status, notes, service_type, team_member_id, crew_id, ' +
@@ -38,7 +39,7 @@ export async function GET(_request: Request, { params }: Params) {
         )
         .eq('job_id', id)
         .order('start_time'),
-      supabaseAdmin.from('job_events').select('*').eq('job_id', id).order('created_at', { ascending: false }),
+      db.from('job_events').select('*').eq('job_id', id).order('created_at', { ascending: false }),
     ])
 
     return NextResponse.json({
@@ -57,6 +58,7 @@ export async function GET(_request: Request, { params }: Params) {
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = (await request.json().catch(() => ({}))) as {
       status?: JobStatus
@@ -85,7 +87,7 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
     }
 
-    const { data: job, error } = await supabaseAdmin
+    const { data: job, error } = await db
       .from('jobs')
       .update(patch)
       .eq('tenant_id', tenantId)

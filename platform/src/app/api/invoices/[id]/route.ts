@@ -2,8 +2,8 @@
  * Invoice by id — read, update (pre-sent only), void.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { normalizeLineItems, computeTotals, logInvoiceEvent } from '@/lib/invoice'
 
@@ -14,8 +14,11 @@ export async function GET(_request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb auto-scopes every query; invoice_activity + payments reads (by
+    // invoice_id) and the PATCH line-item re-read (by id) GAIN a tenant filter.
+    const db = tenantDb(tenantId)
     const { id } = await params
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('invoices')
       .select('*, clients(id, name, email, phone, address)')
       .eq('tenant_id', tenantId)
@@ -25,13 +28,13 @@ export async function GET(_request: Request, { params }: Params) {
     if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const [{ data: activity }, { data: paymentsRows }] = await Promise.all([
-      supabaseAdmin
+      db
         .from('invoice_activity')
         .select('id, event_type, detail, created_at')
         .eq('invoice_id', id)
         .order('created_at', { ascending: false })
         .limit(100),
-      supabaseAdmin
+      db
         .from('payments')
         .select('id, amount_cents, tip_cents, method, status, reference_id, sender_name, received_at, created_at')
         .eq('invoice_id', id)
@@ -55,10 +58,11 @@ export async function PATCH(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('invoices')
       .select('status')
       .eq('tenant_id', tenantId)
@@ -78,7 +82,7 @@ export async function PATCH(request: Request, { params }: Params) {
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
     if ('line_items' in body || 'tax_rate_bps' in body || 'discount_cents' in body) {
-      const { data: current } = await supabaseAdmin
+      const { data: current } = await db
         .from('invoices')
         .select('line_items, tax_rate_bps, discount_cents')
         .eq('id', id)
@@ -97,7 +101,7 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.total_cents = totals.total_cents
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('invoices')
       .update(updates)
       .eq('tenant_id', tenantId)
@@ -126,12 +130,13 @@ export async function DELETE(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
     const url = new URL(request.url)
     const reason = url.searchParams.get('reason') || ''
     const hard = url.searchParams.get('hard') === '1'
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('invoices')
       .select('status, amount_paid_cents')
       .eq('tenant_id', tenantId)
@@ -140,7 +145,7 @@ export async function DELETE(request: Request, { params }: Params) {
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     if (hard && existing.status === 'draft' && (existing.amount_paid_cents || 0) === 0) {
-      const { error } = await supabaseAdmin.from('invoices').delete().eq('tenant_id', tenantId).eq('id', id)
+      const { error } = await db.from('invoices').delete().eq('tenant_id', tenantId).eq('id', id)
       if (error) throw error
       return NextResponse.json({ ok: true, hard: true })
     }
@@ -152,7 +157,7 @@ export async function DELETE(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Cannot void invoice with payments — refund first' }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await db
       .from('invoices')
       .update({ status: 'void', voided_at: new Date().toISOString(), void_reason: reason || null })
       .eq('tenant_id', tenantId)
