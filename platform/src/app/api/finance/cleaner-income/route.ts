@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET(request: NextRequest) {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { searchParams } = new URL(request.url)
     const team_member_id = searchParams.get('team_member_id')
     const from = searchParams.get('from')
     const to = searchParams.get('to')
     const paid_status = searchParams.get('paid_status')
 
-    let query = supabaseAdmin
+    let query = db
       .from('bookings')
       .select('id, start_time, actual_hours, team_member_pay, team_member_paid, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
-      .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .not('team_member_pay', 'is', null)
       .order('start_time', { ascending: false })
