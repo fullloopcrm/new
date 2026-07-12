@@ -55,46 +55,50 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // A tenant's live domain can be in EITHER `tenants.domain` OR `tenant_domains`.
-  // The resolver checks `tenants.domain` first, so it wins here too. Union both
-  // so no tenant is missed (this is the bug the first live run exposed).
+  // A tenant's live domain can be in EITHER `tenant_domains` OR `tenants.domain`.
+  // The resolver (getTenantByDomain in tenant.ts / tenant-lookup.ts) checks
+  // `tenant_domains` FIRST and falls back to `tenants.domain` only when no
+  // active tenant_domains row exists for the tenant — so tenant_domains wins
+  // here too. Union both so no tenant is missed (this is the bug the first
+  // live run exposed).
   const byTenant = new Map<string, { slug: string; domain: string; primary: boolean }>()
-
-  // Source 1 (authoritative): tenants.domain
-  const { data: tenantRows, error: tErr } = await supabaseAdmin
-    .from('tenants')
-    .select('id, slug, domain, status')
-    .not('domain', 'is', null)
-    .in('status', ['active', 'live', 'setup'])
-  if (tErr) {
-    await alertOwner('Fortress cron DB error', tErr.message).catch(() => {})
-    return NextResponse.json({ error: tErr.message }, { status: 500 })
-  }
   const slugById = new Map<string, string>()
-  for (const t of tenantRows ?? []) {
-    slugById.set(t.id, t.slug)
-    if (SKIP_SLUGS.has(t.slug) || EXCLUDED_TENANTS.has(t.slug) || !t.domain) continue
-    byTenant.set(t.id, { slug: t.slug, domain: t.domain, primary: true })
-  }
 
-  // Source 2 (fallback): active tenant_domains, only for tenants not covered above
-  const { data: tdRows } = await supabaseAdmin
+  // Source 1 (authoritative): active tenant_domains — matches the resolver's
+  // tenant_domains-first precedence.
+  const { data: tdRows, error: tdErr } = await supabaseAdmin
     .from('tenant_domains')
     .select('tenant_id, domain, is_primary')
     .eq('active', true)
-  const missingIds = [...new Set((tdRows ?? []).map((r) => r.tenant_id).filter((id) => id && !byTenant.has(id)))]
-  if (missingIds.length) {
-    const { data: extra } = await supabaseAdmin.from('tenants').select('id, slug').in('id', missingIds)
-    for (const t of extra ?? []) slugById.set(t.id, t.slug)
+  if (tdErr) {
+    await alertOwner('Fortress cron DB error', tdErr.message).catch(() => {})
+    return NextResponse.json({ error: tdErr.message }, { status: 500 })
+  }
+  const tdTenantIds = [...new Set((tdRows ?? []).map((r) => r.tenant_id).filter(Boolean))]
+  if (tdTenantIds.length) {
+    const { data: tdTenants } = await supabaseAdmin.from('tenants').select('id, slug').in('id', tdTenantIds)
+    for (const t of tdTenants ?? []) slugById.set(t.id, t.slug)
   }
   for (const r of tdRows ?? []) {
-    if (byTenant.has(r.tenant_id)) continue // tenants.domain already won
     const slug = slugById.get(r.tenant_id)
     if (!slug || SKIP_SLUGS.has(slug) || EXCLUDED_TENANTS.has(slug)) continue
     const cur = byTenant.get(r.tenant_id)
     if (!cur || (r.is_primary && !cur.primary)) {
       byTenant.set(r.tenant_id, { slug, domain: r.domain, primary: !!r.is_primary })
     }
+  }
+
+  // Source 2 (fallback): tenants.domain, only for tenants not covered above.
+  const { data: tenantRows } = await supabaseAdmin
+    .from('tenants')
+    .select('id, slug, domain, status')
+    .not('domain', 'is', null)
+    .in('status', ['active', 'live', 'setup'])
+  for (const t of tenantRows ?? []) {
+    slugById.set(t.id, t.slug)
+    if (byTenant.has(t.id)) continue // tenant_domains already won
+    if (SKIP_SLUGS.has(t.slug) || EXCLUDED_TENANTS.has(t.slug)) continue
+    byTenant.set(t.id, { slug: t.slug, domain: t.domain, primary: true })
   }
 
   const targets = [...byTenant.entries()].map(([tenant_id, v]) => ({ tenant_id, ...v }))
