@@ -3,7 +3,7 @@
  * bucketed by days past due.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
@@ -20,24 +20,25 @@ export async function GET(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb auto-injects .eq('tenant_id', tenantId) on invoices + bookings
+    // (both carry tenant_id); the optional entity_id filter stays within-tenant.
+    const db = tenantDb(tenantId)
     const entityId = entityIdFromUrl(new URL(request.url))
     const today = new Date()
 
     // Unpaid invoices
-    let invQ = supabaseAdmin
+    let invQ = db
       .from('invoices')
       .select('id, invoice_number, title, total_cents, amount_paid_cents, due_date, issued_at, contact_name, contact_email, client_id, clients(id, name, email, phone)')
-      .eq('tenant_id', tenantId)
       .not('status', 'in', '(paid,void,refunded,draft)')
       .order('due_date', { ascending: true, nullsFirst: false })
     if (entityId) invQ = invQ.eq('entity_id', entityId)
     const { data: invoices } = await invQ
 
     // Completed bookings where payment_status != paid and no invoice yet
-    const { data: bookings } = await supabaseAdmin
+    const { data: bookings } = await db
       .from('bookings')
       .select('id, price, start_time, payment_status, client_id, clients(id, name, email, phone)')
-      .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .not('payment_status', 'in', '(paid,refunded)')
       .is('route_id', null)
