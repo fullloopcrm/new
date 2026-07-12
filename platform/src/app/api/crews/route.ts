@@ -96,6 +96,14 @@ export async function DELETE(request: Request) {
 
 // Replace a crew's members with the given set (verified to belong to the tenant).
 async function setMembers(tenantId: string, crewId: string, memberIds: string[]) {
+  // SECURITY: re-verify the crew belongs to this tenant BEFORE mutating its
+  // members. crew_members has no tenant_id column, so a bare
+  // `.delete().eq('crew_id', crewId)` would let an owner of tenant A wipe or
+  // pollute tenant B's crew by guessing B's crew UUID. Scope the check through
+  // the tenant-owned crews table; if the crew isn't in this tenant, do nothing.
+  const { data: owned } = await supabaseAdmin
+    .from('crews').select('id').eq('id', crewId).eq('tenant_id', tenantId).maybeSingle()
+  if (!owned) return
   await supabaseAdmin.from('crew_members').delete().eq('crew_id', crewId)
   if (memberIds.length === 0) return
   const { data: valid } = await supabaseAdmin

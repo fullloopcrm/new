@@ -126,13 +126,6 @@ export default function FullLoopCRMPage() {
         unitText: "YEAR",
       },
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: "25",
-      bestRating: "5",
-      worstRating: "1",
-    },
     provider: {
       "@type": "Organization",
       name: "Consortium NYC",

@@ -14,13 +14,13 @@ export const organizationSchema = {
   },
   image: "https://www.consortiumnyc.com/og-consortium.jpg",
   description:
-    "Consortium NYC is a New York City web design and website design company specializing in custom, high-performance, SEO-ready websites for businesses across NYC, Long Island, and Westchester. Now partnered with The NYC Marketing Co.",
+    "Consortium NYC is a full-service NYC marketing company specializing in SEO, branding, web design, business development, and automation for businesses across NYC, Long Island, and Westchester.",
   address: {
     "@type": "PostalAddress",
-    streetAddress: "150 West 47th Street",
+    streetAddress: "New York",
     addressLocality: "New York",
     addressRegion: "NY",
-    postalCode: "10036",
+    postalCode: "10001",
     addressCountry: "US",
   },
   geo: {
@@ -59,14 +59,14 @@ export const organizationSchema = {
     },
   ],
   knowsAbout: [
-    "Web Design",
-    "Website Design",
-    "Custom Web Development",
-    "Responsive Web Design",
-    "Website Redesign",
     "Search Engine Optimization",
+    "Web Design",
+    "Branding",
+    "Digital Marketing Strategy",
+    "Business Development",
+    "Marketing Automation",
     "Local SEO",
-    "Conversion Rate Optimization",
+    "Content Marketing",
   ],
 };
 
@@ -76,9 +76,17 @@ export const websiteSchema = {
   "@id": "https://www.consortiumnyc.com/#website",
   url: "https://www.consortiumnyc.com",
   name: "Consortium NYC",
-  description: "NYC Web Design & Website Design Company | Custom, SEO-ready websites for NYC businesses",
+  description: "NYC Marketing Company | SEO, Branding, Web Design & Automation",
   publisher: {
     "@id": "https://www.consortiumnyc.com/#organization",
+  },
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: "https://www.consortiumnyc.com/search?q={search_term_string}",
+    },
+    "query-input": "required name=search_term_string",
   },
 };
 
@@ -87,7 +95,7 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
     "@context": "https://schema.org",
     "@type": "ProfessionalService",
     "@id": `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}/#localbusiness`,
-    name: `Consortium NYC - ${area} Web Design`,
+    name: `Consortium NYC - ${area} Digital Marketing`,
     image: "https://www.consortiumnyc.com/og-consortium.jpg",
     url: `https://www.consortiumnyc.com/services-areas-we-offer-marketing-services-in/${area.toLowerCase().replace(/\s+/g, "-")}`,
     telephone: "+1-212-202-9220",
@@ -107,7 +115,7 @@ export function localBusinessSchema(area: string, areaType: string = "City") {
     },
     hasOfferCatalog: {
       "@type": "OfferCatalog",
-      name: "Web Design Services",
+      name: "Digital Marketing Services",
       itemListElement: [
         { "@type": "Offer", itemOffered: { "@type": "Service", name: "SEO" } },
         { "@type": "Offer", itemOffered: { "@type": "Service", name: "Web Design" } },
@@ -233,6 +241,14 @@ export function articleSchema(
       "@id": url,
     },
     inLanguage: "en-US",
+  };
+}
+
+export function aggregateRatingSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfessionalService",
+    name: "Consortium NYC",
   };
 }
 

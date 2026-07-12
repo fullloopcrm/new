@@ -3,6 +3,7 @@
 // ============================================
 
 import { clientArrivalWindow } from '../time-window'
+import { escapeHtml } from '../escape-html'
 
 export const emailWrapper = (content: string) => `
 <!DOCTYPE html>
@@ -144,7 +145,7 @@ export function clientBookingReceivedEmail(booking: any) {
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 24px 0 0 0;">
       <p style="margin: 0 0 4px 0; color: #333; font-size: 14px; font-weight: 600;">Your Client Portal</p>
       <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Login:</strong> <a href="https://www.thenycmaid.com/book" style="color: #000;">thenycmaid.com/book</a></p>
-      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Email:</strong> ${booking.clients.email}</p>
+      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Email:</strong> ${escapeHtml(booking.clients.email)}</p>
       <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${booking.clients.pin}</span></p>
     </div>
     ` : ''}
@@ -276,9 +277,9 @@ export function clientConfirmationEmail(booking: any) {
     ${infoTable(`
       ${infoRow('Date', date)}
       ${infoRow('Arrival window', startTime)}
-      ${infoRow('Address', booking.clients?.address || 'On file')}
+      ${infoRow('Address', escapeHtml(booking.clients?.address || 'On file'))}
       ${infoRow('Service', booking.service_type)}
-      ${infoRow('Cleaner', cleanerName)}
+      ${infoRow('Cleaner', escapeHtml(cleanerName))}
       ${isRecurring ? infoRow('Schedule', booking.recurring_type) : ''}
       ${infoRow('Estimate', `${estimatedHoursLabel} hrs × $${hourlyRate}/hr`)}
       ${discountCents > 0 ? infoRow('Discount', `<span style="color:#15803d;font-weight:600;">−$${(discountCents / 100).toFixed(0)} (${discountPct}% off)</span>`) : ''}
@@ -335,7 +336,7 @@ export function clientConfirmationEmail(booking: any) {
     </p>
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 12px 0;">
       <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Login:</strong> <a href="https://www.thenycmaid.com/book" style="color: #000;">thenycmaid.com/book</a></p>
-      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Email:</strong> ${booking.clients.email}</p>
+      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Email:</strong> ${escapeHtml(booking.clients.email)}</p>
       <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${booking.clients.pin}</span></p>
     </div>
     ` : ''}
@@ -368,7 +369,7 @@ export function clientReminderEmail(booking: any, daysOut: string) {
     ${infoTable(`
       ${infoRow('Date', date)}
       ${infoRow('Arrival window', startTime)}
-      ${infoRow('Cleaner', cleanerName)}
+      ${infoRow('Cleaner', escapeHtml(cleanerName))}
     `)}
 
     ${primaryButton('View Details', 'https://www.thenycmaid.com/book')}
@@ -514,13 +515,13 @@ export function cleanerAssignmentEmail(booking: any) {
     ${infoTable(`
       ${infoRow('Date / Fecha', `${date}<br><span style="color:#666;font-size:12px">${dateES}</span>`)}
       ${infoRow('Time / Hora', startTime)}
-      ${infoRow('Client / Cliente', booking.clients?.name || 'TBD')}
+      ${infoRow('Client / Cliente', escapeHtml(booking.clients?.name || 'TBD'))}
       ${infoRow('Service / Servicio', booking.service_type)}
     `)}
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Address / Dirección</p>
-      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${address}</p>
+      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${escapeHtml(address)}</p>
       <a href="${mapsLink}" style="color: #0066cc; font-size: 14px;">Open in Maps / Abrir en Mapas →</a>
     </div>
 
@@ -529,7 +530,7 @@ export function cleanerAssignmentEmail(booking: any) {
       : noteBox('<strong>✓ Bring all supplies</strong><br><span style="font-size:12px">Trae todos los suministros y equipos.</span>', 'success')
     }
 
-    ${booking.notes ? noteBox(`<strong>Notes / Notas:</strong> ${booking.notes}`, 'warning') : ''}
+    ${booking.notes ? noteBox(`<strong>Notes / Notas:</strong> ${escapeHtml(booking.notes)}`, 'warning') : ''}
 
     ${primaryButton('Open Team Portal / Abrir Portal', 'https://www.thenycmaid.com/team')}
 
@@ -564,12 +565,12 @@ export function cleanerDailySummaryEmail(cleanerName: string, bookings: any[]) {
       const hourlyRate = b.hourly_rate || 69
       jobsList += `
         <div style="border: 1px solid #eee; border-radius: 8px; padding: 16px; margin: 8px 0;">
-          <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: #000;">${startTime} – ${b.clients?.name || 'Client'}</p>
-          <p style="margin: 0 0 8px 0; font-size: 14px;"><a href="${mapsLink}" style="color: #0066cc;">${address}</a></p>
+          <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: #000;">${startTime} – ${escapeHtml(b.clients?.name || 'Client')}</p>
+          <p style="margin: 0 0 8px 0; font-size: 14px;"><a href="${mapsLink}" style="color: #0066cc;">${escapeHtml(address)}</a></p>
           <span style="display: inline-block; background: ${hourlyRate === 49 ? '#fffbeb' : '#f0fdf4'}; color: ${hourlyRate === 49 ? '#92400e' : '#166534'}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
             ${hourlyRate === 49 ? '📦 Client supplies / Suministros del cliente' : '🧴 Bring supplies / Trae suministros'}
           </span>
-          ${b.notes ? `<p style="margin: 12px 0 0 0; padding: 10px; background: #fffbeb; border-radius: 4px; color: #92400e; font-size: 13px;">${b.notes}</p>` : ''}
+          ${b.notes ? `<p style="margin: 12px 0 0 0; padding: 10px; background: #fffbeb; border-radius: 4px; color: #92400e; font-size: 13px;">${escapeHtml(b.notes)}</p>` : ''}
         </div>
       `
     }
@@ -608,7 +609,7 @@ export function cleanerCancellationEmail(booking: any) {
     ${infoTable(`
       ${infoRow('Date / Fecha', `${date}<br><span style="color:#666;font-size:12px">${dateES}</span>`)}
       ${infoRow('Time / Hora', time)}
-      ${infoRow('Client / Cliente', booking.clients?.name || 'N/A')}
+      ${infoRow('Client / Cliente', escapeHtml(booking.clients?.name || 'N/A'))}
     `)}
 
     ${primaryButton('View Schedule / Ver Horario', 'https://www.thenycmaid.com/team')}
@@ -627,7 +628,7 @@ export function cleanerCancellationEmail(booking: any) {
 
 export function referralWelcomeEmail(referrer: { name: string; ref_code: string; preferred_payout: string }) {
   const firstName = referrer.name.split(' ')[0]
-  const referralLink = `https://www.thenycmaid.com/book?ref=${referrer.ref_code}`
+  const referralLink = `https://www.thenycmaid.com/book?ref=${escapeHtml(referrer.ref_code)}`
   
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Welcome to the team, ${firstName}!</h1>
@@ -635,7 +636,7 @@ export function referralWelcomeEmail(referrer: { name: string; ref_code: string;
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: left;">
       <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Your referral code</p>
-      <p style="margin: 0; font-size: 32px; font-weight: 700; color: #000; letter-spacing: 2px;">${referrer.ref_code}</p>
+      <p style="margin: 0; font-size: 32px; font-weight: 700; color: #000; letter-spacing: 2px;">${escapeHtml(referrer.ref_code)}</p>
     </div>
 
     <div style="background: #f0fdf4; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -651,7 +652,7 @@ export function referralWelcomeEmail(referrer: { name: string; ref_code: string;
       <a href="${referralLink}" style="color: #0066cc; font-size: 14px; word-break: break-all;">${referralLink}</a>
     </div>
 
-    ${primaryButton('View Your Dashboard', `https://www.thenycmaid.com/referral-dashboard?code=${referrer.ref_code}`)}
+    ${primaryButton('View Your Dashboard', `https://www.thenycmaid.com/referral-dashboard?code=${escapeHtml(referrer.ref_code)}`)}
 
     <p style="color: #666; font-size: 14px; margin: 24px 0 0 0;">
       Questions? Just reply to this email.
@@ -677,10 +678,10 @@ export function referralCommissionEmail(referrer: any, booking: any, commission:
       ${infoRow('Pending balance', `$${pendingBalance}`)}
     `)}
 
-    ${primaryButton('View Dashboard', `https://www.thenycmaid.com/referral-dashboard?code=${referrer.ref_code}`)}
+    ${primaryButton('View Dashboard', `https://www.thenycmaid.com/referral-dashboard?code=${escapeHtml(referrer.ref_code)}`)}
 
     <p style="color: #666; font-size: 14px; text-align: left; margin: 24px 0 0 0;">
-      Keep sharing: <strong>thenycmaid.com/book?ref=${referrer.ref_code}</strong>
+      Keep sharing: <strong>thenycmaid.com/book?ref=${escapeHtml(referrer.ref_code)}</strong>
     </p>
   `
 
@@ -696,11 +697,11 @@ export function newReferrerAdminEmail(referrer: { name: string; email: string; p
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New referrer signed up</h1>
 
     ${infoTable(`
-      ${infoRow('Name', referrer.name)}
-      ${infoRow('Email', referrer.email)}
-      ${infoRow('Phone', referrer.phone || 'Not provided')}
-      ${infoRow('Code', `<code style="background:#f5f5f5;padding:4px 8px;border-radius:4px;">${referrer.ref_code}</code>`)}
-      ${infoRow('Payout', `${referrer.preferred_payout === 'apple_cash' ? 'Apple Cash' : 'Zelle'} – ${referrer.zelle_email || referrer.email}`)}
+      ${infoRow('Name', escapeHtml(referrer.name))}
+      ${infoRow('Email', escapeHtml(referrer.email))}
+      ${infoRow('Phone', escapeHtml(referrer.phone || 'Not provided'))}
+      ${infoRow('Code', `<code style="background:#f5f5f5;padding:4px 8px;border-radius:4px;">${escapeHtml(referrer.ref_code)}</code>`)}
+      ${infoRow('Payout', `${referrer.preferred_payout === 'apple_cash' ? 'Apple Cash' : 'Zelle'} – ${escapeHtml(referrer.zelle_email || referrer.email)}`)}
     `)}
 
     ${primaryButton('View Referrals', 'https://www.thenycmaid.com/admin/referrals')}
@@ -717,12 +718,12 @@ export function newBookingAdminEmail(booking: any) {
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New booking</h1>
 
     ${infoTable(`
-      ${infoRow('Client', booking.clients?.name || 'Unknown')}
+      ${infoRow('Client', escapeHtml(booking.clients?.name || 'Unknown'))}
       ${infoRow('Date', `${date} at ${time}`)}
       ${infoRow('Service', booking.service_type)}
-      ${infoRow('Address', booking.clients?.address || 'On file')}
-      ${infoRow('Cleaner', booking.cleaners?.name || 'Unassigned')}
-      ${booking.ref_code ? infoRow('Referral', booking.ref_code) : ''}
+      ${infoRow('Address', escapeHtml(booking.clients?.address || 'On file'))}
+      ${infoRow('Cleaner', escapeHtml(booking.cleaners?.name || 'Unassigned'))}
+      ${booking.ref_code ? infoRow('Referral', escapeHtml(booking.ref_code)) : ''}
     `)}
 
     ${primaryButton('View Booking', 'https://www.thenycmaid.com/admin/bookings')}
@@ -833,12 +834,12 @@ export function adminNewClientEmail(client: { name: string; phone?: string; emai
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New client added</h1>
 
     ${infoTable(`
-      ${infoRow('Name', client.name)}
-      ${client.phone ? infoRow('Phone', client.phone) : ''}
-      ${client.email ? infoRow('Email', client.email) : ''}
-      ${client.address ? infoRow('Address', client.address) : ''}
-      ${client.referral_info ? infoRow('Referred by', client.referral_info + (client.referrer_matched ? ' (matched)' : ' (unmatched)')) : ''}
-      ${client.notes ? infoRow('Notes', client.notes) : ''}
+      ${infoRow('Name', escapeHtml(client.name))}
+      ${client.phone ? infoRow('Phone', escapeHtml(client.phone)) : ''}
+      ${client.email ? infoRow('Email', escapeHtml(client.email)) : ''}
+      ${client.address ? infoRow('Address', escapeHtml(client.address)) : ''}
+      ${client.referral_info ? infoRow('Referred by', escapeHtml(client.referral_info + (client.referrer_matched ? ' (matched)' : ' (unmatched)'))) : ''}
+      ${client.notes ? infoRow('Notes', escapeHtml(client.notes)) : ''}
     `)}
 
     ${primaryButton('View Clients', 'https://www.thenycmaid.com/admin/clients')}
@@ -854,16 +855,16 @@ export function adminNewBookingRequestEmail(booking: any, details: { time?: stri
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New booking request</h1>
 
     ${infoTable(`
-      ${infoRow('Client', booking.clients?.name || 'Unknown')}
-      ${infoRow('Email', booking.clients?.email || '-')}
-      ${infoRow('Phone', booking.clients?.phone || '-')}
-      ${infoRow('Address', booking.clients?.address || '-')}
+      ${infoRow('Client', escapeHtml(booking.clients?.name || 'Unknown'))}
+      ${infoRow('Email', escapeHtml(booking.clients?.email || '-'))}
+      ${infoRow('Phone', escapeHtml(booking.clients?.phone || '-'))}
+      ${infoRow('Address', escapeHtml(booking.clients?.address || '-'))}
       ${infoRow('Date', date)}
       ${details.time ? infoRow('Time', details.time) : ''}
       ${infoRow('Service', booking.service_type)}
       ${infoRow('Rate', '$' + booking.hourly_rate + '/hr')}
-      ${details.ref_code ? infoRow('Referral Code', details.ref_code) : ''}
-      ${details.referred_by ? infoRow('Referred By', details.referred_by) : ''}
+      ${details.ref_code ? infoRow('Referral Code', escapeHtml(details.ref_code)) : ''}
+      ${details.referred_by ? infoRow('Referred By', escapeHtml(details.referred_by)) : ''}
     `)}
 
     ${primaryButton('Review & Assign Cleaner', 'https://www.thenycmaid.com/admin/bookings')}
@@ -1039,7 +1040,7 @@ export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: st
       ${infoRow('New Date', newDate)}
       ${infoRow('New arrival window', newTime)}
       ${infoRow('Previous', `${oldDate} at ${oldTime}`)}
-      ${infoRow('Cleaner', cleanerName)}
+      ${infoRow('Cleaner', escapeHtml(cleanerName))}
       ${infoRow('Service', booking.service_type)}
     `)}
 
@@ -1059,15 +1060,15 @@ export function adminRescheduleEmail(booking: any, oldDate: string, oldTime: str
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Booking rescheduled by client</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">${booking.clients?.name || 'A client'} has rescheduled their cleaning.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">${escapeHtml(booking.clients?.name || 'A client')} has rescheduled their cleaning.</p>
 
     ${infoTable(`
-      ${infoRow('Client', booking.clients?.name || 'Unknown')}
+      ${infoRow('Client', escapeHtml(booking.clients?.name || 'Unknown'))}
       ${infoRow('New Date', newDate)}
       ${infoRow('New Time', newTime)}
       ${infoRow('Previous', `${oldDate} at ${oldTime}`)}
       ${infoRow('Service', booking.service_type)}
-      ${infoRow('Cleaner', booking.cleaners?.name || 'Unassigned')}
+      ${infoRow('Cleaner', escapeHtml(booking.cleaners?.name || 'Unassigned'))}
     `)}
 
     ${primaryButton('View Booking', 'https://www.thenycmaid.com/admin/bookings')}
@@ -1096,13 +1097,13 @@ export function cleanerRescheduleEmail(booking: any, oldDate: string, oldTime: s
       ${infoRow('New Date / Nueva Fecha', `${newDate}<br><span style="color:#666;font-size:12px">${newDateES}</span>`)}
       ${infoRow('New Time / Nueva Hora', newTime)}
       ${infoRow('Previous / Anterior', `${oldDate} at ${oldTime}`)}
-      ${infoRow('Client / Cliente', booking.clients?.name || 'TBD')}
+      ${infoRow('Client / Cliente', escapeHtml(booking.clients?.name || 'TBD'))}
       ${infoRow('Service / Servicio', booking.service_type)}
     `)}
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Address / Dirección</p>
-      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${address}</p>
+      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${escapeHtml(address)}</p>
       <a href="${mapsLink}" style="color: #0066cc; font-size: 14px;">Open in Maps / Abrir en Mapas →</a>
     </div>
 

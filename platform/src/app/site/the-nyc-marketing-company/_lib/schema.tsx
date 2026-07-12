@@ -249,13 +249,6 @@ export function aggregateRatingSchema() {
     "@context": "https://schema.org",
     "@type": "ProfessionalService",
     name: "The NYC Marketing Company",
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: "47",
-      bestRating: "5",
-      worstRating: "1",
-    },
   };
 }
 

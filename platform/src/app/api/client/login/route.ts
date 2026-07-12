@@ -22,8 +22,8 @@ export async function POST(request: Request) {
   // IPs, which the per-IP bucket alone can't see. 100/10min sits far above any
   // real login volume for a tenant but far below what brute-forcing a 6-digit
   // PIN needs; bump it for unusually high-traffic tenants if false 429s appear.
-  const rlIp = await rateLimitDb(`client-login:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
-  const rlTenant = await rateLimitDb(`client-login-tenant:${tenant.id}`, 100, 10 * 60 * 1000)
+  const rlIp = await rateLimitDb(`client-login:${tenant.id}:${ip}`, 5, 10 * 60 * 1000, { failClosed: true })
+  const rlTenant = await rateLimitDb(`client-login-tenant:${tenant.id}`, 100, 10 * 60 * 1000, { failClosed: true })
   if (!rlIp.allowed || !rlTenant.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 })
   }

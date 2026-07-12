@@ -141,13 +141,6 @@ export default function ReviewsPage() {
       "@type": "LocalBusiness",
       name: "The NYC Mobile Salon",
       url: "https://thenycmobilesalon.com",
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: "4.9",
-        reviewCount: "5000",
-        bestRating: "5",
-        worstRating: "1",
-      },
     },
   ];
 

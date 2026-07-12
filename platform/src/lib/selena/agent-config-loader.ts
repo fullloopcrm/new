@@ -10,6 +10,13 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
 import type { AgentConfig, BookingModel, PricingModel } from './agent-config'
+import { getAuthoredConfig } from './tenants'
+import { buildPriceCopy } from './price-copy'
+
+// buildPriceCopy moved to ./price-copy (leaf module) so per-tenant authored
+// configs can reuse it without an import cycle. Re-exported here so existing
+// importers (and tests) that pull it from agent-config-loader keep working.
+export { buildPriceCopy } from './price-copy'
 
 function funnelToBooking(funnel: string, hasHourly: boolean): BookingModel {
   if (funnel === 'lead_only') return 'lead_only'
@@ -26,11 +33,20 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   const [{ data: tenant }, settings] = await Promise.all([
     supabaseAdmin
       .from('tenants')
-      .select('name, phone, email, domain, website_url, industry, agent_name, address')
+      .select('name, phone, email, domain, website_url, industry, agent_name, address, slug')
       .eq('id', tenantId)
       .single(),
     getSettings(tenantId),
   ])
+
+  // Base-engine + per-tenant layer: if this tenant has an authored AgentConfig
+  // (migrated one at a time — exterminator first), use it in place of the
+  // neutral derivation below so it resolves to its OWN persona, not the generic
+  // professional default. The tenant's DB persona (tenants.selena_config) still
+  // folds ON TOP downstream (agent.ts applyPersonaToConfig) — this replaces only
+  // the neutral BASE, never the tenant's own authored persona data.
+  const authored = getAuthoredConfig((tenant as { slug?: string } | null)?.slug)
+  if (authored) return authored
 
   const name = tenant?.name || 'the business'
   const agentName = tenant?.agent_name || 'Jefe'
@@ -44,12 +60,7 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   const bookingModel = funnelToBooking(settings.funnel_mode, hasHourly)
   const pricingModel = funnelToPricing(settings.funnel_mode, hasHourly)
 
-  const priceCopy =
-    pricingModel === 'quote_only'
-      ? ''
-      : activeServices.length
-        ? `Services: ${activeServices.map((s) => s.name).join(', ')}. Quote only your configured rates — never invent a total you were not given.`
-        : 'Quote only your configured rates — never invent a number.'
+  const priceCopy = buildPriceCopy(activeServices, pricingModel)
 
   const serviceList = activeServices.length
     ? `What do you need? (${activeServices.map((s) => s.name).join(', ')})`

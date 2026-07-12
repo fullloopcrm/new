@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escape-html'
 
 /**
  * Tenants can't author net-new automated triggers themselves (a new trigger
@@ -37,10 +38,10 @@ export async function POST(request: Request) {
       to: PLATFORM_EMAIL,
       subject: `[Automation request] ${tenantName}: ${title}`,
       html: `<h2>New automation request</h2>
-        <p><strong>Tenant:</strong> ${tenantName} (${tenant.tenantId})</p>
-        <p><strong>From:</strong> ${t?.owner_email || '—'}</p>
-        <p><strong>Trigger:</strong> ${title}</p>
-        ${description ? `<pre style="white-space:pre-wrap;font-family:inherit">${description}</pre>` : ''}`,
+        <p><strong>Tenant:</strong> ${escapeHtml(tenantName)} (${escapeHtml(tenant.tenantId)})</p>
+        <p><strong>From:</strong> ${escapeHtml(t?.owner_email || '—')}</p>
+        <p><strong>Trigger:</strong> ${escapeHtml(title)}</p>
+        ${description ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(description)}</pre>` : ''}`,
     })
   } catch (err) {
     console.error('[request-automation] email failed:', err)

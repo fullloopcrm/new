@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Phone and tenant required' }, { status: 400 })
     }
 
-    const rl = await rateLimitDb(`portal_auth:${phone}`, 5, 15 * 60 * 1000)
+    const rl = await rateLimitDb(`portal_auth:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }

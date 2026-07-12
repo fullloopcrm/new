@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -22,7 +23,8 @@ export async function GET(request: NextRequest) {
 
   if (tenantId) query = query.eq('tenant_id', tenantId)
   if (search) {
-    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+    const s = sanitizePostgrestValue(search)
+    query = query.or(`name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`)
   }
   if (status) query = query.eq('status', status)
 

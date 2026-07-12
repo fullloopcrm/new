@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escape-html'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
 import { getSettings } from '@/lib/settings'
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
           <div style="background: #f9fafb; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
             <h2 style="margin: 0 0 16px 0; color: #111827;">You're invited!</h2>
             <p style="color: #4b5563; line-height: 1.6;">
-              You've been invited to manage <strong>${tenant.name}</strong> on Full Loop CRM — the all-in-one platform for running your service business.
+              You've been invited to manage <strong>${escapeHtml(tenant.name)}</strong> on Full Loop CRM — the all-in-one platform for running your service business.
             </p>
             <p style="color: #4b5563; line-height: 1.6;">
               Your account has been pre-configured with services, settings, and everything you need to get started.

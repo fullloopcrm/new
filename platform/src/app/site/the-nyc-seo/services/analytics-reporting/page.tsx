@@ -151,13 +151,6 @@ export default function AnalyticsReportingPage() {
       { "@type": "Place", name: "Long Island" },
       { "@type": "Place", name: "Westchester" },
     ],
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: "147",
-      bestRating: "5",
-      worstRating: "1",
-    },
   };
 
   const serviceSchema = {
