@@ -45,6 +45,8 @@ export interface SeedBooking {
   team_member_pay?: number | null
   check_in_time?: string | null // ISO string; only consulted when actual_hours + price are both unset
   tm?: SeedTeamMember | null     // omit → no team member (payout branch skipped)
+  tenantId?: string             // override TENANT — needed for isNycMaid(tenantId) gating tests
+  clientAddress?: string | null // job-location address, read by the NYC Maid pay-rate floor
 }
 
 /** Seed one tenant-scoped booking. With no `tm`, team_members is null and the
@@ -52,7 +54,7 @@ export interface SeedBooking {
 export function seedBooking(h: SeedHandle, id: string, b: SeedBooking = {}): void {
   ;(h.store.bookings ||= []).push({
     id,
-    tenant_id: TENANT,
+    tenant_id: b.tenantId ?? TENANT,
     team_member_id: b.tm ? 'tm-1' : null,
     client_id: 'client-1',
     team_member_pay: b.team_member_pay ?? null,
@@ -62,7 +64,7 @@ export function seedBooking(h: SeedHandle, id: string, b: SeedBooking = {}): voi
     price: b.price ?? null,
     check_in_time: b.check_in_time ?? null,
     start_time: null,
-    clients: { name: 'Pat', phone: null, address: null },
+    clients: { name: 'Pat', phone: null, address: b.clientAddress ?? null },
     team_members: b.tm
       ? {
           name: 'Sam',
