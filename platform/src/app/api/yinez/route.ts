@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/nycmaid/notify'
 import { scoreConversation, selfReviewConversation } from '@/lib/nycmaid/conversation-scorer'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 
 export const maxDuration = 60
 
@@ -15,6 +16,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
+    // Tenant must come from the middleware-signed header — same guard as
+    // chat/route.ts. Without this, a raw x-tenant-id header lets an attacker
+    // impersonate any tenant and pull back a client's name by phone number.
+    const headerTenantId = req.headers.get('x-tenant-id')
+    const sig = req.headers.get('x-tenant-sig')
+    if (!headerTenantId || !verifyTenantHeaderSig(headerTenantId, sig)) {
+      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    }
+    const reqTenantId = headerTenantId
+
     let conversationId = sessionId
 
     // Create conversation if new session
@@ -23,18 +34,11 @@ export async function POST(req: NextRequest) {
       const insertData: Record<string, unknown> = {
         phone: webPhone, state: 'active',
         booking_checklist: { ...EMPTY_CHECKLIST, channel: 'web', phone: phone || null },
+        tenant_id: reqTenantId,
       }
 
-      // If returning client, try to link to existing client record
-      // TENANT WALL: scope the returning-client lookup to THIS tenant
-      // (x-tenant-id is set + signed by middleware from the domain). Without it,
-      // a phone could match another tenant's client and leak their name here.
-      // No tenant context → skip linking rather than search globally.
-      const reqTenantId = req.headers.get('x-tenant-id')
-      // tenant-scope guard (added by the security work) rejects tenant-less inserts —
-      // scope the conversation to this tenant from the signed header.
-      if (reqTenantId) insertData.tenant_id = reqTenantId
-      if (phone && reqTenantId) {
+      // If returning client, try to link to existing client record.
+      if (phone) {
         const digits = phone.replace(/\D/g, '').slice(-10)
         const { data: client } = await supabaseAdmin
           .from('clients')
