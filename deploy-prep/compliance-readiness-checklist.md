@@ -1,6 +1,6 @@
 # Compliance Readiness Checklist — Section P
 
-**Owner:** Jeff · **Author:** W6 · **As of:** 2026-07-12 11:43 EDT
+**Owner:** Jeff · **Author:** W6 · **As of:** 2026-07-12 12:03 EDT (refreshed to reference authored compliance docs)
 **Source of truth:** `LEADER-CHANNEL.md` Section-P assignments (11:35 block) + worker DONE reports.
 
 > **Scope note (honesty):** The leader asked for **P1–P14**. Only **P1–P11** were ever
@@ -132,14 +132,44 @@ never pushed/merged/deployed and no prod DB writes run.
   is load-bearing. This is a standing risk noted in the doc, not resolved by it.
 
 ### P12–P14 — Reserved / unscoped · ⬜ REMAINING
-No assignment or definition exists in the channel. **Candidate items** commonly needed to
-close compliance readiness (my recommendation, NOT assigned work — do not treat as built):
+No assignment or definition exists **in the channel** — the P12–P14 *slots* remain
+unassigned. **Candidate items** commonly needed to close compliance readiness (my
+recommendation, NOT channel-assigned work):
 - **Data Processing Agreement (DPA)** template for tenants / sub-processor DPAs on file.
-- **Breach-notification runbook** (who, timeline — 72h GDPR, contacts, template).
-- **Data-retention schedule + RoPA** (Record of Processing Activities) — per data category.
-- **Consent/preferences audit trail** (evidence a user opted in, when — pairs with P8 fix).
+  → **still a gap, no doc authored.**
+- **Breach-notification runbook** → ✅ **authored** (draft): `platform/docs/compliance/breach-notification-runbook.md`.
+- **Data-retention schedule + RoPA** → ✅ **RoPA authored** (draft): `platform/docs/compliance/record-of-processing-activities.md`. (Per-type retention map is W5's `deploy-prep/tenant-data-retention-map.md`.)
+- **Consent/preferences audit trail** → ✅ **authored** (design): `platform/docs/compliance/consent-audit-trail-design.md`.
 
-If Jeff wants P12–P14 defined, assign topics and this checklist gets updated.
+> **Honesty note on the ✅ marks above:** "authored" means a **draft document exists on
+> branch `p1-w6`** — it does **NOT** mean the process is adopted, exercised, or the
+> underlying capability built. RoPA needs legal-basis confirmation; the breach runbook has
+> never been drilled; the consent trail is a design with no schema/code. These close the
+> *documentation* gap, not the *implementation* gap. I did not assign them official
+> P-numbers — earlier commit messages used "P12/P13" loosely; the channel never ratified
+> that, so the checklist keeps P12–P14 as unassigned slots.
+
+If Jeff wants P12–P14 formally defined, assign topics and this checklist gets updated.
+
+---
+
+## Supporting compliance documents authored (branch `p1-w6`, drafts — not adopted)
+
+Beyond the numbered P-items, these compliance docs now exist as **drafts on this branch**.
+Listed so the checklist isn't stale; none are deployed, adopted, or exercised.
+
+| Doc | Path | What it is | Honesty caveat |
+|-----|------|-----------|----------------|
+| Breach-notification runbook | `platform/docs/compliance/breach-notification-runbook.md` | GDPR 72h detection→notify flow + template | Template only; never drilled |
+| Record of Processing Activities | `platform/docs/compliance/record-of-processing-activities.md` | GDPR Art.30 register | Legal-basis columns need counsel |
+| Consent & preferences audit trail | `platform/docs/compliance/consent-audit-trail-design.md` | GDPR Art.7 demonstrable-consent design | Design only; no schema/code |
+| Disaster-recovery & backup runbook | `platform/docs/compliance/disaster-recovery-runbook.md` | DR/backup + restore drill (prereq for the gated restore drill) | Restore drill NOT yet run |
+| DSR-handling runbook | `platform/docs/compliance/dsr-handling-runbook.md` | Data-subject-request process tying P1 export + P2 deletion into one flow | Assumes P2 (unverified) works; no DSR serviced |
+| CSP & security-headers spec | `deploy-prep/csp-security-headers-spec.md` | Audit of the 5 headers shipped today + nonce-CSP to add | Spec only; CSP not implemented (Report-Only phase required) |
+
+**Note (corrects a common misread):** FL **does** ship security headers today
+(`X-Content-Type-Options`, `X-Frame-Options: DENY`, HSTS, `Referrer-Policy`,
+`Permissions-Policy`) — the only header gap is **CSP**. See the CSP spec for detail.
 
 ---
 
