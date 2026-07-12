@@ -27,11 +27,13 @@ and a step-by-step runbook. Read Q-O1 first if you haven't.
   conflict (commit `e79d67eb`) and green-lit Stage-0 auth-route tests
   (`dfa67c57`). **Do not redo that resolution from scratch — inspect it as a
   worked example before re-resolving `escape-html.ts` in step 2.** See §5.
-- **Two independent duplicate fixes exist for the same bugs**, implemented
-  separately in two lanes each. These need dedup, not a 3-way merge pick:
-  `x-tenant-sig` forgery on `/api/yinez` (w3 `016ee7d7` vs w4 `b1f84ca3`),
-  and unscoped `inbound_emails` (w3 `42b5a39c` vs w4 `8255a3c8`, migration
-  `062_add_tenant_id_inbound_emails.sql` byte-identical in both). See §4.
+- **CORRECTED this session:** the `x-tenant-sig`/`inbound_emails` pair
+  originally flagged here as "two independent duplicate fixes needing dedup"
+  are actually `git cherry-pick`s — w4's `b1f84ca3`/`8255a3c8` are literal
+  cherry-picks of w3's `016ee7d7`/`42b5a39c` (explicit trailer, byte-identical
+  diff, verified this session). No diff-and-pick judgment call needed; a
+  3-way merge resolves them cleanly on its own. w4's `f790b602` adds genuinely
+  new isolation tests on top — keep those. See §4 (rewritten).
 - **No migration-number collisions.** w1 owns 055-057/059/060/063, w2 owns
   058/061, w3+w4 both add 062 with byte-identical content (verified `diff`,
   clean union merge). Full numbering map in §3.
@@ -128,29 +130,52 @@ leader still runs the actual DDL after Jeff approves, per standing rules.
 
 ---
 
-## 4. Duplicate fixes: same bug, two independent implementations
+## 4. "Duplicate fixes" — CORRECTED: these are cherry-picks, not independent implementations
 
-These are **not** merge conflicts in the git sense (the files may not even
-overlap) — they're two lanes independently fixing the same vulnerability
-without knowing about each other. A 3-way merge will happily keep both
-implementations, which is wasteful and can leave two slightly-different
-guards guarding the same code path. Reconcile explicitly:
+**Correction (W6, this session, git-verified):** §4 originally called these
+"two independent implementations" of the same fix based on identical commit
+messages. That was wrong — checked further this session with `git show` and
+`diff`. Both w4 commits carry an explicit `(cherry picked from commit ...)`
+trailer pointing at the matching w3 commit, and the non-trailer diff content
+is **byte-identical**:
 
-1. **`x-tenant-sig` forgery on `/api/yinez`** — w3 `016ee7d7` "verify
-   x-tenant-sig on /api/yinez (close forgeable-header tenant leak)" vs w4
-   `b1f84ca3` "verify x-tenant-sig on /api/yinez (close forgeable-header
-   tenant leak)" — **identical commit message**, independently authored.
-   Diff the two implementations before picking one; keep whichever's test
-   coverage is more complete (w4 also has `f790b602` "W4 independent
-   regression for yinez sig + inbound-email scoping").
-2. **Unscoped `inbound_emails` row leak** — w3 `42b5a39c` vs w4 `8255a3c8`,
-   same title. Same reconciliation: diff, pick one, keep the union of tests.
-   The migration (`062_...`) is already byte-identical so at least the DDL
-   side needs no decision.
+```
+$ diff <(git show 016ee7d7 -- .../yinez/route.ts) <(git show b1f84ca3 -- .../yinez/route.ts)
+# only the commit-header lines differ; file diff is identical
+$ diff <(git show 42b5a39c -- .../webhooks/resend/route.ts) <(git show 8255a3c8 -- .../webhooks/resend/route.ts)
+# only the commit-header lines differ; file diff is identical
+```
 
-Both pairs land in the w4 step of the recommended order (step 3, after
-w1+w3 are in the base) — that's exactly when this reconciliation should
-happen, since both sides of each duplicate are already present.
+1. **`x-tenant-sig` forgery on `/api/yinez`** — w3 `016ee7d7` is the
+   original; w4 `b1f84ca3` is `git cherry-pick 016ee7d7`, same author, same
+   timestamp (`13:46:29`), byte-identical patch. **No diff-and-pick needed —
+   there is only one implementation.** w4 additionally has `f790b602` ("W4
+   independent regression for yinez sig + inbound-email scoping"), which
+   genuinely IS new: it adds `yinez/route.isolation.test.ts` (swap-forgery
+   angle the original test doesn't cover) — that file is real added value
+   from w4 and should be kept.
+2. **Unscoped `inbound_emails` row leak** — same pattern: w3 `42b5a39c` is
+   the original, w4 `8255a3c8` is its cherry-pick (same timestamp
+   `13:54:36`, byte-identical patch, explicit trailer). `f790b602` (same
+   commit as above) also adds `webhooks/resend/route.isolation.test.ts` on
+   top — genuinely new, keep it.
+
+**Corrected reconciliation for step 4 of the runbook (§7):** this is no
+longer a "diff two implementations, pick one" task — a 3-way merge of
+w1+w3+w4 will see the fix already present (from w3) and w4's cherry-pick as
+a no-op re-application of the same diff; git merges this cleanly on its own
+in the overwhelming majority of cases (identical resulting blob). The only
+real action item at step 4 is confirming w4's two *new* isolation-test files
+(`f790b602`) land — they're not duplicates of anything in w3, they're
+additional coverage. No decision, no test-coverage comparison, no
+"keep whichever's more complete" judgment call needed. The migration
+(`062_...`) was already confirmed byte-identical in §3/§2.
+
+This also means the effective conflict/reconciliation cost of the plan is
+slightly lower than originally estimated — one of the two "hazards" flagged
+in §1's w4 row summary and §2's yinez row was never a real hazard, just an
+artifact of not checking cherry-pick trailers before writing the first pass
+of this doc.
 
 ---
 
@@ -271,8 +296,11 @@ dedup/verification work from this doc:
 4. **Merge w4 → resolve 8 files** (`team-portal/auth/route.ts`,
    `client/login/route.ts`, 6 test files). Verify w4's IDOR/authz fix
    literally survives the diff (read the merged file, don't trust a clean
-   auto-merge). **Also do the §4 dedup here**: diff w3's vs w4's
-   `/api/yinez` and `inbound_emails` fixes, pick one, keep both test suites.
+   auto-merge). **§4 correction: no dedup judgment call needed here** — w4's
+   `/api/yinez` and `inbound_emails` commits are cherry-picks of w3's, not
+   independent fixes; expect a clean auto-merge (or a same-content no-op
+   conflict at worst). Just confirm w4's two new isolation-test files
+   (`f790b602`) land alongside.
 5. **Merge w2 → resolve 10 files** (`clients/route.ts`, `yinez/route.ts`
    — should already be reconciled from step 4 — `webhooks/telegram/*`,
    `selena/agent-config-loader.ts`, checkout/quote tests, add/add tests).
