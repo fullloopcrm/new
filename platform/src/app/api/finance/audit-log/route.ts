@@ -2,16 +2,17 @@
  * Searchable audit log across all tracked tables.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET(request: Request) {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const url = new URL(request.url)
     const entityId = entityIdFromUrl(url)
     const tableName = url.searchParams.get('table')
@@ -21,10 +22,9 @@ export async function GET(request: Request) {
     const to = url.searchParams.get('to')
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 100)
 
-    let q = supabaseAdmin
+    let q = db
       .from('audit_log')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(limit)
     if (tableName) q = q.eq('table_name', tableName)
