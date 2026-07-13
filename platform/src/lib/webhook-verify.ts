@@ -113,3 +113,24 @@ export function verifyTelnyx(
     return { valid: false, reason: `verify error: ${err instanceof Error ? err.message : 'unknown'}` }
   }
 }
+
+/**
+ * Resolve which Telnyx public key to verify a webhook against.
+ *
+ * Telnyx issues Ed25519 signing keys per ACCOUNT, not globally. A tenant
+ * provisioned on a different Telnyx account than the platform default (e.g.
+ * a white-label tenant with its own Telnyx account) has webhooks signed with
+ * a key that will never match a single global env var — every valid request
+ * for that tenant would 401 forever.
+ *
+ * Prefers the tenant's own key when set; falls back to the platform-wide key
+ * only when the tenant hasn't configured one. This is fail-closed: once a
+ * tenant key is set, verifyTelnyx() checks ONLY that key — it never also
+ * tries the global key, so a signature from the wrong account still rejects.
+ */
+export function resolveTelnyxPublicKey(
+  tenantPublicKey: string | null | undefined,
+  globalPublicKey: string | undefined
+): string | undefined {
+  return tenantPublicKey || globalPublicKey || undefined
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createHmac, generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
-import { verifySvix, verifyTelnyx } from './webhook-verify'
+import { verifySvix, verifyTelnyx, resolveTelnyxPublicKey } from './webhook-verify'
 
 function svixHeaders(id: string, timestamp: string, signature: string): Headers {
   const h = new Headers()
@@ -113,5 +113,87 @@ describe('verifyTelnyx', () => {
     const result = verifyTelnyx(headers(ts, sig), body, rawPub)
     expect(result.valid).toBe(false)
     expect(result.reason).toBe('timestamp out of window')
+  })
+})
+
+describe('resolveTelnyxPublicKey', () => {
+  it('prefers the tenant key when set', () => {
+    expect(resolveTelnyxPublicKey('tenant-key', 'global-key')).toBe('tenant-key')
+  })
+
+  it('falls back to the global key when the tenant has none set', () => {
+    expect(resolveTelnyxPublicKey(undefined, 'global-key')).toBe('global-key')
+    expect(resolveTelnyxPublicKey(null, 'global-key')).toBe('global-key')
+    expect(resolveTelnyxPublicKey('', 'global-key')).toBe('global-key')
+  })
+
+  it('returns undefined when neither is set', () => {
+    expect(resolveTelnyxPublicKey(undefined, undefined)).toBeUndefined()
+  })
+})
+
+// TELNYX-401: reproduces the actual bug — a tenant (e.g. nycmaid) on a
+// different Telnyx ACCOUNT than the platform default. Signing keys are
+// per-account, so the platform's global key can never verify that tenant's
+// webhooks, and that tenant's own key must never leak into other requests.
+describe('per-tenant Telnyx key resolution (TELNYX-401)', () => {
+  // "Platform" account keypair — stands in for the global TELNYX_PUBLIC_KEY.
+  const platform = generateKeyPairSync('ed25519')
+  // "nycmaid" account keypair — a different Telnyx account with its own key.
+  const nycmaid = generateKeyPairSync('ed25519')
+
+  function rawPubOf(publicKey: ReturnType<typeof generateKeyPairSync>['publicKey']): string {
+    const spkiBuf = publicKey.export({ format: 'der', type: 'spki' }) as Buffer
+    return spkiBuf.subarray(spkiBuf.length - 32).toString('base64')
+  }
+
+  const platformPub = rawPubOf(platform.publicKey)
+  const nycmaidPub = rawPubOf(nycmaid.publicKey)
+
+  function headers(ts: string, sig: string): Headers {
+    const h = new Headers()
+    h.set('telnyx-timestamp', ts)
+    h.set('telnyx-signature-ed25519', sig)
+    return h
+  }
+
+  function sign(privateKey: ReturnType<typeof generateKeyPairSync>['privateKey'], ts: string, body: string): string {
+    return cryptoSign(null, Buffer.from(`${ts}|${body}`, 'utf8'), privateKey).toString('base64')
+  }
+
+  it('verifies a valid nycmaid signature against the tenant key', () => {
+    const ts = Math.floor(Date.now() / 1000).toString()
+    const body = JSON.stringify({ data: { event_type: 'message.received', payload: { to: [{ phone_number: '+15551234567' }] } } })
+    const sig = sign(nycmaid.privateKey, ts, body)
+
+    const resolvedKey = resolveTelnyxPublicKey(nycmaidPub, platformPub)
+    const result = verifyTelnyx(headers(ts, sig), body, resolvedKey)
+    expect(result.valid).toBe(true)
+  })
+
+  it('401s a wrong-account signature even though it would pass under the global key', () => {
+    const ts = Math.floor(Date.now() / 1000).toString()
+    const body = JSON.stringify({ data: { event_type: 'message.received', payload: { to: [{ phone_number: '+15551234567' }] } } })
+    // Signed by the PLATFORM account, but this tenant has its own key set —
+    // resolution must use ONLY the tenant key (fail-closed), not fall back.
+    const sig = sign(platform.privateKey, ts, body)
+
+    // Sanity check: this signature *would* verify against the platform key.
+    expect(verifyTelnyx(headers(ts, sig), body, platformPub).valid).toBe(true)
+
+    const resolvedKey = resolveTelnyxPublicKey(nycmaidPub, platformPub)
+    const result = verifyTelnyx(headers(ts, sig), body, resolvedKey)
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('signature mismatch')
+  })
+
+  it('falls back to the global key and verifies normally when the tenant has none set', () => {
+    const ts = Math.floor(Date.now() / 1000).toString()
+    const body = JSON.stringify({ data: { event_type: 'message.received', payload: { to: [{ phone_number: '+15559999999' }] } } })
+    const sig = sign(platform.privateKey, ts, body)
+
+    const resolvedKey = resolveTelnyxPublicKey(undefined, platformPub)
+    const result = verifyTelnyx(headers(ts, sig), body, resolvedKey)
+    expect(result.valid).toBe(true)
   })
 })

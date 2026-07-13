@@ -4,7 +4,7 @@ import { sendSMS } from '@/lib/sms'
 import { askSelena } from '@/lib/selena-legacy'
 import { askSelena as askYinez } from '@/lib/selena/agent'
 import { getSettings } from '@/lib/settings'
-import { verifyTelnyx } from '@/lib/webhook-verify'
+import { verifyTelnyx, resolveTelnyxPublicKey } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 
@@ -13,15 +13,6 @@ export const maxDuration = 60
 // Handle inbound SMS + delivery status from Telnyx
 export async function POST(request: Request) {
   const rawBody = await request.text()
-
-  // Signature verification (skip only when explicitly disabled for local dev).
-  if (process.env.TELNYX_WEBHOOK_VERIFY !== 'off') {
-    const result = verifyTelnyx(request.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
-    if (!result.valid) {
-      console.warn('[telnyx webhook] rejected:', result.reason)
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    }
-  }
 
   let body: { data?: { event_type?: string; payload?: any } } // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
@@ -34,6 +25,42 @@ export async function POST(request: Request) {
   if (!event) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
 
   const eventType = event.event_type
+  const toNumber = event.payload?.to?.[0]?.phone_number as string | undefined
+
+  // Resolve the tenant that owns the inbound TO number BEFORE verifying the
+  // signature. Telnyx signing keys are per-ACCOUNT, so a tenant on a
+  // different Telnyx account than the platform default needs its own key
+  // checked here — see resolveTelnyxPublicKey(). Reading `to` out of the
+  // unverified body first is safe: the signature check below still rejects
+  // any forged payload no matter which key we picked to check it against.
+  //
+  // Use limit(2), NOT .single(): .single() ERRORS when two tenants share a
+  // number (mis-seeded row) and the message gets silently dropped — that
+  // took SMS down during a cutover test. Pick the first deterministically
+  // and log loudly if it's ambiguous.
+  const { data: tenantMatches } = toNumber
+    ? await supabaseAdmin
+        .from('tenants')
+        .select('id, name, telnyx_api_key, telnyx_phone, telnyx_public_key, owner_phone')
+        .eq('telnyx_phone', toNumber)
+        .order('id', { ascending: true })
+        .limit(2)
+    : { data: null }
+
+  if (tenantMatches && tenantMatches.length > 1) {
+    console.error(`[telnyx] telnyx_phone ${toNumber} matches ${tenantMatches.length} tenants — dedupe needed; routing to ${tenantMatches[0].name}`)
+  }
+  const tenant = tenantMatches?.[0] || null
+
+  // Signature verification (skip only when explicitly disabled for local dev).
+  if (process.env.TELNYX_WEBHOOK_VERIFY !== 'off') {
+    const resolvedKey = resolveTelnyxPublicKey(tenant?.telnyx_public_key, process.env.TELNYX_PUBLIC_KEY)
+    const result = verifyTelnyx(request.headers, rawBody, resolvedKey)
+    if (!result.valid) {
+      console.warn('[telnyx webhook] rejected:', result.reason)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+  }
 
   // ============================================
   // DELIVERY STATUS TRACKING
@@ -105,22 +132,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true })
     }
 
-    // Find tenant by their Telnyx phone number. Use limit(2), NOT .single():
-    // .single() ERRORS when two tenants share a number (mis-seeded row) and the
-    // message gets silently dropped — that took SMS down during a cutover test.
-    // Pick the first deterministically and log loudly if it's ambiguous.
-    const { data: tenantMatches } = await supabaseAdmin
-      .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, owner_phone')
-      .eq('telnyx_phone', to)
-      .order('id', { ascending: true })
-      .limit(2)
-
-    if (tenantMatches && tenantMatches.length > 1) {
-      console.error(`[telnyx] telnyx_phone ${to} matches ${tenantMatches.length} tenants — dedupe needed; routing to ${tenantMatches[0].name}`)
-    }
-    const tenant = tenantMatches?.[0] || null
-
+    // tenant already resolved above (by the same `to` number) for signature
+    // verification — reuse it instead of querying again.
     if (!tenant) {
       return NextResponse.json({ received: true })
     }
