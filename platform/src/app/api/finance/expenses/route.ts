@@ -55,6 +55,19 @@ export async function POST(request: Request) {
 
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
+    // Caller-supplied FK — verify it belongs to this tenant before insert, so a
+    // foreign id can't attach another tenant's accounting entity (surfaced back
+    // on read via finance embeds of entities(name)).
+    if (body.entity_id) {
+      const { data: owned } = await supabaseAdmin
+        .from('entities')
+        .select('id')
+        .eq('id', entityId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('expenses')
       .insert({
