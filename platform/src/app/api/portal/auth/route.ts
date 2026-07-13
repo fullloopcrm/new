@@ -126,6 +126,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
+    // The 6-digit code has only 900,000 possible values and stays valid for 10
+    // minutes — with no throttle here an attacker could brute-force it with
+    // unlimited verify_code calls inside that window. Cap attempts per
+    // phone+tenant the same as send_code so guessing is infeasible.
+    const rl = await rateLimitDb(`portal_auth_verify:${tenant.id}:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
+
     const { data: stored } = await supabaseAdmin
       .from('portal_auth_codes')
       .select('code, tenant_id, client_id, expires_at')

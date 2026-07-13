@@ -181,6 +181,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'PIN must be 4–8 digits.' }, { status: 400 })
     }
 
+    // The 6-digit code has only 900,000 possible values and stays valid for 10
+    // minutes — with no throttle here an attacker could brute-force it with
+    // unlimited verify_and_set calls inside that window. Cap attempts per
+    // contact+tenant the same as send_code so guessing is infeasible.
+    const rl = await rateLimitDb(`pin_reset_verify:${tenantId}:${contact}`, 5, 15 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
+
     const member = await findMember(tenantId, contact)
     if (!member) {
       return NextResponse.json({ error: 'Code expired or not found.' }, { status: 400 })
