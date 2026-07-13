@@ -63,6 +63,20 @@ export async function PATCH(request: Request, { params }: Params) {
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
+    // client_id is a caller-supplied FK — GET embeds clients(name/email/phone/
+    // address) off this row, so a foreign id would leak another tenant's client
+    // PII on the next read. Verify ownership before the update runs.
+    if ('client_id' in updates && updates.client_id) {
+      const { data: ownedClient } = await db
+        .from('clients')
+        .select('id')
+        .eq('id', updates.client_id as string)
+        .maybeSingle()
+      if (!ownedClient) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
+    }
+
     if ('line_items' in body || 'tax_rate_bps' in body || 'discount_cents' in body) {
       const { data: current } = await db
         .from('quotes')
