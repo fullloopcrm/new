@@ -88,6 +88,9 @@ async function postLabor(opts: {
     source_id: sourceId,
     lines,
   })
+  // NULL means a concurrent caller already claimed this (source, source_id)
+  // between our journalEntryExists() check above and this insert.
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
   return { posted: true, entryId }
 }
 

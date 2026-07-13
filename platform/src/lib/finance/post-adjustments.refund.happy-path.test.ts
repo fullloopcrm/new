@@ -41,7 +41,7 @@ const h = vi.hoisted(() => {
     // Map every code to a deterministic id we can assert against.
     getAccountIdByCode: vi.fn(async (_tenantId: string, code: string) => `acct-${code}`),
     journalEntryExists: vi.fn(async () => existing),
-    postJournalEntry: vi.fn(async (opts: (typeof entries)[number]) => {
+    postJournalEntry: vi.fn(async (opts: (typeof entries)[number]): Promise<string | null> => {
       entries.push(opts)
       return `entry-${entries.length}`
     }),
@@ -121,6 +121,19 @@ describe('postRefundToLedger — refund posts a balanced, tenant-scoped revenue 
     expect(res.reason).toBe('already_posted')
     expect(h.postJournalEntry).not.toHaveBeenCalled()
     expect(h.entries).toHaveLength(0)
+  })
+
+  it('is idempotent when postJournalEntry\'s own dedup claim loses a race the journalEntryExists() pre-check missed', async () => {
+    // journalEntryExists() is a plain SELECT — a concurrent caller can commit
+    // between that check and this one's insert. postJournalEntry now returns
+    // null in exactly that case (its RPC's atomic dedup claim lost); this
+    // must be treated as already-posted, not passed through as a real id.
+    h.postJournalEntry.mockResolvedValueOnce(null)
+    const res = await postRefundToLedger({ tenantId: 'tenant-A', sourceId: 're_race', amountCents: 5000 })
+
+    expect(res.posted).toBe(false)
+    expect(res.reason).toBe('already_posted')
+    expect(res.entryId).toBeUndefined()
   })
 
   it('does not post a zero or negative refund', async () => {

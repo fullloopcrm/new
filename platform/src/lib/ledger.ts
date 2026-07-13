@@ -100,7 +100,7 @@ export async function postJournalEntry(opts: {
   source_id?: string
   lines: JournalLineInput[]
   created_by?: string
-}): Promise<string> {
+}): Promise<string | null> {
   const totalDebits = opts.lines.reduce((a, l) => a + (l.debit_cents || 0), 0)
   const totalCredits = opts.lines.reduce((a, l) => a + (l.credit_cents || 0), 0)
   if (totalDebits !== totalCredits) {
@@ -126,6 +126,11 @@ export async function postJournalEntry(opts: {
     })),
   })
   if (error) throw error
+  // NULL = the RPC's atomic dedup claim (unique index on tenant_id, source,
+  // source_id) lost the race to another concurrent caller posting the same
+  // event. Not an error -- callers treat it exactly like their own
+  // journalEntryExists() pre-check finding an existing entry.
+  if (data === null) return null
   if (typeof data !== 'string') throw new Error('post_journal_entry: no entry id returned')
   return data
 }
