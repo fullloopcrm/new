@@ -1,0 +1,92 @@
+/**
+ * PER-TENANT TELEGRAM WEBHOOK AUTH — /api/webhooks/telegram/[tenant] POST.
+ *
+ * Same gap as the owner/jefe bots (see ../route.auth.test.ts): the prior
+ * "auth" was matching telegram_chat_id from the (attacker-controlled) POST
+ * body — not a real origin check. This suite proves the secret_token gate
+ * rejects a forged update once a tenant has telegram_webhook_secret set
+ * (populated on next bot-token save — see businesses/[id]/route.ts) and
+ * stays a no-op for tenants that haven't re-saved yet (NULL secret).
+ */
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { FakeSupabase } from '@/test/fake-supabase'
+
+vi.mock('@/lib/supabase', async () => {
+  const { createFakeSupabase } = await import('@/test/fake-supabase')
+  const fake = createFakeSupabase()
+  return { supabase: fake, supabaseAdmin: fake, __fake: fake }
+})
+
+vi.mock('@/lib/selena/agent', () => ({
+  askSelena: vi.fn(async () => ({ text: 'unreachable', toolsCalled: [] })),
+}))
+
+vi.mock('@/lib/telegram', () => ({
+  sendTelegram: vi.fn(async () => ({ ok: true, status: 200, body: '' })),
+}))
+
+import { supabaseAdmin } from '@/lib/supabase'
+import { encryptSecret } from '@/lib/secret-crypto'
+import { POST } from './route'
+
+const fake = supabaseAdmin as unknown as FakeSupabase
+
+const TENANT_SLUG = 'acme-cleaning'
+const TENANT_ID = 'tenant-acme'
+
+function seedTenant(overrides: Record<string, unknown> = {}) {
+  fake._store.clear()
+  fake._seed('tenants', [
+    {
+      id: TENANT_ID,
+      slug: TENANT_SLUG,
+      telegram_bot_token: 'fake-bot-token',
+      telegram_chat_id: '555',
+      telegram_webhook_secret: null,
+      ...overrides,
+    },
+  ])
+}
+
+function req(body: unknown, secretHeader?: string): Request {
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  if (secretHeader !== undefined) headers['x-telegram-bot-api-secret-token'] = secretHeader
+  return new Request(`https://example.com/api/webhooks/telegram/${TENANT_SLUG}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  })
+}
+
+function params() {
+  return { params: Promise.resolve({ tenant: TENANT_SLUG }) }
+}
+
+describe('POST /api/webhooks/telegram/[tenant] — secret_token gate', () => {
+  beforeEach(() => {
+    process.env.SECRET_ENCRYPTION_KEY = '0'.repeat(64)
+  })
+
+  it('rejects a forged update with the wrong secret once the tenant has one configured', async () => {
+    seedTenant({ telegram_webhook_secret: encryptSecret('tenant-real-secret') })
+
+    const res = await POST(req({ message: { chat: { id: 555 }, text: 'do the thing' } }, 'guessed-secret'), params())
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects a missing secret header once the tenant has one configured', async () => {
+    seedTenant({ telegram_webhook_secret: encryptSecret('tenant-real-secret') })
+
+    const res = await POST(req({ message: { chat: { id: 555 }, text: 'do the thing' } }), params())
+    expect(res.status).toBe(401)
+  })
+
+  it('passes through to the chat-id check when telegram_webhook_secret is NULL (pre-activation)', async () => {
+    seedTenant({ telegram_webhook_secret: null })
+
+    // Unknown chat id → falls through to the private-bot branch, not a 401
+    // from the secret gate.
+    const res = await POST(req({ message: { chat: { id: 1 }, text: 'hi' } }), params())
+    expect(res.status).not.toBe(401)
+  })
+})

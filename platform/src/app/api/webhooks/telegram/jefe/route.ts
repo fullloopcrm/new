@@ -8,14 +8,27 @@ import { NextResponse } from 'next/server'
 import { askJefe } from '@/lib/jefe/agent'
 import { loadJefeHistory, saveJefeTurn } from '@/lib/jefe/actions'
 import { sendTelegram } from '@/lib/telegram'
+import { verifyTelegramSecretToken } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
 const BOT_TOKEN = (process.env.JEFE_BOT_TOKEN || '').trim()
 const OWNER_CHAT_ID = (process.env.JEFE_OWNER_CHAT_ID || process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
+// Same gap as the owner bot: Telegram doesn't sign bodies, and Jefe is the
+// platform-GM agent — impersonating Jeff here is the highest-value target in
+// the fleet. Falls back to TELEGRAM_WEBHOOK_SECRET like OWNER_CHAT_ID falls
+// back to TELEGRAM_OWNER_CHAT_ID. See
+// deploy-prep/telegram-webhook-secret-activation.md for the activation step.
+const WEBHOOK_SECRET = (process.env.JEFE_WEBHOOK_SECRET || process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()
 
 export async function POST(req: Request) {
   if (!BOT_TOKEN) return NextResponse.json({ ok: true, skip: 'no_jefe_bot_token' })
+
+  const secretCheck = verifyTelegramSecretToken(req.headers, WEBHOOK_SECRET)
+  if (!secretCheck.valid) {
+    console.warn('[jefe telegram webhook] rejected:', secretCheck.reason)
+    return NextResponse.json({ error: 'Invalid secret token' }, { status: 401 })
+  }
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
   let body: { message?: TgPost; channel_post?: TgPost } = {}

@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { verifyTelegramSecretToken } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
@@ -34,12 +35,13 @@ interface TenantBot {
   slug: string
   telegram_bot_token: string | null
   telegram_chat_id: string | null
+  telegram_webhook_secret: string | null
 }
 
 async function loadTenantBot(slug: string): Promise<TenantBot | null> {
   const { data } = await supabaseAdmin
     .from('tenants')
-    .select('id, slug, telegram_bot_token, telegram_chat_id')
+    .select('id, slug, telegram_bot_token, telegram_chat_id, telegram_webhook_secret')
     .eq('slug', slug)
     .single()
   return (data as TenantBot | null) || null
@@ -51,6 +53,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   const tenant = await loadTenantBot(slug)
   if (!tenant) return NextResponse.json({ ok: true, skip: 'unknown_tenant' })
   if (!tenant.telegram_bot_token) return NextResponse.json({ ok: true, skip: 'no_bot_token' })
+
+  // Telegram never signs webhook bodies — telegram_chat_id alone is not a
+  // real auth boundary since it's compared against a value taken from the
+  // (attacker-controlled) POST body. telegram_webhook_secret is NULL until
+  // this tenant's bot token is next re-saved (see businesses/[id]/route.ts),
+  // so this stays backward compatible with bots registered before this fix.
+  const expectedSecret = tenant.telegram_webhook_secret ? decryptSecret(tenant.telegram_webhook_secret) : undefined
+  const secretCheck = verifyTelegramSecretToken(req.headers, expectedSecret)
+  if (!secretCheck.valid) {
+    console.warn(`[telegram webhook] tenant=${slug} rejected:`, secretCheck.reason)
+    return NextResponse.json({ error: 'Invalid secret token' }, { status: 401 })
+  }
 
   const botToken = decryptSecret(tenant.telegram_bot_token)
 

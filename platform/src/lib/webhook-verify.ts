@@ -4,6 +4,7 @@
  * Supported providers:
  *   - Svix (Clerk, Resend): HMAC-SHA256 over `id.timestamp.body`, secret `whsec_...`
  *   - Telnyx: Ed25519 over `timestamp|body`, public key base64-encoded
+ *   - Telegram: `X-Telegram-Bot-Api-Secret-Token` header set via setWebhook
  *
  * All helpers return { valid: boolean, reason?: string }. Never throws on signature
  * problems — caller decides the HTTP response.
@@ -112,4 +113,35 @@ export function verifyTelnyx(
   } catch (err) {
     return { valid: false, reason: `verify error: ${err instanceof Error ? err.message : 'unknown'}` }
   }
+}
+
+/**
+ * Verify a Telegram webhook's `X-Telegram-Bot-Api-Secret-Token` header
+ * (https://core.telegram.org/bots/api#setwebhook — `secret_token`).
+ *
+ * Telegram does not sign webhook bodies at all; the ONLY origin proof it
+ * offers is echoing back a secret you registered via setWebhook. Without
+ * this check, anyone who finds the webhook URL can POST a forged update
+ * body (including a guessed/leaked chat_id) and the route has no way to
+ * tell it apart from a real Telegram delivery.
+ *
+ * `expectedSecret` undefined/empty means the secret hasn't been activated
+ * yet for this bot (registered via setWebhook + env/DB configured) — callers
+ * should treat that as "verification not yet active" rather than a hard
+ * failure, so the code can ship ahead of the Telegram-side registration step.
+ */
+export function verifyTelegramSecretToken(
+  headers: Headers,
+  expectedSecret: string | undefined
+): VerifyResult {
+  if (!expectedSecret) return { valid: true, reason: 'secret not configured — enforcement pending activation' }
+
+  const provided = headers.get('x-telegram-bot-api-secret-token')
+  if (!provided) return { valid: false, reason: 'missing secret token header' }
+
+  const providedBuf = Buffer.from(provided, 'utf8')
+  const expectedBuf = Buffer.from(expectedSecret, 'utf8')
+  if (providedBuf.length !== expectedBuf.length) return { valid: false, reason: 'secret mismatch' }
+
+  return timingSafeEqual(providedBuf, expectedBuf) ? { valid: true } : { valid: false, reason: 'secret mismatch' }
 }

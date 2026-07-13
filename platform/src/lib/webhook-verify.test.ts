@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createHmac, generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
-import { verifySvix, verifyTelnyx } from './webhook-verify'
+import { verifySvix, verifyTelnyx, verifyTelegramSecretToken } from './webhook-verify'
 
 function svixHeaders(id: string, timestamp: string, signature: string): Headers {
   const h = new Headers()
@@ -113,5 +113,42 @@ describe('verifyTelnyx', () => {
     const result = verifyTelnyx(headers(ts, sig), body, rawPub)
     expect(result.valid).toBe(false)
     expect(result.reason).toBe('timestamp out of window')
+  })
+})
+
+describe('verifyTelegramSecretToken', () => {
+  function headers(secret: string | null): Headers {
+    const h = new Headers()
+    if (secret !== null) h.set('x-telegram-bot-api-secret-token', secret)
+    return h
+  }
+
+  it('accepts a matching secret', () => {
+    const result = verifyTelegramSecretToken(headers('correct-secret'), 'correct-secret')
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects a forged/guessed secret — this is the actual attack this check exists to stop', () => {
+    const result = verifyTelegramSecretToken(headers('guessed-secret'), 'correct-secret')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret mismatch')
+  })
+
+  it('rejects a missing header when a secret is configured', () => {
+    const result = verifyTelegramSecretToken(headers(null), 'correct-secret')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('missing secret token header')
+  })
+
+  it('rejects a different-length secret without throwing', () => {
+    const result = verifyTelegramSecretToken(headers('short'), 'a-much-longer-correct-secret')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret mismatch')
+  })
+
+  it('allows through (unverified) when no secret is configured yet — transitional/pre-activation state', () => {
+    const result = verifyTelegramSecretToken(headers(null), undefined)
+    expect(result.valid).toBe(true)
+    expect(result.reason).toMatch(/pending activation/)
   })
 })
