@@ -1,18 +1,27 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { protectClientAPI } from '@/lib/client-auth'
 
 // GET /api/client/preferred-cleaner?client_id=X
 // Returns the client's current preferred team member + the list of team
 // members they've actually worked with.
 export async function GET(request: Request) {
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
   const { searchParams } = new URL(request.url)
   const clientId = searchParams.get('client_id')
   if (!clientId) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
+
+  const auth = await protectClientAPI(tenant.id, clientId)
+  if (auth instanceof NextResponse) return auth
 
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('preferred_team_member_id, tenant_id')
     .eq('id', clientId)
+    .eq('tenant_id', tenant.id)
     .single()
 
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
@@ -46,22 +55,21 @@ export async function GET(request: Request) {
 // PUT /api/client/preferred-cleaner
 // body: { client_id, preferred_cleaner_id (or null to clear) }
 export async function PUT(request: Request) {
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
   const body = await request.json()
   if (!body.client_id) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
 
-  const { data: client } = await supabaseAdmin
-    .from('clients')
-    .select('tenant_id')
-    .eq('id', body.client_id)
-    .single()
-  if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+  const auth = await protectClientAPI(tenant.id, body.client_id)
+  if (auth instanceof NextResponse) return auth
 
   if (body.preferred_cleaner_id) {
     const { data: member } = await supabaseAdmin
       .from('team_members')
       .select('id, active')
       .eq('id', body.preferred_cleaner_id)
-      .eq('tenant_id', client.tenant_id)
+      .eq('tenant_id', tenant.id)
       .single()
     if (!member || member.active === false) {
       return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
@@ -72,6 +80,7 @@ export async function PUT(request: Request) {
     .from('clients')
     .update({ preferred_team_member_id: body.preferred_cleaner_id || null })
     .eq('id', body.client_id)
+    .eq('tenant_id', tenant.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

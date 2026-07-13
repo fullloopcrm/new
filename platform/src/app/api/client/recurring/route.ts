@@ -4,6 +4,8 @@ import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { protectClientAPI } from '@/lib/client-auth'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -12,6 +14,9 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 // Recurring discount: weekly 20%, biweekly/monthly 10%. Only available to
 // repeat clients (must have ≥1 completed booking).
 export async function POST(request: Request) {
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
   const body = await request.json()
   const {
     client_id,
@@ -41,14 +46,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid frequency' }, { status: 400 })
   }
 
-  // Resolve tenant from client
-  const { data: clientRow } = await supabaseAdmin
-    .from('clients')
-    .select('tenant_id')
-    .eq('id', client_id)
-    .single()
-  if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-  const tenantId = clientRow.tenant_id
+  const auth = await protectClientAPI(tenant.id, client_id)
+  if (auth instanceof NextResponse) return auth
+  const tenantId = tenant.id
 
   // Repeat-client gate
   const { count: priorCount } = await supabaseAdmin
@@ -74,6 +74,7 @@ export async function POST(request: Request) {
       .from('clients')
       .update({ preferred_team_member_id: cleaner_id })
       .eq('id', client_id)
+      .eq('tenant_id', tenantId)
   }
 
   // Generate next 6 weeks of dates
