@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 import { ownerAlert } from '@/lib/messaging/owner-alerts'
 
@@ -35,26 +36,26 @@ export async function POST(request: NextRequest) {
   const notes = noteLines.join('\n')
 
   // Reuse an open deal for this client rather than stacking duplicates
-  // (mirrors /api/contact).
-  const { data: openDeal } = await supabaseAdmin
+  // (mirrors /api/contact). tenantDb's select() takes a non-literal `columns`
+  // param, which widens supabase-js's column-string type inference — cast
+  // the narrow-select result to the shape actually selected (see
+  // portal/connect/unread for the same gap).
+  const { data: openDeal } = (await tenantDb(auth.tid)
     .from('deals')
     .select('id, notes')
-    .eq('tenant_id', auth.tid)
     .eq('client_id', client.id)
     .in('stage', ['new', 'qualifying', 'quoted', 'pending'])
     .order('created_at', { ascending: false })
-    .maybeSingle()
+    .maybeSingle()) as { data: { id: string; notes: string | null } | null }
 
   if (openDeal) {
     const merged = [openDeal.notes, `[${nowIso.slice(0, 10)} portal request]`, notes].filter(Boolean).join('\n')
-    await supabaseAdmin
+    await tenantDb(auth.tid)
       .from('deals')
       .update({ notes: merged, last_activity_at: nowIso })
       .eq('id', openDeal.id)
-      .eq('tenant_id', auth.tid)
   } else {
-    await supabaseAdmin.from('deals').insert({
-      tenant_id: auth.tid,
+    await tenantDb(auth.tid).from('deals').insert({
       client_id: client.id,
       title: serviceName || 'Portal request',
       stage: 'new',
