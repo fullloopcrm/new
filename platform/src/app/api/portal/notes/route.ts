@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -9,12 +9,11 @@ export async function GET(request: NextRequest) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { data } = await supabaseAdmin
+  const { data } = (await tenantDb(auth.tid)
     .from('clients')
     .select('notes')
     .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
-    .single()
+    .single()) as { data: { notes: string | null } | null }
 
   return NextResponse.json({ notes: data?.notes || '' })
 }
@@ -31,11 +30,10 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Notes must be 500 chars or less' }, { status: 400 })
   }
 
-  await supabaseAdmin
+  await tenantDb(auth.tid)
     .from('clients')
     .update({ notes })
     .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
 
   return NextResponse.json({ success: true })
 }

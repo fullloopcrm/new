@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
 export async function PATCH(
@@ -27,11 +27,10 @@ export async function PATCH(
       update.status = 'paid'
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('bookings')
       .update(update)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select()
       .single()
 
