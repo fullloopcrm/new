@@ -27,8 +27,18 @@ export async function POST(request: Request, { params }: Params) {
     if (quote.status === 'accepted' || quote.status === 'converted') {
       return NextResponse.json({ error: 'Already accepted' }, { status: 400 })
     }
+    if (quote.status === 'declined') {
+      return NextResponse.json({ ok: true, already_declined: true })
+    }
 
-    await supabaseAdmin
+    // Atomic claim: two concurrent declines (double-tapped button, retry)
+    // can both pass the status check above before either UPDATE commits.
+    // Guard the WRITE itself with the status this request actually read
+    // (compare-and-swap) so only one wins; the loser must stop before
+    // logging a duplicate deal-activity note / firing a duplicate owner
+    // notification a second time. Same TOCTOU shape already fixed on the
+    // sibling accept route.
+    const { data: claim } = await supabaseAdmin
       .from('quotes')
       .update({
         status: 'declined',
@@ -36,6 +46,12 @@ export async function POST(request: Request, { params }: Params) {
         declined_reason: reason || null,
       })
       .eq('id', quote.id)
+      .eq('status', quote.status)
+      .select('id')
+      .maybeSingle()
+    if (!claim) {
+      return NextResponse.json({ ok: true, already_declined: true })
+    }
 
     await logQuoteEvent({
       quote_id: quote.id,
