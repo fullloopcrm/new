@@ -72,6 +72,13 @@ function reseed() {
     { id: 'tm-a', tenant_id: A_ID, name: 'A Worker', status: 'active' },
     { id: 'tm-b', tenant_id: B_ID, name: 'B Worker', status: 'active' },
   ])
+  // Office/admin-PIN accounts (tenant_members) — distinct table from field-staff
+  // team_members. getTenantForRequest() re-reads role from here on every
+  // request (see the tenant-query.ts revocation fix below).
+  fake._seed('tenant_members', [
+    { id: 'tm-a', tenant_id: A_ID, name: 'A Owner', role: 'owner' },
+    { id: 'tm-b', tenant_id: B_ID, name: 'B Owner', role: 'owner' },
+  ])
 }
 beforeEach(reseed)
 
@@ -112,6 +119,33 @@ describe('CROSS-TENANT ATTACK · getTenantForRequest (forged / cross-tenant head
   it('REJECTS a signed header for B with NO admin token (nothing authorizes it) → 401', async () => {
     env.headers.set('x-tenant-id', B_ID)
     env.headers.set('x-tenant-sig', signTenantHeader(B_ID))
+    await expect(getTenantForRequest()).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('INSTANT REVOCATION: a demoted member\'s current DB role wins over the stale role baked into their token', async () => {
+    env.headers.set('x-tenant-id', B_ID)
+    env.headers.set('x-tenant-sig', signTenantHeader(B_ID))
+    // Token was minted while tm-b was 'owner' ...
+    env.cookies.set('admin_token', createTenantAdminToken(B_ID, 'tm-b', 'owner'))
+    // ... but the owner has since demoted them to 'staff' in tenant_members,
+    // without the member logging back in (token is still cryptographically valid).
+    fake._store.set('tenant_members', [])
+    fake._seed('tenant_members', [
+      { id: 'tm-a', tenant_id: A_ID, name: 'A Owner', role: 'owner' },
+      { id: 'tm-b', tenant_id: B_ID, name: 'B Worker', role: 'staff' },
+    ])
+    const ctx = await getTenantForRequest()
+    expect(ctx.role).toBe('staff')
+  })
+
+  it('INSTANT REVOCATION: a removed member\'s token is rejected even though it is still cryptographically valid', async () => {
+    env.headers.set('x-tenant-id', B_ID)
+    env.headers.set('x-tenant-sig', signTenantHeader(B_ID))
+    env.cookies.set('admin_token', createTenantAdminToken(B_ID, 'tm-b', 'owner'))
+    // Owner removed tm-b entirely — row is gone from tenant_members, but the
+    // signed token (24h expiry) is otherwise still valid.
+    fake._store.set('tenant_members', [])
+    fake._seed('tenant_members', [{ id: 'tm-a', tenant_id: A_ID, name: 'A Owner', role: 'owner' }])
     await expect(getTenantForRequest()).rejects.toMatchObject({ status: 401 })
   })
 })

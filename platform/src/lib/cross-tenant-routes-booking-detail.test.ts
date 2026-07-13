@@ -107,6 +107,13 @@ function reseed() {
     { id: 'cl-a2', tenant_id: A_ID, name: 'A2 Client', do_not_service: false },
     { id: 'cl-b', tenant_id: B_ID, name: 'B Client', do_not_service: false },
   ])
+  // Office/admin-PIN accounts (tenant_members) — getTenantForRequest() re-reads
+  // the current role from here on every request (instant-revocation fix), so
+  // setAdminSessionFor's minted tm-owner token needs a backing row per tenant.
+  fake._seed('tenant_members', [
+    { id: 'tm-owner', tenant_id: A_ID, role: 'owner', name: 'Owner A' },
+    { id: 'tm-owner', tenant_id: B_ID, role: 'owner', name: 'Owner B' },
+  ])
 }
 beforeEach(reseed)
 

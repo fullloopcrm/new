@@ -122,6 +122,14 @@ function reseed() {
     { id: ids.member.a2, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 21, max_jobs_per_day: null, name: 'Worker A2', notes: null },
     { id: ids.member.aManager, tenant_id: A_ID, status: 'active', role: 'manager', pay_rate: 30, max_jobs_per_day: null, name: 'Manager A', notes: null },
   ])
+  // Office/admin-PIN accounts (tenant_members, distinct from field-staff
+  // team_members) — getTenantForRequest() re-reads the current role from here
+  // on every request (instant-revocation fix), so setAdminSessionFor's minted
+  // tm-owner token needs a backing row per tenant.
+  fake._seed('tenant_members', [
+    { id: 'tm-owner', tenant_id: A_ID, role: 'owner', name: 'Owner A' },
+    { id: 'tm-owner', tenant_id: B_ID, role: 'owner', name: 'Owner B' },
+  ])
   fake._seed('sms_conversations', [
     { id: ids.convo.a, tenant_id: A_ID, phone: '+15550001', name: 'A Convo', client_id: null, state: 'active', booking_checklist: null },
     { id: ids.convo.b, tenant_id: B_ID, phone: '+15550003', name: 'B Convo', client_id: null, state: 'active', booking_checklist: null },
