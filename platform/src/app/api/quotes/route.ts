@@ -73,12 +73,31 @@ export async function POST(request: Request) {
     const quote_number = body.quote_number || (await generateQuoteNumber(tenantId))
     const public_token = generatePublicToken()
 
+    // Caller-supplied FKs — verify each belongs to this tenant before insert, so
+    // a foreign id can't attach another tenant's client/deal to this quote.
+    const finalClientId = body.client_id || null
+    const finalDealId = body.deal_id || null
+    const fkChecks: Array<{ label: string; table: string; id: string | null }> = [
+      { label: 'client_id', table: 'clients', id: finalClientId },
+      { label: 'deal_id', table: 'deals', id: finalDealId },
+    ]
+    for (const { label, table, id } of fkChecks) {
+      if (!id) continue
+      const { data: owned } = await supabaseAdmin
+        .from(table)
+        .select('id')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: `Invalid ${label}` }, { status: 404 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('quotes')
       .insert({
         tenant_id: tenantId,
-        client_id: body.client_id || null,
-        deal_id: body.deal_id || null,
+        client_id: finalClientId,
+        deal_id: finalDealId,
         quote_number,
         status: 'draft',
         title: body.title || null,
