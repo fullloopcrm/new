@@ -8,6 +8,7 @@ import { verifyTelnyx, isWebhookVerifyDisabled } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { claimWebhookEvent } from '@/lib/webhook-dedupe'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const maxDuration = 60
 
@@ -105,6 +106,23 @@ export async function POST(request: Request) {
 
     if (!from || !to || !text) {
       return NextResponse.json({ received: true })
+    }
+
+    // Rate-limit ceiling on the expensive AI-agent path only (delivery-status
+    // events above are untouched — high legitimate volume, cheap DB updates).
+    // Runs regardless of verify state, so a forgotten TELNYX_WEBHOOK_VERIFY=off
+    // window is bounded instead of unauthenticated AND unthrottled. rateLimitDb
+    // fails open on DB error, so this can never lock out real SMS.
+    // See deploy-prep/telnyx-sms-verify-killswitch-guard-spec.md.
+    const rlIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rlFromDigits = String(from).replace(/\D/g, '')
+    const [rlSender, rlSource] = await Promise.all([
+      rateLimitDb(`wh-telnyx-sms:${rlFromDigits}`, 10, 60_000),
+      rateLimitDb(`wh-telnyx-sms-ip:${rlIp}`, 60, 60_000),
+    ])
+    if (!rlSender.allowed || !rlSource.allowed) {
+      console.warn(`[telnyx webhook] rate-limited inbound from=${rlFromDigits} ip=${rlIp}`)
+      return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
     }
 
     // Find tenant by their Telnyx phone number. Use limit(2), NOT .single():
