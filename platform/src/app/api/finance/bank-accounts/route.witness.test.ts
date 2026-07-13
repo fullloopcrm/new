@@ -2,30 +2,19 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * WITNESS — cross-tenant foreign-key INJECTION on POST /api/finance/bank-accounts.
+ * WITNESS — cross-tenant foreign-key injection on POST /api/finance/bank-accounts.
+ * FIXED (was proven-LIVE, register P4): both `entity_id` and `coa_id` are now
+ * verified tenant-owned (`.eq('id',...).eq('tenant_id', tenantId)`) before insert,
+ * 404 on either miss.
  *
- * HARD-tier, BANK (`bank_accounts`). UNCONVERTED (raw `supabaseAdmin`). The row is
- * stamped `tenant_id = <acting tenant>`, but TWO caller-supplied foreign keys are
- * inserted VERBATIM with no ownership check:
+ * HARD-tier, BANK (`bank_accounts`). Both `entities` (migration 034) and
+ * `chart_of_accounts` (migration 032) carry their own `tenant_id`, so a foreign
+ * `entity_id` / `coa_id` would link tenant A's bank account to B's entity/GL
+ * account — surfaced back on read via the GET route's `entities()` /
+ * `chart_of_accounts()` embeds.
  *
- *     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
- *     supabaseAdmin.from('bank_accounts').insert({ tenant_id: tenantId, entity_id: entityId,
- *                                                  coa_id: body.coa_id || null, ... })
- *
- * Both `entities` (migration 034) and `chart_of_accounts` (migration 032) carry
- * their own `tenant_id`, so passing tenant B's `entity_id` / `coa_id` links tenant
- * A's bank account to B's entity and B's GL account. GET /api/finance/bank-accounts
- * embeds `entities(id, name)` and `chart_of_accounts(code, name, type)` off this row,
- * so a foreign id can surface B's entity/account identity back to A on read-back.
- *
- * This is the `entity_id` / `coa_id` FK-injection variant the register's §4 sweep
- * did not cover (it looked at client_id/booking_id/service_type_id only).
- *
- * LIVE today. When a guard lands (verify entity_id + coa_id belong to `tenantId`
- * before insert, else 400/404), FLIP the LEAK test to expect rejection.
- *
- * Non-vacuous: reads the ACTUAL stored `entity_id`/`coa_id`; the CONTROL proves the
- * default/omitted path stamps A's own entity and a null coa_id.
+ * LOCK: proves a foreign entity_id or coa_id is rejected (404) before any insert.
+ * CONTROL: proves the default/omitted path (own entity, null coa_id) still works.
  */
 
 const CTX_TENANT = 'tid-a'
@@ -92,17 +81,16 @@ beforeEach(() => {
 })
 
 describe('finance/bank-accounts POST — cross-tenant entity_id/coa_id FK injection WITNESS', () => {
-  it("LEAK: foreign entity_id + coa_id from the body land on the acting tenant's bank account", async () => {
-    const res = await POST(postReq({ name: 'Ops Checking', entity_id: 'entity-b', coa_id: 'coa-b' }))
-    expect(res.status).toBe(200)
+  it('LOCK: a foreign entity_id is rejected (404), no bank_accounts row created', async () => {
+    const res = await POST(postReq({ name: 'Ops Checking', entity_id: 'entity-b' }))
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'bank_accounts')).toBeUndefined()
+  })
 
-    const ins = h.capture.inserts.find((i) => i.table === 'bank_accounts')
-    expect(ins).toBeTruthy()
-    const row = ins!.rows[0]
-    expect(row.tenant_id).toBe(CTX_TENANT)
-    // Both foreign FKs written verbatim — no ownership check ran on either.
-    expect(row.entity_id).toBe('entity-b')
-    expect(row.coa_id).toBe('coa-b')
+  it('LOCK: a foreign coa_id is rejected (404), no bank_accounts row created', async () => {
+    const res = await POST(postReq({ name: 'Ops Checking', coa_id: 'coa-b' }))
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'bank_accounts')).toBeUndefined()
   })
 
   it("CONTROL: omitting both FKs stamps A's own default entity and a null coa_id (safe path)", async () => {
@@ -113,5 +101,15 @@ describe('finance/bank-accounts POST — cross-tenant entity_id/coa_id FK inject
     expect(row.tenant_id).toBe(CTX_TENANT)
     expect(row.entity_id).toBe('entity-a')
     expect(row.coa_id).toBeNull()
+  })
+
+  it("CONTROL: explicit own-tenant entity_id + coa_id pass the ownership check", async () => {
+    const res = await POST(postReq({ name: 'Ops Checking', entity_id: 'entity-a', coa_id: 'coa-a' }))
+    expect(res.status).toBe(200)
+
+    const row = h.capture.inserts.find((i) => i.table === 'bank_accounts')!.rows[0]
+    expect(row.tenant_id).toBe(CTX_TENANT)
+    expect(row.entity_id).toBe('entity-a')
+    expect(row.coa_id).toBe('coa-a')
   })
 })
