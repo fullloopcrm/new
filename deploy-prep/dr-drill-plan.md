@@ -146,3 +146,22 @@ document is the plan Jeff or the leader executes; no worker should attempt any s
 
 Depending on Supabase plan, a scratch project and/or a PITR restore operation may not be free. Confirm
 cost implications before running — flagging this explicitly so it isn't a surprise mid-drill.
+
+## 9. Addendum (2026-07-13) — this plan assumes "the migrations" are one linear thing; they are not
+
+This plan's §1/§5 language ("migrations applied after timestamp T") implicitly treats schema history as a
+single linear sequence. Investigation this session
+(`migrations-tree-reconciliation-note.md`) found **three separate schema sources** with no documented
+apply order and no single script that runs all three: a one-time foundation file
+(`platform/supabase/schema.sql`, stale since 2026-03-11, only 12 of 100+ live tables), plus two
+independently-committed migration trees (`platform/src/lib/migrations/`, `platform/migrations/`) with a
+confirmed cross-tree dependency (tables in tree 3 reference `team_members`, which only tree 1 creates).
+
+**This does not block a straight PITR restore** (§5's steps 1–8 restore *existing* prod data/schema as a
+point-in-time snapshot — they don't reconstruct from zero, so the 3-source split is irrelevant to that
+path). **It does block any drill variant that tries to build a fresh environment from repo source** (a
+true DR scenario where the Supabase project itself is unrecoverable, not just a bad write to roll back
+from) — there is currently no way to go from an empty Supabase project to current schema using only what's
+committed in this repo. Recommend this gap be closed (see that note's §"Recommendation") before anyone
+treats this drill's eventual "pass" as covering total-project-loss recovery, not just point-in-time
+rollback within an existing project.
