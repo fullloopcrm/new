@@ -90,7 +90,7 @@ introduced — same latent-landmine shape as `post_journal_entry`. Until that qu
 
 ---
 
-## 3. Verdict
+## 3. Verdict (as of 2026-07-12, superseded by §4 below)
 
 - **In-repo SECURITY DEFINER functions: 2, both already covered by planned migration 060.** No additional
   lockdown work identified beyond what w1 already scoped.
@@ -100,3 +100,100 @@ introduced — same latent-landmine shape as `post_journal_entry`. Until that qu
   8-distinct-name count, or the 2-SECURITY-DEFINER count found by grep in this worktree. Recommend the
   leader confirm where "26" originated (a different branch's migration set, or a live pg_proc count) before
   treating this review as covering the full stated scope.
+
+---
+
+## 4. Extension (2026-07-13) — the "6 unaudited" claim above was itself wrong. Corrected below.
+
+Re-running this review to close the stated blind spot found **the original grep missed real definitions**,
+for two separate reasons — both worth naming so the mistake isn't repeated:
+
+1. **Case sensitivity.** The original pass ran `grep -rn "CREATE.*FUNCTION" platform/src/lib/migrations`
+   — case-sensitive. Two of the "6 unaudited" functions are in fact defined in this repo, just written
+   lowercase (`create or replace function`): `seo_run_detection`
+   (`platform/src/lib/migrations/2026_07_04_seo_detection_fn.sql:4`, superseded by a second definition at
+   `platform/src/lib/migrations/2026_07_05_seo_competitors.sql:119`) and `seo_money_keywords`
+   (`platform/src/lib/migrations/2026_07_05_seo_competitors.sql:95`).
+2. **Wrong directory scoped.** There is a **second, separate migrations tree** at `platform/migrations/`
+   (distinct from `platform/src/lib/migrations/` — confirmed both exist independently, 40 files vs. 55),
+   never grepped by the original pass. It defines two more of the "6 unaudited" functions:
+   `comhub_get_or_create_contact_by_phone` and `comhub_get_or_create_thread`
+   (both in `platform/migrations/2026_05_19_comhub.sql:242` and `:293`). File dates in this second tree
+   run 2026-05-09 through 2026-07-08, i.e. **older** than most of `platform/src/lib/migrations/` — this
+   looks like an earlier migrations convention that was later moved/renamed to `src/lib/migrations/` for
+   new work without the old tree being merged or removed. No README or reference in either tree states
+   which one is the applied/canonical source of truth for prod; this review cannot determine that from the
+   repo alone and flags it as a **separate, new gap** (see §4c).
+
+### 4a. Corrected classification of the original 8 RPC names
+
+| Function | Defined in-repo? | Where | `SECURITY DEFINER`? | Pinned `search_path`? | `GRANT EXECUTE` to `authenticated`/`anon`? |
+|---|---|---|---|---|---|
+| `post_journal_entry` | Yes | `platform/src/lib/migrations/039_atomic_ledger_and_hardening.sql:14` | **Yes** | No | Yes, to `authenticated` (line 83) |
+| `cpa_token_bump_usage` | Yes | `platform/src/lib/migrations/039_atomic_ledger_and_hardening.sql:86` | **Yes** | No | Yes, to `authenticated` (line 96) |
+| `seo_run_detection` | Yes (newly found) | `platform/src/lib/migrations/2026_07_04_seo_detection_fn.sql:4`, redefined `2026_07_05_seo_competitors.sql:119` | **No** (plain `language plpgsql`, no `SECURITY DEFINER` clause — defaults to INVOKER) | No | No `GRANT EXECUTE` statement found anywhere for it — default Postgres grant model applies (owner + any role the DB's default `PUBLIC` execute grant covers, typically revoked by Supabase's standard setup but **not independently confirmed** here) |
+| `seo_money_keywords` | Yes (newly found) | `platform/src/lib/migrations/2026_07_05_seo_competitors.sql:95` | **No** (`language sql stable`, no `SECURITY DEFINER`) | No | Same as above — no explicit grant found |
+| `comhub_get_or_create_contact_by_phone` | Yes (newly found, second migrations tree) | `platform/migrations/2026_05_19_comhub.sql:242` | **No** (`language plpgsql`, no `SECURITY DEFINER`) | No | No explicit grant found |
+| `comhub_get_or_create_thread` | Yes (newly found, second migrations tree) | `platform/migrations/2026_05_19_comhub.sql:293` | **No** | No | No explicit grant found |
+| `comhub_get_or_create_contact_by_email` | **Still not found anywhere in-repo** — searched both migrations trees and the whole worktree (`grep -rn` for the literal name, all `.sql` files, no node_modules) | — | Unknown | Unknown | Unknown |
+| `seo_refresh_rollup` | **Still not found anywhere in-repo** — same repo-wide search | — | Unknown | Unknown | Unknown |
+
+### 4b. Why the 4 newly-found functions don't need a 060-style lockdown (different from the original 2)
+
+`seo_run_detection`, `seo_money_keywords`, `comhub_get_or_create_contact_by_phone`, and
+`comhub_get_or_create_thread` are **not** `SECURITY DEFINER` — Postgres defaults every function to
+`SECURITY INVOKER` unless the clause is explicitly added, and none of these four has it. That means they
+run with the privileges of whichever role calls them. Every in-repo call site for all four goes through
+`supabaseAdmin.rpc(...)` (service-role client — confirmed by re-grepping the 25 call sites in §0), so in
+practice they already run at service-role privilege regardless of INVOKER/DEFINER, same as any other
+service-role query. **This is a materially different risk shape than `post_journal_entry` /
+`cpa_token_bump_usage`**, which combine `SECURITY DEFINER` *with* an explicit `GRANT EXECUTE ... TO
+authenticated` — meaning THOSE two are reachable by a normal authenticated JWT holder today if Supabase
+Auth (not just service-role) is ever wired up for an end-user session, bypassing whatever the invoking
+role's own RLS would have restricted. The 4 newly-found functions have no such grant to `authenticated`
+found anywhere in either migrations tree, so the "authenticated JWT could call this and bypass tenant
+scoping" attack shape does not apply to them today. **Lower-priority residual gap that does still apply:**
+none of the 4 pins `search_path`, which is a `060`-adjacent hardening best practice (prevents a
+same-named function/object earlier in a manipulated `search_path` from being called instead) even for
+INVOKER functions — worth folding into `060`'s pinning pass as a cheap addition, but not the
+privilege-escalation-severity issue the original 2 are.
+
+### 4c. Genuinely still-open gaps (narrower than the original "6 unaudited")
+
+1. **`comhub_get_or_create_contact_by_email` and `seo_refresh_rollup`** — still zero in-repo definition
+   after searching both migrations trees and the full worktree. The live DB introspection query in §2
+   above remains the only way to close this for these two specifically (query updated below to drop the
+   4 now-resolved names).
+2. **New gap this pass surfaced: two parallel, unreconciled migrations trees** (`platform/migrations/` and
+   `platform/src/lib/migrations/`). Whichever one is NOT the source actually applied to prod is a second,
+   independent blind spot beyond individual function audits — if `platform/migrations/` is stale/dead,
+   fine; if it's still being applied by some process this review didn't find (a separate deploy script,
+   a manual `psql` habit, etc.), then this repo's migration history is split across two trees and neither
+   `branch-integration-plan.md` nor `gated-wave-plan.md`'s migration-numbering collision notes account for
+   that. **Recommend Jeff/leader confirm which tree (or both) is live** before Wave 2 proceeds — this is a
+   process question this file-only review cannot resolve alone.
+
+Updated live-introspection query (only the 2 still-unresolved names, per item 1 above):
+
+```sql
+SELECT n.nspname, p.proname, p.prosecdef,
+       (SELECT array_agg(grantee::text) FROM information_schema.role_routine_grants
+        WHERE routine_name = p.proname AND privilege_type = 'EXECUTE') AS execute_grantees
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE p.proname IN ('comhub_get_or_create_contact_by_email', 'seo_refresh_rollup');
+```
+
+### 4d. Revised verdict
+
+- **In-repo SECURITY DEFINER functions: still 2** (`post_journal_entry`, `cpa_token_bump_usage`), both
+  already covered by planned migration `060`. No third SECURITY DEFINER function was found by this
+  extended pass.
+- **4 more `.rpc()` targets are now confirmed in-repo** (not unaudited as previously stated) — all 4 are
+  `SECURITY INVOKER`, none has an `authenticated`/`anon` grant, so none needs `060`-style lockdown; all 4
+  would still benefit from `search_path` pinning as a low-priority addition (§4b).
+- **Only 2 of the original 8 RPC names remain genuinely unauditable from the repo** (down from 6):
+  `comhub_get_or_create_contact_by_email`, `seo_refresh_rollup`. The live-introspection ask in §4c item 1
+  is narrower and cheaper to run than the original 6-name query.
+- **New process-level gap identified:** two unreconciled migrations trees (§4c item 2) — flagged for
+  Jeff/leader, not resolvable by grep alone.
