@@ -275,7 +275,16 @@ export async function POST(request: Request) {
       })
       .select('*, clients(*), client_properties(*)')
       .single()
-    if (error || !data) return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
+    if (error || !data) {
+      // 23505 here means a concurrent request won the same-date race the
+      // count check above can't close atomically (see
+      // uq_bookings_client_same_date_active) — surface the same duplicate
+      // error the pre-check gives, not a raw 500.
+      if ((error as { code?: string } | null)?.code === '23505') {
+        return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
+      }
+      return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
+    }
 
     // Render admin/client emails + SMS with this booking's property address
     // (property ?? client.address) instead of the client's default address.
