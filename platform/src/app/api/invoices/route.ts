@@ -145,14 +145,38 @@ export async function POST(request: Request) {
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
+    // Caller-supplied FKs — verify each belongs to this tenant before insert, so
+    // a foreign id can't attach another tenant's client/booking/quote to this
+    // invoice (the from_booking_id/from_quote_id prefill fetches above are
+    // already tenant-scoped, but the raw body ids were not checked at all).
+    const finalClientId = body.client_id || (prefillContact as { client_id?: string }).client_id || null
+    const finalBookingId = body.booking_id || body.from_booking_id || null
+    const finalQuoteId = body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null
+
+    const fkChecks: Array<{ label: string; table: string; id: string | null }> = [
+      { label: 'client_id', table: 'clients', id: finalClientId },
+      { label: 'booking_id', table: 'bookings', id: finalBookingId },
+      { label: 'quote_id', table: 'quotes', id: finalQuoteId },
+    ]
+    for (const { label, table, id } of fkChecks) {
+      if (!id) continue
+      const { data: owned } = await supabaseAdmin
+        .from(table)
+        .select('id')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: `Invalid ${label}` }, { status: 404 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('invoices')
       .insert({
         tenant_id: tenantId,
         entity_id: entityId,
-        client_id: body.client_id || (prefillContact as { client_id?: string }).client_id || null,
-        booking_id: body.booking_id || body.from_booking_id || null,
-        quote_id: body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null,
+        client_id: finalClientId,
+        booking_id: finalBookingId,
+        quote_id: finalQuoteId,
         invoice_number,
         status: 'draft',
         title: body.title || (prefillContact as { title?: string }).title || null,

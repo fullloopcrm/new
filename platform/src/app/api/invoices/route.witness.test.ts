@@ -2,29 +2,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * WITNESS — cross-tenant foreign-key INJECTION on POST /api/invoices.
+ * WITNESS — cross-tenant foreign-key INJECTION on POST /api/invoices. FIXED.
  *
- * This route is UNCONVERTED (raw `supabaseAdmin`, not `tenantDb`) and is a HARD-tier
- * parent-ownership gap per deploy-prep/tenantdb-rollout-plan.md §5b.
+ * This route is UNCONVERTED (raw `supabaseAdmin`, not `tenantDb`). See
+ * deploy-prep/cross-tenant-leak-register.md P2.
  *
- * The invoice row is correctly stamped `tenant_id = <acting tenant>`, BUT the
- * caller-supplied `body.client_id` / `body.booking_id` / `body.quote_id` are
- * inserted VERBATIM with NO check that those ids belong to the acting tenant.
- * (Only the `from_booking_id` / `from_quote_id` PREFILL paths re-fetch with
- * `.eq('tenant_id', …)`, so those are already scoped — see the control below.)
+ * `body.client_id` / `body.booking_id` / `body.quote_id` are now verified to
+ * belong to the acting tenant (a fresh `.eq('id',...).eq('tenant_id', tenantId)`
+ * lookup per id) before the invoice insert runs; a foreign id 404s the request
+ * before any row is written.
  *
- * Effect TODAY: an operator in tenant A can create an invoice that references
- * tenant B's client / booking / quote — a cross-tenant reference write that
- * pollutes B's entities into A's finance records and can surface B's data through
- * any read-side that embeds `clients(...)` off the invoice.
- *
- * These tests assert the leak is CURRENTLY LIVE. When an ownership guard lands
- * (verify body.client_id/booking_id/quote_id belong to `tenantId` before insert,
- * else 400/404), FLIP them to expect rejection — turning this into the regression
- * lock for that fix.
- *
- * Mutation-safe: the RED assertions read the ACTUAL stored `client_id`/`booking_id`;
- * an ownership guard that rejects or nulls a foreign id makes them fail.
+ * LOCKED: these assertions prove the guard fires per id. A regression that
+ * drops any of the three checks flips this back to a leak.
  */
 
 const CTX_TENANT = 'tid-a' // attacker (the caller)
@@ -83,8 +72,11 @@ function seed() {
       { id: 'client-b', tenant_id: OTHER_TENANT, name: 'B-Client' },
     ],
     // Victim's booking — used to prove the from_booking_id PREFILL path is scoped.
-    bookings: [{ id: 'bk-b', tenant_id: OTHER_TENANT, price: 12345, actual_hours: 2 }],
-    quotes: [] as Record<string, unknown>[],
+    bookings: [
+      { id: 'bk-a', tenant_id: CTX_TENANT, price: 5000, actual_hours: 1 },
+      { id: 'bk-b', tenant_id: OTHER_TENANT, price: 12345, actual_hours: 2 },
+    ],
+    quotes: [{ id: 'q-a', tenant_id: CTX_TENANT, client_id: 'client-a', line_items: [] }],
   }
 }
 
@@ -98,41 +90,39 @@ beforeEach(() => {
   holder.from = h.from
 })
 
-describe('invoices POST — cross-tenant FK injection WITNESS', () => {
-  it('LEAK: a foreign client_id from the body is stored on the acting tenant\'s invoice', async () => {
+describe('invoices POST — cross-tenant FK injection LOCKED', () => {
+  it('LOCKED: a foreign client_id from the body 404s before any invoice is inserted', async () => {
     const res = await POST(postReq({ client_id: 'client-b', line_items: [] }))
-    expect(res.status).toBe(200)
-
-    const ins = h.capture.inserts.find((i) => i.table === 'invoices')
-    expect(ins).toBeTruthy()
-    const row = ins!.rows[0]
-    // Invoice is stamped to tenant A …
-    expect(row.tenant_id).toBe(CTX_TENANT)
-    // … yet references tenant B's client — no ownership check ran.
-    expect(row.client_id).toBe('client-b')
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
   })
 
-  it('LEAK: a foreign booking_id + quote_id from the body pass through unchecked', async () => {
-    const res = await POST(postReq({ booking_id: 'bk-b', quote_id: 'q-b', line_items: [] }))
-    expect(res.status).toBe(200)
-
-    const row = h.capture.inserts.find((i) => i.table === 'invoices')!.rows[0]
-    expect(row.booking_id).toBe('bk-b')
-    expect(row.quote_id).toBe('q-b')
+  it('LOCKED: a foreign booking_id 404s before any invoice is inserted', async () => {
+    const res = await POST(postReq({ booking_id: 'bk-b', line_items: [] }))
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
   })
 
-  it('MIXED (fetch scoped, column not): from_booking_id 404s the foreign booking so NO client PII is copied, but the raw booking_id column is still written', async () => {
-    // The from_booking_id PREFILL re-fetches with .eq('tenant_id', A), so B's booking
-    // is invisible → prefillContact stays empty → no B client_id/name is copied. GOOD.
-    // BUT the insert line is `booking_id: body.booking_id || body.from_booking_id || null`,
-    // so the unverified foreign booking id still lands in the column. STILL A LEAK.
+  it('LOCKED: a foreign quote_id 404s before any invoice is inserted', async () => {
+    const res = await POST(postReq({ quote_id: 'q-b', line_items: [] }))
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
+  })
+
+  it('LOCKED: from_booking_id referencing a foreign booking 404s before any invoice is inserted', async () => {
     const res = await POST(postReq({ from_booking_id: 'bk-b', line_items: [] }))
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
+  })
+
+  it('CONTROL: own-tenant client_id/booking_id/quote_id all pass and the invoice is created', async () => {
+    const res = await POST(postReq({ client_id: 'client-a', booking_id: 'bk-a', quote_id: 'q-a', line_items: [] }))
     expect(res.status).toBe(200)
 
     const row = h.capture.inserts.find((i) => i.table === 'invoices')!.rows[0]
-    // Scoped: the guarded fetch leaked no client PII into the invoice.
-    expect(row.client_id).toBeNull()
-    // Not scoped: the foreign booking id is written verbatim anyway.
-    expect(row.booking_id).toBe('bk-b')
+    expect(row.tenant_id).toBe(CTX_TENANT)
+    expect(row.client_id).toBe('client-a')
+    expect(row.booking_id).toBe('bk-a')
+    expect(row.quote_id).toBe('q-a')
   })
 })
