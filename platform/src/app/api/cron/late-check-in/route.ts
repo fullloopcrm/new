@@ -5,12 +5,7 @@ import { getCommPrefs } from '@/lib/comms-prefs'
 import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins } from '@/lib/push'
 import { trackError } from '@/lib/error-tracking'
-import {
-  smsLateCheckInTeam,
-  smsLateCheckInAdmin,
-  smsLateCheckOutTeam,
-  smsLateCheckOutAdmin,
-} from '@/lib/sms-templates'
+import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 
 export const maxDuration = 300
 
@@ -32,7 +27,7 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, phone')
+    .select('id, name, slug, industry, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, owner_phone, phone')
     .eq('status', 'active')
     .limit(1000)
 
@@ -50,7 +45,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, hourly_rate, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .lte('start_time', tenMinAgo.toISOString())
@@ -73,12 +68,13 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const templates = teamSmsTemplates(tenant)
 
         // SMS to team member
         if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
-            body: smsLateCheckInTeam(tenant.name, booking as any),
+            body: templates.lateCheckInCleaner(booking as any),
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
           }).catch(() => {})
@@ -89,7 +85,7 @@ export async function GET(request: Request) {
         if (ownerLateOn && adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`,
-            body: smsLateCheckInAdmin(tenant.name, booking as any),
+            body: templates.lateCheckInAdmin(booking as any),
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
           }).catch(() => {})
@@ -122,7 +118,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateCheckouts } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, hourly_rate, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
         .not('fifteen_min_alert_time', 'is', null)
@@ -144,12 +140,13 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const templates = teamSmsTemplates(tenant)
 
         // SMS to team member
         if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
-            body: smsLateCheckOutTeam(tenant.name, booking as any),
+            body: templates.lateCheckOutCleaner(booking as any),
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
           }).catch(() => {})
@@ -160,7 +157,7 @@ export async function GET(request: Request) {
         if (ownerLateOn && adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`,
-            body: smsLateCheckOutAdmin(tenant.name, booking as any),
+            body: templates.lateCheckOutAdmin(booking as any),
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
           }).catch(() => {})

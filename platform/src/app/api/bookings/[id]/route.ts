@@ -6,8 +6,8 @@ import { pick } from '@/lib/validate'
 import { checkMemberDayOff } from '@/lib/availability'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
-import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
 
 export async function GET(
@@ -88,7 +88,7 @@ export async function PUT(
       .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone)')
+      .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone, pin)')
       .single()
 
     if (error) {
@@ -99,10 +99,9 @@ export async function PUT(
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, telnyx_api_key, telnyx_phone')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
         .eq('id', tenantId)
         .single()
-      const bizName = tenantData?.name || 'Your Business'
       const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -140,7 +139,7 @@ export async function PUT(
       if (memberChanged && data.team_members?.phone && hasSMS) {
         sendSMS({
           to: data.team_members.phone,
-          body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),
+          body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
           telnyxApiKey: tenantData!.telnyx_api_key,
           telnyxPhone: tenantData!.telnyx_phone,
         }).catch(err => console.error('Assignment SMS error:', err))

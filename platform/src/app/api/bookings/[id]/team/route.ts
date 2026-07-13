@@ -15,7 +15,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team'
-import { smsJobAssignment } from '@/lib/sms-templates'
+import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 
 type Booking = {
   id: string
@@ -99,7 +99,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // Tenant context for notifications (telnyx + push)
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone')
+    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
     .eq('id', ctx.tenantId)
     .single()
 
@@ -117,7 +117,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         .from('bookings')
         .select('*, clients(*)')
         .eq('id', id)
-        .single<Booking>()
+        .single<Booking & { hourly_rate?: number | null }>()
+
+      const { data: extraMember } = await db
+        .from('team_members')
+        .select('name, pin')
+        .eq('id', extraId)
+        .single<{ name: string | null; pin: string | null }>()
 
       const report = await notifyTeamMember({
         tenantId: ctx.tenantId,
@@ -127,9 +133,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         message: `${clientName} on ${bookingDate} (team of ${teamSize})`,
         bookingId: id,
         smsMessage: tenant && bookingFull?.start_time
-          ? smsJobAssignment(tenant.name || 'Your business', {
+          ? teamSmsTemplates(tenant).jobAssignment({
               start_time: bookingFull.start_time,
+              hourly_rate: bookingFull.hourly_rate,
               clients: bookingFull.clients?.name ? { name: bookingFull.clients.name } : null,
+              team_members: extraMember ? { name: extraMember.name, pin: extraMember.pin } : null,
             })
           : `New team job assigned for ${clientName} on ${bookingDate}.`,
         skipEmail: true,

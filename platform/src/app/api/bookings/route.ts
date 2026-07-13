@@ -9,8 +9,8 @@ import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
 import { timestampToMin } from '@/lib/cleaner-availability'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
-import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
@@ -210,7 +210,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .insert({ ...validated, tenant_id: tenantId, status: newStatus })
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
+      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone, pin), client_properties(*)')
       .single()
 
     if (error) {
@@ -227,10 +227,9 @@ export async function POST(request: Request) {
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, telnyx_api_key, telnyx_phone')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
         .eq('id', tenantId)
         .single()
-      const bizName = tenantData?.name || 'Your Business'
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
@@ -264,7 +263,7 @@ export async function POST(request: Request) {
       if (data.team_members?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
         sendSMS({
           to: data.team_members.phone,
-          body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),
+          body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
           telnyxApiKey: tenantData.telnyx_api_key,
           telnyxPhone: tenantData.telnyx_phone,
         }).catch(err => console.error('Team assignment SMS error:', err))

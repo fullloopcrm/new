@@ -4,8 +4,8 @@ import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
-import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 
 /**
  * POST /api/bookings/batch
@@ -84,13 +84,12 @@ export async function POST(request: Request) {
       const resendKey = (tRow?.resend_api_key as string) || process.env.RESEND_API_KEY || ''
       const fromEmail = (tRow?.email_from as string) || process.env.EMAIL_FROM || ''
 
-      // Resolve tenant business name for SMS templates
+      // Resolve tenant brand for SMS templates
       const { data: tenantRow } = await supabaseAdmin
         .from('tenants')
-        .select('name')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id')
         .eq('id', tenantId)
         .single()
-      const bizName = (tenantRow?.name as string) || 'Your service team'
 
       // Client SMS confirmation
       if (client?.phone && telnyxApiKey && telnyxPhone) {
@@ -106,7 +105,7 @@ export async function POST(request: Request) {
       if (cleaner?.phone && telnyxApiKey && telnyxPhone) {
         sendSMS({
           to: cleaner.phone,
-          body: smsJobAssignment(bizName, first),
+          body: teamSmsTemplates(tenantRow || {}).jobAssignment(first),
           telnyxApiKey,
           telnyxPhone,
         }).catch(err => console.error('[batch] cleaner SMS error:', err))

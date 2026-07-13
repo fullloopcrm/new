@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { smsDailySummary } from '@/lib/sms-templates'
+import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { sendSMS } from '@/lib/sms'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
 
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key')
     .eq('status', 'active')
     .limit(1000)
 
@@ -101,7 +101,7 @@ export async function GET(request: Request) {
 
     const { data: teamMembers } = await supabaseAdmin
       .from('team_members')
-      .select('id, name, phone, email')
+      .select('id, name, phone, email, pin')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .limit(500) // Don't process more than 500 per tenant per run
@@ -109,7 +109,7 @@ export async function GET(request: Request) {
     for (const member of teamMembers || []) {
       const { data: upcomingJobs } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, end_time, service_type, clients(name, phone, address)')
+        .select('id, start_time, end_time, service_type, hourly_rate, clients(name, phone, address)')
         .eq('tenant_id', tenantId)
         .eq('team_member_id', member.id)
         .gte('start_time', tomorrow.toISOString())
@@ -122,7 +122,7 @@ export async function GET(request: Request) {
 
       // SMS summary
       if (member.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
-        const smsBody = smsDailySummary(tenant.name, member.name, upcomingJobs.length)
+        const smsBody = teamSmsTemplates(tenant).dailySummary(member.name, upcomingJobs.length, member.pin || undefined, upcomingJobs)
         await sendSMS({
           to: member.phone,
           body: smsBody,
