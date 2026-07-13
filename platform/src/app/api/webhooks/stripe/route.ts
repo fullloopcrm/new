@@ -219,7 +219,7 @@ export async function POST(request: Request) {
         if (existing && existing.length > 0) {
           return NextResponse.json({ received: true, idempotent: true })
         }
-        const { data: invPayment } = await supabaseAdmin.from('payments').insert({
+        const { data: invPayment, error: invPaymentErr } = await supabaseAdmin.from('payments').insert({
           tenant_id: tenantId,
           invoice_id: invoiceId,
           amount_cents: session.amount_total || 0,
@@ -229,6 +229,11 @@ export async function POST(request: Request) {
           stripe_payment_intent_id:
             typeof session.payment_intent === 'string' ? session.payment_intent : null,
         }).select('id').single()
+        // Same race as the booking path above: the unique constraint on
+        // stripe_session_id is the real claim, not the SELECT above.
+        if (invPaymentErr?.code === '23505') {
+          return NextResponse.json({ received: true, idempotent: true })
+        }
         // DB trigger recomputes invoice.amount_paid_cents and status.
         if (invPayment?.id) {
           postPaymentRevenue({ tenantId, paymentId: invPayment.id })
@@ -249,9 +254,18 @@ export async function POST(request: Request) {
 
         const amt = session.amount_total || q.deposit_cents || 0
         const nowIso = new Date().toISOString()
-        await supabaseAdmin.from('quotes')
+        // Atomic claim: two concurrent webhook deliveries can both pass the
+        // deposit_paid_at check above before either UPDATE commits. Guard the
+        // WRITE itself with the same IS NULL condition (same pattern as the
+        // prospect claim above) so only one delivery's UPDATE actually lands;
+        // the loser gets no row back and must stop before double-posting the
+        // deposit to the ledger, double-closing the deal, and double-creating
+        // the job below.
+        const { data: depositClaim } = await supabaseAdmin.from('quotes')
           .update({ deposit_paid_cents: amt, deposit_paid_at: nowIso, deposit_session_id: session.id })
-          .eq('id', quoteId).eq('tenant_id', tenantId)
+          .eq('id', quoteId).eq('tenant_id', tenantId).is('deposit_paid_at', null)
+          .select('id').maybeSingle()
+        if (!depositClaim) return NextResponse.json({ received: true, idempotent: true })
 
         // Deposit is unearned until the job runs → post as a liability, not revenue.
         postDepositToLedger({ tenantId, sourceId: quoteId, amountCents: amt, memo: `Deposit ${q.quote_number}` })
@@ -365,8 +379,14 @@ export async function POST(request: Request) {
         }
       }
 
-      // 1. Insert payment row (capture id → post revenue to ledger immediately)
-      const { data: bookingPayment } = await supabaseAdmin.from('payments').insert({
+      // 1. Insert payment row (capture id → post revenue to ledger immediately).
+      // The unique constraint on stripe_session_id is the real idempotency
+      // claim here -- the SELECT above only catches the common case cheaply.
+      // Two concurrent webhook deliveries for the same session can both pass
+      // that SELECT before either INSERT commits; the loser's INSERT hits the
+      // unique constraint and MUST stop here, before the cleaner Stripe
+      // transfer below, or the same charge pays the cleaner out twice.
+      const { data: bookingPayment, error: bookingPaymentErr } = await supabaseAdmin.from('payments').insert({
         tenant_id: tenantId,
         booking_id: bookingId,
         client_id: booking.client_id,
@@ -377,6 +397,12 @@ export async function POST(request: Request) {
         stripe_session_id: session.id,
         stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
       }).select('id').single()
+      if (bookingPaymentErr) {
+        if (bookingPaymentErr.code === '23505') {
+          return NextResponse.json({ received: true, idempotent: true })
+        }
+        console.error('[stripe] booking payment insert failed:', bookingPaymentErr)
+      }
       if (bookingPayment?.id) {
         postPaymentRevenue({ tenantId, paymentId: bookingPayment.id })
           .catch(err => console.error('[stripe] booking revenue post failed:', err))
