@@ -254,3 +254,49 @@ flipped from "fails open" to "fails closed" (route-level + unit).
 live tenant's `telegram_webhook_secret` column must be set + registered with
 Telegram's `setWebhook` `secret_token` param, or the affected bot goes dark (401s
 its own legitimate traffic) on deploy.
+
+---
+
+## Addendum (2026-07-13, continued) — ADMIN_PASSWORD fail-open family closed (adjacent to P3-8)
+
+Not part of the original P3-6..P3-10 enumeration; found auditing the webhook
+routes (all already fail-closed — telnyx, stripe, stripe-platform, clerk,
+resend all reject on a missing/invalid signature) and pivoting to auth. Same
+"unauthenticated trigger surface" shape as the Telegram addendum above: three
+independent call sites derived an HMAC secret (or a direct password compare)
+from `process.env.ADMIN_PASSWORD` with a **weak fallback** — `|| ''` or
+`|| 'fallback'` — instead of failing closed when the env var is unset.
+
+**Confirmed live impact, not just defense-in-depth:**
+- `lib/nycmaid/auth.ts` `signToken()`/`hashPassword()`: an unset `ADMIN_PASSWORD`
+  signs every `admin_session`/`client_session` cookie with a known empty-string
+  (or `'fallback'`) key — anyone can forge a session. Live gates:
+  `protectClientAPI`/`isAdminAuthenticated` guard `portal/messages` and
+  `client/properties`. **FIXED** commit `15897a8e`: both functions now throw on
+  issuance and fail closed (return invalid, don't throw) on verify. 6 tests.
+- `api/auth/login/route.ts` legacy-PIN branch: `adminPassword =
+  (process.env.ADMIN_PASSWORD || '').trim()` then `password === adminPassword`
+  — with `ADMIN_PASSWORD` unset, `{"password": ""}` granted a full owner
+  session with **zero credentials**, independent of the HMAC bug above (this
+  branch never calls `hashPassword`). **FIXED** commit `535a163e`: `adminPassword`
+  is now `null` (never `''`) when unset. 4 tests incl. a control proving the
+  real PIN still works once configured.
+- `api/cron/phone-fixup/route.ts` (mint) + `api/team-portal/update-phone/route.ts`
+  (verify, an **unauthenticated** phone-number-rewrite endpoint gated only by
+  this token): both locally reimplemented the same `|| ''` HMAC pattern — a
+  forged token for any known `team_member_id` would have passed with an
+  unconfigured secret. **FIXED** commit `5479a463`: extracted to
+  `lib/nycmaid/phone-fixup-token.ts` (fails closed both ends, can't drift again)
+  + upgraded the signature compare from `!==` to `crypto.timingSafeEqual`. 12 tests.
+
+Full suite verified clean after all three: `tsc --noEmit` 0 errors, `vitest run`
+170/170 files, 631 passed / 37 skipped / 0 failed. No DB/migration involved —
+pure code + tests, no leader DDL step needed for this batch.
+
+**Not fixed here (noticed, out of scope for this pass):** the identical
+`ADMIN_PASSWORD || ''` / `|| 'fallback'` pattern also exists in the six
+per-tenant site clones (`wash-and-fold-nyc`, `wash-and-fold-hoboken`,
+`nyc-mobile-salon`, `the-nyc-interior-designer`, `the-nyc-exterminator`,
+`the-home-services-company` `_lib/auth.ts`/`admin-auth.ts`). Left untouched per
+`platform/CLAUDE.md`'s "known debt, do NOT extend — build in global only" rule
+for those clones; flagging so it isn't lost, not silently fixing it.
