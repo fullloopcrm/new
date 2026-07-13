@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
 import { isPortalRole } from '@/lib/portal-rbac'
+import { audit } from '@/lib/audit'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('team.edit')
@@ -68,6 +69,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }).catch(() => {})
   }
 
+  await audit({ tenantId: tenant.tenantId, action: 'team.updated', entityType: 'team_member', entityId: id })
+
   return NextResponse.json(data)
 }
 
@@ -89,5 +92,8 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     .eq('tenant_id', tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await audit({ tenantId, action: 'team.deleted', entityType: 'team_member', entityId: id })
+
   return NextResponse.json({ success: true })
 }
