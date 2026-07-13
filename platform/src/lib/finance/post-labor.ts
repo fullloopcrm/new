@@ -25,6 +25,7 @@ import {
   ensureChartAccounts,
   getAccountIdByCode,
   journalEntryExists,
+  isUniqueViolation,
   type JournalLineInput,
 } from '../ledger'
 
@@ -80,15 +81,24 @@ async function postLabor(opts: {
     { coa_id: laborAcct, debit_cents: amountCents, memo },
     { coa_id: transitAcct, credit_cents: amountCents, memo },
   ]
-  const entryId = await postJournalEntry({
-    tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
-    memo,
-    source,
-    source_id: sourceId,
-    lines,
-  })
-  return { posted: true, entryId }
+  // journalEntryExists() is a fast-path; the INSERT inside postJournalEntry is
+  // the atomic guard — a concurrent post for the same source+sourceId (e.g. a
+  // payout webhook redelivery racing the backfill) 23505s and is treated as
+  // already-posted rather than double-paying a worker in the books.
+  try {
+    const entryId = await postJournalEntry({
+      tenant_id: tenantId,
+      entry_date: new Date().toISOString().slice(0, 10),
+      memo,
+      source,
+      source_id: sourceId,
+      lines,
+    })
+    return { posted: true, entryId }
+  } catch (e) {
+    if (isUniqueViolation(e)) return { posted: false, reason: 'already_posted' }
+    throw e
+  }
 }
 
 /** Post a Stripe/auto contractor payout (team_member_payouts row) to the ledger. */

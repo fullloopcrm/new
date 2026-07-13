@@ -15,6 +15,7 @@ import {
   ensureChartAccounts,
   getAccountIdByCode,
   journalEntryExists,
+  isUniqueViolation,
   type JournalLineInput,
 } from '../ledger'
 
@@ -53,15 +54,20 @@ export async function postDepositToLedger(opts: {
     { coa_id: acct['1050'], debit_cents: amountCents, memo: 'Deposit received' },
     { coa_id: acct['2350'], credit_cents: amountCents, memo: 'Customer deposit (unearned)' },
   ]
-  const entryId = await postJournalEntry({
-    tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
-    memo: opts.memo || 'Customer deposit',
-    source: 'deposit',
-    source_id: sourceId,
-    lines,
-  })
-  return { posted: true, entryId }
+  try {
+    const entryId = await postJournalEntry({
+      tenant_id: tenantId,
+      entry_date: new Date().toISOString().slice(0, 10),
+      memo: opts.memo || 'Customer deposit',
+      source: 'deposit',
+      source_id: sourceId,
+      lines,
+    })
+    return { posted: true, entryId }
+  } catch (e) {
+    if (isUniqueViolation(e)) return { posted: false, reason: 'already_posted' }
+    throw e
+  }
 }
 
 /** Refund issued → reverse the sale. `sourceId` = Stripe refund id (unique). */
@@ -82,15 +88,20 @@ export async function postRefundToLedger(opts: {
     { coa_id: acct['4000'], debit_cents: amountCents, memo: 'Refund (revenue reversal)' },
     { coa_id: acct['1050'], credit_cents: amountCents, memo: 'Refund paid out' },
   ]
-  const entryId = await postJournalEntry({
-    tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
-    memo: opts.memo || 'Refund',
-    source: 'refund',
-    source_id: sourceId,
-    lines,
-  })
-  return { posted: true, entryId }
+  try {
+    const entryId = await postJournalEntry({
+      tenant_id: tenantId,
+      entry_date: new Date().toISOString().slice(0, 10),
+      memo: opts.memo || 'Refund',
+      source: 'refund',
+      source_id: sourceId,
+      lines,
+    })
+    return { posted: true, entryId }
+  } catch (e) {
+    if (isUniqueViolation(e)) return { posted: false, reason: 'already_posted' }
+    throw e
+  }
 }
 
 /** Chargeback / dispute funds withdrawn → record the loss. `sourceId` = dispute id. */
@@ -111,15 +122,20 @@ export async function postChargebackToLedger(opts: {
     { coa_id: acct['6110'], debit_cents: amountCents, memo: 'Chargeback' },
     { coa_id: acct['1050'], credit_cents: amountCents, memo: 'Chargeback funds withdrawn' },
   ]
-  const entryId = await postJournalEntry({
-    tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
-    memo: opts.memo || 'Chargeback',
-    source: 'chargeback',
-    source_id: sourceId,
-    lines,
-  })
-  return { posted: true, entryId }
+  try {
+    const entryId = await postJournalEntry({
+      tenant_id: tenantId,
+      entry_date: new Date().toISOString().slice(0, 10),
+      memo: opts.memo || 'Chargeback',
+      source: 'chargeback',
+      source_id: sourceId,
+      lines,
+    })
+    return { posted: true, entryId }
+  } catch (e) {
+    if (isUniqueViolation(e)) return { posted: false, reason: 'already_posted' }
+    throw e
+  }
 }
 
 /**
@@ -147,15 +163,20 @@ export async function postCommissionAccrual(opts: { tenantId: string; commission
     { coa_id: acct['6045'], debit_cents: amt, memo: 'Referral commission earned' },
     { coa_id: acct['2400'], credit_cents: amt, memo: 'Commission payable' },
   ]
-  const entryId = await postJournalEntry({
-    tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
-    memo: 'Referral commission',
-    source: 'commission',
-    source_id: commissionId,
-    lines,
-  })
-  return { posted: true, entryId }
+  try {
+    const entryId = await postJournalEntry({
+      tenant_id: tenantId,
+      entry_date: new Date().toISOString().slice(0, 10),
+      memo: 'Referral commission',
+      source: 'commission',
+      source_id: commissionId,
+      lines,
+    })
+    return { posted: true, entryId }
+  } catch (e) {
+    if (isUniqueViolation(e)) return { posted: false, reason: 'already_posted' }
+    throw e
+  }
 }
 
 /**
@@ -183,15 +204,20 @@ export async function postCommissionPayment(opts: { tenantId: string; commission
     { coa_id: acct['2400'], debit_cents: amt, memo: 'Commission paid' },
     { coa_id: acct['1010'], credit_cents: amt, memo: 'Commission payout' },
   ]
-  const entryId = await postJournalEntry({
-    tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
-    memo: 'Referral commission paid',
-    source: 'commission_paid',
-    source_id: commissionId,
-    lines,
-  })
-  return { posted: true, entryId }
+  try {
+    const entryId = await postJournalEntry({
+      tenant_id: tenantId,
+      entry_date: new Date().toISOString().slice(0, 10),
+      memo: 'Referral commission paid',
+      source: 'commission_paid',
+      source_id: commissionId,
+      lines,
+    })
+    return { posted: true, entryId }
+  } catch (e) {
+    if (isUniqueViolation(e)) return { posted: false, reason: 'already_posted' }
+    throw e
+  }
 }
 
 /** Safety net: accrue every commission + post payments for paid ones. Idempotent. */

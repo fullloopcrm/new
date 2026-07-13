@@ -23,7 +23,7 @@ export type Row = Record<string, unknown>
 
 export type QueryResult<T = Row> = {
   data: T | T[] | null
-  error: { message: string } | null
+  error: { message: string; code?: string } | null
   count: number | null
 }
 
@@ -92,6 +92,7 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     private readonly table: string,
     private readonly op: Op,
     private readonly payload?: { rows?: Row | Row[]; values?: Row; countMode?: boolean },
+    private readonly uniqueConstraints?: Map<string, string[]>,
   ) {
     if (payload?.countMode) this.wantCount = true
   }
@@ -184,7 +185,36 @@ class QueryBuilder implements PromiseLike<QueryResult> {
         : this.payload?.rows
           ? [this.payload.rows as Row]
           : []
-      const inserted = incoming.map(clone)
+
+      // Opt-in UNIQUE constraint simulation (see `_addUniqueConstraint`):
+      // mirrors Postgres rejecting a concurrent insert with 23505 instead of
+      // silently allowing two "claim" rows to exist. NULLs never conflict,
+      // same as a real Postgres UNIQUE index.
+      if (this.op === 'insert') {
+        const uniqueCols = this.uniqueConstraints?.get(this.table) ?? []
+        for (const col of uniqueCols) {
+          for (const row of incoming) {
+            const val = row[col]
+            if (val === null || val === undefined) continue
+            if (table.some((existing) => existing[col] === val)) {
+              return {
+                data: null,
+                error: { message: `duplicate key value violates unique constraint on ${this.table}.${col}`, code: '23505' },
+                count: null,
+              }
+            }
+          }
+        }
+      }
+
+      // Mirrors every table's `id UUID DEFAULT gen_random_uuid()` — a caller
+      // that omits `id` (the normal case) still gets a real, unique id back,
+      // same as Postgres would hand it.
+      const inserted = incoming.map((r) => {
+        const row = clone(r)
+        if (row.id === undefined || row.id === null) row.id = crypto.randomUUID()
+        return row
+      })
       table.push(...inserted)
       return { data: inserted, error: null, count: inserted.length }
     }
@@ -235,6 +265,7 @@ class QueryBuilder implements PromiseLike<QueryResult> {
 
   async single(): Promise<QueryResult> {
     const res = this.run()
+    if (res.error) return res
     const arr = Array.isArray(res.data) ? res.data : res.data ? [res.data] : []
     if (arr.length !== 1) {
       return { data: null, error: { message: `Expected 1 row, got ${arr.length}` }, count: res.count }
@@ -244,6 +275,7 @@ class QueryBuilder implements PromiseLike<QueryResult> {
 
   async maybeSingle(): Promise<QueryResult> {
     const res = this.run()
+    if (res.error) return res
     const arr = Array.isArray(res.data) ? res.data : res.data ? [res.data] : []
     if (arr.length > 1) {
       return { data: null, error: { message: `Expected 0-1 rows, got ${arr.length}` }, count: res.count }
@@ -263,13 +295,14 @@ class FromBuilder {
   constructor(
     private readonly store: Map<string, Row[]>,
     private readonly table: string,
+    private readonly uniqueConstraints: Map<string, string[]>,
   ) {}
 
   select(cols?: string, opts?: { count?: string; head?: boolean }): QueryBuilder {
     return new QueryBuilder(this.store, this.table, 'select', { countMode: !!opts?.count })
   }
   insert(rows: Row | Row[]): QueryBuilder {
-    return new QueryBuilder(this.store, this.table, 'insert', { rows })
+    return new QueryBuilder(this.store, this.table, 'insert', { rows }, this.uniqueConstraints)
   }
   update(values: Row): QueryBuilder {
     return new QueryBuilder(this.store, this.table, 'update', { values })
@@ -288,15 +321,20 @@ export type FakeSupabase = {
   _store: Map<string, Row[]>
   _seed(table: string, rows: Row[]): void
   _all(table: string): Row[]
+  /** Opt-in UNIQUE constraint simulation — mirrors a real Postgres UNIQUE
+   * index so a test can prove atomic-insert-as-claim logic (23505 on a
+   * concurrent duplicate) instead of the fake silently allowing it. */
+  _addUniqueConstraint(table: string, col: string): void
 }
 
 export function createFakeSupabase(seed?: Record<string, Row[]>): FakeSupabase {
   const store = new Map<string, Row[]>()
   if (seed) for (const [table, rows] of Object.entries(seed)) store.set(table, rows.map(clone))
+  const uniqueConstraints = new Map<string, string[]>()
 
   return {
     from(table: string) {
-      return new FromBuilder(store, table)
+      return new FromBuilder(store, table, uniqueConstraints)
     },
     _store: store,
     _seed(table: string, rows: Row[]) {
@@ -305,6 +343,10 @@ export function createFakeSupabase(seed?: Record<string, Row[]>): FakeSupabase {
     },
     _all(table: string) {
       return store.get(table) ?? []
+    },
+    _addUniqueConstraint(table: string, col: string) {
+      const cols = uniqueConstraints.get(table) ?? []
+      if (!cols.includes(col)) uniqueConstraints.set(table, [...cols, col])
     },
   }
 }
