@@ -11,9 +11,16 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
+    // Allow-listed scalars only — never accept tenant_id (row donation) or the
+    // client_id/booking_id/team_member_id FKs (cross-tenant injection) here.
+    const updates: Record<string, unknown> = {}
+    for (const k of ['rating', 'comment', 'source', 'google_review_url', 'status', 'requested_at', 'completed_at']) {
+      if (k in body) updates[k] = body[k]
+    }
+
     const { data, error } = await supabaseAdmin
       .from('reviews')
-      .update(body)
+      .update(updates)
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()

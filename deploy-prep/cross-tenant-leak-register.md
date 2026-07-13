@@ -229,9 +229,36 @@ live leaks. This section is a **negative result, not a to-do list**.
 
 1. Fix in priority order: **P0 crews (✅ fixed) → P1 bookings (✅ fixed) →
    P2 invoices (✅ fixed) → P3 quotes (✅ fixed) → P4 bank-accounts (✅ fixed) →
-   P5 expenses (✅ fixed) → P6 periods (✅ fixed) → P7 expenses/[id].** Remaining:
-   P7 only — the full-body mass-assignment shape needs a column allow-list, not
-   just an FK-ownership check.
+   P5 expenses (✅ fixed) → P6 periods (✅ fixed) → P7 expenses/[id] (✅ fixed,
+   2026-07-13, W2).** All items in this register are now closed.
+
+   **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
+   for the same `.from(<table>).update(body)` full-body-spread shape outside the
+   finance FK class turned up three more live instances of the exact P7 pattern
+   (tenant_id row-donation + caller-controlled FK columns), now fixed:
+   - `PUT /api/schedules/[id]` (`recurring_schedules` — client_id/team_member_id/
+     service_type_id FKs + tenant_id)
+   - `PUT /api/reviews/[id]` (`reviews` — client_id/booking_id/team_member_id FKs
+     + tenant_id)
+   - `PUT /api/referrals/[id]` (`referrals` — referrer_client_id/referred_client_id
+     FKs + tenant_id)
+
+   All three now allow-list assignable columns only (see each route's
+   `route.isolation.test.ts`). `PUT /api/admin/announcements/[id]` also does a raw
+   `.update(body)` but `platform_announcements` has no `tenant_id` column and the
+   route is `requireAdmin()`-gated (super_admin only) — cross-tenant by design,
+   not a leak, left as-is (same exception class as `POST /api/admin/requests`
+   in §4).
+
+   Separately, `PUT /api/admin/recurring-schedules/[id]` (allow-listed, NOT the
+   P7 shape) was missing an ownership check on its `team_member_id`/`cleaner_id`
+   input — same IDOR class as the client/reschedule and bookings-team fixes
+   below the P0–P7 line. Fixed: foreign team_member_id now 400s before the
+   update (and before it can propagate into `bookings.team_member_id` on future
+   sessions).
+
+   No further `.update(body)`/`.from(...).update(<raw body>)` full-body-spread
+   sites remain in `src/app/api/**` as of this sweep (grep: `\.update(body)`).
 2. For each fix, **flip its witness** from expect-leak to expect-rejection (404/400
    + untouched victim) — the witness then locks the fix permanently. (Done for
    P0–P6.)

@@ -48,9 +48,16 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
+    // Allow-listed scalars only — never accept tenant_id (row donation) or the
+    // client_id/team_member_id/service_type_id FKs (cross-tenant injection) here.
+    const updates: Record<string, unknown> = {}
+    for (const k of ['recurring_type', 'day_of_week', 'preferred_time', 'duration_hours', 'notes', 'special_instructions']) {
+      if (k in body) updates[k] = body[k]
+    }
+
     const { data, error } = await supabaseAdmin
       .from('recurring_schedules')
-      .update(body)
+      .update(updates)
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()
