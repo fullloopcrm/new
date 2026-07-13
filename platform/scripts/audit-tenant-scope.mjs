@@ -73,14 +73,36 @@ const files = execSync(`grep -rl "\\.from('" ${ROOT} --include="*.ts" --include=
   .trim().split('\n').filter(Boolean)
   .filter(f => !EXCLUDE.some(rx => rx.test(f)))
 
+// tenantDb(tenantId) (ADR 0004) is scoped by construction — the wrapper injects
+// .eq('tenant_id', …) / stamps tenant_id internally (src/lib/tenant-db.ts), so the
+// literal string "tenant_id" never appears at call sites. Recognize both the direct
+// chain (`tenantDb(x).from(...)`, possibly wrapped across lines) and the
+// variable-bound form (`const db = tenantDb(x)` … `db.from(...)`) so wrapper adoption
+// doesn't trip this text-based guard.
+const TENANT_DB_VAR_RX = /\b(?:const|let)\s+(\w+)\s*=\s*tenantDb\(/
+const TENANT_DB_CALL_RX = /\btenantDb\(/
+const LOOKBEHIND_LINES = 3
+
 const flagged = []
 for (const file of files) {
   const lines = readFileSync(file, 'utf8').split('\n')
+  const tenantDbVars = new Set()
+  for (const line of lines) {
+    const vm = line.match(TENANT_DB_VAR_RX)
+    if (vm) tenantDbVars.add(vm[1])
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/\.from\('([a-z_]+)'\)/)
     if (!m || !TENANT_TABLES.has(m[1])) continue
     if (/tenant-scope-ok/.test(lines[i])) continue
     if (/\.storage\.from\(/.test(lines[i])) continue             // storage bucket, not a table
+
+    const lookBehind = lines.slice(Math.max(0, i - LOOKBEHIND_LINES), i + 1).join('\n')
+    const tenantDbWrapped = TENANT_DB_CALL_RX.test(lookBehind) ||
+      [...tenantDbVars].some((v) => new RegExp(`\\b${v}\\b`).test(lookBehind))
+    if (tenantDbWrapped) continue
+
     const chain = lines.slice(i, i + 12).join('\n')
     const scoped = /tenant_id/.test(chain)                       // filter or insert payload
     // Row/entity-specific keys are globally unique (UUIDs / secret tokens), so a
