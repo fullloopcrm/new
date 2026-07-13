@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
@@ -31,11 +32,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     team_member_id?: string | null
   }
 
-  const { data: oldBooking } = await supabaseAdmin
+  const { data: oldBooking } = await tenantDb(tenant.id)
     .from('bookings')
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
     .eq('id', id)
-    .eq('tenant_id', tenant.id)
     .single()
   if (!oldBooking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
@@ -46,7 +46,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const oldDate = fmtDate(oldBooking.start_time, tz)
   const oldTime = fmtTime(oldBooking.start_time, tz)
 
-  const { data: updated, error } = await supabaseAdmin
+  const { data: updated, error } = await tenantDb(tenant.id)
     .from('bookings')
     .update({
       start_time: body.start_time,
@@ -54,7 +54,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       ...(body.team_member_id !== undefined ? { team_member_id: body.team_member_id } : {}),
     })
     .eq('id', id)
-    .eq('tenant_id', tenant.id)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
     .single()
   if (error || !updated) return NextResponse.json({ error: error?.message || 'Update failed' }, { status: 500 })
