@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
  */
 
 let countResult: { count: number | null; error: unknown }
+let insertResult: { error: unknown } = { error: null }
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
@@ -19,7 +20,7 @@ vi.mock('@supabase/supabase-js', () => ({
           gte: async () => countResult,
         }),
       }),
-      insert: async () => ({ error: null }),
+      insert: async () => insertResult,
     }),
   }),
 }))
@@ -29,6 +30,7 @@ import { rateLimitDb } from './rate-limit-db'
 describe('rateLimitDb', () => {
   beforeEach(() => {
     countResult = { count: 0, error: null }
+    insertResult = { error: null }
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
   afterEach(() => {
@@ -65,5 +67,34 @@ describe('rateLimitDb', () => {
     countResult = { count: null, error: { message: 'db down' } }
     await rateLimitDb('k', 5, 60_000, { failClosed: true })
     expect(spy).toHaveBeenCalled()
+  })
+
+  it('fails CLOSED when the insert (record-attempt) fails and failClosed is set', async () => {
+    countResult = { count: 2, error: null }
+    insertResult = { error: { message: 'insert down' } }
+    const rl = await rateLimitDb('k', 5, 60_000, { failClosed: true })
+    expect(rl).toEqual({ allowed: false, remaining: 0 })
+  })
+
+  it('fails OPEN when the insert fails and failClosed is not set (public callers)', async () => {
+    countResult = { count: 2, error: null }
+    insertResult = { error: { message: 'insert down' } }
+    const rl = await rateLimitDb('k', 5, 60_000)
+    expect(rl.allowed).toBe(true)
+  })
+
+  it('logs loudly on an insert error regardless of mode', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    countResult = { count: 2, error: null }
+    insertResult = { error: { message: 'insert down' } }
+    await rateLimitDb('k', 5, 60_000, { failClosed: true })
+    expect(spy).toHaveBeenCalled()
+  })
+
+  it('still allows and reports remaining when the insert succeeds', async () => {
+    countResult = { count: 2, error: null }
+    insertResult = { error: null }
+    const rl = await rateLimitDb('k', 5, 60_000, { failClosed: true })
+    expect(rl).toEqual({ allowed: true, remaining: 2 })
   })
 })

@@ -48,7 +48,14 @@ export async function rateLimitDb(
     .insert({ bucket_key: bucketKey })
 
   if (insertErr) {
-    console.error('[rate-limit-db] insert failed:', insertErr.message)
+    console.error(`[rate-limit-db] insert failed (failClosed=${failClosed}):`, insertErr.message)
+    // An unrecorded attempt is invisible to every future count query, so a
+    // failClosed caller can't trust "allowed" here — deny, matching the
+    // count-error path above. Public callers keep fail-open: a transient
+    // insert blip shouldn't 429 legitimate traffic.
+    if (failClosed) {
+      return { allowed: false, remaining: 0 }
+    }
   }
 
   return { allowed: true, remaining: maxRequests - current - 1 }
