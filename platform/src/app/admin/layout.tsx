@@ -34,6 +34,7 @@ const navPlatform = [
   { label: 'System Status', href: '/admin/status' },
   { label: 'Activity Log', href: '/admin/activity' },
   { label: 'Monitoring', href: '/admin/monitoring' },
+  { label: 'Errors', href: '/admin/errors' },
   { label: 'AI Usage', href: '/admin/ai-usage' },
   { label: 'Security', href: '/admin/security' },
   { label: 'Announcements', href: '/admin/announcements' },
