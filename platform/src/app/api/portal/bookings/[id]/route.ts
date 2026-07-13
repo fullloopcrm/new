@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../../auth/token'
 import { notify } from '@/lib/notify'
 
@@ -15,11 +15,10 @@ export async function GET(
 
   const { id } = await params
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
     .eq('id', id)
-    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .single()
 
@@ -43,15 +42,15 @@ export async function PUT(
   const { id } = await params
   const body = await request.json().catch(() => ({}))
   const { start_time, end_time, notes, status, special_instructions } = body
+  const db = tenantDb(auth.tid)
 
   // Get old booking for notification context
-  const { data: oldBooking } = await supabaseAdmin
+  const { data: oldBooking } = await db
     .from('bookings')
     .select('start_time, end_time, team_member_id, clients(name)')
     .eq('id', id)
-    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
-    .single()
+    .single<{ start_time: string; end_time: string | null; team_member_id: string | null; clients: { name?: string | null } | null }>()
 
   if (!oldBooking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
@@ -64,11 +63,10 @@ export async function PUT(
   if (special_instructions !== undefined) update.special_instructions = special_instructions
   if (status === 'cancelled') update.status = 'cancelled'
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('bookings')
     .update(update)
     .eq('id', id)
-    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
     .single()
@@ -86,8 +84,7 @@ export async function PUT(
     const newTime = new Date(start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
     // Admin notification
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: auth.tid,
+    await db.from('notifications').insert({
       type: 'reschedule',
       title: 'Client Rescheduled',
       message: `${clientName} moved from ${oldDate} to ${newDate} at ${newTime}`,
@@ -126,8 +123,7 @@ export async function PUT(
   if (status === 'cancelled') {
     const bookingDate = new Date(oldBooking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: auth.tid,
+    await db.from('notifications').insert({
       type: 'booking_cancelled',
       title: 'Client Cancelled',
       message: `${clientName} cancelled their ${bookingDate} booking`,

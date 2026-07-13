@@ -12,6 +12,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team'
 import { smsJobAssignment } from '@/lib/sms-templates'
@@ -32,12 +33,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { id } = await params
-  const { data: rows } = await supabaseAdmin
+  const { data: rows } = (await tenantDb(ctx.tenantId)
     .from('booking_team_members')
     .select('team_member_id, is_lead, position')
-    .eq('tenant_id', ctx.tenantId)
     .eq('booking_id', id)
-    .order('position', { ascending: true })
+    .order('position', { ascending: true })) as {
+    data: { team_member_id: string; is_lead: boolean; position: number }[] | null
+  }
 
   const lead = (rows || []).find((r) => r.is_lead)?.team_member_id || null
   const extras = (rows || []).filter((r) => !r.is_lead).map((r) => r.team_member_id)
@@ -60,42 +62,37 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const rawExtras: unknown[] = Array.isArray(body.extra_team_member_ids) ? body.extra_team_member_ids : []
   const newExtras = rawExtras.filter((x): x is string => typeof x === 'string' && x.length > 0 && x !== newLead)
   const teamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1 + newExtras.length))
+  const db = tenantDb(ctx.tenantId)
 
   // Snapshot the old team to figure out which extras are NEW (need notification).
-  const { data: oldRows } = await supabaseAdmin
+  const { data: oldRows } = (await db
     .from('booking_team_members')
     .select('team_member_id, is_lead')
-    .eq('tenant_id', ctx.tenantId)
-    .eq('booking_id', id)
+    .eq('booking_id', id)) as { data: { team_member_id: string; is_lead: boolean }[] | null }
   const oldMemberIds = new Set((oldRows || []).map((r) => r.team_member_id))
   const newlyAddedExtras = newExtras.filter((mid) => !oldMemberIds.has(mid))
 
   // Update bookings.team_member_id (lead) + team_size — tenant-scoped.
-  const { data: updatedBooking, error: updErr } = await supabaseAdmin
+  const { data: updatedBooking, error: updErr } = await db
     .from('bookings')
     .update({ team_member_id: newLead, team_size: teamSize })
     .eq('id', id)
-    .eq('tenant_id', ctx.tenantId)
     .select('id, start_time, clients(name)')
     .single<Booking>()
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
 
   // Replace booking_team_members rows (delete then insert).
-  await supabaseAdmin
-    .from('booking_team_members')
-    .delete()
-    .eq('tenant_id', ctx.tenantId)
-    .eq('booking_id', id)
+  await db.from('booking_team_members').delete().eq('booking_id', id)
 
-  const teamRows: { tenant_id: string; booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
+  const teamRows: { booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
   if (newLead) {
-    teamRows.push({ tenant_id: ctx.tenantId, booking_id: id, team_member_id: newLead, is_lead: true, position: 1 })
+    teamRows.push({ booking_id: id, team_member_id: newLead, is_lead: true, position: 1 })
   }
   newExtras.forEach((mid, i) => {
-    teamRows.push({ tenant_id: ctx.tenantId, booking_id: id, team_member_id: mid, is_lead: false, position: i + 2 })
+    teamRows.push({ booking_id: id, team_member_id: mid, is_lead: false, position: i + 2 })
   })
   if (teamRows.length > 0) {
-    const { error: insErr } = await supabaseAdmin.from('booking_team_members').insert(teamRows)
+    const { error: insErr } = await db.from('booking_team_members').insert(teamRows)
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
   }
 
@@ -116,12 +113,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   for (const extraId of newlyAddedExtras) {
     if (extraId === newLead) continue
     try {
-      const { data: bookingFull } = await supabaseAdmin
+      const { data: bookingFull } = await db
         .from('bookings')
         .select('*, clients(*)')
         .eq('id', id)
-        .eq('tenant_id', ctx.tenantId)
-        .single()
+        .single<Booking>()
 
       const report = await notifyTeamMember({
         tenantId: ctx.tenantId,
@@ -130,14 +126,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         title: 'Added to Team Job',
         message: `${clientName} on ${bookingDate} (team of ${teamSize})`,
         bookingId: id,
-        smsMessage: tenant && bookingFull
-          ? smsJobAssignment(tenant.name || 'Your business', { start_time: bookingFull.start_time, clients: bookingFull.clients })
+        smsMessage: tenant && bookingFull?.start_time
+          ? smsJobAssignment(tenant.name || 'Your business', {
+              start_time: bookingFull.start_time,
+              clients: bookingFull.clients?.name ? { name: bookingFull.clients.name } : null,
+            })
           : `New team job assigned for ${clientName} on ${bookingDate}.`,
         skipEmail: true,
       })
 
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: ctx.tenantId,
+      await db.from('notifications').insert({
         type: 'team_member_notified',
         title: 'Team Member Notified',
         message: `${report.teamMemberName}: ${formatDeliveryReport(report)}`,

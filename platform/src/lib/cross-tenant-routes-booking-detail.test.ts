@@ -58,6 +58,9 @@ import { GET as teamGET, PUT as teamPUT } from '@/app/api/bookings/[id]/team/rou
 import { POST as resetPOST } from '@/app/api/bookings/[id]/reset/route'
 import { DELETE as noteDELETE } from '@/app/api/booking-notes/[id]/route'
 import { GET as clientBookingGET } from '@/app/api/client/booking/[id]/route'
+import { createToken as createPortalToken } from '@/app/api/portal/auth/token'
+import { GET as portalBookingsGET, POST as portalBookingsPOST } from '@/app/api/portal/bookings/route'
+import { GET as portalBookingGET, PUT as portalBookingPUT } from '@/app/api/portal/bookings/[id]/route'
 
 const A_ID = '11111111-1111-1111-1111-111111111111'
 const B_ID = '22222222-2222-2222-2222-222222222222'
@@ -203,5 +206,53 @@ describe('CROSS-TENANT ATTACK · client/booking/[id]', () => {
     env.cookies.set('client_session', cookie)
     const res = await clientBookingGET(new Request('http://x'), paramsFor(SHARED_ID))
     expect(res.status).toBe(401)
+  })
+})
+
+function portalReqFor(clientId: string, tenantId: string, method = 'GET', body?: unknown): Request {
+  const token = createPortalToken(clientId, tenantId)
+  return new Request('http://x', {
+    method,
+    headers: { authorization: `Bearer ${token}` },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+}
+
+describe('CROSS-TENANT ATTACK · portal/bookings', () => {
+  beforeEach(() => {
+    fake._seed('service_types', [
+      { id: 'svc-shared', tenant_id: A_ID, name: 'A Service', default_duration_hours: 1, default_hourly_rate: 100 },
+      { id: 'svc-shared', tenant_id: B_ID, name: 'B Service', default_duration_hours: 5, default_hourly_rate: 999 },
+    ])
+  })
+
+  it("tenant A's portal token lists ONLY tenant A's bookings for client cl-a, never tenant B's same-id booking", async () => {
+    const res = await portalBookingsGET(portalReqFor('cl-a', A_ID) as never)
+    const body = await res.json()
+    expect(body.bookings.length).toBeGreaterThan(0)
+    expect(body.bookings.every((b: { tenant_id: string }) => b.tenant_id === A_ID)).toBe(true)
+  })
+
+  it("POST resolves service_type_id against the AUTHENTICATED tenant's row, never tenant B's same-id service type", async () => {
+    const res = await portalBookingsPOST(
+      portalReqFor('cl-a', A_ID, 'POST', { start_time: '2099-01-01', service_type_id: 'svc-shared' }) as never
+    )
+    const body = await res.json()
+    expect(body.booking.tenant_id).toBe(A_ID)
+    expect(body.booking.service_type).toBe('A Service')
+  })
+})
+
+describe('CROSS-TENANT ATTACK · portal/bookings/[id]', () => {
+  it("tenant A's portal token reads its OWN same-id booking (positive control)", async () => {
+    const res = await portalBookingGET(portalReqFor('cl-a', A_ID) as never, paramsFor(SHARED_ID))
+    const body = await res.json()
+    expect(body.booking.tenant_id).toBe(A_ID)
+  })
+
+  it("tenant A's PUT never mutates tenant B's same-id booking", async () => {
+    await portalBookingPUT(portalReqFor('cl-a', A_ID, 'PUT', { notes: 'A UPDATED VIA PORTAL' }) as never, paramsFor(SHARED_ID))
+    const bBooking = fake._all('bookings').find((r) => r.tenant_id === B_ID)!
+    expect(bBooking.notes).not.toBe('A UPDATED VIA PORTAL')
   })
 })

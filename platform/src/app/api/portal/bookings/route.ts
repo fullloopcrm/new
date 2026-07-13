@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 import { getSettings } from '@/lib/settings'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
@@ -11,10 +11,9 @@ export async function GET(request: NextRequest) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name)')
-    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .order('start_time', { ascending: false })
 
@@ -33,6 +32,7 @@ export async function POST(request: Request) {
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))
+  const db = tenantDb(auth.tid)
 
   // Enforce tenant scheduling rules (allow_same_day, min_days_ahead).
   // start_time is a client-provided ISO string; reject if missing or unparseable.
@@ -63,12 +63,11 @@ export async function POST(request: Request) {
   let serviceType = null
   let price = null
   if (body.service_type_id) {
-    const { data: svc } = await supabaseAdmin
+    const { data: svc } = await db
       .from('service_types')
       .select('name, default_duration_hours, default_hourly_rate')
       .eq('id', body.service_type_id)
-      .eq('tenant_id', auth.tid)
-      .single()
+      .single<{ name: string; default_duration_hours: number; default_hourly_rate: number }>()
     if (!svc) {
       return NextResponse.json({ error: 'Invalid service' }, { status: 400 })
     }
@@ -82,10 +81,9 @@ export async function POST(request: Request) {
     price = applyRecurringDiscount(price, recurringType)
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('bookings')
     .insert({
-      tenant_id: auth.tid,
       client_id: auth.id,
       service_type_id: body.service_type_id || null,
       service_type: serviceType,
