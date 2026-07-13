@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   const { searchParams } = new URL(req.url)
   const q = (searchParams.get('q') || '').trim()
@@ -19,16 +20,14 @@ export async function GET(req: NextRequest) {
   const ql = `%${sanitizePostgrestValue(q)}%`
 
   const [{ data: clients }, { data: members }] = await Promise.all([
-    supabaseAdmin
+    db
       .from('clients')
       .select('id, name, phone, email, do_not_service')
-      .eq('tenant_id', tenantId)
       .or(`name.ilike.${ql},phone.ilike.${ql},email.ilike.${ql}`)
       .limit(limit),
-    supabaseAdmin
+    db
       .from('team_members')
       .select('id, name, phone, email')
-      .eq('tenant_id', tenantId)
       .or(`name.ilike.${ql},phone.ilike.${ql},email.ilike.${ql}`)
       .limit(limit),
   ])
