@@ -1,9 +1,10 @@
 # Pre-Deploy Security Checklist — the consolidated Q3 gate
 
-**Worker:** W6 · **Branch:** p1-w6 · **Date:** 2026-07-12
+**Worker:** W6 · **Branch:** p1-w6 · **Date:** 2026-07-12 (rows C, I re-verified against live code 2026-07-13 — see inline notes)
 **Scope:** Docs-only. A single **go / no-go security gate** for the Q3 deploy, consolidating the individual
 audits already in `deploy-prep/` into one checklist with a verdict per area. This file does **not** re-derive
-findings — each row links the audit that owns the detail. **Nothing here was applied.**
+findings — each row links the audit that owns the detail. **Nothing here was applied**, except where a
+2026-07-13 note says otherwise (real code that landed on `p1-w6` since this checklist was authored).
 
 > **How to read the verdicts.**
 > - ✅ **PASS** — in place *and* regression-guarded by a test (can't silently regress).
@@ -22,13 +23,13 @@ findings — each row links the audit that owns the detail. **Nothing here was a
 |---|------|:-------:|-----------------|
 | A | Transport / response headers | ✅ PASS | 5 headers ship + guarded; CSP is a plan, not shipped |
 | B | Content-Security-Policy | 🟠 GAP | No CSP header at all yet — [rollout plan](./csp-rollout-report-only-plan.md) unstarted |
-| C | Secrets management | 🟠 GAP | `SECRET_ENCRYPTION_KEY` at-rest + verify-toggle risks; no leak in responses (guarded) |
+| C | Secrets management | 🟠 GAP | `SECRET_ENCRYPTION_KEY` at-rest risk; verify-toggle risk now narrowed to `telnyx-voice` only on `p1-w6` (§C note); no leak in responses (guarded) |
 | D | Tenant isolation (multi-tenant) | 🔴 BLOCKER-CLASS | RLS effectively **off** (service-role bypass); isolation is app-layer only, unguarded |
 | E | Rate limiting | 🟠 GAP | Auth/OTP mostly covered; `auth/login` non-durable + public Stripe checkout uncapped |
 | F | CSRF | 🟢 OK (unguarded) | SameSite-only, adequate for POST/PATCH/DELETE; 4 low-value GET-mutations flagged |
 | G | Input validation / injection | 🟠 GAP | `.or()` filter-string injection + 217 unvalidated `.eq([id])`; body mass-assignment partly witnessed |
 | H | Error-response info leak | ⚠️ SPLIT | Stack/secret leak = ✅ guarded; raw `error.message` schema leak (142 routes) = 🟠 GAP |
-| I | Webhook hardening | 🟠 GAP | Signature verify tested; idempotency non-existent on 4 webhooks (witnessed), telnyx-voice fails open |
+| I | Webhook hardening | 🟠 GAP | Idempotency + SMS rate-limit now wired on `p1-w6` code (§I note) but the ledger migration is unapplied — hard merge/deploy gate; telnyx-voice still fails open (unmerged fix on `p1-w2`) |
 | J | Dependency vulnerabilities | 🟠 GAP | 31 advisories; prod-runtime-reachable subset needs `npm audit fix` — see [summary](./dependency-vuln-summary.md) |
 | K | Debug/log hygiene | ✅ PASS | No debug-tier `console.*` in API routes (new guard `console-leak.test.ts`) |
 
@@ -69,6 +70,12 @@ backstop and no test**. Everything else is a known, documented GAP that Jeff can
       ([`secrets-at-rest-audit.md`](./secrets-at-rest-audit.md), [`secrets-inventory-and-rotation-plan.md`](./secrets-inventory-and-rotation-plan.md) #1/GAP A/B)
 - [ ] 🟠 **Verify-toggle check**: confirm prod env has **`*_WEBHOOK_VERIFY` ON** and
       **`IMPERSONATION_ALLOW_UNSIGNED` unset/false** — any of these off silently disables a signature check.
+      **2026-07-13 update:** on `p1-w6` this is now only a *silent*-misconfig risk for `telnyx-voice`
+      (fix unmerged from `p1-w2`) — for `telnyx`, `clerk`, and `resend`, `isWebhookVerifyDisabled()`
+      (`lib/webhook-verify.ts`, commit `b92fc804`) makes `off` inert whenever `NODE_ENV==='production'`,
+      so a leaked/copy-pasted env var can no longer disable those 3 routes' signature checks in prod even
+      if left set. Still confirm the env var is correctly ON pre-deploy — this is defense-in-depth, not a
+      reason to skip the check.
 - [ ] `.env.example` documents ~13 of ~45 secrets → provisioning-gap risk at cutover (GAP C). Verify all 45 names
       are set in the Vercel project before flipping traffic.
 - **Pre-flight action (env review, not code):** confirm `SECRET_ENCRYPTION_KEY` is set, and all verify toggles ON.
@@ -132,10 +139,23 @@ backstop and no test**. Everything else is a known, documented GAP that Jeff can
 ## I. Webhook hardening — 🟠 GAP
 
 - [x] Signature verification (Svix/HMAC) rejects bad sigs — unit-tested (`webhook-verify.test.ts`).
-- [ ] 🟠 **No idempotency** on `resend`/`telegram`/`telnyx-sms` webhooks (duplicate rows) — 3 witness tests armed;
-      flip red when `claimWebhookEvent` dedupe is wired ([`webhook-idempotency-audit.md`](./webhook-idempotency-audit.md),
-      [`webhook-dedupe-helper-design.md`](./webhook-dedupe-helper-design.md)).
-- [ ] 🟠 **`telnyx-voice` fails OPEN on verify error** — witnessed; flip when it fails closed.
+- [x] **2026-07-13 update — idempotency wiring is now DONE in code** (was open at authoring time): `claimWebhookEvent`
+      is wired into `resend`/`telegram`×3/`telnyx` (commit `a509bef8`); all 3 witness tests flipped from
+      LEAK→LOCK. **But the `processed_webhook_events` migration is still file-only, unapplied** — and the
+      helper fail-closed re-throws on any non-`23505` insert error, including "relation does not exist"
+      (`42P01`). **This makes it a hard pre-merge/pre-deploy gate, not a soft gap**: if `p1-w6` merges/deploys
+      before `\d processed_webhook_events` shows the table in prod, all 5 inbound handlers (Telnyx SMS, Resend,
+      Telegram×3) start 5xxing on delivery #1 — see
+      [`webhook-hardening-plan.md`](./webhook-hardening-plan.md)'s 2026-07-13 sequencing-hazard note
+      (commit `b010d620`) and [`pre-merge-webhook-ledger-check.sql`](./pre-merge-webhook-ledger-check.sql)
+      (the read-only pre-merge check that note recommends).
+- [x] **2026-07-13 update — telnyx SMS rate-limit ceiling now DONE in code** (was a separate open P2, not in
+      the original idempotency list): `rateLimitDb` caps `message.received` per-sender/per-IP regardless of
+      verify state (commit `df757960`, closes
+      [`telnyx-sms-verify-killswitch-guard-spec.md`](./telnyx-sms-verify-killswitch-guard-spec.md) Part 1 /
+      [`webhook-rate-limit-coverage.md`](./webhook-rate-limit-coverage.md) finding #2).
+- [ ] 🟠 **`telnyx-voice` fails OPEN on verify error** — witnessed; fix exists on `p1-w2` (unmerged into this
+      branch), not duplicated here to avoid a cross-lane conflict; flip when that lane merges.
 
 ## J. Dependency vulnerabilities — 🟠 GAP
 
