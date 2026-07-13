@@ -10,6 +10,7 @@
  * real-world traffic/weather delays.
  */
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 
@@ -18,10 +19,8 @@ export const maxDuration = 300
 const GRACE_MINUTES = 45
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const cutoff = new Date(Date.now() - GRACE_MINUTES * 60 * 1000)
 

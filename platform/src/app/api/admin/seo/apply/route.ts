@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic'
 // or by an admin (session cookie) from the approval UI.
 async function authorize(req: Request): Promise<boolean> {
   const bearer = req.headers.get('authorization')
-  if (bearer && bearer === `Bearer ${process.env.CRON_SECRET}`) return true
+  const secret = process.env.CRON_SECRET
+  if (bearer && secret && bearer === `Bearer ${secret}`) return true
   const adminError = await requireAdmin()
   return adminError === null
 }

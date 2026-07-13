@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { autoReplyReviews } from '@/lib/google-reviews'
 
 // Runs on schedule — auto-replies to unreplied Google reviews
 // for all tenants with auto-reply enabled
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   // Get all tenants with auto-reply enabled
   const { data: settings } = await supabaseAdmin

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { runAutopilot } from '@/lib/seo/autopilot'
 
 export const runtime = 'nodejs'
@@ -9,10 +10,8 @@ export const maxDuration = 120
 // No-op unless SEO_AUTOPILOT_ENABLED=true. Every change clears the safety gate;
 // per site it applies at most a few new pages and stays under a weekly rate cap.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
   try {
     const result = await runAutopilot()
     return NextResponse.json({ ok: true, ...result })

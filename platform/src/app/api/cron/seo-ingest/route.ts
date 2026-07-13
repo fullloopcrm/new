@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { ingestAllProperties } from '@/lib/seo/ingest'
 
 // gsc.ts signs a JWT with node:crypto — must run on the Node runtime, not edge.
@@ -10,10 +11,8 @@ export const maxDuration = 300
 // property into seo_metrics (dual-intent tagged). Read-only against the sites;
 // writes only to the seo_* tables via the service role.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   // Allow ?days=90 for a deeper backfill on first run.
   const url = new URL(request.url)
