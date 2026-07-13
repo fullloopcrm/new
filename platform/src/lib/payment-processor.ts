@@ -171,6 +171,20 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     })
     .select('id')
     .single()
+
+  // Duplicate (tenant_id, booking_id, reference_id) -- a retried/redelivered
+  // call with the same reference_id (double-tapped checkout button, a client
+  // retry after a timeout, a redelivered finalize-match reconciliation
+  // request). The original call already posted revenue/payout/SMS; treat this
+  // one as an idempotent no-op instead of double-posting to the ledger and
+  // re-transferring funds. See migration 065_unique_payments_reference.sql.
+  if (paymentInsertErr?.code === '23505') {
+    // Base the reported status on priorCents alone (the true recorded total)
+    // rather than isPartial/totalReceivedCents above, which double-count this
+    // duplicate call's amountCents on top of the already-recorded payment.
+    const dedupIsPartial = expectedCents > 0 && priorCents < expectedCents * PARTIAL_THRESHOLD
+    return { status: dedupIsPartial ? 'partial' : 'paid', totalReceivedCents: priorCents, expectedCents, tipCents: 0, cleanerPaidCents: 0 }
+  }
   if (paymentInsertErr) console.error(`[payment-processor] ${label} insert failed:`, paymentInsertErr)
   if (paymentRow?.id) {
     postPaymentRevenue({ tenantId, paymentId: paymentRow.id })

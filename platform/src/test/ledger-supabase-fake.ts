@@ -90,6 +90,22 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
     const payload = Array.isArray(state.payload) ? state.payload : [state.payload]
     const inserted: Array<Record<string, unknown>> = []
     for (const p of payload as Array<Record<string, unknown>>) {
+      // Mirrors migration 065's partial unique index on
+      // payments(tenant_id, booking_id, reference_id) WHERE reference_id IS
+      // NOT NULL -- a plain insert() (not upsert) rejects a duplicate the
+      // same way Postgres would, so processPayment()'s 23505 handling can be
+      // exercised for real instead of mocked at the error-object level.
+      if (state.op === 'insert' && state.table === 'payments' && p.reference_id != null) {
+        const dup = rows.find(
+          (r) => r.tenant_id === p.tenant_id && r.booking_id === p.booking_id && r.reference_id === p.reference_id,
+        )
+        if (dup) {
+          return {
+            data: null,
+            error: { message: 'duplicate key value violates unique constraint on payments(tenant_id,booking_id,reference_id)', code: '23505' },
+          }
+        }
+      }
       if (state.op === 'upsert' && state.upsertOpts?.onConflict) {
         const keys = state.upsertOpts.onConflict.split(',').map((k) => k.trim())
         const dup = rows.find((r) => keys.every((k) => r[k] === p[k]))
