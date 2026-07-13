@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 type RingStrategy = 'browser_only' | 'cell_only' | 'browser_then_cell' | 'simultaneous'
 type CallerIdMode = 'show_customer' | 'show_business'
@@ -24,10 +24,11 @@ export async function GET() {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const adminId = await getActiveAdminMemberId(tenantId)
   if (!adminId) return NextResponse.json({ settings: DEFAULT_SETTINGS })
 
-  const { data } = await supabaseAdmin
+  const { data } = await db
     .from('comhub_admin_voice_settings')
     .select('ring_strategy, caller_id_mode, auto_record, auto_transcribe, fallback_cell_phone, do_not_disturb_until')
     .eq('admin_id', adminId)
@@ -40,6 +41,7 @@ export async function PUT(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const adminId = await getActiveAdminMemberId(tenantId)
   if (!adminId) return NextResponse.json({ error: 'no tenant member found' }, { status: 412 })
 
@@ -65,9 +67,9 @@ export async function PUT(req: NextRequest) {
   if (body.fallback_cell_phone !== undefined) update.fallback_cell_phone = body.fallback_cell_phone
   if (body.do_not_disturb_until !== undefined) update.do_not_disturb_until = body.do_not_disturb_until
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('comhub_admin_voice_settings')
-    .upsert({ tenant_id: tenantId, admin_id: adminId, ...update }, { onConflict: 'admin_id' })
+    .upsert({ admin_id: adminId, ...update }, { onConflict: 'admin_id' })
     .select()
     .single()
 
