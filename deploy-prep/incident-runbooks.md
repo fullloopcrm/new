@@ -2,10 +2,13 @@
 
 **Worker:** W6 · **Branch:** p1-w6 · **Date:** 2026-07-12 · **Status:** docs only, nothing applied
 **Scope:** one runbook per LIVE production failure mode the leader flagged: domain down, bot dark,
-payment fail, DID 404, resolver divergence. This is distinct from
-`deploy-prep/provisioning-runbooks.md`, which covers a tenant getting **stuck during onboarding**
-before it ever goes live. Every failure mode here is about a tenant that **was working and stopped**,
-or a systemic guard tripping in production. No code, env, or DB rows changed by this pass.
+payment fail, DID 404, resolver divergence, **plus three added in this extension pass: Telegram bots
+dark from a webhook-secret rollout mistake (distinct from §2b's steady-state gap), a full resolver-flip
+rollback (distinct from §5's single-host data fix), and a DB migration failing mid-sequence during
+Wave 2.** This is distinct from `deploy-prep/provisioning-runbooks.md`, which covers a tenant getting
+**stuck during onboarding** before it ever goes live. Every failure mode here is about a tenant that
+**was working and stopped**, or a systemic guard/deploy-sequence tripping in production. No code, env,
+or DB rows changed by this pass.
 
 **Verification anchors read this pass:** `platform/src/lib/tenant-lookup.ts` (full file, incl.
 commit `8e2c805e` diff), `app/api/webhooks/telnyx/route.ts` (full file),
@@ -14,6 +17,17 @@ commit `8e2c805e` diff), `app/api/webhooks/telnyx/route.ts` (full file),
 check a secret token today), `app/api/webhooks/stripe/route.ts` (case list), reused from
 `deploy-prep/health-monitor-coverage-gap.md` (Fortress + `/api/health` detail) and
 `deploy-prep/gated-wave-plan.md` (Wave 3/5 items this doc expands into runbooks).
+
+**New anchors read for this extension pass (cross-branch, read-only, not merged into `p1-w6`):**
+`deploy-prep/webhook-hardening-plan.md` (this branch) §2/§4 Wave B — the telegram secret-rollout
+ordering hazard §6 below covers; `~/flwork-p1-w1/deploy-prep/rollback-per-wave.md` "Wave B — resolver
+flip" — the authoritative deploy-level rollback mechanics §7 below builds on rather than repeats;
+`~/flwork-p1-w1/platform/src/lib/migrations/057_freeze_tenants_domain.sql` +
+`057_unfreeze_tenants_domain.sql`; `~/flwork-p1-w1/deploy-prep/rollback-note-per-migration.md` (the
+migration-numbering table that confirms the §8 collision); `~/flwork-p1-w2/platform/src/lib/migrations/
+058_fix_nycmaid_routing.sql` + `061_unique_journal_entries.sql`;
+`~/flwork-p1-w3/platform/docs/runbooks/migration-runbook.md` (the per-migration apply procedure §8
+references).
 
 ---
 
@@ -309,6 +323,209 @@ manual (step 1 above) and this guard is expected to be exercised precisely durin
 
 ---
 
+## 6. Telegram bots dark — webhook-secret rollout mistake (distinct from §2b)
+
+**Symptom:** identical to §2a/§2b's "client texts/messages, nothing comes back" — but this entry covers
+the failure specifically **caused by rolling out `TELEGRAM_WEBHOOK_SECRET` itself**
+(`deploy-prep/webhook-hardening-plan.md` §2/§4 Wave B), not the steady-state "guard already live,
+one tenant missed re-registration" case §2b already covers. Read §2b first; this is the rollout-time
+variant of the same guard.
+
+**Root causes, ranked:**
+1. **Global env var never actually set in the deploy environment before the guard code shipped.** Per
+   §2b step 1, this darks **every** bot simultaneously (owner + jefe + all tenants) the instant the
+   guard code deploys, because `if (expectedSecret)` degenerately never fails until Telegram starts
+   sending a header nobody configured a comparison value for — wait, the failure direction here is
+   different from §2b: if the env truly never got set, the guard stays inert (no `expectedSecret` →
+   no-op) and nothing goes dark. **The actual global-outage trigger is the reverse ordering mistake**
+   (see #3) or a secret that was set but doesn't match what was registered with Telegram.
+2. **Rotation without re-registration.** Someone rotates `TELEGRAM_WEBHOOK_SECRET` (or a per-tenant
+   `telegram_webhook_secret` column value) without re-running `setWebhook`. Telegram keeps sending the
+   **old** `secret_token` header; the route now compares against the **new** value; every real update
+   401s until `setWebhook` is re-run with the new secret.
+3. **The ordering hazard `webhook-hardening-plan.md` §4 step 5 names explicitly:** `setWebhook` run
+   *before* the env/column value is set. Telegram starts sending the header immediately on
+   `setWebhook`, but if the route's `expectedSecret` is still empty at that moment the guard is
+   momentarily inert (safe); the dangerous direction is the reverse — env/column set **first**, then a
+   delay before `setWebhook` actually runs — during that window the route expects a secret Telegram
+   isn't sending yet, and 401s every real update. The hardening plan's own fix is procedural (env/column
+   first, then `setWebhook`, roll bot-by-bot) — this entry is what to do if that ordering was violated
+   in practice.
+4. **A new tenant onboarded after the Wave B rollout never got its per-tenant `telegram_webhook_secret`
+   column populated** (`webhook-hardening-plan.md` §2's "per-tenant route caveat") — that one tenant's
+   bot is dark from day one, not a regression.
+
+**Detection:** no automated alert exists (same gap §2b already flags — Telegram's `getWebhookInfo`
+`last_error_message`/`last_error_date` is not polled by anything in this codebase). The additional
+app-side signal specific to this failure mode: a spike of **401** responses on `/api/webhooks/telegram*`
+immediately following a Wave B secret deploy/rotation — grep server logs for status 401 on those routes
+in the minutes after the change, before assuming it's a code regression.
+
+**Immediate response:**
+1. Rule out the platform-wide case first: confirm `TELEGRAM_WEBHOOK_SECRET` (owner/jefe) and the
+   relevant `tenants.telegram_webhook_secret` values are actually present and non-empty in the live
+   environment — if the env itself is gone (rolled back, misconfigured), every bot is affected, not one.
+2. Per affected bot, call Telegram's `getWebhookInfo` and read `last_error_message` for a 401/secret
+   mismatch signature.
+3. Re-run `setWebhook` for that bot with the **current** secret value, using the exact curl shape in
+   `webhook-hardening-plan.md` §4 step 4 (`secret_token=<THE_SECRET_JUST_SET>`, same URL, unchanged).
+4. Verify with one live test message per fixed bot; confirm `pending_update_count` drains via
+   `getWebhookInfo`.
+
+**Rollback (fastest lever, no deploy needed):** per `webhook-hardening-plan.md` §4 step 6 — either
+**unset** the env/column (the `if (expectedSecret)` guard goes inert, restoring pre-Wave-B unauthenticated
+behavior immediately) **or** re-run `setWebhook` **without** `secret_token` (Telegram stops sending the
+header). Either restores service without touching the deploy. Prefer this over a full Vercel rollback
+when the guard *code* is fine and only the secret *state* is wrong — reserve a deploy-level revert for a
+genuine code regression in the guard itself.
+
+**Blast radius:** platform-wide (all bots) if the global env is the cause; single-bot if a per-tenant
+column or one bot's rotation is the cause — establishing which is the first diagnostic step, same shape
+as §2b's own blast-radius note.
+
+---
+
+## 7. Resolver-flip rollback (full revert, distinct from §5's per-host fix)
+
+**Scope:** §5 covers correcting **one** divergent host's data while the guard keeps working as designed.
+This entry covers pulling **the whole Wave 5 flip back** — the decision trigger for reaching past a
+per-host fix, and what changes at each stage of the wave.
+
+**Read first:** the authoritative deploy-level rollback mechanics for this exact wave already exist as
+`rollback-per-wave.md` §"Wave B — resolver flip" on the `p1-w1` lane (cross-branch, not yet merged into
+`p1-w6`, read directly for this pass rather than duplicated verbatim here). That doc owns the *how*
+(Vercel promote-previous first, `git revert` second, `057_unfreeze` only if legacy writes are needed
+after reverting). **This entry owns the *when* and the three-stage decision** that doc's single "Wave B"
+section doesn't break out.
+
+**Three sub-scenarios, by how far Wave 5 has progressed:**
+
+### 7a. During the watch window, BEFORE `057_unfreeze` runs (guard live, `tenants.domain` fallback intact)
+A single or handful of `TENANT_DIVERGENCE` firings is the guard working correctly (§5) — fix the data,
+per host, guard stays live. **Widespread divergence (roughly 3+ concurrent hosts, or divergences
+recurring after being fixed) is the trigger to stop, not keep firefighting per host** — it signals the
+underlying `tenant_domains` backfill (`055_tenant_domains_routing.backfill.sql`) has a systemic data-
+quality problem, not a one-off stale row. At that point: **do not proceed to `057_unfreeze`**, and pull
+the deploy back (Vercel promote-previous, per `rollback-per-wave.md`) rather than correct hosts one at a
+time against a moving target. Re-run the `055` backfill's own built-in verification block before
+re-attempting the flip.
+
+### 7b. A genuine app regression during the watch window, NOT carrying `TENANT_DIVERGENCE`
+Plain 500s or broken pages unrelated to the divergence guard, discovered during the same watch window.
+This is a standard deploy-level rollback — Vercel promote-previous, first-line, before any DB action —
+identical to `rollback-per-wave.md`'s guidance; nothing resolver-specific changes here except that it's
+easy to mis-attribute a plain regression to "the flip" just because it happened during the flip's watch
+window. Grep for `TENANT_DIVERGENCE` specifically to rule 7a in or out before treating this as 7b.
+
+### 7c. AFTER `057_unfreeze` has already run — the hard case
+`057_unfreeze_tenants_domain.sql` removes the write-freeze trigger on `tenants.domain` (it does **not**
+drop the column or any data) — so a deploy-level revert (promote-previous) still restores the **code**
+path that reads `tenants.domain` as fallback. The real risk: once `tenant_domains` has been the sole
+authoritative source in practice for the watch-window duration, `tenants.domain` may have silently
+drifted out of sync (nothing was keeping it current once the app stopped consulting it first). **Do not
+trust a post-`057_unfreeze` rollback to restore correct routing without first confirming `tenants.domain`
+still agrees with `tenant_domains`** for the affected hosts — re-run the `055` backfill's coverage
+verification (matched/orphans/mismatches counts) against current data before relying on the legacy
+column again. This is the concrete reason Wave 5 rollback is dramatically cheaper *before*
+`057_unfreeze` than after, and why `gated-wave-plan.md` gates the unfreeze step behind the full 24-48h
+watch window in the first place.
+
+**Immediate response (any sub-scenario):**
+1. Grep for `TENANT_DIVERGENCE` volume and spread (how many distinct hosts, not just presence) — this
+   single check classifies 7a (widespread) vs 7b (regression, no divergence string) vs "isolated, use §5
+   instead."
+2. **Vercel promote-previous first, always** — restores service in under a minute and buys time to
+   diagnose properly before touching the DB layer, per `rollback-per-wave.md`'s "deploy-first, DB-second"
+   golden rule.
+3. Only touch the DB layer (`057_unfreeze` reversal, `tenant_domains` data correction) after the deploy
+   revert has already restored service.
+4. Before re-attempting the flip: re-run `SMOKE_RUN=1 npx vitest run src/lib/tenant-resolver-flip.smoke.test.ts`
+   (the same gate `gated-wave-plan.md` Wave 5 already requires) — do not re-flip on faith that whatever
+   broke it the first time is fixed.
+
+**Blast radius:** all 22 brands (same population as §5) — this entry is the platform-wide variant of
+§5's single-host failure, which is exactly why Wave 5 is isolated as its own wave with its own watch
+window in the deploy plan.
+
+---
+
+## 8. DB migration failure mid-sequence (Wave 2)
+
+**Scope:** Wave 2 applies eight migrations/backfills in a strict, DO-NOT-SKIP order
+(`gated-wave-plan.md`). This covers what happens when one fails partway — a `CREATE UNIQUE INDEX`
+rejects on a live duplicate, a DDL statement errors, or a backfill's own built-in verification
+`RAISE EXCEPTION`s and rolls back — leaving the sequence in a state later steps can't safely assume.
+
+**A concrete, already-confirmed example, not a hypothetical:** migration number **`061` means two
+different things on two different lanes today.** `p1-w2`'s `061_unique_journal_entries.sql` is the
+ledger-TOCTOU unique index `gated-wave-plan.md` Wave 2 names ("run `061` dup-probe first, then `061`
+unique index... before webhook-idempotency code"). `p1-w1`'s `061_nycmaid_routing_reconcile.sql` is an
+**unrelated DATA migration** — `p1-w1`'s own `rollback-note-per-migration.md` confirms `058` "does not
+exist" on that lane (their nycmaid fix got renumbered to `061` before `p1-w2` independently claimed
+`058` for the same purpose with `058_fix_nycmaid_routing.sql`). This is exactly the "migration-number
+collision" `gated-wave-plan.md` Wave 1 already flags in one line ("Watch migration-number collisions:
+059/060 w1, 058/061 w2") — confirmed here with the actual filenames read directly off both lanes. If the
+leader applies "061" from the wrong lane, or assumes both are safe to run because they share a number,
+the sequence silently diverges from what either lane's author intended — two different tables, two
+different purposes, one number.
+
+**Detection:** no automated check exists for this today — it is a **leader/human read of both lanes'
+migrations directories, cross-checked against `gated-wave-plan.md`'s numbering, at Wave-1-integration
+time, before Wave 2 begins.** `~/flwork-p1-w3/platform/docs/runbooks/migration-runbook.md` specifies the
+correct per-migration apply procedure (PRE gate → dup-probe for any unique index → apply → POST
+assertion) but does not itself catch a cross-lane number collision — that is an integration-time review
+step, not a runtime gate, and nothing in this codebase automates it.
+
+**Root causes / failure shapes, ranked by how they present:**
+1. **Numbering collision** (confirmed above) — the wrong migration applied for a given number, or one
+   lane's migration silently skipped because the two lanes disagree on what that number means.
+2. **Partial-transaction failure mid-file** — a later statement in a migration file errors after an
+   earlier one in the same file already committed (e.g. `CREATE INDEX CONCURRENTLY`, which
+   `migration-runbook.md` itself notes "cannot run inside a transaction block" and must be sent as its
+   own single Mgmt-API call). Leaves that one migration half-applied.
+3. **A `CREATE UNIQUE INDEX` rejects because the dup-probe was skipped or run against stale data** —
+   `migration-runbook.md` §3 names the dup-probe as mandatory-first with a hard stop on any matching
+   row; skipping it is a process failure, not a code bug, and the fix is to run the probe, not retry the
+   index blindly.
+4. **A backfill's own built-in verification fires and rolls back** — e.g.
+   `055_tenant_domains_routing.backfill.sql`'s closing `do $$ ... raise exception ... $$` block, which
+   HALTs and rolls back the whole backfill transaction if any `tenants.domain` row is an orphan or
+   mismatch. This is the backfill working as designed (fail loud rather than leave a silent brand-swap
+   risk for §5/§7 to discover later), not a bug to route around.
+
+**Immediate response (any mid-sequence failure):**
+1. **Stop the sequence.** Do not proceed to the next migration in Wave 2's order until the failed one is
+   confirmed either fully applied or fully rolled back — later steps assume earlier ones landed cleanly
+   (e.g. `060`'s RPC lockdown assumes `055`-`059`'s columns exist; the F3 pricing backfill assumes the
+   industry allowlist step ran first).
+2. Read the actual Postgres error rather than treating "it failed" as one category — distinguish a real
+   data conflict (root causes 3/4, safe to leave rolled back and fix the data) from a genuine
+   partial-application (root cause 2, may need manual cleanup before a clean retry).
+3. Re-run the migration's own PRE gate / dup-probe (`migration-runbook.md` §3 pattern) to confirm the
+   blocking condition is actually resolved before retrying — do not blindly re-run the same file.
+4. **If root cause 1 (numbering collision) is suspected** — before applying anything else numbered
+   `061` (or any other colliding number) from either lane, confirm which migration actually landed:
+   `\d journal_entries` (p1-w2's `061`) vs a `tenant_domains`/nycmaid-routing check (p1-w1's `061`), per
+   the verification pattern already used in `per-tenant-field-audit.md` §5. **Do not assume both lanes'
+   same-numbered files are safe to run in sequence — they touch different tables for the same number.**
+5. For a genuine partial DDL (root cause 2): most migrations in this sequence use
+   `IF NOT EXISTS`/`IF EXISTS` guards specifically so a re-run is a no-op
+   (`migration-runbook.md`'s own idempotency requirement) — re-running the full file after clearing the
+   blocking condition is the correct fix, not a hand-written partial patch.
+
+**Blast radius:** Wave 2 is prod DB, platform-wide by definition — every later wave's deploy (3, 4, 5)
+assumes Wave 2's schema landed fully and correctly. A silent partial or wrong-migration application here
+is the highest-leverage failure to catch early in the whole plan, since Waves 3-5 have no independent
+way to detect that their prerequisite migration didn't actually land as expected.
+
+**Prevention gap (flagged, not fixed):** no automated cross-lane migration-number collision check
+exists. Recommend the leader run a one-time reconciliation (diff both lanes' `migrations/` directory
+listings against `gated-wave-plan.md`'s numbering) immediately after Wave 1's merge and before Wave 2
+begins — a five-minute manual step that closes root cause 1 entirely, cheaper than discovering it
+mid-apply.
+
+---
+
 ## Summary — shared response pattern
 
 | Failure mode | Automated detection today? | Primary diagnostic | Blast radius |
@@ -319,11 +536,14 @@ manual (step 1 above) and this guard is expected to be exercised precisely durin
 | Payment fail | Stripe dashboard only — no app-side alert | Stripe event log vs. webhook case list | Real money; platform-wide if root cause #3 |
 | DID 404 | **No** | Telnyx dashboard connection assignment | That tenant's voice, or a cross-tenant mix-up (worse) |
 | Resolver divergence | **No** (guard fires, nothing alerts) | grep `TENANT_DIVERGENCE` | That one host, fully down until data fixed |
+| Telegram dark (secret rollout) | **No** — same `getWebhookInfo` gap as above | grep 401s on `/api/webhooks/telegram*` post-rollout, then `getWebhookInfo` | Platform-wide if global env is the cause, else per-bot |
+| Resolver-flip rollback (full) | **No** — same `TENANT_DIVERGENCE` gap, at volume | grep `TENANT_DIVERGENCE` spread across hosts | All 22 brands |
+| DB migration failure mid-sequence | **No** — no cross-lane numbering check exists | Postgres error + `\d <table>` to confirm actual landed state | Platform-wide (blocks Waves 3-5) |
 
-Five of six failure modes above have **no automated production alert** — every one relies on either a
+Eight of nine failure modes above have **no automated production alert** — every one relies on either a
 human noticing symptoms or a manual grep/dashboard check. This is the same shape as the gap
 `deploy-prep/health-monitor-coverage-gap.md` already flagged for domain-down specifically; it holds
-across the other four modes in this doc too. None of the fixes are implemented in this pass — file-only,
+across the other modes in this doc too. None of the fixes are implemented in this pass — file-only,
 consistent with this lane's charter.
 
 ## Cross-references
@@ -339,3 +559,13 @@ consistent with this lane's charter.
   the deploy-sequencing context for §2b, §4, §5.
 - `deploy-prep/phased-deploy-runbook.md` (this session) — where these guards land in the actual deploy
   sequence.
+- `deploy-prep/webhook-hardening-plan.md` §2, §4 Wave B (this branch) — the telegram secret-rollout
+  mechanics §6 builds its runbook on.
+- `deploy-prep/wave-plan-gaps-reconcile.md` (this branch, same pass) — resolves the nycmaid
+  `routing_mode` contradiction §8 references and maps where webhook-idempotency actually lands relative
+  to Wave 4.
+- `~/flwork-p1-w1/deploy-prep/rollback-per-wave.md`, `rollback-note-per-migration.md` (cross-branch,
+  not merged into `p1-w6`) — the authoritative deploy/DB rollback mechanics §7 and §8 build on rather
+  than duplicate.
+- `~/flwork-p1-w3/platform/docs/runbooks/migration-runbook.md` (cross-branch) — the per-migration apply
+  procedure §8 references.
