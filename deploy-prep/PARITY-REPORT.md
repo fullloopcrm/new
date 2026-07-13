@@ -4,6 +4,143 @@ Source is READ-ONLY (`~/Desktop/nycmaid`, never modified — it is the rollback 
 Target is this FL platform, nycmaid tenant = `00000000-0000-0000-0000-000000000001`.
 No cutover/webhook/DNS/deploy/prod-DB actions taken by any lane in this report.
 
+**Structural note on this consolidation (W1, 2026-07-13 ~11:05):** each lane worker runs in
+its own git worktree on its own branch (`p1-w1`…`p1-w6`), so `deploy-prep/PARITY-REPORT.md`
+is currently **six separate branch-local files**, not one shared file — W2–W6's sections
+below were built by reading their worktrees' copies directly (`/Users/jefftucker/flwork-p1-w2`
+… `-w6`), not by them appending to this file. This TOP SUMMARY reflects the state of all six
+files as of the timestamp above; it will need one more re-generation pass after the leader
+merges all six branches into one, in case any lane lands further commits after this reading.
+
+---
+
+## TOP SUMMARY (consolidated by W1, all 6 lanes, as of 2026-07-13 ~11:05)
+
+| Lane | Area | ✅ Match | ⚠️ Drift (open) | ❌ Missing (open) | Closed this pass |
+|---|---|---|---|---|---|
+| W1 | Email templates + send transport | 27/28 templates + `email.ts` + `client-email.ts` scope + 7 send-paths | 2 (phone number *new*; arrival-window note *known*) | 0 | 1 (`92de7d8a` — comhub-email nycmaid `email_from` safety net) |
+| W1 | Tenant profile/config (comms) | 4 areas (Telegram, Anthropic, `payment_link`, ~20 dashboard/cron Telnyx/Resend call sites) | 1 (nycmaid-legacy stack reads platform env vars, not tenant columns) + 1 noted-no-risk (`selena_config`) | 0 | 0 (read-only audit lane, no fix authorized) |
+| W2 | Crons (21 nycmaid crons) | 10 | 1 flagged (`generate-recurring` buffer-model mismatch, platform-wide, too broad to auto-port) | 0 | 7 (`5083a8e7`,`11a0e7fb`,`fba8a903`,`95af9291`,`8810cedc`,`404615a9`,`42b5d267`) |
+| W3 | SMS copy (client/cleaner/admin) | 6 | 0 (all fixed) | 0 (all fixed) | 9 drift + 1 missing/wiring (2 commits — arrival-window/rate restore, cleaner-SMS rewire) |
+| W4 | Funnel + portal + payment e2e | 6 | 0 (2 fixed) | 0 | 2 (time-slot parser fix, `ref_code`/payout-field sync fix) + 2 test-only commits locking in pre-existing fixes |
+| W5 | Admin/comhub + marketing/SEO | 9 areas | 1 (unexplained `(646) 490-0130` support number, + a 3rd unexplained `(212) 202-9030` in shared template) | 0 | 2 (`f6657ff1` audit-log gap, `90b919f9` errors-viewer page) |
+| W6 | Integrations/webhooks + Telnyx-401 root cause | 7 checklist rows (mostly already closed pre-session) | 0 fixed this pass (diff-only mandate) — root-caused Telnyx 401 as global-vs-per-tenant public-key mismatch, same shape latent in Resend/Stripe webhooks | 0 | 0 code fixes; 1 witness test added (`webhook-verify.test.ts`) proving the root-cause mechanism |
+
+**Read across lanes:** three separate lanes (W2 crons, W3 SMS, W4 funnel, W5 marketing) each
+independently ran into pieces of the **same two underlying findings** — see JEFF DECISIONS
+#1 and #2 below, which merge those overlapping reports into one ask instead of five.
+
+---
+
+## JEFF DECISIONS — every item flagged across all 6 lanes, consolidated
+
+### 1. 🔴 Which phone number should nycmaid's client-facing copy use? (highest priority — functional, not cosmetic)
+
+Three lanes hit this independently from different angles:
+- **W1 (email):** every transactional email (`emailWrapper` footer + 13 template bodies)
+  reads `(646) 490-0130`; source used `(212) 202-8400` with zero exceptions. Baked in since
+  the first FL port commit (`8ed0a1d1`).
+- **W5 (marketing/SEO):** `(646) 490-0130` appears site-wide on `site/nycmaid/*`
+  (nav/footer/legal pages/FAQ) and in the `schema.org ContactPoint` JSON-LD Google indexes —
+  **zero hits for this number anywhere in nycmaid's live source.** Also found a **third,
+  also-unexplained** number, `(212) 202-9030`, in the shared root template used by other
+  tenant sites — suggests boilerplate leakage, not a real nycmaid number.
+- **W6 (integrations):** confirms `(646) 490-0130` is FL's own **platform-wide generic
+  support line** (same number on every tenant's marketing footer) — it is NOT wired to
+  nycmaid's Telnyx account. `(212) 202-8400` is the number `tenant.telnyx_phone` actually
+  points at and the number Selena/the review-engine listens for inbound SMS on. **Functional
+  consequence:** any customer who texts or replies to `(646) 490-0130` per the email/site
+  instructions gets silence — the automated review "DONE"-reply flow and any inbound-SMS
+  automation silently never fires for that channel.
+
+**Ask:** confirm whether `(646) 490-0130` is a real, staffed line Jeff wants kept for
+transactional/marketing copy (then it needs a `support_phone` tenant-config field and,
+separately, needs to actually be wired to receive/route SMS), or whether it's leftover
+boilerplate that should be reverted to `(212) 202-8400` everywhere on `site/nycmaid/*` and
+`lib/nycmaid/email-templates.ts` to restore 100% source parity and keep the automated
+reply flow working. Also flag the stray `(212) 202-9030` for a separate check.
+
+### 2. 🟡 Review-flow: restore the $25 selfie-video credit, or make the ask text match the $10-only reality?
+
+W3, W4, and W6 all touched this; consolidated view:
+- **W3 confirms the SMS ask-text is NOT drifted** — `smsReviewRequest` is byte-identical to
+  source on both sides, same $10/$25 offer, same Zelle wording, same review link. (Don't
+  double-count this against the SMS-copy lane.)
+- **W4 and W6 confirm the drift is entirely in `lib/nycmaid/review-engine.ts`'s
+  post-reply handling** (a deliberate change per code comment, "$25 video-review option
+  removed per Jeff, 2026-07-05"): nycmaid detects a video reply (`looksLikeVideo` regex) and
+  pays $25 + Zelle-worded ack; FL always pays a flat $10 with no video detection and no
+  Zelle mention in the ack.
+- **W6's specific catch, independent of which way Jeff decides:** the ask text (byte-
+  identical to source) still *offers* $25 for video, but the code has never honored that
+  offer since 2026-05-05 — i.e. FL is currently promising something it doesn't pay,
+  regardless of which behavior is "correct." Worth fixing the inconsistency either way.
+
+**Ask:** restore nycmaid's $25-video/Zelle-ack behavior in `review-engine.ts`, or keep the
+flat $10 and edit the ask text so it stops promising a video option it won't pay.
+
+### 3. 🟢 Email arrival-window disclaimer — likely uncontroversial, cheap follow-up (not really a decision)
+
+- **W1 confirmed** email templates dropped `ARRIVAL_WINDOW_NOTE` (the "can't give an exact
+  arrival time, even day-of" disclaimer) from 4 templates, per an explicit platform-wide
+  design decision ("every tenant gets nycmaid's arrival-window mechanism, but the disclaimer
+  copy was lost in the process").
+- **W3 already restored** the underlying `ARRIVAL_WINDOW_NOTE`/`_SMS`/`_ES` constants to
+  `src/lib/time-window.ts` and re-wired all 8 affected **SMS** templates — committed, tested.
+- **W6 confirms** the **email** side (3 call sites: confirmation, reminder, reschedule) is
+  still missing it, even though the constants W3 restored now exist to wire from.
+- Not fixed by any lane — flagged, not touched, because "email copy" was explicitly on the
+  3-items-diff-only list for this pass.
+
+**Ask:** since the constants already exist post-W3, this is now a ~3-line wiring change
+(no new copy to write or invent) — approve it and it can be closed at merge with minimal risk.
+
+### 4. 🟡 Telnyx/Resend/Stripe: global env-var secrets vs per-tenant accounts (architecture decision)
+
+W6 root-caused the 2026-07-07 Telnyx 401 to this; W1's tenant-profile/config lane
+independently found the **outbound mirror** of the same issue:
+- **W6 (inbound/webhook side):** `TELNYX_PUBLIC_KEY` is one global env var, but
+  `tenant.telnyx_api_key`/`telnyx_phone` are per-tenant columns — a single global public key
+  cannot verify signatures from multiple Telnyx accounts. Proven with a new witness test
+  (`webhook-verify.test.ts`), not just theorized. Same-shaped risk flagged (untested against
+  real traffic) in Resend inbound (`RESEND_WEBHOOK_SECRET`) and the tenant/Connect Stripe
+  webhook (`STRIPE_WEBHOOK_SECRET`) — the latter is normally correct for FL's own Connect
+  sub-accounts, but nycmaid is a foreign/standalone Stripe account, not a Connect sub-account.
+- **W1 (outbound/send side):** `lib/nycmaid/sms.ts` + `lib/nycmaid/email.ts` (the
+  highest-volume, most customer-visible nycmaid send path — booking confirmations, cleaner
+  dispatch, the whole review funnel) read `process.env.TELNYX_API_KEY`/`TELNYX_FROM_NUMBER`/
+  `RESEND_API_KEY` at module scope, **not** `tenants.telnyx_api_key`/`telnyx_phone`/
+  `resend_api_key`. Currently only correct by assumption that Jeff has pointed those platform
+  env vars at nycmaid's own credentials (unverified — Vercel-side, no repo/DB access to check).
+
+**Ask (two independent decisions, same root cause):**
+1. Confirm the current `TELNYX_PUBLIC_KEY`/platform Telnyx/Resend env vars actually hold
+   nycmaid's own account's credentials (cheapest fix: re-verify + re-paste byte-for-byte).
+2. Longer-term: decide whether to migrate to tenant-resolvable secrets (nullable per-tenant
+   columns, tenant-first-then-env-fallback) so this doesn't silently break for nycmaid or any
+   future multi-account tenant — W6 already scoped this as a migration-file-only proposal,
+   not implemented pending sign-off, since it touches other live tenants' Connect flow.
+
+### 5. 🟢 Crons: `generate-recurring` buffer model (platform-wide, not nycmaid-specific)
+
+**W2:** nycmaid buffers a rolling 6 future bookings per schedule (up to 16 weeks out for
+monthly patterns); FL generates on a fixed 4-week horizon regardless of frequency — close
+enough for weekly schedules, but meaningfully thinner lookahead for biweekly/monthly nycmaid
+schedules. This is shared booking-generation logic used by every tenant, not nycmaid-only
+code — W2 declined to auto-port a platform-wide behavior change in a parity-diff pass.
+**Ask:** decide whether to move to nycmaid's count-based buffer model platform-wide, or leave
+the 4-week horizon and accept thinner lookahead for non-weekly nycmaid schedules.
+
+### Already-decided / no action needed (context only, not a new ask)
+
+- `rateOf` fallback `79 → 69`: **CLOSED.** W6 flagged this before W3's fix landed; W3's
+  commit already fixed the one real instance (`sms-cleaning.ts`) and confirmed the email
+  side already matched (`|| 69`) on both source and target. Nothing outstanding here.
+- Telnyx voice: intentionally skipped per Jeff's own cutover plan (§R3) — not a new decision,
+  just confirmed still true (W6).
+- `selena_config` completeness: functionally moot for nycmaid (hardcoded persona, doesn't
+  read the column) — a readiness-dashboard false-negative only, not a real gap (W1).
+
 ---
 
 ## LANE: EMAIL (W1)
