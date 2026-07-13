@@ -109,7 +109,17 @@ export async function POST(request: Request) {
       })
       .select()
       .single()
-    if (error) throw error
+    if (error) {
+      // The maybeSingle() check above is a fast path, not the guard -- two
+      // concurrent requests for the same booking can both pass it before
+      // either inserts. referral_commissions_booking_unique (booking_id)
+      // is the actual guard: the loser hits 23505 here and should get the
+      // same friendly "already exists" response, not a raw 500.
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'Commission already exists for this booking' }, { status: 409 })
+      }
+      throw error
+    }
 
     // Accrue the commission expense/payable to the ledger.
     postCommissionAccrual({ tenantId, commissionId: commissionRow.id })
