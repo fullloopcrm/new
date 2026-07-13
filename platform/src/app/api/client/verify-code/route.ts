@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -30,10 +30,9 @@ export async function POST(request: Request) {
 
     let verification = null
     for (const key of lookupKeys) {
-      const { data } = await supabaseAdmin
+      const { data } = await tenantDb(tenant.id)
         .from('verification_codes')
         .select('*')
-        .eq('tenant_id', tenant.id)
         .eq('identifier', key)
         .eq('code', code)
         .maybeSingle()
@@ -47,20 +46,18 @@ export async function POST(request: Request) {
 
     // Burn the code — both email + sms keys if both were sent.
     for (const key of lookupKeys) {
-      await supabaseAdmin
+      await tenantDb(tenant.id)
         .from('verification_codes')
         .delete()
-        .eq('tenant_id', tenant.id)
         .eq('identifier', key)
     }
 
     // Find existing client (phone match first, email fallback).
     let client = null as null | Record<string, unknown> & { id: string; do_not_service?: boolean; email?: string | null }
     if (phoneDigits.length >= 10) {
-      const { data: allClients } = await supabaseAdmin
+      const { data: allClients } = await tenantDb(tenant.id)
         .from('clients')
         .select('*')
-        .eq('tenant_id', tenant.id)
       if (allClients) {
         // Exact match only. The old `endsWith` matching let a code verified for
         // one phone resolve a DIFFERENT client whose number was a suffix (or
@@ -77,10 +74,9 @@ export async function POST(request: Request) {
     }
 
     if (!client && email) {
-      const { data: emailMatches } = await supabaseAdmin
+      const { data: emailMatches } = await tenantDb(tenant.id)
         .from('clients')
         .select('*')
-        .eq('tenant_id', tenant.id)
         .ilike('email', email.trim())
         .order('created_at', { ascending: true })
         .limit(1)
@@ -89,19 +85,17 @@ export async function POST(request: Request) {
 
     // Update email on match if missing/different.
     if (client && email && (!client.email || String(client.email).toLowerCase() !== email.toLowerCase())) {
-      await supabaseAdmin
+      await tenantDb(tenant.id)
         .from('clients')
         .update({ email: email.toLowerCase() })
         .eq('id', client.id)
-        .eq('tenant_id', tenant.id)
     }
 
     // Create new client if still none — email flow only.
     if (!client && email) {
-      const { data: newClient, error: createError } = await supabaseAdmin
+      const { data: newClient, error: createError } = await tenantDb(tenant.id)
         .from('clients')
         .insert({
-          tenant_id: tenant.id,
           email: email.toLowerCase(),
           name: email.split('@')[0],
           phone: phone || '',
