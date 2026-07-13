@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET(request: Request) {
@@ -15,11 +15,10 @@ export async function GET(request: Request) {
     throw err
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(ctx.tenantId)
     .from('booking_notes')
     .select('*')
     .eq('booking_id', bookingId)
-    .eq('tenant_id', ctx.tenantId)
     .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -41,10 +40,9 @@ export async function POST(request: Request) {
     throw err
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(ctx.tenantId)
     .from('booking_notes')
     .insert({
-      tenant_id: ctx.tenantId,
       booking_id,
       author_type: author_type || 'admin',
       author_name: author_name || 'Admin',
