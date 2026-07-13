@@ -432,10 +432,17 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   const url = req.nextUrl.clone()
   url.pathname = sitePathname
 
+  // x-tenant-sig is intentionally NOT set on response.headers below — it must
+  // stay on the internal request only (see requestHeaders further down).
+  // signTenantHeader(tenantId) is a static HMAC with no nonce/expiry, so
+  // echoing it back to the client would let any visitor to a tenant's site
+  // harvest a permanently-valid (tenantId, sig) pair and replay it on direct
+  // API calls, defeating the "only middleware can mint this" guarantee every
+  // downstream consumer (dashboard/layout, admin-auth, chat, yinez, tenant.ts,
+  // etc.) relies on.
   const response = NextResponse.rewrite(url)
   response.headers.set('x-tenant-id', tenantId)
   response.headers.set('x-tenant-slug', tenantSlug)
-  response.headers.set('x-tenant-sig', tenantSig)
 
   // The national VA SEO pages (1,500+) are force-dynamic because they read
   // tenant headers, but their content is identical for every visitor on this
