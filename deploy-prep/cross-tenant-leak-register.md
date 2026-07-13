@@ -94,42 +94,45 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Regression lock** | `src/app/api/quotes/route.witness.test.ts` — flipped from LEAK to LOCK (2 rejection tests + 1 same-tenant CONTROL proving the write-back still only touches the owned deal) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 559 passed / 37 skipped / 0 failed |
 
-### P4 — `finance/bank-accounts` POST → cross-tenant `entity_id` + `coa_id` FK injection  💰 **BANK**
+### P4 — `finance/bank-accounts` POST → cross-tenant `entity_id` + `coa_id` FK injection  💰 **BANK** — ✅ **FIXED**
 
 | | |
 |---|---|
 | **Route / op** | `POST /api/finance/bank-accounts` (unconverted, raw `supabaseAdmin`) |
 | **Table** | `bank_accounts` (FK columns `entity_id`, `coa_id`) |
-| **Attack vector** | Row stamped `tenant_id = A`, but `entity_id = body.entity_id \|\| getDefaultEntityId()` and `coa_id = body.coa_id \|\| null` are inserted **verbatim** — no ownership check on either. `entities` (mig 034) and `chart_of_accounts` (mig 032) both carry their own `tenant_id`, so both ids are cross-tenant FKs. |
+| **Attack vector** | Row stamped `tenant_id = A`, but `entity_id = body.entity_id \|\| getDefaultEntityId()` and `coa_id = body.coa_id \|\| null` were inserted **verbatim** — no ownership check on either. `entities` (mig 034) and `chart_of_accounts` (mig 032) both carry their own `tenant_id`, so both ids are cross-tenant FKs. |
 | **Effect** | A's bank account links to B's accounting **entity** and B's **GL account**. `GET /api/finance/bank-accounts` embeds `entities(id, name)` + `chart_of_accounts(code, name, type)` off the row → foreign entity/account **name** surfaces back to A on read-back (exfil, not just a dangling ref). |
-| **Verdict** | **proven-LIVE** |
-| **Witness** | `src/app/api/finance/bank-accounts/route.witness.test.ts` (LEAK: both FKs + CONTROL: default entity / null coa) |
-| **Required guard** | Verify `entity_id` **and** `coa_id` belong to `tenantId` before insert; 400/404 on miss. |
+| **Verdict** | **FIXED** (was proven-LIVE) |
+| **Fix** | Both `entity_id` (when caller-supplied) and `coa_id` are now verified tenant-owned (`.eq('id',...).eq('tenant_id', tenantId)`) before insert; 404 on either miss. |
+| **Regression lock** | `src/app/api/finance/bank-accounts/route.witness.test.ts` — flipped from LEAK to LOCK (2 rejection tests, one per FK, + 2 CONTROL: default entity/null coa, and explicit own-tenant FKs) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 563 passed / 37 skipped / 0 failed |
 | **Rank rationale** | Two foreign FKs on a **bank** table with a read-side that embeds both parents → highest exfil surface of the new finance set. |
 
-### P5 — `finance/expenses` POST → cross-tenant `entity_id` FK injection  💰
+### P5 — `finance/expenses` POST → cross-tenant `entity_id` FK injection  💰 — ✅ **FIXED**
 
 | | |
 |---|---|
 | **Route / op** | `POST /api/finance/expenses` (unconverted, raw `supabaseAdmin`) |
 | **Table** | `expenses` (FK `entity_id`) |
-| **Attack vector** | Row stamped `tenant_id = A`; `entity_id = body.entity_id \|\| getDefaultEntityId()` inserted **verbatim**, no ownership check. |
+| **Attack vector** | Row stamped `tenant_id = A`; `entity_id = body.entity_id \|\| getDefaultEntityId()` was inserted **verbatim**, no ownership check. |
 | **Effect** | A's expense references B's accounting entity; finance read-sides that embed `entities(name)` surface B's entity name back to A. |
-| **Verdict** | **proven-LIVE** |
-| **Witness** | `src/app/api/finance/expenses/route.witness.test.ts` (LEAK + CONTROL: default resolves to A's own entity) |
-| **Required guard** | Verify `body.entity_id` belongs to `tenantId` before insert; 400/404 on miss. |
+| **Verdict** | **FIXED** (was proven-LIVE) |
+| **Fix** | `body.entity_id` (when caller-supplied) is now verified tenant-owned before insert; 404 on miss. |
+| **Regression lock** | `src/app/api/finance/expenses/route.witness.test.ts` — flipped from LEAK to LOCK (1 rejection test + 2 CONTROL: default resolves to A's own entity, explicit own-tenant id passes) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 563 passed / 37 skipped / 0 failed |
 
-### P6 — `finance/periods` POST → cross-tenant `entity_id` FK injection (accounting close)  💰
+### P6 — `finance/periods` POST → cross-tenant `entity_id` FK injection (accounting close)  💰 — ✅ **FIXED**
 
 | | |
 |---|---|
 | **Route / op** | `POST /api/finance/periods` (unconverted, raw `supabaseAdmin`, `upsert`) |
 | **Table** | `accounting_periods` (FK `entity_id`, mig 035) |
-| **Attack vector** | Row stamped `tenant_id = A`; `entity_id = body.entity_id \|\| null` upserted **verbatim**. The on-conflict key is `(tenant_id, entity_id, year, month)`, so a foreign `entity_id` also keys a **distinct** period row. |
+| **Attack vector** | Row stamped `tenant_id = A`; `entity_id = body.entity_id \|\| null` was upserted **verbatim**. The on-conflict key is `(tenant_id, entity_id, year, month)`, so a foreign `entity_id` also keys a **distinct** period row. |
 | **Effect** | A's month-close/period-lock record is scoped to B's entity; `GET /api/finance/periods` embeds `entities(name)` → B's entity name surfaces to A. |
-| **Verdict** | **proven-LIVE** |
-| **Witness** | `src/app/api/finance/periods/route.witness.test.ts` (LEAK + CONTROL: null entity when omitted) |
-| **Required guard** | Verify `body.entity_id` belongs to `tenantId` before upsert; 400/404 on miss. |
+| **Verdict** | **FIXED** (was proven-LIVE) |
+| **Fix** | `body.entity_id` (when caller-supplied) is now verified tenant-owned before upsert; 404 on miss. |
+| **Regression lock** | `src/app/api/finance/periods/route.witness.test.ts` — flipped from LEAK to LOCK (1 rejection test + 2 CONTROL: null entity when omitted, explicit own-tenant id passes) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 563 passed / 37 skipped / 0 failed |
 
 ### P7 — `finance/expenses/[id]` PUT → full-body **mass-assignment** (entity_id FK + tenant_id row donation)  💰
 
@@ -225,14 +228,13 @@ live leaks. This section is a **negative result, not a to-do list**.
 ## 6. Q3 hand-off checklist
 
 1. Fix in priority order: **P0 crews (✅ fixed) → P1 bookings (✅ fixed) →
-   P2 invoices (✅ fixed) → P3 quotes (✅ fixed) → P4 bank-accounts → P5 expenses →
-   P6 periods → P7 expenses/[id].** Remaining: P4–P7, the finance `entity_id`/
-   `coa_id` FK-injection class; same guard shape as P2/P3 — verify each
-   caller-supplied FK is tenant-owned before insert/upsert, plus a column
-   allow-list for P7's full-body update.
+   P2 invoices (✅ fixed) → P3 quotes (✅ fixed) → P4 bank-accounts (✅ fixed) →
+   P5 expenses (✅ fixed) → P6 periods (✅ fixed) → P7 expenses/[id].** Remaining:
+   P7 only — the full-body mass-assignment shape needs a column allow-list, not
+   just an FK-ownership check.
 2. For each fix, **flip its witness** from expect-leak to expect-rejection (404/400
    + untouched victim) — the witness then locks the fix permanently. (Done for
-   P0–P3.)
+   P0–P6.)
 3. P0 needed a **hand-written** parent-ownership guard (`crew_members` has no
    `tenant_id`; converting the route to `tenantDb` alone does **not** close it).
 4. P1–P3 (done): ownership verification of each caller-supplied FK before insert;
