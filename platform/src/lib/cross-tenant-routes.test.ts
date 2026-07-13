@@ -79,6 +79,9 @@ import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { GET as portalServicesGET } from '@/app/api/portal/services/route'
 import { POST as bookingNotesUploadPOST } from '@/app/api/booking-notes/upload/route'
 import { PUT as referralPUT } from '@/app/api/referrals/[id]/route'
+import { POST as jobsReleasePOST } from '@/app/api/team-portal/jobs/release/route'
+import { POST as jobsReassignPOST } from '@/app/api/team-portal/jobs/reassign/route'
+import { GET as availabilityGET, PUT as availabilityPUT } from '@/app/api/team-portal/availability/route'
 
 const A_ID = '11111111-1111-1111-1111-111111111111'
 const B_ID = '22222222-2222-2222-2222-222222222222'
@@ -88,7 +91,7 @@ const ids = {
   booking: { a: 'bk-a', b: 'bk-b', aOpen: 'bk-a-open', bOpen: 'bk-b-open' },
   client: { a: 'cl-a', a2: 'cl-a2', b: 'cl-b' },
   convo: { a: 'convo-a', b: 'convo-b' },
-  member: { a: 'tm-a', b: 'tm-b' },
+  member: { a: 'tm-a', b: 'tm-b', a2: 'tm-a2', aManager: 'tm-a-manager' },
   referrer: { a: 'ref-a', b: 'ref-b' },
 }
 
@@ -110,10 +113,14 @@ function reseed() {
     { id: ids.booking.b, tenant_id: B_ID, client_id: ids.client.b, status: 'scheduled', start_time: '2026-07-02', notes: 'orig-b' },
     { id: ids.booking.aOpen, tenant_id: A_ID, client_id: ids.client.a, status: 'scheduled', start_time: '2099-01-01', team_member_id: null },
     { id: ids.booking.bOpen, tenant_id: B_ID, client_id: ids.client.b, status: 'scheduled', start_time: '2099-01-01', team_member_id: null },
+    { id: 'bk-a-assigned', tenant_id: A_ID, client_id: ids.client.a, status: 'confirmed', start_time: '2099-02-01', team_member_id: ids.member.a },
+    { id: 'bk-b-assigned', tenant_id: B_ID, client_id: ids.client.b, status: 'confirmed', start_time: '2099-02-02', team_member_id: ids.member.b },
   ])
   fake._seed('team_members', [
-    { id: ids.member.a, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 20, max_jobs_per_day: null },
-    { id: ids.member.b, tenant_id: B_ID, status: 'active', role: 'worker', pay_rate: 22, max_jobs_per_day: null },
+    { id: ids.member.a, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 20, max_jobs_per_day: null, name: 'Worker A', notes: JSON.stringify({ availability: { working_days: [1, 2, 3, 4, 5], blocked_dates: ['2026-08-01'] } }) },
+    { id: ids.member.b, tenant_id: B_ID, status: 'active', role: 'worker', pay_rate: 22, max_jobs_per_day: null, name: 'Worker B', notes: JSON.stringify({ availability: { working_days: [1, 2, 3, 4, 5], blocked_dates: ['2026-09-01'] } }) },
+    { id: ids.member.a2, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 21, max_jobs_per_day: null, name: 'Worker A2', notes: null },
+    { id: ids.member.aManager, tenant_id: A_ID, status: 'active', role: 'manager', pay_rate: 30, max_jobs_per_day: null, name: 'Manager A', notes: null },
   ])
   fake._seed('sms_conversations', [
     { id: ids.convo.a, tenant_id: A_ID, phone: '+15550001', name: 'A Convo', client_id: null, state: 'active', booking_checklist: null },
@@ -524,5 +531,89 @@ describe('CROSS-TENANT ATTACK · referrer family — /api/referrals/[id] (tenant
     expect(res.status).toBe(500) // scoped update matches 0 rows -> .single() errors, no cross-tenant write
     const bRow = fake._all('referrals').find((r) => r.id === 'referral-b')!
     expect(bRow.commission_rate).toBe(0.15)
+  })
+})
+
+describe('CROSS-TENANT ATTACK · team-portal family — /api/team-portal/jobs/release (tenantDb, W3 backlog)', () => {
+  it("worker A releases their OWN assigned job back to the pool (positive control)", async () => {
+    const token = createTeamToken(ids.member.a, A_ID, 20, 'worker')
+    const req = new Request('http://x', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ booking_id: 'bk-a-assigned' }),
+    })
+    const res = await jobsReleasePOST(req)
+    expect(res.status).toBe(200)
+    const aRow = fake._all('bookings').find((r) => r.id === 'bk-a-assigned')!
+    expect(aRow.team_member_id).toBeNull()
+    expect(aRow.status).toBe('scheduled')
+  })
+
+  it("worker A CANNOT release tenant B's job by passing tenant B's booking_id — the tenant_id filter finds no matching row → 403, B's job stays assigned to worker B", async () => {
+    const token = createTeamToken(ids.member.a, A_ID, 20, 'worker')
+    const req = new Request('http://x', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ booking_id: 'bk-b-assigned' }),
+    })
+    const res = await jobsReleasePOST(req)
+    expect(res.status).toBe(403)
+    const bRow = fake._all('bookings').find((r) => r.id === 'bk-b-assigned')!
+    expect(bRow.team_member_id).toBe(ids.member.b)
+    expect(bRow.tenant_id).toBe(B_ID)
+  })
+})
+
+describe('CROSS-TENANT ATTACK · team-portal family — /api/team-portal/jobs/reassign (tenantDb, W3 backlog)', () => {
+  it("manager A reassigns tenant A's own open job to another in-tenant worker (positive control)", async () => {
+    const token = createTeamToken(ids.member.aManager, A_ID, 30, 'manager')
+    const req = new Request('http://x', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ booking_id: ids.booking.aOpen, to_member_id: ids.member.a2 }),
+    })
+    const res = await jobsReassignPOST(req)
+    expect(res.status).toBe(200)
+    const aRow = fake._all('bookings').find((r) => r.id === ids.booking.aOpen)!
+    expect(aRow.team_member_id).toBe(ids.member.a2)
+  })
+
+  it("manager A CANNOT reassign tenant B's job by passing tenant B's booking_id — tenant-scoped lookup finds no row → 404, B's job stays assigned to worker B", async () => {
+    const token = createTeamToken(ids.member.aManager, A_ID, 30, 'manager')
+    const req = new Request('http://x', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ booking_id: 'bk-b-assigned', to_member_id: ids.member.a2 }),
+    })
+    const res = await jobsReassignPOST(req)
+    expect(res.status).toBe(404)
+    const bRow = fake._all('bookings').find((r) => r.id === 'bk-b-assigned')!
+    expect(bRow.team_member_id).toBe(ids.member.b)
+    expect(bRow.tenant_id).toBe(B_ID)
+  })
+})
+
+describe('CROSS-TENANT ATTACK · team-portal family — /api/team-portal/availability (tenantDb, W3 backlog)', () => {
+  it("worker A reads their OWN blocked dates, not tenant B's (positive control)", async () => {
+    const token = createTeamToken(ids.member.a, A_ID, 20, 'worker')
+    const req = new Request('http://x', { headers: { authorization: `Bearer ${token}` } }) as unknown as import('next/server').NextRequest
+    const res = await availabilityGET(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.availability.blocked_dates).toEqual(['2026-08-01'])
+  })
+
+  it("worker A's PUT updates only worker A's own team_members row — worker B's notes stay untouched", async () => {
+    const token = createTeamToken(ids.member.a, A_ID, 20, 'worker')
+    const req = new Request('http://x', {
+      method: 'PUT',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ availability: { working_days: [1, 2, 3, 4, 5], blocked_dates: ['2026-08-01'] } }),
+    }) as unknown as import('next/server').NextRequest
+    const res = await availabilityPUT(req)
+    expect(res.status).toBe(200)
+    const bRow = fake._all('team_members').find((r) => r.id === ids.member.b)!
+    const bNotes = JSON.parse(bRow.notes as string)
+    expect(bNotes.availability.blocked_dates).toEqual(['2026-09-01'])
   })
 })
