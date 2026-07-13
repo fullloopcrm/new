@@ -147,6 +147,47 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Required guard** | Allow-list assignable columns; never accept `tenant_id`/`entity_id` from the body without an ownership check. |
 | **Rank rationale** | Lowest of the set: the `tenant_id` row-selection guard already stops cross-tenant *theft*; the residual leak is self-inflicted column injection on the caller's own row. Still real (foreign `entity_id` reference + row donation). |
 
+### P9 — `invoices`/`quotes` PATCH `[id]` → cross-tenant `client_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `PATCH /api/invoices/[id]`, `PATCH /api/quotes/[id]` (both converted to `tenantDb`) |
+| **Table** | `invoices`, `quotes` — `client_id` in the PATCH assignables allow-list, no ownership check |
+| **Attack vector** | Both routes already allow-list PATCH columns (not a raw `.update(body)` spread, so not caught by the P8 grep), and `tenantDb.update()` already strips `tenant_id` from the payload — but `client_id` was accepted from the body and written verbatim with no ownership check, unlike the sibling POST routes (P2/P3) which do verify it. |
+| **Effect** | Caller repoints their OWN invoice/quote at ANOTHER tenant's `client_id`. `GET /api/invoices/[id]` and `GET /api/quotes/[id]` both embed `clients(id, name, email, phone, address)` off the row, so the foreign client's PII surfaces back to the attacker's tenant on the very next read — same exfil shape as P1. |
+| **Verdict** | **FIXED** (was proven-LIVE; found while sweeping `PATCH`/`PUT [id]` allow-list routes for the same FK-ownership gap as the deals/[id] fix, 2026-07-13, W2) |
+| **Fix** | `client_id` is now verified tenant-owned (`db.from('clients').select('id').eq('id', client_id).maybeSingle()`, `tenantDb` auto-scopes by `tenant_id`) before either update runs; 404 on miss. Same pattern as `deals/[id]` PATCH. |
+| **Regression lock** | `src/app/api/invoices/[id]/route.witness.test.ts`, `src/app/api/quotes/[id]/route.witness.test.ts` (LOCK: foreign client_id 404s, row untouched; CONTROL: own-tenant client_id and field-only updates still pass) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 224 files / 997 passed / 37 skipped / 0 failed |
+| **Rank rationale** | Same exfil class as P1, narrower blast radius (one FK, already-allow-listed route) — placed after the P0–P8 finance/join-table sweep since it was found in a later pass over `[id]` PATCH routes specifically. |
+
+### P10 — `finance/bank-accounts` PATCH `[id]` → cross-tenant `coa_id` FK injection  💰 **BANK** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `PATCH /api/finance/bank-accounts/[id]` |
+| **Table** | `bank_accounts` — `coa_id` in the PATCH allow-list, no ownership check |
+| **Attack vector** | Route already allow-lists PATCH columns (not a raw `.update(body)` spread), but `coa_id` was accepted from the body and written verbatim with no ownership check, unlike the sibling POST route (P4) which verifies it. |
+| **Effect** | Caller repoints their OWN bank account at ANOTHER tenant's GL account (`chart_of_accounts` carries its own `tenant_id`). `GET /api/finance/bank-accounts` embeds `chart_of_accounts(code, name, type)` off the row, so the foreign account's name surfaces back on the next read — same exfil shape as P4. |
+| **Verdict** | **FIXED** (was proven-LIVE; found in the same `[id]` PATCH allow-list sweep as P9, 2026-07-13, W2) |
+| **Fix** | `coa_id` is now verified tenant-owned (`.eq('id',...).eq('tenant_id', tenantId)`) before the update runs; 404 on miss. Same pattern as the POST route's P4 fix. |
+| **Regression lock** | `src/app/api/finance/bank-accounts/[id]/route.witness.test.ts` (LOCK: foreign coa_id 404s, row untouched; CONTROL: own-tenant coa_id and field-only updates still pass) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 225 files / 1000 passed / 37 skipped / 0 failed |
+
+### P11 — `bookings` PUT `[id]` → cross-tenant `client_id`/`team_member_id`/`service_type_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `PUT /api/bookings/[id]` (unconverted, raw `supabaseAdmin`) |
+| **Table** | `bookings` — `client_id`/`team_member_id`/`service_type_id` picked via `pick(body, [...])`, no ownership check |
+| **Attack vector** | `POST /api/bookings` (register P1) already verifies `client_id`/`team_member_id` ownership and scopes the `service_type_id` name lookup — but the sibling `PUT /api/bookings/[id]` picked all three straight from the body with **no ownership check at all** before `.update(fields)`. |
+| **Effect** | Worse than a dangling reference: this route's own response — `.select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone)')` — embeds the joined row directly, so a foreign `client_id` or `team_member_id` leaks another tenant's client/team-member PII (name/phone/address/email) in the **very same PUT response**, plus every subsequent GET. |
+| **Verdict** | **FIXED** (was proven-LIVE; found sweeping `[id]` PATCH/PUT routes for the same FK-ownership gap as P9/P10, 2026-07-13, W2) |
+| **Fix** | `client_id`, `team_member_id`, and `service_type_id` are each now verified tenant-owned before the update runs; 404 on any miss. Same guard as `POST /api/bookings`. |
+| **Regression lock** | `src/app/api/bookings/[id]/route.witness.test.ts` (LOCK: each foreign FK 404s, booking untouched; CONTROL: own-tenant FKs and field-only updates still pass) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 226 files / 1005 passed / 37 skipped / 0 failed |
+| **Rank rationale** | Same exfil severity as P1 (client/team-member PII, not just a dangling ref) — ranked with the P9/P10 `[id]`-route sweep since it was found in that later pass, not the original P0–P8 sweep. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -230,7 +271,10 @@ live leaks. This section is a **negative result, not a to-do list**.
 1. Fix in priority order: **P0 crews (✅ fixed) → P1 bookings (✅ fixed) →
    P2 invoices (✅ fixed) → P3 quotes (✅ fixed) → P4 bank-accounts (✅ fixed) →
    P5 expenses (✅ fixed) → P6 periods (✅ fixed) → P7 expenses/[id] (✅ fixed,
-   2026-07-13, W2).** All items in this register are now closed.
+   2026-07-13, W2) → P9 invoices/quotes PATCH [id] client_id (✅ fixed,
+   2026-07-13, W2) → P10 bank-accounts PATCH [id] coa_id (✅ fixed, 2026-07-13,
+   W2) → P11 bookings PUT [id] client_id/team_member_id/service_type_id
+   (✅ fixed, 2026-07-13, W2).** All items in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
