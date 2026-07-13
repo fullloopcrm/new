@@ -42,7 +42,7 @@ vi.mock('@/lib/tenant-query', () => {
   }
 })
 
-import { GET } from './route'
+import { GET, PUT } from './route'
 
 function seed() {
   return {
@@ -50,6 +50,15 @@ function seed() {
       { id: 'btm-a1', booking_id: 'bk-a', tenant_id: CTX_TENANT, team_member_id: 'tm-lead', is_lead: true, position: 1 },
       { id: 'btm-a2', booking_id: 'bk-a', tenant_id: CTX_TENANT, team_member_id: 'tm-extra', is_lead: false, position: 2 },
       { id: 'btm-b1', booking_id: 'bk-b', tenant_id: OTHER_TENANT, team_member_id: 'tm-foreign', is_lead: true, position: 1 },
+    ],
+    bookings: [
+      { id: 'bk-a', tenant_id: CTX_TENANT, team_member_id: 'tm-lead', team_size: 2, start_time: '2026-08-01T10:00:00Z', clients: { name: 'Client A' } },
+    ],
+    team_members: [
+      { id: 'tm-lead', tenant_id: CTX_TENANT },
+      { id: 'tm-extra', tenant_id: CTX_TENANT },
+      { id: 'tm-a2', tenant_id: CTX_TENANT },
+      { id: 'tm-foreign', tenant_id: OTHER_TENANT },
     ],
   }
 }
@@ -81,5 +90,32 @@ describe('bookings/[id]/team GET — tenant isolation', () => {
     expect(body.extras).toEqual([])
     // The foreign tenant's team member must not surface under any key.
     expect(JSON.stringify(body)).not.toContain('tm-foreign')
+  })
+})
+
+function putReq(body: Record<string, unknown>): Request {
+  return new Request('http://t/api/bookings/bk-a/team', { method: 'PUT', body: JSON.stringify(body) })
+}
+
+describe('bookings/[id]/team PUT — cross-tenant lead/extra guard', () => {
+  it('cross-tenant lead_id probe: rejects a foreign team member as lead', async () => {
+    const res = await PUT(putReq({ lead_id: 'tm-foreign', extra_team_member_ids: [], team_size: 1 }), ctx('bk-a'))
+    expect(res.status).toBe(400)
+    expect(h.capture.updates.find((u) => u.table === 'bookings')).toBeUndefined()
+  })
+
+  it('cross-tenant extra_team_member_ids probe: a foreign id in extras rejects the whole request', async () => {
+    const res = await PUT(putReq({ lead_id: 'tm-lead', extra_team_member_ids: ['tm-foreign'], team_size: 2 }), ctx('bk-a'))
+    expect(res.status).toBe(400)
+    expect(h.capture.updates.find((u) => u.table === 'bookings')).toBeUndefined()
+  })
+
+  it('same-tenant lead + extras succeed', async () => {
+    const res = await PUT(putReq({ lead_id: 'tm-lead', extra_team_member_ids: ['tm-a2'], team_size: 2 }), ctx('bk-a'))
+    expect(res.status).toBe(200)
+    const update = h.capture.updates.find((u) => u.table === 'bookings')
+    expect(update?.values.team_member_id).toBe('tm-lead')
+    const inserted = h.capture.inserts.find((i) => i.table === 'booking_team_members')
+    expect(inserted?.rows.some((r) => r.team_member_id === 'tm-a2')).toBe(true)
   })
 })

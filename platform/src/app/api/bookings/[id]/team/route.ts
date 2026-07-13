@@ -65,6 +65,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const newExtras = rawExtras.filter((x): x is string => typeof x === 'string' && x.length > 0 && x !== newLead)
   const teamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1 + newExtras.length))
 
+  // lead_id + extra_team_member_ids are caller-supplied FKs — team_members has
+  // no cross-tenant FK check, and tenantDb only stamps/filters tenant_id on
+  // the row being written (bookings, booking_team_members), it does not
+  // validate a referenced team_member_id belongs to this tenant. Without this,
+  // an admin session could assign another tenant's employee as this booking's
+  // lead or extra (same class as the client-portal + POST /api/bookings gaps
+  // fixed earlier this session).
+  const requestedIds = Array.from(new Set([newLead, ...newExtras].filter((x): x is string => !!x)))
+  if (requestedIds.length > 0) {
+    const { data: validMembers } = await db.from('team_members').select('id').in('id', requestedIds)
+    const validIds = new Set((validMembers || []).map((m) => m.id))
+    if (requestedIds.some((mid) => !validIds.has(mid))) {
+      return NextResponse.json({ error: 'Invalid team member selection' }, { status: 400 })
+    }
+  }
+
   // Snapshot the old team to figure out which extras are NEW (need notification).
   const { data: oldRows } = await db
     .from('booking_team_members')
