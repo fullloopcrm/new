@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
@@ -9,9 +9,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const { id } = await ctx.params
 
-  const { data: thread, error: tErr } = await supabaseAdmin
+  const { data: thread, error: tErr } = await db
     .from('comhub_threads')
     .select(`
       id, contact_id, channel, kind, name, slug, description,
@@ -22,29 +23,30 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       )
     `)
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .single()
   if (tErr) return NextResponse.json({ error: tErr.message }, { status: 404 })
 
-  const { data: messages, error: mErr } = await supabaseAdmin
+  const { data: messages, error: mErr } = await db
     .from('comhub_messages')
     .select('id, direction, author, author_id, body, media_urls, subject, from_address, to_address, sent_at, read_at, channel, metadata, flagged_for_review, flagged_reason')
     .eq('thread_id', id)
-    .eq('tenant_id', tenantId)
     .order('sent_at', { ascending: true })
     .limit(500)
   if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
 
-  // Resolve author names from tenant_members (Clerk-backed)
-  const authorIds = Array.from(new Set((messages || []).map(m => m.author_id).filter(Boolean) as string[]))
+  // Resolve author names from tenant_members (Clerk-backed).
+  // tenantDb's select() widens the columns literal to `string`, so postgrest-js
+  // can't statically parse the result shape here — cast at this boundary.
+  const messageRows = (messages ?? []) as unknown as Array<{ author_id: string | null }>
+  const authorIds = Array.from(new Set(messageRows.map((m) => m.author_id).filter(Boolean) as string[]))
   let authors: Record<string, { name: string | null; email: string | null }> = {}
   if (authorIds.length > 0) {
-    const { data: au } = await supabaseAdmin
+    const { data: au } = await db
       .from('tenant_members')
       .select('id, name, email')
       .in('id', authorIds)
-      .eq('tenant_id', tenantId)
-    authors = Object.fromEntries((au || []).map(u => [u.id as string, { name: u.name, email: u.email }]))
+    const memberRows = (au ?? []) as unknown as Array<{ id: string; name: string | null; email: string | null }>
+    authors = Object.fromEntries(memberRows.map((u) => [u.id, { name: u.name, email: u.email }]))
   }
 
   return NextResponse.json({ thread, messages: messages || [], authors })
@@ -55,6 +57,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const { id } = await ctx.params
   const body = await req.json().catch(() => ({})) as {
     status?: 'open' | 'snoozed' | 'closed'
@@ -79,21 +82,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     patch.bot_paused_until = null
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('comhub_threads')
     .update(patch)
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (body.mark_read) {
-    await supabaseAdmin
+    await db
       .from('comhub_messages')
       .update({ read_at: new Date().toISOString() })
       .eq('thread_id', id)
-      .eq('tenant_id', tenantId)
       .is('read_at', null)
       .eq('direction', 'in')
   }
