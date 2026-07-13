@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
@@ -77,8 +76,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         resendApiKey: tenant.resend_api_key,
         from: tenant.email_from || undefined,
       }).catch(() => {})
-      await supabaseAdmin.from('email_logs').insert({
-        tenant_id: tenant.id,
+      await tenantDb(tenant.id).from('email_logs').insert({
         booking_id: id,
         email_type: 'client_reschedule',
         recipient: updated.clients.email,
