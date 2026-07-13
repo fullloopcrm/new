@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 
 // GET /api/sms
@@ -9,12 +10,24 @@ import { sendSMS } from '@/lib/sms'
 export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const conversationId = request.nextUrl.searchParams.get('conversation_id')
 
     if (conversationId) {
+      // Verify conversation belongs to this tenant
+      const { data: convo } = await db
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .single()
+
+      if (!convo) {
+        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      }
+
       // Return messages for a specific conversation
       const { data: messages, error } = await supabaseAdmin
-        .from('sms_conversation_messages')
+        .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned, verified above)
         .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
@@ -23,26 +36,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
-      // Verify conversation belongs to this tenant
-      const { data: convo } = await supabaseAdmin
-        .from('sms_conversations')
-        .select('id')
-        .eq('id', conversationId)
-        .eq('tenant_id', tenantId)
-        .single()
-
-      if (!convo) {
-        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
-      }
-
       return NextResponse.json({ messages: messages || [] })
     }
 
     // Return conversations list with client info
-    const { data: conversations, error } = await supabaseAdmin
+    const { data: conversations, error } = await db
       .from('sms_conversations')
       .select('*, clients(name, phone)')
-      .eq('tenant_id', tenantId)
       .order('last_message_at', { ascending: false })
       .limit(50)
 
@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const body = await request.json()
     const { conversation_id, client_id, message } = body
 
@@ -76,36 +77,43 @@ export async function POST(request: NextRequest) {
 
     let convoId = conversation_id
 
-    // Look up or create conversation if none provided
-    if (!convoId) {
-      const { data: existing } = await supabaseAdmin
+    if (convoId) {
+      // Caller supplied a conversation_id — verify it belongs to this tenant before using it.
+      const { data: owned } = await db.from('sms_conversations').select('id').eq('id', convoId).single()
+      if (!owned) {
+        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      }
+    } else {
+      // Look up or create conversation if none provided
+      const { data: existingRaw } = await db
         .from('sms_conversations')
         .select('id')
-        .eq('tenant_id', tenantId)
         .eq('client_id', client_id)
         .is('completed_at', null)
         .eq('expired', false)
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
+      // tenantDb's select() widens the columns literal to `string`, so postgrest-js
+      // can't statically parse the result shape here — cast at this boundary.
+      const existing = existingRaw as unknown as { id: string } | null
 
       if (existing) {
         convoId = existing.id
       } else {
         // Get client phone for new conversation
-        const { data: client } = await supabaseAdmin
+        const { data: clientRaw } = await db
           .from('clients')
           .select('phone')
           .eq('id', client_id)
-          .eq('tenant_id', tenantId)
           .single()
+        const client = clientRaw as unknown as { phone: string | null } | null
 
         const cleanPhone = client?.phone?.replace(/\D/g, '').slice(-10) || ''
 
-        const { data: newConvo, error: createError } = await supabaseAdmin
+        const { data: newConvo, error: createError } = await db
           .from('sms_conversations')
           .insert({
-            tenant_id: tenantId,
             client_id,
             phone: cleanPhone,
           })
@@ -123,7 +131,7 @@ export async function POST(request: NextRequest) {
     // Insert outbound message
     const now = new Date().toISOString()
     const { data: msg, error: msgError } = await supabaseAdmin
-      .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
+      .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned, verified above)
       .insert({
         conversation_id: convoId,
         direction: 'outbound',
@@ -137,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update last_message_at on conversation
-    await supabaseAdmin
+    await db
       .from('sms_conversations')
       .update({ last_message_at: now })
       .eq('id', convoId)
@@ -153,12 +161,12 @@ export async function POST(request: NextRequest) {
 
       if (tenant?.telnyx_api_key && tenant?.telnyx_phone) {
         // Get client phone number
-        const { data: client } = await supabaseAdmin
+        const { data: clientRaw } = await db
           .from('clients')
           .select('phone')
           .eq('id', client_id)
-          .eq('tenant_id', tenantId)
           .single()
+        const client = clientRaw as unknown as { phone: string | null } | null
 
         if (client?.phone) {
           await sendSMS({
