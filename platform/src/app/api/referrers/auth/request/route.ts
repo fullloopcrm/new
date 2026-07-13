@@ -16,9 +16,16 @@ export async function POST(request: NextRequest) {
   const email = (body.email || '').trim()
   if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
 
-  const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  const rl = await rateLimitDb(`referrer_otp_req:${ip}:${email.toLowerCase()}`, 5, 15 * 60 * 1000)
-  if (!rl.allowed) {
+  // Same per-identifier + per-IP split as verify/route.ts: a composite
+  // ip+email key resets every time the attacker rotates IP, letting them
+  // spray OTP requests (and re-arm the guessable code) against one email
+  // forever. Both fail closed for the same reason as the verify step.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rlEmail = await rateLimitDb(`referrer_otp_req:${email.toLowerCase()}`, 5, 15 * 60 * 1000, {
+    failClosed: true,
+  })
+  const rlIp = await rateLimitDb(`referrer_otp_req_ip:${ip}`, 30, 15 * 60 * 1000, { failClosed: true })
+  if (!rlEmail.allowed || !rlIp.allowed) {
     return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
   }
 
