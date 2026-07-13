@@ -203,6 +203,9 @@ export function summarize(findings) {
 }
 
 // --- Token guard: env var (CI) -> ~/.env.local (local) -> null (skip clean) ---
+/**
+ * @param {{ SUPABASE_ACCESS_TOKEN_FULLLOOP?: string, HOME?: string }} [env]
+ */
 export function loadToken(env = process.env) {
   const fromEnv = env.SUPABASE_ACCESS_TOKEN_FULLLOOP
   if (fromEnv && fromEnv.trim()) return fromEnv.trim()

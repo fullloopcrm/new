@@ -1,8 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   parseBespokeSet,
   computeFindings,
   summarize,
+  loadToken,
 } from '../../scripts/reconcile-tenant-config.mjs'
 
 // Codifies the tenant-config drift gate (PR9). The gate decides which domain
@@ -173,5 +177,239 @@ describe('computeFindings — orphan gate (Drift L known-pending exemption)', ()
       resolvableSlugs: null,
     })
     expect(findings).toHaveLength(0)
+  })
+})
+
+// The remaining drift codes (A, B, C, D, E, H, I, J, K) had no direct test —
+// each is isolated below with the minimum fixture that trips ONLY that drift,
+// so a regression in one condition can't hide behind another firing instead.
+
+describe('computeFindings — Drift A (tenants.domain not mirrored in tenant_domains)', () => {
+  it('warns when tenants.domain has no matching active tenant_domains row', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set<string>(),
+      hasHome: () => true, // suppress Drift E so only Drift A is asserted
+      resolvableSlugs: null,
+    })
+    const warn = findings.find((f) => f.msg.includes('NO matching active tenant_domains row'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+})
+
+describe('computeFindings — Drift B (tenant_domains fallback, no tenants.domain)', () => {
+  it('reports INFO when tenants.domain is empty but active tenant_domains exist', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: '', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'foo-site', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    const info = findings.find((f) => f.msg.includes('relies on tenant_domains fallback'))
+    expect(info).toBeDefined()
+    expect(info!.sev).toBe('INFO')
+  })
+})
+
+describe('computeFindings — Drift C (bespoke-routed but folder missing)', () => {
+  it('CRITs when a slug is in BESPOKE_SITE_TENANTS but /site/<slug> has no homepage', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+    const crit = findings.find((f) => f.msg.includes('has no homepage'))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+  })
+})
+
+describe('computeFindings — Drift D (folder + live domain, not bespoke-routed)', () => {
+  it('CRITs when a /site/<slug> folder + live domain exist but slug is not bespoke-routed', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'template', status: 'active', vercel_project: 'x', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(), // not bespoke-routed
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    const crit = findings.find((f) => f.msg.includes('serves the generic template'))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+  })
+})
+
+describe('computeFindings — Drift E (live domain, no bespoke folder)', () => {
+  it('reports INFO for a live domain with no bespoke folder', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'x', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+    const info = findings.find((f) => f.msg.includes('live domain but no bespoke folder'))
+    expect(info).toBeDefined()
+    expect(info!.sev).toBe('INFO')
+  })
+
+  it('does not fire for the two hardcoded template-only exemptions', () => {
+    const tenants = [
+      { id: 't1', slug: 'full-loop-crm', domain: 'fullloopcrm.com', status: 'active' },
+      { id: 't2', slug: 'the-va-virtual-assistant', domain: 'thevavirtualassistant.com', status: 'active' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.some((f) => f.msg.includes('live domain but no bespoke folder'))).toBe(false)
+  })
+})
+
+describe('computeFindings — Drift H (DB says template, middleware routes bespoke)', () => {
+  it('warns when routing_mode=template but slug IS in BESPOKE_SITE_TENANTS', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'template', status: 'active', vercel_project: 'x', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']), // isBespoke true, so Drift D's !isBespoke guard doesn't fire
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    const warn = findings.find((f) => f.msg.includes('routing_mode=template but slug IS in BESPOKE_SITE_TENANTS'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+})
+
+describe('computeFindings — Drift I (mixed routing_mode across active domains)', () => {
+  it('warns when a tenant has one active bespoke domain and one active template domain', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' },
+      { tenant_id: 't1', domain: 'foo-alt.com', active: true, is_primary: false, routing_mode: 'template', status: 'active', vercel_project: 'y', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']), // dbBespoke true keeps Drift G/H from also firing
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    const warn = findings.find((f) => f.msg.includes('MIXED routing_mode'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+})
+
+describe('computeFindings — Drift J (active domain with non-active status)', () => {
+  it('warns when an active tenant_domains row has status != active', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'paused', vercel_project: 'x', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    const warn = findings.find((f) => f.msg.includes("status='paused'"))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+})
+
+// The token guard is what makes it safe to wire this gate into every PR,
+// including forks with no secret — a bug here either leaks a broken "skip"
+// into runs that DO have a real token, or crashes the CLI on a token-less
+// branch. Pure-tested here since main() itself is not import-safe to invoke.
+describe('loadToken — CI env var takes precedence', () => {
+  it('returns the trimmed env var when present, without touching HOME', () => {
+    expect(loadToken({ SUPABASE_ACCESS_TOKEN_FULLLOOP: '  ci-token  ' })).toBe('ci-token')
+  })
+
+  it('falls through to ~/.env.local when the env var is blank/whitespace-only', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'reconcile-token-'))
+    writeFileSync(join(dir, '.env.local'), 'SUPABASE_ACCESS_TOKEN_FULLLOOP=local-token\n')
+    try {
+      expect(loadToken({ SUPABASE_ACCESS_TOKEN_FULLLOOP: '   ', HOME: dir })).toBe('local-token')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('loadToken — local dev fallback (~/.env.local)', () => {
+  let dir: string
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('reads and strips quotes from a quoted value', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-token-'))
+    writeFileSync(join(dir, '.env.local'), `SUPABASE_ACCESS_TOKEN_FULLLOOP="quoted-token"\n`)
+    expect(loadToken({ HOME: dir })).toBe('quoted-token')
+  })
+
+  it('returns null when the token line is absent from an existing file', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-token-'))
+    writeFileSync(join(dir, '.env.local'), 'SOME_OTHER_VAR=x\n')
+    expect(loadToken({ HOME: dir })).toBeNull()
+  })
+
+  it('returns null when ~/.env.local does not exist', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-token-'))
+    expect(loadToken({ HOME: dir })).toBeNull()
+  })
+
+  it('returns null (clean skip) when both the env var and HOME are absent', () => {
+    expect(loadToken({})).toBeNull()
+  })
+})
+
+describe('computeFindings — Drift K (tenant_domains row with no vercel_project)', () => {
+  it('warns on every row missing vercel_project, not just active ones', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: null, slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    const warn = findings.find((f) => f.msg.includes('vercel_project=NULL'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
   })
 })

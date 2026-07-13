@@ -77,4 +77,33 @@ describe('CI invariant — reconcile gate wiring is intact', () => {
         'A read-only drift gate must never gain write scopes on the repo/packages/actions.',
     ).toBe(true)
   })
+
+  it('cancels superseded runs on the same ref (concurrency group + cancel-in-progress)', () => {
+    const yaml = reconcileYaml()
+    expect(
+      /concurrency:\s*\n\s*group:.+\n\s*cancel-in-progress:\s*true/.test(yaml),
+      'tenant-config-reconcile.yml no longer declares a concurrency group with ' +
+        'cancel-in-progress: true — a stale run on an old commit could outlive a ' +
+        'newer push and burn runner minutes re-checking dead state.',
+    ).toBe(true)
+  })
+
+  it('bounds the reconcile job with a timeout (no unbounded hang on a stuck query)', () => {
+    const yaml = reconcileYaml()
+    expect(
+      /timeout-minutes:\s*\d+/.test(yaml),
+      'tenant-config-reconcile.yml no longer sets timeout-minutes on the reconcile ' +
+        'job — a hung Supabase Management-API call could block the runner indefinitely.',
+    ).toBe(true)
+  })
+
+  it('still alerts on failure (notify-failure job wired to the reconcile job)', () => {
+    const yaml = reconcileYaml()
+    expect(
+      /notify-failure:\s*\n\s*needs:\s*reconcile\s*\n\s*if:\s*failure\(\)/.test(yaml),
+      'tenant-config-reconcile.yml no longer has a notify-failure job gated on ' +
+        '`needs: reconcile` + `if: failure()` — a red gate could go unnoticed with ' +
+        'no Telegram alert.',
+    ).toBe(true)
+  })
 })
