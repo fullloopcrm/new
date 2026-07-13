@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { normalizePhone } from '@/lib/nycmaid/client-contacts'
 
@@ -10,10 +11,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (authErr) return authErr
 
   const { id } = await params
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(tenant.tenantId)
     .from('client_contacts')
     .select('id, tenant_id, client_id, name, role, phone_e164, email, is_primary, receives_sms, receives_email, sms_consent_at, email_consent_at, sms_opted_out_at, email_opted_out_at, created_at')
-    .eq('tenant_id', tenant.tenantId)
     .eq('client_id', id)
     .order('is_primary', { ascending: false })
     .order('created_at', { ascending: true })
@@ -30,6 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const { id } = await params
     const body = await req.json()
+    const db = tenantDb(tenant.tenantId)
 
     const { data: client } = await supabaseAdmin
       .from('clients')
@@ -48,7 +49,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const now = new Date().toISOString()
     const payload = {
-      tenant_id: client.tenant_id,
       client_id: id,
       name: body.name ? String(body.name).trim() : null,
       role: body.role ? String(body.role).trim() : null,
@@ -62,10 +62,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     if (payload.is_primary) {
-      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('tenant_id', tenant.tenantId).eq('client_id', id).eq('is_primary', true)
+      await db.from('client_contacts').update({ is_primary: false }).eq('client_id', id).eq('is_primary', true)
     }
 
-    const { data, error } = await supabaseAdmin.from('client_contacts').insert(payload).select().single()  // tenant-scope-ok: insert payload carries tenant_id (client.tenant_id)
+    const { data, error } = await db.from('client_contacts').insert(payload).select().single()  // tenantDb stamps tenant_id
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   } catch (err) {
