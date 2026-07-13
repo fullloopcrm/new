@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { verifyTelegramSecret } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
@@ -46,6 +47,16 @@ async function loadTenantBot(slug: string): Promise<TenantBot | null> {
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ tenant: string }> }) {
+  // Fail-OPEN pre-activation — see the sibling /api/webhooks/telegram route
+  // for why: only enforced once TELEGRAM_WEBHOOK_SECRET is set AND this
+  // tenant's bot webhook has been re-registered with it (registerTelegramWebhook
+  // sets secret_token going forward, but tenants that saved their bot token
+  // before this rollout need a one-time re-save/re-register to pick it up).
+  if ((process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()) {
+    const auth = verifyTelegramSecret(req.headers, process.env.TELEGRAM_WEBHOOK_SECRET)
+    if (!auth.valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { tenant: slug } = await params
 
   const tenant = await loadTenantBot(slug)

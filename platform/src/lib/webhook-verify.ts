@@ -4,6 +4,8 @@
  * Supported providers:
  *   - Svix (Clerk, Resend): HMAC-SHA256 over `id.timestamp.body`, secret `whsec_...`
  *   - Telnyx: Ed25519 over `timestamp|body`, public key base64-encoded
+ *   - Telegram: `X-Telegram-Bot-Api-Secret-Token` header, set via setWebhook's
+ *     secret_token param — Telegram has no HMAC scheme, this header IS the auth
  *
  * All helpers return { valid: boolean, reason?: string }. Never throws on signature
  * problems — caller decides the HTTP response.
@@ -112,4 +114,28 @@ export function verifyTelnyx(
   } catch (err) {
     return { valid: false, reason: `verify error: ${err instanceof Error ? err.message : 'unknown'}` }
   }
+}
+
+/**
+ * Verify a Telegram webhook via the secret_token Telegram echoes back on every
+ * request once set via setWebhook({ secret_token }). Telegram updates carry no
+ * signature — this shared-secret header is the only proof a request actually
+ * came from Telegram and not a forged POST to a guessed webhook URL.
+ * Required header: x-telegram-bot-api-secret-token.
+ */
+export function verifyTelegramSecret(
+  headers: Headers,
+  expectedSecret: string | undefined
+): VerifyResult {
+  if (!expectedSecret) return { valid: false, reason: 'secret not configured' }
+
+  const provided = headers.get('x-telegram-bot-api-secret-token')
+  if (!provided) return { valid: false, reason: 'missing secret token header' }
+
+  const expectedBuf = Buffer.from(expectedSecret, 'utf8')
+  const providedBuf = Buffer.from(provided, 'utf8')
+  if (providedBuf.length !== expectedBuf.length || !timingSafeEqual(providedBuf, expectedBuf)) {
+    return { valid: false, reason: 'secret mismatch' }
+  }
+  return { valid: true }
 }

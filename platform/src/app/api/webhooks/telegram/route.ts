@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
+import { verifyTelegramSecret } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
@@ -46,6 +47,17 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  // Fail-OPEN pre-activation: only enforced once TELEGRAM_WEBHOOK_SECRET is
+  // configured AND every live webhook has been re-registered with it (Telegram
+  // only echoes the header for webhooks registered with secret_token set — see
+  // registerTelegramWebhook). Enforcing before that rollout completes would 401
+  // every legitimate update from the not-yet-re-registered bot, going dark for
+  // real users. Once configured, this fails CLOSED like every other gate here.
+  if ((process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()) {
+    const auth = verifyTelegramSecret(req.headers, process.env.TELEGRAM_WEBHOOK_SECRET)
+    if (!auth.valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   let body: { message?: { chat?: { id?: number | string }; text?: string } } = {}
   try {
     body = await req.json()
