@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 
@@ -27,11 +28,14 @@ export async function GET(request: Request) {
   const clientIds = [clientId]
 
   if (clientRecord?.email) {
-    const { data: emailMatches } = await supabaseAdmin
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast the narrow-select
+    // result to the shape actually selected (see portal/connect/unread for
+    // the same gap).
+    const { data: emailMatches } = (await tenantDb(tenant.id)
       .from('clients')
       .select('id')
-      .eq('tenant_id', tenant.id)
-      .ilike('email', clientRecord.email.trim())
+      .ilike('email', clientRecord.email.trim())) as { data: { id: string }[] | null }
     if (emailMatches) {
       for (const m of emailMatches) if (!clientIds.includes(m.id)) clientIds.push(m.id)
     }
@@ -40,10 +44,9 @@ export async function GET(request: Request) {
   if (clientRecord?.phone) {
     const digits = clientRecord.phone.replace(/\D/g, '')
     if (digits.length >= 10) {
-      const { data: allClients } = await supabaseAdmin
+      const { data: allClients } = (await tenantDb(tenant.id)
         .from('clients')
-        .select('id, phone')
-        .eq('tenant_id', tenant.id)
+        .select('id, phone')) as { data: { id: string; phone: string | null }[] | null }
       if (allClients) {
         for (const c of allClients) {
           const cDigits = (c.phone || '').replace(/\D/g, '')
@@ -55,19 +58,17 @@ export async function GET(request: Request) {
     }
   }
 
-  const { data: upcoming } = await supabaseAdmin
+  const { data: upcoming } = await tenantDb(tenant.id)
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name)')
-    .eq('tenant_id', tenant.id)
     .in('client_id', clientIds)
     .gte('start_time', now)
     .neq('status', 'cancelled')
     .order('start_time', { ascending: true })
 
-  const { data: past } = await supabaseAdmin
+  const { data: past } = await tenantDb(tenant.id)
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name)')
-    .eq('tenant_id', tenant.id)
     .in('client_id', clientIds)
     .lt('start_time', now)
     .order('start_time', { ascending: false })
