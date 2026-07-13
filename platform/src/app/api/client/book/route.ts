@@ -156,14 +156,24 @@ export async function POST(request: Request) {
     let startTime = body.start_time as string | undefined
     let endTime = body.end_time as string | undefined
     if (body.date && body.time && !startTime) {
-      const timeMap: Record<string, number> = {
-        '9:00 AM': 9, '10:00 AM': 10, '11:00 AM': 11, '12:00 PM': 12,
-        '1:00 PM': 13, '2:00 PM': 14, '3:00 PM': 15, '4:00 PM': 16,
+      // Parse "H:MM AM/PM" (or 24h "H:MM") robustly. A fixed lookup map only
+      // covering 9am-4pm silently fell back to 9am for any slot outside that
+      // range (e.g. the 7/8am and 5/6pm slots several booking forms offer) —
+      // nycmaid hit and fixed this same bug; port the regex parser here too.
+      const m = String(body.time).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+      let hour = 9
+      let minute = 0
+      if (m) {
+        hour = parseInt(m[1], 10)
+        minute = parseInt(m[2], 10)
+        const ap = m[3]?.toUpperCase()
+        if (ap === 'PM' && hour < 12) hour += 12
+        if (ap === 'AM' && hour === 12) hour = 0
       }
-      const hour = timeMap[body.time as string] || 9
       const duration = Number(body.estimated_hours) || 2
-      startTime = `${body.date}T${String(hour).padStart(2, '0')}:00:00`
-      endTime = `${body.date}T${String(hour + duration).padStart(2, '0')}:00:00`
+      const pad = (n: number) => n.toString().padStart(2, '0')
+      startTime = `${body.date}T${pad(hour)}:${pad(minute)}:00`
+      endTime = `${body.date}T${pad(hour + duration)}:${pad(minute)}:00`
     }
     if (!startTime) return NextResponse.json({ error: 'start_time or date+time required' }, { status: 400 })
 
