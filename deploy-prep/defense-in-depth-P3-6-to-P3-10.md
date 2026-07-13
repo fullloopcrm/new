@@ -120,10 +120,14 @@ methods, and stop trusting `admin_token` by mere presence.
 2. Convert the 4 Lax GET writers to POST (or add an Origin check).
 3. Optionally verify the `admin_token` HMAC in middleware instead of trusting presence.
 
-**Branch caveat (re-verified):** P3-4 stripped the `x-tenant-sig` **response** echo on
-`p1-w1` (`282bee7`), but in THIS worktree `middleware.ts:438` still does
-`response.headers.set('x-tenant-sig', tenantSig)` — the fix is **not merged into
-p1-w2**. That is a merge-state gap to reconcile at integration, not a new P3 item.
+**Branch caveat — CLOSED (2026-07-13, this worktree):** P3-4 stripped the
+`x-tenant-sig` **response** echo on `p1-w1` (`282bee7`); the merge-state gap in
+p1-w2 (`middleware.ts:438` still doing `response.headers.set('x-tenant-sig',
+tenantSig)`) is now fixed directly on p1-w2 (commit `17debc4a`) rather than
+waiting on integration — 3 new regression tests in
+`src/middleware.secret-echo.test.ts`, verified non-vacuous. `x-tenant-id`/
+`x-tenant-slug` are still echoed (not secret, unaffected). Origin allowlist +
+`admin_token` HMAC verification (the rest of P3-8) remain open.
 
 ---
 
@@ -152,27 +156,24 @@ strings can never break out of context.
 
 ---
 
-## P3-10 — rate-limit fail-closed completion (insert-fail path) + throttle belt 🟨
+## P3-10 — rate-limit fail-closed completion (insert-fail path) + throttle belt 🟩 (MED-1 fixed)
 
 **What:** Finish the fail-closed story for the DB-backed rate limiter, so a DB error
 never silently disables an auth throttle.
 
-**Status — partial:**
-- W1 P3-3 added a `{failClosed}` opt-in and flipped **9 auth-critical callers** to
-  deny-on-error (commit `038428f`, **p1-w1**). Public callers stay fail-open by design.
-- **MED-1 (still open everywhere):** even for a `failClosed` caller, an **INSERT**
-  failure only logs and still returns `allowed: true`. **Re-verified in this worktree**
-  `rate-limit-db.ts:43-47`. Deferred in-channel as a semantic call (deny-on-insert-fail
-  can 429 a legit user mid-login) (channel ~17:59).
-
-**Branch caveat (re-verified):** this worktree's `rate-limit-db.ts` has **no
-`failClosed` option at all** — W1's P3-3 change is not merged into `p1-w2`, so here
-**both** the count-error (`:30`) and insert-error (`:47`) paths fail **open**. On the
-deploy target this is fixed by merging p1-w1; the insert-fail sub-gap survives that merge.
+**Status:**
+- W1 P3-3 added a `{failClosed}` opt-in and flipped **9 auth-critical callers** (now
+  **10+**, see below) to deny-on-error (commit `038428f`, **p1-w1**). Public callers
+  stay fail-open by design. Confirmed present in this worktree's `rate-limit-db.ts`
+  (the earlier "not merged" caveat below no longer applies — the option exists here).
+- **MED-1 — FIXED (2026-07-13, this worktree, commit `a92c5ede`):** the **INSERT**
+  (record-attempt) failure path now denies (`{allowed:false, remaining:0}`) when
+  `failClosed` is set, instead of only logging and returning `allowed:true`. Public
+  (non-`failClosed`) callers unchanged (fail-open). 4 new regression tests in
+  `rate-limit-db.test.ts` (insert-fail closed/open, logging, insert-success control).
 
 **What remains:**
-1. Decide + implement deny-on-insert-fail semantics for `failClosed` callers.
-2. Belt: Stripe `idempotencyKey` on payment writes (P1-6) — **0 grep hits**, low risk
+1. Belt: Stripe `idempotencyKey` on payment writes (P1-6) — **0 grep hits**, low risk
    (existing 061 + 23505 guard). Track, don't block.
 
 ---
@@ -194,11 +195,31 @@ deploy target this is fixed by merging p1-w1; the insert-fail sub-gap survives t
 |---|---|---|---|
 | P3-6 | DB RLS backstop | 🟨🔒 prep only | NULL backfill + scoped client + JWT secret + Jeff-approved DDL |
 | P3-7 | app-layer tenantDb | 🟨 37/498 | join-table + FK-injection guards are separate work |
-| P3-8 | middleware CSRF/admin_token | 🟨 audited | implement Origin allowlist; reconcile x-tenant-sig merge gap |
+| P3-8 | middleware CSRF/admin_token | 🟨 x-tenant-sig echo fixed; Origin allowlist still open | implement Origin allowlist; verify admin_token HMAC in middleware |
 | P3-9 | output encoding | 🟨 1 live residual | land GenericHome/LongformArticle escape |
-| P3-10 | rate-limit fail-closed | 🟨 insert-fail open | semantic decision on deny-on-insert-fail |
+| P3-10 | rate-limit fail-closed | 🟩 fixed | Stripe idempotencyKey belt item only (low-risk, tracked) |
 
 None of these is a **confirmed live cross-tenant bypass** — they are the belt-and-
 suspenders layers behind the app-level `.eq(tenant_id)` gate that already carries
 isolation today. Each is file-only prep or a small implementation; **none should be
 started by W2 without a leader GO** (this doc only enumerates + statuses them).
+
+---
+
+## Addendum (2026-07-13) — Telegram webhook fail-open gap closed (adjacent to P3-8)
+
+Not part of the original P3-6..P3-10 enumeration, but the same "unauthenticated
+trigger surface" shape as P3-8's admin_token concern, found while working this
+backlog: `verifyTelegramSecretToken()` in `webhook-verify.ts` deliberately failed
+**open** when no secret token was configured — all 3 Telegram webhook routes
+(global owner bot, `jefe` platform-GM bot, per-tenant bots) accepted unauthenticated
+updates gated only by a body-supplied chat ID (forgeable, not a secret). These bots
+can trigger the Selena/Jefe agent and send messages. Flipped to fail-closed (commit
+`608f6916`) — unconfigured secret now 401s instead of silently processing. 6 tests
+flipped from "fails open" to "fails closed" (route-level + unit).
+
+**FLAG for Jeff/leader — breaking change, do NOT deploy until confirmed:**
+`TELEGRAM_WEBHOOK_SECRET` (global bot), `JEFE_WEBHOOK_SECRET` (jefe bot), and each
+live tenant's `telegram_webhook_secret` column must be set + registered with
+Telegram's `setWebhook` `secret_token` param, or the affected bot goes dark (401s
+its own legitimate traffic) on deploy.
