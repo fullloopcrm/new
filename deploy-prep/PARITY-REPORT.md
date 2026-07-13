@@ -229,3 +229,137 @@ that the checklist's SEO item depends on.
 - ⚠️ DRIFT flagged (not fixed): 1 (unexplained `6464900130` support number)
 - ❌ MISSING: 0 remaining (both found instances closed above)
 - Commits: `f6657ff1`, `90b919f9`
+
+---
+
+## W5 — VOICE / COMHUB-VOICE (2026-07-13, continued)
+
+Scope: nycmaid Telnyx Programmable Voice webhook + comhub voice/voicemail
+flow (ring→bridge→record→transcribe→voicemail, click-to-call, softphone
+presence/token/settings). Source read-only: `~/Desktop/nycmaid` @ `15837e3`.
+Target: FL `platform/`, nycmaid tenant `...001`.
+
+### Prior-gap confirmation (leader asked to reconfirm)
+
+Both DRIFT-closed items from my ADMIN/COMHUB pass still hold on this branch:
+`audit()` calls present at `platform/src/app/api/cleaners/[id]/route.ts:72,96`
+(commit `f6657ff1`); `platform/src/app/admin/errors/page.tsx` exists and is
+wired into nav (commit `90b919f9`). Neither is voice-related; both unchanged
+by this session.
+
+### Method
+
+Full-file `diff` of nycmaid `src/app/api/webhook/telnyx-voice/route.ts` vs FL
+`platform/src/app/api/webhooks/telnyx-voice/route.ts` (line-by-line, both
+~600 lines), and all 8 files under nycmaid
+`src/app/api/admin/comhub/voice/*` vs FL
+`platform/src/app/api/admin/comhub/voice/*` (active, cleanup, control, dial,
+log-softphone-call, presence, settings, token), plus
+`components/comhub/ActiveCallBanner.tsx`.
+
+### ✅ MATCH
+
+- **Entire ring→bridge→record→transcribe→voicemail state machine.** Every
+  handler in the webhook (`call.initiated`, `call.answered`, `call.hangup`,
+  `call.recording.saved`, `call.transcription`) is byte-identical logic
+  between the two sides. `VOICEMAIL_PROMPT` and `MISSED_CALL_SMS_BODY` copy
+  strings are byte-for-byte identical (not touched at all by the port).
+- **Signature verification gap is a MATCH, not a regression.** Both sides'
+  `POST` handler only checks `telnyx-signature-ed25519` header
+  *presence* + a 5-minute timestamp-freshness window
+  (nycmaid:439-447, FL:391-399) — neither actually verifies the ed25519
+  signature bytes against `TELNYX_PUBLIC_KEY`. W6's flag is correct and real,
+  but it's a pre-existing nycmaid gap the port carried over unchanged, not
+  something FL introduced. Confirmed identical on both sides; not fixed here
+  per the leader's scope note (security item, tracked separately).
+- **All 8 `comhub/voice/*` routes — full behavioral parity.** `active`,
+  `cleanup`, `control` (hold/unhold/mute/unmute/hangup/transfer_blind/
+  transfer_warm/speak/dtmf), `dial` (click-to-call), `log-softphone-call`,
+  `presence` (register/heartbeat/unregister), `settings`
+  (ring-strategy/caller-ID/auto-record/auto-transcribe/DND), `token`
+  (per-session Telnyx WebRTC credential mint) — every action, status code,
+  and copy string matches. FL's only additions are `.eq('tenant_id', ...)`
+  scoping on every read/write, `requireAdmin()`/`getCurrentTenantId()`/
+  `getActiveAdminMemberId()` replacing nycmaid's single-tenant
+  `protectAdminAPI()`/`getAdminUser()` + `legacy` PIN-session special-casing,
+  and `resolveTenantVoiceConfig()` (`platform/src/lib/comhub-voice-config.ts`)
+  resolving per-tenant Telnyx credentials with fallback to the same platform
+  env vars nycmaid uses directly. For the nycmaid tenant itself (no
+  `tenants.telnyx_*` row filled in) this resolves to the identical env
+  fallback nycmaid uses today — **zero behavior change**, purely additive
+  multi-tenant plumbing.
+- **`components/comhub/ActiveCallBanner.tsx`** — `diff` is empty, fully
+  identical.
+- Comhub inbox voice/voicemail UI paths were already confirmed byte-for-byte
+  in the ADMIN/COMHUB pass above (zero non-cosmetic diff on the 1576-line
+  page).
+
+### ❌ MISSING — flagged for Jeff, NOT auto-ported
+
+1. **nycmaid's flag-gated "Yinez via xAI" voice-agent SIP transfer feature is
+   entirely absent from FL's ported webhook.** nycmaid commit `25c162b`
+   (`feat(voice): flag-gated routing of 8400/9030 to Yinez over SIP +
+   failover`) added `VOICE_AGENT_ENABLED`/`VOICE_AGENT_NUMBERS`/
+   `XAI_SIP_USERNAME`/`XAI_SIP_PASSWORD` env vars and a `transferToAgent()`
+   function: when a call comes in on a listed number, it transfers the
+   answered leg to xAI's Grok voice agent over a SIP URI
+   (`sip:<e164>@sip.voice.x.ai`) with digest auth, and on success logs
+   `"🤖 Routed to Yinez (AI voice agent)"` + marks the call `bridged` so the
+   missed-call SMS doesn't fire; on failure it falls through to the normal
+   ring/voicemail path. FL's `platform/src/app/api/webhooks/telnyx-voice/route.ts`
+   has none of this code at all — not disabled, not stubbed, just not
+   ported.
+   **Live-impact today: none.** The feature is both flag-gated
+   (`VOICE_AGENT_ENABLED` defaults off) and number-gated
+   (`VOICE_AGENT_NUMBERS` defaults empty) on nycmaid's own source, and I
+   found no evidence in nycmaid's docs/env that either is actually set in
+   prod (checked `PORT-DAY-VOICE.md` / `VAPI-VOICE-SETUP.md` — those
+   describe an *earlier*, apparently-superseded Vapi-based plan referencing
+   different tools/prompts than the xAI code that actually shipped; neither
+   confirms the flag is live). So today, calls behave identically on both
+   sides (straight to ring/voicemail).
+   **Risk:** if Jeff flips `VOICE_AGENT_ENABLED=1` for nycmaid post-cutover
+   expecting the existing xAI routing to keep working, it will silently
+   no-op on FL — calls just ring/voicemail as before, no error, no signal
+   that the feature "went missing." That's the failure mode worth knowing
+   about now rather than discovering it live.
+   **Not auto-ported** — this is a live third-party SIP integration (xAI
+   credentials, a specific number-routing decision) layered on top of a
+   single-tenant assumption, not a pure copy/behavior parity item. Whether to
+   port it (and how it should work multi-tenant — per-tenant AI voice config
+   the same way Telnyx creds now are) is a product call for Jeff, not
+   something to silently recreate.
+   **Side note, not a new finding:** nycmaid commit `6b93952` briefly
+   defaulted `ADMIN_RING_LIST` to `+16464900130` (the same unexplained
+   number flagged as DRIFT #3 in my ADMIN/COMHUB pass above) before a later
+   commit changed the default back to `+12122028400` — current nycmaid HEAD
+   and FL both use `+12122028400`. This only *partially* explains the mystery
+   number (it was briefly a voice fallback default) — it doesn't explain the
+   number's presence in marketing copy/email templates, so DRIFT #3 stands
+   as flagged, not resolved by this.
+
+### Push notifications — not verified here, owned by W4
+
+Per the leader's own 10:32 PARITY-DIFF order, push notifications are
+explicitly in **W4's** `FUNNEL+PORTAL+PAYMENT` lane
+(`"...referral+referrer portal, push notifications, waitlist/$10 path"`). As
+of this check, W4 has not yet posted a completion report against that order.
+Per the standing rule against duplicating another worker's assigned lane, I
+did not re-diff push notifications — flagging the ownership + open status
+here so it doesn't fall through a crack between our two reports.
+
+### Tally
+
+- ✅ MATCH: telnyx-voice webhook core state machine + copy (incl. the
+  never-verifies-signature gap, confirmed identical not regressed), all 8
+  comhub/voice/* routes, ActiveCallBanner.tsx
+- ⚠️ DRIFT: 0 new (ADMIN_RING_LIST/`comhub_admin_presence` non-tenant-scoped
+  read inside the webhook matches nycmaid's original single-tenant behavior
+  exactly — pre-existing multi-tenant gap already tracked by W3's ADR-0003 and
+  partially fixed on sibling branch p1-w4 commit `3ac215ee`, not yet merged
+  here; not re-flagged as new)
+- ❌ MISSING: 1 (xAI/Yinez voice-agent SIP-transfer feature, flag-gated
+  inert on both sides today — flagged for Jeff, not auto-ported)
+- Push notifications: deferred to W4 (owns that lane), not duplicated
+- No code changes this session — pure diff/audit, no commit needed beyond
+  this doc.
