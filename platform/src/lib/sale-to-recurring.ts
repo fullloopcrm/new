@@ -57,6 +57,58 @@ export async function createRecurringSeriesFromQuote(
     throw new Error(`Can only convert accepted quotes (current: ${quote.status})`)
   }
 
+  // Atomic claim: only a still-'accepted', not-yet-converted, not-yet-claimed
+  // quote can proceed past this point. Concurrent callers (e.g. the public
+  // accept endpoint retried, or an admin re-triggering close) race this
+  // UPDATE — the loser gets null back instead of falling through to create a
+  // duplicate schedule + up to 7 weeks of duplicate bookings. Shares
+  // `converted_at` with createJobFromQuote / createBookingFromQuote as the
+  // claim marker since it's exclusive per quote regardless of which
+  // conversion path wins.
+  const { data: claim } = await supabaseAdmin
+    .from('quotes')
+    .update({ converted_at: new Date().toISOString() })
+    .eq('id', quoteId).eq('tenant_id', tenantId)
+    .eq('status', 'accepted')
+    .is('converted_schedule_id', null)
+    .is('converted_at', null)
+    .select('id')
+    .maybeSingle()
+
+  if (!claim) {
+    // Already claimed (in flight or finished) by a concurrent call. If the
+    // winner already finished, return its schedule id; otherwise surface a
+    // retryable conflict instead of silently creating a duplicate series.
+    const { data: latest } = await supabaseAdmin
+      .from('quotes')
+      .select('converted_schedule_id')
+      .eq('id', quoteId)
+      .maybeSingle()
+    if (latest?.converted_schedule_id) {
+      return { schedule_id: latest.converted_schedule_id as string, bookings_created: 0, already_converted: true }
+    }
+    throw new Error('Quote conversion already in progress')
+  }
+
+  try {
+    return await createSeriesAfterClaim(tenantId, quoteId, quote)
+  } catch (err) {
+    // Creation failed after the claim succeeded — release it so a retry
+    // isn't permanently blocked by a stuck "conversion in progress" error.
+    await supabaseAdmin
+      .from('quotes')
+      .update({ converted_at: null })
+      .eq('id', quoteId)
+      .eq('tenant_id', tenantId)
+    throw err
+  }
+}
+
+async function createSeriesAfterClaim(
+  tenantId: string,
+  quoteId: string,
+  quote: Record<string, unknown>,
+): Promise<{ schedule_id: string; bookings_created: number; already_converted: boolean }> {
   // Resolve or create the client (identical to createJobFromQuote).
   let clientId = quote.client_id as string | null
   if (!clientId) {
