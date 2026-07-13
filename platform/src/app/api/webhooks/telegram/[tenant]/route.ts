@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { claimWebhookEvent } from '@/lib/webhook-dedupe'
 
 export const maxDuration = 60
 
@@ -55,7 +56,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   const botToken = decryptSecret(tenant.telegram_bot_token)
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
-  let body: { message?: TgPost; channel_post?: TgPost } = {}
+  let body: { update_id?: number; message?: TgPost; channel_post?: TgPost } = {}
   try {
     body = await req.json()
   } catch {
@@ -67,6 +68,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   const chatId = post?.chat?.id
   const text = post?.text
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
+
+  // Dedupe on update_id, namespaced per tenant slug — each tenant runs its own
+  // bot, so update_id alone isn't globally unique. Claim before any side effect.
+  const eventId = body.update_id != null ? `${tenant.slug}:${body.update_id}` : undefined
+  if (!(await claimWebhookEvent('telegram', eventId, tenant.id))) {
+    return NextResponse.json({ ok: true, deduped: true })
+  }
 
   // Auth: the update must come from this tenant's registered owner chat.
   if (tenant.telegram_chat_id && String(chatId) !== String(tenant.telegram_chat_id)) {

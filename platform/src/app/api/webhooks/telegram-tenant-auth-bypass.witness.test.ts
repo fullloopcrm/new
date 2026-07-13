@@ -79,6 +79,8 @@ vi.mock('@/lib/supabase', () => {
 
 import { POST } from './telegram/[tenant]/route'
 
+let nextUpdateId = 1
+
 function forgedUpdate(
   chatId: string,
   headers: Record<string, string> = {},
@@ -86,7 +88,9 @@ function forgedUpdate(
   return new Request('http://localhost/api/webhooks/telegram/victim', {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify({ message: { chat: { id: chatId }, text: 'run a report' } }),
+    // update_id is a required field on every real Telegram update; the dedupe
+    // claim fails closed without one, so each forged request needs a fresh id.
+    body: JSON.stringify({ update_id: nextUpdateId++, message: { chat: { id: chatId }, text: 'run a report' } }),
   })
 }
 

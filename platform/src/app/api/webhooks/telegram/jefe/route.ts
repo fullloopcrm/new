@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { askJefe } from '@/lib/jefe/agent'
 import { loadJefeHistory, saveJefeTurn } from '@/lib/jefe/actions'
 import { sendTelegram } from '@/lib/telegram'
+import { claimWebhookEvent } from '@/lib/webhook-dedupe'
 
 export const maxDuration = 60
 
@@ -18,13 +19,20 @@ export async function POST(req: Request) {
   if (!BOT_TOKEN) return NextResponse.json({ ok: true, skip: 'no_jefe_bot_token' })
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
-  let body: { message?: TgPost; channel_post?: TgPost } = {}
+  let body: { update_id?: number; message?: TgPost; channel_post?: TgPost } = {}
   try { body = await req.json() } catch { return NextResponse.json({ ok: true, parse: 'failed' }) }
 
   const post = body.message || body.channel_post
   const chatId = post?.chat?.id
   const text = post?.text
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
+
+  // Dedupe on update_id, namespaced to this bot — Telegram's update_id is only
+  // unique per bot. Claim before any side effect.
+  const eventId = body.update_id != null ? `jefe:${body.update_id}` : undefined
+  if (!(await claimWebhookEvent('telegram', eventId))) {
+    return NextResponse.json({ ok: true, deduped: true })
+  }
 
   if (OWNER_CHAT_ID && String(chatId) !== String(OWNER_CHAT_ID)) {
     await sendTelegram(chatId, 'This bot is private.', BOT_TOKEN)

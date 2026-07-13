@@ -1,9 +1,23 @@
 # Design note — fail-closed check-and-insert webhook dedupe helper
 
-**Status:** design only. No handler is wired up in this pass (W6, 2026-07-12,
-branch `p1-w6`). Pairs with the migration file
-`platform/src/lib/migrations/2026_07_12_processed_webhook_events.sql` and the
-findings in `deploy-prep/webhook-idempotency-audit.md` (finding #3).
+**Status:** wired (W6, 2026-07-13, branch `p1-w6`). `platform/src/lib/webhook-dedupe.ts`
+now implements this exactly as designed below, and all five handlers listed in
+"Per-handler wiring" call it before their side effects — code + tests are in
+this branch. **The migration itself is still FILE-ONLY** —
+`platform/src/lib/migrations/2026_07_12_processed_webhook_events.sql` has NOT
+been run against prod. Leader/Jeff must apply it before this code path is live
+(the ledger table doesn't exist yet, so every claim call will error until it
+does — see the migration file's own header for the exact `psql` command).
+Pairs with the findings in `deploy-prep/webhook-idempotency-audit.md` (finding #3).
+
+One deviation from the original plan below: the telegram claim site moved to
+the very top of `POST` (before the allowlist/auth check, not after) so the
+"This bot is private." rejection reply is deduped too, not just the
+agent-driven path — simpler single call site, no behavioral downside since
+`processed_webhook_events` rows are pruned by `received_at` regardless. The
+`update_id` cross-bot-collision risk flagged below was resolved by namespacing:
+`owner:<update_id>` (telegram/route.ts), `<tenant-slug>:<update_id>`
+(telegram/[tenant]/route.ts), `jefe:<update_id>` (telegram/jefe/route.ts).
 
 ## Problem
 

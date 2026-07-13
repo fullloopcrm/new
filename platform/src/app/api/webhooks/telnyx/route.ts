@@ -7,6 +7,7 @@ import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
+import { claimWebhookEvent } from '@/lib/webhook-dedupe'
 
 export const maxDuration = 60
 
@@ -126,6 +127,14 @@ export async function POST(request: Request) {
     }
 
     const tenantId = tenant.id
+
+    // Dedupe on the Telnyx message id — a redelivered inbound SMS must not
+    // re-run the agent or re-send the outbound reply. Claim before any side
+    // effect (the owner-routing insert below is the first one).
+    if (!(await claimWebhookEvent('telnyx', event.payload?.id, tenantId))) {
+      return NextResponse.json({ received: true, deduped: true })
+    }
+
     const normalizedText = text.trim().toUpperCase()
 
     // Owner inbound — if this SMS is from the tenant's OWNER (not a client), it's

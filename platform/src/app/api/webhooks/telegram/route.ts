@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
+import { claimWebhookEvent } from '@/lib/webhook-dedupe'
 
 export const maxDuration = 60
 
@@ -46,7 +47,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  let body: { message?: { chat?: { id?: number | string }; text?: string } } = {}
+  let body: { update_id?: number; message?: { chat?: { id?: number | string }; text?: string } } = {}
   try {
     body = await req.json()
   } catch {
@@ -58,6 +59,14 @@ export async function POST(req: Request) {
   const text = msg?.text
 
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
+
+  // Dedupe on update_id (namespaced — Telegram's update_id is only unique per
+  // bot, and this platform runs several). Claim before ANY side effect,
+  // including the "This bot is private." rejection reply.
+  const eventId = body.update_id != null ? `owner:${body.update_id}` : undefined
+  if (!(await claimWebhookEvent('telegram', eventId))) {
+    return NextResponse.json({ ok: true, deduped: true })
+  }
 
   if (!ALLOWED_CHAT_IDS.has(String(chatId))) {
     await sendTelegram(chatId, 'This bot is private.')

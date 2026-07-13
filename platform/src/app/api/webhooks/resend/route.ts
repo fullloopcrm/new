@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifySvix } from '@/lib/webhook-verify'
+import { claimWebhookEvent } from '@/lib/webhook-dedupe'
 
 export async function POST(request: Request) {
   try {
@@ -29,6 +30,10 @@ export async function POST(request: Request) {
     // Inbound email (Resend "Enable Receiving") → store for the admin inbox.
     if (type === 'email.received') {
       const d = data as unknown as Record<string, unknown>
+      const eventId = (d.email_id as string) || (d.id as string) || request.headers.get('svix-id') || undefined
+      if (!(await claimWebhookEvent('resend', eventId))) {
+        return NextResponse.json({ ok: true, deduped: true })
+      }
       const join = (v: unknown) =>
         Array.isArray(v) ? v.map(String).join(', ') : typeof v === 'string' ? v : null
       await supabaseAdmin.from('inbound_emails').insert({

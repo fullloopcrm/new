@@ -1,19 +1,16 @@
 /**
- * WITNESS TEST — documents CURRENT (buggy) behavior, not desired behavior.
+ * REGRESSION TEST — was a WITNESS test documenting the bug from audit finding
+ * #3 (`telegram/route.ts` never read `update_id`, so it had NO replay dedupe;
+ * Telegram redelivers any update on a non-2xx/timeout, reprocessing it and
+ * re-sending the bot's reply — on an allowlisted chat that means re-running
+ * the AI agent). Now that `claimWebhookEvent('telegram', `owner:${update_id}`)`
+ * is wired in at the top of `POST` (see
+ * deploy-prep/webhook-dedupe-helper-design.md), this asserts the fix via the
+ * shortest side-effecting branch (the "This bot is private." reply), which
+ * needs no agent/convo mocking — the claim sits above that branch too.
  *
- * Proves audit finding #3: `telegram/route.ts` never reads `update_id`, so it
- * has NO replay dedupe. Telegram redelivers any update on a non-2xx/timeout, so
- * an identical update is reprocessed and the bot re-sends its reply. On an
- * allowlisted chat that means re-running the AI agent; here we show the same
- * missing-dedupe defect via the shortest side-effecting branch (the
- * "This bot is private." reply), which needs no agent/convo mocking.
- *
- * This asserts the duplicate send DOES happen today; it should start FAILING
- * once `claimWebhookEvent('telegram', body.update_id)` is wired in
- * (deploy-prep/webhook-dedupe-helper-design.md).
- *
- * No route edits. Drives the real POST handler twice with an identical update
- * (same update_id).
+ * No route edits beyond the dedupe wiring. Drives the real POST handler twice
+ * with an identical update (same update_id).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -22,9 +19,26 @@ const { sendTelegram } = vi.hoisted(() => ({ sendTelegram: vi.fn().mockResolvedV
 
 vi.mock('@/lib/telegram', () => ({ sendTelegram }))
 vi.mock('@/lib/selena/agent', () => ({ askSelena: vi.fn() }))
+
+// Simulate the real UNIQUE(provider, event_id) constraint on
+// processed_webhook_events with an in-memory claimed set.
+const claimed = new Set<string>()
+
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
-    from() {
+    from(table: string) {
+      if (table === 'processed_webhook_events') {
+        return {
+          insert(payload: { provider: string; event_id: string }) {
+            const key = `${payload.provider}:${payload.event_id}`
+            if (claimed.has(key)) {
+              return Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } })
+            }
+            claimed.add(key)
+            return Promise.resolve({ data: null, error: null })
+          },
+        }
+      }
       return {
         select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }),
         insert: () => ({ then: (r: (v: unknown) => unknown) => Promise.resolve({}).then(r) }),
@@ -46,20 +60,32 @@ function update(updateId: number): Request {
   })
 }
 
-describe('telegram update idempotency (WITNESS: currently non-idempotent)', () => {
+describe('telegram update idempotency (FIXED: claimWebhookEvent wired in)', () => {
   beforeEach(() => {
     sendTelegram.mockClear()
+    claimed.clear()
   })
 
-  it('reprocesses and re-replies to the SAME update_id on a replay', async () => {
+  it('replies once, then dedupes a replay of the SAME update_id', async () => {
     const first = await POST(update(42))
     const second = await POST(update(42)) // identical update_id — a true replay
 
     expect(first.status).toBe(200)
     expect(second.status).toBe(200)
+    expect(await second.json()).toMatchObject({ deduped: true })
 
-    // The bug: no update_id dedupe → the replay is processed again and the bot
-    // sends a second outbound Telegram message.
+    // The fix: the replay is deduped before the "This bot is private." reply
+    // fires again — only one outbound Telegram send total.
+    expect(sendTelegram).toHaveBeenCalledTimes(1)
+  })
+
+  it('still processes a different update_id normally', async () => {
+    const first = await POST(update(43))
+    const second = await POST(update(44))
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+
     expect(sendTelegram).toHaveBeenCalledTimes(2)
   })
 })
