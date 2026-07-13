@@ -196,12 +196,16 @@ export async function GET(request: Request) {
       if (lastDate <= thirtyDaysOut && lastDate >= now) {
         const clientName = schedule.clients?.name || 'Unknown'
 
-        // Check if already notified within 7 days
+        // Check if already notified within 7 days — scoped to this client +
+        // recurring type (nycmaid parity). Without the `.like` scope, one
+        // expiring schedule firing would suppress every OTHER expiring
+        // schedule's warning for the same tenant for a week.
         const { data: existingNotif } = await supabaseAdmin
           .from('notifications')
           .select('id')
           .eq('tenant_id', tenantId)
           .eq('type', 'recurring_expiring' as string)
+          .like('message', `%${clientName}%${schedule.recurring_type}%`)
           .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
           .limit(1)
 
