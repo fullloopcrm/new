@@ -539,13 +539,19 @@ export default function TeamHomePage() {
       lat = pos.coords.latitude; lng = pos.coords.longitude
     } catch { /* continue without GPS */ }
 
-    const res = await fetch('/api/team-portal/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ booking_id: jobId, lat, lng }),
-    })
-    if (res.ok) fetchData()
-    setCheckingOut(null)
+    try {
+      const res = await fetch('/api/team-portal/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ booking_id: jobId, lat, lng }),
+      })
+      if (res.ok) fetchData()
+      else alert(t('Failed to check out. Please try again.', 'Error al finalizar. Intenta de nuevo.'))
+    } catch {
+      alert(t('Failed to check out. Please try again.', 'Error al finalizar. Intenta de nuevo.'))
+    } finally {
+      setCheckingOut(null)
+    }
   }
 
   async function handleHeadsUp(job: Job) {
@@ -586,20 +592,25 @@ export default function TeamHomePage() {
   async function claimJob(jobId: string) {
     if (!auth) return
     setClaimingJob(jobId)
-    const res = await fetch('/api/team-portal/jobs/claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ booking_id: jobId }),
-    })
-    const data = await res.json()
-    if (res.ok) {
-      alert(data.message || t('Job claimed!', '¡Trabajo reclamado!'))
-      setAvailableJobs((prev) => prev.filter((j) => j.id !== jobId))
-      fetchData()
-    } else {
-      alert(data.error || t('Failed to claim job', 'Error al reclamar'))
+    try {
+      const res = await fetch('/api/team-portal/jobs/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ booking_id: jobId }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        alert(data.message || t('Job claimed!', '¡Trabajo reclamado!'))
+        setAvailableJobs((prev) => prev.filter((j) => j.id !== jobId))
+        fetchData()
+      } else {
+        alert(data.error || t('Failed to claim job', 'Error al reclamar'))
+      }
+    } catch {
+      alert(t('Failed to claim job', 'Error al reclamar'))
+    } finally {
+      setClaimingJob(null)
     }
-    setClaimingJob(null)
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
