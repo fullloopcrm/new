@@ -12,6 +12,7 @@ import { buildAgreementPdf } from '@/lib/agreement-pdf'
 import { computeMonthly } from '@/lib/billing-pricing'
 import { DOCUMENTS_BUCKET, documentOriginalPath, generateSignerToken, sha256Hex } from '@/lib/documents'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml, safeUrl } from '@/lib/escape-html'
 
 // Platform tenant that owns platform-level sales agreements.
 const FULL_LOOP_TENANT = '117968d2-24a1-42b5-96bd-7022e4e838ee'
@@ -130,11 +131,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       html: `
         <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0f172a;">
           <div style="font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#0d9488;margin-bottom:16px;">Full Loop CRM</div>
-          <h1 style="font-size:21px;margin:0 0 12px;">Welcome aboard, ${lead.contact_name?.split(' ')[0] || 'there'} — this is the fun part</h1>
-          <p style="color:#475569;font-size:14px;line-height:1.65;margin:0 0 14px;">We're genuinely excited to have you${lead.business_name ? ` and <strong>${lead.business_name}</strong>` : ''} on the way in. Your service agreement is ready whenever you are.</p>
+          <h1 style="font-size:21px;margin:0 0 12px;">Welcome aboard, ${escapeHtml(lead.contact_name?.split(' ')[0] || 'there')} — this is the fun part</h1>
+          <p style="color:#475569;font-size:14px;line-height:1.65;margin:0 0 14px;">We're genuinely excited to have you${lead.business_name ? ` and <strong>${escapeHtml(lead.business_name)}</strong>` : ''} on the way in. Your service agreement is ready whenever you are.</p>
           <p style="color:#475569;font-size:14px;line-height:1.65;margin:0 0 20px;">Give it a read and sign right from your phone or laptop — it takes a minute. Once you sign, we countersign, and a fully-signed copy lands in your inbox. Then the real work starts: we get your setup rolling.</p>
           <div style="margin:0 0 22px;">
-            <a href="${signUrl}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;padding:14px 30px;border-radius:8px;font-weight:600;font-size:15px;">Review &amp; sign →</a>
+            <a href="${safeUrl(signUrl)}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;padding:14px 30px;border-radius:8px;font-weight:600;font-size:15px;">Review &amp; sign →</a>
           </div>
           <p style="color:#475569;font-size:14px;line-height:1.65;margin:0 0 20px;">Any questions before you sign? Just hit reply — a real person answers, and we're happy to walk through anything.</p>
           <div style="border-top:1px solid #e2e8f0;padding-top:16px;color:#94a3b8;font-size:12px;line-height:1.6;">

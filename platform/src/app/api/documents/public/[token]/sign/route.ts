@@ -15,6 +15,7 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
+import { escapeHtml, safeUrl } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -225,17 +226,18 @@ async function sendCompletionCopies(
   const b64 = Buffer.from(await blob.arrayBuffer()).toString('base64')
   const filename = `${(doc.title || 'agreement').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 60) || 'agreement'}-signed.pdf`
   const completedAt = new Date().toLocaleString('en-US')
-  const roster = signers.map(s => `${s.name}${s.email ? ` (${s.email})` : ''}`).join(', ')
+  const roster = signers.map(s => `${escapeHtml(s.name)}${s.email ? ` (${escapeHtml(s.email)})` : ''}`).join(', ')
+  const safeTitle = escapeHtml(doc.title)
 
   for (const s of recipients) {
     const html = `
       <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0f172a;">
         <div style="font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#0d9488;margin-bottom:16px;">Full Loop CRM</div>
         <h1 style="font-size:20px;margin:0 0 10px;">All signed — here's your copy</h1>
-        <p style="color:#475569;font-size:14px;line-height:1.65;margin:0 0 14px;">Hi ${s.name.split(' ')[0]}, "${doc.title}" is now fully signed by all parties. Your signed copy is attached to this email as a PDF — keep it for your records.</p>
+        <p style="color:#475569;font-size:14px;line-height:1.65;margin:0 0 14px;">Hi ${escapeHtml(s.name.split(' ')[0])}, "${safeTitle}" is now fully signed by all parties. Your signed copy is attached to this email as a PDF — keep it for your records.</p>
         <div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;font-size:13px;color:#475569;line-height:1.7;margin:0 0 18px;">
           <strong style="color:#0f172a;">Receipt</strong><br/>
-          Document: ${doc.title}<br/>
+          Document: ${safeTitle}<br/>
           Signed by: ${roster}<br/>
           Completed: ${completedAt}<br/>
           A full audit trail (timestamps + IP for each signer) is on the last page of the attached PDF.
@@ -445,7 +447,7 @@ async function sendSigningInviteToSigner(
       await sendEmail({
         to: next.email,
         subject: `${tenant.name}: you're up — ${doc.title}`,
-        html: `<p>Hi ${next.name}, the prior signer has completed their portion. Please sign here: <a href="${encodeURI(signUrl)}">${signUrl}</a></p>`,
+        html: `<p>Hi ${escapeHtml(next.name)}, the prior signer has completed their portion. Please sign here: <a href="${safeUrl(signUrl)}">${escapeHtml(signUrl)}</a></p>`,
         from: fromEmail,
         resendApiKey: resendKey,
       })
