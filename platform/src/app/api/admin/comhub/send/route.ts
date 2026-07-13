@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { sendSMS } from '@/lib/sms'
@@ -11,29 +12,30 @@ async function resolveMentions(tenantId: string, body: string): Promise<string[]
   const handles = Array.from(new Set((body.match(/@([a-zA-Z][a-zA-Z0-9_.-]{0,30})/g) || []).map(s => s.slice(1))))
   if (handles.length === 0) return []
 
+  const db = tenantDb(tenantId)
   const userIds = new Set<string>()
   if (handles.includes('here') || handles.includes('channel') || handles.includes('all')) {
-    const { data } = await supabaseAdmin
+    const { data } = await db
       .from('tenant_members')
       .select('id')
-      .eq('tenant_id', tenantId)
-    for (const u of data || []) userIds.add(u.id as string)
+    const rows = (data || []) as unknown as { id: string }[]
+    for (const u of rows) userIds.add(u.id)
     return Array.from(userIds)
   }
 
   const namedHandles = handles.filter(h => h !== 'here' && h !== 'channel' && h !== 'all')
   if (namedHandles.length === 0) return []
-  const { data } = await supabaseAdmin
+  const { data } = await db
     .from('tenant_members')
     .select('id, name, email')
-    .eq('tenant_id', tenantId)
-  for (const u of data || []) {
+  const rows = (data || []) as unknown as { id: string; name: string | null; email: string | null }[]
+  for (const u of rows) {
     const lcName = (u.name || '').toLowerCase()
     const lcEmail = (u.email || '').toLowerCase()
     for (const h of namedHandles) {
       const lh = h.toLowerCase()
       if (lcName.startsWith(lh) || lcName.includes(lh) || lcEmail.startsWith(lh)) {
-        userIds.add(u.id as string)
+        userIds.add(u.id)
       }
     }
   }
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   // Comms go out on THIS tenant's own channels (profile creds), never a global.
   const { data: tenant } = await supabaseAdmin
@@ -72,18 +75,17 @@ export async function POST(req: NextRequest) {
   // Web (portal) reply
   if (body.channel === 'web') {
     if (!body.thread_id) return NextResponse.json({ error: 'thread_id required for web' }, { status: 400 })
-    const { data: t } = await supabaseAdmin
+    const { data: tRaw } = await db
       .from('comhub_threads')
       .select('id, contact_id')
       .eq('id', body.thread_id)
-      .eq('tenant_id', tenantId)
       .single()
+    const t = tRaw as unknown as { id: string; contact_id: string } | null
     if (!t) return NextResponse.json({ error: 'thread not found' }, { status: 404 })
 
-    const { data: msg, error: insErr } = await supabaseAdmin
+    const { data: msg, error: insErr } = await db
       .from('comhub_messages')
       .insert({
-        tenant_id: tenantId,
         thread_id: body.thread_id,
         contact_id: t.contact_id,
         channel: 'web',
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
       .single()
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
 
-    await supabaseAdmin
+    await db
       .from('comhub_threads')
       .update({
         last_message_at: msg.sent_at,
@@ -105,7 +107,6 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', body.thread_id)
-      .eq('tenant_id', tenantId)
 
     return NextResponse.json({ ok: true, message_id: msg.id, thread_id: body.thread_id })
   }
@@ -113,22 +114,21 @@ export async function POST(req: NextRequest) {
   // Internal channel post
   if (body.channel === 'internal') {
     if (!body.thread_id) return NextResponse.json({ error: 'thread_id required for internal channel' }, { status: 400 })
-    const { data: ch } = await supabaseAdmin
+    const { data: chRaw } = await db
       .from('comhub_threads')
       .select('id, kind, name, slug')
       .eq('id', body.thread_id)
-      .eq('tenant_id', tenantId)
       .single()
+    const ch = chRaw as unknown as { id: string; kind: string; name: string | null; slug: string | null } | null
     if (!ch || ch.kind !== 'channel') {
       return NextResponse.json({ error: 'thread is not an internal channel' }, { status: 400 })
     }
 
     const authorId = body.author_id || null
 
-    const { data: msg, error: insErr } = await supabaseAdmin
+    const { data: msg, error: insErr } = await db
       .from('comhub_messages')
       .insert({
-        tenant_id: tenantId,
         thread_id: body.thread_id,
         contact_id: null,
         channel: 'internal',
@@ -145,9 +145,8 @@ export async function POST(req: NextRequest) {
     const mentionedIds = await resolveMentions(tenantId, body.body)
     const others = mentionedIds.filter(uid => uid !== authorId)
     if (others.length > 0) {
-      await supabaseAdmin.from('comhub_mentions').insert(
+      await db.from('comhub_mentions').insert(
         others.map(uid => ({
-          tenant_id: tenantId,
           user_id: uid,
           thread_id: body.thread_id,
           message_id: msg.id,
@@ -156,7 +155,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    await supabaseAdmin
+    await db
       .from('comhub_threads')
       .update({
         last_message_at: msg.sent_at,
@@ -164,7 +163,6 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', body.thread_id)
-      .eq('tenant_id', tenantId)
 
     return NextResponse.json({ ok: true, message_id: msg.id, thread_id: body.thread_id, mentioned: others.length })
   }
@@ -176,23 +174,23 @@ export async function POST(req: NextRequest) {
   let email: string | null = body.email || null
 
   if (threadId && !contactId) {
-    const { data: t } = await supabaseAdmin
+    const { data: tRaw } = await db
       .from('comhub_threads')
       .select('id, contact_id, channel')
       .eq('id', threadId)
-      .eq('tenant_id', tenantId)
       .single()
+    const t = tRaw as unknown as { id: string; contact_id: string; channel: string } | null
     if (!t) return NextResponse.json({ error: 'thread not found' }, { status: 404 })
     contactId = t.contact_id
   }
 
   if (contactId && (!phone && !email)) {
-    const { data: c } = await supabaseAdmin
+    const { data: cRaw } = await db
       .from('comhub_contacts')
       .select('phone, email')
       .eq('id', contactId)
-      .eq('tenant_id', tenantId)
       .single()
+    const c = cRaw as unknown as { phone: string | null; email: string | null } | null
     if (c) { phone = phone || c.phone; email = email || c.email }
   }
 
@@ -232,10 +230,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: e instanceof Error ? e.message : 'sms send failed' }, { status: 502 })
     }
 
-    const { data: msg, error: insErr } = await supabaseAdmin
+    const { data: msg, error: insErr } = await db
       .from('comhub_messages')
       .insert({
-        tenant_id: tenantId,
         thread_id: threadId,
         contact_id: contactId,
         channel: 'sms',
@@ -252,7 +249,7 @@ export async function POST(req: NextRequest) {
 
     // Auto-pause Yinez on this thread for 30 minutes.
     const pauseUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString()
-    await supabaseAdmin
+    await db
       .from('comhub_threads')
       .update({
         last_message_at: msg.sent_at,
@@ -261,7 +258,6 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', threadId)
-      .eq('tenant_id', tenantId)
 
     return NextResponse.json({ ok: true, message_id: msg.id, thread_id: threadId, bot_paused_until: pauseUntil })
   }
@@ -296,10 +292,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'email send failed', detail: e instanceof Error ? e.message : String(e) }, { status: 502 })
     }
 
-    const { data: msg, error: insErr } = await supabaseAdmin
+    const { data: msg, error: insErr } = await db
       .from('comhub_messages')
       .insert({
-        tenant_id: tenantId,
         thread_id: threadId,
         contact_id: contactId,
         channel: 'email',
@@ -315,7 +310,7 @@ export async function POST(req: NextRequest) {
       .single()
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
 
-    await supabaseAdmin
+    await db
       .from('comhub_threads')
       .update({
         last_message_at: msg.sent_at,
@@ -324,7 +319,6 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', threadId)
-      .eq('tenant_id', tenantId)
 
     return NextResponse.json({ ok: true, message_id: msg.id, thread_id: threadId })
   }
