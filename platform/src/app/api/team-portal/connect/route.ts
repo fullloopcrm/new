@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -10,26 +11,31 @@ export async function GET(request: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   try {
+    const db = tenantDb(auth.tid)
+    // tenantDb's select() widens the columns literal to `string`, so
+    // postgrest-js can't statically parse the result shape here — cast at
+    // this boundary (see admin/comhub/threads/[id]/route.ts for precedent).
+    type ChannelRow = { id: string }
+
     // Find or create general channel
-    let { data: channel } = await supabaseAdmin
+    let { data: channel } = (await db
       .from('connect_channels')
       .select('id')
-      .eq('tenant_id', auth.tid)
       .eq('type', 'general')
-      .single()
+      .single()) as unknown as { data: ChannelRow | null }
 
     if (!channel) {
-      const { data: created } = await supabaseAdmin
+      const { data: created } = (await db
         .from('connect_channels')
-        .insert({ tenant_id: auth.tid, type: 'general', name: 'General' })
+        .insert({ type: 'general', name: 'General' })
         .select('id')
-        .single()
+        .single()) as unknown as { data: ChannelRow | null }
       channel = created
     }
 
     if (!channel) return NextResponse.json({ messages: [] })
 
-    const { data: messages } = await supabaseAdmin
+    const { data: messages } = await db
       .from('connect_messages')
       .select('id, sender_type, sender_id, sender_name, body, created_at')
       .eq('channel_id', channel.id)
@@ -37,12 +43,11 @@ export async function GET(request: NextRequest) {
       .limit(200)
 
     // Update read cursor
-    await supabaseAdmin
+    await db
       .from('connect_read_cursors')
       .upsert(
         {
           channel_id: channel.id,
-          tenant_id: auth.tid,
           reader_type: 'team',
           reader_id: auth.id,
           last_read_at: new Date().toISOString(),
@@ -67,6 +72,12 @@ export async function POST(request: NextRequest) {
   if (!body?.trim()) return NextResponse.json({ error: 'Body required' }, { status: 400 })
 
   try {
+    const db = tenantDb(auth.tid)
+    // tenantDb's select() widens the columns literal to `string`, so
+    // postgrest-js can't statically parse the result shape here — cast at
+    // this boundary (see admin/comhub/threads/[id]/route.ts for precedent).
+    type ChannelRow = { id: string }
+
     // Get member name
     const { data: member } = await supabaseAdmin
       .from('team_members')
@@ -78,19 +89,18 @@ export async function POST(request: NextRequest) {
 
     // If no channel_id provided, use general channel
     if (!targetChannelId) {
-      let { data: channel } = await supabaseAdmin
+      let { data: channel } = (await db
         .from('connect_channels')
         .select('id')
-        .eq('tenant_id', auth.tid)
         .eq('type', 'general')
-        .single()
+        .single()) as unknown as { data: ChannelRow | null }
 
       if (!channel) {
-        const { data: created } = await supabaseAdmin
+        const { data: created } = (await db
           .from('connect_channels')
-          .insert({ tenant_id: auth.tid, type: 'general', name: 'General' })
+          .insert({ type: 'general', name: 'General' })
           .select('id')
-          .single()
+          .single()) as unknown as { data: ChannelRow | null }
         channel = created
       }
 
@@ -99,11 +109,19 @@ export async function POST(request: NextRequest) {
 
     if (!targetChannelId) return NextResponse.json({ error: 'No channel' }, { status: 400 })
 
-    const { data, error } = await supabaseAdmin
+    // Verify the target channel belongs to this tenant before writing to it
+    // (targetChannelId may come straight from the request body).
+    const { data: verifiedChannel } = (await db
+      .from('connect_channels')
+      .select('id')
+      .eq('id', targetChannelId)
+      .single()) as unknown as { data: ChannelRow | null }
+    if (!verifiedChannel) return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
+
+    const { data, error } = await db
       .from('connect_messages')
       .insert({
         channel_id: targetChannelId,
-        tenant_id: auth.tid,
         sender_type: 'team',
         sender_id: auth.id,
         sender_name: member?.name || 'Team Member',
@@ -115,12 +133,11 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Update read cursor
-    await supabaseAdmin
+    await db
       .from('connect_read_cursors')
       .upsert(
         {
           channel_id: targetChannelId,
-          tenant_id: auth.tid,
           reader_type: 'team',
           reader_id: auth.id,
           last_read_at: new Date().toISOString(),
