@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -11,10 +11,9 @@ export async function GET(request: NextRequest) {
 
   // Try notifications table first, fall back to empty
   try {
-    const { data } = await supabaseAdmin
+    const { data } = await tenantDb(auth.tid)
       .from('notifications')
       .select('id, title, message, type, read, booking_id, created_at')
-      .eq('tenant_id', auth.tid)
       .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
       .order('created_at', { ascending: false })
       .limit(50)
@@ -36,18 +35,16 @@ export async function PUT(request: NextRequest) {
 
   try {
     if (body.mark_all_read) {
-      await supabaseAdmin
+      await tenantDb(auth.tid)
         .from('notifications')
         .update({ read: true })
-        .eq('tenant_id', auth.tid)
         .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
         .eq('read', false)
     } else if (body.id) {
-      await supabaseAdmin
+      await tenantDb(auth.tid)
         .from('notifications')
         .update({ read: true })
         .eq('id', body.id)
-        .eq('tenant_id', auth.tid)
     }
   } catch {
     // Table may not exist yet
