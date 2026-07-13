@@ -41,12 +41,13 @@
 --
 -- ── SOURCE OF TRUTH ─────────────────────────────────────────────────────────
 --   scripts/audit-tenant-scope.mjs → TENANT_TABLES (auto-derived: every table
---   in the live DB that carries a tenant_id column). 132 tables. This migration
---   covers all of them EXCEPT the 3 deny-all exclusions below (→129), and ADDS
---   the 3 platform tables that already carry tenant_isolation (to give them
---   WITH CHECK), PLUS 3 tenant tables from migration 008 that had RLS enabled
---   but no policy (see the migration-008 NOTE). 129 + 3 + 3 = 135 tables getting
---   tenant_isolation.
+--   in the live DB that carries a tenant_id column). 135 tables — this already
+--   includes the migration-008 trio (cleaner_broadcasts,
+--   cleaner_broadcast_recipients, google_posts) via the companion change noted
+--   below. This migration covers all of them EXCEPT the 3 deny-all exclusions
+--   below (→132), and ADDS the 3 platform tables that already carry
+--   tenant_isolation (to give them WITH CHECK) but are not themselves in
+--   TENANT_TABLES. 132 + 3 = 135 tables getting tenant_isolation.
 --
 -- ── TABLES GETTING `tenant_isolation` (135) ─────────────────────────────────
 --   accounting_periods, admin_tasks, ai_usage, audit_log, audit_logs,
