@@ -13,7 +13,7 @@
  * It supports only the surface the suite exercises:
  *   from(table)
  *     .select(cols, { count })  .insert(rows)  .update(vals)  .delete()  .upsert(rows,{onConflict})
- *     .eq(col,val) .neq .in(col,vals) .gte .lte .lt .is(col,val) .ilike(col,pattern) .order() .range() .limit(n)
+ *     .eq(col,val) .neq .in(col,vals) .gte .lte .lt .gt .is(col,val) .ilike(col,pattern) .order() .range() .limit(n)
  *     .single() .maybeSingle()  and thenable (await) resolution
  *
  * Not a general-purpose mock — do not grow it beyond what a test needs.
@@ -36,6 +36,7 @@ type Filter =
   | { kind: 'gte'; col: string; val: unknown }
   | { kind: 'lte'; col: string; val: unknown }
   | { kind: 'lt'; col: string; val: unknown }
+  | { kind: 'gt'; col: string; val: unknown }
   | { kind: 'is'; col: string; val: null | boolean }
   | { kind: 'ilike'; col: string; pattern: RegExp }
   | { kind: 'not'; inner: Filter }
@@ -56,6 +57,8 @@ function matchesOne(row: Row, f: Filter): boolean {
       return cell !== undefined && cell !== null && (cell as number | string) <= (f.val as number | string)
     case 'lt':
       return cell !== undefined && cell !== null && (cell as number | string) < (f.val as number | string)
+    case 'gt':
+      return cell !== undefined && cell !== null && (cell as number | string) > (f.val as number | string)
     case 'is':
       return f.val === null ? cell === null || cell === undefined : cell === f.val
     case 'ilike':
@@ -120,6 +123,10 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
   lt(col: string, val: unknown): this {
     this.filters.push({ kind: 'lt', col, val })
+    return this
+  }
+  gt(col: string, val: unknown): this {
+    this.filters.push({ kind: 'gt', col, val })
     return this
   }
   is(col: string, val: null | boolean): this {
