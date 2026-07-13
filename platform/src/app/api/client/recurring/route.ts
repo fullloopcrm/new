@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
@@ -60,10 +61,9 @@ export async function POST(request: Request) {
   // schedule/bookings. Validate up front and reject unknown/cross-tenant ids.
   const suppliedMemberIds = [...(cleaner_id ? [cleaner_id] : []), ...extras]
   if (suppliedMemberIds.length > 0) {
-    const { data: validMembers } = await supabaseAdmin
+    const { data: validMembers } = await tenantDb(tenantId)
       .from('team_members')
       .select('id')
-      .eq('tenant_id', tenantId)
       .in('id', suppliedMemberIds)
     const validIds = new Set((validMembers || []).map((m) => m.id))
     const unknown = suppliedMemberIds.filter((id) => !validIds.has(id))
@@ -73,10 +73,9 @@ export async function POST(request: Request) {
   }
 
   // Repeat-client gate
-  const { count: priorCount } = await supabaseAdmin
+  const { count: priorCount } = await tenantDb(tenantId)
     .from('bookings')
     .select('id', { count: 'exact', head: true })
-    .eq('tenant_id', tenantId)
     .eq('client_id', client_id)
     .eq('status', 'completed')
   if ((priorCount || 0) < 1) {
@@ -92,7 +91,7 @@ export async function POST(request: Request) {
   const price = Math.floor(basePriceCents * (1 - discountPercent / 100) / 500) * 500
 
   if (cleaner_id) {
-    await supabaseAdmin
+    await tenantDb(tenantId)
       .from('clients')
       .update({ preferred_team_member_id: cleaner_id })
       .eq('id', client_id)
@@ -115,10 +114,9 @@ export async function POST(request: Request) {
   const recurringType = frequency
   const lastInitialDate = dates[dates.length - 1]
 
-  const { data: schedule, error: scheduleErr } = await supabaseAdmin
+  const { data: schedule, error: scheduleErr } = await tenantDb(tenantId)
     .from('recurring_schedules')
     .insert({
-      tenant_id: tenantId,
       client_id,
       property_id: property_id || null,
       team_member_id: cleaner_id || null,
@@ -148,7 +146,6 @@ export async function POST(request: Request) {
     const tokenExpires = new Date(startISO)
     tokenExpires.setHours(tokenExpires.getHours() + 24)
     return {
-      tenant_id: tenantId,
       client_id,
       property_id: property_id || null,
       team_member_id: cleaner_id || null,
@@ -167,7 +164,7 @@ export async function POST(request: Request) {
     }
   })
 
-  const { data: bookings, error: bookErr } = await supabaseAdmin
+  const { data: bookings, error: bookErr } = await tenantDb(tenantId)
     .from('bookings')
     .insert(rows)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
