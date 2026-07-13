@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { tenantDb } from '@/lib/tenant-db'
 import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
 import {
   listProperties,
@@ -42,11 +43,11 @@ export async function GET(request: Request) {
     // same class as the Selena IDOR) — client_id alone isn't enough proof of
     // ownership, so resolve the client's own tenant and require rows to match it.
     const { data: clientRow } = await supabaseAdmin.from('clients').select('tenant_id').eq('id', clientId!).single()
-    const { data: history } = await supabaseAdmin
+    if (!clientRow?.tenant_id) return NextResponse.json({ properties, history: [] })
+    const { data: history } = await tenantDb(clientRow.tenant_id)
       .from('property_changes')
       .select('id, property_id, action, old_value, new_value, changed_by, actor_id, source, created_at')
       .eq('client_id', clientId!)
-      .eq('tenant_id', clientRow?.tenant_id ?? '')
       .order('created_at', { ascending: false })
       .limit(50)
     return NextResponse.json({ properties, history: history || [] })
