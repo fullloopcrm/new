@@ -33,7 +33,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }, { status: 409 })
   }
 
-  const notesValue = body.notes ?? body.notes_private ?? body.notes_public
+  // Resolve by which key is PRESENT in the body, not by value — an explicit
+  // `{ notes: null }` must clear the field, not fall through to the next key
+  // because `null` is nullish too.
+  const notesValue =
+    'notes' in body ? body.notes
+    : 'notes_private' in body ? body.notes_private
+    : 'notes_public' in body ? body.notes_public
+    : undefined
   if (notesValue === undefined) return NextResponse.json({ ok: true, noop: true })
 
   const { error } = await supabaseAdmin
