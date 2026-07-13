@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { scoreTeamForBooking, suggestBookingSlots } from '@/lib/smart-schedule'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 const rl = new Map<string, { count: number; resetAt: number }>()
 const RL_WINDOW_MS = 5 * 60 * 1000
@@ -54,10 +55,9 @@ export async function GET(request: Request) {
     if (!tenantId) {
       return NextResponse.json({ cleaners: [] })
     }
-    const { data: all } = await supabaseAdmin
+    const { data: all } = await tenantDb(tenantId)
       .from('team_members')
       .select('id, name')
-      .eq('tenant_id', tenantId)
       .eq('active', true)
       .order('name')
     const cleaners = (all || []).map(c => ({
