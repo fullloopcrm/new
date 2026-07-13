@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requirePortalPermission } from '@/lib/team-portal-auth'
 
-// GET  /api/team-portal/messages?team_member_id=<uuid>  — team member's comhub thread with admin.
-// POST /api/team-portal/messages { team_member_id, body } — team member messages admin (lands in Comhub).
-// Auth: trust-based via team_member_id, consistent with the rest of /api/team-portal/*.
+// GET  /api/team-portal/messages  — the calling team member's comhub thread with admin.
+// POST /api/team-portal/messages { body } — team member messages admin (lands in Comhub).
+// Auth: requirePortalPermission('messages.use') — the team_member_id is taken from the
+// verified portal token, never from the request. Was trust-based on a caller-supplied
+// team_member_id/cleaner_id until the fleet-wide webhook/cron audit, 2026-07-13: anyone
+// who had another team member's id could read their private thread with the office and
+// post messages that landed in Comhub attributed to that person.
 // Ported from standalone nycmaid (/api/team/messages); cleaner_id -> team_member_id, tenant-scoped.
 
 async function resolveThread(teamMemberId: string): Promise<{ contactId: string | null; threadId: string | null; tenantId: string | null }> {
@@ -35,10 +40,10 @@ async function resolveThread(teamMemberId: string): Promise<{ contactId: string 
 }
 
 export async function GET(req: NextRequest) {
-  const teamMemberId = new URL(req.url).searchParams.get('team_member_id') || new URL(req.url).searchParams.get('cleaner_id')
-  if (!teamMemberId) return NextResponse.json({ error: 'Missing team_member_id' }, { status: 400 })
+  const { auth, error: permError } = await requirePortalPermission(req, 'messages.use')
+  if (permError) return permError
 
-  const { threadId } = await resolveThread(teamMemberId)
+  const { threadId } = await resolveThread(auth.id)
   if (!threadId) return NextResponse.json({ messages: [] })
 
   const { data, error } = await supabaseAdmin
@@ -54,13 +59,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null) as { team_member_id?: string; cleaner_id?: string; body?: string } | null
-  const teamMemberId = body?.team_member_id || body?.cleaner_id
-  if (!teamMemberId || !body?.body?.trim()) {
-    return NextResponse.json({ error: 'team_member_id and body required' }, { status: 400 })
+  const { auth, error: permError } = await requirePortalPermission(req, 'messages.use')
+  if (permError) return permError
+
+  const body = await req.json().catch(() => null) as { body?: string } | null
+  if (!body?.body?.trim()) {
+    return NextResponse.json({ error: 'body required' }, { status: 400 })
   }
 
-  const { contactId, threadId, tenantId } = await resolveThread(teamMemberId)
+  const { contactId, threadId, tenantId } = await resolveThread(auth.id)
   if (!contactId || !threadId) return NextResponse.json({ error: 'team member not found' }, { status: 404 })
 
   const { data: msg, error } = await supabaseAdmin
