@@ -5,7 +5,7 @@
  */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
@@ -33,10 +33,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Enter your 6-digit PIN' }, { status: 400 })
   }
 
-  const { data: client } = await supabaseAdmin
+  const { data: client } = await tenantDb(tenant.id)
     .from('clients')
     .select('id, do_not_service')
-    .eq('tenant_id', tenant.id)
     .eq('pin', pin)
     .maybeSingle()
 
