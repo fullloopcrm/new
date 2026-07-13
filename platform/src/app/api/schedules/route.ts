@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
@@ -8,11 +8,11 @@ import { audit } from '@/lib/audit'
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('recurring_schedules')
       .select('*, clients(name), team_members(name)')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -31,6 +31,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const body = await request.json()
 
     const { data: fields, error: vError } = validate(body, {
@@ -50,9 +51,9 @@ export async function POST(request: Request) {
     const v = fields!
 
     // Create schedule
-    const { data: schedule, error } = await supabaseAdmin
+    const { data: schedule, error } = await db
       .from('recurring_schedules')
-      .insert({ ...v, tenant_id: tenantId, status: 'active' })
+      .insert({ ...v, status: 'active' })
       .select()
       .single()
 
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
     // Look up service type name
     let serviceType = null
     if (v.service_type_id) {
-      const { data: svc } = await supabaseAdmin
+      const { data: svc } = await db
         .from('service_types')
         .select('name')
         .eq('id', v.service_type_id as string)
@@ -95,7 +96,6 @@ export async function POST(request: Request) {
       const endTime = new Date(d)
       endTime.setHours(endTime.getHours() + ((v.duration_hours as number) || 3))
       return {
-        tenant_id: tenantId,
         client_id: v.client_id,
         team_member_id: v.team_member_id || null,
         service_type_id: v.service_type_id || null,
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     })
 
     if (bookings.length > 0) {
-      await supabaseAdmin.from('bookings').insert(bookings)  // tenant-scope-ok: insert bookings carry tenant_id (built above)
+      await db.from('bookings').insert(bookings)
     }
 
     await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated: bookings.length } })

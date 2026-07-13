@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
 
@@ -9,17 +10,17 @@ import { audit } from '@/lib/audit'
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
     const { paused_until } = await request.json()
     if (!paused_until) {
       return NextResponse.json({ error: 'paused_until is required' }, { status: 400 })
     }
 
-    const { data: schedule, error } = await supabaseAdmin
+    const { data: schedule, error } = await db
       .from('recurring_schedules')
       .update({ status: 'paused', paused_until, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select('*, clients(name, phone, email)')
       .single()
 
@@ -30,11 +31,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const now = new Date().toISOString()
     const pauseEnd = `${paused_until}T23:59:59`
 
-    const { data: cancelled } = await supabaseAdmin
+    const { data: cancelled } = await db
       .from('bookings')
       .update({ status: 'cancelled' })
       .eq('schedule_id', id)
-      .eq('tenant_id', tenantId)
       .in('status', ['scheduled', 'pending', 'confirmed'])
       .gte('start_time', now)
       .lte('start_time', pauseEnd)
@@ -43,8 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const client = schedule.clients as unknown as { name?: string; phone?: string; email?: string } | null
     const cancelledCount = cancelled?.length || 0
 
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: tenantId,
+    await db.from('notifications').insert({
       type: 'schedule_paused',
       title: 'Schedule Paused',
       message: `${client?.name || 'Client'} — ${schedule.recurring_type} paused until ${paused_until} (${cancelledCount} cancelled)`,
@@ -82,13 +81,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
 
-    const { data: schedule, error } = await supabaseAdmin
+    const { data: schedule, error } = await db
       .from('recurring_schedules')
       .update({ status: 'active', paused_until: null, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select('*, clients(name)')
       .single()
 
@@ -97,8 +96,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     }
 
     const client = schedule.clients as unknown as { name?: string } | null
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: tenantId,
+    await db.from('notifications').insert({
       type: 'schedule_resumed',
       title: 'Schedule Resumed',
       message: `${client?.name || 'Client'} — ${schedule.recurring_type} resumed`,
