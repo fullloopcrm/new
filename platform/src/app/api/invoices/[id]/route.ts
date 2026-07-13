@@ -69,6 +69,20 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: `Cannot edit ${existing.status} invoice` }, { status: 400 })
     }
 
+    // client_id is a cross-table FK — confirm it belongs to this tenant before
+    // writing it, or a caller could reassign the invoice to another tenant's
+    // client and exfiltrate that client's name/email/phone/address via the
+    // clients() join on this same route's GET (and this PATCH's own response).
+    if ('client_id' in body && body.client_id) {
+      const { data: client } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', body.client_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!client) return NextResponse.json({ error: 'Invalid client_id' }, { status: 400 })
+    }
+
     const updates: Record<string, unknown> = {}
     const assignables = [
       'title', 'description',

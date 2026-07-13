@@ -97,6 +97,23 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
+    // client_id/property_id/team_member_id/service_type_id are cross-table
+    // FKs — confirm each belongs to this tenant before inserting, or a
+    // caller could attribute the booking to another tenant's row and
+    // exfiltrate its PII via the clients()/team_members()/client_properties()
+    // joins on this route's own insert response and on GET.
+    const fkChecks: Array<[string | undefined, string]> = [
+      [validated.client_id as string | undefined, 'clients'],
+      [validated.property_id as string | undefined, 'client_properties'],
+      [validated.team_member_id as string | undefined, 'team_members'],
+      [validated.service_type_id as string | undefined, 'service_types'],
+    ]
+    for (const [fkId, table] of fkChecks) {
+      if (!fkId) continue
+      const { data: owned } = await db.from(table).select('id').eq('id', fkId).maybeSingle()
+      if (!owned) return NextResponse.json({ error: `Invalid ${table}` }, { status: 400 })
+    }
+
     // Tenant rule: require_team_member forces a team_member_id at create time.
     if (settings.require_team_member && !validated.team_member_id) {
       return NextResponse.json(

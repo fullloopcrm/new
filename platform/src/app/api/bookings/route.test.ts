@@ -17,6 +17,13 @@ import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 const CLIENT_ID = '11111111-1111-1111-1111-111111111111'
 const TEAM_MEMBER_ID = '22222222-2222-2222-2222-222222222222'
 const SERVICE_TYPE_ID = '33333333-3333-3333-3333-333333333333'
+// Belong to tenant-B — used to prove the FK-ownership check, not just the
+// validate() uuid-FORMAT check (a malformed id like 'client-B1' would get
+// rejected by validate() regardless of the ownership fix, a false-positive).
+const OTHER_TENANT_CLIENT_ID = '44444444-4444-4444-4444-444444444444'
+const OTHER_TENANT_TEAM_MEMBER_ID = '55555555-5555-5555-5555-555555555555'
+const OTHER_TENANT_SERVICE_TYPE_ID = '66666666-6666-6666-6666-666666666666'
+const OTHER_TENANT_PROPERTY_ID = '77777777-7777-7777-7777-777777777777'
 
 const h = vi.hoisted(() => ({
   tenantId: 'tenant-A',
@@ -175,6 +182,7 @@ beforeEach(() => {
       { id: TEAM_MEMBER_ID, tenant_id: 'tenant-A', name: 'Carl', schedule: null, max_jobs_per_day: null },
     ],
     service_types: [{ id: SERVICE_TYPE_ID, tenant_id: 'tenant-A', name: 'Deep Clean' }],
+    clients: [{ id: CLIENT_ID, tenant_id: 'tenant-A', name: 'Pat' }],
     tenants: [{ id: 'tenant-A', name: 'Acme Cleaning', telnyx_api_key: null, telnyx_phone: null }],
   }
 })
@@ -364,6 +372,46 @@ describe('POST /api/bookings — creation', () => {
   it('never lets a booking-creation failure crash the request even if notification dispatch throws', async () => {
     h.notify.mockRejectedValueOnce(new Error('notify down'))
 
+    const res = await POST(postReq(validCreateBody))
+
+    expect(res.status).toBe(201)
+  })
+})
+
+describe('POST /api/bookings — cross-tenant FK injection', () => {
+  beforeEach(() => {
+    h.store.clients.push({ id: OTHER_TENANT_CLIENT_ID, tenant_id: 'tenant-B', name: 'Other Tenant Client (secret)' })
+    h.store.team_members.push({ id: OTHER_TENANT_TEAM_MEMBER_ID, tenant_id: 'tenant-B', name: 'Other Tenant Cleaner', schedule: null, max_jobs_per_day: null })
+    h.store.service_types.push({ id: OTHER_TENANT_SERVICE_TYPE_ID, tenant_id: 'tenant-B', name: 'Other Tenant Service' })
+    h.store.client_properties = [{ id: OTHER_TENANT_PROPERTY_ID, tenant_id: 'tenant-B', client_id: OTHER_TENANT_CLIENT_ID, address: '1 Other Tenant Way' }]
+  })
+
+  it("rejects a client_id belonging to another tenant instead of creating the booking (and leaking it via the clients() join)", async () => {
+    const res = await POST(postReq({ ...validCreateBody, client_id: OTHER_TENANT_CLIENT_ID }))
+
+    expect(res.status).toBe(400)
+    expect(h.store.bookings.some((b) => b.client_id === OTHER_TENANT_CLIENT_ID)).toBe(false)
+  })
+
+  it("rejects a team_member_id belonging to another tenant", async () => {
+    const res = await POST(postReq({ ...validCreateBody, team_member_id: OTHER_TENANT_TEAM_MEMBER_ID }))
+
+    expect(res.status).toBe(400)
+  })
+
+  it("rejects a service_type_id belonging to another tenant", async () => {
+    const res = await POST(postReq({ ...validCreateBody, service_type_id: OTHER_TENANT_SERVICE_TYPE_ID }))
+
+    expect(res.status).toBe(400)
+  })
+
+  it("rejects a property_id belonging to another tenant", async () => {
+    const res = await POST(postReq({ ...validCreateBody, property_id: OTHER_TENANT_PROPERTY_ID }))
+
+    expect(res.status).toBe(400)
+  })
+
+  it('still creates the booking when every FK genuinely belongs to the caller tenant', async () => {
     const res = await POST(postReq(validCreateBody))
 
     expect(res.status).toBe(201)
