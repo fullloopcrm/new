@@ -69,27 +69,41 @@ export default function AdminFeedbackPage() {
       .catch(() => setLoading(false))
   }, [])
 
+  // Both PATCH calls used to update local state unconditionally after the
+  // fetch, whether or not it actually succeeded — a network error or 500
+  // left the UI claiming "actioned" / "saved" while the server never
+  // persisted the change. Local state now only advances on a real res.ok.
   async function updateStatus(id: string, status: string) {
-    await fetch('/api/feedback', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status }),
-    })
-    setFeedback((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status } : f))
-    )
-    if (status !== 'unread') setUnreadCount((c) => Math.max(0, c - 1))
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      })
+      if (!res.ok) return
+      setFeedback((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, status } : f))
+      )
+      if (status !== 'unread') setUnreadCount((c) => Math.max(0, c - 1))
+    } catch {
+      // Network failure — local state intentionally left untouched.
+    }
   }
 
   async function saveNotes(id: string, notes: string) {
-    await fetch('/api/feedback', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, admin_notes: notes }),
-    })
-    setFeedback((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, admin_notes: notes } : f))
-    )
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, admin_notes: notes }),
+      })
+      if (!res.ok) return
+      setFeedback((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, admin_notes: notes } : f))
+      )
+    } catch {
+      // Network failure — local state intentionally left untouched.
+    }
   }
 
   const filtered = feedback.filter((f) => {
