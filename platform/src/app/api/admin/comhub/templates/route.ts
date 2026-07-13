@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
@@ -8,12 +8,12 @@ export async function GET(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   const ch = new URL(req.url).searchParams.get('channel') || 'all'
-  let q = supabaseAdmin
+  let q = db
     .from('comhub_templates')
     .select('id, name, body, channel, hotkey, created_at, updated_at')
-    .eq('tenant_id', tenantId)
     .is('archived_at', null)
     .order('name', { ascending: true })
   if (ch !== 'all') q = q.or(`channel.eq.${ch},channel.is.null`)
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   const payload = await req.json().catch(() => null) as {
     name?: string
@@ -37,10 +38,9 @@ export async function POST(req: NextRequest) {
   if (!payload?.name || !payload?.body) {
     return NextResponse.json({ error: 'name and body required' }, { status: 400 })
   }
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('comhub_templates')
     .insert({
-      tenant_id: tenantId,
       name: payload.name.trim(),
       body: payload.body,
       channel: payload.channel || null,

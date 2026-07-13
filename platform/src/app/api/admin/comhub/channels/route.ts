@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
   if (authError) return authError
 
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   const body = await req.json().catch(() => null) as {
     slug?: string
@@ -22,10 +23,9 @@ export async function POST(req: NextRequest) {
   if (!slug) return NextResponse.json({ error: 'invalid slug' }, { status: 400 })
   const name = body.name?.trim() || `#${slug}`
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('comhub_threads')
     .insert({
-      tenant_id: tenantId,
       kind: 'channel',
       channel: 'internal',
       slug,
