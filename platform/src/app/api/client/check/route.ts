@@ -39,7 +39,12 @@ export async function GET(request: Request) {
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const rl = await rateLimitDb(`client-check:${tenant.id}:${ip}`, 10, 10 * 60 * 1000)
+  // failClosed: this resolves an email/phone to a client's name+phone+email
+  // with no auth — a DB-blind limiter would make it an unbounded PII
+  // enumeration oracle. Same trust class as its OTP-flow siblings
+  // (client/send-code, client/login, client/verify-code), which are already
+  // failClosed.
+  const rl = await rateLimitDb(`client-check:${tenant.id}:${ip}`, 10, 10 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
 
   const { searchParams } = new URL(request.url)
@@ -58,7 +63,7 @@ export async function POST(request: Request) {
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const rl = await rateLimitDb(`client-check:${tenant.id}:${ip}`, 10, 10 * 60 * 1000)
+  const rl = await rateLimitDb(`client-check:${tenant.id}:${ip}`, 10, 10 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
 
   const body = await request.json().catch(() => ({}))
