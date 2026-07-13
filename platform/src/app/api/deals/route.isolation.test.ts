@@ -43,6 +43,10 @@ function seed() {
       { id: 'deal-b', tenant_id: OTHER_TENANT, status: 'active', title: 'Theirs', follow_up_at: null },
     ],
     deal_activities: [],
+    clients: [
+      { id: 'client-a', tenant_id: CTX_TENANT, name: 'Mine Client' },
+      { id: 'client-b', tenant_id: OTHER_TENANT, name: 'Theirs Client' },
+    ],
   }
 }
 
@@ -75,6 +79,28 @@ describe('deals — tenant isolation', () => {
     // The forged tenant must have lost to the tenantDb stamp.
     expect(dealInsert!.rows.every((r) => r.tenant_id === CTX_TENANT)).toBe(true)
     expect(dealInsert!.rows.some((r) => r.tenant_id === OTHER_TENANT)).toBe(false)
+  })
+
+  // Regression: client_id is a caller-supplied FK with no cross-tenant check
+  // at the DB layer, and every read of this route joins clients(...) by that
+  // id unscoped by tenant — a foreign client_id would leak another tenant's
+  // client name/email/phone/address into this tenant's pipeline.
+  it("WRONG-TENANT PROBE: POST with a foreign tenant's client_id is rejected, not inserted", async () => {
+    const req = { json: async () => ({ client_id: 'client-b' }) } as unknown as Request
+    const res = await POST(req)
+    expect(res.status).toBe(404)
+
+    const dealInsert = h.capture.inserts.find((i) => i.table === 'deals')
+    expect(dealInsert).toBeUndefined()
+  })
+
+  it('POST with the acting tenant\'s own client_id succeeds', async () => {
+    const req = { json: async () => ({ client_id: 'client-a', title: 'x' }) } as unknown as Request
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+
+    const dealInsert = h.capture.inserts.find((i) => i.table === 'deals')
+    expect(dealInsert!.rows[0].client_id).toBe('client-a')
   })
 })
 
