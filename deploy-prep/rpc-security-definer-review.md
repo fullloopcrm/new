@@ -173,7 +173,12 @@ privilege-escalation-severity issue the original 2 are.
    that. **Recommend Jeff/leader confirm which tree (or both) is live** before Wave 2 proceeds — this is a
    process question this file-only review cannot resolve alone.
 
-Updated live-introspection query (only the 2 still-unresolved names, per item 1 above):
+Updated live-introspection query (only the 2 still-unresolved names, per item 1 above). **Now also
+available as a standalone, directly-runnable file:**
+[`rpc-remaining-names-live-check.sql`](./rpc-remaining-names-live-check.sql) (2026-07-13 addition) — same
+query, plus a result-interpretation guide (0 rows vs. found-DEFINER vs. found-INVOKER) and the exact `psql`
+invocation, so Jeff/leader doesn't need to hand-copy SQL out of this markdown file. Still READ-ONLY,
+still NOT executed by this pass.
 
 ```sql
 SELECT n.nspname, p.proname, p.prosecdef,
