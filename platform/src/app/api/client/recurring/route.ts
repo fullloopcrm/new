@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
@@ -173,16 +172,16 @@ export async function POST(request: Request) {
 
   // booking_team_members rows (lead + extras)
   if (bookings && bookings.length > 0 && (cleaner_id || extras.length > 0)) {
-    const teamRows: { tenant_id: string; booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
+    const teamRows: { booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
     for (const b of bookings) {
-      if (cleaner_id) teamRows.push({ tenant_id: tenantId, booking_id: b.id, team_member_id: cleaner_id, is_lead: true, position: 1 })
+      if (cleaner_id) teamRows.push({ booking_id: b.id, team_member_id: cleaner_id, is_lead: true, position: 1 })
       extras.forEach((cid: string, i: number) => {
-        teamRows.push({ tenant_id: tenantId, booking_id: b.id, team_member_id: cid, is_lead: false, position: i + 2 })
+        teamRows.push({ booking_id: b.id, team_member_id: cid, is_lead: false, position: i + 2 })
       })
     }
     if (teamRows.length > 0) {
-      const { error: teamErr } = await supabaseAdmin
-        .from('booking_team_members')  // tenant-scope-ok: row-scoped by unique join keys (booking_id, team_member_id)
+      const { error: teamErr } = await tenantDb(tenantId)
+        .from('booking_team_members')
         .upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
       if (teamErr) console.error('client recurring booking_team_members insert failed:', teamErr.message)
     }
