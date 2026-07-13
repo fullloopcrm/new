@@ -99,12 +99,15 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
     .eq('status', 'active')
   const recurringIds = new Set(((recurring as Array<{ client_id: string }> | null) || []).map(r => r.client_id))
 
-  // 4. Exclude clients on the active sales board (deals).
+  // 4. Exclude clients on the active sales board (deals). deals has no
+  // `status` column — the unified pipeline spine (migration
+  // 2026_07_03_sales_pipeline_unify.sql) uses `stage`. nycmaid's
+  // `stage='active'` maps to "not yet closed" here: not sold/lost.
   const { data: deals } = await supabaseAdmin
     .from('deals')
     .select('client_id')
     .eq('tenant_id', tenant.id)
-    .eq('status', 'active')
+    .not('stage', 'in', '(sold,lost)')
   const dealIds = new Set(((deals as Array<{ client_id: string }> | null) || []).map(d => d.client_id))
 
   const eligible = clients.filter(c =>
