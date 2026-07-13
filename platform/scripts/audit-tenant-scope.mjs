@@ -99,8 +99,19 @@ for (const file of files) {
     if (/\.storage\.from\(/.test(lines[i])) continue             // storage bucket, not a table
 
     const lookBehind = lines.slice(Math.max(0, i - LOOKBEHIND_LINES), i + 1).join('\n')
+    // Walk back from the .from() line to the root of ITS OWN call chain: as
+    // long as the line above is a `.method(...)` continuation, it's the same
+    // chain (`await db\n  .from(...)`). Stop at the first non-continuation
+    // line — that's the chain's actual receiver. Matching the var name only
+    // against this root line (not the whole lookBehind blob) stops an
+    // unrelated same-named tenantDb-bound var in nearby, unrelated code (e.g.
+    // two functions both naming a local `db`) from falsely suppressing a real
+    // leak in between them.
+    let root = i
+    while (root > Math.max(0, i - LOOKBEHIND_LINES) && lines[root].trim().startsWith('.')) root--
+    const chainRootLine = lines[root]
     const tenantDbWrapped = TENANT_DB_CALL_RX.test(lookBehind) ||
-      [...tenantDbVars].some((v) => new RegExp(`\\b${v}\\b`).test(lookBehind))
+      [...tenantDbVars].some((v) => new RegExp(`\\b${v}\\b`).test(chainRootLine))
     if (tenantDbWrapped) continue
 
     const chain = lines.slice(i, i + 12).join('\n')
