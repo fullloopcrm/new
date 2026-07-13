@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
+import { pick } from '@/lib/validate'
 
 export async function PUT(
   request: Request,
@@ -14,12 +15,13 @@ export async function PUT(
     const { tenantId } = _authTenant
     const { id } = await params
     const body = await request.json()
+    const fields = pick(body, ['category', 'subcategory', 'amount', 'description', 'receipt_url', 'date', 'vendor_name', 'payment_method', 'tax_deductible', 'entity_id'])
 
-    if (body.amount) body.amount = Math.round(Number(body.amount) * 100)
+    if (fields.amount) fields.amount = Math.round(Number(fields.amount) * 100)
 
     const { data, error } = await supabaseAdmin
       .from('expenses')
-      .update(body)
+      .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()
