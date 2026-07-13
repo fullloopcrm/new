@@ -2,28 +2,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * WITNESS — cross-tenant foreign-key INJECTION on POST /api/finance/periods.
+ * WITNESS — cross-tenant foreign-key injection on POST /api/finance/periods.
+ * FIXED (was proven-LIVE, register P6): `body.entity_id` is now verified
+ * tenant-owned (`.eq('id',...).eq('tenant_id', tenantId)`) before upsert, 404 on
+ * miss.
  *
- * HARD-tier, ACCOUNTING (`accounting_periods` — the month-close / period-lock ledger).
- * UNCONVERTED (raw `supabaseAdmin`). The row is stamped `tenant_id = <acting tenant>`,
- * but `body.entity_id` is UPSERTED VERBATIM with no ownership check:
+ * HARD-tier, ACCOUNTING (`accounting_periods` — the month-close / period-lock
+ * ledger). `entities` carries its own `tenant_id` (migration 034) and
+ * `accounting_periods.entity_id` is an FK into it (migration 035); a foreign
+ * entity id would scope A's period to B's entity, and — because the on-conflict
+ * key includes `entity_id` — open a distinct row, surfacing B's entity name back
+ * to A via the GET route's `entities(name)` embed.
  *
- *     supabaseAdmin.from('accounting_periods').upsert({
- *       tenant_id: tenantId, entity_id: body.entity_id || null, year, month, ...
- *     }, { onConflict: 'tenant_id,entity_id,year,month' })
- *
- * `entities` carries its own `tenant_id` (migration 034) and `accounting_periods.entity_id`
- * is an FK into it (migration 035), so passing tenant B's entity id creates an accounting
- * period in A that is scoped to B's entity. Because the on-conflict key includes
- * `entity_id`, a foreign entity id also opens a DISTINCT period row A can't otherwise
- * reach — and GET /api/finance/periods embeds `entities(name)`, surfacing B's entity
- * name back to A on read-back.
- *
- * LIVE today. When a guard lands (verify body.entity_id belongs to `tenantId` before
- * upsert, else 400/404), FLIP the LEAK test to expect rejection.
- *
- * Non-vacuous: reads the ACTUAL upserted `entity_id`; the CONTROL proves the omitted
- * path stores a null entity_id, so the LEAK can only pass because the foreign id flowed.
+ * LOCK: proves a foreign entity_id is rejected (404) before any upsert.
+ * CONTROL: proves the omitted path (null entity_id) still works.
  */
 
 const CTX_TENANT = 'tid-a'
@@ -83,16 +75,10 @@ beforeEach(() => {
 })
 
 describe('finance/periods POST — cross-tenant entity_id FK injection WITNESS', () => {
-  it("LEAK: a foreign entity_id from the body scopes the acting tenant's accounting period to B's entity", async () => {
+  it('LOCK: a foreign entity_id from the body is rejected (404), no period row created', async () => {
     const res = await POST(postReq({ year: 2026, month: 3, entity_id: 'entity-b' }))
-    expect(res.status).toBe(200)
-
-    const ins = h.capture.inserts.find((i) => i.table === 'accounting_periods')
-    expect(ins).toBeTruthy()
-    const row = ins!.rows[0]
-    expect(row.tenant_id).toBe(CTX_TENANT)
-    // Period is stamped to A but scoped to tenant B's entity — no ownership check ran.
-    expect(row.entity_id).toBe('entity-b')
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'accounting_periods')).toBeUndefined()
   })
 
   it('CONTROL: with no entity_id, the period is stored with a null entity_id (safe path)', async () => {
@@ -102,5 +88,14 @@ describe('finance/periods POST — cross-tenant entity_id FK injection WITNESS',
     const row = h.capture.inserts.find((i) => i.table === 'accounting_periods')!.rows[0]
     expect(row.tenant_id).toBe(CTX_TENANT)
     expect(row.entity_id).toBeNull()
+  })
+
+  it('CONTROL: an explicit own-tenant entity_id passes the ownership check', async () => {
+    const res = await POST(postReq({ year: 2026, month: 3, entity_id: 'entity-a' }))
+    expect(res.status).toBe(200)
+
+    const row = h.capture.inserts.find((i) => i.table === 'accounting_periods')!.rows[0]
+    expect(row.tenant_id).toBe(CTX_TENANT)
+    expect(row.entity_id).toBe('entity-a')
   })
 })
