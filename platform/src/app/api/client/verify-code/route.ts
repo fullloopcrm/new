@@ -4,6 +4,7 @@ import { notify } from '@/lib/notify'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
+import { isUniqueViolation } from '@/lib/ledger'
 import { randomInt } from 'crypto'
 
 export async function POST(request: Request) {
@@ -102,17 +103,38 @@ export async function POST(request: Request) {
         })
         .select()
         .single()
-      if (createError || !newClient) {
+
+      if (createError && isUniqueViolation(createError)) {
+        // Lost a create-race to a concurrent verify for the same
+        // (tenant_id, email) — see idx_clients_tenant_email_unique
+        // (2026_07_13_clients_tenant_email_unique.sql). Treat it as
+        // success: fetch the row the winner just created instead of
+        // surfacing a raw 500 to a client who is, from their perspective,
+        // just logging in.
+        const { data: winnerMatches } = await supabaseAdmin
+          .from('clients')
+          .select('*')
+          .eq('tenant_id', tenant.id)
+          .ilike('email', email.trim())
+          .order('created_at', { ascending: true })
+          .limit(1)
+        client = (winnerMatches?.[0] as typeof client) || null
+        if (!client) {
+          console.error('Create client race: 23505 but no existing row found', createError)
+          return NextResponse.json({ error: 'Failed to create account' }, { status: 500 })
+        }
+      } else if (createError || !newClient) {
         console.error('Create client error:', createError)
         return NextResponse.json({ error: 'Failed to create account' }, { status: 500 })
+      } else {
+        client = newClient as typeof client
+        await notify({
+          tenantId: tenant.id,
+          type: 'new_client',
+          title: 'New Client (via Login)',
+          message: `${email} • first-time login, auto-created`,
+        })
       }
-      client = newClient as typeof client
-      await notify({
-        tenantId: tenant.id,
-        type: 'new_client',
-        title: 'New Client (via Login)',
-        message: `${email} • first-time login, auto-created`,
-      })
     }
 
     if (!client) return NextResponse.json({ error: 'Could not resolve account' }, { status: 500 })
