@@ -206,6 +206,11 @@ describe('assign_cleaner_to_booking — FK tenant-ownership', () => {
     const out = await runTool('assign_cleaner_to_booking', { booking_id: 'bk-1', cleaner_id: OWN_CLEANER }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
     expect(JSON.parse(out).ok).toBe(true)
     expect(updateCalls).toHaveLength(1)
+    // Missing assertion (W4): the update must target the CALLER-SUPPLIED
+    // booking_id, not some other row — otherwise a wrong-id regression here
+    // would silently "succeed" against the wrong booking and this test
+    // wouldn't catch it (the mock resolves every update as ok regardless).
+    expect(updateCalls[0].eqs.id).toBe('bk-1')
     expect(updateCalls[0].eqs.tenant_id).toBe(TENANT_A)
     expect(updateCalls[0].values.cleaner_id).toBe(OWN_CLEANER)
   })
