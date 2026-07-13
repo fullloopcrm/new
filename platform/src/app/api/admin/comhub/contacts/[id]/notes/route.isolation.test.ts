@@ -42,13 +42,13 @@ beforeEach(() => {
 })
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
-function patch(id: string, notes: string) {
-  return PATCH(new NextRequest('http://t/x', { method: 'PATCH', body: JSON.stringify({ notes }) }), params(id))
+function patch(id: string, body: unknown) {
+  return PATCH(new NextRequest('http://t/x', { method: 'PATCH', body: JSON.stringify(body) }), params(id))
 }
 
 describe('admin/comhub/contacts/[id]/notes PATCH — tenant isolation', () => {
   it("positive control: updates the caller-tenant's linked client notes only", async () => {
-    const res = await patch('ct-a', 'new A note')
+    const res = await patch('ct-a', { notes: 'new A note' })
     expect(res.status).toBe(200)
     expect((await res.json()).ok).toBe(true)
     expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes).toBe('new A note')
@@ -57,9 +57,33 @@ describe('admin/comhub/contacts/[id]/notes PATCH — tenant isolation', () => {
   })
 
   it("wrong-tenant probe: a foreign contact 404s — no foreign client note is written", async () => {
-    const res = await patch('ct-b', 'HACKED')
+    const res = await patch('ct-b', { notes: 'HACKED' })
     expect(res.status).toBe(404)
     expect((await res.json()).error).toBe('contact not found')
     expect(h.seed.clients.find((c) => c.id === 'cli-b')!.notes).toBe('old B')
+  })
+})
+
+describe('admin/comhub/contacts/[id]/notes PATCH — explicit-null clear regression', () => {
+  // `body.notes ?? body.notes_private ?? body.notes_public` treated an
+  // explicit `{ notes: null }` as nullish and fell through to the next key,
+  // silently no-op'ing instead of clearing the field. Fix resolves by which
+  // key is PRESENT in the body, not by its value.
+  it('clears notes when notes is explicitly null', async () => {
+    const res = await patch('ct-a', { notes: null })
+    expect(res.status).toBe(200)
+    expect((await res.json()).ok).toBe(true)
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes).toBeNull()
+  })
+
+  it('is a noop when no recognized key is present', async () => {
+    const res = await patch('ct-a', {})
+    expect((await res.json())).toEqual({ ok: true, noop: true })
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes).toBe('old A')
+  })
+
+  it('falls back to notes_private when notes key is absent', async () => {
+    await patch('ct-a', { notes_private: 'legacy' })
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes).toBe('legacy')
   })
 })
