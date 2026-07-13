@@ -14,6 +14,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { fetchUnreadEmails, markEmailRead, type ImapConfig } from '@/lib/email-monitor'
 import { detectPaymentEmail, parsePaymentEmail, type EmailPayment } from '@/lib/payment-email-parser'
 import { sendSMS } from '@/lib/sms'
@@ -52,6 +53,7 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
     user: tenant.imap_user!,
     pass: tenant.imap_pass!,
   }
+  const db = tenantDb(tenant.id)
 
   const errors: string[] = []
   let matched = 0
@@ -76,9 +78,9 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
     if (!payment) continue
 
     // Idempotency on messageId
-    const { data: dup } = await supabaseAdmin
+    const { data: dup } = await db
       .from('payments').select('id')
-      .eq('tenant_id', tenant.id).eq('raw_email_id', payment.referenceId).limit(1)
+      .eq('raw_email_id', payment.referenceId).limit(1)
     if (dup && dup.length > 0) {
       await markEmailRead(cfg, email.uid).catch(() => {})
       continue
@@ -87,8 +89,7 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
     // Match to booking
     const matchResult = await matchPaymentToBooking(tenant, payment)
     if (matchResult.bookingId && matchResult.clientId) {
-      await supabaseAdmin.from('payments').insert({
-        tenant_id: tenant.id,
+      await db.from('payments').insert({
         booking_id: matchResult.bookingId,
         client_id: matchResult.clientId,
         amount_cents: payment.amountCents,
@@ -98,7 +99,7 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
         raw_email_id: payment.referenceId,
         received_at: payment.date.toISOString(),
       })
-      await supabaseAdmin
+      await db
         .from('bookings')
         .update({
           payment_status: 'paid',
@@ -106,7 +107,6 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
           payment_date: new Date().toISOString(),
         })
         .eq('id', matchResult.bookingId)
-        .eq('tenant_id', tenant.id)
 
       // Notify client
       if (tenant.telnyx_api_key && tenant.telnyx_phone && matchResult.clientPhone) {
@@ -118,8 +118,7 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
         }).catch(() => {})
       }
 
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: tenant.id,
+      await db.from('notifications').insert({
         type: 'payment_received',
         title: `${payment.method.toUpperCase()} Payment — $${payment.amount.toFixed(2)}`,
         message: `${payment.senderName || payment.senderEmail} paid $${payment.amount.toFixed(2)} (${payment.method})`,
@@ -128,8 +127,7 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
       matched++
     } else {
       // No match — open reconciliation task
-      await supabaseAdmin.from('unmatched_payments').insert({
-        tenant_id: tenant.id,
+      await db.from('unmatched_payments').insert({
         amount_cents: payment.amountCents,
         method: payment.method,
         sender_name: payment.senderName,
@@ -140,8 +138,7 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
         status: 'pending',
         received_at: payment.date.toISOString(),
       })
-      await supabaseAdmin.from('admin_tasks').insert({
-        tenant_id: tenant.id,
+      await db.from('admin_tasks').insert({
         type: 'unmatched_payment',
         priority: 'normal',
         title: `Unmatched ${payment.method} — $${payment.amount.toFixed(2)} from ${payment.senderName || payment.senderEmail}`,
@@ -165,58 +162,61 @@ interface MatchResult {
 
 async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): Promise<MatchResult> {
   const senderLower = (payment.senderName || '').toLowerCase().trim()
+  const db = tenantDb(tenant.id)
 
   // 1. Match by bookings.payment_sender_name (Selena confirm_payment recorded a custom payer name)
   if (senderLower) {
-    const { data: byPayer } = await supabaseAdmin
+    const { data: byPayerRaw } = await db
       .from('bookings')
       .select('id, client_id, clients(phone)')
-      .eq('tenant_id', tenant.id)
       .neq('payment_status', 'paid')
       .ilike('payment_sender_name', `%${senderLower}%`)
       .order('start_time', { ascending: false })
       .limit(1)
+    // tenantDb's select() widens the columns literal to `string`, so postgrest-js
+    // can't statically parse the result shape here — cast at this boundary.
+    const byPayer = byPayerRaw as unknown as Array<{ id: string; client_id: string | null; clients: { phone?: string } | null }> | null
     if (byPayer && byPayer.length > 0) {
-      const c = byPayer[0].clients as unknown as { phone?: string } | null
+      const c = byPayer[0].clients
       return { bookingId: byPayer[0].id, clientId: byPayer[0].client_id || undefined, clientPhone: c?.phone }
     }
   }
 
   // 2. Match by client.name
   if (senderLower) {
-    const { data: clients } = await supabaseAdmin
+    const { data: clientsRaw } = await db
       .from('clients')
       .select('id, phone')
-      .eq('tenant_id', tenant.id)
       .ilike('name', `%${senderLower}%`)
       .limit(5)
+    const clients = clientsRaw as unknown as Array<{ id: string; phone: string | null }> | null
     for (const client of clients || []) {
-      const { data: booking } = await supabaseAdmin
+      const { data: bookingRaw } = await db
         .from('bookings')
         .select('id')
-        .eq('tenant_id', tenant.id)
         .eq('client_id', client.id)
         .neq('payment_status', 'paid')
         .order('start_time', { ascending: false })
         .limit(1)
         .single()
+      const booking = bookingRaw as unknown as { id: string } | null
       if (booking) return { bookingId: booking.id, clientId: client.id, clientPhone: client.phone || undefined }
     }
   }
 
   // 3. Fallback: most recent unpaid booking with a matching amount (within $1)
   const targetCents = payment.amountCents
-  const { data: candidates } = await supabaseAdmin
+  const { data: candidatesRaw } = await db
     .from('bookings')
     .select('id, client_id, price, clients(phone)')
-    .eq('tenant_id', tenant.id)
     .neq('payment_status', 'paid')
     .gte('price', targetCents - 100)
     .lte('price', targetCents + 100)
     .order('start_time', { ascending: false })
     .limit(1)
+  const candidates = candidatesRaw as unknown as Array<{ id: string; client_id: string | null; price: number | null; clients: { phone?: string } | null }> | null
   if (candidates && candidates.length > 0) {
-    const c = candidates[0].clients as unknown as { phone?: string } | null
+    const c = candidates[0].clients
     return { bookingId: candidates[0].id, clientId: candidates[0].client_id || undefined, clientPhone: c?.phone }
   }
 
