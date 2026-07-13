@@ -72,10 +72,24 @@ vi.mock('@/lib/supabase', () => {
       limit: () => c,
       single: async () => {
         if (kind === 'insert') { const [row] = doInsert(); return { data: row, error: null } }
+        if (kind === 'update') {
+          const before = (store[table] || []).find(match)
+          if (!before) return { data: null, error: { message: 'not found' } }
+          doUpdate()
+          return { data: (store[table] || []).find((r) => r.id === before.id) ?? null, error: null }
+        }
         const found = (store[table] || []).find(match)
         return { data: found ?? null, error: found ? null : { message: 'not found' } }
       },
-      maybeSingle: async () => ({ data: (store[table] || []).find(match) ?? null, error: null }),
+      maybeSingle: async () => {
+        if (kind === 'update') {
+          const before = (store[table] || []).find(match)
+          if (!before) return { data: null, error: null }
+          doUpdate()
+          return { data: (store[table] || []).find((r) => r.id === before.id) ?? null, error: null }
+        }
+        return { data: (store[table] || []).find(match) ?? null, error: null }
+      },
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => {
         if (kind === 'insert') { doInsert(); return res({ data: null, error: null }) }
         if (kind === 'update') { doUpdate(); return res({ data: null, error: null }) }

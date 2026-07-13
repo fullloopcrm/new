@@ -54,7 +54,12 @@ export async function POST(request: Request, { params }: Params) {
     const ua = request.headers.get('user-agent')
     const acceptedAt = new Date().toISOString()
 
-    await supabaseAdmin
+    // Atomic claim: two concurrent accepts (double-tapped button, retry) can
+    // both pass the status check above before either UPDATE commits. Guard
+    // the WRITE itself with the status this request actually read (compare-
+    // and-swap) so only one wins; the loser must stop before advancing the
+    // deal / creating the job-or-booking / notifying the owner a second time.
+    const { data: claim } = await supabaseAdmin
       .from('quotes')
       .update({
         status: 'accepted',
@@ -66,6 +71,12 @@ export async function POST(request: Request, { params }: Params) {
         signature_user_agent: ua,
       })
       .eq('id', quote.id)
+      .eq('status', quote.status)
+      .select('id')
+      .maybeSingle()
+    if (!claim) {
+      return NextResponse.json({ ok: true, already_accepted: true })
+    }
 
     await logQuoteEvent({
       quote_id: quote.id,
