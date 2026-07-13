@@ -62,9 +62,14 @@ export async function POST(request: Request) {
         source_id: txn.id,
         lines,
       })
-      updates.coa_id = coaId
-      updates.status = 'posted'
-      updates.journal_entry_id = entryId
+      // entryId === null means a concurrent request already posted this same
+      // transaction — leave its coa_id/status/journal_entry_id alone, only
+      // the receipt fields below still need to be saved.
+      if (entryId !== null) {
+        updates.coa_id = coaId
+        updates.status = 'posted'
+        updates.journal_entry_id = entryId
+      }
 
       // Bump pattern
       const pattern = normalizeDescription(txn.description).slice(0, 64)

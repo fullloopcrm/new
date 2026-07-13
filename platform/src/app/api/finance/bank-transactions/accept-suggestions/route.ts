@@ -60,6 +60,7 @@ export async function POST(request: Request) {
           source_id: t.id,
           lines,
         })
+        if (entryId === null) { skipped++; continue }
         await supabaseAdmin
           .from('bank_transactions')
           .update({ coa_id: t.suggested_coa_id, status: 'posted', journal_entry_id: entryId })

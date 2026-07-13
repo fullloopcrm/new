@@ -66,6 +66,11 @@ export async function PATCH(request: Request, { params }: Params) {
       source_id: txn.id,
       lines,
     })
+    if (entryId === null) {
+      // Already posted by a concurrent request for this same transaction —
+      // do not overwrite its real journal_entry_id with null.
+      return NextResponse.json({ ok: true, already_posted: true })
+    }
 
     await supabaseAdmin
       .from('bank_transactions')

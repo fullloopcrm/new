@@ -309,8 +309,23 @@ describe('postJournalEntry — balance invariant', () => {
     })).rejects.toThrow(/rpc boom/)
   })
 
-  it('throws when the RPC returns a non-string id (no entry id returned)', async () => {
+  it('returns null (idempotent no-op) when the RPC reports a duplicate post', async () => {
+    // migration 064: post_journal_entry() returns NULL on a (tenant_id,
+    // source, source_id) conflict instead of throwing — this is the real
+    // idempotency gate, not an error.
     rpcResult = { data: null, error: null }
+    const id = await postJournalEntry({
+      ...base,
+      lines: [
+        { coa_id: 'a', debit_cents: 100 },
+        { coa_id: 'b', credit_cents: 100 },
+      ],
+    })
+    expect(id).toBeNull()
+  })
+
+  it('throws when the RPC returns a malformed (non-string, non-null) id', async () => {
+    rpcResult = { data: 42, error: null }
     await expect(postJournalEntry({
       ...base,
       lines: [

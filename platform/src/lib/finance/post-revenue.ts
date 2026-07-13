@@ -89,6 +89,7 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
     source_id: sourceId,
     lines,
   })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
   return { posted: true, entryId }
 }
 

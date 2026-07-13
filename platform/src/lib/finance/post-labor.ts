@@ -88,6 +88,7 @@ async function postLabor(opts: {
     source_id: sourceId,
     lines,
   })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
   return { posted: true, entryId }
 }
 

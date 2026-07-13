@@ -56,6 +56,15 @@ function matches(r: Record<string, unknown>, s: State): boolean {
 }
 
 function postJournalEntryRpc(h: FakeStoreHandle, params: Record<string, unknown>): { data: unknown; error: unknown } {
+  // Mirrors migration 064's partial unique index + ON CONFLICT DO NOTHING:
+  // a duplicate (tenant_id, source, source_id) is an idempotent no-op that
+  // returns NULL instead of inserting a second entry.
+  if (params.p_source_id != null) {
+    const existing = (h.store.journal_entries || []).find(
+      (e) => e.tenant_id === params.p_tenant_id && e.source === params.p_source && e.source_id === params.p_source_id,
+    )
+    if (existing) return { data: null, error: null }
+  }
   h.seq += 1
   const entryId = `je-${h.seq}`
   ;(h.store.journal_entries ||= []).push({

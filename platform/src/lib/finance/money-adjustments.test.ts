@@ -97,6 +97,24 @@ describe('postDepositToLedger — deposit is an unearned liability, not revenue'
     expect(again).toMatchObject({ posted: false, reason: 'already_posted' })
     expect(h.store.journal_entries.filter((e) => e.source === 'deposit')).toHaveLength(1)
   })
+
+  it('closes the TOCTOU race: two CONCURRENT posts for the same sourceId post exactly once (migration 064)', async () => {
+    // journalEntryExists() is a plain SELECT — two concurrent callers can both
+    // see "not posted yet" before either INSERT lands. Promise.all reproduces
+    // that interleaving; the fake's RPC now enforces the same (tenant_id,
+    // source, source_id) uniqueness migration 064 adds in Postgres, so exactly
+    // one of the two should win.
+    const [r1, r2] = await Promise.all([
+      postDepositToLedger({ tenantId: A, sourceId: 'quote-race', amountCents: 10000 }),
+      postDepositToLedger({ tenantId: A, sourceId: 'quote-race', amountCents: 10000 }),
+    ])
+    const results = [r1, r2]
+    const winners = results.filter((r) => r.posted)
+    const losers = results.filter((r) => !r.posted)
+    expect(winners).toHaveLength(1)
+    expect(losers).toMatchObject([{ posted: false, reason: 'already_posted' }])
+    expect(h.store.journal_entries.filter((e) => e.source === 'deposit' && e.source_id === 'quote-race')).toHaveLength(1)
+  })
 })
 
 describe('postRefundToLedger — reverse the sale', () => {
