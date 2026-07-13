@@ -57,8 +57,8 @@ export interface CommCapabilities {
 
 export function defaultCommTiming(): CommTiming {
   return {
-    reminder_days: COMM_TIMING.reminder_days.default as number[],
-    reminder_hours_before: COMM_TIMING.reminder_hours_before.default as number[],
+    reminder_days: [...(COMM_TIMING.reminder_days.default as number[])],
+    reminder_hours_before: [...(COMM_TIMING.reminder_hours_before.default as number[])],
     review_delay_hours: COMM_TIMING.review_delay_hours.default as number,
     daily_summary_hour: COMM_TIMING.daily_summary_hour.default as number,
     payment_reminder_hours: COMM_TIMING.payment_reminder_hours.default as number,
