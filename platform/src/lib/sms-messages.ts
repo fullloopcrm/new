@@ -93,7 +93,7 @@ export async function insertConversationMessage(
   }
 
   const payload = { ...input, tenant_id: tenantId }
-  const query = supabaseAdmin.from('sms_conversation_messages').insert(payload)
+  const query = supabaseAdmin.from('sms_conversation_messages').insert(payload) // tenant-scope-ok: payload stamped above
   const { data, error } = opts.returnRow ? await query.select().single() : await query
 
   return {

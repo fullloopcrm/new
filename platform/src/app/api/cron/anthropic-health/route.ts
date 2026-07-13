@@ -41,8 +41,11 @@ export async function GET(request: Request) {
       const alertType = `anthropic_health_alert_${kind}`
       const cooldownSince = new Date(Date.now() - ALERT_COOLDOWN_MS).toISOString()
 
+      // Platform-wide alert (shared Anthropic key, no single tenant owns it) —
+      // notifications.tenant_id is nullable for exactly this system-level case
+      // (see migrations/008_missing_tables_and_columns.sql).
       const { data: recent } = await supabaseAdmin
-        .from('notifications')
+        .from('notifications') // tenant-scope-ok: platform-wide, tenant_id nullable by design
         .select('id')
         .eq('type', alertType)
         .gte('created_at', cooldownSince)
@@ -58,7 +61,7 @@ export async function GET(request: Request) {
           ? 'Yinez is silent across every tenant. Top up at console.anthropic.com.'
           : `Anthropic error: ${msg.slice(0, 300)}`
         await notifyOwnerOnTelegram(`${title}\n\n${body}`).catch(() => {})
-        await supabaseAdmin.from('notifications').insert({
+        await supabaseAdmin.from('notifications').insert({ // tenant-scope-ok: same platform-wide alert
           type: alertType,
           title,
           message: msg.slice(0, 500),

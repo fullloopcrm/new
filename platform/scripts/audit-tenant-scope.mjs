@@ -76,11 +76,34 @@ const files = execSync(`grep -rl "\\.from('" ${ROOT} --include="*.ts" --include=
 const flagged = []
 for (const file of files) {
   const lines = readFileSync(file, 'utf8').split('\n')
+  // src/lib/tenant-db.ts wraps supabaseAdmin so select/update/delete are
+  // auto-filtered by tenant_id and insert/upsert auto-stamp it — none of
+  // which ever produces a literal `.eq('tenant_id', ...)` in the source, so
+  // the regex-based scan below can't see it. Track every local var assigned
+  // straight from tenantDb(...) (conventionally `db`, but also `q`/`query`
+  // in a few routes) so calls chained off it are recognized as scoped.
+  const tenantDbVars = new Set()
+  for (const line of lines) {
+    const m = line.match(/\b(?:const|let)\s+(\w+)\s*=\s*tenantDb\(/)
+    if (m) tenantDbVars.add(m[1])
+  }
+  const wrapperVarPattern = tenantDbVars.size
+    ? new RegExp(`\\b(?:${[...tenantDbVars].join('|')})\\b`)
+    : null
+
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/\.from\('([a-z_]+)'\)/)
     if (!m || !TENANT_TABLES.has(m[1])) continue
     if (/tenant-scope-ok/.test(lines[i])) continue
     if (/\.storage\.from\(/.test(lines[i])) continue             // storage bucket, not a table
+    // tenantDb(...)-wrapped queries: either a direct `tenantDb(tenantId).from(...)`
+    // chain, or `.from(...)` chained off a tracked wrapper var a few lines up
+    // (e.g. `const db = tenantDb(tenantId)` earlier, then `db\n  .from(...)`).
+    const precedingChain = lines.slice(Math.max(0, i - 8), i + 1).join('\n')
+    const usesTenantDbWrapper =
+      /\btenantDb\(/.test(precedingChain) ||
+      (wrapperVarPattern && wrapperVarPattern.test(precedingChain))
+    if (usesTenantDbWrapper) continue
     const chain = lines.slice(i, i + 12).join('\n')
     const scoped = /tenant_id/.test(chain)                       // filter or insert payload
     // Row/entity-specific keys are globally unique (UUIDs / secret tokens), so a
