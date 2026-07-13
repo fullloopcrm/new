@@ -14,7 +14,7 @@ const supabase = createClient(
 // Upload a file directly to Supabase storage via a pre-signed URL (bypasses
 // Vercel's 4.5MB function body limit — required for the 50MB portfolio).
 // Returns the public URL, or throws with a user-facing message.
-async function uploadFile(file: File, type: "resume" | "portfolio"): Promise<string> {
+export async function uploadFile(file: File, type: "resume" | "portfolio"): Promise<string> {
   const signedRes = await fetch("/api/apply/signed-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -26,10 +26,18 @@ async function uploadFile(file: File, type: "resume" | "portfolio"): Promise<str
   }
   const { path, token, publicUrl } = await signedRes.json();
 
-  const { error } = await supabase.storage
-    .from("uploads")
-    .uploadToSignedUrl(path, token, file, { contentType: file.type });
-  if (error) throw new Error(`Failed to upload ${type}. Please try again.`);
+  try {
+    const { error } = await supabase.storage
+      .from("uploads")
+      .uploadToSignedUrl(path, token, file, { contentType: file.type });
+    if (error) throw new Error(`Failed to upload ${type}. Please try again.`);
+  } catch {
+    // Storage SDKs can throw synchronously (e.g. a DOMException from malformed
+    // URL construction) instead of returning an error object — normalize any
+    // thrown exception to the same friendly message so raw browser/SDK error
+    // text never reaches the applicant.
+    throw new Error(`Failed to upload ${type}. Please try again.`);
+  }
 
   return publicUrl;
 }
