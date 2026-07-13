@@ -211,15 +211,14 @@ export async function POST(request: Request) {
 
       // ── Invoice path — paid directly via invoice public link ──
       if (invoiceId && tenantId && !bookingId) {
-        const { data: existing } = await supabaseAdmin
-          .from('payments')
-          .select('id')
-          .eq('stripe_session_id', session.id)
-          .limit(1)
-        if (existing && existing.length > 0) {
-          return NextResponse.json({ received: true, idempotent: true })
-        }
-        const { data: invPayment } = await supabaseAdmin.from('payments').insert({
+        // Idempotency claim: same UNIQUE constraint on payments.stripe_session_id
+        // (011_parity_with_nycmaid.sql) as the booking-payment path above. The
+        // insert itself is the atomic decision point instead of a
+        // select-then-insert with a gap between them — two concurrent/retried
+        // deliveries for the same session race the insert; the loser gets a
+        // 23505 unique-violation and MUST return here, before the revenue post,
+        // so the invoice is never double-credited.
+        const { data: invPayment, error: invPayInsertErr } = await supabaseAdmin.from('payments').insert({
           tenant_id: tenantId,
           invoice_id: invoiceId,
           amount_cents: session.amount_total || 0,
@@ -229,6 +228,14 @@ export async function POST(request: Request) {
           stripe_payment_intent_id:
             typeof session.payment_intent === 'string' ? session.payment_intent : null,
         }).select('id').single()
+
+        if (invPayInsertErr) {
+          if (invPayInsertErr.code === '23505') {
+            return NextResponse.json({ received: true, idempotent: true })
+          }
+          console.error('[stripe] invoice payment insert failed:', invPayInsertErr)
+          return NextResponse.json({ received: true, error: 'insert_failed' })
+        }
         // DB trigger recomputes invoice.amount_paid_cents and status.
         if (invPayment?.id) {
           postPaymentRevenue({ tenantId, paymentId: invPayment.id })
@@ -240,18 +247,34 @@ export async function POST(request: Request) {
       // ── Proposal deposit path — customer paid the deposit on a public quote ──
       if (session.metadata?.quote_deposit === 'true' && session.metadata?.quote_id && tenantId) {
         const quoteId = session.metadata.quote_id
+        // Read-only lookup — used only for the deposit_cents fallback + the
+        // not-found response. It does NOT decide whether to proceed; that
+        // decision is made atomically by the claim UPDATE below, closing the
+        // TOCTOU where two concurrent/retried deliveries could both read
+        // deposit_paid_at: null and both post the deposit.
+        const { data: qLookup } = await supabaseAdmin
+          .from('quotes')
+          .select('deposit_cents')
+          .eq('id', quoteId).eq('tenant_id', tenantId).maybeSingle()
+        if (!qLookup) return NextResponse.json({ received: true, quote_not_found: true })
+
+        const amt = session.amount_total || qLookup.deposit_cents || 0
+        const nowIso = new Date().toISOString()
+
+        // Atomic claim: flip deposit_paid_at null -> now in one UPDATE so only
+        // one concurrent/retried delivery wins. The loser's UPDATE matches
+        // zero rows and gets null back — no select-then-branch-then-write gap.
         const { data: q } = await supabaseAdmin
           .from('quotes')
-          .select('id, deal_id, deposit_paid_at, deposit_cents, quote_number')
-          .eq('id', quoteId).eq('tenant_id', tenantId).maybeSingle()
-        if (!q) return NextResponse.json({ received: true, quote_not_found: true })
-        if (q.deposit_paid_at) return NextResponse.json({ received: true, idempotent: true })
-
-        const amt = session.amount_total || q.deposit_cents || 0
-        const nowIso = new Date().toISOString()
-        await supabaseAdmin.from('quotes')
           .update({ deposit_paid_cents: amt, deposit_paid_at: nowIso, deposit_session_id: session.id })
           .eq('id', quoteId).eq('tenant_id', tenantId)
+          .is('deposit_paid_at', null)
+          .select('id, deal_id, quote_number')
+          .maybeSingle()
+
+        if (!q) {
+          return NextResponse.json({ received: true, idempotent: true })
+        }
 
         // Deposit is unearned until the job runs → post as a liability, not revenue.
         postDepositToLedger({ tenantId, sourceId: quoteId, amountCents: amt, memo: `Deposit ${q.quote_number}` })
@@ -323,16 +346,6 @@ export async function POST(request: Request) {
       }
       if (!tenantId) break
 
-      // Idempotency — skip if we already processed this session
-      const { data: existing } = await supabaseAdmin
-        .from('payments')
-        .select('id')
-        .eq('stripe_session_id', session.id)
-        .limit(1)
-      if (existing && existing.length > 0) {
-        return NextResponse.json({ received: true, idempotent: true })
-      }
-
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
@@ -365,8 +378,15 @@ export async function POST(request: Request) {
         }
       }
 
-      // 1. Insert payment row (capture id → post revenue to ledger immediately)
-      const { data: bookingPayment } = await supabaseAdmin.from('payments').insert({
+      // 1. Insert payment row (capture id → post revenue to ledger immediately).
+      // Idempotency claim: `stripe_session_id` has a UNIQUE constraint
+      // (011_parity_with_nycmaid.sql). The insert itself is the atomic
+      // decision point — same shape as the prospects claim — instead of a
+      // select-then-insert with a gap between them. Two concurrent/retried
+      // deliveries for the same session race the insert; the loser gets a
+      // 23505 unique-violation and MUST return here, before the payout
+      // section below, so the cleaner is never paid twice for one session.
+      const { data: bookingPayment, error: payInsertErr } = await supabaseAdmin.from('payments').insert({
         tenant_id: tenantId,
         booking_id: bookingId,
         client_id: booking.client_id,
@@ -377,6 +397,14 @@ export async function POST(request: Request) {
         stripe_session_id: session.id,
         stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
       }).select('id').single()
+
+      if (payInsertErr) {
+        if (payInsertErr.code === '23505') {
+          return NextResponse.json({ received: true, idempotent: true })
+        }
+        console.error('[stripe] booking payment insert failed:', payInsertErr)
+        return NextResponse.json({ received: true, error: 'insert_failed' })
+      }
       if (bookingPayment?.id) {
         postPaymentRevenue({ tenantId, paymentId: bookingPayment.id })
           .catch(err => console.error('[stripe] booking revenue post failed:', err))
@@ -433,12 +461,19 @@ export async function POST(request: Request) {
           const cleanerHours = Math.max(0.5, cleanerPaidHours((hours || 0) * 60))
           const cleanerBaseCents = storedPay && storedPay > 0 ? storedPay : Math.round(cleanerHours * cleanerRate * 100)
           const cleanerCents = cleanerBaseCents + tipCents
+          // Defense in depth: even with the atomic payment-insert claim above,
+          // an explicit Stripe-side idempotency key means a delivery that
+          // somehow reaches this call twice (e.g. a process crash between the
+          // payment insert committing and the transfer completing, followed
+          // by a manual replay) can't double-transfer to the cleaner.
           const transfer = await stripe.transfers.create({
             amount: cleanerCents,
             currency: 'usd',
             destination: tm.stripe_account_id,
             transfer_group: bookingId,
             metadata: { booking_id: bookingId, tenant_id: tenantId },
+          }, {
+            idempotencyKey: `cleaner-payout:${bookingId}:${session.id}`,
           })
           // NYC Maid parity: push an INSTANT payout to the cleaner's bank so
           // funds land immediately, not on the standard Connect schedule. The
@@ -446,7 +481,7 @@ export async function POST(request: Request) {
           if (isNycMaid(tenantId)) {
             await stripe.payouts.create(
               { amount: cleanerCents, currency: 'usd', method: 'instant' },
-              { stripeAccount: tm.stripe_account_id },
+              { stripeAccount: tm.stripe_account_id, idempotencyKey: `cleaner-instant-payout:${bookingId}:${session.id}` },
             ).catch((err) => console.error('[stripe] NYC Maid instant payout failed (transfer landed):', err))
           }
           const { data: payoutRow } = await supabaseAdmin.from('team_member_payouts').insert({
