@@ -5,7 +5,8 @@
  *                        portal calls this with their own ID).
  * GET (no params, admin session) — list all commissions for the tenant.
  * POST (admin) — create a commission for a booking with a referrer_id.
- * PUT (admin) — update status; marking 'paid' bumps referrer.total_paid.
+ * PUT (admin) — update status; marking 'paid' bumps referrer.total_paid
+ *               (atomically claimed so a double-submit can't double-credit).
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -151,45 +152,55 @@ export async function PUT(request: Request) {
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
     const updates: Record<string, unknown> = { status }
-
     if (status === 'paid') {
       updates.paid_at = new Date().toISOString()
       updates.paid_via = paid_via || 'zelle'
-
-      const { data: commission } = await supabaseAdmin
-        .from('referral_commissions')
-        .select('referrer_id, commission_cents')
-        .eq('id', id)
-        .eq('tenant_id', tenantId)
-        .single()
-      if (commission) {
-        const { data: ref } = await supabaseAdmin
-          .from('referrers')
-          .select('total_paid')
-          .eq('id', commission.referrer_id)
-          .eq('tenant_id', tenantId)
-          .single()
-        if (ref) {
-          await supabaseAdmin
-            .from('referrers')
-            .update({ total_paid: (ref.total_paid || 0) + (commission.commission_cents as number) })
-            .eq('id', commission.referrer_id)
-            .eq('tenant_id', tenantId)
-        }
-      }
     }
 
-    const { data, error } = await supabaseAdmin
+    // Marking 'paid' bumps referrer.total_paid — a plain update() would let a
+    // double-click or retried request re-apply that bump every time it's
+    // called (the finance-ledger side is separately idempotent via
+    // journalEntryExists, but this counter isn't). Claim the transition
+    // atomically: only a row that isn't already 'paid' can flip to 'paid'. A
+    // concurrent/duplicate request that loses the race gets null back and is
+    // treated as already-handled instead of double-crediting the referrer.
+    let query = supabaseAdmin
       .from('referral_commissions')
       .update(updates)
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .select()
-      .single()
+    if (status === 'paid') query = query.neq('status', 'paid')
+    const { data, error } = await query.select().maybeSingle()
     if (error) throw error
 
-    // Marking paid clears the payable against cash in the ledger.
-    if (status === 'paid' && data?.id) {
+    if (!data) {
+      if (status !== 'paid') return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      const { data: current, error: curErr } = await supabaseAdmin
+        .from('referral_commissions')
+        .select()
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (curErr) throw curErr
+      if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      return NextResponse.json(current)
+    }
+
+    if (status === 'paid') {
+      const { data: ref } = await supabaseAdmin
+        .from('referrers')
+        .select('total_paid')
+        .eq('id', data.referrer_id)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (ref) {
+        await supabaseAdmin
+          .from('referrers')
+          .update({ total_paid: (ref.total_paid || 0) + (data.commission_cents as number) })
+          .eq('id', data.referrer_id)
+          .eq('tenant_id', tenantId)
+      }
+      // Marking paid clears the payable against cash in the ledger.
       postCommissionPayment({ tenantId, commissionId: data.id })
         .catch(err => console.error('[ref-comm] payment post failed:', err))
     }
