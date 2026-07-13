@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
             phone: appPhone || null,
             availability: (body.availability as string) || null,
             referral_source: (body.source as string) || null,
+            photo_url: (body.photoUrl as string) || null,
             notes,
             status: 'pending',
           })
