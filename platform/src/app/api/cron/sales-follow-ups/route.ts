@@ -19,10 +19,15 @@ export async function GET(request: Request) {
   const now = new Date()
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
 
+  // deals has no `status` column — the unified pipeline spine (migration
+  // 2026_07_03_sales_pipeline_unify.sql) uses `stage` with values
+  // new/qualifying/quoted/pending/sold/lost. nycmaid's `stage='active'`
+  // (its own 3-value active/booked/removed spine) maps to "not yet closed"
+  // here: everything except sold/lost.
   const { data: deals, error } = await supabaseAdmin
     .from('deals')
     .select('id, tenant_id, follow_up_at, follow_up_note, clients(name, phone)')
-    .eq('status', 'active')
+    .not('stage', 'in', '(sold,lost)')
     .lte('follow_up_at', now.toISOString())
     .gte('follow_up_at', oneHourAgo.toISOString())
 
