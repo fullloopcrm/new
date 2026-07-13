@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { requireAdmin } from '@/lib/require-admin'
+import { requirePermission } from '@/lib/require-permission'
 
 // POST /api/admin/bookings/:id/cleaner-payout
 // Manual team-member payout (Zelle / Venmo / CashApp / cash / other) for a
 // single team member on a single booking. Inserts team_member_payouts row
 // and, if the team member is the booking lead, flips bookings.team_member_paid.
 //
+// Reached from the shared /dashboard bookings closeout widget (every tenant's
+// own admin), not just the platform admin panel — must accept a tenant_admin
+// session, not requireAdmin()'s super_admin-only token. See schedule-issues
+// fix (commit 05176c2f) for the same bug class.
+//
 // body: { cleaner_id: string, amount_cents: number, method: 'zelle'|'venmo'|'cashapp'|'cash'|'other' }
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
   if (authError) return authError
+  const { tenantId } = tenant
 
   const { id } = await params
   const body = await req.json()
@@ -26,13 +32,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .from('bookings')
     .select('id, tenant_id, team_member_id')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .single()
   if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+
+  const { data: member } = await supabaseAdmin
+    .from('team_members')
+    .select('id')
+    .eq('id', teamMemberId)
+    .eq('tenant_id', tenantId)
+    .single()
+  if (!member) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
 
   const { data: payoutRow, error: payErr } = await supabaseAdmin
     .from('team_member_payouts')
     .insert({
-      tenant_id: booking.tenant_id,
+      tenant_id: tenantId,
       booking_id: id,
       team_member_id: teamMemberId,
       amount_cents: amountCents,
@@ -47,6 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .from('bookings')
       .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
       .eq('id', id)
+      .eq('tenant_id', tenantId)
   }
 
   return NextResponse.json({ ok: true, payout: payoutRow })

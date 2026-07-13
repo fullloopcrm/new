@@ -1,15 +1,21 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { requireAdmin } from '@/lib/require-admin'
+import { requirePermission } from '@/lib/require-permission'
 
 // GET /api/admin/bookings/:id/closeout-summary
 // One-shot aggregation of every fact needed to close out a job:
 // time breakdown, bill math (with discounts itemized), every payment row,
 // over/under-payment + tip detection, per-team-member share + paid status,
 // and the audit trail of SMS sent for the booking. All money values in cents.
+//
+// Reached from the shared /dashboard bookings closeout widget (every tenant's
+// own admin), not just the platform admin panel — must accept a tenant_admin
+// session, not requireAdmin()'s super_admin-only token. See schedule-issues
+// fix (commit 05176c2f) for the same bug class.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
+  const { tenant, error: authError } = await requirePermission('bookings.view')
   if (authError) return authError
+  const { tenantId } = tenant
 
   const { id } = await params
 
@@ -17,6 +23,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .from('bookings')
     .select('id, tenant_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, team_size, actual_hours, check_in_time, check_out_time, fifteen_min_alert_time, price, team_member_pay, payment_status, payment_method, payment_received_at, team_member_paid, team_member_paid_at, notes, client_id, team_member_id, clients(name, email, phone), team_members!bookings_team_member_id_fkey(id, name, phone)')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .single()
 
   if (error || !booking) {
@@ -28,6 +35,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .from('booking_team_members')
     .select('team_member_id, is_lead, position, team_members(id, name, phone, hourly_rate)')
     .eq('booking_id', id)
+    .eq('tenant_id', tenantId)
     .order('position', { ascending: true })
 
   const teamMembers: Array<{ team_member_id: string; name: string; phone: string | null; is_lead: boolean; hourly_rate: number | null }> = []
@@ -45,18 +53,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .from('payments')
     .select('id, amount_cents, tip_cents, method, stripe_session_id, stripe_payment_intent_id, reference_id, created_at')
     .eq('booking_id', id)
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: true })
 
   const { data: payouts } = await supabaseAdmin
     .from('team_member_payouts')
     .select('id, team_member_id, amount_cents, stripe_transfer_id, stripe_payout_id, instant, created_at, status')
     .eq('booking_id', id)
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: true })
 
   const { data: smsLog } = await supabaseAdmin
     .from('sms_logs')
     .select('id, sms_type, recipient, status, created_at')
     .eq('booking_id', id)
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: true })
 
   // Time breakdown
