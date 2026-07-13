@@ -37,7 +37,7 @@ direct `ls` against `/Users/jefftucker/flwork-p1-w{1..6}/deploy-prep/`.
 | Q-W2 | DONE | W6 | `afe5990d` | `git-reflog-recovery-runbook.md` |
 | Q-W3 | DONE | W6 | `67bc82b1` | `invocation-timeout-design.md` |
 | Q-W4 | DONE | W6 | `b60f1eab` | `atomic-handoff-file-design.md` |
-| Q-W5 | DONE (⚠️ DUPLICATE, unresolved) | W6 + W1 | `1e21153c` / `177a5fc7` | `pre-lane-branch-state-check.md` (W6) + `pre-lane-branch-check.md` (W1) |
+| Q-W5 | DONE (RECONCILED 2026-07-13, see note below) | W6 + W1 | `1e21153c` / `177a5fc7` | `pre-lane-branch-state-check.md` (W6) + `pre-lane-branch-check.md` (W1, now the merged/canonical version) |
 | Q-O1 | DONE | W6 | `17ad93fe` | `cross-lane-merge-conflict-audit.md` |
 | Q-O2 | DONE | W6 | `adac566d` | `token-freshness-note.md` |
 | Q-O3 | DONE | W6 | `28644e31` | `fleet-disk-monitoring-note.md` |
@@ -58,14 +58,29 @@ header. "DONE" in this table means "a reviewable proposal exists," not
 
 ## Known open flags (not closed by the roster being populated)
 
-1. **Q-W5 duplicate is still unresolved.** Two independent docs
-   (`pre-lane-branch-state-check.md` W6 vs `pre-lane-branch-check.md` W1)
-   solve the same problem under different filenames on different branches.
-   `queue-reconciliation-design.md` flagged this live when it happened
-   (13-minute gap between the two closes) as the exact failure mode Q-S2
-   exists to catch. Recommend the leader pick one before
-   `branch-integration-plan.md`'s merge — both are read-only designs, so
-   whichever is kept costs nothing to discard the other.
+1. **Q-W5 duplicate: RESOLVED 2026-07-13 (correction to this snapshot's original claim).**
+   This snapshot originally reported the two-doc duplicate
+   (`pre-lane-branch-state-check.md` W6 vs `pre-lane-branch-check.md` W1) as
+   unresolved. It has since been reconciled: W1 authored
+   `deploy-prep/q-w5-reconciliation-note.md` (on `p1-w1`, not this branch) comparing
+   both proposals point-by-point, and merged the design fork (W1's BLOCK
+   conditions — detached HEAD, wrong branch, mid-rebase, stale `index.lock`,
+   missing worktree dir — plus W6's uncommitted-tracked-changes-should-BLOCK
+   finding, PID-gated so mid-batch uncommitted state still WARNs rather than
+   false-positive-BLOCKs) into the one runnable script,
+   `pre-lane-branch-check.sh` (`p1-w1`). That script has been re-run against
+   all 6 live lanes (read-only) and one real bug in its PID-liveness check was
+   found and fixed during that verification (`pgrep -f` missing an ancestor
+   match on `p1-w1`'s own process; replaced with a `ps -e` snapshot + `case`
+   match). `pre-lane-branch-state-check.md` (this branch) is correctly kept,
+   per the reconciliation note, as the design-rationale record for *why* the
+   merged version BLOCKs on uncommitted state — it is not the canonical
+   script going forward. **Still not wired into any live driver or dispatch
+   path** — this remains a leader/Jeff decision, consistent with every other
+   Q-item in this roster. This snapshot is corrected here rather than
+   silently re-authoring a third document on the same topic, per the same
+   duplicate-work-avoidance reasoning `queue-reconciliation-design.md` (Q-S2)
+   itself argues for.
 2. **Q-N5 has two independent takes** (protocol doc from W1, branch-specific
    verification note from W4) — not a conflict like Q-W5, since they're
    complementary (a general protocol + one lane's concrete run), but worth
