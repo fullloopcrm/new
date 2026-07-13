@@ -13,6 +13,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
@@ -53,10 +54,9 @@ export async function POST(req: NextRequest) {
     // also act on an as-yet-unassigned job.
     const allowed = new Set(await scopedMemberIds(auth))
     const bookingMemberIds: string[] = booking.team_member_id ? [booking.team_member_id as string] : []
-    const { data: extraMembers } = await supabaseAdmin
-      .from('booking_team_members')
+    const { data: extraMembers } = await tenantDb(auth.tid)
+      .from('booking_team_members') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
       .select('team_member_id')
-      .eq('tenant_id', auth.tid)
       .eq('booking_id', bookingId)
     for (const m of extraMembers || []) bookingMemberIds.push(m.team_member_id as string)
     const hasVisibility = bookingMemberIds.some((id) => allowed.has(id))
@@ -232,8 +232,7 @@ export async function POST(req: NextRequest) {
 
     // Escalate if client SMS failed entirely
     if (confirmedVia.length === 0 && clientId) {
-      await supabaseAdmin.from('admin_tasks').insert({
-        tenant_id: tenantId,
+      await tenantDb(tenantId).from('admin_tasks').insert({ // tenant-scope-ok: tenantDb() stamps tenant_id on insert
         type: 'payment_request_undelivered',
         priority: 'high',
         title: `CALL ${clientName} manually — $${clientOwes} payment request undelivered`,

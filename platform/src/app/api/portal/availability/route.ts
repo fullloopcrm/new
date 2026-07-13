@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -18,10 +18,9 @@ export async function GET(request: NextRequest) {
   const dayStart = `${date}T00:00:00`
   const dayEnd = `${date}T23:59:59`
 
-  const { data: bookings } = await supabaseAdmin
-    .from('bookings')
+  const { data: bookings } = await tenantDb(auth.tid)
+    .from('bookings') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
     .select('start_time, end_time')
-    .eq('tenant_id', auth.tid)
     .gte('start_time', dayStart)
     .lte('start_time', dayEnd)
     .not('status', 'eq', 'cancelled')
