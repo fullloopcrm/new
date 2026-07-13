@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { askSelena } from '@/lib/selena/agent'
 
@@ -36,30 +37,31 @@ export async function POST(req: NextRequest) {
     // because the owner's phone always has at least one active SMS or admin convo.
     // Use the canonical +1XXXXXXXXXX form to match what telnyx + telegram store.
     const normalizedPhone = ownerPhone.startsWith('+') ? ownerPhone : `+1${ownerPhone.replace(/\D/g, '').slice(-10)}`
+    const db = tenantDb(tenant.tenantId)
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existingRows } = await db
       .from('sms_conversations')
       .select('id')
-      .eq('tenant_id', tenant.tenantId)
       .eq('phone', normalizedPhone)
       .eq('state', 'admin-dashboard')
       .is('completed_at', null)
       .order('created_at', { ascending: false })
       .limit(1)
+    const existing = existingRows as unknown as Array<{ id: string }> | null
 
     if (existing && existing.length > 0) {
       sessionId = existing[0].id
     } else {
-      const { data: convo, error } = await supabaseAdmin
+      const { data: convoRow, error } = await db
         .from('sms_conversations')
         .insert({
-          tenant_id: tenant.tenantId,
           phone: normalizedPhone,
           state: 'admin-dashboard',
           booking_checklist: { channel: 'admin-dashboard', phone: ownerPhone },
         })
         .select('id')
         .single()
+      const convo = convoRow as unknown as { id: string } | null
       if (error || !convo) {
         return NextResponse.json({ error: error?.message || 'failed to create conversation' }, { status: 500 })
       }

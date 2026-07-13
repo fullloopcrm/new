@@ -76,6 +76,14 @@ const files = execSync(`grep -rl "\\.from('" ${ROOT} --include="*.ts" --include=
 const flagged = []
 for (const file of files) {
   const lines = readFileSync(file, 'utf8').split('\n')
+  // Variables assigned from tenantDb(...) anywhere in this file (e.g. `const db =
+  // tenantDb(tenantId)` hoisted once, then reused across many `.from()` calls
+  // spread far enough apart that the nearby-line window below would miss them).
+  const tenantDbVars = []
+  for (let j = 0; j < lines.length; j++) {
+    const vm = lines[j].match(/\b(?:const|let)\s+(\w+)\s*=\s*tenantDb\(/)
+    if (vm) tenantDbVars.push({ name: vm[1], line: j })
+  }
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/\.from\('([a-z_]+)'\)/)
     if (!m || !TENANT_TABLES.has(m[1])) continue
@@ -87,7 +95,14 @@ for (const file of files) {
     // call site — look a few lines back too, since `const db = tenantDb(id)` is
     // often hoisted above one or more `.from()` calls that reuse it.
     const context = lines.slice(Math.max(0, i - 15), i + 12).join('\n')
-    const scoped = /tenant_id/.test(chain) || /\btenantDb\(/.test(context) // filter, insert payload, or tenantDb wrapper
+    // The object the `.from()` is actually called on sits within the couple of
+    // lines immediately before it (e.g. `await db\n  .from(...)`), regardless of
+    // how far above the `const db = tenantDb(...)` declaration itself is.
+    const nearCallSite = lines.slice(Math.max(0, i - 3), i + 1).join('\n')
+    const usesTenantDbVar = tenantDbVars.some(
+      (v) => v.line < i && new RegExp(`\\b${v.name}\\b`).test(nearCallSite),
+    )
+    const scoped = /tenant_id/.test(chain) || /\btenantDb\(/.test(context) || usesTenantDbVar
     // Row/entity-specific keys are globally unique (UUIDs / secret tokens), so a
     // lookup by id / *_id / *token* is inherently row-scoped, not a leak.
     const idLookup = /\.(eq|in)\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\s*,/.test(chain)

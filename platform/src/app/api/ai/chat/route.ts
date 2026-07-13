@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function POST(request: Request) {
   try {
@@ -17,16 +17,17 @@ export async function POST(request: Request) {
     const { messages, context } = await request.json()
 
     // Get business context for grounding
+    const db = tenantDb(tenantId)
     const [
       { count: clientCount },
       { count: bookingCount },
       { count: teamCount },
       { data: recentBookings },
     ] = await Promise.all([
-      supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabaseAdmin.from('bookings').select('id, status, start_time, final_price').eq('tenant_id', tenantId).order('start_time', { ascending: false }).limit(5),
+      db.from('clients').select('id', { count: 'exact', head: true }),
+      db.from('bookings').select('id', { count: 'exact', head: true }),
+      db.from('team_members').select('id', { count: 'exact', head: true }),
+      db.from('bookings').select('id, status, start_time, final_price').order('start_time', { ascending: false }).limit(5),
     ])
 
     const systemPrompt = `You are Selena, an AI assistant for ${tenant.name}, a ${tenant.industry?.replace(/_/g, ' ')} business using Full Loop CRM.

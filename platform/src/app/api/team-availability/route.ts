@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkTeamAvailability } from '@/lib/availability'
 import { getCurrentTenant } from '@/lib/tenant'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 /**
  * Admin endpoint — returns per-team-member availability for a specific time slot.
@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
 
   // Get base availability
   const members = await checkTeamAvailability(tenant.id, date, startTime, duration, excludeBooking)
+  const db = tenantDb(tenant.id)
 
   // Smart ranking data
   let preferredMemberId: string | null = null
@@ -37,25 +38,25 @@ export async function GET(request: NextRequest) {
 
   if (clientId) {
     // 1. Get client's preferred team member + requirements
-    const { data: client } = await supabaseAdmin
+    const { data: clientRow } = await db
       .from('clients')
       .select('preferred_team_member_id, requirements')
       .eq('id', clientId)
-      .eq('tenant_id', tenant.id)
       .single()
+    const client = clientRow as unknown as { preferred_team_member_id: string | null; requirements: unknown } | null
 
     preferredMemberId = client?.preferred_team_member_id || null
     // requirements is a JSON array like ["has_car", "spanish"]
-    try { clientRequirements = Array.isArray(client?.requirements) ? client.requirements : [] } catch { clientRequirements = [] }
+    try { clientRequirements = Array.isArray(client?.requirements) ? client.requirements as string[] : [] } catch { clientRequirements = [] }
 
     // 2. Get assignment history — how many times each member has serviced this client
-    const { data: history } = await supabaseAdmin
+    const { data: historyRows } = await db
       .from('bookings')
       .select('team_member_id')
-      .eq('tenant_id', tenant.id)
       .eq('client_id', clientId)
       .not('team_member_id', 'is', null)
       .in('status', ['completed', 'paid', 'scheduled', 'confirmed', 'in_progress'])
+    const history = historyRows as unknown as Array<{ team_member_id: string | null }> | null
 
     historyMap = {}
     for (const h of history || []) {
@@ -66,28 +67,28 @@ export async function GET(request: NextRequest) {
   }
 
   // Get team member skills/tags for matching
-  const { data: memberDetails } = await supabaseAdmin
+  const { data: memberDetailsRows } = await db
     .from('team_members')
     .select('id, skills')
-    .eq('tenant_id', tenant.id)
     .eq('status', 'active')
+  const memberDetails = memberDetailsRows as unknown as Array<{ id: string; skills: unknown }> | null
 
   const memberSkills: Record<string, string[]> = {}
   for (const m of memberDetails || []) {
-    try { memberSkills[m.id] = Array.isArray(m.skills) ? m.skills : [] } catch { memberSkills[m.id] = [] }
+    try { memberSkills[m.id] = Array.isArray(m.skills) ? m.skills as string[] : [] } catch { memberSkills[m.id] = [] }
   }
 
   // 3. Get day workload — how many jobs each member has on this date
   const dayStart = date + 'T00:00:00'
   const dayEnd = date + 'T23:59:59'
-  const { data: dayBookings } = await supabaseAdmin
+  const { data: dayBookingsRows } = await db
     .from('bookings')
     .select('team_member_id')
-    .eq('tenant_id', tenant.id)
     .gte('start_time', dayStart)
     .lte('start_time', dayEnd)
     .not('status', 'in', '("cancelled","no_show")')
     .not('team_member_id', 'is', null)
+  const dayBookings = dayBookingsRows as unknown as Array<{ team_member_id: string | null }> | null
 
   dayWorkload = {}
   for (const b of dayBookings || []) {
