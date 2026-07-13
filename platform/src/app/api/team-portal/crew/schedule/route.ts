@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 
 // The crew's upcoming schedule — scoped to the actor's pod (or all, for manager).
@@ -14,10 +14,9 @@ export async function GET(request: Request) {
   const now = new Date()
   const end = new Date(now); end.setDate(end.getDate() + 14)
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, start_time, end_time, status, service_type, team_member_id, team_members!bookings_team_member_id_fkey(name), clients(name, address)')
-    .eq('tenant_id', auth.tid)
     .in('team_member_id', scope)
     .gte('start_time', now.toISOString())
     .lt('start_time', end.toISOString())
