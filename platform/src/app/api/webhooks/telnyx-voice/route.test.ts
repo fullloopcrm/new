@@ -1,16 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
 
 /**
  * Telnyx voice webhook — PostgREST .or() injection regression [queue b follow-up].
  *
- * call_control_id comes straight from the inbound webhook JSON body. This
- * route's signature check (TELNYX_PUBLIC_KEY) only verifies a header is
- * present and fresh — it does not cryptographically verify the ed25519
- * signature — so call_control_id is effectively attacker-influenced input,
- * same threat model as the search-box/category fields fixed in fef4642.
- * It used to be interpolated raw into `.or(customer_call_id.eq.X,admin_call_id.eq.X)`,
+ * call_control_id comes straight from the inbound webhook JSON body. It used
+ * to be interpolated raw into `.or(customer_call_id.eq.X,admin_call_id.eq.X)`,
  * letting a crafted id break out of the intended filter (e.g. inject extra
  * OR conditions via `,`). Assert the value reaching `.or()` is sanitized.
+ *
+ * The route's signature check now cryptographically verifies the Ed25519
+ * signature (previously it only checked a header was present) and fails
+ * closed without a configured key, so this test signs its request for real
+ * instead of relying on the old skip-when-unconfigured gap.
  */
 
 const h = vi.hoisted(() => ({ capturedOr: '' as string }))
@@ -37,25 +39,33 @@ vi.mock('@/lib/nycmaid/sms', () => ({ sendSMS: vi.fn() }))
 
 import { POST } from './route'
 
+const { privateKey, publicKey } = generateKeyPairSync('ed25519')
+const spkiBuf = publicKey.export({ format: 'der', type: 'spki' }) as Buffer
+const RAW_PUB = spkiBuf.subarray(spkiBuf.length - 32).toString('base64')
+
 beforeEach(() => {
   h.capturedOr = ''
-  delete process.env.TELNYX_PUBLIC_KEY
+  process.env.TELNYX_PUBLIC_KEY = RAW_PUB
 })
 
 describe('POST /api/webhooks/telnyx-voice — call_control_id .or() injection guard', () => {
   it('sanitizes a call_control_id crafted to break out of the .or() filter', async () => {
     const maliciousId = 'x,status.eq.bridged,or(id.eq.1)"'
+    const body = JSON.stringify({
+      data: {
+        event_type: 'call.recording.saved',
+        payload: {
+          call_control_id: maliciousId,
+          recording_urls: { mp3: 'https://example.com/rec.mp3' },
+        },
+      },
+    })
+    const ts = Math.floor(Date.now() / 1000).toString()
+    const sig = cryptoSign(null, Buffer.from(`${ts}|${body}`, 'utf8'), privateKey).toString('base64')
     const req = new Request('http://x/api/webhooks/telnyx-voice', {
       method: 'POST',
-      body: JSON.stringify({
-        data: {
-          event_type: 'call.recording.saved',
-          payload: {
-            call_control_id: maliciousId,
-            recording_urls: { mp3: 'https://example.com/rec.mp3' },
-          },
-        },
-      }),
+      headers: { 'telnyx-timestamp': ts, 'telnyx-signature-ed25519': sig },
+      body,
     })
 
     await POST(req as unknown as Parameters<typeof POST>[0])
