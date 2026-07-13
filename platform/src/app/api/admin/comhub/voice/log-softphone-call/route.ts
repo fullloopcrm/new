@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 // POST /api/admin/comhub/voice/log-softphone-call
 // Browser softphone reports outbound dial state (started/answered/ended) into
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const adminId = await getActiveAdminMemberId(tenantId)
 
   const body = (await req.json().catch(() => null)) as {
@@ -46,11 +48,10 @@ export async function POST(req: NextRequest) {
   const threadId = tId as string
 
   if (body.status === 'started') {
-    await supabaseAdmin
+    await db
       .from('comhub_active_calls')
       .upsert(
         {
-          tenant_id: tenantId,
           customer_call_id: body.telnyx_call_id,
           thread_id: threadId,
           contact_id: contactId,
@@ -63,8 +64,7 @@ export async function POST(req: NextRequest) {
         { onConflict: 'customer_call_id' },
       )
     if (adminId) {
-      await supabaseAdmin.from('comhub_softphone_calls').insert({
-        tenant_id: tenantId,
+      await db.from('comhub_softphone_calls').insert({
         admin_id: adminId,
         sip_username: body.sip_username || '',
         customer_phone: body.customer_phone,
@@ -74,8 +74,7 @@ export async function POST(req: NextRequest) {
         status: 'ringing',
       })
     }
-    await supabaseAdmin.from('comhub_messages').insert({
-      tenant_id: tenantId,
+    await db.from('comhub_messages').insert({
       thread_id: threadId,
       contact_id: contactId,
       channel: 'voice',
@@ -86,7 +85,7 @@ export async function POST(req: NextRequest) {
       external_id: body.telnyx_call_id,
       sent_at: new Date().toISOString(),
     })
-    await supabaseAdmin
+    await db
       .from('comhub_threads')
       .update({
         last_message_at: new Date().toISOString(),
@@ -94,20 +93,17 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', threadId)
-      .eq('tenant_id', tenantId)
   } else if (body.status === 'answered') {
-    await supabaseAdmin
+    await db
       .from('comhub_active_calls')
       .update({ status: 'bridged', answered_at: new Date().toISOString() })
       .eq('customer_call_id', body.telnyx_call_id)
-      .eq('tenant_id', tenantId)
-    await supabaseAdmin
+    await db
       .from('comhub_softphone_calls')
       .update({ status: 'answered' })
       .eq('call_control_id', body.telnyx_call_id)
-      .eq('tenant_id', tenantId)
   } else if (body.status === 'ended') {
-    await supabaseAdmin
+    await db
       .from('comhub_active_calls')
       .update({
         status: 'ended',
@@ -115,17 +111,14 @@ export async function POST(req: NextRequest) {
         duration_secs: body.duration_secs ?? null,
       })
       .eq('customer_call_id', body.telnyx_call_id)
-      .eq('tenant_id', tenantId)
-    await supabaseAdmin
+    await db
       .from('comhub_softphone_calls')
       .update({ status: 'ended', ended_at: body.ended_at ?? new Date().toISOString() })
       .eq('call_control_id', body.telnyx_call_id)
-      .eq('tenant_id', tenantId)
     const dur = body.duration_secs
       ? `${Math.floor(body.duration_secs / 60)}:${String(body.duration_secs % 60).padStart(2, '0')}`
       : '?'
-    await supabaseAdmin.from('comhub_messages').insert({
-      tenant_id: tenantId,
+    await db.from('comhub_messages').insert({
       thread_id: threadId,
       contact_id: contactId,
       channel: 'voice',
