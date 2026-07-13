@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { calculateDistance, estimateTransitMinutes, geocodeClient } from '@/lib/nycmaid/geo'
 
@@ -19,19 +19,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'date required' }, { status: 400 })
   }
 
-  const { data: member } = await supabaseAdmin
+  const db = tenantDb(auth.tid)
+  const { data: member } = await db
     .from('team_members')
     .select('id, has_car')
     .eq('id', teamMemberId)
-    .eq('tenant_id', auth.tid)
     .single()
 
   if (!member) return NextResponse.json([])
 
-  const { data: bookings } = await supabaseAdmin
+  const { data: bookings } = await db
     .from('bookings')
     .select('id, start_time, end_time, client_id, clients(id, name, address, latitude, longitude)')
-    .eq('tenant_id', auth.tid)
     .eq('team_member_id', teamMemberId)
     .gte('start_time', `${date}T00:00:00`)
     .lte('start_time', `${date}T23:59:59`)
