@@ -28,6 +28,12 @@ function stamp(rows: Row | Row[], tenantId: string): Row | Row[] {
   return { ...rows, tenant_id: tenantId }
 }
 
+/** Strips tenant_id from an UPDATE payload so a caller can never re-tenant a row it owns. */
+function stripTenantId(values: Row): Row {
+  const { tenant_id: _dropped, ...rest } = values
+  return rest
+}
+
 export function tenantDb(tenantId: string) {
   if (!tenantId) throw new Error('tenantDb requires a tenantId')
 
@@ -56,8 +62,12 @@ export function tenantDb(tenantId: string) {
         /** INSERT with tenant_id stamped on every row (overrides any caller value). */
         insert: (rows: Row | Row[]) => base.insert(stamp(rows, tenantId)),
 
-        /** UPDATE auto-filtered to this tenant. */
-        update: (values: Row) => base.update(values).eq('tenant_id', tenantId),
+        /**
+         * UPDATE auto-filtered to this tenant. tenant_id is stripped from the
+         * payload (not honored even if present) so a caller spreading a raw
+         * request body can never re-tenant a row it owns into another tenant.
+         */
+        update: (values: Row) => base.update(stripTenantId(values)).eq('tenant_id', tenantId),
 
         /** DELETE auto-filtered to this tenant. */
         delete: () => base.delete().eq('tenant_id', tenantId),

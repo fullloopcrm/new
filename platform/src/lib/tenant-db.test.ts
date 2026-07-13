@@ -8,15 +8,17 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  *
  * Contract locked here:
  *   - select  → base.select(...).eq('tenant_id', tid)   (tenant filter FIRST)
- *   - update  → base.update(v).eq('tenant_id', tid)
+ *   - update  → base.update(v).eq('tenant_id', tid), tenant_id STRIPPED from v
  *   - delete  → base.delete().eq('tenant_id', tid)
  *   - insert  → base.insert(rows) with tenant_id STAMPED on every row
  *   - upsert  → base.upsert(rows) with tenant_id STAMPED on every row
  *   - empty tenantId throws (fail closed, never an unscoped query)
  *
  * WRONG-TENANT PROBE: a caller can never smuggle another tenant's id through
- * an insert/upsert payload — the wrapper's stamp OVERRIDES it — and a query
- * built for tenant A only ever carries tenant A's id.
+ * an insert/upsert payload — the wrapper's stamp OVERRIDES it — a caller can
+ * never re-tenant a row it owns via an update payload — the wrapper STRIPS
+ * tenant_id before it reaches PostgREST — and a query built for tenant A only
+ * ever carries tenant A's id.
  *
  * supabaseAdmin is mocked with a recording query builder so we can assert the
  * exact .eq filters and stamped payloads the wrapper produces without a DB.
@@ -131,6 +133,12 @@ describe('tenantDb — update / delete auto-scope to tenant', () => {
     expect(op.eqs).toContainEqual(['id', 'deal-1'])
   })
 
+  it('does not mutate the caller-supplied update payload object', () => {
+    const payload = { stage: 'won', tenant_id: TENANT_B }
+    tenantDb(TENANT_A).from('deals').update(payload).eq('id', 'deal-1')
+    expect(payload).toEqual({ stage: 'won', tenant_id: TENANT_B })
+  })
+
   it('delete carries the tenant filter', () => {
     tenantDb(TENANT_A).from('deals').delete().eq('id', 'deal-1')
     const op = captured[0]
@@ -180,5 +188,21 @@ describe('tenantDb — WRONG-TENANT PROBE (cross-tenant isolation)', () => {
   it('a forged tenant_id in an UPSERT payload is overridden', () => {
     tenantDb(TENANT_A).from('clients').upsert([{ name: 'mole', tenant_id: TENANT_B }])
     expect(captured[0].rows).toEqual([{ name: 'mole', tenant_id: TENANT_A }])
+  })
+
+  it('BREAK: a forged tenant_id in an UPDATE payload cannot re-tenant a row', () => {
+    // Attacker scenario: a route spreads a raw request body into .update()
+    // (e.g. `update({ ...body })` instead of an allowlisted `pick()`), and
+    // the body includes `tenant_id: TENANT_B`. Because the WHERE clause is
+    // still scoped to TENANT_A, the attacker can only ever touch a row it
+    // already owns -- but without stripping, PostgREST would happily SET
+    // tenant_id = TENANT_B on that row, moving the attacker's own record
+    // into tenant B's namespace (data pollution / self-service tenant hop).
+    tenantDb(TENANT_A).from('clients').update({ name: 'mole', tenant_id: TENANT_B }).eq('id', 'row-1')
+    const op = captured[0]
+    expect(op.vals).not.toHaveProperty('tenant_id')
+    expect(op.vals).toEqual({ name: 'mole' })
+    // the WHERE-side tenant filter is untouched and still TENANT_A
+    expect(op.eqs[0]).toEqual(['tenant_id', TENANT_A])
   })
 })
