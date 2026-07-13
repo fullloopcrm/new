@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { normalizePhone } from '@/lib/nycmaid/client-contacts'
 
@@ -14,6 +14,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const { id, contactId } = await params
     const body = await req.json()
+    const db = tenantDb(tenant.tenantId)
 
     const update: Record<string, unknown> = {}
     const now = new Date().toISOString()
@@ -40,17 +41,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     if (update.is_primary === true) {
-      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('tenant_id', tenant.tenantId).eq('client_id', id).eq('is_primary', true).neq('id', contactId)
+      await db.from('client_contacts').update({ is_primary: false }).eq('client_id', id).eq('is_primary', true).neq('id', contactId)
     }
 
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('client_contacts')
       .update(update)
-      .eq('tenant_id', tenant.tenantId)
       .eq('id', contactId)
       .eq('client_id', id)
       .select()
@@ -70,10 +70,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (authErr) return authErr
 
   const { id, contactId } = await params
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.tenantId)
     .from('client_contacts')
     .delete()
-    .eq('tenant_id', tenant.tenantId)
     .eq('id', contactId)
     .eq('client_id', id)
 
