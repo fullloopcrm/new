@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
 import { validateUsPhone } from '@/lib/nycmaid/phone-validator'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
+import { createPhoneFixupToken } from '@/lib/nycmaid/phone-fixup-token'
 
 // Daily scan: find cleaners with invalid phones, email each a signed link to
 // /team/update-phone?token=... so they can self-correct.
@@ -19,9 +19,7 @@ const CAP = 10
 
 function signToken(cleanerId: string): string {
   const expiry = Date.now() + TOKEN_EXPIRY_MS
-  const payload = `${cleanerId}.${expiry}`
-  const sig = createHmac('sha256', process.env.ADMIN_PASSWORD || '').update(payload).digest('hex')
-  return `${payload}.${sig}`
+  return createPhoneFixupToken(cleanerId, expiry)
 }
 
 export async function GET(request: Request) {
