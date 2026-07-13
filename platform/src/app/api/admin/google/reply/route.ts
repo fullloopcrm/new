@@ -3,7 +3,7 @@
  * Google OAuth tokens + business location.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getValidAccessToken, getGoogleBusiness } from '@/lib/google'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
@@ -44,10 +44,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to post reply' }, { status: 500 })
     }
 
-    await supabaseAdmin
+    await tenantDb(tenantId)
       .from('google_reviews')
       .update({ reply: reply.trim() })
-      .eq('tenant_id', tenantId)
       .eq('google_review_id', reviewId)
 
     return NextResponse.json({ success: true })

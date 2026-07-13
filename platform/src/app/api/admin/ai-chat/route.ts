@@ -6,7 +6,7 @@
  */
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
@@ -158,15 +158,14 @@ async function executeTool(
   name: string,
   input: Record<string, unknown>
 ): Promise<string> {
-  const scope = <T extends { eq: (col: string, val: string) => T }>(q: T): T => q.eq('tenant_id', tenantId)
+  const db = tenantDb(tenantId)
 
   switch (name) {
     case 'search_clients': {
       const q = sanitizePostgrestValue(String(input.query || '').trim())
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await db
         .from('clients')
         .select('id, name, email, phone, address, status, do_not_service, notes')
-        .eq('tenant_id', tenantId)
         .or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,address.ilike.%${q}%`)
         .limit(10)
       return JSON.stringify(error ? { error: error.message } : data)
@@ -174,20 +173,18 @@ async function executeTool(
 
     case 'search_team_members': {
       const q = input.query as string | undefined
-      let query = supabaseAdmin
+      let query = db
         .from('team_members')
         .select('id, name, email, phone, status, working_days')
-        .eq('tenant_id', tenantId)
       query = q ? query.ilike('name', `%${q}%`) : query.eq('status', 'active')
       const { data, error } = await query.limit(20)
       return JSON.stringify(error ? { error: error.message } : data)
     }
 
     case 'query_bookings': {
-      let query = supabaseAdmin
+      let query = db
         .from('bookings')
         .select('id, start_time, end_time, status, price, payment_status, payment_method, notes, recurring_type, service_type, schedule_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
-        .eq('tenant_id', tenantId)
         .order('start_time', { ascending: true })
 
       if (input.client_id) query = query.eq('client_id', input.client_id as string)
@@ -217,11 +214,10 @@ async function executeTool(
 
       const results = await Promise.all(
         ids.map(async id => {
-          const { error } = await supabaseAdmin
+          const { error } = await db
             .from('bookings')
             .update(updates)
             .eq('id', id)
-            .eq('tenant_id', tenantId)
           return { id, error: error?.message }
         })
       )
@@ -242,11 +238,10 @@ async function executeTool(
       }
       const results = await Promise.all(
         ids.map(async id => {
-          const { error } = await supabaseAdmin
+          const { error } = await db
             .from('bookings')
             .update({ status: 'cancelled' })
             .eq('id', id)
-            .eq('tenant_id', tenantId)
           return { id, error: error?.message }
         })
       )
@@ -258,10 +253,9 @@ async function executeTool(
     case 'get_schedule_summary': {
       const date = (input.date as string) || new Date().toISOString().split('T')[0]
       const dateTo = (input.date_to as string) || date
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await db
         .from('bookings')
         .select('id, start_time, end_time, status, price, service_type, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
-        .eq('tenant_id', tenantId)
         .gte('start_time', `${date}T00:00:00`)
         .lte('start_time', `${dateTo}T23:59:59`)
         .in('status', ['scheduled', 'in_progress', 'completed'])
@@ -271,19 +265,17 @@ async function executeTool(
 
     case 'get_client_details': {
       const clientId = input.client_id as string
-      const { data: client, error: clientError } = await supabaseAdmin
+      const { data: client, error: clientError } = await db
         .from('clients')
         .select('*')
         .eq('id', clientId)
-        .eq('tenant_id', tenantId)
         .single()
       if (clientError) return JSON.stringify({ error: clientError.message })
 
-      const { data: bookings } = await supabaseAdmin
+      const { data: bookings } = await db
         .from('bookings')
         .select('id, start_time, status, price, payment_status, service_type, team_members!bookings_team_member_id_fkey(name)')
         .eq('client_id', clientId)
-        .eq('tenant_id', tenantId)
         .order('start_time', { ascending: false })
         .limit(10)
 
@@ -291,11 +283,10 @@ async function executeTool(
     }
 
     case 'update_client': {
-      const { error } = await supabaseAdmin
+      const { error } = await db
         .from('clients')
         .update(input.updates as Record<string, unknown>)
         .eq('id', input.client_id as string)
-        .eq('tenant_id', tenantId)
       return JSON.stringify(error ? { error: error.message } : { success: true })
     }
 
@@ -318,7 +309,6 @@ async function executeTool(
         endTime = start.toISOString().replace(/\.\d{3}Z$/, '')
       }
       const bookingData: Record<string, unknown> = {
-        tenant_id: tenantId,
         client_id: input.client_id,
         start_time: startTime,
         end_time: endTime,
@@ -329,7 +319,7 @@ async function executeTool(
       if (input.price) bookingData.price = input.price
       if (input.notes) bookingData.notes = input.notes
 
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await db
         .from('bookings')
         .insert(bookingData)
         .select('id')
@@ -338,10 +328,9 @@ async function executeTool(
     }
 
     case 'get_revenue_stats': {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await db
         .from('bookings')
         .select('price, payment_status, status')
-        .eq('tenant_id', tenantId)
         .gte('start_time', `${input.date_from}T00:00:00`)
         .lte('start_time', `${input.date_to}T23:59:59`)
         .in('status', ['scheduled', 'completed', 'in_progress'])
@@ -362,7 +351,6 @@ async function executeTool(
     default:
       return JSON.stringify({ error: `Unknown tool: ${name}` })
   }
-  void scope
 }
 
 export async function POST(request: Request) {
