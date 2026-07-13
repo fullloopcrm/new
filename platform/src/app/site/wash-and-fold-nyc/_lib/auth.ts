@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createHmac, randomBytes } from 'crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { supabaseAdmin } from '@/app/site/wash-and-fold-nyc/_lib/supabase'
 import type { AdminRole } from '@/app/site/wash-and-fold-nyc/_lib/roles'
 import { canAccessAPI } from '@/app/site/wash-and-fold-nyc/_lib/roles'
@@ -10,6 +10,15 @@ import { canAccessAPI } from '@/app/site/wash-and-fold-nyc/_lib/roles'
 function signToken(token: string): string {
   const secret = process.env.ADMIN_PASSWORD || ''
   return createHmac('sha256', secret).update(token).digest('hex')
+}
+
+// Constant-time compare for HMAC signatures — a plain !== early-exits per
+// mismatched character, which is the textbook timing side-channel case.
+function signaturesMatch(expected: string, provided: string): boolean {
+  const expectedBuf = Buffer.from(expected, 'utf8')
+  const providedBuf = Buffer.from(provided, 'utf8')
+  if (expectedBuf.length !== providedBuf.length) return false
+  return timingSafeEqual(expectedBuf, providedBuf)
 }
 
 // Hash password with HMAC-SHA256
@@ -41,7 +50,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
     const [userId, token, timestamp, signature] = parts
     if (!userId || !token || !timestamp || !signature) return { valid: false }
     const payload = `${userId}.${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
+    if (!signaturesMatch(signToken(payload), signature)) return { valid: false }
     const created = parseInt(timestamp, 36)
     if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
     return { valid: true, userId }
@@ -52,7 +61,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
     const [token, timestamp, signature] = parts
     if (!token || !timestamp || !signature) return { valid: false }
     const payload = `${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
+    if (!signaturesMatch(signToken(payload), signature)) return { valid: false }
     const created = parseInt(timestamp, 36)
     if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
     return { valid: true } // Legacy session, no userId — treated as owner
@@ -62,7 +71,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
   if (parts.length === 2) {
     const [token, signature] = parts
     if (!token || !signature) return { valid: false }
-    if (signToken(token) !== signature) return { valid: false }
+    if (!signaturesMatch(signToken(token), signature)) return { valid: false }
     return { valid: true }
   }
 
@@ -196,7 +205,7 @@ export function verifyClientSession(cookie: string): string | null {
   const [clientId, timestamp, signature] = parts
   if (!clientId || !timestamp || !signature) return null
   const payload = `${clientId}.${timestamp}`
-  if (signToken(payload) !== signature) return null
+  if (!signaturesMatch(signToken(payload), signature)) return null
   // Sessions valid for 30 days
   const age = Date.now() - parseInt(timestamp)
   if (age > 30 * 24 * 60 * 60 * 1000) return null
