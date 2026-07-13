@@ -15,6 +15,12 @@
  * uses (e.g. `.not('address', 'is', null)`) — every other `.not()` shape is
  * unimplemented and will silently match everything (same limitation as the
  * rest of this fake's narrow operator surface).
+ *
+ * `.gte()`/`.lte()` compare as strings (ISO timestamp comparisons, the only
+ * use in this codebase) — not numeric-safe for other column types.
+ *
+ * `select(cols, { count: 'exact' })` (without `head`) now also returns a row
+ * count alongside `data`, matching PostgREST's combined data+count response.
  */
 
 export interface FakeStoreHandle {
@@ -31,7 +37,10 @@ type State = {
   iss: Array<{ col: string; val: unknown }>
   notNulls: string[]
   gts: Array<{ col: string; val: unknown }>
+  gtes: Array<{ col: string; val: unknown }>
+  ltes: Array<{ col: string; val: unknown }>
   head: boolean
+  wantCount: boolean
   payload: unknown
   onConflict?: string
 }
@@ -54,6 +63,8 @@ function matches(r: Record<string, unknown>, s: State): boolean {
   }
   for (const col of s.notNulls) if (r[col] == null) return false
   for (const f of s.gts) if (!(String(r[f.col]) > String(f.val))) return false
+  for (const f of s.gtes) if (!(String(r[f.col]) >= String(f.val))) return false
+  for (const f of s.ltes) if (!(String(r[f.col]) <= String(f.val))) return false
   return true
 }
 
@@ -116,18 +127,23 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
   }
 
   const found = rows.filter((r) => matches(r, state))
+  const count = state.wantCount ? found.length : null
   if (state.head) return { count: found.length, data: null, error: null }
-  if (terminal === 'single') return { data: found[0] ?? null, error: found[0] ? null : { message: 'no rows' } }
-  if (terminal === 'maybeSingle') return { data: found[0] ?? null, error: null }
-  return { data: found, error: null }
+  if (terminal === 'single') return { data: found[0] ?? null, count, error: found[0] ? null : { message: 'no rows' } }
+  if (terminal === 'maybeSingle') return { data: found[0] ?? null, count, error: null }
+  return { data: found, count, error: null }
 }
 
 export function makeTenantDbFake(h: FakeStoreHandle) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], iss: [], notNulls: [], gts: [], head: false, payload: null }
+      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], iss: [], notNulls: [], gts: [], gtes: [], ltes: [], head: false, wantCount: false, payload: null }
       const chain: Record<string, unknown> = {
-        select: (_cols?: unknown, o?: { head?: boolean }) => { if (o?.head) state.head = true; return chain },
+        select: (_cols?: unknown, o?: { head?: boolean; count?: string }) => {
+          if (o?.head) state.head = true
+          if (o?.count) state.wantCount = true
+          return chain
+        },
         insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
         update: (payload: unknown) => { state.op = 'update'; state.payload = payload; return chain },
         delete: () => { state.op = 'delete'; return chain },
@@ -140,6 +156,8 @@ export function makeTenantDbFake(h: FakeStoreHandle) {
         is: (col: string, val: unknown) => { state.iss.push({ col, val }); return chain },
         not: (col: string, op: string, val: unknown) => { if (op === 'is' && val === null) state.notNulls.push(col); return chain },
         gt: (col: string, val: unknown) => { state.gts.push({ col, val }); return chain },
+        gte: (col: string, val: unknown) => { state.gtes.push({ col, val }); return chain },
+        lte: (col: string, val: unknown) => { state.ltes.push({ col, val }); return chain },
         order: () => chain,
         limit: () => chain,
         single: () => Promise.resolve(runQuery(h, state, 'single')),

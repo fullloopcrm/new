@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { guessZoneFromAddress, SERVICE_ZONES } from '@/lib/service-zones'
 import { TEST_MODE, TEST_CLEANER_NAME_SUBSTRING, BROADCAST_CAP, BUFFER_HOURS } from '../preview/route'
@@ -106,10 +107,9 @@ export async function POST(request: Request) {
   const brand = tenant.name || 'Our team'
   const replyNumber = tenant.telnyx_phone
 
-  const { data: cleaners, error: cErr } = await supabaseAdmin
+  const { data: cleaners, error: cErr } = await tenantDb(tenantId)
     .from('team_members')
     .select('id, name, phone, preferred_language, hourly_rate')
-    .eq('tenant_id', tenantId)
     .in('id', cleaner_ids)
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
@@ -142,10 +142,9 @@ export async function POST(request: Request) {
     testMode: TEST_MODE,
   })
 
-  const { data: broadcast, error: bErr } = await supabaseAdmin
+  const { data: broadcast, error: bErr } = await tenantDb(tenantId)
     .from('cleaner_broadcasts')
     .insert({
-      tenant_id: tenantId,
       job_date, start_time, end_time,
       qty_needed: qty_needed || 1,
       job_address: job_address || null,
@@ -175,8 +174,7 @@ export async function POST(request: Request) {
         telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone,
       })
       const ok = !!smsResult?.success
-      await supabaseAdmin.from('cleaner_broadcast_recipients').insert({
-        tenant_id: tenantId,
+      await tenantDb(tenantId).from('cleaner_broadcast_recipients').insert({
         broadcast_id: broadcast.id,
         cleaner_id: c.id,
         phone: c.phone,

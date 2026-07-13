@@ -4,7 +4,7 @@
  * Returns CleanerRoute[] for a single date, or keyed-by-date for a range.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { calculateDistance, estimateTransitMinutes, geocodeAddress } from '@/lib/geo'
 
@@ -46,11 +46,10 @@ async function buildRoutes(tenantId: string, bookings: Booking[]) {
         if (coords) {
           lat = coords.lat
           lng = coords.lng
-          await supabaseAdmin
+          await tenantDb(tenantId)
             .from('clients')
             .update({ latitude: lat, longitude: lng })
             .eq('id', client.id)
-            .eq('tenant_id', tenantId)
         }
       }
 
@@ -71,11 +70,10 @@ async function buildRoutes(tenantId: string, bookings: Booking[]) {
           if (coords) {
             nLat = coords.lat
             nLng = coords.lng
-            await supabaseAdmin
+            await tenantDb(tenantId)
               .from('clients')
               .update({ latitude: nLat, longitude: nLng })
               .eq('id', nextClient.id)
-              .eq('tenant_id', tenantId)
           }
         }
         if (lat && lng && nLat && nLng) {
@@ -114,10 +112,9 @@ export async function GET(request: NextRequest) {
   const sel = 'id, start_time, end_time, team_member_id, clients(id, name, address, latitude, longitude), team_members!bookings_team_member_id_fkey(id, name, has_car)'
 
   if (date) {
-    const { data: bookings } = await supabaseAdmin
+    const { data: bookings } = await tenantDb(tenantId)
       .from('bookings')
       .select(sel)
-      .eq('tenant_id', tenantId)
       .gte('start_time', `${date}T00:00:00`)
       .lte('start_time', `${date}T23:59:59`)
       .in('status', ['scheduled', 'pending', 'confirmed', 'in_progress', 'completed'])
@@ -127,10 +124,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(await buildRoutes(tenantId, bookings as unknown as Booking[]))
   }
 
-  const { data: bookings } = await supabaseAdmin
+  const { data: bookings } = await tenantDb(tenantId)
     .from('bookings')
     .select(sel)
-    .eq('tenant_id', tenantId)
     .gte('start_time', `${from}T00:00:00`)
     .lte('start_time', `${to}T23:59:59`)
     .in('status', ['scheduled', 'pending', 'confirmed', 'in_progress', 'completed'])
