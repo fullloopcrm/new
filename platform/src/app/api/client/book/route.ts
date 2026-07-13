@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
@@ -60,11 +60,10 @@ export async function POST(request: Request) {
 
     // DNS (do-not-service) gate — never create bookings for these clients.
     if (body.client_id) {
-      const { data: dnsCheck } = await supabaseAdmin
+      const { data: dnsCheck } = await tenantDb(tenant.id)
         .from('clients')
         .select('do_not_service')
         .eq('id', body.client_id as string)
-        .eq('tenant_id', tenant.id)
         .single()
       if (dnsCheck?.do_not_service) {
         const contactPhone = tenant.phone || ''
@@ -81,29 +80,26 @@ export async function POST(request: Request) {
       const phone = (body.phone as string | undefined)?.replace(/\D/g, '') || ''
       const emailLower = (body.email as string).toLowerCase()
 
-      const { data: byEmail } = await supabaseAdmin
+      const { data: byEmail } = await tenantDb(tenant.id)
         .from('clients')
         .select('id')
-        .eq('tenant_id', tenant.id)
         .ilike('email', emailLower)
         .maybeSingle()
       if (byEmail) clientId = byEmail.id
 
       if (!clientId && phone) {
-        const { data: byPhone } = await supabaseAdmin
+        const { data: byPhone } = await tenantDb(tenant.id)
           .from('clients')
           .select('id')
-          .eq('tenant_id', tenant.id)
           .eq('phone', phone)
           .maybeSingle()
         if (byPhone) clientId = byPhone.id
       }
 
       if (!clientId) {
-        const { data: newClient, error: createErr } = await supabaseAdmin
+        const { data: newClient, error: createErr } = await tenantDb(tenant.id)
           .from('clients')
           .insert({
-            tenant_id: tenant.id,
             name: body.name as string,
             email: emailLower,
             phone,
@@ -131,10 +127,9 @@ export async function POST(request: Request) {
     let referrerId: string | null = null
     let referrerData: { id: string; name: string; email?: string | null } | null = null
     if (body.ref_code) {
-      const { data: referrer } = await supabaseAdmin
+      const { data: referrer } = await tenantDb(tenant.id)
         .from('referrers')
         .select('id, name, email')
-        .eq('tenant_id', tenant.id)
         .eq('ref_code', (body.ref_code as string).toUpperCase())
         .eq('active', true)
         .maybeSingle()
@@ -142,11 +137,10 @@ export async function POST(request: Request) {
         referrerId = referrer.id
         referrerData = referrer
         if (clientId) {
-          await supabaseAdmin
+          await tenantDb(tenant.id)
             .from('clients')
             .update({ referrer_id: referrerId })
             .eq('id', clientId)
-            .eq('tenant_id', tenant.id)
             .is('referrer_id', null)
         }
       }
@@ -190,10 +184,9 @@ export async function POST(request: Request) {
 
     // Same-date duplicate gate
     const bookingDate = startTime.split('T')[0]
-    const { count: existingCount } = await supabaseAdmin
+    const { count: existingCount } = await tenantDb(tenant.id)
       .from('bookings')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenant.id)
       .eq('client_id', clientId as string)
       .gte('start_time', `${bookingDate}T00:00:00`)
       .lte('start_time', `${bookingDate}T23:59:59`)
@@ -258,10 +251,9 @@ export async function POST(request: Request) {
     }
 
     // Create booking
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenant.id)
       .from('bookings')
       .insert({
-        tenant_id: tenant.id,
         client_id: clientId,
         property_id: propertyId,
         team_member_id: null,
@@ -301,14 +293,13 @@ export async function POST(request: Request) {
       })
       const best = scores.find(s => s.available && s.score > 0)
       if (best) {
-        await supabaseAdmin
+        await tenantDb(tenant.id)
           .from('bookings')
           .update({
             suggested_team_member_id: best.id,
             suggested_reason: best.reason,
           })
           .eq('id', data.id)
-          .eq('tenant_id', tenant.id)
       }
     } catch (e) {
       console.error('Smart suggestion error:', e)
@@ -334,7 +325,7 @@ export async function POST(request: Request) {
     // Attribution
     try {
       if (body.src) {
-        await supabaseAdmin
+        await tenantDb(tenant.id)
           .from('bookings')
           .update({
             attributed_domain: body.src as string,
@@ -342,7 +333,6 @@ export async function POST(request: Request) {
             attributed_at: new Date().toISOString(),
           })
           .eq('id', data.id)
-          .eq('tenant_id', tenant.id)
       } else {
         await autoAttributeBooking(tenant.id, data.id, clientId as string, data.created_at)
       }
@@ -385,8 +375,7 @@ export async function POST(request: Request) {
             resendApiKey: tenant.resend_api_key,
             from: tenant.email_from || undefined,
           })
-          await supabaseAdmin.from('email_logs').insert({
-            tenant_id: tenant.id,
+          await tenantDb(tenant.id).from('email_logs').insert({
             booking_id: data.id,
             email_type: 'booking_received',
             recipient: data.clients.email,
@@ -420,8 +409,7 @@ export async function POST(request: Request) {
     // sold, cancelled/no_show → lost). Non-blocking: a failure here must never
     // break the booking the customer just made.
     try {
-      await supabaseAdmin.from('deals').insert({
-        tenant_id: tenant.id,
+      await tenantDb(tenant.id).from('deals').insert({
         client_id: clientId || null,
         booking_id: data.id,
         mode: 'booking',
