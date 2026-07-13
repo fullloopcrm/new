@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
 
@@ -28,6 +29,8 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  const db = tenantDb(referrer.tenant_id)
+
   // Tenant branding + public site base for the share link.
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
@@ -40,11 +43,12 @@ export async function GET(
   // Resolve the tenant's public booking URL. Prefer the primary custom domain,
   // fall back to tenants.domain, then the slug host. The shared referral link is
   // this booking URL with ?ref=CODE — NOT the dashboard URL.
-  const { data: domainRows } = await supabaseAdmin
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: domainRows } = (await db
     .from('tenant_domains')
     .select('domain, is_primary')
-    .eq('tenant_id', referrer.tenant_id)
-    .eq('active', true)
+    .eq('active', true)) as { data: { domain: string; is_primary: boolean }[] | null }
   const primaryDomain = domainRows?.find((d) => d.is_primary)?.domain || tenant.domain || null
   const base = primaryDomain
     ? `https://${primaryDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
@@ -55,12 +59,14 @@ export async function GET(
   // `commission_amount` (commission_cents is unreliable/double-scaled).
   let commissions: { id: string; client_name: string; amount: number; status: string; paid_via: string | null; created_at: string }[] = []
   try {
-    const { data } = await supabaseAdmin
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data } = (await db
       .from('referral_commissions')
       .select('id, client_name, commission_amount, status, paid_via, created_at')
       .eq('referrer_id', referrer.id)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(50)) as { data: { id: string; client_name: string; commission_amount: number | null; status: string; paid_via: string | null; created_at: string }[] | null }
     commissions = (data || []).map((c) => ({
       id: c.id,
       client_name: c.client_name,
