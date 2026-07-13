@@ -79,7 +79,11 @@
 --   team_members, team_notifications, tenant_domains, tenant_invites,
 --   tenant_members, tenant_owner_messages, tenant_settings, territory_claims,
 --   travel_time_cache, unmatched_payments, waitlist, website_visits,
---   yinez_memory, yinez_skills, resale_assets, tenant_health, year_end_runs
+--   yinez_memory, yinez_skills, resale_assets, tenant_health, year_end_runs,
+--   cleaner_broadcasts, cleaner_broadcast_recipients, google_posts
+--     (^ these 3 were missing from this comment — the migration-008 trio, see
+--     the NOTE a few lines down; they're already in the real `tenant_tables`
+--     array below. Header now matches the array: 132 + 3 = 135.)
 --
 --   NOTE tenant_domains: it currently carries the deny-all policy from
 --     046_rls_deny_on_new_tables.sql. That file's own comment sanctions the
