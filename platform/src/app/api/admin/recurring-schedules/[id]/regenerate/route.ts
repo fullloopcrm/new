@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 
@@ -62,13 +62,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const payRate = pay_rate ?? cleaner_pay_rate ?? null
   const hours = duration_hours || 3
 
+  const db = tenantDb(tenantId)
+
   // Confirm the schedule belongs to this tenant; pull client_id + property_id to
   // preserve them on the regenerated bookings.
-  const { data: schedule } = await supabaseAdmin
+  const { data: schedule } = await db
     .from('recurring_schedules')
     .select('id, client_id, property_id, pay_rate, hourly_rate')
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
 
@@ -89,17 +90,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (payRate !== null) rulePatch.pay_rate = effPayRate
   if (teamMemberId !== null) rulePatch.team_member_id = teamMemberId
   if (notes !== undefined) rulePatch.notes = notes
-  await supabaseAdmin.from('recurring_schedules').update(rulePatch).eq('id', id).eq('tenant_id', tenantId)
+  await db.from('recurring_schedules').update(rulePatch).eq('id', id)
 
   // 2. Capture the OLD future not-yet-serviced bookings (scheduled/pending) from
   // the cutoff forward. Completed/paid/cancelled rows are never touched. We
   // delete these by id AFTER the new insert succeeds, so a failed insert leaves
   // the existing series fully intact (no destructive window).
   const cutoff = from_date || new Date().toISOString()
-  const { data: oldRows } = await supabaseAdmin
+  const { data: oldRows } = await db
     .from('bookings')
     .select('id')
-    .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
     .in('status', ['scheduled', 'pending'])
     .gte('start_time', cutoff)
@@ -134,7 +134,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   })
 
-  const { data: created, error: insErr } = await supabaseAdmin.from('bookings').insert(rows).select('id')
+  const { data: created, error: insErr } = await db.from('bookings').insert(rows).select('id')
   // Insert failed → old series untouched. Surface the error, change nothing else.
   if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
 
@@ -142,10 +142,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // the rows we just created).
   let removedCount = 0
   if (oldIds.length > 0) {
-    const { data: removed } = await supabaseAdmin
+    const { data: removed } = await db
       .from('bookings')
       .delete()
-      .eq('tenant_id', tenantId)
       .in('id', oldIds)
       .select('id')
     removedCount = removed?.length || 0

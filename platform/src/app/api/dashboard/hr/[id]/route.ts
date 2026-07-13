@@ -3,7 +3,7 @@
 //        document-requirement template (so the UI can show what's still missing).
 // PATCH → upsert the HR profile (create it if the member has none yet).
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import type { EmploymentType, HrStatus, CompType, PayPeriod } from '@/lib/hr'
 
@@ -18,21 +18,21 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   try {
     const { tenantId } = tenant
     const { id } = await ctx.params
+    const db = tenantDb(tenantId)
 
-    const { data: member, error: memberErr } = await supabaseAdmin
+    const { data: member, error: memberErr } = await db
       .from('team_members')
       .select('id, name, email, phone, role, active, address, photo_url, stripe_account_id, stripe_ready_at')
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .maybeSingle()
     if (memberErr) return NextResponse.json({ error: memberErr.message }, { status: 500 })
     if (!member) return NextResponse.json({ error: 'employee not found' }, { status: 404 })
 
     const [profileRes, docsRes, notesRes, reqsRes] = await Promise.all([
-      supabaseAdmin.from('hr_employee_profiles').select('*').eq('tenant_id', tenantId).eq('team_member_id', id).maybeSingle(),
-      supabaseAdmin.from('hr_documents').select('*').eq('tenant_id', tenantId).eq('team_member_id', id).order('created_at', { ascending: true }),
-      supabaseAdmin.from('hr_notes').select('*').eq('tenant_id', tenantId).eq('team_member_id', id).order('created_at', { ascending: false }).limit(100),
-      supabaseAdmin.from('hr_document_requirements').select('*').eq('tenant_id', tenantId).order('sort_order', { ascending: true }),
+      db.from('hr_employee_profiles').select('*').eq('team_member_id', id).maybeSingle(),
+      db.from('hr_documents').select('*').eq('team_member_id', id).order('created_at', { ascending: true }),
+      db.from('hr_notes').select('*').eq('team_member_id', id).order('created_at', { ascending: false }).limit(100),
+      db.from('hr_document_requirements').select('*').order('sort_order', { ascending: true }),
     ])
 
     return NextResponse.json({
@@ -70,12 +70,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   try {
     const { tenantId } = tenant
     const { id } = await ctx.params
+    const db = tenantDb(tenantId)
 
     // Confirm the member belongs to this tenant before writing anything.
-    const { data: member } = await supabaseAdmin
+    const { data: member } = await db
       .from('team_members')
       .select('id')
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .maybeSingle()
     if (!member) return NextResponse.json({ error: 'employee not found' }, { status: 404 })
@@ -112,13 +112,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
 
     const upsertRow = {
-      tenant_id: tenantId,
       team_member_id: id,
       ...patch,
       updated_at: new Date().toISOString(),
     }
-    const { data, error } = await supabaseAdmin
-      .from('hr_employee_profiles')  // tenant-scope-ok: insert payload carries tenant_id (built above)
+    const { data, error } = await db
+      .from('hr_employee_profiles')
       .upsert(upsertRow, { onConflict: 'team_member_id' })
       .select('*')
       .single()
