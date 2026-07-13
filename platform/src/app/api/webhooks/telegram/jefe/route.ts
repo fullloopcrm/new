@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { askJefe } from '@/lib/jefe/agent'
 import { loadJefeHistory, saveJefeTurn } from '@/lib/jefe/actions'
 import { sendTelegram } from '@/lib/telegram'
+import { verifyTelegramSecret } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
@@ -15,6 +16,15 @@ const BOT_TOKEN = (process.env.JEFE_BOT_TOKEN || '').trim()
 const OWNER_CHAT_ID = (process.env.JEFE_OWNER_CHAT_ID || process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
 
 export async function POST(req: Request) {
+  // Fail-OPEN pre-activation — see the sibling /api/webhooks/telegram route
+  // for why: only enforced once TELEGRAM_WEBHOOK_SECRET is set AND this bot's
+  // webhook has been re-registered with it (registerTelegramWebhook / a manual
+  // setWebhook call for Jefe's own bot, which isn't tenant-config-driven).
+  if ((process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()) {
+    const auth = verifyTelegramSecret(req.headers, process.env.TELEGRAM_WEBHOOK_SECRET)
+    if (!auth.valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   if (!BOT_TOKEN) return NextResponse.json({ ok: true, skip: 'no_jefe_bot_token' })
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
