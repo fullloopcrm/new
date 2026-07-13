@@ -11,12 +11,6 @@ export async function POST(request: Request) {
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
   try {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = await rateLimitDb(`client-verify:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
-    if (!rl.allowed) {
-      return NextResponse.json({ error: 'Too many attempts. Please wait 10 minutes.' }, { status: 429 })
-    }
-
     const body = await request.json().catch(() => ({})) as { email?: string; code?: string; phone?: string }
     const { email, code, phone } = body
     if (!code || (!email && !phone)) {
@@ -27,6 +21,21 @@ export async function POST(request: Request) {
     const lookupKeys: string[] = []
     if (email) lookupKeys.push(email.toLowerCase())
     if (phoneDigits) lookupKeys.push(`sms:${phoneDigits}`)
+
+    // Throttle code verification so a 6-digit code can't be brute-forced.
+    // Primary cap is per-identifier (email/phone): once wrong guesses land in
+    // the window, further attempts against THAT identifier's code are blocked
+    // regardless of source IP — rotating IPs can't bypass it. A looser per-IP
+    // cap adds defense against one host spraying codes across many
+    // identifiers. Mirrors portal/auth/route.ts and pin-reset/route.ts.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rlIp = await rateLimitDb(`client-verify-ip:${tenant.id}:${ip}`, 30, 10 * 60 * 1000, { failClosed: true })
+    const rlIdentifiers = await Promise.all(
+      lookupKeys.map((key) => rateLimitDb(`client-verify:${tenant.id}:${key}`, 5, 10 * 60 * 1000, { failClosed: true })),
+    )
+    if (!rlIp.allowed || rlIdentifiers.some((r) => !r.allowed)) {
+      return NextResponse.json({ error: 'Too many attempts. Please wait 10 minutes.' }, { status: 429 })
+    }
 
     let verification = null
     for (const key of lookupKeys) {
