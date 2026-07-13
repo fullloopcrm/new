@@ -4,6 +4,11 @@ import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { audit } from '@/lib/audit'
 import { notify } from '@/lib/notify'
+import { pick } from '@/lib/validate'
+
+// Same allowlist as PUT /api/bookings/[id] — kept in sync so a batch edit can
+// touch exactly the same fields a single edit can, no more.
+const UPDATABLE_FIELDS = ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price']
 
 /**
  * Batch update multiple bookings in parallel.
@@ -25,8 +30,39 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'updates array required' }, { status: 400 })
     }
 
+    // u.data used to be applied to .update() unfiltered — a caller-supplied
+    // tenant_id in the payload would have re-tenanted the row (the WHERE
+    // clause only gates WHICH row is touched, not what the SET clause can
+    // contain). Allowlisted to the same fields PUT /api/bookings/[id] permits.
+    const allowedUpdates = (updates as { id: string; data: Record<string, unknown> }[]).map((u) => ({
+      id: u.id,
+      data: pick(u.data, UPDATABLE_FIELDS),
+    }))
+
+    // team_member_id is a caller-supplied FK too — team_members has no
+    // cross-tenant FK check, so without this a batch edit could assign
+    // another tenant's employee to every booking in the series.
+    const requestedMemberIds = Array.from(
+      new Set(
+        allowedUpdates
+          .map((u) => u.data.team_member_id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+    if (requestedMemberIds.length > 0) {
+      const { data: validMembers } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .in('id', requestedMemberIds)
+        .eq('tenant_id', tenantId)
+      const validIds = new Set((validMembers || []).map((m) => m.id))
+      if (requestedMemberIds.some((mid) => !validIds.has(mid))) {
+        return NextResponse.json({ error: 'Invalid team member selection' }, { status: 400 })
+      }
+    }
+
     const results = await Promise.all(
-      updates.map(async (u: { id: string; data: Record<string, unknown> }) => {
+      allowedUpdates.map(async (u) => {
         const { data, error } = await supabaseAdmin
           .from('bookings')
           .update(u.data)
