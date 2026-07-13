@@ -38,7 +38,18 @@ import { POST } from './route'
 
 let h: Harness
 beforeEach(() => {
-  h = createTenantDbHarness({ bookings: [] })
+  h = createTenantDbHarness({
+    bookings: [],
+    clients: [
+      { id: 'c1', tenant_id: A },
+      { id: 'c2', tenant_id: A },
+      { id: 'c-foreign', tenant_id: B },
+    ],
+    team_members: [
+      { id: 'tm-a', tenant_id: A },
+      { id: 'tm-foreign', tenant_id: B },
+    ],
+  })
   holder.from = h.from
 })
 
@@ -64,5 +75,31 @@ describe('bookings/batch POST — tenant isolation', () => {
     expect(ins).toBeDefined()
     expect(ins!.rows.length).toBeGreaterThan(0)
     expect(ins!.rows.every((r) => r.tenant_id === A)).toBe(true)
+  })
+
+  it('cross-tenant client_id probe: rejects the whole batch when any row targets a foreign client', async () => {
+    const res = await post([
+      { client_id: 'c1', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+      { client_id: 'c-foreign', start_time: '2020-01-02T10:00:00Z', end_time: '2020-01-02T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('cross-tenant team_member_id probe: rejects the whole batch when any row targets a foreign team member', async () => {
+    const res = await post([
+      { client_id: 'c1', team_member_id: 'tm-foreign', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('same-tenant client_id + team_member_id succeed', async () => {
+    const res = await post([
+      { client_id: 'c1', team_member_id: 'tm-a', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(200)
+    const ins = h.capture.inserts.find((i) => i.table === 'bookings')
+    expect(ins!.rows[0].team_member_id).toBe('tm-a')
   })
 })

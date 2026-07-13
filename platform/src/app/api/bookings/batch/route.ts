@@ -30,6 +30,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Max 200 bookings per batch' }, { status: 400 })
   }
 
+  // client_id/team_member_id are caller-supplied FKs — tenantDb only stamps
+  // tenant_id on the row being inserted, it doesn't validate a referenced id
+  // belongs to this tenant, and neither clients nor team_members has a
+  // cross-tenant FK check. Without this, a batch create could attach another
+  // tenant's client or employee to these bookings (same class as
+  // POST /api/bookings, fixed earlier this pass).
+  const requestedClientIds = Array.from(
+    new Set(bookingInputs.map((b) => b.client_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
+  )
+  const requestedMemberIds = Array.from(
+    new Set(bookingInputs.map((b) => b.team_member_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
+  )
+  if (requestedClientIds.length > 0) {
+    const { data: validClients } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .in('id', requestedClientIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validClients || []).map((c) => c.id))
+    if (requestedClientIds.some((cid) => !validIds.has(cid))) {
+      return NextResponse.json({ error: 'Invalid client selection' }, { status: 400 })
+    }
+  }
+  if (requestedMemberIds.length > 0) {
+    const { data: validMembers } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .in('id', requestedMemberIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validMembers || []).map((m) => m.id))
+    if (requestedMemberIds.some((mid) => !validIds.has(mid))) {
+      return NextResponse.json({ error: 'Invalid team member selection' }, { status: 400 })
+    }
+  }
+
   const rows = bookingInputs.map(b => {
     const token = generateToken()
     const tokenExpires = new Date(b.start_time as string)
