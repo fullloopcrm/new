@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 type CalendarEvent = {
   id: string
@@ -85,23 +85,22 @@ export async function GET(request: NextRequest) {
     const gridStart = startOfGrid(focus)
     const gridEnd = endOfGrid(focus)
 
+    const db = tenantDb(tenantId)
     const [bookingsRes, teamRes] = await Promise.all([
-      supabaseAdmin
+      db
         .from('bookings')
         .select('id, client_id, team_member_id, price, start_time, end_time, status, payment_status, service_type, clients(name)')
-        .eq('tenant_id', tenantId)
         .gte('start_time', gridStart.toISOString())
         .lt('start_time', gridEnd.toISOString())
         .order('start_time', { ascending: true }),
-      supabaseAdmin
+      db
         .from('team_members')
-        .select('id, name, status')
-        .eq('tenant_id', tenantId),
+        .select('id, name, status'),
     ])
 
-    const team = (teamRes.data || []) as Array<{ id: string; name: string; status: string | null }>
+    const team = (teamRes.data || []) as unknown as Array<{ id: string; name: string; status: string | null }>
     const teamById = new Map(team.map((t) => [t.id, t]))
-    const bookings = (bookingsRes.data || []) as Array<Record<string, unknown>>
+    const bookings = (bookingsRes.data || []) as unknown as Array<Record<string, unknown>>
 
     // Compute conflicts: same team_member overlapping windows.
     type Window = { id: string; start: number; end: number; tm: string }

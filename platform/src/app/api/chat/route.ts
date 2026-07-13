@@ -3,6 +3,7 @@ import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies, getSelenaConf
 import { askSelena as askYinez } from '@/lib/selena/agent'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { getSettings } from '@/lib/settings'
@@ -43,12 +44,12 @@ export async function POST(req: NextRequest) {
       // If returning client, try to link to existing client record
       if (phone) {
         const digits = phone.replace(/\D/g, '').slice(-10)
-        const { data: client } = await supabaseAdmin
+        const { data: clientData } = await tenantDb(tenantId)
           .from('clients')
           .select('id, name')
-          .eq('tenant_id', tenantId)
           .ilike('phone', `%${digits}%`)
           .limit(1).single()
+        const client = clientData as unknown as { id: string; name: string } | null
         if (client) {
           insertData.client_id = client.id
           insertData.booking_checklist = {
@@ -58,8 +59,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const { data: convo } = await supabaseAdmin
-        .from('sms_conversations')  // tenant-scope-ok: insert payload carries tenant_id (built above)
+      const { data: convo } = await tenantDb(tenantId)
+        .from('sms_conversations')
         .insert(insertData)
         .select('id')
         .single()

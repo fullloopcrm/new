@@ -82,7 +82,12 @@ for (const file of files) {
     if (/tenant-scope-ok/.test(lines[i])) continue
     if (/\.storage\.from\(/.test(lines[i])) continue             // storage bucket, not a table
     const chain = lines.slice(i, i + 12).join('\n')
-    const scoped = /tenant_id/.test(chain)                       // filter or insert payload
+    // tenantDb(tenantId).from(table) auto-applies .eq('tenant_id', …) inside the
+    // wrapper (src/lib/tenant-db.ts), so the literal string never appears at the
+    // call site — look a few lines back too, since `const db = tenantDb(id)` is
+    // often hoisted above one or more `.from()` calls that reuse it.
+    const context = lines.slice(Math.max(0, i - 15), i + 12).join('\n')
+    const scoped = /tenant_id/.test(chain) || /\btenantDb\(/.test(context) // filter, insert payload, or tenantDb wrapper
     // Row/entity-specific keys are globally unique (UUIDs / secret tokens), so a
     // lookup by id / *_id / *token* is inherently row-scoped, not a leak.
     const idLookup = /\.(eq|in)\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\s*,/.test(chain)
