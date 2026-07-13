@@ -1,6 +1,18 @@
 # Telnyx SMS webhook — `VERIFY=off` kill-switch guard SPEC (P2, FOR-JEFF-REVIEW)
 
-**Status:** SPEC / ready-to-apply. **NOT APPLIED.** No route file is modified by
+**Status (2026-07-13 update):** **Part 1 (must-do, the rate-limit ceiling)
+is now APPLIED** on `p1-w6` — `telnyx/route.ts` calls `rateLimitDb` on the
+`message.received` path (per-sender 10/min + per-IP 60/min), regardless of
+verify state, exactly as specced below. New witness test:
+`telnyx-sms-rate-limit.witness.test.ts` (11th message from one sender in a
+window → 429, agent/sendSMS not invoked; delivery-status events never
+throttled; per-sender isolation). tsc clean, full suite green (40
+files/243 tests). **Part 2 (loud kill-switch logging) is a policy choice for
+Jeff — NOT applied**, per this doc's own §"Part 2 (recommended)" note that it
+trades off the break-glass escape hatch; left for Jeff to decide, not
+unilaterally picked.
+
+**Original status (2026-07-12):** SPEC / ready-to-apply. **NOT APPLIED.** No route file is modified by
 this doc. It hands the leader a precise, minimal patch to apply after Jeff approves.
 
 **Author:** W6, branch `p1-w6`, 2026-07-12.
