@@ -9,7 +9,7 @@
  * Idempotent at the bank_txn level (re-matching same target is a no-op).
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
@@ -28,10 +28,9 @@ export async function POST(request: Request, { params }: Params) {
     const targetId = String(body.target_id || '')
     if (!targetType || !targetId) return NextResponse.json({ error: 'target_type + target_id required' }, { status: 400 })
 
-    const { data: txn } = await supabaseAdmin
+    const { data: txn } = await tenantDb(tenantId)
       .from('bank_transactions')
       .select('id, tenant_id, txn_date, description, amount_cents, status, bank_account_id, bank_accounts(coa_id)')
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
     if (!txn) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
@@ -45,17 +44,15 @@ export async function POST(request: Request, { params }: Params) {
     if (targetType === 'invoice') {
       if (!isInflow) return NextResponse.json({ error: 'Only inflows can match invoices' }, { status: 400 })
 
-      const { data: inv } = await supabaseAdmin
+      const { data: inv } = await tenantDb(tenantId)
         .from('invoices')
         .select('id, total_cents, amount_paid_cents, status, client_id, booking_id')
-        .eq('tenant_id', tenantId)
         .eq('id', targetId)
         .single()
       if (!inv) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
       // Insert payment; DB trigger updates invoice.amount_paid_cents + status.
-      const { error: pErr } = await supabaseAdmin.from('payments').insert({
-        tenant_id: tenantId,
+      const { error: pErr } = await tenantDb(tenantId).from('payments').insert({
         invoice_id: inv.id,
         booking_id: inv.booking_id,
         client_id: inv.client_id,
@@ -71,17 +68,15 @@ export async function POST(request: Request, { params }: Params) {
     } else if (targetType === 'booking') {
       if (!isInflow) return NextResponse.json({ error: 'Only inflows match bookings' }, { status: 400 })
 
-      const { data: b } = await supabaseAdmin
+      const { data: b } = await tenantDb(tenantId)
         .from('bookings')
         .select('id, client_id')
-        .eq('tenant_id', tenantId)
         .eq('id', targetId)
         .single()
       if (!b) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
       // Insert payment tied to booking (no invoice). Bumps booking payment status.
-      await supabaseAdmin.from('payments').insert({
-        tenant_id: tenantId,
+      await tenantDb(tenantId).from('payments').insert({
         booking_id: b.id,
         client_id: b.client_id,
         amount_cents: txn.amount_cents,
@@ -89,26 +84,24 @@ export async function POST(request: Request, { params }: Params) {
         status: 'succeeded',
         received_at: txn.txn_date,
       })
-      await supabaseAdmin
+      await tenantDb(tenantId)
         .from('bookings')
         .update({ payment_status: 'paid', payment_method: 'bank_match', payment_date: txn.txn_date })
         .eq('id', b.id)
-        .eq('tenant_id', tenantId)
 
       updates.matched_booking_id = b.id
       updates.status = 'matched'
     } else if (targetType === 'expense') {
       if (isInflow) return NextResponse.json({ error: 'Only outflows match expenses' }, { status: 400 })
 
-      const { data: ex } = await supabaseAdmin
+      const { data: ex } = await tenantDb(tenantId)
         .from('expenses')
         .select('id, category, amount')
-        .eq('tenant_id', tenantId)
         .eq('id', targetId)
         .single()
       if (!ex) return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
 
-      await supabaseAdmin
+      await tenantDb(tenantId)
         .from('expenses')
         .update({ matched_bank_transaction_id: txn.id })
         .eq('id', ex.id)
@@ -118,10 +111,9 @@ export async function POST(request: Request, { params }: Params) {
       const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
       if (bankCoa) {
         const cat = sanitizePostgrestValue(ex.category)
-        const { data: coaMatch } = await supabaseAdmin
+        const { data: coaMatch } = await tenantDb(tenantId)
           .from('chart_of_accounts')
           .select('id')
-          .eq('tenant_id', tenantId)
           .eq('type', 'expense')
           .or(`subtype.eq.${cat},name.ilike.%${cat}%`)
           .limit(1)
@@ -149,10 +141,9 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: `Unknown target_type: ${targetType}` }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await tenantDb(tenantId)
       .from('bank_transactions')
       .update(updates)
-      .eq('tenant_id', tenantId)
       .eq('id', id)
     if (error) throw error
 

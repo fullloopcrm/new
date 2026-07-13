@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
 export async function PUT(
@@ -17,11 +17,10 @@ export async function PUT(
 
     if (body.amount) body.amount = Math.round(Number(body.amount) * 100)
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('expenses')
       .update(body)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -48,11 +47,10 @@ export async function DELETE(
     const { tenantId } = _authTenant
     const { id } = await params
 
-    const { error } = await supabaseAdmin
+    const { error } = await tenantDb(tenantId)
       .from('expenses')
       .delete()
       .eq('id', id)
-      .eq('tenant_id', tenantId)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
