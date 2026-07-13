@@ -28,7 +28,10 @@ export function verifyPortalToken(token: string): { id: string; tid: string } | 
     const [payloadB64, sig] = token.split('.')
     const payload = Buffer.from(payloadB64, 'base64').toString()
     const expected = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
-    if (sig !== expected) return null
+    // Constant-time compare — a naive `!==` leaks signature bytes via timing.
+    const sigBuf = Buffer.from(sig, 'hex')
+    const expectedBuf = Buffer.from(expected, 'hex')
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null
     const data = JSON.parse(payload)
     if (data.exp < Date.now()) return null
     return data
