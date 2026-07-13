@@ -109,6 +109,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Phone and code required' }, { status: 400 })
     }
 
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`portal_auth_verify:${ip}:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
+
     const { data: stored } = await supabaseAdmin
       .from('portal_auth_codes')
       .select('code, tenant_id, client_id, expires_at')

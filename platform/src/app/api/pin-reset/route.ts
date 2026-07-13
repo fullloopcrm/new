@@ -181,6 +181,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'PIN must be 4–8 digits.' }, { status: 400 })
     }
 
+    // The 6-digit code has no throttle of its own (send_code's rate limit only
+    // gates how often a code can be REQUESTED, not how many guesses a code that
+    // was already sent can take) — without this, an attacker who knows a
+    // member's phone/email could brute-force the 10^6 code space over the
+    // 10-minute TTL and take over their login PIN.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`pin_reset_verify:${tenantId}:${contact}`, 5, 15 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
+    const rlIp = await rateLimitDb(`pin_reset_verify_ip:${ip}`, 30, 15 * 60 * 1000, { failClosed: true })
+    if (!rlIp.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
+
     const member = await findMember(tenantId, contact)
     if (!member) {
       return NextResponse.json({ error: 'Code expired or not found.' }, { status: 400 })
