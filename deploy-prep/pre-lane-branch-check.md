@@ -7,6 +7,16 @@ the leader wires it in after Jeff approves.
 
 **Author:** W1, branch `p1-w1`, 2026-07-13.
 
+**2026-07-13 update:** implemented the merge recommended in
+`q-w5-reconciliation-note.md` — step 5 below now PID-gates the
+uncommitted-tracked-changes check (WARN if this lane's invocation is still
+running, BLOCK if not — see the live script for the exact logic and a real
+bug found while verifying it: `pgrep -f` silently misses a process that is
+an ancestor of the pgrep-invoking shell on this host, so the check uses a
+captured `ps -e` snapshot + a bash `case` match instead). The code block
+below is the **original** proposal, kept for its own record; `pre-lane-branch-check.sh`
+is the current, live version and takes precedence over this snippet.
+
 ---
 
 ## The gap
@@ -204,3 +214,20 @@ not a script.
   verified by code review against git's documented on-disk markers only, not
   by an executed test. That scratch test is the concrete next step, not a
   hypothetical one.
+
+**2026-07-13 update verification:** re-ran the live script against all 6 real
+lanes after adding the PID-gated uncommitted-state check: 4 lanes (W1, W2, W3,
+W6) had a genuinely running invocation at check-time and correctly WARNed on
+their tracked-file dirt; W4/W5 had none but also had zero tracked-dirty paths
+in this run, so the BLOCK branch of *this specific* check is still unexercised
+against a real lane (same scratch-repo-denied limitation as above — the
+mktemp-based BLOCK simulation for this check was also denied before it ran).
+One real bug WAS caught and fixed during this verification pass, not
+hypothetical: the first implementation used `pgrep -f "autonomous worker
+<ID>. cwd=<WT>"`, which correctly matched W2/W3/W4/W6's live processes but
+silently failed to match W1's own process when W1 checked itself — confirmed
+via `ps -p <pid>` that the process and exact substring both existed, so this
+was pgrep not seeing an ancestor of its own invoking shell, not a wrong
+pattern. Replaced with a captured `ps -e -o command=` snapshot matched via a
+bash `case` glob (no external grep process carries the search string as an
+argument, so there's no self-match risk either).
