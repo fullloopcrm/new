@@ -238,12 +238,17 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
 
       if (payAmountCents && payAmountCents > 0) {
         const stripe = getStripe(tenant.stripe_api_key)
+        // Idempotency key mirrors the webhooks/stripe/route.ts payout path: a
+        // retry of this whole function (double-tap checkout, crash-then-replay)
+        // can't double-transfer to the cleaner for the same booking+reference.
         const transfer = await stripe.transfers.create({
           amount: payAmountCents,
           currency: 'usd',
           destination: teamMember.stripe_account_id,
           description: `${label} payment for ${clientName} service${tipCents > 0 ? ` (includes $${tipAmount} tip)` : ''}`,
           metadata: { booking_id: bookingId, tenant_id: tenantId },
+        }, {
+          idempotencyKey: `cleaner-payout:${bookingId}:${referenceId}`,
         })
 
         let payoutId: string | null = null
@@ -251,7 +256,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
         try {
           const payout = await stripe.payouts.create(
             { amount: payAmountCents, currency: 'usd', method: 'instant' },
-            { stripeAccount: teamMember.stripe_account_id },
+            { stripeAccount: teamMember.stripe_account_id, idempotencyKey: `cleaner-instant-payout:${bookingId}:${referenceId}` },
           )
           payoutId = payout.id
           isInstant = true
