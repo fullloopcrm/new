@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
@@ -43,14 +44,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
     return NextResponse.json({ ok: true, alreadyAccepted: true, start_time: booking.start_time })
   }
 
-  await supabaseAdmin
+  const db = tenantDb(booking.tenant_id)
+
+  await db
     .from('bookings')
     .update({ client_terms_accepted_at: new Date().toISOString() })
     .eq('id', booking.id)
 
-  const { data: cur } = await supabaseAdmin.from('bookings').select('notes').eq('id', booking.id).single()
+  const { data: cur } = await db.from('bookings').select('notes').eq('id', booking.id).single()
   const newNotes = (cur?.notes || '') + '\n[Client accepted terms ' + new Date().toISOString() + ']'
-  await supabaseAdmin.from('bookings').update({ notes: newNotes }).eq('id', booking.id)
+  await db.from('bookings').update({ notes: newNotes }).eq('id', booking.id)
 
   const startTime = new Date(booking.start_time).toLocaleString('en-US', {
     timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
