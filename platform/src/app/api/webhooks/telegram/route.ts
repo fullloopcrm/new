@@ -3,11 +3,13 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { verifyTelegramSecretToken, warnTelegramSecretUnset } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim()
 const OWNER_CHAT_ID = (process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
+const WEBHOOK_SECRET = (process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()
 // Platform owner bot operates in nycmaid context (resolveTenantForConversation
 // falls back to this when tenant_id is null). sms_conversations.tenant_id is
 // NOT NULL since the tenant-isolation migration, so the owner convo must carry
@@ -47,6 +49,16 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!WEBHOOK_SECRET) {
+    warnTelegramSecretUnset('global')
+  } else {
+    const verify = verifyTelegramSecretToken(req.headers, WEBHOOK_SECRET)
+    if (!verify.valid) {
+      console.warn('[telegram webhook:global] rejected:', verify.reason)
+      return NextResponse.json({ error: 'Invalid secret token' }, { status: 401 })
+    }
+  }
+
   let body: { message?: { chat?: { id?: number | string }; text?: string } } = {}
   try {
     body = await req.json()

@@ -12,6 +12,7 @@ import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { verifyTelegramSecretToken, warnTelegramSecretUnset } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
@@ -35,6 +36,7 @@ interface TenantBot {
   slug: string
   telegram_bot_token: string | null
   telegram_chat_id: string | null
+  telegram_webhook_secret: string | null
 }
 
 async function loadTenantBot(slug: string): Promise<TenantBot | null> {
@@ -42,7 +44,7 @@ async function loadTenantBot(slug: string): Promise<TenantBot | null> {
   // (lookup by slug), so there is no tenantId yet to scope by.
   const { data } = await supabaseAdmin
     .from('tenants')
-    .select('id, slug, telegram_bot_token, telegram_chat_id')
+    .select('id, slug, telegram_bot_token, telegram_chat_id, telegram_webhook_secret')
     .eq('slug', slug)
     .single()
   return (data as TenantBot | null) || null
@@ -54,6 +56,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   const tenant = await loadTenantBot(slug)
   if (!tenant) return NextResponse.json({ ok: true, skip: 'unknown_tenant' })
   if (!tenant.telegram_bot_token) return NextResponse.json({ ok: true, skip: 'no_bot_token' })
+
+  if (tenant.telegram_webhook_secret) {
+    const secret = decryptSecret(tenant.telegram_webhook_secret)
+    const verify = verifyTelegramSecretToken(req.headers, secret)
+    if (!verify.valid) {
+      console.warn(`[telegram webhook:${slug}] rejected:`, verify.reason)
+      return NextResponse.json({ error: 'Invalid secret token' }, { status: 401 })
+    }
+  } else {
+    warnTelegramSecretUnset(slug)
+  }
 
   const botToken = decryptSecret(tenant.telegram_bot_token)
 

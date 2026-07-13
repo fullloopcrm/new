@@ -70,6 +70,53 @@ export function verifySvix(
 }
 
 /**
+ * Verify a Telegram webhook via the secret token Telegram echoes back in the
+ * X-Telegram-Bot-Api-Secret-Token header (set via setWebhook's secret_token
+ * param). Telegram updates otherwise carry NO signature — the body-supplied
+ * chat ID is not authentication, it's just a routing hint an attacker can
+ * forge. Constant-time compare, same length-then-timingSafeEqual pattern as
+ * verifySvix above.
+ *
+ * Fail-OPEN when expectedSecret is unset (not every bot has one configured
+ * yet) — callers MUST flag this case themselves (see warnTelegramSecretUnset)
+ * rather than silently accepting forever. Fail-CLOSED whenever a secret IS
+ * configured: missing header or any mismatch is rejected.
+ */
+export function verifyTelegramSecretToken(
+  headers: Headers,
+  expectedSecret: string | undefined
+): VerifyResult {
+  if (!expectedSecret) return { valid: true, reason: 'secret not configured (fail-open)' }
+
+  const provided = headers.get('x-telegram-bot-api-secret-token')
+  if (!provided) return { valid: false, reason: 'missing X-Telegram-Bot-Api-Secret-Token header' }
+
+  const expectedBuf = Buffer.from(expectedSecret, 'utf8')
+  const providedBuf = Buffer.from(provided, 'utf8')
+  if (providedBuf.length !== expectedBuf.length || !timingSafeEqual(providedBuf, expectedBuf)) {
+    return { valid: false, reason: 'secret token mismatch' }
+  }
+  return { valid: true }
+}
+
+const _warnedNoTelegramSecret = new Set<string>()
+
+/**
+ * Logs once per process per bot key when a Telegram bot has no secret token
+ * configured, so the fail-open gap stays visible in logs instead of silently
+ * persisting forever. Call this from the route whenever the secret is unset.
+ */
+export function warnTelegramSecretUnset(botKey: string): void {
+  if (_warnedNoTelegramSecret.has(botKey)) return
+  _warnedNoTelegramSecret.add(botKey)
+  console.warn(
+    `[telegram webhook:${botKey}] no secret token configured — accepting unauthenticated updates ` +
+    `(fail-open). Set a secret via BotFather/setWebhook's secret_token param and configure the matching ` +
+    `env var / tenant column to close this gap.`
+  )
+}
+
+/**
  * Verify a Telnyx-signed webhook.
  * Required headers: telnyx-signature-ed25519, telnyx-timestamp.
  * publicKey is the raw base64 public key from the Telnyx portal (no PEM header).

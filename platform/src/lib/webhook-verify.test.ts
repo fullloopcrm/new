@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createHmac, generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
-import { verifySvix, verifyTelnyx } from './webhook-verify'
+import { verifySvix, verifyTelnyx, verifyTelegramSecretToken } from './webhook-verify'
 
 function svixHeaders(id: string, timestamp: string, signature: string): Headers {
   const h = new Headers()
@@ -113,5 +113,54 @@ describe('verifyTelnyx', () => {
     const result = verifyTelnyx(headers(ts, sig), body, rawPub)
     expect(result.valid).toBe(false)
     expect(result.reason).toBe('timestamp out of window')
+  })
+})
+
+describe('verifyTelegramSecretToken', () => {
+  function headers(token: string | null): Headers {
+    const h = new Headers()
+    if (token !== null) h.set('x-telegram-bot-api-secret-token', token)
+    return h
+  }
+
+  it('accepts a matching secret token', () => {
+    const result = verifyTelegramSecretToken(headers('correct-secret'), 'correct-secret')
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects a mismatched secret token of the same length', () => {
+    const result = verifyTelegramSecretToken(headers('wrong-secret'), 'correct-secret')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret token mismatch')
+  })
+
+  it('rejects a mismatched secret token of different length (no length-leak crash)', () => {
+    const result = verifyTelegramSecretToken(headers('short'), 'a-much-longer-correct-secret')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret token mismatch')
+  })
+
+  it('rejects a missing header when a secret is configured (fail-closed)', () => {
+    const result = verifyTelegramSecretToken(headers(null), 'correct-secret')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('missing X-Telegram-Bot-Api-Secret-Token header')
+  })
+
+  it('rejects an empty-string header when a secret is configured', () => {
+    // Telegram never sends an empty header, but an attacker could — must not
+    // be treated as "missing" and skipped, nor coincidentally match anything.
+    const result = verifyTelegramSecretToken(headers(''), 'correct-secret')
+    expect(result.valid).toBe(false)
+  })
+
+  it('fails OPEN when no secret is configured, even with no header sent', () => {
+    const result = verifyTelegramSecretToken(headers(null), undefined)
+    expect(result.valid).toBe(true)
+    expect(result.reason).toContain('fail-open')
+  })
+
+  it('fails OPEN when no secret is configured, regardless of header content', () => {
+    const result = verifyTelegramSecretToken(headers('anything'), '')
+    expect(result.valid).toBe(true)
   })
 })

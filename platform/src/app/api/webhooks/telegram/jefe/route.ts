@@ -8,14 +8,26 @@ import { NextResponse } from 'next/server'
 import { askJefe } from '@/lib/jefe/agent'
 import { loadJefeHistory, saveJefeTurn } from '@/lib/jefe/actions'
 import { sendTelegram } from '@/lib/telegram'
+import { verifyTelegramSecretToken, warnTelegramSecretUnset } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
 const BOT_TOKEN = (process.env.JEFE_BOT_TOKEN || '').trim()
 const OWNER_CHAT_ID = (process.env.JEFE_OWNER_CHAT_ID || process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
+const WEBHOOK_SECRET = (process.env.JEFE_WEBHOOK_SECRET || '').trim()
 
 export async function POST(req: Request) {
   if (!BOT_TOKEN) return NextResponse.json({ ok: true, skip: 'no_jefe_bot_token' })
+
+  if (!WEBHOOK_SECRET) {
+    warnTelegramSecretUnset('jefe')
+  } else {
+    const verify = verifyTelegramSecretToken(req.headers, WEBHOOK_SECRET)
+    if (!verify.valid) {
+      console.warn('[telegram webhook:jefe] rejected:', verify.reason)
+      return NextResponse.json({ error: 'Invalid secret token' }, { status: 401 })
+    }
+  }
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
   let body: { message?: TgPost; channel_post?: TgPost } = {}
