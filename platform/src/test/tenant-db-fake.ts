@@ -21,6 +21,7 @@ type State = {
   table: string
   op: 'select' | 'insert' | 'update' | 'delete' | 'upsert'
   eqs: Record<string, unknown>
+  neqs: Record<string, unknown>
   ins: Array<{ col: string; vals: unknown[] }>
   iss: Array<{ col: string; val: unknown }>
   gts: Array<{ col: string; val: unknown }>
@@ -38,6 +39,7 @@ function readPath(r: Record<string, unknown>, col: string): unknown {
 
 function matches(r: Record<string, unknown>, s: State): boolean {
   if (!Object.entries(s.eqs).every(([k, v]) => r[k] === v)) return false
+  if (!Object.entries(s.neqs).every(([k, v]) => r[k] !== v)) return false
   for (const f of s.ins) if (!f.vals.includes(r[f.col])) return false
   for (const f of s.iss) {
     const actual = readPath(r, f.col)
@@ -116,7 +118,7 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
 export function makeTenantDbFake(h: FakeStoreHandle) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, ins: [], iss: [], gts: [], head: false, payload: null }
+      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], iss: [], gts: [], head: false, payload: null }
       const chain: Record<string, unknown> = {
         select: (_cols?: unknown, o?: { head?: boolean }) => { if (o?.head) state.head = true; return chain },
         insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
@@ -126,6 +128,7 @@ export function makeTenantDbFake(h: FakeStoreHandle) {
           state.op = 'upsert'; state.payload = payload; state.onConflict = opts?.onConflict; return chain
         },
         eq: (col: string, val: unknown) => { state.eqs[col] = val; return chain },
+        neq: (col: string, val: unknown) => { state.neqs[col] = val; return chain },
         in: (col: string, vals: unknown[]) => { state.ins.push({ col, vals }); return chain },
         is: (col: string, val: unknown) => { state.iss.push({ col, val }); return chain },
         gt: (col: string, val: unknown) => { state.gts.push({ col, val }); return chain },

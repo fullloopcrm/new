@@ -4,7 +4,7 @@
  * ignored: fullloop uses Clerk + PIN auth, not plaintext passwords.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -28,11 +28,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       updates.role = body.role
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenant.tenantId)
       .from('tenant_members')
       .update(updates)
       .eq('id', id)
-      .eq('tenant_id', tenant.tenantId)
       .select('id, email, name, role, phone, created_at')
       .single()
 
@@ -51,31 +50,28 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
   const { id } = await params
 
-  const { data: target } = await supabaseAdmin
+  const { data: target } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .select('id, role')
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
     .single()
 
   if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   if (target.role === 'owner') {
-    const { count } = await supabaseAdmin
+    const { count } = await tenantDb(tenant.tenantId)
       .from('tenant_members')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenant.tenantId)
       .eq('role', 'owner')
     if ((count ?? 0) <= 1) {
       return NextResponse.json({ error: 'Cannot remove the last owner' }, { status: 400 })
     }
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .delete()
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

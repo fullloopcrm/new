@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
@@ -11,10 +11,9 @@ export async function GET(req: NextRequest) {
   const tenantId = await getCurrentTenantId()
 
   const ch = new URL(req.url).searchParams.get('channel') || 'all'
-  let q = supabaseAdmin
+  let q = tenantDb(tenantId)
     .from('comhub_templates')
     .select('id, name, body, channel, hotkey, created_at, updated_at')
-    .eq('tenant_id', tenantId)
     .is('archived_at', null)
     .order('name', { ascending: true })
   if (ch !== 'all') q = q.or(`channel.eq.${sanitizePostgrestValue(ch)},channel.is.null`)
@@ -38,10 +37,9 @@ export async function POST(req: NextRequest) {
   if (!payload?.name || !payload?.body) {
     return NextResponse.json({ error: 'name and body required' }, { status: 400 })
   }
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(tenantId)
     .from('comhub_templates')
     .insert({
-      tenant_id: tenantId,
       name: payload.name.trim(),
       body: payload.body,
       channel: payload.channel || null,
