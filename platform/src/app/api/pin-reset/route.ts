@@ -181,6 +181,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'PIN must be 4–8 digits.' }, { status: 400 })
     }
 
+    // Throttle code verification so a 6-digit code can't be brute-forced.
+    // Primary cap is per-contact: once attempts land in the window, further
+    // guesses against THAT contact's code are blocked regardless of source
+    // IP. A looser per-IP cap adds defense against one host spraying codes
+    // across many contacts. Mirrors the same throttle in portal/auth/route.ts.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rlContact = await rateLimitDb(`pin_reset_verify:${tenantId}:${contact}`, 5, 15 * 60 * 1000, {
+      failClosed: true,
+    })
+    const rlIp = await rateLimitDb(`pin_reset_verify_ip:${ip}`, 30, 15 * 60 * 1000, { failClosed: true })
+    if (!rlContact.allowed || !rlIp.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
+
     const member = await findMember(tenantId, contact)
     if (!member) {
       return NextResponse.json({ error: 'Code expired or not found.' }, { status: 400 })
