@@ -76,6 +76,9 @@ import { GET as referrerCodeGET } from '@/app/api/referrers/[code]/route'
 import { POST as referrerAuthRequestPOST } from '@/app/api/referrers/auth/request/route'
 import { POST as referrerAuthVerifyPOST } from '@/app/api/referrers/auth/verify/route'
 import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
+import { GET as portalServicesGET } from '@/app/api/portal/services/route'
+import { POST as bookingNotesUploadPOST } from '@/app/api/booking-notes/upload/route'
+import { PUT as referralPUT } from '@/app/api/referrals/[id]/route'
 
 const A_ID = '11111111-1111-1111-1111-111111111111'
 const B_ID = '22222222-2222-2222-2222-222222222222'
@@ -127,6 +130,18 @@ function reseed() {
   fake._seed('referral_commissions', [
     { id: 'comm-a', tenant_id: A_ID, referrer_id: ids.referrer.a, client_name: 'A Client', commission_amount: 500, status: 'pending', paid_via: null, created_at: '2026-07-01' },
     { id: 'comm-b', tenant_id: B_ID, referrer_id: ids.referrer.b, client_name: 'B Client — confidential', commission_amount: 900, status: 'pending', paid_via: null, created_at: '2026-07-02' },
+  ])
+  fake._seed('service_types', [
+    { id: 'svc-a', tenant_id: A_ID, name: 'Standard Clean A', description: null, default_duration_hours: 2, default_hourly_rate: 50, pricing_model: 'hourly', price_cents: null, per_unit: null, unit_label: null, min_charge_cents: null, active: true, sort_order: 1 },
+    { id: 'svc-b', tenant_id: B_ID, name: 'Standard Clean B — confidential rate', description: null, default_duration_hours: 2, default_hourly_rate: 999, pricing_model: 'hourly', price_cents: null, per_unit: null, unit_label: null, min_charge_cents: null, active: true, sort_order: 1 },
+  ])
+  fake._seed('booking_notes', [
+    { id: 'note-a', tenant_id: A_ID, booking_id: ids.booking.a, author_type: 'admin', author_name: 'Admin A', content: 'A note', images: [] },
+    { id: 'note-b', tenant_id: B_ID, booking_id: ids.booking.b, author_type: 'admin', author_name: 'Admin B', content: 'B note — confidential', images: [] },
+  ])
+  fake._seed('referrals', [
+    { id: 'referral-a', tenant_id: A_ID, name: 'Referral A', email: 'refa@example.com', referral_code: 'RCODEA', commission_rate: 0.1, status: 'active' },
+    { id: 'referral-b', tenant_id: B_ID, name: 'Referral B — confidential', email: 'refb@example.com', referral_code: 'RCODEB', commission_rate: 0.15, status: 'active' },
   ])
 }
 beforeEach(reseed)
@@ -439,5 +454,75 @@ describe('CROSS-TENANT ATTACK · referrer family — /api/referrers/[code] + aut
       .select('client_name, tenant_id')
       .eq('referrer_id', ids.referrer.b)
     expect((data as { client_name: string; tenant_id: string }[])[0].tenant_id).toBe(B_ID)
+  })
+})
+
+describe('CROSS-TENANT ATTACK · portal family — /api/portal/services (tenantDb, W3 backlog)', () => {
+  it("client A's portal token sees only tenant A's active service types (positive control)", async () => {
+    const token = createPortalToken(ids.client.a, A_ID)
+    const req = new Request('http://x', { headers: { authorization: `Bearer ${token}` } }) as unknown as import('next/server').NextRequest
+    const res = await portalServicesGET(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.services.map((s: { id: string }) => s.id)).toEqual(['svc-a'])
+    expect(JSON.stringify(body)).not.toContain('confidential')
+  })
+
+  it('REJECTS a token whose tid was swapped to tenant B without re-signing (forged token) → 401, no tenant B pricing leak', async () => {
+    const token = createPortalToken(ids.client.a, A_ID)
+    const [payloadB64, sig] = token.split('.')
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString())
+    payload.tid = B_ID
+    const forged = Buffer.from(JSON.stringify(payload)).toString('base64') + '.' + sig
+    const req = new Request('http://x', { headers: { authorization: `Bearer ${forged}` } }) as unknown as import('next/server').NextRequest
+    const res = await portalServicesGET(req)
+    expect(res.status).toBe(401)
+  })
+})
+
+describe('CROSS-TENANT ATTACK · booking family — /api/booking-notes/upload (tenantDb, W3 backlog)', () => {
+  it('tenant A uploads a note (image-URL mode) — stamped with tenant A regardless of what the caller sends', async () => {
+    setAdminSessionFor(A_ID)
+    const formData = new FormData()
+    formData.set('booking_id', ids.booking.a)
+    formData.set('author_type', 'admin')
+    formData.set('author_name', 'Admin A')
+    formData.set('content', 'note from A')
+    formData.set('image_urls', JSON.stringify(['http://x/img.jpg']))
+    const req = new Request('http://x', { method: 'POST', body: formData }) as unknown as import('next/server').NextRequest
+    const res = await bookingNotesUploadPOST(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.tenant_id).toBe(A_ID)
+  })
+
+  it('REJECTS the upload entirely with no admin session → 401, before any insert runs', async () => {
+    const formData = new FormData()
+    formData.set('booking_id', ids.booking.a)
+    formData.set('image_urls', JSON.stringify(['http://x/img.jpg']))
+    const req = new Request('http://x', { method: 'POST', body: formData }) as unknown as import('next/server').NextRequest
+    const res = await bookingNotesUploadPOST(req)
+    expect(res.status).toBe(401)
+    expect(fake._all('booking_notes').length).toBe(2) // only the two seeded rows — nothing inserted
+  })
+})
+
+describe('CROSS-TENANT ATTACK · referrer family — /api/referrals/[id] (tenantDb, W3 backlog)', () => {
+  it("tenant A PUT on its OWN referral succeeds (positive control)", async () => {
+    setAdminSessionFor(A_ID)
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ commission_rate: 0.2 }) })
+    const res = await referralPUT(req, { params: Promise.resolve({ id: 'referral-a' }) })
+    expect(res.status).toBe(200)
+    const aRow = fake._all('referrals').find((r) => r.id === 'referral-a')!
+    expect(aRow.commission_rate).toBe(0.2)
+  })
+
+  it("tenant A PUT targeting tenant B's referral id mutates nothing — B's row survives untouched", async () => {
+    setAdminSessionFor(A_ID)
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ commission_rate: 0.99 }) })
+    const res = await referralPUT(req, { params: Promise.resolve({ id: 'referral-b' }) })
+    expect(res.status).toBe(500) // scoped update matches 0 rows -> .single() errors, no cross-tenant write
+    const bRow = fake._all('referrals').find((r) => r.id === 'referral-b')!
+    expect(bRow.commission_rate).toBe(0.15)
   })
 })

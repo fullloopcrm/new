@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function PUT(
   request: Request,
@@ -14,11 +14,10 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('referrals')
       .update(body)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select()
       .single()
 

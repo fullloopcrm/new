@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function POST(request: NextRequest) {
@@ -21,10 +22,9 @@ export async function POST(request: NextRequest) {
     // MODE 1: URLs already uploaded
     if (imageUrlsRaw) {
       const imageUrls = JSON.parse(imageUrlsRaw) as string[]
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await tenantDb(ctx.tenantId)
         .from('booking_notes')
         .insert({
-          tenant_id: ctx.tenantId,
           booking_id: bookingId,
           author_type: authorType || 'admin',
           author_name: authorName || 'Admin',
@@ -54,10 +54,9 @@ export async function POST(request: NextRequest) {
     const { data: urlData } = supabaseAdmin.storage.from('uploads').getPublicUrl(path)
 
     // Single image: create note directly
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(ctx.tenantId)
       .from('booking_notes')
       .insert({
-        tenant_id: ctx.tenantId,
         booking_id: bookingId,
         author_type: authorType || 'admin',
         author_name: authorName || 'Admin',

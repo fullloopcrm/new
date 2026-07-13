@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -11,10 +11,9 @@ export async function GET(request: NextRequest) {
 
   // Return the full pricing model, not just the legacy hourly columns, so the
   // portal can render flat / per-unit / hourly prices per the tenant's trade.
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('service_types')
     .select('id, name, description, default_duration_hours, default_hourly_rate, pricing_model, price_cents, per_unit, unit_label, min_charge_cents, active')
-    .eq('tenant_id', auth.tid)
     .eq('active', true)
     .order('sort_order')
 
