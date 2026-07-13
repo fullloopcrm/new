@@ -450,12 +450,14 @@ export async function POST(req: NextRequest) {
     !leg
   ) {
     const { data: cId } = await supabaseAdmin.rpc('comhub_get_or_create_contact_by_phone', {
+      p_tenant_id: NYCMAID_TENANT_ID,
       p_phone: p.from,
     })
     if (!cId) return NextResponse.json({ ok: true, note: 'contact create failed' })
     const contactId = cId as string
 
     const { data: tId } = await supabaseAdmin.rpc('comhub_get_or_create_thread', {
+      p_tenant_id: NYCMAID_TENANT_ID,
       p_contact_id: contactId,
       p_channel: 'voice',
     })
