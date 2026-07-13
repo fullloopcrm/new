@@ -2,36 +2,37 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 /**
- * W4 — WITNESS for the P2 write-side tenant-tagging gap in POST /api/selena
- * (conversation reset). See deploy-prep/idor-scan-note.md (P2) and
+ * W4 — REGRESSION LOCK for the P2 write-side tenant-tagging gap in POST
+ * /api/selena (conversation reset). See deploy-prep/idor-scan-note.md (P2) and
  * deploy-prep/idor-remediation-status.md.
  *
- * THE GAP: when an admin resets a stuck SMS conversation, the outbound recovery
- * message is inserted into sms_conversation_messages WITHOUT tenant_id
- * (src/app/api/selena/route.ts:171). The row therefore falls back to the column
- * DEFAULT ('nycmaid') added by 2026_05_09_tenant_id_core.sql. The inline comment
- * calls this "tenant-scope-ok: row-scoped by conversation_id" — the WRITE is
- * indeed linked to a tenant-owned conversation, but the ROW's own tenant_id is
- * what matters for reads.
+ * THE GAP (fixed): when an admin resets a stuck SMS conversation, the outbound
+ * recovery message used to be inserted into sms_conversation_messages via a
+ * bare `supabaseAdmin.insert()` WITHOUT tenant_id (src/app/api/selena/route.ts,
+ * pre-tenantDb-conversion). The row fell back to the column DEFAULT
+ * ('nycmaid') added by 2026_05_09_tenant_id_core.sql. The inline comment at the
+ * time called this "tenant-scope-ok: row-scoped by conversation_id" — the WRITE
+ * was indeed linked to a tenant-owned conversation, but the ROW's own
+ * tenant_id is what matters for reads.
  *
- * WHY IT BITES TENANT #2 (not a cross-tenant DISCLOSURE — a self-visibility bug):
- * the GET ?convoId read is now scoped `.eq('tenant_id', tenantId)` (the selena
- * fix, 722ed11d). A recovery message written for a NON-nycmaid tenant lands
- * tagged 'nycmaid', so that tenant's own operator console can no longer see its
- * own recovery message — while a nycmaid operator theoretically could. Benign
- * today (nycmaid is the only tenant, so the default is coincidentally correct),
- * but it MUST be closed before onboarding tenant #2.
+ * WHY IT BIT TENANT #2 (not a cross-tenant DISCLOSURE — a self-visibility bug):
+ * the GET ?convoId read is scoped `.eq('tenant_id', tenantId)` (the selena
+ * fix, 722ed11d). A recovery message written for a NON-nycmaid tenant landed
+ * tagged 'nycmaid', so that tenant's own operator console could no longer see
+ * its own recovery message — while a nycmaid operator theoretically could.
  *
- * STATUS: not a live read-IDOR, so no route edit / no flag-before-edit — this is
- * the read-only verification lane. This file documents the gap as a tracked
- * witness:
- *   • WITNESS (it.fails): the recovery-message insert SHOULD carry the caller's
- *     tenant_id but currently does NOT. When the route is fixed (add
- *     `tenant_id: tenantId` to the insert), this test flips to a HARD FAIL —
- *     the signal to convert it into a plain-`it` regression lock.
- *   • POSITIVE (plain it): the write-integrity the inline comment relies on IS
- *     real today — the recovery message links to the freshly-created
- *     conversation, which itself was inserted WITH the caller's tenant_id.
+ * FIX: the whole route was converted to tenantDb() (fleet-wide rollout,
+ * LEADER order 19:42 — /api/selena/* is W4's namespace), whose insert()
+ * auto-stamps `tenant_id` on every row. That incidentally closes this exact
+ * gap: the recovery-message insert now always carries the caller's tenant_id.
+ *
+ * This file is now a permanent regression lock — both tests are plain `it`:
+ *   • REGRESSION LOCK: the recovery-message insert carries the caller's
+ *     tenant_id (was `it.fails` pre-fix; flips to a hard fail again if the
+ *     route ever reverts to an unstamped insert).
+ *   • POSITIVE: the write-integrity the original inline comment relied on IS
+ *     real — the recovery message links to the freshly-created conversation,
+ *     which itself is inserted WITH the caller's tenant_id.
  */
 
 const CALLER_TENANT = 'tenant-B' // a NON-default (non-nycmaid) tenant
@@ -109,8 +110,8 @@ beforeEach(() => {
 })
 
 describe('POST /api/selena reset — recovery-message tenant tagging', () => {
-  it.fails(
-    'WITNESS: the recovery-message insert does NOT carry the caller tenant_id (relies on DB default)',
+  it(
+    'REGRESSION LOCK: the recovery-message insert carries the caller tenant_id (tenantDb auto-stamp)',
     async () => {
       const res = await POST(resetReq(STUCK_CONVO))
       expect(res.status).toBe(200)
@@ -119,8 +120,8 @@ describe('POST /api/selena reset — recovery-message tenant tagging', () => {
       expect(msgInsert, 'the outbound recovery message was logged').toBeTruthy()
       expect(String(msgInsert!.payload.message)).toContain(RECOVERY_SNIPPET)
 
-      // DESIRED (currently violated): the row is tagged with the caller's tenant
-      // so the now-scoped GET ?convoId read can return it to that tenant.
+      // The row is tagged with the caller's tenant so the tenant-scoped
+      // GET ?convoId read can return it to that tenant.
       expect(msgInsert!.payload).toHaveProperty('tenant_id', CALLER_TENANT)
     },
   )
