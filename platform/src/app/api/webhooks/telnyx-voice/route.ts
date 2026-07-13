@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
+import { verifyTelnyx } from '@/lib/webhook-verify'
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
 const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
@@ -390,23 +391,26 @@ async function startVoicemail(opts: {
 // call lifecycle: answer → ring admin list → bridge → record → transcribe,
 // and on no-answer falls back to voicemail with a missed-call SMS.
 export async function POST(req: NextRequest) {
-  // Webhook freshness check (matches the SMS webhook pattern). When the
-  // public key is set we'll require a Telnyx signature header and reject
-  // anything older than 5 minutes — replay protection for the call-control
-  // events that drive this whole flow.
+  const rawBody = await req.text()
+
+  // Signature verification, same fail-closed-when-configured pattern as the
+  // telnyx SMS webhook (src/app/api/webhooks/telnyx/route.ts): when
+  // TELNYX_PUBLIC_KEY is set, a missing/invalid/stale Ed25519 signature is
+  // rejected outright. This route previously only checked that the
+  // signature/timestamp *headers were present* and the timestamp wasn't
+  // stale — it never actually verified the signature bytes, so any request
+  // with a fabricated header pair sailed through and could drive outbound
+  // calls/SMS. When the key is unset, behavior is unchanged (no check) —
+  // that gap is pre-existing and not addressed here.
   if (process.env.TELNYX_PUBLIC_KEY) {
-    const signature = req.headers.get('telnyx-signature-ed25519')
-    const timestamp = req.headers.get('telnyx-timestamp')
-    if (!signature || !timestamp) {
-      return NextResponse.json({ error: 'missing telnyx signature' }, { status: 401 })
-    }
-    const age = Math.abs(Date.now() / 1000 - Number(timestamp))
-    if (!Number.isFinite(age) || age > 300) {
-      return NextResponse.json({ error: 'stale webhook' }, { status: 401 })
+    const result = verifyTelnyx(req.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
+    if (!result.valid) {
+      console.warn('[telnyx-voice webhook] rejected:', result.reason)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
   }
 
-  const payload = (await req.json().catch(() => null)) as {
+  let payload: {
     data?: {
       event_type?: string
       payload?: {
@@ -428,6 +432,11 @@ export async function POST(req: NextRequest) {
       }
     }
   } | null
+  try {
+    payload = rawBody ? JSON.parse(rawBody) : null
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
   const event = payload?.data?.event_type || ''
   const p = payload?.data?.payload || {}
