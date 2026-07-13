@@ -12,7 +12,7 @@ almost every namespace below, which is exactly why the collisions in §3 exist.
 
 ## 1. Converted, by lane
 
-### W1 — admin/dashboard (this worktree, p1-w1) — 24 routes
+### W1 — admin/dashboard (this worktree, p1-w1) — 27 routes
 | Route | Commit |
 |---|---|
 | `/api/notifications` | a9d2ea96 |
@@ -39,6 +39,9 @@ almost every namespace below, which is exactly why the collisions in §3 exist.
 | `/api/admin/reviews` | (backlog batch, 11:12 order) — GET/PUT/DELETE on `reviews` scoped to `tenantDb(tenant.tenantId)`; PUT/DELETE previously took an admin-supplied `id` with only a manual tenant filter as the guard against cross-tenant edit/delete |
 | `/api/admin/message-applicants/send` | (backlog batch, 11:12 order) — `cleaner_applications` select (by caller-supplied `applicant_ids`) + `notifications` insert scoped to `tenantDb(tenantId)`; closes a real gap where a crafted cross-tenant id in the broadcast list would previously text another tenant's applicant |
 | `/api/admin/payments/confirm-match` | (backlog batch, 11:12 order) — `unmatched_payments`/`bookings` lookups + `payments`/`notifications` inserts + `bookings` update all scoped to `tenantDb(tenantId)`, replacing 5 manual `.eq('tenant_id', …)` filters and 2 manually-threaded `tenant_id:` insert fields. `tenants` lookup (by `id`, not `tenant_id`) correctly stays on raw `supabaseAdmin` — platform table, not tenant-owned. |
+| `/api/admin/recurring-schedules/[id]/pause` | (backlog batch, 12:04 order) — POST (pause + cancel in-window bookings) and DELETE (resume) on `recurring_schedules`/`bookings` scoped to `tenantDb(tenantId)`, replacing 4 manual `.eq('tenant_id', …)` filters. Mutation-verified non-vacuous: reverted the bookings-cancel step to raw `supabaseAdmin`, confirmed a crafted same-`schedule_id`-different-tenant booking got cancelled too (2 vs expected 1), restored. |
+| `/api/admin/recurring-schedules/[id]/exception` | (backlog batch, 12:04 order) — POST (skip/move/reassign a single occurrence) on `recurring_schedules`/`recurring_exceptions`/`bookings` scoped to `tenantDb(tenantId)`, replacing 5 manual `.eq('tenant_id', …)` filters and a manually-threaded `tenant_id:` upsert field. |
+| `/api/admin/comhub/voice/presence` | (backlog batch, 12:04 order) — GET/POST/DELETE softphone presence heartbeat on `comhub_admin_presence` scoped to `tenantDb(tenantId)`, replacing 3 manual `.eq('tenant_id', …)` filters and a manually-threaded `tenant_id:` upsert field. |
 
 ### W3 — portal/booking (p1-w3) — 10 routes
 | Route | Commit |
