@@ -53,45 +53,46 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 555 passed / 37 skipped / 0 failed |
 | **Rank rationale** | Only leak here that is **destructive** *and* on a `tenant_id`-less table (`tenantDb` structurally cannot help — needs hand-written guard). Highest blast radius. |
 
-### P1 — `bookings` POST → cross-tenant service-type **READ** + client_id FK injection  ⚠️ **DATA EXFIL**
+### P1 — `bookings` POST → cross-tenant service-type **READ** + client_id FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
 
 | | |
 |---|---|
 | **Route / op** | `POST /api/bookings` (unconverted, raw `supabaseAdmin`) |
 | **Table(s)** | `service_types` (read), `bookings`/`clients` (FK) |
-| **Attack vector** | **(1) READ:** `service_types.select('name').eq('id', service_type_id)` has **no tenant filter**; passing tenant B's `service_type_id` reads B's service-type **name** and stamps it on A's booking. **(2) FK injection:** `client_id` is UUID-format-validated only, never ownership-checked, then inserted. |
+| **Attack vector** | **(1) READ:** `service_types.select('name').eq('id', service_type_id)` had **no tenant filter**; passing tenant B's `service_type_id` read B's service-type **name** and stamped it on A's booking. **(2) FK injection:** `client_id` was UUID-format-validated only, never ownership-checked, then inserted. |
 | **Effect** | Cross-tenant **read** of B's service-type name (data exfiltration, not just a dangling reference), plus A's booking referencing B's client. |
-| **Verdict** | **proven-LIVE** |
-| **Witness** | `src/app/api/bookings/route.witness.test.ts` (2 tests: name-copy read leak + client_id injection) |
-| **Note** | The `team_member_id` lookups on this same route **are** scoped `.eq('tenant_id', A)` — the `service_types` read is the one that isn't. |
-| **Required guard** | Scope the `service_types` read to `tenantId`; verify `client_id` ownership (`tenantDb(tenantId).from('clients').select('id').eq('id', client_id)`), 400/404 on miss. |
+| **Verdict** | **FIXED** (was proven-LIVE) |
+| **Fix** | `service_types` read now carries `.eq('tenant_id', tenantId)` (foreign id matches nothing, name never copied). `client_id` is now verified owned by the acting tenant (`clients` lookup scoped to `tenantId`) before any other work runs — 404 on miss. |
+| **Regression lock** | `src/app/api/bookings/route.witness.test.ts` — flipped from LEAK to LOCK (3 tests: foreign service_type_id name never copied, foreign client_id 404s before insert, own-tenant CONTROL still creates the booking) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 559 passed / 37 skipped / 0 failed |
 | **Rank rationale** | The only proven leak that performs an actual cross-tenant **READ** (exfil), not just a reference write. Above the pure FK-injection writes. |
 
-### P2 — `invoices` POST → cross-tenant FK injection (client_id / booking_id / quote_id)
+### P2 — `invoices` POST → cross-tenant FK injection (client_id / booking_id / quote_id) — ✅ **FIXED**
 
 | | |
 |---|---|
 | **Route / op** | `POST /api/invoices` (unconverted, raw `supabaseAdmin`) |
 | **Table** | `invoices` (FK columns) |
-| **Attack vector** | Invoice is correctly stamped `tenant_id = A`, but `body.client_id` / `body.booking_id` / `body.quote_id` are inserted **verbatim** with no ownership check. |
+| **Attack vector** | Invoice is correctly stamped `tenant_id = A`, but `body.client_id` / `body.booking_id` / `body.quote_id` were inserted **verbatim** with no ownership check. |
 | **Effect** | A's finance record references B's client/booking/quote — pollutes B's entities into A's records and can surface B's data through any read-side that embeds `clients(...)` off the invoice. |
-| **Verdict** | **proven-LIVE** |
-| **Witness** | `src/app/api/invoices/route.witness.test.ts` (2 leak tests + 1 MIXED control) |
-| **Already-scoped control** | The `from_booking_id` / `from_quote_id` **prefill** paths re-fetch with `.eq('tenant_id', A)`, so a foreign prefill copies **no** client PII (MIXED test proves this) — **but** the raw `booking_id` column is still written verbatim, so it's still a leak. |
-| **Required guard** | Verify `client_id`/`booking_id`/`quote_id` belong to `tenantId` before insert; 400/404 on miss. |
+| **Verdict** | **FIXED** (was proven-LIVE) |
+| **Fix** | Each of `client_id`/`booking_id`/`quote_id` is now verified tenant-owned (`.eq('id',...).eq('tenant_id', tenantId)`) before the invoice insert; 404 on any miss — including a foreign `from_booking_id`/`from_quote_id` prefill reference. |
+| **Regression lock** | `src/app/api/invoices/route.witness.test.ts` — flipped from LEAK to LOCK (4 rejection tests, one per FK + from_booking_id path, + 1 same-tenant CONTROL) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 559 passed / 37 skipped / 0 failed |
 
-### P3 — `quotes` POST → cross-tenant FK injection (client_id / deal_id)
+### P3 — `quotes` POST → cross-tenant FK injection (client_id / deal_id) — ✅ **FIXED**
 
 | | |
 |---|---|
 | **Route / op** | `POST /api/quotes` (unconverted, raw `supabaseAdmin`) |
 | **Table** | `quotes` (FK columns) |
-| **Attack vector** | Quote stamped `tenant_id = A`; `body.client_id` and `body.deal_id` inserted **verbatim**, no ownership check. |
+| **Attack vector** | Quote stamped `tenant_id = A`; `body.client_id` and `body.deal_id` were inserted **verbatim**, no ownership check. |
 | **Effect** | A's quote references B's client/deal. |
-| **Verdict** | **proven-LIVE** |
-| **Witness** | `src/app/api/quotes/route.witness.test.ts` (1 leak test + 1 CONTROL) |
-| **Asymmetry (proven)** | The follow-up `deals` **UPDATE** on close/link **is** scoped `.eq('id', dealId).eq('tenant_id', A)` — B's deal is never mutated (CONTROL test) — yet the quote **INSERT** that references it is not scoped at all. Guard exists on the write-back but not on the reference. |
-| **Required guard** | Verify `client_id`/`deal_id` belong to `tenantId` before insert; 400/404 on miss. |
+| **Verdict** | **FIXED** (was proven-LIVE) |
+| **Fix** | `client_id` and `deal_id` are now verified tenant-owned before insert; 404 on miss. |
+| **Asymmetry (was proven, now moot)** | The follow-up `deals` **UPDATE** on close/link **was already** scoped `.eq('id', dealId).eq('tenant_id', A)` — that guard is unchanged, it's just unreachable with a foreign `deal_id` now since the insert 404s first. |
+| **Regression lock** | `src/app/api/quotes/route.witness.test.ts` — flipped from LEAK to LOCK (2 rejection tests + 1 same-tenant CONTROL proving the write-back still only touches the owned deal) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 559 passed / 37 skipped / 0 failed |
 
 ### P4 — `finance/bank-accounts` POST → cross-tenant `entity_id` + `coa_id` FK injection  💰 **BANK**
 
@@ -223,15 +224,18 @@ live leaks. This section is a **negative result, not a to-do list**.
 
 ## 6. Q3 hand-off checklist
 
-1. Fix in priority order: **P0 crews → P1 bookings → P2 invoices → P3 quotes →
-   P4 bank-accounts → P5 expenses → P6 periods → P7 expenses/[id].** (P4–P7 are the
-   finance `entity_id`/`coa_id` FK-injection class; same guard shape as P2/P3 — verify
-   each caller-supplied FK is tenant-owned before insert/upsert, plus a column
-   allow-list for P7's full-body update.)
+1. Fix in priority order: **P0 crews (✅ fixed) → P1 bookings (✅ fixed) →
+   P2 invoices (✅ fixed) → P3 quotes (✅ fixed) → P4 bank-accounts → P5 expenses →
+   P6 periods → P7 expenses/[id].** Remaining: P4–P7, the finance `entity_id`/
+   `coa_id` FK-injection class; same guard shape as P2/P3 — verify each
+   caller-supplied FK is tenant-owned before insert/upsert, plus a column
+   allow-list for P7's full-body update.
 2. For each fix, **flip its witness** from expect-leak to expect-rejection (404/400
-   + untouched victim) — the witness then locks the fix permanently.
-3. P0 needs a **hand-written** parent-ownership guard (`crew_members` has no
+   + untouched victim) — the witness then locks the fix permanently. (Done for
+   P0–P3.)
+3. P0 needed a **hand-written** parent-ownership guard (`crew_members` has no
    `tenant_id`; converting the route to `tenantDb` alone does **not** close it).
-4. P1–P3: add ownership verification of each caller-supplied FK before insert;
+4. P1–P3 (done): ownership verification of each caller-supplied FK before insert;
    converting to `tenantDb` scopes the row's own `tenant_id` but does **not**
-   validate foreign-key ownership — the guard is separate.
+   validate foreign-key ownership — the guard is separate. Same principle applies
+   to P4–P7.
