@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -38,19 +39,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
+  const db = tenantDb(tenantId)
+
   // Get recent SMS conversations
-  const { data: conversations } = await supabaseAdmin
+  const { data: conversations } = await db
     .from('sms_conversations')
     .select('id, client_id, status, last_message_at, clients(name, phone)')
-    .eq('tenant_id', tenantId)
     .order('last_message_at', { ascending: false })
     .limit(50)
 
   // Get recent SMS messages
-  const { data: recentMessages } = await supabaseAdmin
+  const { data: recentMessages } = await db
     .from('client_sms_messages')
     .select('id, direction, message, created_at, clients(name)')
-    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(50)
 
