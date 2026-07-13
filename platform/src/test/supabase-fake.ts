@@ -56,6 +56,9 @@ type State = {
   lts: Array<{ col: string; val: unknown }>
   head: boolean
   payload: unknown
+  /** `.select()` was chained — same as PostgREST's `Prefer: return=representation`.
+   *  Only then does `.update()` hand back the affected row(s) instead of null. */
+  returning: boolean
 }
 
 function matches(r: Record<string, unknown>, s: State): boolean {
@@ -90,8 +93,13 @@ function runQuery(
   }
 
   if (state.op === 'update') {
-    for (const r of rows) if (matches(r, state)) Object.assign(r, state.payload as object)
-    return { data: null, error: null }
+    let updated = rows.filter((r) => matches(r, state))
+    for (const r of updated) Object.assign(r, state.payload as object)
+    if (!state.returning) return { data: null, error: null }
+    if (opts.detachReads) updated = updated.map((r) => ({ ...r }))
+    if (terminal === 'single') return { data: updated[0] ?? null, error: updated[0] ? null : { message: 'no rows' } }
+    if (terminal === 'maybeSingle') return { data: updated[0] ?? null, error: null }
+    return { data: updated, error: null }
   }
 
   let found = rows.filter((r) => matches(r, state))
@@ -113,9 +121,9 @@ function runQuery(
 export function makeSupabaseFake(h: FakeStoreHandle, opts: SupabaseFakeOptions = {}) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, gtes: [], lts: [], head: false, payload: null }
+      const state: State = { table, op: 'select', eqs: {}, gtes: [], lts: [], head: false, payload: null, returning: false }
       const chain: Record<string, unknown> = {
-        select: (_cols?: unknown, o?: { head?: boolean }) => { if (o?.head) state.head = true; return chain },
+        select: (_cols?: unknown, o?: { head?: boolean }) => { if (o?.head) state.head = true; state.returning = true; return chain },
         insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
         update: (payload: unknown) => { state.op = 'update'; state.payload = payload; return chain },
         eq: (col: string, val: unknown) => { state.eqs[col] = val; return chain },

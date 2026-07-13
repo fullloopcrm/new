@@ -25,11 +25,15 @@ vi.mock('@/lib/supabase', () => ({
   supabase: makeSupabaseFake(h, { detachReads: true }),
 }))
 // Best-effort side effects — stub so the test isolates the deal conversion.
-vi.mock('@/lib/jobs', () => ({ convertSaleToJob: async () => ({ job_id: 'job-x' }) }))
-vi.mock('@/lib/notify', () => ({ notify: async () => {} }))
-vi.mock('@/lib/messaging/owner-alerts', () => ({ ownerAlert: async () => {} }))
+// vi.fn()-wrapped (not just bare async no-ops) so the race test can assert
+// call counts — a lost race must not double-notify the owner.
+vi.mock('@/lib/jobs', () => ({ convertSaleToJob: vi.fn(async () => ({ job_id: 'job-x' })) }))
+vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
+vi.mock('@/lib/messaging/owner-alerts', () => ({ ownerAlert: vi.fn(async () => {}) }))
 
 import { POST } from './accept/route'
+import { notify } from '@/lib/notify'
+import { ownerAlert } from '@/lib/messaging/owner-alerts'
 
 const TENANT = 'tenant-A'
 const OTHER = 'tenant-B'
@@ -45,6 +49,8 @@ const acceptReq = (body: unknown) =>
 const params = { params: Promise.resolve({ token: TOKEN }) }
 
 beforeEach(() => {
+  vi.mocked(notify).mockClear()
+  vi.mocked(ownerAlert).mockClear()
   h.seq = 0
   h.store = {
     quotes: [
@@ -112,5 +118,28 @@ describe('quote acceptance → deal conversion (happy path)', () => {
     await expect(res2.json()).resolves.toMatchObject({ ok: true, already_accepted: true })
     // no new deal activity on replay
     expect(h.store.deal_activities).toHaveLength(activityCount)
+  })
+
+  it('a double-tapped Accept button (2 concurrent requests) only converts once — no duplicate deal activity or owner notification', async () => {
+    const [res1, res2] = await Promise.all([
+      POST(acceptReq({ signature_png: SIGNATURE, signature_name: 'Jane Doe' }), params),
+      POST(acceptReq({ signature_png: SIGNATURE, signature_name: 'Jane Doe' }), params),
+    ])
+    const bodies = await Promise.all([res1.json(), res2.json()])
+
+    // Exactly one request wins the claim; the other treats it as already-accepted.
+    const winners = bodies.filter((b) => !b.already_accepted)
+    const losers = bodies.filter((b) => b.already_accepted)
+    expect(winners).toHaveLength(1)
+    expect(losers).toHaveLength(1)
+
+    const deal = h.store.deals.find((d) => d.id === 'deal-1')!
+    expect(deal.stage).toBe('sold')
+
+    // Only the winner's side effects fire — not one set per request.
+    const acts = h.store.deal_activities.filter((a) => a.deal_id === 'deal-1')
+    expect(acts).toHaveLength(2)
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(ownerAlert).toHaveBeenCalledTimes(1)
   })
 })

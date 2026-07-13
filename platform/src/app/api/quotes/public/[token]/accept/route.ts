@@ -54,7 +54,16 @@ export async function POST(request: Request, { params }: Params) {
     const ua = request.headers.get('user-agent')
     const acceptedAt = new Date().toISOString()
 
-    await supabaseAdmin
+    // Compare-and-swap on the status we just read: two concurrent accepts
+    // (double-tapped Accept button) would otherwise both pass the status
+    // check above and both fall through to advance the deal + notify the
+    // owner twice (duplicate deal_activities rows, duplicate SMS/email SOLD
+    // alerts). Only the request whose UPDATE matches the exact prior status
+    // wins the claim; the loser treats it as already-accepted. Job/booking/
+    // recurring-series creation below is separately idempotent via each
+    // helper's own atomic claim, so this only needed to guard THIS route's
+    // own side effects.
+    const { data: claimed } = await supabaseAdmin
       .from('quotes')
       .update({
         status: 'accepted',
@@ -66,6 +75,13 @@ export async function POST(request: Request, { params }: Params) {
         signature_user_agent: ua,
       })
       .eq('id', quote.id)
+      .eq('status', quote.status)
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) {
+      return NextResponse.json({ ok: true, already_accepted: true })
+    }
 
     await logQuoteEvent({
       quote_id: quote.id,
