@@ -34,7 +34,7 @@ type TenantPaymentFields = Pick<
 export interface ProcessPaymentInput {
   tenant: TenantPaymentFields | { id: string }
   bookingId: string
-  clientId: string
+  clientId: string                     // ignored — derived from the tenant-verified booking row instead (see processPayment)
   method: string                       // 'zelle' | 'venmo' | 'cashapp' | 'cash' | 'manual' | ...
   amountCents: number
   referenceId: string
@@ -76,7 +76,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   if (!tenant) return null
   const tenantId = tenant.id
 
-  const { bookingId, clientId, method, amountCents, referenceId } = input
+  const { bookingId, method, amountCents, referenceId } = input
   const label = method.charAt(0).toUpperCase() + method.slice(1)
 
   // Tenant-scoped booking lookup with joined relations
@@ -101,6 +101,12 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     .single()
 
   if (!booking) return null
+
+  // clientId comes from the tenant-verified booking row, never from the
+  // caller — input.clientId is ignored so an internal-key-gated caller (e.g.
+  // admin/payments/finalize-match, whose key is global across all tenants)
+  // can't attribute this payment to an unowned/cross-tenant client id.
+  const clientId = booking.client_id as string
 
   const clientJoin = booking.clients as unknown as { name: string; phone?: string; address?: string | null } | null
   const teamMember = booking.team_members as unknown as {
