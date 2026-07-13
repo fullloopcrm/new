@@ -29,7 +29,14 @@ const CAREER_SECTION_ROOTS: readonly string[] = [
   // Shared template — covers EVERY tenant that renders from it (all new tenants).
   '/site/template/available-nyc-maid-jobs',
   '/site/template/careers/operations-coordinator',
-  // nycmaid (root tenant / legacy shared tree)
+  // nycmaid — BESPOKE_SITE_TENANTS in middleware.ts rewrites its live domain
+  // to /site/nycmaid/... (ROOT_SITE_TENANTS is empty, so the bare /site/...
+  // root below is dead code for domain routing and was never being served —
+  // the actual live pages were never revalidated by this cron until this fix).
+  '/site/nycmaid/available-nyc-maid-jobs',
+  '/site/nycmaid/careers/commission-sales-partner',
+  '/site/nycmaid/careers/operations-coordinator',
+  // Legacy /site root tree — kept in case any host still resolves here.
   '/site/available-nyc-maid-jobs',
   '/site/careers/operations-coordinator',
   // landscaping-in-nyc
