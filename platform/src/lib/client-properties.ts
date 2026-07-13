@@ -247,7 +247,11 @@ export async function updateProperty(
   if (!before) return null
 
   const next: Record<string, unknown> = {}
-  if (patch.address != null) next.address = combine(patch.address, patch.unit ?? before.unit)
+  // Resolve by which key is present, not by value — `??` would treat an
+  // explicit `unit: null` (clear the unit) as absent and fall back to the
+  // stale `before.unit`, baking the old unit into the recombined address.
+  const nextUnit = patch.unit !== undefined ? patch.unit : before.unit
+  if (patch.address != null) next.address = combine(patch.address, nextUnit)
   if (patch.unit !== undefined) next.unit = patch.unit
   if (patch.label !== undefined) next.label = patch.label
   if (Object.keys(next).length === 0) return before as PropertyRef
@@ -268,7 +272,7 @@ export async function updateProperty(
   await logPropertyChange({
     clientId, propertyId, action: 'edit',
     oldValue: { address: before.address, unit: before.unit, label: before.label },
-    newValue: { address: after.address, unit: next.unit ?? before.unit, label: next.label ?? before.label },
+    newValue: { address: after.address, unit: nextUnit, label: patch.label !== undefined ? patch.label : before.label },
     actor,
   })
   return after
