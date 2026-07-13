@@ -930,7 +930,9 @@ async function handleSendToClient(input: { client_id: string; message: string; c
   }
   if (channel === 'email') {
     if (!client.email) return JSON.stringify({ error: 'no client email' })
-    await sendEmail(client.email, 'Message from The NYC Maid', `<p>${input.message.replace(/\n/g, '<br>')}</p>`)
+    const { data: tenant } = await supabaseAdmin.from('tenants').select('name').eq('id', tid).single()
+    const businessName = tenant?.name || 'the business'
+    await sendEmail(client.email, `Message from ${businessName}`, `<p>${input.message.replace(/\n/g, '<br>')}</p>`)
     return JSON.stringify({ ok: true, channel: 'email', sent_to: client.name })
   }
   return JSON.stringify({ error: 'unknown channel' })
