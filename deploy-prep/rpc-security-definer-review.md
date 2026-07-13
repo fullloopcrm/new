@@ -275,3 +275,62 @@ not just closing a paperwork gap.
   rather than later given the reliability (not just security) stakes identified in §5b.
 - No new migration or lockdown scope added beyond what `060` (already planned by w1) covers.
 
+---
+
+## 6. Extension (2026-07-13, backlog continuation) — `post_journal_entry` trusts `p_entity_id` as loosely as `p_tenant_id`, but this was never stated
+
+§1's table above documents that `post_journal_entry` "trusts caller-supplied `p_tenant_id`/`p_entity_id`/
+`p_created_by` with zero check against `auth.uid()`" — but that line only names the *caller-identity* risk
+(is the caller who they claim). It never separately checks whether **`p_entity_id`, when explicitly
+provided, is validated as belonging to `p_tenant_id`.** Re-read the function body
+(`platform/src/lib/migrations/039_atomic_ledger_and_hardening.sql:14-83`) specifically for that:
+
+```sql
+_entity_id := p_entity_id;
+IF _entity_id IS NULL THEN
+  SELECT id INTO _entity_id FROM entities WHERE tenant_id = p_tenant_id AND is_default = TRUE LIMIT 1;
+END IF;
+```
+
+**When `p_entity_id` is non-null, it is used verbatim — no `WHERE tenant_id = p_tenant_id` check against
+`entities` is ever run for it.** Only the `NULL`-fallback branch is tenant-scoped. Both `journal_entries`
+and every `journal_lines` row this call inserts get written with `(p_tenant_id, _entity_id)` where
+`_entity_id` could belong to a *different* tenant than `p_tenant_id`, and nothing in the function rejects
+that combination.
+
+**Current exploitability: effectively none**, for the same reason §1 already gives `p_tenant_id` a "not now"
+verdict — checked all 8 in-repo call sites of `postJournalEntry()` (`src/lib/ledger.ts:113`) this pass:
+every one sources `entity_id` either from `opts.entity_id` left `undefined` (→ hits the tenant-scoped
+`NULL` fallback) or from a DB row already fetched under a `tenant_id`-scoped query in the same request
+(e.g. `bank-transactions/[id]/route.ts:62` uses `txn.entity_id` from a row selected `.eq('tenant_id',
+tenantId)` two lines earlier). No call site threads a client-request-body `entity_id` straight through
+unchecked. All calls run via `supabaseAdmin`/service-role, same as the rest of this file's findings.
+
+**Why flag it anyway:** it's the same latent-landmine shape as the `p_tenant_id` gap §1 already flags as
+"Needs 060-style lockdown... the instant Supabase Auth is wired" — except §1's own table never mentions
+`p_entity_id` needs the same fix, so a fix limited to just `p_tenant_id`/`auth.uid()` checks would leave
+this half of the gap closed only by caller discipline, not by the function itself. If a future call site
+(or a bug in an existing one) ever passes an unchecked `entity_id`, `journal_lines` rows land with a
+tenant/entity mismatch — a ledger data-integrity problem (wrong entity's books), not just an access-control
+one, so it's worth closing even though nothing in `journal_lines`'s own constraints (checked: no FK ties
+`entity_id` to `tenant_id` jointly) would catch it downstream.
+
+**Proposed SQL (candidate addition to 060, alongside the 3 fixes §1 already recommends for this same
+function):**
+
+```sql
+-- Reject a p_entity_id that doesn't belong to p_tenant_id, instead of trusting it verbatim.
+-- Insert immediately after the existing NULL-fallback block in post_journal_entry.
+IF p_entity_id IS NOT NULL THEN
+  PERFORM 1 FROM entities WHERE id = p_entity_id AND tenant_id = p_tenant_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'post_journal_entry: entity % does not belong to tenant %', p_entity_id, p_tenant_id;
+  END IF;
+END IF;
+```
+
+**Not applied.** Same file-only/no-DDL constraint as the rest of this review. Framed as an addition to
+w1's `060` for the reason §1 already gives (avoid a competing migration on the same function) — this is a
+narrower companion to §1's fix, not a replacement for it; both should land together since they harden the
+same two trust boundaries (`tenant_id`, `entity_id`) on the same function in the same migration window.
+

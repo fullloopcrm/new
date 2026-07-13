@@ -156,3 +156,36 @@ activation" instruction. This doc is the proposal; installing it is a Jeff/leade
 worktree cleanliness *before* dispatch; this doc checks commit *content* after the fact),
 `deploy-prep/git-reflog-recovery-runbook.md` (Q-W2, the recovery-side counterpart if a bad
 commit like this ever does land and needs to be un-done).
+
+---
+
+## 4. Re-run (2026-07-13, backlog continuation) — §3's own recommendation acted on
+
+§3 recommended re-running §1's two-command audit periodically rather than treating this as a
+one-time check. This pass does exactly that, against the same `--since="2026-07-11"` window (now
+covering roughly 30+ additional hours of fleet activity — every wave-plan doc, RLS pass, and
+tenantDb conversion reported on `LEADER-CHANNEL.md` since the original run) across all 6 worktrees.
+
+**§1a re-run (disallowed-path scan):** zero hits, all 6 worktrees, unchanged from the original run.
+No `.env*`, `node_modules/`, `.worker-driver.sh`, `.bak`, or `.DS_Store` path has landed in any
+commit fleet-wide since 2026-07-11. Note: this worktree (`p1-w6`) currently has an **untracked**
+`.worker-driver.sh` and `.worker-driver.sh.bak-session4` sitting in the working tree (visible in
+`git status`, confirmed via direct read, not committed) — exactly the kind of file this rule exists
+to keep out of a commit. Their presence untracked is not itself a violation (nothing requires a
+worktree be clean of scratch files), but it's the live version of the risk this audit's own §1a
+heuristic is watching for: one `git add -A` in this exact worktree, right now, would trip it. Flagging
+so it doesn't get swept in accidentally by a future commit in this lane.
+
+**§1b re-run (wide-commit scan, >30 files):** identical result to the original run — the same 4
+commits (`c749195e` w1, `6f88a702` + `a604b132` w3, `6a052a58` w5/w6-shared) are still the only ones
+crossing the threshold fleet-wide. No new wide commit has landed since the original audit, despite
+substantial fleet activity in the interim (RLS tier passes, tenantDb conversion sweeps, multiple
+worker backlogs) — a real (if negative) signal that per-lane workers are consistently staging
+specific paths for large multi-file changes rather than reaching for `-A`, holding up under more
+data, not just a one-time snapshot.
+
+**Revised recommendation:** unchanged from §3 — no incident found, hook remains proposed-not-installed
+per standing rule, worth another re-run at the next natural fleet checkpoint (a wave-plan boundary or
+before Phase C ships, whichever comes first). Consider this doc's own untracked-`.worker-driver.sh`
+observation above a live argument for actually installing the §2 hook rather than continuing to rely
+on periodic re-audits catching an incident after the fact — a Jeff/leader call, not made here.
