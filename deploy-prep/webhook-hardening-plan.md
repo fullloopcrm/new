@@ -1,8 +1,24 @@
 # Webhook Hardening — Ready-to-Apply Plan
 
-**Status:** file-only, additive. Nothing here is applied to any route in this
-pass (W6, 2026-07-12, branch `p1-w6`). This is the exact change list for when
-Jeff clears the work. Pairs with:
+**Status (2026-07-13 update):** §1 (telnyx-voice Ed25519) and §2 (telegram
+secret-token) were implemented on `p1-w2` (commits `40cc5b59`, `ac56d435`) —
+not yet merged into this branch, so `telnyx-voice/route.ts` here still shows
+the OLD fail-open check; that's a merge-pending state, not a regression, and
+not re-implemented here to avoid a duplicate/conflicting fix landing on two
+lanes. §3 (idempotency wiring) is done on `p1-w6` (`a509bef8`). The
+**cross-cutting `*_WEBHOOK_VERIFY=off` kill-switch guard** (the note at the
+end of §4, audit finding #4/P3) is now implemented on `p1-w6` for the 3
+routes present on this branch — `telnyx`, `clerk`, `resend` — via a new
+`isWebhookVerifyDisabled()` helper in `lib/webhook-verify.ts` that ignores
+`off` whenever `NODE_ENV === 'production'`. `telnyx-voice` isn't wired here
+since its VERIFY-off switch doesn't exist on this branch yet (see above) —
+whoever merges the p1-w2 fix into this codebase should apply the same guard
+to it at that point. FOR-JEFF-REVIEW: code + tests only, no schema, no new
+secret, no prod action taken.
+
+**Original status (2026-07-12):** file-only, additive. Nothing here was
+applied to any route in that pass (W6, branch `p1-w6`). This is the exact
+change list for when Jeff clears the work. Pairs with:
 
 - `deploy-prep/webhook-idempotency-audit.md` — the findings this closes
 - `deploy-prep/webhook-dedupe-helper-design.md` — the dedupe helper shape

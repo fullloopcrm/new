@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { createHmac, generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
-import { verifySvix, verifyTelnyx } from './webhook-verify'
+import { verifySvix, verifyTelnyx, isWebhookVerifyDisabled } from './webhook-verify'
 
 function svixHeaders(id: string, timestamp: string, signature: string): Headers {
   const h = new Headers()
@@ -136,5 +136,35 @@ describe('verifyTelnyx', () => {
     const result = verifyTelnyx(headers(ts, sig), body, rawPub)
     expect(result.valid).toBe(false)
     expect(result.reason).toBe('signature mismatch')
+  })
+})
+
+// deploy-prep/webhook-hardening-plan.md §4 (audit finding #4, P3): the
+// `<PROVIDER>_WEBHOOK_VERIFY=off` dev escape hatch must not be honorable in
+// production — a leaked/copy-pasted env var could otherwise silently
+// disable signature verification on a live prod deploy.
+describe('isWebhookVerifyDisabled', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('honors off outside production', () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    expect(isWebhookVerifyDisabled('off')).toBe(true)
+    vi.stubEnv('NODE_ENV', 'test')
+    expect(isWebhookVerifyDisabled('off')).toBe(true)
+  })
+
+  it('IGNORES off when NODE_ENV is production (fail-closed)', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(isWebhookVerifyDisabled('off')).toBe(false)
+  })
+
+  it('is disabled only for the exact string "off", any env', () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    expect(isWebhookVerifyDisabled('OFF')).toBe(false)
+    expect(isWebhookVerifyDisabled('true')).toBe(false)
+    expect(isWebhookVerifyDisabled(undefined)).toBe(false)
+    expect(isWebhookVerifyDisabled('')).toBe(false)
   })
 })
