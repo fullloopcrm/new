@@ -51,6 +51,45 @@ export async function PUT(
     const body = await request.json()
     const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
 
+    // client_id/team_member_id/service_type_id are caller-supplied FKs — this
+    // route's own response (and every GET) embeds clients(name/phone/address/
+    // email) + team_members(name/phone) off the row, so a foreign id would
+    // leak another tenant's client/team-member PII immediately. Same guard as
+    // POST /api/bookings (register P1).
+    if (fields.client_id) {
+      const { data: ownedClient } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', fields.client_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedClient) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
+    }
+    if (fields.team_member_id) {
+      const { data: ownedMember } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .eq('id', fields.team_member_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedMember) {
+        return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+    }
+    if (fields.service_type_id) {
+      const { data: ownedService } = await supabaseAdmin
+        .from('service_types')
+        .select('id')
+        .eq('id', fields.service_type_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedService) {
+        return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
+      }
+    }
+
     // Check if team member has the day off or doesn't work that day
     if (fields.team_member_id && !body.force) {
       // Get the booking's start_time (from update or existing record)
