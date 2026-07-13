@@ -2,19 +2,19 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * WITNESS — cross-tenant write to `crew_members` via PATCH /api/crews.
+ * REGRESSION LOCK — cross-tenant write to `crew_members` via PATCH /api/crews.
  *
- * See deploy-prep/join-table-ownership-audit.md §3.1. `crew_members` has no
- * `tenant_id`; `setMembers()` scopes its delete/insert by `crew_id` ALONE, and
- * PATCH passes the caller-supplied `body.id` straight through with NO ownership
- * check. So a caller in tenant A can name tenant B's crew and:
+ * See deploy-prep/cross-tenant-leak-register.md P0. `crew_members` has no
+ * `tenant_id`; `setMembers()` scopes its delete/insert by `crew_id` ALONE. A
+ * caller in tenant A used to be able to name tenant B's crew and:
  *   1. WIPE B's crew roster (`delete().eq('crew_id', <B crew>)`), and
  *   2. POLLUTE B's crew with A's own members.
  *
- * These tests assert the leak is CURRENTLY LIVE. When the parent-ownership guard
- * lands (§3.1: 404 on a foreign crew id before any member write), FLIP them to
- * expect status 404 and an untouched victim roster — turning this file into the
- * regression lock for the fix.
+ * Fixed: PATCH now verifies the crew belongs to `tenantId` (tenantDb-scoped
+ * lookup) and 404s before any member write; `setMembers()` re-checks the same
+ * ownership as its first line so every caller is covered by construction, not
+ * just this one call site. These tests were flipped from LEAK to LOCK — they
+ * now prove a foreign crew id 404s and the victim roster is untouched.
  */
 
 const CTX_TENANT = 'tid-a' // attacker (the caller)
@@ -73,36 +73,44 @@ beforeEach(() => {
   holder.from = h.from
 })
 
-describe('crews PATCH — join-table (crew_members) cross-tenant WITNESS', () => {
-  it('LEAK: a foreign crew id wipes the victim tenant\'s crew_members roster', async () => {
+describe('crews PATCH — join-table (crew_members) cross-tenant LOCK', () => {
+  it('BLOCKED: a foreign crew id 404s and never reaches the crew_members delete', async () => {
     const res = await PATCH(patchReq({ id: 'crew-b', member_ids: [] }))
 
-    // Currently succeeds — the route does not 404 a foreign crew id.
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(404)
 
-    // Victim's roster is gone: the delete scoped by crew_id alone reached tenant B.
+    // Victim's roster is untouched — the delete never ran.
     const remaining = h.seed.crew_members.filter((r) => r.crew_id === 'crew-b')
-    expect(remaining).toHaveLength(0)
+    expect(remaining).toHaveLength(2)
 
     const del = h.capture.deletes.find((d) => d.table === 'crew_members')
-    expect(del).toBeTruthy()
-    expect(del!.matched).toHaveLength(2)
+    expect(del).toBeUndefined()
   })
 
-  it('LEAK: the follow-up insert pollutes the victim crew with the attacker\'s own member', async () => {
+  it('BLOCKED: a foreign crew id cannot be polluted with the attacker\'s own member', async () => {
     const res = await PATCH(patchReq({ id: 'crew-b', member_ids: ['tm-a1'] }))
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(404)
 
-    // Attacker's member (tenant A) is now attached to the victim's crew (tenant B).
+    // Attacker's member was never attached to the victim's crew.
     const injected = h.seed.crew_members.find(
       (r) => r.crew_id === 'crew-b' && r.team_member_id === 'tm-a1',
     )
-    expect(injected).toBeTruthy()
+    expect(injected).toBeFalsy()
 
-    // And the victim's original members were removed in the same call.
+    // Victim's original members are still intact.
     const victimOriginal = h.seed.crew_members.filter(
       (r) => r.crew_id === 'crew-b' && (r.team_member_id === 'tm-b1' || r.team_member_id === 'tm-b2'),
     )
-    expect(victimOriginal).toHaveLength(0)
+    expect(victimOriginal).toHaveLength(2)
+  })
+
+  it('positive control: the caller\'s own crew id still updates its members normally', async () => {
+    const res = await PATCH(patchReq({ id: 'crew-a', member_ids: ['tm-a1'] }))
+    expect(res.status).toBe(200)
+
+    const injected = h.seed.crew_members.find(
+      (r) => r.crew_id === 'crew-a' && r.team_member_id === 'tm-a1',
+    )
+    expect(injected).toBeTruthy()
   })
 })

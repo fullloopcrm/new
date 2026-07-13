@@ -39,18 +39,18 @@ row proves the guard fires — neither is a structural assertion that can rot.
 
 Ranked by blast radius (destructive + data-exfil first, reference-pollution after).
 
-### P0 — `crews` PATCH → `crew_members` roster wipe + pollution  ⚠️ **DESTRUCTIVE**
+### P0 — `crews` PATCH → `crew_members` roster wipe + pollution  ⚠️ **DESTRUCTIVE** — ✅ **FIXED**
 
 | | |
 |---|---|
-| **Route / op** | `PATCH /api/crews` → `setMembers()` (`src/app/api/crews/route.ts` L74–76, helper L105–112) |
+| **Route / op** | `PATCH /api/crews` → `setMembers()` (`src/app/api/crews/route.ts`) |
 | **Table** | `crew_members` — **no `tenant_id` column**, keyed `(crew_id, team_member_id)` |
-| **Attack vector** | `PATCH { id: <victim crew id>, member_ids: [...] }`. `body.id` is caller-supplied and **never** verified tenant-owned. `setMembers` scopes its `delete`/`insert` by `crew_id` alone. |
-| **Effect** | **(1) Destructive:** `delete().eq('crew_id', <victim>)` **wipes another tenant's crew roster** (`member_ids: []`). **(2) Pollution:** the follow-up insert adds the *attacker's own* members into the victim's crew. |
-| **Verdict** | **proven-LIVE** |
-| **Witness** | `src/app/api/crews/route.witness.test.ts` (2 tests: wipe + pollution) |
-| **Why not caught today** | The `crews` UPDATE on L72 *is* `tenantDb`-scoped, but it's **skipped** when the body has only `member_ids` (empty patch), and even when it runs a foreign `id` matches zero rows with **no error** — the handler proceeds to `setMembers` regardless. Route carries a self-flag (L100–104) noting exactly this. |
-| **Required guard** | Verify crew ownership **before any member write** — preferably 404 at the top of PATCH (also fixes the foreign-id no-op on the UPDATE): `const { data: owned } = await tenantDb(tenantId).from('crews').select('id').eq('id', id).maybeSingle(); if (!owned) return 404`. Most leak-proof shape: re-check ownership as the first line of `setMembers` so **both** callers are covered by construction. |
+| **Attack vector** | `PATCH { id: <victim crew id>, member_ids: [...] }`. `body.id` was caller-supplied and never verified tenant-owned. `setMembers` scoped its `delete`/`insert` by `crew_id` alone. |
+| **Effect** | **(1) Destructive:** `delete().eq('crew_id', <victim>)` **wiped another tenant's crew roster** (`member_ids: []`). **(2) Pollution:** the follow-up insert added the *attacker's own* members into the victim's crew. |
+| **Verdict** | **FIXED** (was proven-LIVE) |
+| **Fix** | PATCH now does a `tenantDb(tenantId).from('crews').select('id').eq('id', id).maybeSingle()` ownership check and 404s before any member write. `setMembers()` re-checks the same ownership as its first line (no-ops if the crew isn't tenant-owned), so every current and future caller is covered by construction, not just this one call site. |
+| **Regression lock** | `src/app/api/crews/route.witness.test.ts` — flipped from LEAK to LOCK (3 tests: foreign-id 404 + untouched roster, foreign-id can't be polluted, positive control on own crew still works) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 555 passed / 37 skipped / 0 failed |
 | **Rank rationale** | Only leak here that is **destructive** *and* on a `tenant_id`-less table (`tenantDb` structurally cannot help — needs hand-written guard). Highest blast radius. |
 
 ### P1 — `bookings` POST → cross-tenant service-type **READ** + client_id FK injection  ⚠️ **DATA EXFIL**

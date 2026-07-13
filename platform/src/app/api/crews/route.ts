@@ -64,6 +64,15 @@ export async function PATCH(request: Request) {
     const id = body.id as string | undefined
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
+    // Ownership gate: a foreign (cross-tenant) crew id must 404 here, before any
+    // write. Without this, an empty patch ({ id, member_ids }) skips the
+    // tenantDb-scoped crews UPDATE entirely and falls straight into
+    // setMembers(), which used to scope only by crew_id — wiping and
+    // repopulating another tenant's crew roster (see
+    // deploy-prep/cross-tenant-leak-register.md P0).
+    const { data: owned } = await tenantDb(tenantId).from('crews').select('id').eq('id', id).maybeSingle()
+    if (!owned) return NextResponse.json({ error: 'Crew not found' }, { status: 404 })
+
     const patch: Record<string, unknown> = {}
     if (typeof body.name === 'string') patch.name = body.name.trim()
     if ('color' in body) patch.color = (body.color as string) || null
@@ -97,12 +106,13 @@ export async function DELETE(request: Request) {
 }
 
 // Replace a crew's members with the given set (verified to belong to the tenant).
-// NOTE: crew_members has no tenant_id, so its delete/insert here are scoped only
-// by crew_id. The crew's tenant ownership is NOT re-verified in this helper — a
-// PATCH with another tenant's crew id would reach the delete. tenantDb cannot
-// close this (no tenant_id column); it needs a crew-ownership guard. Flagged to
-// LEADER (matches W1's "worth a closer human look" on crews).
+// crew_members has no tenant_id, so its delete/insert are scoped only by
+// crew_id — re-verify the crew itself belongs to tenantId as the FIRST line
+// here (not just at each call site) so every current and future caller is
+// covered by construction, per deploy-prep/cross-tenant-leak-register.md P0.
 async function setMembers(tenantId: string, crewId: string, memberIds: string[]) {
+  const { data: owned } = await tenantDb(tenantId).from('crews').select('id').eq('id', crewId).maybeSingle()
+  if (!owned) return
   await supabaseAdmin.from('crew_members').delete().eq('crew_id', crewId)
   if (memberIds.length === 0) return
   const { data: valid } = await tenantDb(tenantId)
