@@ -6,19 +6,30 @@ export default function FeedbackWidget({ source }: { source: string }) {
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!message.trim()) return
     setSending(true)
-    await fetch('/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, source })
-    })
-    setSubmitted(true)
-    setSending(false)
-    setTimeout(() => { setOpen(false); setSubmitted(false); setMessage('') }, 2000)
+    setError('')
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, source })
+      })
+      if (!res.ok) {
+        setError('Failed to send feedback. Please try again.')
+        return
+      }
+      setSubmitted(true)
+      setTimeout(() => { setOpen(false); setSubmitted(false); setMessage('') }, 2000)
+    } catch {
+      setError('Failed to send feedback. Please try again.')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -54,6 +65,9 @@ export default function FeedbackWidget({ source }: { source: string }) {
                   required
                   autoFocus
                 />
+                {error && (
+                  <p className="text-red-600 text-sm mt-2">{error}</p>
+                )}
                 <div className="flex gap-3 mt-4">
                   <button type="button" onClick={() => setOpen(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-slate-900 text-sm">Cancel</button>
                   <button type="submit" disabled={sending || !message.trim()} className="flex-1 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium disabled:bg-gray-300">
