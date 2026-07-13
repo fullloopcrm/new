@@ -43,6 +43,10 @@ beforeEach(() => {
     ],
     recurring_schedules: [],
     booking_team_members: [],
+    team_members: [
+      { id: 'tm-a1', tenant_id: 'tid-a' },
+      { id: 'tm-b1', tenant_id: 'tid-b' },
+    ],
   })
   holder.from = h.from
 })
@@ -68,7 +72,8 @@ describe('client/recurring — auth gap fixed', () => {
 
   it('wrong-tenant probe: a valid token for client A can never create a series or overwrite data for client B', async () => {
     // Attacker holds a valid token for client A but tries to smuggle client B's id in the body.
-    const res = await POST(req({ authorization: `Bearer ${TOKEN_A}` }, { ...validBody, client_id: 'client-b', cleaner_id: 'tm-b1' }))
+    // Uses a same-tenant cleaner (tm-a1) so the cross-tenant-cleaner guard doesn't mask this assertion.
+    const res = await POST(req({ authorization: `Bearer ${TOKEN_A}` }, { ...validBody, client_id: 'client-b', cleaner_id: 'tm-a1' }))
     expect(res.status).toBe(200)
     const scheduleIns = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
     expect(scheduleIns).toBeDefined()
@@ -82,5 +87,29 @@ describe('client/recurring — auth gap fixed', () => {
     const clientUpdate = h.capture.updates.find((u) => u.table === 'clients')
     expect(clientUpdate!.matched.every((r) => r.id === 'client-a')).toBe(true)
     expect(h.seed.clients.find((c) => c.id === 'client-b')!.preferred_team_member_id).toBe('tm-b1')
+  })
+
+  it('cross-tenant cleaner_id probe: a client cannot assign another tenant\'s team member', async () => {
+    // Client A (tid-a) tries to assign tm-b1, which belongs to tid-b.
+    const res = await POST(req({ authorization: `Bearer ${TOKEN_A}` }, { ...validBody, client_id: 'client-a', cleaner_id: 'tm-b1' }))
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'recurring_schedules')).toBeUndefined()
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+    // preferred_team_member_id must not have been overwritten with the foreign id.
+    expect(h.seed.clients.find((c) => c.id === 'client-a')!.preferred_team_member_id).toBeNull()
+  })
+
+  it('cross-tenant extra_cleaner_ids probe: a foreign id in the extras array also rejects the whole request', async () => {
+    const res = await POST(req({ authorization: `Bearer ${TOKEN_A}` }, { ...validBody, client_id: 'client-a', cleaner_id: 'tm-a1', extra_cleaner_ids: ['tm-b1'] }))
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'recurring_schedules')).toBeUndefined()
+  })
+
+  it('same-tenant cleaner_id succeeds and is applied to the created series', async () => {
+    const res = await POST(req({ authorization: `Bearer ${TOKEN_A}` }, { ...validBody, client_id: 'client-a', cleaner_id: 'tm-a1' }))
+    expect(res.status).toBe(200)
+    const scheduleIns = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
+    expect(scheduleIns!.rows.every((r) => r.team_member_id === 'tm-a1')).toBe(true)
+    expect(h.seed.clients.find((c) => c.id === 'client-a')!.preferred_team_member_id).toBe('tm-a1')
   })
 })

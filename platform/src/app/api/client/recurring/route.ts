@@ -64,6 +64,27 @@ export async function POST(request: Request) {
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
   const tenantId = portalAuth.tid
 
+  // Validate every caller-supplied team-member id (cleaner_id + extras)
+  // belongs to THIS tenant before it touches any write below. team_members
+  // has no cross-tenant FK check (bookings.team_member_id only REFERENCES
+  // team_members(id), not a tenant-scoped composite key), so without this a
+  // client could assign — and thereby expose on their schedule/team-portal —
+  // any OTHER tenant's employee to a real recurring booking series.
+  const requestedMemberIds = Array.from(
+    new Set([cleaner_id, ...extras].filter((x): x is string => typeof x === 'string' && x.length > 0)),
+  )
+  if (requestedMemberIds.length > 0) {
+    const { data: validMembers } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .in('id', requestedMemberIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validMembers || []).map((m) => m.id as string))
+    if (requestedMemberIds.some((id) => !validIds.has(id))) {
+      return NextResponse.json({ error: 'Invalid cleaner selection' }, { status: 400 })
+    }
+  }
+
   // Repeat-client gate
   const { count: priorCount } = await supabaseAdmin
     .from('bookings')
@@ -88,6 +109,7 @@ export async function POST(request: Request) {
       .from('clients')
       .update({ preferred_team_member_id: cleaner_id })
       .eq('id', client_id)
+      .eq('tenant_id', tenantId)
   }
 
   // Generate next 6 weeks of dates
