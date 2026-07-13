@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 
 interface IssueRow {
   id: string
+  tenant_id: string
   type: string
   message: string
   booking_id: string | null
@@ -44,7 +46,10 @@ async function buildFixPlan(issue: IssueRow): Promise<FixPlan> {
 
   if (!issue.booking_id) return ack
 
-  const { data: booking } = await supabaseAdmin
+  // Scoped to the issue's own tenant — a booking_id that doesn't belong to this
+  // tenant (data-integrity drift, or a crafted cross-tenant reference) resolves
+  // to "not found" instead of leaking/mutating another tenant's booking.
+  const { data: booking } = await tenantDb(issue.tenant_id)
     .from('bookings')
     .select('id, start_time, end_time, price, hourly_rate, team_member_id, status')
     .eq('id', issue.booking_id)
@@ -88,9 +93,12 @@ export async function POST(request: Request) {
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
+  // Admin lookup by id is deliberately cross-tenant — the platform admin can
+  // resolve any tenant's issue. Once we know its tenant_id, every downstream
+  // mutation below is scoped to that same tenant.
   const { data: issue } = await supabaseAdmin
     .from('schedule_issues')
-    .select('id, type, message, booking_id, team_member_id, status')
+    .select('id, tenant_id, type, message, booking_id, team_member_id, status')
     .eq('id', id)
     .maybeSingle()
 
@@ -102,6 +110,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ preview: plan, applied: false })
   }
 
+  const db = tenantDb(issue.tenant_id)
+
   const bookingUpdates: Record<string, Record<string, unknown>> = {}
   for (const ch of plan.changes) {
     if (ch.table !== 'bookings') continue
@@ -109,10 +119,10 @@ export async function POST(request: Request) {
     bookingUpdates[ch.id][ch.field] = ch.to
   }
   for (const [bookingId, fields] of Object.entries(bookingUpdates)) {
-    await supabaseAdmin.from('bookings').update(fields).eq('id', bookingId)
+    await db.from('bookings').update(fields).eq('id', bookingId)
   }
 
-  await supabaseAdmin
+  await db
     .from('schedule_issues')
     .update({
       status: 'resolved',

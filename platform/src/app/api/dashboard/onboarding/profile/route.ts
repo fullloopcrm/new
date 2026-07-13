@@ -17,6 +17,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { normalizeEntityType } from '@/lib/tenant-profile'
 
 type Json = Record<string, unknown>
@@ -75,10 +76,9 @@ export async function GET() {
         .select('name, phone, email, website_url, business_hours, logo_url, primary_color, secondary_color, tagline, zip_code, compliance, selena_config, onboarding_draft')
         .eq('id', tenantId)
         .single(),
-      supabaseAdmin
+      tenantDb(tenantId)
         .from('entities')
         .select('name, legal_name, ein, entity_type, address, city, state, zip, fiscal_year_start')
-        .eq('tenant_id', tenantId)
         .eq('is_default', true)
         .maybeSingle(),
     ])
@@ -171,16 +171,16 @@ export async function POST(request: Request) {
       zip: str(d.zip),
       fiscal_year_start: typeof d.fiscalYearStart === 'number' ? d.fiscalYearStart : 1,
     }
-    const { data: existingEntity } = await supabaseAdmin
+    const db = tenantDb(tenantId)
+    const { data: existingEntity } = await db
       .from('entities')
       .select('id')
-      .eq('tenant_id', tenantId)
       .eq('is_default', true)
       .maybeSingle()
     if (existingEntity) {
-      await supabaseAdmin.from('entities').update(entityFields).eq('id', existingEntity.id)
+      await db.from('entities').update(entityFields).eq('id', existingEntity.id)
     } else {
-      await supabaseAdmin.from('entities').insert({ tenant_id: tenantId, is_default: true, active: true, ...entityFields })
+      await db.from('entities').insert({ is_default: true, active: true, ...entityFields })
     }
 
     // 2. Persona / social → merge into selena_config (never clobber the whole blob).

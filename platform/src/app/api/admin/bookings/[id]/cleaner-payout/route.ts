@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 
 // POST /api/admin/bookings/:id/cleaner-payout
@@ -29,10 +30,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .single()
   if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
-  const { data: payoutRow, error: payErr } = await supabaseAdmin
+  const db = tenantDb(booking.tenant_id)
+
+  // tenantDb().insert() stamps tenant_id from booking.tenant_id itself — no
+  // manual field needed, and it can't drift from the booking it's paying out.
+  const { data: payoutRow, error: payErr } = await db
     .from('team_member_payouts')
     .insert({
-      tenant_id: booking.tenant_id,
       booking_id: id,
       team_member_id: teamMemberId,
       amount_cents: amountCents,
@@ -43,7 +47,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (payErr) return NextResponse.json({ error: payErr.message }, { status: 500 })
 
   if (booking.team_member_id === teamMemberId) {
-    await supabaseAdmin
+    await db
       .from('bookings')
       .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
       .eq('id', id)
