@@ -135,8 +135,9 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    const { error } = await tenantDb(tenantId).from('service_types').delete().eq('id', id)
+    const { data, error } = await tenantDb(tenantId).from('service_types').delete().eq('id', id).select('id')
     if (error) throw error
+    if (!data || data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

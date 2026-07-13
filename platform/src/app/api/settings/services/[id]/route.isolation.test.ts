@@ -7,8 +7,13 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  * PUT/DELETE address a single `service_types` row by path id. tenantDb injects
  * .eq('tenant_id'), so a foreign id matches no row for the acting tenant:
  *   • PUT on a foreign id → .single() finds nothing → 500, foreign row untouched.
- *   • DELETE on a foreign id → matches nothing → no-op, foreign row survives.
+ *   • DELETE on a foreign id → matches nothing → 404 (see below), foreign row survives.
  * Own-tenant rows edit/delete normally.
+ *
+ * Regression: DELETE used to report `{ success: true }` unconditionally even
+ * when the tenant filter silently matched zero rows for a foreign id — same
+ * response-honesty bug class as the admin/ai-chat update/cancel_bookings fix.
+ * Fixed by chaining `.select('id')` on the delete and checking the match count.
  */
 
 const A = 'tid-a'
@@ -76,17 +81,21 @@ describe('settings/services/[id] — tenant isolation', () => {
     expect(h.seed.service_types.find((r) => r.id === 'svc-b1')!.name).toBe('Foreign Deep Clean')
   })
 
-  it('DELETE cannot remove a foreign tenant row', async () => {
+  it('wrong-tenant probe: DELETE of a foreign tenant row reports 404, not success:true', async () => {
     const res = await DELETE(new Request('http://t/api/settings/services/svc-b1', { method: 'DELETE' }), params('svc-b1'))
-    expect(res.status).toBe(200) // no-op delete still reports success
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.success).not.toBe(true)
     const deletes = h.capture.deletes.filter((d) => d.table === 'service_types')
     expect(deletes.every((d) => d.matched.length === 0)).toBe(true)
     expect(h.seed.service_types.some((r) => r.id === 'svc-b1')).toBe(true)
   })
 
-  it('DELETE removes the acting tenant own row', async () => {
+  it('DELETE removes the acting tenant own row and reports success:true', async () => {
     const res = await DELETE(new Request('http://t/api/settings/services/svc-a1', { method: 'DELETE' }), params('svc-a1'))
     expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
     expect(h.seed.service_types.some((r) => r.id === 'svc-a1')).toBe(false)
   })
 })

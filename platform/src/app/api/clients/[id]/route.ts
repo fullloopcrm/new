@@ -78,13 +78,17 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
 
-    const { error } = await tenantDb(tenantId)
+    const { data, error } = await tenantDb(tenantId)
       .from('clients')
       .delete()
       .eq('id', id)
+      .select('id')
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
     await audit({ tenantId, action: 'client.deleted', entityType: 'client', entityId: id })

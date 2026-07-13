@@ -96,7 +96,8 @@ export async function DELETE(request: Request) {
     const { tenantId } = await getTenantForRequest()
     const id = new URL(request.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    await tenantDb(tenantId).from('crews').delete().eq('id', id)
+    const { data } = await tenantDb(tenantId).from('crews').delete().eq('id', id).select('id')
+    if (!data || data.length === 0) return NextResponse.json({ error: 'Crew not found' }, { status: 404 })
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

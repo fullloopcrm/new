@@ -34,7 +34,7 @@ vi.mock('@/lib/tenant-query', () => {
   }
 })
 
-import { GET, POST } from './route'
+import { GET, POST, DELETE } from './route'
 
 function seed() {
   return {
@@ -75,5 +75,30 @@ describe('deals — tenant isolation', () => {
     // The forged tenant must have lost to the tenantDb stamp.
     expect(dealInsert!.rows.every((r) => r.tenant_id === CTX_TENANT)).toBe(true)
     expect(dealInsert!.rows.some((r) => r.tenant_id === OTHER_TENANT)).toBe(false)
+  })
+})
+
+// Regression: DELETE used to report `{ success: true }` unconditionally even
+// when the tenant filter silently matched zero rows for a foreign id — same
+// response-honesty bug class as the admin/ai-chat update/cancel_bookings fix.
+// Fixed by chaining `.select('id')` on the delete and checking the match count.
+describe('deals DELETE — tenant isolation', () => {
+  const del = (id: string) =>
+    DELETE({ json: async () => ({ id }) } as unknown as Request)
+
+  it('wrong-tenant probe: deleting a foreign tenant deal reports 404, not success:true', async () => {
+    const res = await del('deal-b')
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.success).not.toBe(true)
+    expect(h.seed.deals.some((d) => d.id === 'deal-b')).toBe(true)
+  })
+
+  it("deleting the acting tenant's own deal reports success:true and actually removes it", async () => {
+    const res = await del('deal-a')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(h.seed.deals.some((d) => d.id === 'deal-a')).toBe(false)
   })
 })

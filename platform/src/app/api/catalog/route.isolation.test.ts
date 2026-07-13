@@ -11,6 +11,11 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  *   • POST stamps tenant_id from context — a forged body tenant_id can't cross.
  *   • PATCH/DELETE address a row by id but tenantDb injects .eq('tenant_id'),
  *     so a foreign id matches no row (no cross-tenant edit/delete).
+ *
+ * Regression: DELETE used to report `{ ok: true }` unconditionally even when
+ * the tenant filter silently matched zero rows for a foreign id — same
+ * response-honesty bug class as the admin/ai-chat update/cancel_bookings fix.
+ * Fixed by chaining `.select('id')` on the delete and checking the match count.
  */
 
 const A = 'tid-a'
@@ -87,12 +92,22 @@ describe('catalog — tenant isolation', () => {
     expect(h.seed.service_types.find((r) => r.id === 'svc-b1')!.name).toBe('Foreign Deep Clean')
   })
 
-  it('DELETE cannot remove a foreign tenant item', async () => {
+  it('wrong-tenant probe: DELETE of a foreign tenant item reports 404, not ok:true', async () => {
     const res = await DELETE(new Request('http://t/api/catalog?id=svc-b1', { method: 'DELETE' }))
-    expect(res.status).toBe(200) // route reports ok even on no-op delete
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.ok).not.toBe(true)
     const deletes = h.capture.deletes.filter((d) => d.table === 'service_types')
     expect(deletes.every((d) => d.matched.length === 0)).toBe(true)
     // foreign row survives
     expect(h.seed.service_types.some((r) => r.id === 'svc-b1')).toBe(true)
+  })
+
+  it("DELETE removes the acting tenant's own item and reports ok:true", async () => {
+    const res = await DELETE(new Request('http://t/api/catalog?id=svc-a1', { method: 'DELETE' }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(h.seed.service_types.some((r) => r.id === 'svc-a1')).toBe(false)
   })
 })

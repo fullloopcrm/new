@@ -102,6 +102,7 @@ export function createTenantDbHarness(seed: Seed): Harness {
       let limitN: number | undefined
       let rangeFrom: number | undefined
       let rangeTo: number | undefined
+      let selectChained = false
 
       const push = (f: Filter) => {
         filters.push(f)
@@ -123,7 +124,9 @@ export function createTenantDbHarness(seed: Seed): Harness {
           const hit = matches(rows(), filters)
           seed[name] = rows().filter((r) => !hit.includes(r))
           capture.deletes.push({ table: name, matched: hit })
-          return { data: null, error: null }
+          // Real supabase-js only returns the deleted rows when `.select()` was
+          // chained; without it `data` is always null, matching the real client.
+          return { data: selectChained ? hit : null, error: null }
         }
         // select
         let hit = matches(rows(), filters)
@@ -156,6 +159,7 @@ export function createTenantDbHarness(seed: Seed): Harness {
 
       const chain: Record<string, unknown> = {
         select: (_cols?: unknown, opts?: SelectOpts) => {
+          selectChained = true
           if (op === 'select') selectOpts = opts || {}
           return chain
         },

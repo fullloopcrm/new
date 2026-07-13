@@ -34,7 +34,7 @@ vi.mock('@/lib/tenant-query', () => {
   }
 })
 
-import { GET } from './route'
+import { GET, DELETE } from './route'
 
 function seed() {
   return {
@@ -61,5 +61,27 @@ describe('crews GET — tenant isolation', () => {
     expect(names).not.toContain('Bravo')
     const ids = body.crews.map((c: { id: string }) => c.id)
     expect(ids).not.toContain('crew-b')
+  })
+})
+
+// Regression: DELETE used to report `{ ok: true }` unconditionally even when
+// the tenant filter silently matched zero rows for a foreign id — same
+// response-honesty bug class as the admin/ai-chat update/cancel_bookings fix.
+// Fixed by chaining `.select('id')` on the delete and checking the match count.
+describe('crews DELETE — tenant isolation', () => {
+  it('wrong-tenant probe: deleting a foreign tenant crew reports 404, not ok:true', async () => {
+    const res = await DELETE(new Request('http://t/api/crews?id=crew-b', { method: 'DELETE' }))
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.ok).not.toBe(true)
+    expect(h.seed.crews.some((c) => c.id === 'crew-b')).toBe(true)
+  })
+
+  it("deleting the acting tenant's own crew reports ok:true and actually removes it", async () => {
+    const res = await DELETE(new Request('http://t/api/crews?id=crew-a', { method: 'DELETE' }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(h.seed.crews.some((c) => c.id === 'crew-a')).toBe(false)
   })
 })

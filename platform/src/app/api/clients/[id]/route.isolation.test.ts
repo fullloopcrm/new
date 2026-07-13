@@ -84,4 +84,23 @@ describe('clients/[id] — tenant isolation', () => {
     const b = (h.seed.clients as Array<{ id: string }>).find((r) => r.id === 'cli-b')
     expect(b).toBeDefined()
   })
+
+  // Regression: DELETE used to report `{ success: true }` unconditionally —
+  // a foreign-tenant id silently matched zero rows (tenant filter did its
+  // job) but the response lied about what happened, same bug class as the
+  // admin/ai-chat update/cancel_bookings fix.
+  it('wrong-tenant probe: DELETE of a foreign tenant client reports 404, not success:true', async () => {
+    const res = await DELETE(new Request('http://t/api/clients/cli-b', { method: 'DELETE' }), params('cli-b'))
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.success).not.toBe(true)
+  })
+
+  it("DELETE of the acting tenant's own client reports success:true and actually removes it", async () => {
+    const res = await DELETE(new Request('http://t/api/clients/cli-a', { method: 'DELETE' }), params('cli-a'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect((h.seed.clients as Array<{ id: string }>).find((r) => r.id === 'cli-a')).toBeUndefined()
+  })
 })

@@ -53,13 +53,17 @@ export async function DELETE(
     const { tenantId } = await getTenantForRequest()
     const { id } = await params
 
-    const { error } = await tenantDb(tenantId)
+    const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .delete()
       .eq('id', id)
+      .select('id')
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
     await audit({ tenantId, action: 'service.deleted', entityType: 'service', entityId: id })
