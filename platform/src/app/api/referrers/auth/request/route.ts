@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
@@ -40,7 +41,10 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (referrer) {
-    const code = String(Math.floor(100000 + Math.random() * 900000))
+    // crypto.randomInt is uniformly distributed and cryptographically strong;
+    // Math.random was brute-forceable with timing knowledge (same fix as
+    // src/app/api/portal/auth/token.ts's generateCode).
+    const code = String(100000 + crypto.randomInt(0, 900000))
     await supabaseAdmin
       .from('referrers')
       .update({ otp_hash: hashOtp(code), otp_expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString() })
