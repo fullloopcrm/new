@@ -10,50 +10,27 @@ export async function POST(request: Request) {
   const { booking_id } = await request.json().catch(() => ({}))
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
 
-  // Member's pay rate + daily cap.
-  const { data: member } = await supabaseAdmin
-    .from('team_members')
-    .select('pay_rate, max_jobs_per_day')
-    .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
-    .single()
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
+  const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
 
-  // Enforce the daily claim cap (hoarding guard) — jobs already assigned to this
-  // member that start today.
-  const cap = member?.max_jobs_per_day
-  if (cap && cap > 0) {
-    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
-    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
-    const { count } = await supabaseAdmin
-      .from('bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', auth.tid)
-      .eq('team_member_id', auth.id)
-      .gte('start_time', dayStart.toISOString())
-      .lt('start_time', dayEnd.toISOString())
-      .not('status', 'eq', 'cancelled')
-    if ((count ?? 0) >= cap) {
-      return NextResponse.json({ error: `Daily job limit reached (${cap})` }, { status: 409 })
-    }
-  }
-
-  // Atomic claim: the `team_member_id IS NULL` filter on the UPDATE makes this
-  // first-writer-wins — a concurrent claim updates zero rows → "already taken".
-  const { data, error } = await supabaseAdmin
-    .from('bookings')
-    .update({
-      team_member_id: auth.id,
-      pay_rate: member?.pay_rate || null,
-      status: 'confirmed',
-    })
-    .eq('id', booking_id)
-    .eq('tenant_id', auth.tid)
-    .is('team_member_id', null)
-    .select()
-    .maybeSingle()
+  // Atomic claim: the daily-cap count check and the claiming UPDATE run inside
+  // one DB function that locks the member row first (migrations/2026_07_13_
+  // job_claim_atomic.sql), so a concurrent claim can no longer read a stale
+  // count and slip past the cap. The booking UPDATE itself still filters on
+  // `team_member_id IS NULL`, so claiming one booking stays first-writer-wins.
+  const { data, error } = await supabaseAdmin.rpc('claim_job_atomic', {
+    p_tenant_id: auth.tid,
+    p_member_id: auth.id,
+    p_booking_id: booking_id,
+    p_day_start: dayStart.toISOString(),
+    p_day_end: dayEnd.toISOString(),
+  })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data) {
+  if (!data?.claimed) {
+    if (data?.reason === 'cap_reached') {
+      return NextResponse.json({ error: `Daily job limit reached (${data.cap})` }, { status: 409 })
+    }
     return NextResponse.json({ error: 'Job already taken' }, { status: 409 })
   }
 
@@ -65,5 +42,5 @@ export async function POST(request: Request) {
     details: { event: 'claimed', by: auth.id },
   })
 
-  return NextResponse.json({ booking: data })
+  return NextResponse.json({ booking: data.booking })
 }
