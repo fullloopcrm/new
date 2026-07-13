@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import { createHmac } from 'crypto'
 
 // auth.ts imports next/headers + supabase at module top for its async helpers.
@@ -111,5 +111,59 @@ describe('password hashing', () => {
 
   it('produces different hashes for different inputs', () => {
     expect(hashPassword('hunter2')).not.toBe(hashPassword('hunter3'))
+  })
+})
+
+describe('fails closed when ADMIN_PASSWORD is unconfigured', () => {
+  // The old code signed with `process.env.ADMIN_PASSWORD || ''` (session/
+  // client cookies) and `|| 'fallback'` (password hash) — an unset env var
+  // meant every session was signed with a known, guessable key, so anyone
+  // could forge an admin or client session cookie without ever knowing the
+  // real password. These prove the unconfigured case is now a hard failure
+  // (verify → invalid, issuance → throws) instead of a silent, forgeable
+  // default — matching the P3-2 portal/team-portal token pattern.
+  beforeEach(() => {
+    delete process.env.ADMIN_PASSWORD
+  })
+
+  afterEach(() => {
+    process.env.ADMIN_PASSWORD = SECRET
+  })
+
+  it('createSessionCookie throws instead of signing with an empty secret', () => {
+    expect(() => createSessionCookie('user-1')).toThrow(/ADMIN_PASSWORD/)
+  })
+
+  it('createClientSession throws instead of signing with an empty secret', () => {
+    expect(() => createClientSession('client-1')).toThrow(/ADMIN_PASSWORD/)
+  })
+
+  it('hashPassword throws instead of hashing with the hardcoded "fallback" secret', () => {
+    expect(() => hashPassword('hunter2')).toThrow(/ADMIN_PASSWORD/)
+  })
+
+  it('verifySessionCookie fails closed (does not throw) on a cookie forged with the empty-secret default', () => {
+    // Attacker who knows the old code's fallback would sign with key='' — even
+    // that forged cookie must be rejected, not accepted, once unconfigured.
+    const ts = Date.now().toString(36)
+    const payload = `attacker.token.${ts}`
+    const forgedSig = createHmac('sha256', '').update(payload).digest('hex')
+    expect(() => verifySessionCookie(`${payload}.${forgedSig}`)).not.toThrow()
+    expect(verifySessionCookie(`${payload}.${forgedSig}`)).toEqual({ valid: false })
+  })
+
+  it('verifyClientSession fails closed (does not throw) on a cookie forged with the empty-secret default', () => {
+    const ts = Date.now().toString()
+    const payload = `attacker-client.${ts}`
+    const forgedSig = createHmac('sha256', '').update(payload).digest('hex')
+    expect(() => verifyClientSession(`${payload}.${forgedSig}`)).not.toThrow()
+    expect(verifyClientSession(`${payload}.${forgedSig}`)).toBeNull()
+  })
+
+  it('a session validly signed while configured is rejected once ADMIN_PASSWORD disappears', () => {
+    process.env.ADMIN_PASSWORD = SECRET
+    const cookie = createSessionCookie('user-1')
+    delete process.env.ADMIN_PASSWORD
+    expect(verifySessionCookie(cookie)).toEqual({ valid: false })
   })
 })
