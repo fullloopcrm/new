@@ -4,6 +4,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { pick } from '@/lib/validate'
 
 function buildSystemPrompt(tenantName: string, industry: string) {
   return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
@@ -162,7 +163,7 @@ const tools: Anthropic.Tool[] = [
   },
 ]
 
-async function executeTool(name: string, input: Record<string, unknown>, tenantId: string): Promise<string> {
+export async function executeTool(name: string, input: Record<string, unknown>, tenantId: string): Promise<string> {
   switch (name) {
     case 'search_clients': {
       const q = sanitizePostgrestValue((input.query as string).trim())
@@ -207,7 +208,7 @@ async function executeTool(name: string, input: Record<string, unknown>, tenantI
 
     case 'update_bookings': {
       const ids = input.booking_ids as string[]
-      const updates = input.updates as Record<string, unknown>
+      const updates = pick(input.updates, ['team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status'])
       const confirmed = input.confirmed as boolean
 
       if (!confirmed) {
@@ -293,7 +294,7 @@ async function executeTool(name: string, input: Record<string, unknown>, tenantI
     case 'update_client': {
       const { error } = await supabaseAdmin
         .from('clients')
-        .update(input.updates as Record<string, unknown>)
+        .update(pick(input.updates, ['name', 'email', 'phone', 'address', 'notes', 'active']))
         .eq('id', input.client_id as string)
         .eq('tenant_id', tenantId)
       if (error) return JSON.stringify({ error: error.message })
