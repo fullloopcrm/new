@@ -126,8 +126,39 @@ p1-w2 (`middleware.ts:438` still doing `response.headers.set('x-tenant-sig',
 tenantSig)`) is now fixed directly on p1-w2 (commit `17debc4a`) rather than
 waiting on integration — 3 new regression tests in
 `src/middleware.secret-echo.test.ts`, verified non-vacuous. `x-tenant-id`/
-`x-tenant-slug` are still echoed (not secret, unaffected). Origin allowlist +
-`admin_token` HMAC verification (the rest of P3-8) remain open.
+`x-tenant-slug` are still echoed (not secret, unaffected).
+
+**`admin_token` HMAC verification — FIXED (2026-07-13, this worktree, commit
+`b74a43f0`):** middleware's admin bypass gate was presence-only
+(`if (adminCookie)`); any cookie value fell through past the Clerk redirect
+into the dashboard API surface (route-level `verifyAdminToken()` still
+rejected garbage, so this was never a confirmed live bypass — just a weak
+edge check). Now verifies HMAC+expiry+role in middleware itself via
+`admin-token-edge-verify.ts`, an Edge-Runtime-safe port byte-compatible with
+the Node-side `verifyAdminToken` (proven via round-trip test against a
+real Node-signed token). 7 fail-closed tests (forged/expired/wrong-secret/
+tenant_admin-role/garbage) + 1 CONTROL (valid token still bypasses) in
+`src/lib/admin-token-edge-verify.test.ts` +
+`src/middleware.admin-token-verify.test.ts`.
+
+**CSRF write-guard on 4 Lax-cookie GET handlers — FIXED (2026-07-13, this
+worktree, commit `ec728ab1`):** `notifications`, `dashboard/messages`,
+`connect/messages`, `admin/tenant-chats` GET handlers each perform a
+mark-read/read-cursor WRITE. SameSite=Lax cookies (admin_token, tenant-owner
+session) still attach on a cross-site top-level GET navigation, so a forged
+link ran authenticated and silently flipped read-state. Origin/Referer
+aren't reliably sent on GET navigations (the register's original suggested
+fix), so this uses `Sec-Fetch-Site` instead (sent by every modern browser on
+every request, unspoofable by a remote page) via new `csrf-guard.ts` —
+skips the write, not the read (the read's response isn't visible
+cross-site anyway). 13 new tests across the 4 routes + the helper.
+
+**Origin allowlist for mutating methods (POST/PATCH/PUT/DELETE) — still not
+implemented, and now deprioritized:** those methods already carry
+`admin_token`/session cookies with `sameSite: 'lax'`, which is NOT sent on a
+cross-site fetch/XHR/form POST regardless of Origin — only the GET-navigation
+case above was a live gap. An Origin allowlist here would be redundant
+defense-in-depth, not a closed hole; left open, not blocking.
 
 ---
 
@@ -195,7 +226,7 @@ never silently disables an auth throttle.
 |---|---|---|---|
 | P3-6 | DB RLS backstop | 🟨🔒 prep only | NULL backfill + scoped client + JWT secret + Jeff-approved DDL |
 | P3-7 | app-layer tenantDb | 🟨 37/498 | join-table + FK-injection guards are separate work |
-| P3-8 | middleware CSRF/admin_token | 🟨 x-tenant-sig echo fixed; Origin allowlist still open | implement Origin allowlist; verify admin_token HMAC in middleware |
+| P3-8 | middleware CSRF/admin_token | 🟩 x-tenant-sig echo, admin_token HMAC verify, and the 4-GET-writer CSRF gap all fixed; mutating-method Origin allowlist deprioritized (redundant given SameSite=Lax) | none blocking |
 | P3-9 | output encoding | 🟨 1 live residual | land GenericHome/LongformArticle escape |
 | P3-10 | rate-limit fail-closed | 🟩 fixed | Stripe idempotencyKey belt item only (low-risk, tracked) |
 
