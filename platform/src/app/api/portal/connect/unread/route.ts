@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -11,10 +12,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get client channel
-    const { data: channel } = await supabaseAdmin
-      .from('connect_channels')
+    const { data: channel } = await tenantDb(auth.tid)
+      .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
       .select('id')
-      .eq('tenant_id', auth.tid)
       .eq('type', 'client')
       .eq('client_id', auth.id)
       .single()

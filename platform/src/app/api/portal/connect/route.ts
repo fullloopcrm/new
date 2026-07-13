@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -11,26 +12,24 @@ export async function GET(request: NextRequest) {
 
   try {
     // Find or create client channel
-    let { data: channel } = await supabaseAdmin
-      .from('connect_channels')
+    let { data: channel } = await tenantDb(auth.tid)
+      .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
       .select('id')
-      .eq('tenant_id', auth.tid)
       .eq('type', 'client')
       .eq('client_id', auth.id)
       .single()
 
     if (!channel) {
       // Get client name for channel
-      const { data: client } = await supabaseAdmin
+      const { data: client } = await tenantDb(auth.tid)
         .from('clients')
         .select('name')
         .eq('id', auth.id)
         .single()
 
-      const { data: created } = await supabaseAdmin
-        .from('connect_channels')
+      const { data: created } = await tenantDb(auth.tid)
+        .from('connect_channels') // tenant-scope-ok: tenantDb() stamps tenant_id on insert
         .insert({
-          tenant_id: auth.tid,
           type: 'client',
           name: client?.name || 'Client',
           client_id: auth.id,
@@ -50,12 +49,11 @@ export async function GET(request: NextRequest) {
       .limit(200)
 
     // Update read cursor
-    await supabaseAdmin
-      .from('connect_read_cursors')
+    await tenantDb(auth.tid)
+      .from('connect_read_cursors') // tenant-scope-ok: tenantDb() stamps tenant_id on upsert
       .upsert(
         {
           channel_id: channel.id,
-          tenant_id: auth.tid,
           reader_type: 'client',
           reader_id: auth.id,
           last_read_at: new Date().toISOString(),
@@ -81,7 +79,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Get client name
-    const { data: client } = await supabaseAdmin
+    const { data: client } = await tenantDb(auth.tid)
       .from('clients')
       .select('name')
       .eq('id', auth.id)
@@ -90,19 +88,17 @@ export async function POST(request: NextRequest) {
     let targetChannelId = channel_id
 
     if (!targetChannelId) {
-      let { data: channel } = await supabaseAdmin
-        .from('connect_channels')
+      let { data: channel } = await tenantDb(auth.tid)
+        .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
         .select('id')
-        .eq('tenant_id', auth.tid)
         .eq('type', 'client')
         .eq('client_id', auth.id)
         .single()
 
       if (!channel) {
-        const { data: created } = await supabaseAdmin
-          .from('connect_channels')
+        const { data: created } = await tenantDb(auth.tid)
+          .from('connect_channels') // tenant-scope-ok: tenantDb() stamps tenant_id on insert
           .insert({
-            tenant_id: auth.tid,
             type: 'client',
             name: client?.name || 'Client',
             client_id: auth.id,
@@ -117,11 +113,10 @@ export async function POST(request: NextRequest) {
 
     if (!targetChannelId) return NextResponse.json({ error: 'No channel' }, { status: 400 })
 
-    const { data, error } = await supabaseAdmin
-      .from('connect_messages')
+    const { data, error } = await tenantDb(auth.tid)
+      .from('connect_messages') // tenant-scope-ok: tenantDb() stamps tenant_id on insert
       .insert({
         channel_id: targetChannelId,
-        tenant_id: auth.tid,
         sender_type: 'client',
         sender_id: auth.id,
         sender_name: client?.name || 'Client',
@@ -133,12 +128,11 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Update read cursor
-    await supabaseAdmin
-      .from('connect_read_cursors')
+    await tenantDb(auth.tid)
+      .from('connect_read_cursors') // tenant-scope-ok: tenantDb() stamps tenant_id on upsert
       .upsert(
         {
           channel_id: targetChannelId,
-          tenant_id: auth.tid,
           reader_type: 'client',
           reader_id: auth.id,
           last_read_at: new Date().toISOString(),
