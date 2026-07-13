@@ -2,6 +2,30 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifySvix } from '@/lib/webhook-verify'
 
+// TENANT-SCOPE PREP (P1/W2): inbound_emails has no tenant_id column yet — see
+// deploy-prep/inbound-emails-tenant-scope-plan-p1-w2.md for the migration
+// (062) this depends on, the resolution strategy, and the rollout order. Flip
+// this ONLY after that migration lands; turning it on first will 500 every
+// inbound email (insert against a column that doesn't exist). Off (default),
+// this is a total no-op — resolveInboundTenantId short-circuits before doing
+// anything and the insert below is unchanged.
+const INBOUND_TENANT_SCOPE_ENABLED = process.env.INBOUND_EMAILS_TENANT_SCOPE_ENABLED === 'true'
+
+async function resolveInboundTenantId(toAddress: string | null): Promise<{ tenantId: string | null; domain: string | null }> {
+  if (!INBOUND_TENANT_SCOPE_ENABLED || !toAddress) return { tenantId: null, domain: null }
+  const firstAddress = toAddress.split(',')[0]?.trim()
+  const domain = firstAddress?.split('@')[1]?.toLowerCase() || null
+  if (!domain) return { tenantId: null, domain: null }
+  try {
+    const { getTenantByDomain } = await import('@/lib/tenant-lookup')
+    const tenant = await getTenantByDomain(domain)
+    return { tenantId: tenant?.id ?? null, domain }
+  } catch (err) {
+    console.error('[resend webhook] inbound tenant resolution failed:', err)
+    return { tenantId: null, domain }
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const rawBody = await request.text()
@@ -33,15 +57,18 @@ export async function POST(request: Request) {
       const d = data as unknown as Record<string, unknown>
       const join = (v: unknown) =>
         Array.isArray(v) ? v.map(String).join(', ') : typeof v === 'string' ? v : null
+      const toAddress = join(d.to)
+      const { tenantId: inboundTenantId, domain: resolvedDomain } = await resolveInboundTenantId(toAddress)
       await supabaseAdmin.from('inbound_emails').insert({
         resend_email_id: (d.email_id as string) || (d.id as string) || null,
         from_address: join(d.from),
-        to_address: join(d.to),
+        to_address: toAddress,
         subject: (d.subject as string) || null,
         text_body: (d.text as string) || null,
         html_body: (d.html as string) || null,
         headers: (d.headers as object) ?? null,
         raw: d,
+        ...(INBOUND_TENANT_SCOPE_ENABLED ? { tenant_id: inboundTenantId, resolved_domain: resolvedDomain } : {}),
       })
       return NextResponse.json({ ok: true })
     }
