@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 const TEST_PHONE_PATTERNS = ['2125550', '917555', '7185550']
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
 
   const tenantId = tenant.tenantId
   const dryRun = req.nextUrl.searchParams.get('dry') === 'true'
+  const db = tenantDb(tenantId)
 
   const summary = {
     dryRun,
@@ -35,26 +37,25 @@ export async function POST(req: NextRequest) {
     conversationIds: [] as string[],
   }
 
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
   const phoneFilter = TEST_PHONE_PATTERNS.map(p => `phone.ilike.%${p}%`).join(',')
-  const { data: byPhone } = await supabaseAdmin
+  const { data: byPhone } = (await db
     .from('clients')
     .select('id, name, phone, email')
-    .eq('tenant_id', tenantId)
-    .or(phoneFilter)
+    .or(phoneFilter)) as { data: { id: string; name: string; phone: string | null; email: string | null }[] | null }
 
-  const { data: byName } = await supabaseAdmin
+  const { data: byName } = (await db
     .from('clients')
     .select('id, name, phone, email')
-    .eq('tenant_id', tenantId)
-    .in('name', TEST_NAME_PATTERNS)
+    .in('name', TEST_NAME_PATTERNS)) as { data: { id: string; name: string; phone: string | null; email: string | null }[] | null }
 
   const testClients = new Map<string, { id: string }>()
   for (const c of [...(byPhone || []), ...(byName || [])]) testClients.set(c.id, c)
 
-  const { data: all } = await supabaseAdmin
+  const { data: all } = (await db
     .from('clients')
-    .select('id, email')
-    .eq('tenant_id', tenantId)
+    .select('id, email')) as { data: { id: string; email: string | null }[] | null }
   for (const c of all || []) {
     if (c.email && TEST_EMAIL_PATTERN.test(c.email)) testClients.set(c.id, c)
   }
@@ -64,19 +65,17 @@ export async function POST(req: NextRequest) {
 
   if (testClients.size === 0) return NextResponse.json(summary)
 
-  const { data: bookings } = await supabaseAdmin
+  const { data: bookings } = (await db
     .from('bookings')
     .select('id')
-    .eq('tenant_id', tenantId)
-    .in('client_id', summary.testClientIds)
+    .in('client_id', summary.testClientIds)) as { data: { id: string }[] | null }
   summary.bookingIds = (bookings || []).map(b => b.id)
   summary.bookingsToDelete = summary.bookingIds.length
 
-  const { data: convos } = await supabaseAdmin
+  const { data: convos } = (await db
     .from('sms_conversations')
     .select('id')
-    .eq('tenant_id', tenantId)
-    .in('client_id', summary.testClientIds)
+    .in('client_id', summary.testClientIds)) as { data: { id: string }[] | null }
   summary.conversationIds = (convos || []).map(c => c.id)
   summary.conversationsToDelete = summary.conversationIds.length
 
@@ -96,27 +95,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // sms_conversation_messages has no tenant_id column (scoped only via its
+  // sms_conversations parent), so it stays on supabaseAdmin — tenantDb's
+  // delete() would filter on a column that doesn't exist on this table.
   if (summary.conversationIds.length) {
     await tryDelete('sms_conversation_messages', supabaseAdmin.from('sms_conversation_messages').delete({ count: 'exact' }).in('conversation_id', summary.conversationIds).select())
   }
   if (summary.bookingIds.length) {
-    await tryDelete('notifications_by_booking', supabaseAdmin.from('notifications').delete({ count: 'exact' }).in('booking_id', summary.bookingIds).select())
-    await tryDelete('payments_by_booking', supabaseAdmin.from('payments').delete({ count: 'exact' }).in('booking_id', summary.bookingIds).select())
-    await tryDelete('team_member_payouts', supabaseAdmin.from('team_member_payouts').delete({ count: 'exact' }).in('booking_id', summary.bookingIds).select())
+    await tryDelete('notifications_by_booking', db.from('notifications').delete().in('booking_id', summary.bookingIds).select())
+    await tryDelete('payments_by_booking', db.from('payments').delete().in('booking_id', summary.bookingIds).select())
+    await tryDelete('team_member_payouts', db.from('team_member_payouts').delete().in('booking_id', summary.bookingIds).select())
   }
   if (summary.conversationIds.length) {
-    await tryDelete('sms_conversations', supabaseAdmin.from('sms_conversations').delete({ count: 'exact' }).in('id', summary.conversationIds).select())
+    await tryDelete('sms_conversations', db.from('sms_conversations').delete().in('id', summary.conversationIds).select())
   }
   if (summary.bookingIds.length) {
-    await tryDelete('bookings', supabaseAdmin.from('bookings').delete({ count: 'exact' }).in('id', summary.bookingIds).select())
+    await tryDelete('bookings', db.from('bookings').delete().in('id', summary.bookingIds).select())
   }
   if (summary.testClientIds.length) {
-    await tryDelete('selena_memory', supabaseAdmin.from('selena_memory').delete({ count: 'exact' }).in('client_id', summary.testClientIds).select())
-    await tryDelete('payments_by_client', supabaseAdmin.from('payments').delete({ count: 'exact' }).in('client_id', summary.testClientIds).select())
-    await tryDelete('sms_conversations_by_client', supabaseAdmin.from('sms_conversations').delete({ count: 'exact' }).in('client_id', summary.testClientIds).select())
-    await tryDelete('recurring_schedules', supabaseAdmin.from('recurring_schedules').delete({ count: 'exact' }).in('client_id', summary.testClientIds).select())
-    await tryDelete('notifications_by_client', supabaseAdmin.from('notifications').delete({ count: 'exact' }).in('client_id', summary.testClientIds).select())
-    await tryDelete('clients', supabaseAdmin.from('clients').delete({ count: 'exact' }).in('id', summary.testClientIds).select())
+    await tryDelete('selena_memory', db.from('selena_memory').delete().in('client_id', summary.testClientIds).select())
+    await tryDelete('payments_by_client', db.from('payments').delete().in('client_id', summary.testClientIds).select())
+    await tryDelete('sms_conversations_by_client', db.from('sms_conversations').delete().in('client_id', summary.testClientIds).select())
+    await tryDelete('recurring_schedules', db.from('recurring_schedules').delete().in('client_id', summary.testClientIds).select())
+    await tryDelete('notifications_by_client', db.from('notifications').delete().in('client_id', summary.testClientIds).select())
+    await tryDelete('clients', db.from('clients').delete().in('id', summary.testClientIds).select())
   }
 
   return NextResponse.json({ ...summary, deleteResults })
