@@ -138,43 +138,58 @@ export async function POST(request: Request) {
         : Number((prefillContact as { discount_cents?: number }).discount_cents || 0)
     const totals = computeTotals(lineItems, tax_rate_bps, discount_cents)
 
-    const invoice_number = body.invoice_number || (await generateInvoiceNumber(tenantId))
-    const public_token = generateInvoicePublicToken()
     const due_date =
       body.due_date ||
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
-    const { data, error } = await supabaseAdmin
-      .from('invoices')
-      .insert({
-        tenant_id: tenantId,
-        entity_id: entityId,
-        client_id: body.client_id || (prefillContact as { client_id?: string }).client_id || null,
-        booking_id: body.booking_id || body.from_booking_id || null,
-        quote_id: body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null,
-        invoice_number,
-        status: 'draft',
-        title: body.title || (prefillContact as { title?: string }).title || null,
-        description: body.description || (prefillContact as { description?: string }).description || null,
-        contact_name: body.contact_name || (prefillContact as { contact_name?: string }).contact_name || null,
-        contact_email: body.contact_email || (prefillContact as { contact_email?: string }).contact_email || null,
-        contact_phone: body.contact_phone || (prefillContact as { contact_phone?: string }).contact_phone || null,
-        service_address: body.service_address || (prefillContact as { service_address?: string }).service_address || null,
-        line_items: lineItems,
-        subtotal_cents: totals.subtotal_cents,
-        tax_rate_bps,
-        tax_cents: totals.tax_cents,
-        discount_cents: totals.discount_cents,
-        total_cents: totals.total_cents,
-        terms: body.terms || (prefillContact as { terms?: string }).terms || null,
-        notes: body.notes || null,
-        due_date,
-        public_token,
-      })
-      .select('*')
-      .single()
-    if (error) throw error
+    // invoice_number is derived from a COUNT() snapshot (generateInvoiceNumber),
+    // so two concurrent creates in the same tenant/month can compute the same
+    // number. The (tenant_id, invoice_number) unique index rejects the second
+    // insert -- retry with a freshly generated number instead of 500ing what
+    // is otherwise a legitimate concurrent request.
+    const explicitInvoiceNumber = body.invoice_number as string | undefined
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any = null
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const invoice_number = explicitInvoiceNumber || (await generateInvoiceNumber(tenantId))
+      const public_token = generateInvoicePublicToken()
+      const result = await supabaseAdmin
+        .from('invoices')
+        .insert({
+          tenant_id: tenantId,
+          entity_id: entityId,
+          client_id: body.client_id || (prefillContact as { client_id?: string }).client_id || null,
+          booking_id: body.booking_id || body.from_booking_id || null,
+          quote_id: body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null,
+          invoice_number,
+          status: 'draft',
+          title: body.title || (prefillContact as { title?: string }).title || null,
+          description: body.description || (prefillContact as { description?: string }).description || null,
+          contact_name: body.contact_name || (prefillContact as { contact_name?: string }).contact_name || null,
+          contact_email: body.contact_email || (prefillContact as { contact_email?: string }).contact_email || null,
+          contact_phone: body.contact_phone || (prefillContact as { contact_phone?: string }).contact_phone || null,
+          service_address: body.service_address || (prefillContact as { service_address?: string }).service_address || null,
+          line_items: lineItems,
+          subtotal_cents: totals.subtotal_cents,
+          tax_rate_bps,
+          tax_cents: totals.tax_cents,
+          discount_cents: totals.discount_cents,
+          total_cents: totals.total_cents,
+          terms: body.terms || (prefillContact as { terms?: string }).terms || null,
+          notes: body.notes || null,
+          due_date,
+          public_token,
+        })
+        .select('*')
+        .single()
+      if (!result.error) {
+        data = result.data
+        break
+      }
+      const isNumberCollision = result.error.code === '23505' && !explicitInvoiceNumber
+      if (!isNumberCollision || attempt === 4) throw result.error
+    }
 
     await logInvoiceEvent({
       invoice_id: data.id,

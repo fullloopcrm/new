@@ -70,47 +70,61 @@ export async function POST(request: Request) {
     // Fulfillment: 'booking' (service → Bookings) | 'project' (→ Job board). null = project default.
     const fulfillment_type = ['booking', 'project'].includes(body.fulfillment_type) ? body.fulfillment_type : null
 
-    const quote_number = body.quote_number || (await generateQuoteNumber(tenantId))
-    const public_token = generatePublicToken()
-
-    const { data, error } = await supabaseAdmin
-      .from('quotes')
-      .insert({
-        tenant_id: tenantId,
-        client_id: body.client_id || null,
-        deal_id: body.deal_id || null,
-        quote_number,
-        status: 'draft',
-        title: body.title || null,
-        description: body.description || null,
-        contact_name: body.contact_name || null,
-        contact_email: body.contact_email || null,
-        contact_phone: body.contact_phone || null,
-        service_address: body.service_address || null,
-        line_items: lineItems,
-        tiers: body.tiers || null,
-        subtotal_cents: totals.subtotal_cents,
-        tax_rate_bps,
-        tax_cents: totals.tax_cents,
-        discount_cents: totals.discount_cents,
-        total_cents: totals.total_cents,
-        terms: body.terms || null,
-        notes: body.notes || null,
-        valid_until: body.valid_until || null,
-        deposit_type,
-        deposit_value,
-        deposit_cents,
-        // Only reference recurring columns when actually recurring, so a
-        // pre-migration DB still creates normal (one-off) quotes fine.
-        ...(recurring_type
-          ? { recurring_type, recurring_start_date, recurring_preferred_time, recurring_duration_hours }
-          : {}),
-        ...(fulfillment_type ? { fulfillment_type } : {}),
-        public_token,
-      })
-      .select('*')
-      .single()
-    if (error) throw error
+    // quote_number is derived from a COUNT() snapshot (generateQuoteNumber), so
+    // two concurrent creates in the same tenant/month can compute the same
+    // number. The (tenant_id, quote_number) unique index rejects the second
+    // insert -- retry with a freshly generated number instead of 500ing what
+    // is otherwise a legitimate concurrent request.
+    const explicitQuoteNumber = body.quote_number as string | undefined
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any = null
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const quote_number = explicitQuoteNumber || (await generateQuoteNumber(tenantId))
+      const public_token = generatePublicToken()
+      const result = await supabaseAdmin
+        .from('quotes')
+        .insert({
+          tenant_id: tenantId,
+          client_id: body.client_id || null,
+          deal_id: body.deal_id || null,
+          quote_number,
+          status: 'draft',
+          title: body.title || null,
+          description: body.description || null,
+          contact_name: body.contact_name || null,
+          contact_email: body.contact_email || null,
+          contact_phone: body.contact_phone || null,
+          service_address: body.service_address || null,
+          line_items: lineItems,
+          tiers: body.tiers || null,
+          subtotal_cents: totals.subtotal_cents,
+          tax_rate_bps,
+          tax_cents: totals.tax_cents,
+          discount_cents: totals.discount_cents,
+          total_cents: totals.total_cents,
+          terms: body.terms || null,
+          notes: body.notes || null,
+          valid_until: body.valid_until || null,
+          deposit_type,
+          deposit_value,
+          deposit_cents,
+          // Only reference recurring columns when actually recurring, so a
+          // pre-migration DB still creates normal (one-off) quotes fine.
+          ...(recurring_type
+            ? { recurring_type, recurring_start_date, recurring_preferred_time, recurring_duration_hours }
+            : {}),
+          ...(fulfillment_type ? { fulfillment_type } : {}),
+          public_token,
+        })
+        .select('*')
+        .single()
+      if (!result.error) {
+        data = result.data
+        break
+      }
+      const isNumberCollision = result.error.code === '23505' && !explicitQuoteNumber
+      if (!isNumberCollision || attempt === 4) throw result.error
+    }
 
     await logQuoteEvent({
       quote_id: data.id,
