@@ -1291,7 +1291,20 @@ async function handleListServiceTypes(tid: string): Promise<string> {
   return JSON.stringify({ count: (data || []).length, service_types: data || [] })
 }
 
-async function handleProcessStripeRefund(input: { booking_id: string; amount_dollars: number; reason?: string }, tid: string): Promise<string> {
+export async function handleProcessStripeRefund(input: { booking_id: string; amount_dollars: number; reason?: string }, tid: string): Promise<string> {
+  // Pre-check: if a prior call already refunded this booking, don't fire a
+  // second real Stripe refund just because the owner asks Selena again (or the
+  // agent re-issues the same tool call) in the same conversation.
+  const { data: booking } = await supabaseAdmin
+    .from('bookings')
+    .select('payment_status')
+    .eq('id', input.booking_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (booking?.payment_status === 'refunded') {
+    return JSON.stringify({ error: 'this booking is already marked refunded — not issuing a second refund' })
+  }
+
   const { data: payment } = await supabaseAdmin
     .from('payments')
     .select('id, stripe_payment_intent_id, amount')
@@ -1302,14 +1315,20 @@ async function handleProcessStripeRefund(input: { booking_id: string; amount_dol
     .maybeSingle()
   if (!payment?.stripe_payment_intent_id) return JSON.stringify({ error: 'no Stripe payment intent on file for this booking' })
 
+  const amountCents = Math.round(input.amount_dollars * 100)
   try {
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-08-27.basil' as never })
+    // Idempotency key: a retried tool call (LLM/tool-call retry on timeout)
+    // for the same payment+amount hits the same Stripe refund instead of
+    // creating a second real refund.
     const refund = await stripe.refunds.create({
       payment_intent: payment.stripe_payment_intent_id,
-      amount: Math.round(input.amount_dollars * 100),
+      amount: amountCents,
       reason: 'requested_by_customer',
       metadata: { booking_id: input.booking_id, note: input.reason || '' },
+    }, {
+      idempotencyKey: `selena-refund:${payment.id}:${amountCents}`,
     })
     await supabaseAdmin.from('bookings').update({ payment_status: 'refunded' }).eq('id', input.booking_id).eq('tenant_id', tid)
     return JSON.stringify({ ok: true, refund_id: refund.id, amount: input.amount_dollars, status: refund.status })
