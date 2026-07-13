@@ -10,23 +10,24 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function POST(req: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { unmatchedPaymentId, bookingId } = await req.json()
     if (!unmatchedPaymentId || !bookingId) {
       return NextResponse.json({ error: 'unmatchedPaymentId and bookingId required' }, { status: 400 })
     }
 
     // Tenant-scope both lookups.
-    const { data: unmatched } = await supabaseAdmin
+    const { data: unmatched } = await db
       .from('unmatched_payments')
       .select('id, tenant_id, method, amount_cents, sender_name, status, raw_email_id')
       .eq('id', unmatchedPaymentId)
-      .eq('tenant_id', tenantId)
       .single()
 
     if (!unmatched) {
@@ -36,11 +37,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Already matched' }, { status: 409 })
     }
 
-    const { data: booking } = await supabaseAdmin
+    const { data: booking } = await db
       .from('bookings')
       .select('id, client_id, team_member_id, hourly_rate, actual_hours, price, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, preferred_language)')
       .eq('id', bookingId)
-      .eq('tenant_id', tenantId)
       .single()
 
     if (!booking) {
@@ -64,15 +64,13 @@ export async function POST(req: Request) {
     }
 
     // 1. Mark unmatched as matched
-    await supabaseAdmin
+    await db
       .from('unmatched_payments')
       .update({ status: 'matched', matched_booking_id: bookingId, matched_at: new Date().toISOString() })
       .eq('id', unmatchedPaymentId)
-      .eq('tenant_id', tenantId)
 
     // 2. Insert payment row
-    await supabaseAdmin.from('payments').insert({
-      tenant_id: tenantId,
+    await db.from('payments').insert({
       booking_id: bookingId,
       client_id: booking.client_id,
       amount_cents: amountCents,
@@ -83,7 +81,7 @@ export async function POST(req: Request) {
     })
 
     // 3. Update booking
-    await supabaseAdmin
+    await db
       .from('bookings')
       .update({
         payment_status: status === 'partial' ? 'partial' : 'paid',
@@ -94,7 +92,6 @@ export async function POST(req: Request) {
         partial_payment_cents: status === 'partial' ? amountCents : null,
       })
       .eq('id', bookingId)
-      .eq('tenant_id', tenantId)
 
     // 4. Notify team member of tip if any (bilingual)
     const tm = booking.team_members as unknown as { name?: string; phone?: string; preferred_language?: string } | null
@@ -124,8 +121,7 @@ export async function POST(req: Request) {
     }
 
     // 5. In-app notification
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: tenantId,
+    await db.from('notifications').insert({
       type: 'payment_received',
       title: `Payment Matched — $${(amountCents / 100).toFixed(2)}`,
       message: `${client?.name || 'Client'} — ${unmatched.method} — booking #${bookingId.slice(0, 8)}${tipCents > 0 ? ` (tip: $${(tipCents / 100).toFixed(2)})` : ''}`,

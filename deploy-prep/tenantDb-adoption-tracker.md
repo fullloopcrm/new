@@ -12,7 +12,7 @@ almost every namespace below, which is exactly why the collisions in §3 exist.
 
 ## 1. Converted, by lane
 
-### W1 — admin/dashboard (this worktree, p1-w1) — 19 routes
+### W1 — admin/dashboard (this worktree, p1-w1) — 24 routes
 | Route | Commit |
 |---|---|
 | `/api/notifications` | a9d2ea96 |
@@ -34,6 +34,11 @@ almost every namespace below, which is exactly why the collisions in §3 exist.
 | `/api/admin/bookings/[id]/cleaner-payout` | (queue-c) — payout insert + booking update scoped to `tenantDb(booking.tenant_id)`; insert's tenant_id is now wrapper-stamped instead of manually threaded |
 | `/api/dashboard/onboarding/activate` | (queue-c) — go-live `notifications` inserts scoped to `tenantDb(tenantId)` |
 | `/api/dashboard/onboarding/profile` | (queue-c) — `entities` reads/writes (GET prefill, POST default-entity resolve/insert/update) scoped to `tenantDb(tenantId)`, replacing a manual `.eq('tenant_id', …)` filter |
+| `/api/admin/geocode-backfill` | (backlog batch, 11:12 order) — `clients`/`team_members` select+update scoped to `tenantDb(tenant.tenantId)`, replacing 4 manual `.eq('tenant_id', …)` filters. Added `.not(col,'is',null)` support to `tenant-db-fake.ts` for this route's test. |
+| `/api/admin/cleanup-phones` | (backlog batch, 11:12 order) — `clients`/`team_members`/`sms_conversations` select+update scoped to `tenantDb(tenant.tenantId)`, replacing 6 manual `.eq('tenant_id', …)` filters |
+| `/api/admin/reviews` | (backlog batch, 11:12 order) — GET/PUT/DELETE on `reviews` scoped to `tenantDb(tenant.tenantId)`; PUT/DELETE previously took an admin-supplied `id` with only a manual tenant filter as the guard against cross-tenant edit/delete |
+| `/api/admin/message-applicants/send` | (backlog batch, 11:12 order) — `cleaner_applications` select (by caller-supplied `applicant_ids`) + `notifications` insert scoped to `tenantDb(tenantId)`; closes a real gap where a crafted cross-tenant id in the broadcast list would previously text another tenant's applicant |
+| `/api/admin/payments/confirm-match` | (backlog batch, 11:12 order) — `unmatched_payments`/`bookings` lookups + `payments`/`notifications` inserts + `bookings` update all scoped to `tenantDb(tenantId)`, replacing 5 manual `.eq('tenant_id', …)` filters and 2 manually-threaded `tenant_id:` insert fields. `tenants` lookup (by `id`, not `tenant_id`) correctly stays on raw `supabaseAdmin` — platform table, not tenant-owned. |
 
 ### W3 — portal/booking (p1-w3) — 10 routes
 | Route | Commit |
@@ -88,8 +93,9 @@ this tracker's §3 collisions).
 - **W2**: reported 461/498 unconverted as of its last progress doc (183 tenant-in-hand
   EASY / 213 HARD / 65 no-DB no-op tier); its own count is stale relative to its later
   commits (own admission) — treat as directional, not exact.
-- **W1 (admin/dashboard)**: this worktree has ~136 remaining `supabaseAdmin`-using
-  files under `/api/admin/*` + `/api/dashboard/*`; most are either cross-tenant BY
+- **W1 (admin/dashboard)**: this worktree has ~131 remaining `supabaseAdmin`-using
+  files under `/api/admin/*` + `/api/dashboard/*` (was ~136, minus this batch's 5);
+  most are either cross-tenant BY
   DESIGN (platform-wide `admin/*` dashboards with optional `tenant_id` query param —
   e.g. `admin/calendar`, `admin/websites`, `admin/tenant-chats`; global tables like
   `tenants`/`leads`/`prospects`) or caller-derives-tenant-from-row shapes where the
@@ -115,7 +121,7 @@ appear in this table).
 
 ## 4. Aggregate
 
-19 (W1) + 10 (W3) + ~75 (W2, includes some W1/W3 namespace overlap counted above) +
+24 (W1) + 10 (W3) + ~75 (W2, includes some W1/W3 namespace overlap counted above) +
 0 wired (W4) + 0 wired / 35 unwired proofs (W5) against a ~498-route platform. Lanes
 are on unmerged branches — these numbers do not sum cleanly into a single "X/498"
 until a merge reconciles the 3 collisions above and re-counts on the merged tree.

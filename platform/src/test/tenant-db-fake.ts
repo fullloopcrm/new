@@ -10,6 +10,11 @@
  * `.is('a->b', null)` supports the one dotted-path case this codebase uses
  * (`metadata->read`) by checking the nested property; every other `.is()`
  * call compares the top-level column directly.
+ *
+ * `.not(col, 'is', null)` supports the one negated-null case this codebase
+ * uses (e.g. `.not('address', 'is', null)`) — every other `.not()` shape is
+ * unimplemented and will silently match everything (same limitation as the
+ * rest of this fake's narrow operator surface).
  */
 
 export interface FakeStoreHandle {
@@ -24,6 +29,7 @@ type State = {
   neqs: Record<string, unknown>
   ins: Array<{ col: string; vals: unknown[] }>
   iss: Array<{ col: string; val: unknown }>
+  notNulls: string[]
   gts: Array<{ col: string; val: unknown }>
   head: boolean
   payload: unknown
@@ -46,6 +52,7 @@ function matches(r: Record<string, unknown>, s: State): boolean {
     const wantNull = f.val === null
     if (wantNull ? actual != null : actual !== f.val) return false
   }
+  for (const col of s.notNulls) if (r[col] == null) return false
   for (const f of s.gts) if (!(String(r[f.col]) > String(f.val))) return false
   return true
 }
@@ -118,7 +125,7 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
 export function makeTenantDbFake(h: FakeStoreHandle) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], iss: [], gts: [], head: false, payload: null }
+      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], iss: [], notNulls: [], gts: [], head: false, payload: null }
       const chain: Record<string, unknown> = {
         select: (_cols?: unknown, o?: { head?: boolean }) => { if (o?.head) state.head = true; return chain },
         insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
@@ -131,6 +138,7 @@ export function makeTenantDbFake(h: FakeStoreHandle) {
         neq: (col: string, val: unknown) => { state.neqs[col] = val; return chain },
         in: (col: string, vals: unknown[]) => { state.ins.push({ col, vals }); return chain },
         is: (col: string, val: unknown) => { state.iss.push({ col, val }); return chain },
+        not: (col: string, op: string, val: unknown) => { if (op === 'is' && val === null) state.notNulls.push(col); return chain },
         gt: (col: string, val: unknown) => { state.gts.push({ col, val }); return chain },
         order: () => chain,
         limit: () => chain,
