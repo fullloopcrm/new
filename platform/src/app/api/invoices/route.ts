@@ -2,9 +2,9 @@
  * Invoices — list + create. Tenant-scoped.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { tenantDb } from '@/lib/tenant-db'
 import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
 import {
   normalizeLineItems,
@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const url = new URL(request.url)
     const status = url.searchParams.get('status')
     const clientId = url.searchParams.get('client_id')
@@ -27,10 +28,9 @@ export async function GET(request: Request) {
     const entityId = entityIdFromUrl(url)
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 100)
 
-    let q = supabaseAdmin
+    let q = db
       .from('invoices')
       .select('*, clients(id, name, email, phone, address)')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(limit)
 
@@ -58,16 +58,16 @@ export async function POST(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const body = await request.json()
 
     // Optional: generate from booking
     let prefillLineItems: unknown[] | null = null
     let prefillContact: Record<string, unknown> = {}
     if (body.from_booking_id) {
-      const { data: booking } = await supabaseAdmin
+      const { data: booking } = await db
         .from('bookings')
         .select('*, clients(id, name, email, phone, address), service_types(name, default_hourly_rate, pricing_model)')
-        .eq('tenant_id', tenantId)
         .eq('id', body.from_booking_id)
         .single()
       if (booking) {
@@ -102,10 +102,9 @@ export async function POST(request: Request) {
 
     // Optional: generate from quote
     if (body.from_quote_id) {
-      const { data: quote } = await supabaseAdmin
+      const { data: quote } = await db
         .from('quotes')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('id', body.from_quote_id)
         .single()
       if (quote) {
@@ -145,10 +144,9 @@ export async function POST(request: Request) {
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('invoices')
       .insert({
-        tenant_id: tenantId,
         entity_id: entityId,
         client_id: body.client_id || (prefillContact as { client_id?: string }).client_id || null,
         booking_id: body.booking_id || body.from_booking_id || null,

@@ -3,8 +3,9 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { logInvoiceEvent, formatInvoiceCents } from '@/lib/invoice'
@@ -17,14 +18,14 @@ export async function POST(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json().catch(() => ({}))
     const via: 'email' | 'sms' | 'both' = body.via || 'both'
 
-    const { data: invoice, error: iErr } = await supabaseAdmin
+    const { data: invoice, error: iErr } = await db
       .from('invoices')
       .select('*')
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
     if (iErr || !invoice) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -99,7 +100,7 @@ export async function POST(request: Request, { params }: Params) {
       results.email?.ok && results.sms?.ok ? 'both' : results.email?.ok ? 'email' : 'sms'
 
     const newStatus = invoice.status === 'draft' ? 'sent' : invoice.status
-    await supabaseAdmin
+    await db
       .from('invoices')
       .update({ status: newStatus, sent_at: new Date().toISOString(), sent_via: sentVia })
       .eq('id', id)
