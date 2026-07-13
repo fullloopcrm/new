@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()) as { data: { id: string; name: string; email: string } | null }
 
   if (referrer) {
-    const code = String(Math.floor(100000 + Math.random() * 900000))
+    const code = String(randomInt(100000, 1000000))
     await db
       .from('referrers')
       .update({ otp_hash: hashOtp(code), otp_expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString() })
