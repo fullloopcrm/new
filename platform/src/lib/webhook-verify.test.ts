@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createHmac, generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
-import { verifySvix, verifyTelnyx } from './webhook-verify'
+import { verifySvix, verifyTelnyx, verifyTelegramSecret } from './webhook-verify'
 
 function svixHeaders(id: string, timestamp: string, signature: string): Headers {
   const h = new Headers()
@@ -113,5 +113,38 @@ describe('verifyTelnyx', () => {
     const result = verifyTelnyx(headers(ts, sig), body, rawPub)
     expect(result.valid).toBe(false)
     expect(result.reason).toBe('timestamp out of window')
+  })
+})
+
+describe('verifyTelegramSecret', () => {
+  const secret = 'unit-test-telegram-secret'
+
+  function tgHeaders(token?: string): Headers {
+    const h = new Headers()
+    if (token !== undefined) h.set('x-telegram-bot-api-secret-token', token)
+    return h
+  }
+
+  it('accepts a matching secret token', () => {
+    const result = verifyTelegramSecret(tgHeaders(secret), secret)
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects a forged secret token', () => {
+    const result = verifyTelegramSecret(tgHeaders('attacker-guess'), secret)
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret mismatch')
+  })
+
+  it('rejects when the header is missing entirely', () => {
+    const result = verifyTelegramSecret(tgHeaders(), secret)
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('missing secret token header')
+  })
+
+  it('rejects when the expected secret is not configured (fail closed)', () => {
+    const result = verifyTelegramSecret(tgHeaders(secret), undefined)
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret not configured')
   })
 })
