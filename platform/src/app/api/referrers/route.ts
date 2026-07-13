@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { notify } from '@/lib/notify'
 
 // Rate limiting
 const attempts = new Map<string, { count: number; resetAt: number }>()
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
+      .select('id, name, email, referral_code, ref_code, total_earned, total_paid, preferred_payout, created_at')
       .eq('tenant_id', lookupTenant.id)
       .eq('referral_code', code)
       .single()
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
   if (email) {
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
+      .select('id, name, email, referral_code, ref_code, total_earned, total_paid, preferred_payout, created_at')
       .eq('tenant_id', lookupTenant.id)
       .ilike('email', email)
       .single()
@@ -124,6 +125,12 @@ export async function POST(request: NextRequest) {
       email,
       phone: phone || null,
       referral_code: referralCode,
+      // Every tenant's own /referral portal page (and the client/book referrer
+      // lookup) key off this legacy nycmaid-parity column, not referral_code —
+      // keep both in sync so new signups aren't invisible to those code paths.
+      ref_code: referralCode,
+      zelle_email: zelle_email || email,
+      apple_cash_phone: apple_cash_phone || null,
       preferred_payout: preferred_payout || 'zelle',
       // Stored as a fraction (0.10 = 10%), matching the schema default and the
       // existing rows. The old code wrote `10` here (into the wrong table), which
@@ -139,6 +146,13 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  await notify({
+    tenantId: tenant.id,
+    type: 'new_lead',
+    title: 'New Referrer Signup',
+    message: `${name} (${referralCode}) — ${email}${phone ? ` · ${phone}` : ''}`,
+  }).catch(() => {})
 
   return NextResponse.json({ referral: data }, { status: 201 })
 }
