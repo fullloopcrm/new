@@ -22,31 +22,36 @@ function ClientPortalContent() {
     setLoading(true)
     setError('')
 
-    const res = await fetch('/api/client/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin })
-    })
+    try {
+      const res = await fetch('/api/client/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
+      })
 
-    if (res.ok) {
-      const data = await res.json()
-      localStorage.setItem('client_id', data.client.id)
-      localStorage.setItem('client_name', data.client.name || 'Client')
-      if (data.client.do_not_service) {
-        localStorage.setItem('client_dns', 'true')
+      if (res.ok) {
+        const data = await res.json()
+        localStorage.setItem('client_id', data.client.id)
+        localStorage.setItem('client_name', data.client.name || 'Client')
+        if (data.client.do_not_service) {
+          localStorage.setItem('client_dns', 'true')
+        } else {
+          localStorage.removeItem('client_dns')
+        }
+        router.push('/book/dashboard')
       } else {
-        localStorage.removeItem('client_dns')
+        const data = await res.json().catch(() => ({}))
+        if (res.status === 429) {
+          setError('Too many attempts. Please wait 10 minutes and try again.')
+        } else {
+          setError(data.error || 'Invalid PIN. Check your booking confirmation for your 6-digit PIN.')
+        }
       }
-      router.push('/book/dashboard')
-    } else {
-      const data = await res.json().catch(() => ({}))
-      if (res.status === 429) {
-        setError('Too many attempts. Please wait 10 minutes and try again.')
-      } else {
-        setError(data.error || 'Invalid PIN. Check your booking confirmation for your 6-digit PIN.')
-      }
+    } catch {
+      setError('Unable to reach the server. Check your connection and try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const ref = searchParams.get('ref')
