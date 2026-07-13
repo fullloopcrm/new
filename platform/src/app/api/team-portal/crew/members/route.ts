@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 
 // The roster this member is allowed to see (their pod / all for manager).
@@ -11,10 +11,9 @@ export async function GET(request: Request) {
   const scope = await scopedMemberIds(auth)
   if (scope.length === 0) return NextResponse.json({ members: [] })
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('team_members')
     .select('id, name')
-    .eq('tenant_id', auth.tid)
     .in('id', scope)
     .eq('status', 'active')
     .order('name')
