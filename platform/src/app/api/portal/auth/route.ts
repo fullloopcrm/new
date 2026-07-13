@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Phone and tenant required' }, { status: 400 })
     }
 
-    const rl = await rateLimitDb(`portal_auth:${phone}`, 5, 15 * 60 * 1000)
+    const rl = await rateLimitDb(`portal_auth:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
@@ -109,6 +109,12 @@ export async function POST(request: Request) {
     const { phone, code } = body
     if (!phone || !code) {
       return NextResponse.json({ error: 'Phone and code required' }, { status: 400 })
+    }
+
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`portal_auth_verify:${ip}:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
 
     // Tenant isn't known yet at this point — the client only has phone+code,

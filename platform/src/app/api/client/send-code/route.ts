@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
     const identifier = email ? email.toLowerCase().trim() : `sms:${phone!.replace(/\D/g, '')}`
 
-    const rl = await rateLimitDb(`client-send-code:${tenant.id}:${identifier}`, 3, 10 * 60 * 1000)
+    const rl = await rateLimitDb(`client-send-code:${tenant.id}:${identifier}`, 3, 10 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Too many attempts. Please wait 10 minutes.' }, { status: 429 })
     }

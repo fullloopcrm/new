@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'PIN and tenant required' }, { status: 400 })
   }
 
-  const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${pin}`, 5, 15 * 60 * 1000)
+  const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${pin}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }

@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = await rateLimitDb(`client-verify:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
+    const rl = await rateLimitDb(`client-verify:${tenant.id}:${ip}`, 5, 10 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Too many attempts. Please wait 10 minutes.' }, { status: 429 })
     }
