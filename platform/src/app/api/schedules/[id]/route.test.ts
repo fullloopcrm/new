@@ -114,6 +114,15 @@ describe('PUT /api/schedules/:id', () => {
     expect(res.status).toBe(500)
     expect(h.store.recurring_schedules.find((s) => s.id === 'sched-B1')?.notes).toBeUndefined()
   })
+
+  it('ignores a tenant_id in the body instead of reassigning the schedule to another tenant', async () => {
+    const res = await PUT(putReq({ notes: 'hacked', tenant_id: 'tenant-B' }), params('sched-A1'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.schedule.tenant_id).toBe('tenant-A')
+    expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')?.tenant_id).toBe('tenant-A')
+  })
 })
 
 describe('DELETE /api/schedules/:id', () => {

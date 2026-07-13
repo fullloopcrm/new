@@ -86,6 +86,15 @@ describe('PUT /api/finance/expenses/:id — update', () => {
     expect(res.status).toBe(500)
     expect(h.store.expenses.find((e) => e.id === 'exp-B1')?.category).toBe('utilities')
   })
+
+  it('ignores a tenant_id in the body instead of reassigning the expense to another tenant', async () => {
+    const res = await PUT(putReq({ category: 'hacked', tenant_id: 'tenant-B' }), params('exp-A1'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.expense.tenant_id).toBe('tenant-A')
+    expect(h.store.expenses.find((e) => e.id === 'exp-A1')?.tenant_id).toBe('tenant-A')
+  })
 })
 
 describe('DELETE /api/finance/expenses/:id', () => {

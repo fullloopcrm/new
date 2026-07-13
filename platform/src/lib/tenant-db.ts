@@ -56,8 +56,8 @@ export function tenantDb(tenantId: string) {
         /** INSERT with tenant_id stamped on every row (overrides any caller value). */
         insert: (rows: Row | Row[]) => base.insert(stamp(rows, tenantId)),
 
-        /** UPDATE auto-filtered to this tenant. */
-        update: (values: Row) => base.update(values).eq('tenant_id', tenantId),
+        /** UPDATE auto-filtered to this tenant; tenant_id in `values` is ignored/overridden. */
+        update: (values: Row) => base.update({ ...values, tenant_id: tenantId }).eq('tenant_id', tenantId),
 
         /** DELETE auto-filtered to this tenant. */
         delete: () => base.delete().eq('tenant_id', tenantId),

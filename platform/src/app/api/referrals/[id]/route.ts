@@ -13,10 +13,11 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
+    const { tenant_id: _tenantId, id: _id, ...safeBody } = body
 
     const { data, error } = await supabaseAdmin
       .from('referrals')
-      .update(body)
+      .update(safeBody)
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()

@@ -76,9 +76,14 @@ describe('tenantDb', () => {
 
   it('update() filters by tenant_id after applying the values', () => {
     const result = tenantDb('tenant-A').from('bookings').update({ status: 'done' })
-    expect(baseMock.update).toHaveBeenCalledWith({ status: 'done' })
+    expect(baseMock.update).toHaveBeenCalledWith({ status: 'done', tenant_id: 'tenant-A' })
     expect(eqMock).toHaveBeenCalledWith('tenant_id', 'tenant-A')
     expect(result).toBe('eq-result')
+  })
+
+  it('update() overrides a caller-supplied tenant_id rather than trusting it', () => {
+    tenantDb('tenant-A').from('bookings').update({ status: 'done', tenant_id: 'attacker-tenant' })
+    expect(baseMock.update).toHaveBeenCalledWith({ status: 'done', tenant_id: 'tenant-A' })
   })
 
   it('delete() filters by tenant_id', () => {
