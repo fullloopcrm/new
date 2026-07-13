@@ -100,19 +100,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'conversationId required' }, { status: 400 })
     }
 
-    // Verify convo belongs to the claimed tenant (if one is given).
+    // Always resolve the conversation's OWN tenant_id, not only when the
+    // caller happens to supply a tenantId. The endpoint's auth is a single
+    // global ELCHAPO_MONITOR_KEY (GET already returns platform-wide stats by
+    // design when no tenant filter is given), so this isn't a privilege
+    // escalation — but it makes the ownership check mandatory instead of an
+    // easily-omitted opt-in, so a caller's mismatched tenantId claim is
+    // always caught rather than silently ignored when left out.
+    const { data: convo } = await supabaseAdmin
+      .from('sms_conversations')
+      .select('id, tenant_id')
+      .eq('id', conversationId)
+      .maybeSingle()
+    if (!convo) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
     if (tenantParam) {
-      const tenantId = await resolveTenantId(String(tenantParam))
-      if (!tenantId) return NextResponse.json({ error: 'Unknown tenant' }, { status: 404 })
-      const { data: convo } = await supabaseAdmin
-        .from('sms_conversations')
-        .select('id')
-        .eq('id', conversationId)
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-      if (!convo) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      const claimedTenantId = await resolveTenantId(String(tenantParam))
+      if (!claimedTenantId || claimedTenantId !== convo.tenant_id) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
     }
 
+    // sms_conversation_messages never populates tenant_id (every insert site
+    // is `tenant-scope-ok: row-scoped by conversation_id`) — tenantDb() here
+    // would silently return zero rows. Scoping is already closed above: this
+    // conversationId is confirmed owned by convo.tenant_id before we get here.
     const { data: messages, error } = await supabaseAdmin
       .from('sms_conversation_messages')
       .select('direction, message, created_at')
