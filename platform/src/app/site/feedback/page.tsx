@@ -21,18 +21,29 @@ function FeedbackForm() {
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!message.trim()) return
     setSending(true)
-    await fetch('/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, source })
-    })
-    setSubmitted(true)
-    setSending(false)
+    setError('')
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, source })
+      })
+      if (!res.ok) {
+        setError('Failed to submit. Please try again.')
+        return
+      }
+      setSubmitted(true)
+    } catch {
+      setError('Failed to submit. Please try again.')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -56,6 +67,7 @@ function FeedbackForm() {
               rows={5}
               required
             />
+            {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
             <button
               type="submit"
               disabled={sending || !message.trim()}

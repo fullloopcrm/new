@@ -12,6 +12,7 @@ export default function FeedbackPage() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     setMounted(true)
@@ -21,18 +22,26 @@ export default function FeedbackPage() {
     e.preventDefault()
     if (!auth) return
     setLoading(true)
-    const res = await fetch('/api/portal/feedback', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${auth.token}`,
-      },
-      body: JSON.stringify({ rating, comment }),
-    })
-    if (res.ok) {
-      setSubmitted(true)
+    setError('')
+    try {
+      const res = await fetch('/api/portal/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({ rating, comment }),
+      })
+      if (res.ok) {
+        setSubmitted(true)
+      } else {
+        setError('Failed to submit. Please try again.')
+      }
+    } catch {
+      setError('Failed to submit. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   if (!mounted) return <p className="text-center pt-16 text-slate-400">Loading...</p>
@@ -84,6 +93,8 @@ export default function FeedbackPage() {
             className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm"
           />
         </div>
+
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
         <button
           type="submit"
