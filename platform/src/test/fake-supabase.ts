@@ -13,7 +13,7 @@
  * It supports only the surface the suite exercises:
  *   from(table)
  *     .select(cols, { count })  .insert(rows)  .update(vals)  .delete()  .upsert(rows,{onConflict})
- *     .eq(col,val) .neq .in(col,vals) .gte .lte .lt .is(col,val) .order() .range() .limit(n)
+ *     .eq(col,val) .neq .in(col,vals) .gte .lte .lt .is(col,val) .ilike(col,pattern) .order() .range() .limit(n)
  *     .single() .maybeSingle()  and thenable (await) resolution
  *
  * Not a general-purpose mock — do not grow it beyond what a test needs.
@@ -37,6 +37,7 @@ type Filter =
   | { kind: 'lte'; col: string; val: unknown }
   | { kind: 'lt'; col: string; val: unknown }
   | { kind: 'is'; col: string; val: null | boolean }
+  | { kind: 'ilike'; col: string; pattern: RegExp }
 
 function matches(row: Row, filters: Filter[]): boolean {
   for (const f of filters) {
@@ -69,6 +70,9 @@ function matches(row: Row, filters: Filter[]): boolean {
         } else if (cell !== f.val) {
           return false
         }
+        break
+      case 'ilike':
+        if (typeof cell !== 'string' || !f.pattern.test(cell)) return false
         break
     }
   }
@@ -129,6 +133,12 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
   is(col: string, val: null | boolean): this {
     this.filters.push({ kind: 'is', col, val })
+    return this
+  }
+  /** PostgREST `.ilike(col, 'pattern%with%wildcards')` — case-insensitive, `%` → any run of chars. */
+  ilike(col: string, pattern: string): this {
+    const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*')
+    this.filters.push({ kind: 'ilike', col, pattern: new RegExp(`^${escaped}$`, 'i') })
     return this
   }
   /** No-op: PostgREST `.or('a,b')` syntax isn't parsed here — it never narrows

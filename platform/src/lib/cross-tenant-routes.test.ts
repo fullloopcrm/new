@@ -71,6 +71,7 @@ import { GET as selenaGET } from '@/app/api/selena/route'
 import { POST as errorsPOST } from '@/app/api/errors/route'
 import { createToken as createTeamToken } from '@/app/api/team-portal/auth/token'
 import { POST as jobsClaimPOST } from '@/app/api/team-portal/jobs/claim/route'
+import { GET as attributionManualGET, POST as attributionManualPOST } from '@/app/api/attribution/manual/route'
 
 const A_ID = '11111111-1111-1111-1111-111111111111'
 const B_ID = '22222222-2222-2222-2222-222222222222'
@@ -334,5 +335,33 @@ describe('CROSS-TENANT ATTACK · team-portal family — /api/team-portal/jobs/cl
       .select()
       .maybeSingle()
     expect((data as { team_member_id: string } | null)?.team_member_id).toBe(ids.member.a)
+  })
+})
+
+describe('CROSS-TENANT ATTACK · attribution family — /api/attribution/manual (tenantDb, W3 backlog)', () => {
+  it("tenant A GET lists only its OWN bookings for manual attribution (positive control)", async () => {
+    setAdminSessionFor(A_ID)
+    const res = await attributionManualGET()
+    const body = await res.json()
+    const returnedIds = (body.bookings as { id: string }[]).map((b) => b.id)
+    expect(returnedIds).toContain(ids.booking.a)
+    expect(returnedIds).not.toContain(ids.booking.b)
+  })
+
+  it("tenant A POST attributing tenant B's booking_id finds no matching row — B's booking stays unattributed", async () => {
+    setAdminSessionFor(A_ID)
+    const req = new Request('http://x', { method: 'POST', body: JSON.stringify({ booking_id: ids.booking.b, domain: 'evil.com' }) })
+    await attributionManualPOST(req)
+    const bRow = fake._all('bookings').find((r) => r.id === ids.booking.b)!
+    expect(bRow.attributed_domain).toBeUndefined()
+  })
+
+  it('tenant A POST attributing its OWN booking succeeds (positive control)', async () => {
+    setAdminSessionFor(A_ID)
+    const req = new Request('http://x', { method: 'POST', body: JSON.stringify({ booking_id: ids.booking.a, domain: 'good.com' }) })
+    const res = await attributionManualPOST(req)
+    expect(res.status).toBe(200)
+    const aRow = fake._all('bookings').find((r) => r.id === ids.booking.a)!
+    expect(aRow.attributed_domain).toBe('good.com')
   })
 })

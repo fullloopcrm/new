@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 
 // Rate limiting
@@ -44,11 +44,12 @@ export async function GET(request: NextRequest) {
   const lookupTenant = await getTenantFromHeaders()
   if (!lookupTenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
+  const lookupDb = tenantDb(lookupTenant.id)
+
   if (code) {
-    const { data } = await supabaseAdmin
+    const { data } = await lookupDb
       .from('referrers')
       .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
-      .eq('tenant_id', lookupTenant.id)
       .eq('referral_code', code)
       .single()
 
@@ -57,10 +58,9 @@ export async function GET(request: NextRequest) {
   }
 
   if (email) {
-    const { data } = await supabaseAdmin
+    const { data } = await lookupDb
       .from('referrers')
       .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
-      .eq('tenant_id', lookupTenant.id)
       .ilike('email', email)
       .single()
 
@@ -102,11 +102,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
   }
 
+  const db = tenantDb(tenant.id)
+
   // Duplicate email — scoped to this tenant (same email may refer for two brands)
-  const { data: existing } = await supabaseAdmin
+  const { data: existing } = await db
     .from('referrers')
     .select('id')
-    .eq('tenant_id', tenant.id)
     .ilike('email', email)
     .single()
 
@@ -116,10 +117,9 @@ export async function POST(request: NextRequest) {
 
   const referralCode = generateRefCode(name)
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('referrers')
     .insert({
-      tenant_id: tenant.id,
       name,
       email,
       phone: phone || null,

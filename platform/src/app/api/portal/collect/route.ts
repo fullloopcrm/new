@@ -12,7 +12,7 @@
  *   - Attempts address attribution (matches recent visits to tenant domains).
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too many submissions. Please wait a few minutes.' }, { status: 429 })
     }
 
+    const db = tenantDb(tenant.id)
     const body = (await request.json()) as CollectBody
     const { name, email, phone, address, notes, referrer_name, referrer_phone, src, convo_id, pet_name, pet_type } = body
 
@@ -58,13 +59,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Existing client match by phone (tenant-scoped)
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
     const cleanPhone = phone.replace(/\D/g, '')
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = (await db
       .from('clients')
       .select('id, status')
-      .eq('tenant_id', tenant.id)
       .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-      .limit(1)
+      .limit(1)) as { data: { id: string; status: string }[] | null }
 
     const existingClient = existing?.[0]
 
@@ -73,19 +75,19 @@ export async function POST(request: NextRequest) {
     if (referrer_phone) {
       const refPhone = referrer_phone.replace(/\D/g, '')
       if (refPhone.length >= 10) {
-        const { data: byPhone } = await supabaseAdmin
+        // tenantDb's select() takes a non-literal `columns` param, which widens
+        // supabase-js's column-string type inference — cast to the shape actually selected.
+        const { data: byPhone } = (await db
           .from('referrers')
           .select('id')
-          .eq('tenant_id', tenant.id)
           .ilike('phone', `%${refPhone.slice(-10)}%`)
           .eq('active', true)
-          .limit(1)
+          .limit(1)) as { data: { id: string }[] | null }
 
         if (byPhone && byPhone.length > 0) {
           referrerId = byPhone[0].id
         } else {
-          await supabaseAdmin.from('notifications').insert({
-            tenant_id: tenant.id,
+          await db.from('notifications').insert({
             type: 'referral_lead',
             title: 'New Referrer Lead',
             message: `${referrer_name || 'Unknown'} (${referrer_phone}) referred ${name} — not in system`,
@@ -95,19 +97,17 @@ export async function POST(request: NextRequest) {
         }
       }
     } else if (referrer_name) {
-      const { data: byName } = await supabaseAdmin
+      const { data: byName } = (await db
         .from('referrers')
         .select('id')
-        .eq('tenant_id', tenant.id)
         .ilike('name', `%${referrer_name.trim()}%`)
         .eq('active', true)
-        .limit(1)
+        .limit(1)) as { data: { id: string }[] | null }
 
       if (byName && byName.length > 0) {
         referrerId = byName[0].id
       } else {
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenant.id,
+        await db.from('notifications').insert({
           type: 'referral_lead',
           title: 'New Referrer Lead',
           message: `${referrer_name} referred ${name} — not in system (no phone provided)`,
@@ -128,8 +128,8 @@ export async function POST(request: NextRequest) {
     let data: { id: string;[key: string]: unknown }
 
     if (existingClient) {
-      const { data: updated, error } = await supabaseAdmin
-        .from('clients')  // tenant-scope-ok: tenant-scoped (id + tenant_id filter just below)
+      const { data: updated, error } = await db
+        .from('clients')
         .update({
           name,
           email: email || null,
@@ -142,17 +142,15 @@ export async function POST(request: NextRequest) {
           ...(pet_type ? { pet_type } : {}),
         })
         .eq('id', existingClient.id)
-        .eq('tenant_id', tenant.id)
         .select()
         .single()
 
       if (error) throw error
       data = updated as { id: string;[key: string]: unknown }
     } else {
-      const { data: inserted, error } = await supabaseAdmin
+      const { data: inserted, error } = await db
         .from('clients')
         .insert({
-          tenant_id: tenant.id,
           name,
           email: email || null,
           phone,
@@ -171,8 +169,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Funnel analytics
-    await supabaseAdmin.from('portal_leads').insert({
-      tenant_id: tenant.id,
+    await db.from('portal_leads').insert({
       name,
       email: email || null,
       phone,
@@ -227,16 +224,15 @@ export async function POST(request: NextRequest) {
     // Selena conversation handoff
     if (convo_id) {
       try {
-        const { data: convo } = await supabaseAdmin
+        const { data: convo } = (await db
           .from('sms_conversations')
           .select('*')
           .eq('id', convo_id)
-          .eq('tenant_id', tenant.id)
           .is('completed_at', null)
-          .single()
+          .single()) as { data: { preferred_date: string | null; preferred_time: string | null; hourly_rate: number | null; phone: string | null } | null }
 
         if (convo) {
-          await supabaseAdmin
+          await db
             .from('sms_conversations')
             .update({
               client_id: data.id,
@@ -280,9 +276,8 @@ export async function POST(request: NextRequest) {
             }).catch((e) => console.error('[portal/collect] sms err:', e))
           }
 
-          await supabaseAdmin.from('sms_conversation_messages').insert({
+          await db.from('sms_conversation_messages').insert({
             conversation_id: convo_id,
-            tenant_id: tenant.id,
             direction: 'outbound',
             message: recapMsg,
           }).then(() => {}, () => {})

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
@@ -31,22 +31,24 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     team_member_id?: string | null
   }
 
-  const { data: oldBooking } = await supabaseAdmin
+  const db = tenantDb(tenant.id)
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: oldBooking } = (await db
     .from('bookings')
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
     .eq('id', id)
-    .eq('tenant_id', tenant.id)
-    .single()
+    .single()) as { data: { client_id: string | null; start_time: string } | null }
   if (!oldBooking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
-  const auth = await protectClientAPI(tenant.id, oldBooking.client_id)
+  const auth = await protectClientAPI(tenant.id, oldBooking.client_id ?? undefined)
   if (auth instanceof NextResponse) return auth
 
   const tz = tenant.timezone || 'America/New_York'
   const oldDate = fmtDate(oldBooking.start_time, tz)
   const oldTime = fmtTime(oldBooking.start_time, tz)
 
-  const { data: updated, error } = await supabaseAdmin
+  const { data: updated, error } = await db
     .from('bookings')
     .update({
       start_time: body.start_time,
@@ -54,7 +56,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       ...(body.team_member_id !== undefined ? { team_member_id: body.team_member_id } : {}),
     })
     .eq('id', id)
-    .eq('tenant_id', tenant.id)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
     .single()
   if (error || !updated) return NextResponse.json({ error: error?.message || 'Update failed' }, { status: 500 })
@@ -78,8 +79,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         resendApiKey: tenant.resend_api_key,
         from: tenant.email_from || undefined,
       }).catch(() => {})
-      await supabaseAdmin.from('email_logs').insert({
-        tenant_id: tenant.id,
+      await db.from('email_logs').insert({
         booking_id: id,
         email_type: 'client_reschedule',
         recipient: updated.clients.email,
