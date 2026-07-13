@@ -16,8 +16,8 @@
  * unimplemented and will silently match everything (same limitation as the
  * rest of this fake's narrow operator surface).
  *
- * `.gte()`/`.lte()` compare as strings (ISO timestamp comparisons, the only
- * use in this codebase) — not numeric-safe for other column types.
+ * `.gte()`/`.lte()`/`.lt()` compare as strings (ISO timestamp comparisons, the
+ * only use in this codebase) — not numeric-safe for other column types.
  *
  * `select(cols, { count: 'exact' })` (without `head`) now also returns a row
  * count alongside `data`, matching PostgREST's combined data+count response.
@@ -39,6 +39,7 @@ type State = {
   gts: Array<{ col: string; val: unknown }>
   gtes: Array<{ col: string; val: unknown }>
   ltes: Array<{ col: string; val: unknown }>
+  lts: Array<{ col: string; val: unknown }>
   head: boolean
   wantCount: boolean
   payload: unknown
@@ -65,6 +66,7 @@ function matches(r: Record<string, unknown>, s: State): boolean {
   for (const f of s.gts) if (!(String(r[f.col]) > String(f.val))) return false
   for (const f of s.gtes) if (!(String(r[f.col]) >= String(f.val))) return false
   for (const f of s.ltes) if (!(String(r[f.col]) <= String(f.val))) return false
+  for (const f of s.lts) if (!(String(r[f.col]) < String(f.val))) return false
   return true
 }
 
@@ -137,7 +139,7 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
 export function makeTenantDbFake(h: FakeStoreHandle) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], iss: [], notNulls: [], gts: [], gtes: [], ltes: [], head: false, wantCount: false, payload: null }
+      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], iss: [], notNulls: [], gts: [], gtes: [], ltes: [], lts: [], head: false, wantCount: false, payload: null }
       const chain: Record<string, unknown> = {
         select: (_cols?: unknown, o?: { head?: boolean; count?: string }) => {
           if (o?.head) state.head = true
@@ -158,6 +160,7 @@ export function makeTenantDbFake(h: FakeStoreHandle) {
         gt: (col: string, val: unknown) => { state.gts.push({ col, val }); return chain },
         gte: (col: string, val: unknown) => { state.gtes.push({ col, val }); return chain },
         lte: (col: string, val: unknown) => { state.ltes.push({ col, val }); return chain },
+        lt: (col: string, val: unknown) => { state.lts.push({ col, val }); return chain },
         order: () => chain,
         limit: () => chain,
         single: () => Promise.resolve(runQuery(h, state, 'single')),
