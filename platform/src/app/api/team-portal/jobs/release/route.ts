@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
 
@@ -13,11 +13,10 @@ export async function POST(request: Request) {
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
 
   // Atomic: only succeeds if this booking is currently assigned to THIS member.
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .update({ team_member_id: null, status: 'scheduled' })
     .eq('id', booking_id)
-    .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .select()
     .maybeSingle()
