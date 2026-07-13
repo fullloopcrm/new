@@ -165,7 +165,27 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     })
     .select('id')
     .single()
-  if (paymentInsertErr) console.error(`[payment-processor] ${label} insert failed:`, paymentInsertErr)
+  if (paymentInsertErr) {
+    // 23505 = a concurrent/redelivered call with the SAME (tenant_id,
+    // booking_id, reference_id) already won and inserted its row (double-tapped
+    // checkout, a client retry after a timeout, or a redelivered
+    // finalize-match request). Treat as an idempotent no-op — proceeding here
+    // would double-post revenue to the ledger and double-post the cleaner's
+    // payout to the ledger (the Stripe transfer itself is idempotency-keyed
+    // below, but the DB rows and ledger entries are not).
+    if ((paymentInsertErr as { code?: string }).code === '23505') {
+      console.warn(`[payment-processor] duplicate ${label} delivery ignored (booking ${bookingId}, ref ${referenceId})`)
+      const priorIsPartial = expectedCents > 0 && priorCents < expectedCents * PARTIAL_THRESHOLD
+      return {
+        status: priorIsPartial ? 'partial' : 'paid',
+        totalReceivedCents: priorCents,
+        expectedCents,
+        tipCents: 0,
+        cleanerPaidCents: 0,
+      }
+    }
+    console.error(`[payment-processor] ${label} insert failed:`, paymentInsertErr)
+  }
   if (paymentRow?.id) {
     postPaymentRevenue({ tenantId, paymentId: paymentRow.id })
       .catch(err => console.error('[payment-processor] revenue post failed:', err))
