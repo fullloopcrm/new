@@ -4,14 +4,13 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 60
 
 export async function GET(request: Request) {
-  const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   // Cheap precheck — count enabled tenants. If none, bail.
   const { count } = await supabaseAdmin

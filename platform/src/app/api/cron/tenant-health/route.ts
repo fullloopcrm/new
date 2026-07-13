@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { alertOwner } from '@/lib/telegram'
 import { checkTenant, type TenantHealth } from '@/lib/tenant-health'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -50,10 +51,8 @@ async function mapCapped<T, R>(items: T[], fn: (t: T) => Promise<R>, cap: number
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   // A tenant's live domain can be in EITHER `tenants.domain` OR `tenant_domains`.
   // The resolver checks `tenants.domain` first, so it wins here too. Union both

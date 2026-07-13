@@ -5,6 +5,7 @@ import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { worksScheduledDay } from '@/lib/day-availability'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300
 
@@ -21,10 +22,8 @@ interface Issue {
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const now = new Date()
   const endDate = new Date(now); endDate.setDate(endDate.getDate() + 14)

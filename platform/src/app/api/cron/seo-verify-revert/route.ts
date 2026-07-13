@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { runVerifyRevert } from '@/lib/seo/verify-revert'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -9,10 +10,8 @@ export const maxDuration = 300
 // window against their live position and rolls back clear regressions. Safe to
 // run regardless of the autopilot flag; it only ever touches autopilot changes.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
   try {
     const result = await runVerifyRevert()
     return NextResponse.json({ ok: true, ...result })

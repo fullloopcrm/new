@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { trackError } from '@/lib/error-tracking'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 120
 
@@ -16,10 +17,8 @@ export const maxDuration = 120
  * 5. Verify system connectivity
  */
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const issues: string[] = []
   const fixes: string[] = []

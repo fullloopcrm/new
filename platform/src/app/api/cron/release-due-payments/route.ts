@@ -8,13 +8,13 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent } from '@/lib/jobs'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 60
 
 export async function GET(request: Request) {
-  if (request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const nowIso = new Date().toISOString()
   const { data: due, error } = await supabaseAdmin

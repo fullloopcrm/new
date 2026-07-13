@@ -4,6 +4,7 @@ import { notify } from '@/lib/notify'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { sendSMS } from '@/lib/sms'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -12,10 +13,8 @@ export const maxDuration = 300 // Vercel pro plan
 // 2. Team member 3-day lookahead (SMS + email)
 // 3. Recurring expiration check (30-day warning)
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const now = new Date()
   const today = new Date(now)

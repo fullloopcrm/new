@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { trackError } from '@/lib/error-tracking'
 import { alertOwner } from '@/lib/telegram'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 120
 
@@ -29,10 +30,8 @@ type CheckResult = {
  * 10. Campaign delivery
  */
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const checks: CheckResult[] = []
 

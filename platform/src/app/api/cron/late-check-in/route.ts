@@ -6,14 +6,13 @@ import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins } from '@/lib/push'
 import { trackError } from '@/lib/error-tracking'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const now = new Date()
   const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000)

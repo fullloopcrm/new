@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 // Nightly backup: exports each tenant's data as JSON snapshot
 // Supabase already does daily DB backups on Pro plan, but this gives
 // per-tenant granular snapshots we control
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')

@@ -9,6 +9,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { getActiveMoments, pickMessage, qualifiesForMoment, type OutreachMoment } from '@/lib/outreach'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300
 
@@ -33,9 +34,8 @@ interface TenantRow {
 }
 
 export async function GET(request: Request) {
-  if (request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const moments = getActiveMoments()
   if (moments.length === 0) {

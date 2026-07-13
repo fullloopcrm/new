@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { runTechnicalScan } from '@/lib/seo/technical'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -10,10 +11,8 @@ export const maxDuration = 300
 // pages the site wants indexed but Google isn't. Read-only against GSC; writes
 // seo_sitemaps / seo_url_status / seo_issues.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
   const url = new URL(request.url)
   const propertyLimit = Number(url.searchParams.get('properties')) || undefined
   try {

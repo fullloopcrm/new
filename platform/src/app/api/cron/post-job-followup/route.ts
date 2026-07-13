@@ -2,16 +2,15 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300
 
 // Post-job follow-up — runs every 30 min
 // Sends SMS rating request 2 hours after checkout
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   let sent = 0
   let skipped = 0

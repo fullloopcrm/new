@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { generateProposals } from '@/lib/seo/remediate'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -10,10 +11,8 @@ export const maxDuration = 300
 // 'proposed'. Applies NOTHING — apply is a separate, gated step
 // (/api/admin/seo/apply) triggered by approval. Human-in-the-loop by default.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
   const url = new URL(request.url)
   const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 25, 1), 200)
 

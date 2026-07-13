@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { generateEnrichments } from '@/lib/seo/enrich'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,10 +12,8 @@ export const maxDuration = 300
 // proposals (seo_changes field='enrichment', status='proposed'); nothing is
 // applied to a live page — content stays human-reviewed.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
   const url = new URL(request.url)
   const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 20, 1), 100)
   try {
