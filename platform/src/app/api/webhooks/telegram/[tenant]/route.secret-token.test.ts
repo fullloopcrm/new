@@ -6,8 +6,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  *   - tenant has telegram_webhook_secret set + missing/wrong header => 401,
  *     never touches askSelena (fail-closed)
  *   - tenant has telegram_webhook_secret set + correct header => passes
- *   - tenant has NO secret configured => fails open (deliberate default
- *     until every tenant rotates one in)
+ *   - tenant has NO secret configured => 401, fails closed (flipped from the
+ *     prior fail-open default — a tenant must rotate a secret in before its
+ *     bot will accept webhook traffic)
  *   - wrong-tenant probe: a secret that authenticates a DIFFERENT tenant
  *     does not authenticate this one
  */
@@ -86,14 +87,14 @@ describe('telegram per-tenant webhook — secret token verification', () => {
     expect((await res.json()).skip).toBe('no_chat_or_text')
   })
 
-  it('tenant has NO secret configured => fails open, still processes despite missing header', async () => {
+  it('tenant has NO secret configured => 401, fails closed, never touches askSelena', async () => {
     tenantRow = { id: 't1', slug: 'acme', telegram_bot_token: 'plain_bot_token', telegram_chat_id: '555', telegram_webhook_secret: null }
     const { POST } = await import('./route')
 
-    const res = await POST(req({ body: {} }), ctx('acme'))
+    const res = await POST(req({ body: { message: { chat: { id: 555 }, text: 'hi' } } }), ctx('acme'))
 
-    expect(res.status).toBe(200)
-    expect((await res.json()).skip).toBe('no_chat_or_text')
+    expect(res.status).toBe(401)
+    expect(askSelena).not.toHaveBeenCalled()
   })
 
   it('wrong-tenant probe: another tenant\'s valid secret does not authenticate this tenant', async () => {

@@ -12,7 +12,7 @@ import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { insertConversationMessage } from '@/lib/sms-messages'
-import { verifyTelegramSecretToken, warnTelegramSecretUnset } from '@/lib/webhook-verify'
+import { verifyTelegramSecretToken } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
@@ -57,15 +57,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   if (!tenant) return NextResponse.json({ ok: true, skip: 'unknown_tenant' })
   if (!tenant.telegram_bot_token) return NextResponse.json({ ok: true, skip: 'no_bot_token' })
 
-  if (tenant.telegram_webhook_secret) {
-    const secret = decryptSecret(tenant.telegram_webhook_secret)
-    const verify = verifyTelegramSecretToken(req.headers, secret)
-    if (!verify.valid) {
-      console.warn(`[telegram webhook:${slug}] rejected:`, verify.reason)
-      return NextResponse.json({ error: 'Invalid secret token' }, { status: 401 })
-    }
-  } else {
-    warnTelegramSecretUnset(slug)
+  const secret = tenant.telegram_webhook_secret ? decryptSecret(tenant.telegram_webhook_secret) : undefined
+  const verify = verifyTelegramSecretToken(req.headers, secret)
+  if (!verify.valid) {
+    console.warn(`[telegram webhook:${slug}] rejected:`, verify.reason)
+    return NextResponse.json({ error: 'Invalid secret token' }, { status: 401 })
   }
 
   const botToken = decryptSecret(tenant.telegram_bot_token)

@@ -153,14 +153,15 @@ describe('verifyTelegramSecretToken', () => {
     expect(result.valid).toBe(false)
   })
 
-  it('fails OPEN when no secret is configured, even with no header sent', () => {
+  it('fails CLOSED when no secret is configured, even with no header sent', () => {
     const result = verifyTelegramSecretToken(headers(null), undefined)
-    expect(result.valid).toBe(true)
-    expect(result.reason).toContain('fail-open')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret not configured')
   })
 
-  it('fails OPEN when no secret is configured, regardless of header content', () => {
+  it('fails CLOSED when no secret is configured, regardless of header content', () => {
     const result = verifyTelegramSecretToken(headers('anything'), '')
-    expect(result.valid).toBe(true)
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret not configured')
   })
 })

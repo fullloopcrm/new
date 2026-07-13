@@ -77,16 +77,18 @@ export function verifySvix(
  * forge. Constant-time compare, same length-then-timingSafeEqual pattern as
  * verifySvix above.
  *
- * Fail-OPEN when expectedSecret is unset (not every bot has one configured
- * yet) — callers MUST flag this case themselves (see warnTelegramSecretUnset)
- * rather than silently accepting forever. Fail-CLOSED whenever a secret IS
- * configured: missing header or any mismatch is rejected.
+ * Fail-CLOSED in every case, including when expectedSecret is unset — an
+ * unconfigured secret means the endpoint's only auth is chat-ID allowlisting
+ * against a value that isn't actually secret, and these bots can trigger the
+ * Selena/Jefe agent and send messages. Callers must configure a secret via
+ * BotFather/setWebhook's secret_token param (and the matching env var /
+ * tenant column) before the webhook will accept traffic.
  */
 export function verifyTelegramSecretToken(
   headers: Headers,
   expectedSecret: string | undefined
 ): VerifyResult {
-  if (!expectedSecret) return { valid: true, reason: 'secret not configured (fail-open)' }
+  if (!expectedSecret) return { valid: false, reason: 'secret not configured' }
 
   const provided = headers.get('x-telegram-bot-api-secret-token')
   if (!provided) return { valid: false, reason: 'missing X-Telegram-Bot-Api-Secret-Token header' }
@@ -97,23 +99,6 @@ export function verifyTelegramSecretToken(
     return { valid: false, reason: 'secret token mismatch' }
   }
   return { valid: true }
-}
-
-const _warnedNoTelegramSecret = new Set<string>()
-
-/**
- * Logs once per process per bot key when a Telegram bot has no secret token
- * configured, so the fail-open gap stays visible in logs instead of silently
- * persisting forever. Call this from the route whenever the secret is unset.
- */
-export function warnTelegramSecretUnset(botKey: string): void {
-  if (_warnedNoTelegramSecret.has(botKey)) return
-  _warnedNoTelegramSecret.add(botKey)
-  console.warn(
-    `[telegram webhook:${botKey}] no secret token configured — accepting unauthenticated updates ` +
-    `(fail-open). Set a secret via BotFather/setWebhook's secret_token param and configure the matching ` +
-    `env var / tenant column to close this gap.`
-  )
 }
 
 /**

@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { insertConversationMessage } from '@/lib/sms-messages'
-import { verifyTelegramSecretToken, warnTelegramSecretUnset } from '@/lib/webhook-verify'
+import { verifyTelegramSecretToken } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
@@ -49,14 +49,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (!WEBHOOK_SECRET) {
-    warnTelegramSecretUnset('global')
-  } else {
-    const verify = verifyTelegramSecretToken(req.headers, WEBHOOK_SECRET)
-    if (!verify.valid) {
-      console.warn('[telegram webhook:global] rejected:', verify.reason)
-      return NextResponse.json({ error: 'Invalid secret token' }, { status: 401 })
-    }
+  const verify = verifyTelegramSecretToken(req.headers, WEBHOOK_SECRET)
+  if (!verify.valid) {
+    console.warn('[telegram webhook:global] rejected:', verify.reason)
+    return NextResponse.json({ error: 'Invalid secret token' }, { status: 401 })
   }
 
   let body: { message?: { chat?: { id?: number | string }; text?: string } } = {}

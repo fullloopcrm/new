@@ -7,8 +7,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  *   - TELEGRAM_WEBHOOK_SECRET set + missing/wrong header => 401, never
  *     touches askSelena (fail-closed)
  *   - TELEGRAM_WEBHOOK_SECRET set + correct header => passes verification
- *   - TELEGRAM_WEBHOOK_SECRET unset => still processes (fail-open is the
- *     deliberate default until every bot has a secret configured)
+ *   - TELEGRAM_WEBHOOK_SECRET unset => 401, never processes (fail-closed —
+ *     flipped from the prior deliberate fail-open default; an unconfigured
+ *     secret must not silently accept unauthenticated updates to a bot that
+ *     can trigger the Selena agent)
  */
 
 const askSelena = vi.fn()
@@ -76,13 +78,13 @@ describe('telegram global webhook — secret token verification', () => {
     expect((await res.json()).skip).toBe('no_chat_or_text')
   })
 
-  it('secret NOT configured => fails open, still processes despite missing header', async () => {
+  it('secret NOT configured => 401, fails closed, never processes the update', async () => {
     delete process.env.TELEGRAM_WEBHOOK_SECRET
     const { POST } = await import('./route')
 
-    const res = await POST(req({ body: {} }))
+    const res = await POST(req({ body: { message: { chat: { id: 12345 }, text: 'hi' } } }))
 
-    expect(res.status).toBe(200)
-    expect((await res.json()).skip).toBe('no_chat_or_text')
+    expect(res.status).toBe(401)
+    expect(askSelena).not.toHaveBeenCalled()
   })
 })

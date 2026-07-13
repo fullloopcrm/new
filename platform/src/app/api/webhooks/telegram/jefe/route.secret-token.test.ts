@@ -6,7 +6,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  *   - JEFE_WEBHOOK_SECRET set + missing/wrong header => 401, never touches
  *     askJefe (fail-closed)
  *   - JEFE_WEBHOOK_SECRET set + correct header => passes verification
- *   - JEFE_WEBHOOK_SECRET unset => still processes (fail-open default)
+ *   - JEFE_WEBHOOK_SECRET unset => 401, never processes (fail-closed —
+ *     flipped from the prior fail-open default)
  */
 
 const askJefe = vi.fn()
@@ -70,13 +71,13 @@ describe('telegram jefe webhook — secret token verification', () => {
     expect((await res.json()).skip).toBe('no_chat_or_text')
   })
 
-  it('secret NOT configured => fails open, still processes despite missing header', async () => {
+  it('secret NOT configured => 401, fails closed, never processes the update', async () => {
     delete process.env.JEFE_WEBHOOK_SECRET
     const { POST } = await import('./route')
 
-    const res = await POST(req({ body: {} }))
+    const res = await POST(req({ body: { message: { chat: { id: 999 }, text: 'status?' } } }))
 
-    expect(res.status).toBe(200)
-    expect((await res.json()).skip).toBe('no_chat_or_text')
+    expect(res.status).toBe(401)
+    expect(askJefe).not.toHaveBeenCalled()
   })
 })
