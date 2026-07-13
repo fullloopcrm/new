@@ -2,32 +2,22 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * WITNESS — cross-tenant READ + FK injection on POST /api/bookings.
+ * WITNESS — cross-tenant READ + FK injection on POST /api/bookings. FIXED.
  *
- * UNCONVERTED route (raw `supabaseAdmin`). HARD-tier, and the strongest leak in
- * this batch because it performs an actual cross-tenant READ, not just a dangling
- * reference write. See deploy-prep/tenantdb-rollout-plan.md §5b.
+ * UNCONVERTED route (raw `supabaseAdmin`). See deploy-prep/cross-tenant-leak-register.md P1.
  *
- * Two distinct defects, both live TODAY:
+ * Two defects, both now closed:
  *
- *  1. SERVICE-TYPE NAME READ (cross-tenant READ):
- *     The route resolves the service-type name with
- *         supabaseAdmin.from('service_types').select('name').eq('id', service_type_id)   // NO tenant filter
- *     and copies `svc.name` onto the new booking. A caller in tenant A passing
- *     tenant B's `service_type_id` reads B's service-type NAME and stamps it on
- *     A's booking. (The team_member_id lookups on this route ARE scoped
- *     `.eq('tenant_id', A)`; this one is not.)
+ *  1. SERVICE-TYPE NAME READ (cross-tenant READ): the `service_types` lookup now
+ *     carries `.eq('tenant_id', tenantId)`, so a foreign `service_type_id` matches
+ *     nothing and its name never reaches the booking.
  *
- *  2. CLIENT_ID FK INJECTION:
- *     `client_id` is only UUID-format-validated, never ownership-checked, then
- *     inserted `{ ...validated, tenant_id: A }`. A's booking references B's client.
+ *  2. CLIENT_ID FK INJECTION: `client_id` is now verified owned by the acting
+ *     tenant (`clients` lookup scoped `.eq('tenant_id', tenantId)`) before any
+ *     other work runs; a foreign id 404s before insert.
  *
- * Assert the leak is CURRENTLY LIVE. When guards land (scope the service_types
- * read to `tenantId`; verify client_id ownership), FLIP these assertions.
- *
- * Mutation-safe: assertion (1) reads the ACTUAL copied service_type name; adding
- * `.eq('tenant_id', tenantId)` to the service_types read filters B's row out, so
- * `svc` is null, `service_type` is never set, and the assertion fails.
+ * LOCKED: these assertions prove the guards fire. A regression that removes
+ * either `.eq('tenant_id', ...)` filter flips them back to a leak.
  */
 
 const CTX_TENANT = 'tid-a' // attacker
@@ -104,7 +94,10 @@ function seed() {
       { id: 'client-b', tenant_id: OTHER_TENANT, name: 'B-Client', phone: null },
     ],
     // Victim's service type — its NAME must not reach tenant A.
-    service_types: [{ id: 'svc-b', tenant_id: OTHER_TENANT, name: 'Bravo Deep Clean' }],
+    service_types: [
+      { id: 'svc-a', tenant_id: CTX_TENANT, name: 'Alpha Standard Clean' },
+      { id: 'svc-b', tenant_id: OTHER_TENANT, name: 'Bravo Deep Clean' },
+    ],
     team_members: [] as Record<string, unknown>[],
     tenants: [{ id: CTX_TENANT, name: 'Alpha' }],
   }
@@ -120,30 +113,42 @@ beforeEach(() => {
   holder.from = h.from
 })
 
-describe('bookings POST — cross-tenant READ + FK injection WITNESS', () => {
-  it('LEAK: the foreign service_type_id read (no tenant filter) copies tenant B\'s service-type name onto tenant A\'s booking', async () => {
+describe('bookings POST — cross-tenant READ + FK injection LOCKED', () => {
+  it('LOCKED: a foreign service_type_id is scoped out — its name never reaches tenant A\'s booking', async () => {
     const res = await POST(
       postReq({ client_id: 'client-a', service_type_id: 'svc-b', start_time: '2026-08-01T10:00:00Z' }),
     )
     expect(res.status).toBe(201)
     const json = (await res.json()) as { booking: Record<string, unknown> }
 
-    // Tenant B's service-type name has crossed into tenant A's booking.
-    expect(json.booking.service_type).toBe('Bravo Deep Clean')
+    // Tenant B's service-type name must NOT cross into tenant A's booking.
+    expect(json.booking.service_type).toBeUndefined()
 
     const row = h.capture.inserts.find((i) => i.table === 'bookings')!.rows[0]
     expect(row.tenant_id).toBe(CTX_TENANT)
-    expect(row.service_type).toBe('Bravo Deep Clean')
+    expect(row.service_type).toBeUndefined()
   })
 
-  it('LEAK: a foreign client_id (UUID-validated only, never ownership-checked) is stored on the acting tenant\'s booking', async () => {
+  it('LOCKED: a foreign client_id 404s before any booking is inserted', async () => {
     const res = await POST(
       postReq({ client_id: 'client-b', start_time: '2026-08-01T10:00:00Z' }),
     )
+    expect(res.status).toBe(404)
+
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('CONTROL: own tenant\'s client_id + service_type_id still create a booking with the correct name', async () => {
+    const res = await POST(
+      postReq({ client_id: 'client-a', service_type_id: 'svc-a', start_time: '2026-08-01T10:00:00Z' }),
+    )
     expect(res.status).toBe(201)
+    const json = (await res.json()) as { booking: Record<string, unknown> }
+    expect(json.booking.service_type).toBe('Alpha Standard Clean')
 
     const row = h.capture.inserts.find((i) => i.table === 'bookings')!.rows[0]
     expect(row.tenant_id).toBe(CTX_TENANT)
-    expect(row.client_id).toBe('client-b') // tenant B's client
+    expect(row.client_id).toBe('client-a')
+    expect(row.service_type).toBe('Alpha Standard Clean')
   })
 })

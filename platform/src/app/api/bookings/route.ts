@@ -95,6 +95,19 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
+    // client_id is a caller-supplied FK — verify it belongs to this tenant before
+    // any read/write touches it, so a foreign id can't attach another tenant's
+    // client to this booking.
+    const { data: ownedClient } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .eq('id', validated.client_id as string)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!ownedClient) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
     // Tenant rule: require_team_member forces a team_member_id at create time.
     if (settings.require_team_member && !validated.team_member_id) {
       return NextResponse.json(
@@ -191,13 +204,15 @@ export async function POST(request: Request) {
       }
     }
 
-    // Look up service type name if service_type_id provided
+    // Look up service type name if service_type_id provided — scoped to this
+    // tenant so a foreign service_type_id can't read another tenant's name.
     if (validated.service_type_id) {
       const { data: svc } = await supabaseAdmin
         .from('service_types')
         .select('name')
         .eq('id', validated.service_type_id as string)
-        .single()
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
       if (svc) (validated as Record<string, unknown>).service_type = svc.name
     }
 
