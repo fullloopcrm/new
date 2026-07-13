@@ -128,41 +128,36 @@ export async function POST(request: Request) {
       }
     }
 
-    // Check for team member scheduling conflicts, honoring booking_buffer_minutes
-    // so back-to-back jobs always leave the configured gap.
+    // Scheduling-conflict window + daily-cap inputs, computed here but
+    // CHECKED atomically below (create_admin_booking_atomic) alongside the
+    // INSERT — see migrations/2026_07_13_admin_booking_atomic.sql. Folding a
+    // separate SELECT-then-branch here into the same DB call as the insert
+    // closes a TOCTOU race: two concurrent creates assigning the same
+    // team_member_id could otherwise both read a clean pre-insert state and
+    // both pass before either INSERT landed (same shape as
+    // migrations/2026_07_13_job_claim_atomic.sql).
+    let conflictStart: string | null = null
+    let conflictEnd: string | null = null
+    let bufferNote = ''
     if (validated.team_member_id && validated.start_time) {
       const endTime = validated.end_time || new Date(new Date(validated.start_time as string).getTime() + 3 * 3600000).toISOString()
       const bufferMs = Math.max(0, settings.booking_buffer_minutes) * 60_000
-      const startWithBuffer = new Date(new Date(validated.start_time as string).getTime() - bufferMs).toISOString()
-      const endWithBuffer = new Date(new Date(endTime as string).getTime() + bufferMs).toISOString()
-
-      const { data: conflicts } = await supabaseAdmin
-        .from('bookings')
-        .select('id, start_time, end_time')
-        .eq('tenant_id', tenantId)
-        .eq('team_member_id', validated.team_member_id)
-        .not('status', 'in', '("cancelled","no_show")')
-        .lt('start_time', endWithBuffer)
-        .gt('end_time', startWithBuffer)
-
-      if (conflicts && conflicts.length > 0) {
-        const bufferNote = bufferMs > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
-        return NextResponse.json({
-          error: `Scheduling conflict: team member already has a booking during this time${bufferNote}`,
-          conflicts: conflicts.map(c => ({
-            id: c.id,
-            start: c.start_time,
-            end: c.end_time,
-          }))
-        }, { status: 409 })
-      }
+      conflictStart = new Date(new Date(validated.start_time as string).getTime() - bufferMs).toISOString()
+      conflictEnd = new Date(new Date(endTime as string).getTime() + bufferMs).toISOString()
+      bufferNote = bufferMs > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
     }
 
-    // Working-hours + daily max-jobs enforcement at assignment — mirrors the
-    // smart-schedule scorer so a manual/agent pick can't violate what suggestions
-    // enforce. (force bypasses, like the day-off + conflict guards above.)
+    // Working-hours enforcement at assignment — mirrors the smart-schedule
+    // scorer so a manual/agent pick can't violate what suggestions enforce.
+    // (force bypasses, like the day-off guard above.) The daily-cap number
+    // itself is only captured here (capLimit); the actual count check moves
+    // into the atomic call below so it can't race the insert.
+    let capLimit: number | null = null
+    let capMemberName: string | undefined
+    const bookingDate = validated.start_time ? (validated.start_time as string).split('T')[0] : ''
+    const dayStart = bookingDate ? `${bookingDate}T00:00:00` : null
+    const dayEnd = bookingDate ? `${bookingDate}T23:59:59` : null
     if (validated.team_member_id && validated.start_time && !body.force) {
-      const bookingDate = (validated.start_time as string).split('T')[0]
       const { data: member } = await supabaseAdmin
         .from('team_members')
         .select('name, schedule, max_jobs_per_day')
@@ -184,22 +179,9 @@ export async function POST(request: Request) {
             unavailable: true, reason: 'outside_hours',
           }, { status: 409 })
         }
-        // Daily job cap.
         if (member.max_jobs_per_day) {
-          const { count } = await supabaseAdmin
-            .from('bookings')
-            .select('id', { count: 'exact', head: true })
-            .eq('tenant_id', tenantId)
-            .eq('team_member_id', validated.team_member_id)
-            .gte('start_time', bookingDate + 'T00:00:00')
-            .lte('start_time', bookingDate + 'T23:59:59')
-            .not('status', 'in', '("cancelled","no_show")')
-          if ((count || 0) >= Number(member.max_jobs_per_day)) {
-            return NextResponse.json({
-              error: `${member.name} is already at their ${member.max_jobs_per_day}-job limit for ${bookingDate}.`,
-              unavailable: true, reason: 'max_jobs',
-            }, { status: 409 })
-          }
+          capLimit = Number(member.max_jobs_per_day)
+          capMemberName = member.name as string
         }
       }
     }
@@ -222,10 +204,55 @@ export async function POST(request: Request) {
       ? 'confirmed'
       : (settings.default_booking_status || 'scheduled')
 
+    // Atomic create: the scheduling-conflict check, the daily-cap check, and
+    // the INSERT all run inside one supabaseAdmin.rpc('create_admin_booking_atomic', ...)
+    // call — see migrations/2026_07_13_admin_booking_atomic.sql.
+    const { data: claim, error: claimError } = await supabaseAdmin.rpc('create_admin_booking_atomic', {
+      p_tenant_id: tenantId,
+      p_client_id: validated.client_id,
+      p_property_id: validated.property_id ?? null,
+      p_team_member_id: validated.team_member_id ?? null,
+      p_service_type_id: validated.service_type_id ?? null,
+      p_service_type: (validated as Record<string, unknown>).service_type ?? null,
+      p_start_time: validated.start_time,
+      p_end_time: validated.end_time ?? null,
+      p_notes: validated.notes ?? null,
+      p_special_instructions: validated.special_instructions ?? null,
+      p_status: newStatus,
+      p_conflict_start: conflictStart,
+      p_conflict_end: conflictEnd,
+      p_day_start: dayStart,
+      p_day_end: dayEnd,
+      p_max_jobs_per_day: capLimit,
+    })
+    if (claimError) {
+      return NextResponse.json({ error: claimError.message }, { status: 500 })
+    }
+    if (!claim?.created) {
+      if (claim?.reason === 'conflict') {
+        return NextResponse.json({
+          error: `Scheduling conflict: team member already has a booking during this time${bufferNote}`,
+          conflicts: (claim.conflicts || []).map((c: { id: string; start: string; end: string }) => ({
+            id: c.id,
+            start: c.start,
+            end: c.end,
+          })),
+        }, { status: 409 })
+      }
+      if (claim?.reason === 'max_jobs') {
+        return NextResponse.json({
+          error: `${capMemberName} is already at their ${capLimit}-job limit for ${bookingDate}.`,
+          unavailable: true, reason: 'max_jobs',
+        }, { status: 409 })
+      }
+      return NextResponse.json({ error: 'Insert failed' }, { status: 500 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .insert({ ...validated, tenant_id: tenantId, status: newStatus })
       .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
+      .eq('id', claim.booking.id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (error) {

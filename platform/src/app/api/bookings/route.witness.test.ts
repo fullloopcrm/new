@@ -23,8 +23,34 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
 const CTX_TENANT = 'tid-a' // attacker
 const OTHER_TENANT = 'tid-b' // victim
 
-const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+const holder = vi.hoisted(() => ({ from: null as null | Harness['from'], h: null as null | Harness }))
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: (t: string) => holder.from!(t),
+    // Models migrations/2026_07_13_admin_booking_atomic.sql: none of these
+    // tests assign a team_member_id, so the real function's conflict/cap
+    // checks never trigger — this just performs the INSERT through the
+    // harness so `h.capture.inserts` still records it.
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      if (fn !== 'create_admin_booking_atomic') throw new Error(`unexpected rpc: ${fn}`)
+      const row = holder.h!.from('bookings').insert({
+        tenant_id: args.p_tenant_id,
+        client_id: args.p_client_id,
+        property_id: args.p_property_id,
+        team_member_id: args.p_team_member_id,
+        service_type_id: args.p_service_type_id,
+        service_type: args.p_service_type,
+        start_time: args.p_start_time,
+        end_time: args.p_end_time,
+        notes: args.p_notes,
+        special_instructions: args.p_special_instructions,
+        status: args.p_status,
+      })
+      const { data } = await row.select().single()
+      return { data: { created: true, booking: data }, error: null }
+    },
+  },
+}))
 
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {
@@ -111,6 +137,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  holder.h = h
 })
 
 describe('bookings POST — cross-tenant READ + FK injection LOCKED', () => {
@@ -122,11 +149,13 @@ describe('bookings POST — cross-tenant READ + FK injection LOCKED', () => {
     const json = (await res.json()) as { booking: Record<string, unknown> }
 
     // Tenant B's service-type name must NOT cross into tenant A's booking.
-    expect(json.booking.service_type).toBeUndefined()
+    // (Post-atomic-fix, the unset value is an explicit column NULL — same as
+    // a real Postgres insert — rather than an absent JS key.)
+    expect(json.booking.service_type).toBeNull()
 
     const row = h.capture.inserts.find((i) => i.table === 'bookings')!.rows[0]
     expect(row.tenant_id).toBe(CTX_TENANT)
-    expect(row.service_type).toBeUndefined()
+    expect(row.service_type).toBeNull()
   })
 
   it('LOCKED: a foreign client_id 404s before any booking is inserted', async () => {
