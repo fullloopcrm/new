@@ -126,6 +126,10 @@ vi.mock('@/lib/supabase', () => ({
                   const m = holder.members.get(MEMBER)
                   return m ? { data: m, error: null } : { data: null, error: { message: 'not found' } }
                 },
+                maybeSingle: async () => {
+                  const m = holder.members.get(MEMBER)
+                  return m ? { data: { id: MEMBER }, error: null } : { data: null, error: null }
+                },
               }),
             }),
           }),

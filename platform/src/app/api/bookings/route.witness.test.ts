@@ -124,7 +124,10 @@ function seed() {
       { id: 'svc-a', tenant_id: CTX_TENANT, name: 'Alpha Standard Clean' },
       { id: 'svc-b', tenant_id: OTHER_TENANT, name: 'Bravo Deep Clean' },
     ],
-    team_members: [] as Record<string, unknown>[],
+    team_members: [
+      { id: 'tm-a', tenant_id: CTX_TENANT, name: 'A-Member', schedule: null, max_jobs_per_day: null },
+      { id: 'tm-b', tenant_id: OTHER_TENANT, name: 'B-Member', schedule: null, max_jobs_per_day: null },
+    ],
     tenants: [{ id: CTX_TENANT, name: 'Alpha' }],
   }
 }
@@ -179,5 +182,25 @@ describe('bookings POST — cross-tenant READ + FK injection LOCKED', () => {
     expect(row.tenant_id).toBe(CTX_TENANT)
     expect(row.client_id).toBe('client-a')
     expect(row.service_type).toBe('Alpha Standard Clean')
+  })
+
+  it('LOCKED: a foreign team_member_id 404s before any booking is inserted', async () => {
+    // tm-b belongs to OTHER_TENANT. team_members has no cross-tenant FK check,
+    // so without an explicit ownership guard this would sail through and
+    // cross-tenant-assign tenant B's employee to tenant A's booking.
+    const res = await POST(
+      postReq({ client_id: 'client-a', team_member_id: 'tm-b', start_time: '2026-08-01T10:00:00Z' }),
+    )
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('CONTROL: own tenant\'s team_member_id still creates a booking assigned to that member', async () => {
+    const res = await POST(
+      postReq({ client_id: 'client-a', team_member_id: 'tm-a', start_time: '2026-08-01T10:00:00Z' }),
+    )
+    expect(res.status).toBe(201)
+    const row = h.capture.inserts.find((i) => i.table === 'bookings')!.rows[0]
+    expect(row.team_member_id).toBe('tm-a')
   })
 })

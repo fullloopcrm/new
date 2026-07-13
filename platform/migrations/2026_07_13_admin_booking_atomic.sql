@@ -45,7 +45,15 @@ BEGIN
   IF p_team_member_id IS NOT NULL THEN
     -- Lock the member row for the duration of this transaction: concurrent
     -- create_admin_booking_atomic calls for the same member serialize here.
+    -- PERFORM alone discards the row count, so a p_team_member_id that
+    -- belongs to a DIFFERENT tenant would silently match zero rows and fall
+    -- through to the INSERT below with a cross-tenant team_member_id — the
+    -- app layer now rejects this before calling in, but the RPC shouldn't
+    -- rely on that alone; FOUND makes it fail closed here too.
     PERFORM 1 FROM public.team_members WHERE id = p_team_member_id AND tenant_id = p_tenant_id FOR UPDATE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'team_member % not found for tenant %', p_team_member_id, p_tenant_id;
+    END IF;
 
     -- Scheduling conflict (buffer-padded overlap window), same shape as the
     -- old inline check — always evaluated when a member + start_time are

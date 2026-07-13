@@ -108,6 +108,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 
+    // team_member_id is a caller-supplied FK too — team_members has no
+    // cross-tenant FK check, so without this a foreign id would sail through
+    // (the working-hours/cap lookup below silently no-ops when the row isn't
+    // found for this tenant, it doesn't reject) and the atomic RPC's row
+    // lock doesn't check for a match either — verify ownership here, before
+    // `force` or anything downstream can bypass it.
+    if (validated.team_member_id) {
+      const { data: ownedMember } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .eq('id', validated.team_member_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedMember) {
+        return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+    }
+
     // Tenant rule: require_team_member forces a team_member_id at create time.
     if (settings.require_team_member && !validated.team_member_id) {
       return NextResponse.json(
