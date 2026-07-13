@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { tenantDb } from '@/lib/tenant-db'
 
 // GET /api/admin/comhub/contacts/[id]/context
 // Enriched info for the right-side panel: contact + linked client + team_member +
@@ -10,60 +10,66 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const { id } = await ctx.params
 
-  const { data: contact, error: cErr } = await supabaseAdmin
+  const { data: contactRow, error: cErr } = await db
     .from('comhub_contacts')
     .select('id, name, phone, email, client_id, team_member_id')
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .single()
+  // tenantDb's select() widens the columns literal to `string`, so postgrest-js
+  // can't statically parse the result shape here — cast at this boundary.
+  const contact = contactRow as unknown as {
+    id: string; name: string | null; phone: string | null; email: string | null
+    client_id: string | null; team_member_id: string | null
+  } | null
   if (cErr || !contact) return NextResponse.json({ error: 'contact not found' }, { status: 404 })
 
-  let clientId = contact.client_id as string | null
-  let teamMemberId = contact.team_member_id as string | null
+  let clientId = contact.client_id
+  let teamMemberId = contact.team_member_id
 
   if (!clientId && contact.phone) {
     const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await supabaseAdmin
+    const { data: matched } = await db
       .from('clients')
       .select('id')
-      .eq('tenant_id', tenantId)
       .ilike('phone', `%${last10}%`)
       .limit(1)
-    if (matched && matched.length > 0) clientId = matched[0].id
+    const rows = matched as unknown as Array<{ id: string }> | null
+    if (rows && rows.length > 0) clientId = rows[0].id
   }
   if (!clientId && contact.email) {
-    const { data: matched } = await supabaseAdmin
+    const { data: matched } = await db
       .from('clients')
       .select('id')
-      .eq('tenant_id', tenantId)
       .ilike('email', contact.email)
       .limit(1)
-    if (matched && matched.length > 0) clientId = matched[0].id
+    const rows = matched as unknown as Array<{ id: string }> | null
+    if (rows && rows.length > 0) clientId = rows[0].id
   }
   if (!teamMemberId && contact.phone) {
     const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await supabaseAdmin
+    const { data: matched } = await db
       .from('team_members')
       .select('id')
-      .eq('tenant_id', tenantId)
       .ilike('phone', `%${last10}%`)
       .limit(1)
-    if (matched && matched.length > 0) teamMemberId = matched[0].id
+    const rows = matched as unknown as Array<{ id: string }> | null
+    if (rows && rows.length > 0) teamMemberId = rows[0].id
   }
   if (!teamMemberId && contact.email) {
-    const { data: matched } = await supabaseAdmin
+    const { data: matched } = await db
       .from('team_members')
       .select('id')
-      .eq('tenant_id', tenantId)
       .ilike('email', contact.email)
       .limit(1)
-    if (matched && matched.length > 0) teamMemberId = matched[0].id
+    const rows = matched as unknown as Array<{ id: string }> | null
+    if (rows && rows.length > 0) teamMemberId = rows[0].id
   }
 
   if ((clientId && clientId !== contact.client_id) || (teamMemberId && teamMemberId !== contact.team_member_id)) {
-    await supabaseAdmin
+    await db
       .from('comhub_contacts')
       .update({
         client_id: clientId || contact.client_id,
@@ -81,24 +87,22 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   let outstandingCents = 0
 
   if (clientId) {
-    const { data: c } = await supabaseAdmin
+    const { data: c } = await db
       .from('clients')
       .select('id, name, email, phone, address, status, active, do_not_service, sms_consent, notes, created_at')
       .eq('id', clientId)
       .single()
-    client = c
-    const { data: bks } = await supabaseAdmin
+    client = c as unknown as Record<string, unknown> | null
+    const { data: bks } = await db
       .from('bookings')
       .select('id, start_time, end_time, service_type, status, payment_status, hourly_rate, actual_hours, price, partial_payment_cents, team_member_id, team_members!bookings_team_member_id_fkey(name)')
-      .eq('tenant_id', tenantId)
       .eq('client_id', clientId)
       .order('start_time', { ascending: false })
       .limit(10)
-    recentBookings = (bks || []) as Array<Record<string, unknown>>
-    const { count } = await supabaseAdmin
+    recentBookings = (bks || []) as unknown as Array<Record<string, unknown>>
+    const { count } = await db
       .from('bookings')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
       .eq('client_id', clientId)
     if (typeof count === 'number') totalBookings = count
     else totalBookings = recentBookings.length
@@ -114,12 +118,12 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   }
 
   if (teamMemberId) {
-    const { data: tm } = await supabaseAdmin
+    const { data: tm } = await db
       .from('team_members')
       .select('id, name, email, phone, active, hourly_rate, avg_rating, rating_count, has_car, created_at')
       .eq('id', teamMemberId)
       .single()
-    teamMember = tm
+    teamMember = tm as unknown as Record<string, unknown> | null
   }
 
   return NextResponse.json({

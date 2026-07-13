@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { tenantDb } from '@/lib/tenant-db'
 
 // PATCH /api/admin/comhub/contacts/[id]/notes
 //   { notes?: string|null }
@@ -11,6 +11,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const { id } = await ctx.params
 
   const body = await req.json().catch(() => null) as {
@@ -20,12 +21,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   } | null
   if (!body) return NextResponse.json({ error: 'invalid body' }, { status: 400 })
 
-  const { data: contact } = await supabaseAdmin
+  const { data: contactRow } = await db
     .from('comhub_contacts')
     .select('id, client_id')
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .single()
+  // tenantDb's select() widens the columns literal to `string`, so postgrest-js
+  // can't statically parse the result shape here — cast at this boundary.
+  const contact = contactRow as unknown as { id: string; client_id: string | null } | null
   if (!contact) return NextResponse.json({ error: 'contact not found' }, { status: 404 })
   if (!contact.client_id) {
     return NextResponse.json({
@@ -36,7 +39,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const notesValue = body.notes ?? body.notes_private ?? body.notes_public
   if (notesValue === undefined) return NextResponse.json({ ok: true, noop: true })
 
-  const { error } = await supabaseAdmin
+  const { error } = await db
     .from('clients')
     .update({ notes: notesValue })
     .eq('id', contact.client_id)

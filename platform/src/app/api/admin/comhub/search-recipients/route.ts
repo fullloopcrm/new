@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { tenantDb } from '@/lib/tenant-db'
 
 // GET /api/admin/comhub/search-recipients?q=<query>&limit=10
 // Tenant-scoped search across clients + team_members for the compose modal.
@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   const { searchParams } = new URL(req.url)
   const q = (searchParams.get('q') || '').trim()
@@ -17,17 +18,15 @@ export async function GET(req: NextRequest) {
 
   const ql = `%${q}%`
 
-  const [{ data: clients }, { data: members }] = await Promise.all([
-    supabaseAdmin
+  const [{ data: clientRows }, { data: memberRows }] = await Promise.all([
+    db
       .from('clients')
       .select('id, name, phone, email, do_not_service')
-      .eq('tenant_id', tenantId)
       .or(`name.ilike.${ql},phone.ilike.${ql},email.ilike.${ql}`)
       .limit(limit),
-    supabaseAdmin
+    db
       .from('team_members')
       .select('id, name, phone, email')
-      .eq('tenant_id', tenantId)
       .or(`name.ilike.${ql},phone.ilike.${ql},email.ilike.${ql}`)
       .limit(limit),
   ])
@@ -40,6 +39,15 @@ export async function GET(req: NextRequest) {
     email: string | null
     dns?: boolean
   }
+
+  // tenantDb's select() widens the columns literal to `string`, so postgrest-js
+  // can't statically parse the result shape here — cast at this boundary.
+  const clients = clientRows as unknown as Array<{
+    id: string; name: string | null; phone: string | null; email: string | null; do_not_service: boolean | null
+  }> | null
+  const members = memberRows as unknown as Array<{
+    id: string; name: string | null; phone: string | null; email: string | null
+  }> | null
 
   const results: Result[] = []
   for (const c of clients || []) {
