@@ -173,19 +173,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Same-date duplicate gate
     const bookingDate = startTime.split('T')[0]
-    const { count: existingCount } = await supabaseAdmin
-      .from('bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenant.id)
-      .eq('client_id', clientId as string)
-      .gte('start_time', `${bookingDate}T00:00:00`)
-      .lte('start_time', `${bookingDate}T23:59:59`)
-      .in('status', ['scheduled', 'pending', 'confirmed', 'in_progress'])
-    if ((existingCount || 0) > 0) {
-      return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
-    }
 
     // ===== PRICING =====
     // Generic default; the NYC Maid tenant layers its supplies/emergency/
@@ -242,31 +230,52 @@ export async function POST(request: Request) {
       propertyId = property?.id || null
     }
 
-    // Create booking
+    // Atomic create: the same-date duplicate check and the INSERT run inside
+    // one supabaseAdmin.rpc('create_booking_atomic', ...) call — one DB
+    // function (migrations/2026_07_13_client_book_dedupe_atomic.sql) that
+    // locks the client row first, so a second concurrent submit always
+    // recomputes the duplicate check against the first submit's
+    // already-committed booking.
+    // Same naive-datetime boundary strings the old count check used (no tz
+    // suffix — Postgres parses them in the session timezone, unchanged).
+    const nextDayDate = new Date(`${bookingDate}T00:00:00Z`)
+    nextDayDate.setUTCDate(nextDayDate.getUTCDate() + 1)
+    const nextBookingDate = nextDayDate.toISOString().split('T')[0]
+    const { data: claim, error: claimError } = await supabaseAdmin.rpc('create_booking_atomic', {
+      p_tenant_id: tenant.id,
+      p_client_id: clientId,
+      p_property_id: propertyId,
+      p_start_time: startTime,
+      p_end_time: endTime,
+      p_service_type: (body.service_type as string) || (isNycMaid(tenant.id) ? 'Standard Cleaning' : 'Service'),
+      p_price: bkPrice,
+      p_hourly_rate: bkHourlyRate,
+      p_team_size: bkTeamSize,
+      p_is_emergency: bkIsEmergency,
+      p_max_hours: bkMaxHours,
+      p_notes: bkNotes,
+      p_recurring_type: body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined) || null,
+      p_team_member_token: cleanerToken,
+      p_token_expires_at: tokenExpiresAt.toISOString(),
+      p_referrer_id: referrerId,
+      p_ref_code: (body.ref_code as string) || null,
+      p_day_start: `${bookingDate}T00:00:00`,
+      p_day_end: `${nextBookingDate}T00:00:00`,
+      p_active_statuses: ['scheduled', 'pending', 'confirmed', 'in_progress'],
+    })
+    if (claimError) return NextResponse.json({ error: claimError.message }, { status: 500 })
+    if (!claim?.created) {
+      if (claim?.reason === 'duplicate_date') {
+        return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
+      }
+      return NextResponse.json({ error: 'Insert failed' }, { status: 500 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .insert({
-        tenant_id: tenant.id,
-        client_id: clientId,
-        property_id: propertyId,
-        team_member_id: null,
-        start_time: startTime,
-        end_time: endTime,
-        service_type: (body.service_type as string) || (isNycMaid(tenant.id) ? 'Standard Cleaning' : 'Service'),
-        status: 'pending',
-        price: bkPrice,
-        hourly_rate: bkHourlyRate,
-        team_size: bkTeamSize,
-        is_emergency: bkIsEmergency,
-        max_hours: bkMaxHours,
-        notes: bkNotes,
-        recurring_type: body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined),
-        team_member_token: cleanerToken,
-        token_expires_at: tokenExpiresAt.toISOString(),
-        referrer_id: referrerId,
-        ref_code: (body.ref_code as string) || null,
-      })
       .select('*, clients(*), client_properties(*)')
+      .eq('id', claim.booking.id)
+      .eq('tenant_id', tenant.id)
       .single()
     if (error || !data) return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
 
