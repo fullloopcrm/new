@@ -118,125 +118,169 @@ export async function createJobFromQuote(
     throw new Error(`Can only convert accepted quotes (current: ${quote.status})`)
   }
 
-  // Resolve or create client (mirrors the booking convert path).
-  let clientId = quote.client_id as string | null
-  if (!clientId) {
-    const existing = quote.contact_email
-      ? await supabaseAdmin
-          .from('clients')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('email', quote.contact_email)
-          .maybeSingle()
-      : { data: null }
-    if (existing.data?.id) {
-      clientId = existing.data.id as string
-    } else {
-      const { data: newClient, error: cErr } = await supabaseAdmin
-        .from('clients')
-        .insert({
-          tenant_id: tenantId,
-          name: quote.contact_name || quote.title || 'Quote Client',
-          email: quote.contact_email || null,
-          phone: quote.contact_phone || null,
-          address: quote.service_address || null,
-          source: 'quote',
-          status: 'active',
-        })
-        .select('id')
-        .single()
-      if (cErr) throw cErr
-      clientId = newClient.id as string
-    }
-  }
-
-  const totalCents = (quote.total_cents as number) || 0
-
-  const { data: job, error: jErr } = await supabaseAdmin
-    .from('jobs')
-    .insert({
-      tenant_id: tenantId,
-      client_id: clientId,
-      quote_id: quoteId,
-      title: quote.title || `Job from ${quote.quote_number}`,
-      // Only call it 'scheduled' if a session/booking is actually attached.
-      // A sold job with no date is 'unscheduled' so it doesn't look booked.
-      status: opts.sessions && opts.sessions.length > 0 ? 'scheduled' : 'unscheduled',
-      total_cents: totalCents,
-      service_address: quote.service_address || null,
-      notes: quote.notes || null,
-    })
-    .select('id')
-    .single()
-  if (jErr) throw jErr
-  const jobId = job.id as string
-
-  // Payment plan: caller-supplied, else a single 'final' payment for the total.
-  const plan: PaymentPlanItem[] =
-    opts.payments && opts.payments.length > 0
-      ? opts.payments
-      : [{ label: 'Final payment', kind: 'final', amount_cents: totalCents }]
-
-  const paymentRows = plan.map((p, i) => ({
-    tenant_id: tenantId,
-    job_id: jobId,
-    label: p.label,
-    kind: p.kind,
-    amount_cents: p.amount_cents,
-    due_at: p.due_at ?? null,
-    trigger: p.trigger ?? 'manual',
-    sort_order: i,
-  }))
-  const { error: pErr } = await supabaseAdmin.from('job_payments').insert(paymentRows)
-  if (pErr) throw pErr
-
-  // Optional pre-scheduled sessions → bookings under the job.
-  if (opts.sessions && opts.sessions.length > 0) {
-    const bookingRows = opts.sessions.map((s) => ({
-      tenant_id: tenantId,
-      client_id: clientId,
-      job_id: jobId,
-      start_time: s.start_time,
-      end_time: s.end_time ?? null,
-      status: 'confirmed',
-      notes: s.notes || `Session of job (quote ${quote.quote_number})`,
-      // NB: bookings has no address column — the location lives on the parent
-      // job (service_address) and the client. Setting it here throws PGRST204.
-    }))
-    const { error: bErr } = await supabaseAdmin.from('bookings').insert(bookingRows)
-    if (bErr) throw bErr
-  }
-
-  await supabaseAdmin
+  // Atomic claim: only a still-'accepted', not-yet-converted, not-yet-claimed
+  // quote can proceed past this point. Concurrent callers (e.g. a Stripe
+  // webhook retry racing the first delivery) race this UPDATE — the loser
+  // gets null back instead of falling through to create a duplicate job.
+  // `quotes.status` has no 'converting' value in its CHECK constraint
+  // (026_quotes.sql), so `converted_at` (set here instead of only at the
+  // end) is reused as the claim marker — it's otherwise only read in two
+  // read-only UI display contexts, not used to gate other logic.
+  const { data: claim } = await supabaseAdmin
     .from('quotes')
-    .update({ status: 'converted', converted_job_id: jobId, converted_at: new Date().toISOString() })
-    .eq('id', quoteId)
+    .update({ converted_at: new Date().toISOString() })
+    .eq('id', quoteId).eq('tenant_id', tenantId)
+    .eq('status', 'accepted')
+    .is('converted_job_id', null)
+    .is('converted_at', null)
+    .select('id')
+    .maybeSingle()
 
-  await logQuoteEvent({
-    quote_id: quoteId,
-    tenant_id: tenantId,
-    event_type: 'converted',
-    detail: { job_id: jobId, client_id: clientId, payments: plan.length },
-  })
+  if (!claim) {
+    // Already claimed (in flight or finished) by a concurrent call. If the
+    // winner already finished, return its job id; otherwise surface a
+    // retryable conflict instead of silently creating a second job.
+    const { data: latest } = await supabaseAdmin
+      .from('quotes')
+      .select('converted_job_id')
+      .eq('id', quoteId)
+      .maybeSingle()
+    if (latest?.converted_job_id) {
+      return { job_id: latest.converted_job_id as string, already_converted: true }
+    }
+    throw new Error('Quote conversion already in progress')
+  }
 
-  await logJobEvent({
-    tenant_id: tenantId,
-    job_id: jobId,
-    event_type: 'created',
-    detail: {
-      source: 'quote',
+  try {
+    // Resolve or create client (mirrors the booking convert path).
+    let clientId = quote.client_id as string | null
+    if (!clientId) {
+      const existing = quote.contact_email
+        ? await supabaseAdmin
+            .from('clients')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('email', quote.contact_email)
+            .maybeSingle()
+        : { data: null }
+      if (existing.data?.id) {
+        clientId = existing.data.id as string
+      } else {
+        const { data: newClient, error: cErr } = await supabaseAdmin
+          .from('clients')
+          .insert({
+            tenant_id: tenantId,
+            name: quote.contact_name || quote.title || 'Quote Client',
+            email: quote.contact_email || null,
+            phone: quote.contact_phone || null,
+            address: quote.service_address || null,
+            source: 'quote',
+            status: 'active',
+          })
+          .select('id')
+          .single()
+        if (cErr) throw cErr
+        clientId = newClient.id as string
+      }
+    }
+
+    const totalCents = (quote.total_cents as number) || 0
+
+    const { data: job, error: jErr } = await supabaseAdmin
+      .from('jobs')
+      .insert({
+        tenant_id: tenantId,
+        client_id: clientId,
+        quote_id: quoteId,
+        title: quote.title || `Job from ${quote.quote_number}`,
+        // Only call it 'scheduled' if a session/booking is actually attached.
+        // A sold job with no date is 'unscheduled' so it doesn't look booked.
+        status: opts.sessions && opts.sessions.length > 0 ? 'scheduled' : 'unscheduled',
+        total_cents: totalCents,
+        service_address: quote.service_address || null,
+        notes: quote.notes || null,
+      })
+      .select('id')
+      .single()
+    if (jErr) throw jErr
+    const jobId = job.id as string
+
+    // Payment plan: caller-supplied, else a single 'final' payment for the total.
+    const plan: PaymentPlanItem[] =
+      opts.payments && opts.payments.length > 0
+        ? opts.payments
+        : [{ label: 'Final payment', kind: 'final', amount_cents: totalCents }]
+
+    const paymentRows = plan.map((p, i) => ({
+      tenant_id: tenantId,
+      job_id: jobId,
+      label: p.label,
+      kind: p.kind,
+      amount_cents: p.amount_cents,
+      due_at: p.due_at ?? null,
+      trigger: p.trigger ?? 'manual',
+      sort_order: i,
+    }))
+    const { error: pErr } = await supabaseAdmin.from('job_payments').insert(paymentRows)
+    if (pErr) throw pErr
+
+    // Optional pre-scheduled sessions → bookings under the job.
+    if (opts.sessions && opts.sessions.length > 0) {
+      const bookingRows = opts.sessions.map((s) => ({
+        tenant_id: tenantId,
+        client_id: clientId,
+        job_id: jobId,
+        start_time: s.start_time,
+        end_time: s.end_time ?? null,
+        status: 'confirmed',
+        notes: s.notes || `Session of job (quote ${quote.quote_number})`,
+        // NB: bookings has no address column — the location lives on the parent
+        // job (service_address) and the client. Setting it here throws PGRST204.
+      }))
+      const { error: bErr } = await supabaseAdmin.from('bookings').insert(bookingRows)
+      if (bErr) throw bErr
+    }
+
+    await supabaseAdmin
+      .from('quotes')
+      .update({ status: 'converted', converted_job_id: jobId, converted_at: new Date().toISOString() })
+      .eq('id', quoteId)
+
+    await logQuoteEvent({
       quote_id: quoteId,
-      total_cents: totalCents,
-      payments: plan.length,
-      sessions: opts.sessions?.length ?? 0,
-    },
-  })
+      tenant_id: tenantId,
+      event_type: 'converted',
+      detail: { job_id: jobId, client_id: clientId, payments: plan.length },
+    })
 
-  // The job was created from a SIGNED quote → release any 'on_signature'
-  // payments (the deposit) so they're immediately due to collect.
-  await releasePaymentsForEvent(tenantId, jobId, 'created')
+    await logJobEvent({
+      tenant_id: tenantId,
+      job_id: jobId,
+      event_type: 'created',
+      detail: {
+        source: 'quote',
+        quote_id: quoteId,
+        total_cents: totalCents,
+        payments: plan.length,
+        sessions: opts.sessions?.length ?? 0,
+      },
+    })
 
-  return { job_id: jobId, already_converted: false }
+    // The job was created from a SIGNED quote → release any 'on_signature'
+    // payments (the deposit) so they're immediately due to collect.
+    await releasePaymentsForEvent(tenantId, jobId, 'created')
+
+    return { job_id: jobId, already_converted: false }
+  } catch (err) {
+    // Creation failed after the claim succeeded — release it so a retry
+    // isn't permanently blocked by a stuck "conversion in progress" error.
+    await supabaseAdmin
+      .from('quotes')
+      .update({ converted_at: null })
+      .eq('id', quoteId)
+      .eq('tenant_id', tenantId)
+    throw err
+  }
 }
 
 /**
