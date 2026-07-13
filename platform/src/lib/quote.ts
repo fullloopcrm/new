@@ -82,23 +82,23 @@ export function generatePublicToken(): string {
 
 /**
  * Per-tenant quote number: Q-YYYYMM-NNNN
- * NNNN is the count of tenant's quotes this calendar month + 1.
+ * NNNN is an atomic per-tenant-per-month sequence
+ * (migrations/2026_07_13_document_number_atomic.sql) — a count-then-append
+ * here let two concurrent creates land on the same number.
  */
 export async function generateQuoteNumber(tenantId: string): Promise<string> {
   const now = new Date()
   const yyyy = now.getUTCFullYear()
   const mm = String(now.getUTCMonth() + 1).padStart(2, '0')
-  const monthStart = new Date(Date.UTC(yyyy, now.getUTCMonth(), 1))
-  const nextMonth = new Date(Date.UTC(yyyy, now.getUTCMonth() + 1, 1))
 
-  const { count } = await supabaseAdmin
-    .from('quotes')
-    .select('id', { count: 'exact', head: true })
-    .eq('tenant_id', tenantId)
-    .gte('created_at', monthStart.toISOString())
-    .lt('created_at', nextMonth.toISOString())
+  const { data: seq, error } = await supabaseAdmin.rpc('next_document_number', {
+    p_tenant_id: tenantId,
+    p_doc_type: 'quote',
+    p_period: `${yyyy}${mm}`,
+  })
+  if (error) throw error
 
-  const nnnn = String((count || 0) + 1).padStart(4, '0')
+  const nnnn = String(seq).padStart(4, '0')
   return `Q-${yyyy}${mm}-${nnnn}`
 }
 
