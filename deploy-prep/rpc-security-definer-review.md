@@ -197,3 +197,76 @@ WHERE p.proname IN ('comhub_get_or_create_contact_by_email', 'seo_refresh_rollup
   is narrower and cheaper to run than the original 6-name query.
 - **New process-level gap identified:** two unreconciled migrations trees (§4c item 2) — flagged for
   Jeff/leader, not resolvable by grep alone.
+
+---
+
+## 5. Extension (2026-07-13, later same day) — full-repo SECURITY DEFINER re-sweep + a sharper framing of the 2 remaining gaps
+
+Re-run per LEADER order to "extend the scope to any missed RPCs." Two things done this pass that hadn't
+been done before: (1) enumerated **every** `CREATE FUNCTION` in both migrations trees combined, not just the
+8 already-known `.rpc()` names, to confirm no third `SECURITY DEFINER` function exists anywhere in-repo;
+(2) re-checked whether the 2 still-undefined names are actually reachable from live code paths, not just
+named in a grep.
+
+### 5a. Full function inventory — no third SECURITY DEFINER function exists
+
+`grep -rniE "create (or replace )?function" platform/migrations platform/src/lib/migrations` (both trees,
+case-insensitive, combined) returns **29 distinct function definitions**. Cross-referencing all 29 against
+`grep -rilE "security[[:space:]]+definer" platform/migrations platform/src/lib/migrations` confirms the
+`SECURITY DEFINER` clause appears in **exactly one file**, `039_atomic_ledger_and_hardening.sql` — the same
+2 functions already documented in §1 (`post_journal_entry`, `cpa_token_bump_usage`). The other 27 are:
+6 already covered in §4a (`seo_run_detection`, `seo_money_keywords`, `comhub_get_or_create_contact_by_phone`,
+`comhub_get_or_create_thread`, plus the 2 still-undefined names), and **21 previously-unlisted functions** —
+overwhelmingly `updated_at`/`touch` triggers (`routes_set_updated_at`, `entities_updated_at`,
+`prospects_updated_at`, `invoices_set_updated_at`, `quotes_set_updated_at`, `periods_updated_at`,
+`territories_set_updated_at`, `documents_updated_at`, `touch_client_contacts_updated_at`,
+`yinez_skills_touch_updated_at`, `territory_touch_updated_at`, `recurring_expenses_updated_at`), plus a
+handful of business-logic triggers (`audit_row_changes`, `check_period_lock` ×2 copies,
+`deals_stage_change_tracker`, `invoices_recompute_paid`, `check_journal_balance`, `fn_block_booking_overlap`,
+`refresh_team_member_rating` ×2 copies, `comhub_mirror_sms_message`) and one dashboard-facing helper
+(`count_errors_by_severity`). None of the 21 carries a `SECURITY DEFINER` clause — this closes the "is there
+a third lockdown candidate hiding somewhere" question definitively for this repo's migration files: **there
+are not.** (Standing caveat unchanged from §2: a function created directly in the Supabase dashboard, never
+committed to either migrations tree, would still be invisible to this or any repo-only grep.)
+
+One incidental finding from this full pass, not a security issue: `count_errors_by_severity`
+(`006_error_resilience.sql:94`) is defined but has **zero `.rpc()` call sites anywhere in `platform/src`** —
+it's dead from the app's perspective (comment at its definition says "used by admin dashboard," but no
+dashboard code calls it via Supabase RPC today). Not `SECURITY DEFINER`, not a hardening gap — noted only
+because a full-inventory pass should surface unused functions, not just risky ones.
+
+### 5b. The 2 remaining undefined names are not just "unaudited" — they are live, actively-called landmines
+
+§4c called `comhub_get_or_create_contact_by_email` and `seo_refresh_rollup` "genuinely still-open gaps"
+requiring live DB introspection to close. This pass re-checked *how* they're reached, and the framing needs
+to be sharper than "unaudited": both are **called today, from live (non-test) code paths, with zero in-repo
+definition backing them** —
+
+- `comhub_get_or_create_contact_by_email` is called via `.rpc(...)` from **4 separate production route
+  files**: `platform/src/app/api/portal/messages/route.ts:31`,
+  `platform/src/app/api/admin/comhub/send/route.ts:209`,
+  `platform/src/app/api/admin/comhub/email/backfill/route.ts:74`, and
+  `platform/src/app/api/cron/comhub-email/route.ts:162` (a cron job — runs unattended, no human watching for
+  a failure).
+- `seo_refresh_rollup` is called via `.rpc('seo_refresh_rollup')` from `platform/src/lib/seo/ingest.ts:131`.
+
+This matters because it changes what's actually at stake if the live-introspection query in §4c comes back
+empty (function truly doesn't exist server-side, not just "created outside the repo"): every one of those 5
+call sites would be throwing a Postgres "function does not exist" error on every invocation today, silently
+swallowed or surfaced as a generic 500 depending on each route's error handling — not a *future* risk
+contingent on Supabase Auth being wired up (like `post_journal_entry`'s privilege-escalation shape), but a
+**present-tense reliability question** that this file-only review still cannot resolve without the live
+query. Recommend the live-introspection query in §4c be treated as higher priority than its "low-priority
+residual gap" framing in §4b implied — it's answering "is a cron job and 3 live routes currently broken?",
+not just closing a paperwork gap.
+
+### 5c. Revised verdict (supersedes §4d)
+
+- **SECURITY DEFINER surface confirmed closed at exactly 2 functions**, now via a full 29-function inventory
+  sweep rather than name-by-name checking — no third candidate exists in either migrations tree.
+- **The 2 remaining unresolved names are reclassified from "unaudited" to "unverified live call targets"** —
+  both are exercised by production code paths (including one unattended cron job) with no in-repo function
+  body to review. The live `pg_proc` query in §4c is the only way to close this, and should be run sooner
+  rather than later given the reliability (not just security) stakes identified in §5b.
+- No new migration or lockdown scope added beyond what `060` (already planned by w1) covers.
+
