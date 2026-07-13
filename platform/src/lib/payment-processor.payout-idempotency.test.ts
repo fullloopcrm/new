@@ -28,6 +28,7 @@ const BOOKING_ID = 'book_dup_1'
 // returned, no new transfer object minted.
 const idempotencyStore = new Map<string, { id: string }>()
 let realTransferCount = 0
+let realPayoutCount = 0
 const transfersCreate = vi.fn(async (_params: unknown, options?: { idempotencyKey?: string }) => {
   const key = options?.idempotencyKey
   if (key && idempotencyStore.has(key)) {
@@ -38,7 +39,19 @@ const transfersCreate = vi.fn(async (_params: unknown, options?: { idempotencyKe
   if (key) idempotencyStore.set(key, transfer)
   return transfer
 })
-const payoutsCreate = vi.fn(async () => ({ id: 'po_1' }))
+// Same replay semantics for the instant payout leg — this is the call that
+// used to have NO idempotencyKey, so a duplicate processPayment() would
+// dedupe the transfer but still land a SECOND real instant payout.
+const payoutsCreate = vi.fn(async (_params: unknown, options?: { idempotencyKey?: string }) => {
+  const key = options?.idempotencyKey
+  if (key && idempotencyStore.has(key)) {
+    return idempotencyStore.get(key)!
+  }
+  realPayoutCount++
+  const payout = { id: `po_${realPayoutCount}` }
+  if (key) idempotencyStore.set(key, payout)
+  return payout
+})
 
 vi.mock('stripe', () => {
   class MockStripe {
@@ -124,6 +137,7 @@ beforeEach(() => {
   payoutsCreate.mockClear()
   idempotencyStore.clear()
   realTransferCount = 0
+  realPayoutCount = 0
   process.env.STRIPE_SECRET_KEY = 'sk_test_x'
 })
 
@@ -160,5 +174,14 @@ describe('payment-processor — duplicate manual payment confirmation does not d
     // no-op replay, and both calls resolve to the identical transfer id.
     expect(realTransferCount).toBe(1)
     expect(first?.cleanerPaidCents).toBe(second?.cleanerPaidCents)
+
+    // Same guarantee for the instant payout leg: both calls pass the SAME
+    // payout-instant-<bookingId> key, and only one real instant payout is minted.
+    expect(payoutsCreate).toHaveBeenCalledTimes(2)
+    const [, firstPayoutOptions] = payoutsCreate.mock.calls[0]
+    const [, secondPayoutOptions] = payoutsCreate.mock.calls[1]
+    expect(firstPayoutOptions).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: `payout-instant-${BOOKING_ID}` })
+    expect(secondPayoutOptions).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: `payout-instant-${BOOKING_ID}` })
+    expect(realPayoutCount).toBe(1)
   })
 })

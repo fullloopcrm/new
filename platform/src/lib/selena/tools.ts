@@ -1305,12 +1305,17 @@ async function handleProcessStripeRefund(input: { booking_id: string; amount_dol
   try {
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-08-27.basil' as never })
+    // Keyed per booking+amount+day so an agent retry (timeout, duplicate tool
+    // call) replays the same refund instead of issuing a second one, while a
+    // genuinely distinct refund request on a later day still goes through.
+    const amountCents = Math.round(input.amount_dollars * 100)
+    const dayBucket = new Date().toISOString().slice(0, 10)
     const refund = await stripe.refunds.create({
       payment_intent: payment.stripe_payment_intent_id,
-      amount: Math.round(input.amount_dollars * 100),
+      amount: amountCents,
       reason: 'requested_by_customer',
       metadata: { booking_id: input.booking_id, note: input.reason || '' },
-    })
+    }, { idempotencyKey: `refund-${input.booking_id}-${amountCents}-${dayBucket}` })
     await supabaseAdmin.from('bookings').update({ payment_status: 'refunded' }).eq('id', input.booking_id).eq('tenant_id', tid)
     return JSON.stringify({ ok: true, refund_id: refund.id, amount: input.amount_dollars, status: refund.status })
   } catch (err) {

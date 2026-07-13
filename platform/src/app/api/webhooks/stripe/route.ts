@@ -469,7 +469,7 @@ export async function POST(request: Request) {
           if (isNycMaid(tenantId)) {
             await stripe.payouts.create(
               { amount: cleanerCents, currency: 'usd', method: 'instant' },
-              { stripeAccount: tm.stripe_account_id },
+              { stripeAccount: tm.stripe_account_id, idempotencyKey: `payout-instant-${bookingId}` },
             ).catch((err) => console.error('[stripe] NYC Maid instant payout failed (transfer landed):', err))
           }
           const { data: payoutRow } = await supabaseAdmin.from('team_member_payouts').insert({

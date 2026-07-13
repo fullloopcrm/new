@@ -37,7 +37,7 @@ export async function POST() {
         name: t.name || undefined,
         email: t.owner_email || undefined,
         metadata: { tenant_id: t.id },
-      })
+      }, { idempotencyKey: `stripe-customer-${t.id}` })
       customerId = customer.id
       await supabaseAdmin.from('tenants').update({ stripe_customer_id: customerId }).eq('id', t.id)
     }

@@ -251,7 +251,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
         try {
           const payout = await stripe.payouts.create(
             { amount: payAmountCents, currency: 'usd', method: 'instant' },
-            { stripeAccount: teamMember.stripe_account_id },
+            { stripeAccount: teamMember.stripe_account_id, idempotencyKey: `payout-instant-${bookingId}` },
           )
           payoutId = payout.id
           isInstant = true
