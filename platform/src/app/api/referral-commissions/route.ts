@@ -115,11 +115,14 @@ export async function POST(request: Request) {
     postCommissionAccrual({ tenantId, commissionId: commissionRow.id })
       .catch(err => console.error('[ref-comm] accrual post failed:', err))
 
-    await supabaseAdmin
-      .from('referrers')
-      .update({ total_earned: (ref.total_earned || 0) + commission })
-      .eq('id', ref.id)
-      .eq('tenant_id', tenantId)
+    // Atomic increment (migrations/2026_07_13_referrer_ledger_atomic.sql) — a
+    // read-then-write here would lose an increment if two commissions land
+    // for the same referrer around the same time.
+    await supabaseAdmin.rpc('increment_referrer_earned', {
+      p_tenant_id: tenantId,
+      p_referrer_id: ref.id,
+      p_amount_cents: commission,
+    })
 
     if (ref.email) {
       notify({
@@ -163,19 +166,14 @@ export async function PUT(request: Request) {
         .eq('tenant_id', tenantId)
         .single()
       if (commission) {
-        const { data: ref } = await supabaseAdmin
-          .from('referrers')
-          .select('total_paid')
-          .eq('id', commission.referrer_id)
-          .eq('tenant_id', tenantId)
-          .single()
-        if (ref) {
-          await supabaseAdmin
-            .from('referrers')
-            .update({ total_paid: (ref.total_paid || 0) + (commission.commission_cents as number) })
-            .eq('id', commission.referrer_id)
-            .eq('tenant_id', tenantId)
-        }
+        // Atomic increment (migrations/2026_07_13_referrer_ledger_atomic.sql) —
+        // a read-then-write here would lose an increment if two commissions
+        // for the same referrer are marked paid around the same time.
+        await supabaseAdmin.rpc('increment_referrer_paid', {
+          p_tenant_id: tenantId,
+          p_referrer_id: commission.referrer_id,
+          p_amount_cents: commission.commission_cents as number,
+        })
       }
     }
 

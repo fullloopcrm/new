@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
 import { parseTimestamp } from '@/lib/dates'
 import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
@@ -143,11 +144,14 @@ export async function POST(request: Request) {
       // commErr is expected (and ignored) when a commission already exists for
       // this booking — the UNIQUE(booking_id) constraint makes re-checkout safe.
       if (!commErr) {
-        await db
-          .from('referrers')
-          .update({ total_earned: (ref.total_earned || 0) + commissionCents })
-          .eq('id', ref.id)
-          .then(() => {}, () => {})
+        // Atomic increment (migrations/2026_07_13_referrer_ledger_atomic.sql) —
+        // two concurrent checkouts crediting the same referrer must not race on
+        // a stale total_earned snapshot.
+        await supabaseAdmin.rpc('increment_referrer_earned', {
+          p_tenant_id: auth.tid,
+          p_referrer_id: ref.id,
+          p_amount_cents: commissionCents,
+        }).then(() => {}, () => {})
         await db.from('notifications').insert({
           type: 'referral_converted',
           title: 'Referral commission',
