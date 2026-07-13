@@ -26,13 +26,17 @@ export async function POST(request: NextRequest) {
 
   const formData = await request.formData()
   const file = formData.get('file') as File | null
-  const folder = (formData.get('folder') as string) || 'lead-media'
+  const rawFolder = (formData.get('folder') as string) || 'lead-media'
+  // Client-supplied — strip to a safe slug so a crafted 'folder' can't inject
+  // '../' or extra path segments into the storage key (same class as ext below).
+  const folder = rawFolder.replace(/[^a-z0-9-]/gi, '').slice(0, 40) || 'lead-media'
 
   if (!file) return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 })
   if (file.size > MAX_SIZE) return NextResponse.json({ success: false, error: 'File too large (max 25MB)' }, { status: 400 })
   if (!ALLOWED_TYPES.includes(file.type)) return NextResponse.json({ success: false, error: 'File type not allowed' }, { status: 400 })
 
-  const ext = file.name.split('.').pop() || 'bin'
+  const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+  const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'bin'
   const path = `${tenant.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
   const buffer = Buffer.from(await file.arrayBuffer())

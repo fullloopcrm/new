@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
     if (!allowedTypes.includes(file.type)) return NextResponse.json({ error: 'Only JPEG, PNG, WebP, or HEIC allowed' }, { status: 400 })
     if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File must be under 5MB' }, { status: 400 })
 
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+    const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg'
     const path = `booking-notes/${bookingId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
