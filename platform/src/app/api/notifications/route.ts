@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 
 export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const body = await request.json()
     const { type, booking_id, message } = body
 
     if (type === '15min_warning') {
       // Insert in-app notification for admin
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: tenantId,
+      await db.from('notifications').insert({
         type: '15min_warning',
         title: '15-Min Heads Up',
         message: message || '15-minute warning sent',
@@ -24,12 +24,17 @@ export async function POST(request: NextRequest) {
 
       // Also send SMS to client if booking has a client with phone
       if (booking_id) {
-        const { data: booking } = await supabaseAdmin
+        const { data: bookingRow } = await db
           .from('bookings')
           .select('client_id, check_in_time, hourly_rate, clients(name, phone)')
           .eq('id', booking_id)
-          .eq('tenant_id', tenantId)
           .single()
+        const booking = bookingRow as unknown as {
+          client_id: string | null
+          check_in_time: string | null
+          hourly_rate: number | null
+          clients: { name: string; phone: string | null } | null
+        } | null
 
         if (booking?.client_id) {
           const client = booking.clients as unknown as { name: string; phone: string | null } | null
@@ -70,25 +75,25 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const markRead = request.nextUrl.searchParams.get('mark_read')
 
-    const { data, error } = await supabaseAdmin
+    const { data: dataRows, error } = await db
       .from('notifications')
       .select('*')
-      .eq('tenant_id', tenantId)
       .eq('recipient_type', 'admin')
       .order('created_at', { ascending: false })
       .limit(50)
+    const data = dataRows as unknown as Array<Record<string, unknown> & { id: string }> | null
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     // Count unread
-    const { count: unread } = await supabaseAdmin
+    const { count: unread } = await db
       .from('notifications')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
       .eq('recipient_type', 'admin')
       .is('metadata->read', null)
 
@@ -96,7 +101,7 @@ export async function GET(request: NextRequest) {
       // Mark all as read by updating metadata
       const ids = (data || []).map((n) => n.id)
       if (ids.length > 0) {
-        await supabaseAdmin
+        await db
           .from('notifications')
           .update({ metadata: { read: true } })
           .in('id', ids)

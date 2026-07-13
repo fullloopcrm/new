@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET() {
   try {
     const { tenantId, userId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
     // Get all channels for tenant
-    const { data: channels } = await supabaseAdmin
+    const { data: channelRows } = await db
       .from('connect_channels')
       .select('id')
-      .eq('tenant_id', tenantId)
+    const channels = channelRows as unknown as Array<{ id: string }> | null
 
     if (!channels || channels.length === 0) {
       return NextResponse.json({ unread: 0 })
@@ -19,12 +20,13 @@ export async function GET() {
     const channelIds = channels.map((c) => c.id)
 
     // Get read cursors for this user
-    const { data: cursors } = await supabaseAdmin
+    const { data: cursorRows } = await db
       .from('connect_read_cursors')
       .select('channel_id, last_read_at')
       .eq('reader_type', 'owner')
       .eq('reader_id', userId)
       .in('channel_id', channelIds)
+    const cursors = cursorRows as unknown as Array<{ channel_id: string; last_read_at: string | null }> | null
 
     const cursorMap = new Map((cursors || []).map((c) => [c.channel_id, c.last_read_at]))
 
@@ -32,7 +34,7 @@ export async function GET() {
     let totalUnread = 0
     for (const chId of channelIds) {
       const lastRead = cursorMap.get(chId)
-      let query = supabaseAdmin
+      let query = db
         .from('connect_messages')
         .select('id', { count: 'exact', head: true })
         .eq('channel_id', chId)
