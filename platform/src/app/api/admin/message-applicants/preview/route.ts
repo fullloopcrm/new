@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP, type EligibleApplicant } from '../constants'
 
@@ -35,14 +35,13 @@ export async function POST() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: applicants, error } = await supabaseAdmin
+  const { data: applicants, error } = await tenantDb(tenantId)
     .from('cleaner_applications')
     .select('id, name, phone, status, created_at')
-    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const evaluated: EligibleApplicant[] = (applicants as ApplicantRow[] || []).map((a) => {
+  const evaluated: EligibleApplicant[] = (applicants as unknown as ApplicantRow[] || []).map((a) => {
     const reasons: string[] = []
     const name = a.name || 'Applicant'
 

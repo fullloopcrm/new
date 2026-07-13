@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { sendSMS } from '@/lib/sms'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP } from '../constants'
@@ -53,17 +53,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'SMS not configured for this tenant' }, { status: 400 })
   }
 
-  const { data: rows, error } = await supabaseAdmin
+  const db = tenantDb(tenantId)
+  const { data: rows, error } = await db
     .from('cleaner_applications')
     .select('id, name, phone, status')
-    .eq('tenant_id', tenantId)
     .in('id', applicant_ids)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const seenPhones = new Set<string>()
 
   // Re-apply every guard server-side — never trust the client's id list blindly.
-  const recipients = (rows as ApplicantRow[] || []).filter((a) => {
+  const recipients = (rows as unknown as ApplicantRow[] || []).filter((a) => {
     if (!a.phone) return false
     if (a.status && EXCLUDED_STATUSES.includes(a.status)) return false
     if (TEST_MODE && !(a.name || '').toLowerCase().includes(TEST_APPLICANT_NAME_SUBSTRING)) return false
@@ -97,8 +97,7 @@ export async function POST(request: Request) {
   const sent = results.filter((r) => r.sent).length
   const failed = results.filter((r) => !r.sent).length
 
-  await supabaseAdmin.from('notifications').insert({
-    tenant_id: tenantId,
+  await db.from('notifications').insert({
     type: 'applicant_broadcast',
     title: 'Applicant broadcast sent',
     message: `Texted ${sent} new applicant${sent === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}${TEST_MODE ? ' [TEST MODE]' : ''}.`,
