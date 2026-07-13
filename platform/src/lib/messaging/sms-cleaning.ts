@@ -9,7 +9,7 @@
 //
 // Selected by clientSmsTemplates(tenant) for cleaning-slug tenants only.
 
-import { clientArrivalWindow } from '../time-window'
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE_SMS, ARRIVAL_WINDOW_NOTE_ES } from '../time-window'
 import type { TenantBrand } from './brand'
 
 const STOP_TEXT = '\nReply STOP to opt out.'
@@ -35,7 +35,7 @@ function proFirst(b: BookingLike, fallback: string): string {
 }
 
 function rateOf(b: BookingLike): number {
-  return b.hourly_rate || 79
+  return b.hourly_rate || 69
 }
 
 export function bookingReceived(brand: TenantBrand, booking: BookingLike): string {
@@ -47,7 +47,7 @@ export function bookingReceived(brand: TenantBrand, booking: BookingLike): strin
   const minLine = (booking.team_size || 1) > 1 ? ' This is a 2+ cleaner booking — 4-hour minimum, and no discounts apply.' : ' A 2-hour minimum applies (first-time cleanings included).'
   const tapLink = booking.client_confirm_token && brand.site ? `\n\nTap to confirm: https://${brand.site}/c/${booking.client_confirm_token}` : ''
   const phoneLine = brand.phone ? `\n\nQuestions? ${brand.phone}` : ''
-  return `${brand.name}: We received your booking request — please review and reply CONFIRM (or use the link below) to lock it in.\n\nTo recap: we are scheduling you${teamLine} for ${date}, arrival window ${time} (your cleaner arrives within this window; the cleaning itself runs the booked hours) at the rate of $${rate}/hr${maxLine} paid via the secure payment link we text you (Apple Pay, card, or Cash App) 30 minutes before service completion.${minLine} You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)${tapLink}${phoneLine}${STOP_TEXT}`
+  return `${brand.name}: We received your booking request — please review and reply CONFIRM (or use the link below) to lock it in.\n\nTo recap: we are scheduling you${teamLine} for ${date}, arrival window ${time} (${ARRIVAL_WINDOW_NOTE_SMS} The cleaning itself runs the booked hours.) at the rate of $${rate}/hr${maxLine} paid via the secure payment link we text you (Apple Pay, card, or Cash App) 30 minutes before service completion.${minLine} You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)${tapLink}${phoneLine}${STOP_TEXT}`
 }
 
 export function bookingConfirmed(brand: TenantBrand, booking: BookingLike): string {
@@ -57,14 +57,14 @@ export function bookingConfirmed(brand: TenantBrand, booking: BookingLike): stri
   const teamLine = (booking.team_size || 1) > 1 ? ` for our team of ${booking.team_size} cleaners` : ''
   const minLine = (booking.team_size || 1) > 1 ? ' (2+ cleaners: 4-hour minimum, no discounts.)' : ' (2-hour minimum applies.)'
   const phoneLine = brand.phone ? ` Questions? ${brand.phone}` : ''
-  return `${brand.name}: Your booking request${teamLine} for ${date}, arrival window ${time}, at $${rate}/hr is IN REVIEW.${minLine} The owner confirms within the hour, then you'll get a second text from us locking in the date/time/cleaner. NOT FINALIZED until that confirmation lands — please don't plan around this slot until then.${phoneLine}${STOP_TEXT}`
+  return `${brand.name}: Your booking request${teamLine} for ${date}, arrival window ${time}, at $${rate}/hr is IN REVIEW.${minLine} ${ARRIVAL_WINDOW_NOTE_SMS} The owner confirms within the hour, then you'll get a second text from us locking in the date/time/cleaner. NOT FINALIZED until that confirmation lands — please don't plan around this slot until then.${phoneLine}${STOP_TEXT}`
 }
 
 export function confirmationReminder(brand: TenantBrand, booking: BookingLike): string {
   const date = etDate(booking.start_time)
   const time = clientArrivalWindow(booking.start_time)
   const phoneLine = brand.phone ? ` Questions? ${brand.phone}` : ''
-  return `${brand.name}: We still need a CONFIRM reply for your booking on ${date}, arrival window ${time}. If we don't receive your confirmation, we'll have to cancel the request and offer the time slot to another client.\n\nReply CONFIRM to lock it in.${phoneLine}${STOP_TEXT}`
+  return `${brand.name}: We still need a CONFIRM reply for your booking on ${date}, arrival window ${time}. If we don't receive your confirmation, we'll have to cancel the request and offer the time slot to another client.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\nReply CONFIRM to lock it in.${phoneLine}${STOP_TEXT}`
 }
 
 export function bookingConfirmation(brand: TenantBrand, booking: BookingLike): string {
@@ -79,7 +79,7 @@ export function bookingConfirmation(brand: TenantBrand, booking: BookingLike): s
   const cleanerLine = teamSize > 1
     ? `with a team of ${teamSize} cleaners (${cleanerName} leading)`
     : `with ${cleanerName}`
-  return `${brand.name}: Confirmed — ${date}, arrival window ${time}, ${cleanerLine}.\n\n${cancelPolicy} We hold your spot, turn other clients away, and our team plans around it.\n\nPayment: a secure link (Apple Pay, card, or Cash App) we text you ~30 min before end. If payment isn't received the cleaner waits — billable time. Billed in 30-min increments.\n\nPortal: ${brand.bookUrl}${STOP_TEXT}`
+  return `${brand.name}: Confirmed — ${date}, arrival window ${time}, ${cleanerLine}.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${cancelPolicy} We hold your spot, turn other clients away, and our team plans around it.\n\nPayment: a secure link (Apple Pay, card, or Cash App) we text you ~30 min before end. If payment isn't received the cleaner waits — billable time. Billed in 30-min increments.\n\nPortal: ${brand.bookUrl}${STOP_TEXT}`
 }
 
 export function reminder(brand: TenantBrand, booking: BookingLike, timeframe: string): string {
@@ -92,9 +92,9 @@ export function reminder(brand: TenantBrand, booking: BookingLike, timeframe: st
     ? 'Recurring services require 7 days notice to reschedule. No cancellations unless discontinuing with 7 days notice.'
     : 'This service cannot be cancelled or rescheduled.'
   if (timeframe === 'in 2 hours') {
-    return `${brand.name}: Reminder — ${subject} ${teamSize > 1 ? 'arrive' : 'arrives'} within your ${time} window. Almost time!\n\n${policy}${STOP_TEXT}`
+    return `${brand.name}: Reminder — ${subject} ${teamSize > 1 ? 'arrive' : 'arrives'} within your ${time} window. Almost time!\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${policy}${STOP_TEXT}`
   }
-  return `${brand.name}: Reminder — cleaning ${timeframe}, arrival window ${time}, with ${subject}.\n\n${policy}${STOP_TEXT}`
+  return `${brand.name}: Reminder — cleaning ${timeframe}, arrival window ${time}, with ${subject}.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${policy}${STOP_TEXT}`
 }
 
 export function cancellation(brand: TenantBrand, booking: BookingLike): string {
@@ -105,7 +105,7 @@ export function cancellation(brand: TenantBrand, booking: BookingLike): string {
 export function reschedule(brand: TenantBrand, booking: BookingLike): string {
   const newDate = etDate(booking.start_time)
   const newTime = clientArrivalWindow(booking.start_time)
-  return `${brand.name}: Your cleaning has been rescheduled to ${newDate}, arrival window ${newTime}. Details: ${brand.bookUrl}${STOP_TEXT}`
+  return `${brand.name}: Your cleaning has been rescheduled to ${newDate}, arrival window ${newTime}. ${ARRIVAL_WINDOW_NOTE_SMS} Details: ${brand.bookUrl}${STOP_TEXT}`
 }
 
 export function thankYou(brand: TenantBrand, clientName: string): string {
@@ -124,7 +124,7 @@ export function bookingConfirmationES(brand: TenantBrand, booking: BookingLike):
   const date = etDate(booking.start_time)
   const time = clientArrivalWindow(booking.start_time)
   const cleanerName = proFirst(booking, 'Tu limpiador/a')
-  return `${brand.name}: Tu limpieza está confirmada para ${date}, ventana de llegada ${time}, con ${cleanerName}. Detalles: ${brand.bookUrl}${STOP_TEXT_ES}`
+  return `${brand.name}: Tu limpieza está confirmada para ${date}, ventana de llegada ${time}, con ${cleanerName}. ${ARRIVAL_WINDOW_NOTE_ES} Detalles: ${brand.bookUrl}${STOP_TEXT_ES}`
 }
 
 export function reminderES(brand: TenantBrand, booking: BookingLike, timeframe: string): string {
@@ -133,9 +133,9 @@ export function reminderES(brand: TenantBrand, booking: BookingLike, timeframe: 
   const tfMap: Record<string, string> = { 'in 2 hours': 'en 2 horas', 'tomorrow': 'mañana', 'in 1 hour': 'en 1 hora' }
   const tfES = tfMap[timeframe] || timeframe
   if (timeframe === 'in 2 hours') {
-    return `${brand.name}: Recordatorio — ${cleanerName} llega dentro de tu ventana de ${time}. ¡Ya casi!${STOP_TEXT_ES}`
+    return `${brand.name}: Recordatorio — ${cleanerName} llega dentro de tu ventana de ${time}. ¡Ya casi!\n\n${ARRIVAL_WINDOW_NOTE_ES}${STOP_TEXT_ES}`
   }
-  return `${brand.name}: Recordatorio — limpieza ${tfES}, ventana de llegada ${time}, con ${cleanerName}.${STOP_TEXT_ES}`
+  return `${brand.name}: Recordatorio — limpieza ${tfES}, ventana de llegada ${time}, con ${cleanerName}.\n\n${ARRIVAL_WINDOW_NOTE_ES}${STOP_TEXT_ES}`
 }
 
 export function cancellationES(brand: TenantBrand, booking: BookingLike): string {
@@ -146,5 +146,5 @@ export function cancellationES(brand: TenantBrand, booking: BookingLike): string
 export function rescheduleES(brand: TenantBrand, booking: BookingLike): string {
   const newDate = etDate(booking.start_time)
   const newTime = clientArrivalWindow(booking.start_time)
-  return `${brand.name}: Tu limpieza ha sido reprogramada para ${newDate}, ventana de llegada ${newTime}. Detalles: ${brand.bookUrl}${STOP_TEXT_ES}`
+  return `${brand.name}: Tu limpieza ha sido reprogramada para ${newDate}, ventana de llegada ${newTime}. ${ARRIVAL_WINDOW_NOTE_ES} Detalles: ${brand.bookUrl}${STOP_TEXT_ES}`
 }

@@ -25,3 +25,16 @@ export function clientArrivalWindow(startTime: string | Date): string {
     })
   return `${fmt(start)}–${fmt(end)}`
 }
+
+// Expectation-setting note that MUST accompany any client-facing arrival-window
+// mention: we cannot commit to an exact arrival time, even day-of.
+export const ARRIVAL_WINDOW_NOTE =
+  "We can't give an exact arrival time, even day-of — cleaners usually arrive within the first 30 minutes, but please plan for the full 2-hour window."
+
+// Compact variant for SMS length limits.
+export const ARRIVAL_WINDOW_NOTE_SMS =
+  "No exact arrival time even day-of — cleaners usually come in the first 30 min, but please plan for the full 2-hour window."
+
+// Spanish variant for Spanish-language client SMS.
+export const ARRIVAL_WINDOW_NOTE_ES =
+  "Sin hora exacta de llegada, ni el mismo día — el equipo suele llegar en los primeros 30 min, pero por favor considera la ventana completa de 2 horas."
