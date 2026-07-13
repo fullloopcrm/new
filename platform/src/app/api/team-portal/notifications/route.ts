@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
       .from('notifications')
       .select('id, title, message, type, read, booking_id, created_at')
       .eq('tenant_id', auth.tid)
-      .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
+      .or(`recipient_id.eq.${sanitizePostgrestValue(auth.id)},recipient_id.is.null`)
       .order('created_at', { ascending: false })
       .limit(50)
 
@@ -40,7 +41,7 @@ export async function PUT(request: NextRequest) {
         .from('notifications')
         .update({ read: true })
         .eq('tenant_id', auth.tid)
-        .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
+        .or(`recipient_id.eq.${sanitizePostgrestValue(auth.id)},recipient_id.is.null`)
         .eq('read', false)
     } else if (body.id) {
       await supabaseAdmin

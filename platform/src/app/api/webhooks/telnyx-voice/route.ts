@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { verifyTelnyx } from '@/lib/webhook-verify'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
 const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
@@ -615,10 +616,11 @@ export async function POST(req: NextRequest) {
   // ─── Recording saved ─────────────────────────────────────────────────────
   if (event === 'call.recording.saved' && callControlId) {
     const url = p.recording_urls?.mp3 || p.recording_urls?.wav || ''
+    const safeCallControlId = sanitizePostgrestValue(callControlId)
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
       .select('id, thread_id, contact_id, customer_phone, status')
-      .or(`customer_call_id.eq.${callControlId},admin_call_id.eq.${callControlId}`)
+      .or(`customer_call_id.eq.${safeCallControlId},admin_call_id.eq.${safeCallControlId}`)
       .single()
     if (!active || !url) return NextResponse.json({ ok: true })
 
@@ -662,10 +664,11 @@ export async function POST(req: NextRequest) {
 
   // ─── Transcription saved ─────────────────────────────────────────────────
   if (event === 'call.transcription' && callControlId && p.transcription_text) {
+    const safeCallControlId = sanitizePostgrestValue(callControlId)
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
       .select('id, thread_id, contact_id, status, customer_phone')
-      .or(`customer_call_id.eq.${callControlId},admin_call_id.eq.${callControlId}`)
+      .or(`customer_call_id.eq.${safeCallControlId},admin_call_id.eq.${safeCallControlId}`)
       .single()
     if (active) {
       await logVoiceMessage({

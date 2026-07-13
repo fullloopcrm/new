@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 // GET /api/admin/comhub/templates?channel=sms|email|all
 export async function GET(req: NextRequest) {
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     .eq('tenant_id', tenantId)
     .is('archived_at', null)
     .order('name', { ascending: true })
-  if (ch !== 'all') q = q.or(`channel.eq.${ch},channel.is.null`)
+  if (ch !== 'all') q = q.or(`channel.eq.${sanitizePostgrestValue(ch)},channel.is.null`)
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ templates: data || [] })

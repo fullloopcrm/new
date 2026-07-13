@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 export async function GET() {
   let tenant
@@ -17,7 +18,7 @@ export async function GET() {
     .select('id, title, body, type, priority, created_at')
     .eq('published', true)
     .in('type', ['announcement', 'maintenance'])
-    .or(`target.eq.all,and(target.eq.tenant,target_value.eq.${tenant.id}),and(target.eq.industry,target_value.eq.${tenant.industry}),and(target.eq.plan,target_value.eq.${tenant.plan || 'free'})`)
+    .or(`target.eq.all,and(target.eq.tenant,target_value.eq.${sanitizePostgrestValue(tenant.id)}),and(target.eq.industry,target_value.eq.${sanitizePostgrestValue(tenant.industry)}),and(target.eq.plan,target_value.eq.${sanitizePostgrestValue(tenant.plan || 'free')})`)
     .order('created_at', { ascending: false })
     .limit(5)
 

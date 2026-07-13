@@ -18,6 +18,7 @@ import { notify } from '@/lib/notify'
 import type { ParsedEmail } from '@/lib/email-monitor'
 import type { Tenant } from '@/lib/tenant'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 type TenantLike = Pick<Tenant, 'id' | 'name' | 'email' | 'phone' | 'resend_api_key' | 'email_from' | 'domain'>
 
@@ -137,7 +138,7 @@ export async function handleInboundEmail(tenant: TenantLike, email: ParsedEmail)
     .eq('client_id', client.id)
     .eq('phone', emailKey)
     .eq('expired', false)
-    .or(`completed_at.is.null,completed_at.gte.${tenMinAgoIso}`)
+    .or(`completed_at.is.null,completed_at.gte.${sanitizePostgrestValue(tenMinAgoIso)}`)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()

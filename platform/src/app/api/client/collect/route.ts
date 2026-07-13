@@ -6,6 +6,7 @@ import { adminNewClientEmail } from '@/lib/email-templates'
 import { attributeCollectForm } from '@/lib/attribution'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { randomInt } from 'crypto'
 
 export async function POST(request: Request) {
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
       .from('clients')
       .select('id, status')
       .eq('tenant_id', tenant.id)
-      .or(`phone.ilike.%${cleanPhone.slice(-10)}%`)
+      .or(`phone.ilike.%${sanitizePostgrestValue(cleanPhone.slice(-10))}%`)
       .limit(1)
     const existingClient = existing?.[0]
 

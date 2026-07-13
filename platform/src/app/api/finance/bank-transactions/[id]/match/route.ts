@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postJournalEntry } from '@/lib/ledger'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -121,7 +122,7 @@ export async function POST(request: Request, { params }: Params) {
           .select('id')
           .eq('tenant_id', tenantId)
           .eq('type', 'expense')
-          .or(`subtype.eq.${ex.category},name.ilike.%${ex.category}%`)
+          .or(`subtype.eq.${sanitizePostgrestValue(ex.category)},name.ilike.%${sanitizePostgrestValue(ex.category)}%`)
           .limit(1)
           .maybeSingle()
         if (coaMatch) {

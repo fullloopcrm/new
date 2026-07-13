@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1)
 
     if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+      const s = sanitizePostgrestValue(search)
+      query = query.or(`name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`)
     }
     if (status) {
       query = query.eq('status', status)
