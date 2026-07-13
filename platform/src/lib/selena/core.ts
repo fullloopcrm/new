@@ -13,6 +13,19 @@ import { emailWrapper } from '@/lib/nycmaid/email-templates'
 // resolves tid from convo.tenant_id and falls back to this constant.
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
 
+// Real outbound SMS/email sent directly from a tool handler (not the LLM's
+// reply text) bypasses agent.ts's applyBrandRewrite — that rewrite only
+// touches the returned chat text, never side-effect sends made mid-handler.
+// So every handler that emails/texts a client its own business name or portal
+// link must look its own tenant up here, same fallback shape as
+// agent-config-loader.ts's getAgentConfig, instead of hardcoding nycmaid's.
+async function getTenantBrand(tid: string): Promise<{ name: string; domain: string }> {
+  const { data: tenant } = await supabaseAdmin.from('tenants').select('name, domain, website_url').eq('id', tid).single()
+  const name = tenant?.name || 'the business'
+  const domain = tenant?.domain || tenant?.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''
+  return { name, domain }
+}
+
 // ─── Error Monitoring ───────────────────────────────────────────────────────
 
 export async function yinezError(context: string, err: unknown, conversationId?: string) {
@@ -1282,7 +1295,9 @@ async function handleSendPin(conversationId: string): Promise<string> {
 
     const phone = client.phone || convo.phone
     if (phone) {
-      await sendSMS(phone, `Hi ${client.name || 'there'}! Your portal PIN is: ${pin}\n\nLog in at thenycmaid.com/portal 😊`, { skipConsent: true, smsType: 'pin_reminder' })
+      const { domain } = await getTenantBrand(tid)
+      const portalLine = domain ? `\n\nLog in at ${domain}/portal 😊` : ''
+      await sendSMS(phone, `Hi ${client.name || 'there'}! Your portal PIN is: ${pin}${portalLine}`, { skipConsent: true, smsType: 'pin_reminder' })
     }
     return JSON.stringify({ success: true, message: `PIN sent to ${phone}` })
   } catch (err) {
@@ -1334,7 +1349,8 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
       </table>
     `)
 
-    await sendEmail(client.email, `Booking Confirmed — ${date} — The NYC Maid`, html)
+    const { name: businessName } = await getTenantBrand(tid)
+    await sendEmail(client.email, `Booking Confirmed — ${date} — ${businessName}`, html)
     return JSON.stringify({ success: true, message: `Confirmation resent to ${client.email}` })
   } catch (err) {
     await yinezError('resend_confirmation', err, conversationId)
@@ -1431,6 +1447,7 @@ async function handleGetInvoice(input: Record<string, unknown>, conversationId: 
     const tip = payment.tip ? (payment.tip / 100).toFixed(2) : '0.00'
     const service = ((payment.amount - (payment.tip || 0)) / 100).toFixed(2)
 
+    const { name: businessName, domain } = await getTenantBrand(tid)
     const html = emailWrapper(`
       <h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#1a1a1a">Payment Receipt</h2>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;background:#f9fafb;border-radius:8px">
@@ -1442,10 +1459,10 @@ async function handleGetInvoice(input: Record<string, unknown>, conversationId: 
           <p style="margin:0;font-size:14px;color:#666">Method: <strong>${payment.method}</strong></p>
         </td></tr>
       </table>
-      <p style="margin:0;font-size:13px;color:#999">The NYC Maid — thenycmaid.com</p>
+      <p style="margin:0;font-size:13px;color:#999">${businessName}${domain ? ` — ${domain}` : ''}</p>
     `)
 
-    await sendEmail(client.email, `Payment Receipt — $${total} — The NYC Maid`, html)
+    await sendEmail(client.email, `Payment Receipt — $${total} — ${businessName}`, html)
     return JSON.stringify({ success: true, message: `Receipt sent to ${client.email}` })
   } catch (err) {
     await yinezError('get_invoice', err, conversationId)
