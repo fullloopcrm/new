@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 
 export async function GET(request: Request) {
@@ -9,11 +9,10 @@ export async function GET(request: Request) {
   if (authErr) return authErr
 
   const teamMemberId = auth.id
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('team_members')
     .select('avg_rating, rating_count')
     .eq('id', teamMemberId)
-    .eq('tenant_id', auth.tid)
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({
