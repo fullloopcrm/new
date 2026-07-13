@@ -35,6 +35,29 @@ and can ship first. The idempotency wiring (§3) must wait until the ledger
 migration is applied to prod, or every inbound handler fails closed and drops
 live traffic.
 
+**⚠️ Sequencing hazard update (2026-07-13, re-verified against live code):** §4
+step 10 described this ordering rule as a future risk to avoid. It is no
+longer hypothetical — **the precondition it warns about already exists on
+this branch.** `claimWebhookEvent()` (`lib/webhook-dedupe.ts`) is wired into
+all 5 non-idempotent handlers (`telnyx/route.ts:135`, `resend/route.ts:34`,
+`telegram/route.ts:67`, `telegram/[tenant]/route.ts:75`,
+`telegram/jefe/route.ts:33` — confirmed by direct grep this pass), and by its
+own docstring + test (`webhook-dedupe.test.ts:65-69`, "re-throws on an
+unexpected DB error so the caller 5xxs and the provider retries") it is
+fail-closed on ANY insert error that isn't `23505` — including
+`relation "processed_webhook_events" does not exist` (42P01), which is
+exactly what prod will return today, since
+`2026_07_12_processed_webhook_events.sql` is still file-only, unapplied.
+**If `p1-w6` merges/deploys before that migration runs, every inbound Telnyx
+SMS, Resend email, and Telegram (×3) webhook starts 5xxing on delivery #1 —
+not a degraded-idempotency gap, a hard outage of 5 channels simultaneously.**
+Concretely: this makes Wave C step 10 a **hard merge/deploy gate**, not a
+sequencing suggestion — whoever merges this branch must confirm
+`\d processed_webhook_events` shows the table (step 8) BEFORE or IN THE SAME
+release as this branch's webhook routes go live, not after. Recommend the
+leader add an explicit pre-merge check for this branch specifically.
+FOR-JEFF-REVIEW — no code changed this pass, confirmation only.
+
 ---
 
 ## §1 — Telnyx **Voice**: replace the fake sig check with real Ed25519 verify (fail-closed)
