@@ -114,4 +114,27 @@ describe('verifyTelnyx', () => {
     expect(result.valid).toBe(false)
     expect(result.reason).toBe('timestamp out of window')
   })
+
+  // WITNESS: root-causes the 2026-07-07 nycmaid cutover 401 (deploy-prep/PARITY-REPORT.md,
+  // W6 lane). TELNYX_PUBLIC_KEY is read from a single global env var
+  // (webhooks/telnyx/route.ts: `verifyTelnyx(..., process.env.TELNYX_PUBLIC_KEY)`) while
+  // `tenant.telnyx_api_key` is a per-tenant column — each tenant CAN run its own separate
+  // Telnyx account. Ed25519 signing keys are per-ACCOUNT (Mission Control > Keys &
+  // Credentials > Public Key), so a genuinely valid, untampered, fresh-timestamp request
+  // signed by tenant A's account 401s if the single global env var holds tenant B's key —
+  // no tampering required, just an account/key mismatch. This is NOT a "forged body" bug
+  // (already covered above); it's a correct signature checked against the wrong key.
+  it('WITNESS: a genuinely valid signature from a DIFFERENT account (key mismatch, no tampering) still 401s', () => {
+    const { privateKey: otherAccountPrivateKey } = generateKeyPairSync('ed25519')
+    const ts = Math.floor(Date.now() / 1000).toString()
+    const body = JSON.stringify({ data: { event_type: 'message.received', payload: { from: { phone_number: '+12122028400' } } } })
+    // Signed correctly by a real (but different) Telnyx account's private key.
+    const sig = cryptoSign(null, Buffer.from(`${ts}|${body}`, 'utf8'), otherAccountPrivateKey).toString('base64')
+
+    // Verified against `rawPub` — the OTHER account's public key (stands in for a global
+    // TELNYX_PUBLIC_KEY sourced from a different account than the one that signed this).
+    const result = verifyTelnyx(headers(ts, sig), body, rawPub)
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('signature mismatch')
+  })
 })
