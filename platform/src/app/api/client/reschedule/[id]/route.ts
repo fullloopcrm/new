@@ -42,6 +42,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const auth = await protectClientAPI(tenant.id, oldBooking.client_id)
   if (auth instanceof NextResponse) return auth
 
+  // A caller-supplied team_member_id must belong to THIS tenant — team_members
+  // has no cross-tenant FK check, so without this an authenticated client
+  // could reassign their own booking to another tenant's employee (same IDOR
+  // class as client/recurring's cleaner_id/property_id gaps).
+  if (body.team_member_id) {
+    const { data: member } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('id', body.team_member_id)
+      .eq('tenant_id', tenant.id)
+      .maybeSingle()
+    if (!member) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+  }
+
   const tz = tenant.timezone || 'America/New_York'
   const oldDate = fmtDate(oldBooking.start_time, tz)
   const oldTime = fmtTime(oldBooking.start_time, tz)
