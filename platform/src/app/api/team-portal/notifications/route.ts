@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   // Try notifications table first, fall back to empty
   try {
     const { data } = await tenantDb(auth.tid)
-      .from('notifications')
+      .from('notifications') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
       .select('id, title, message, type, read, booking_id, created_at')
       .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
       .order('created_at', { ascending: false })

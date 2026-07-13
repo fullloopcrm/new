@@ -83,14 +83,16 @@ export async function PUT(
     const newTime = new Date(start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
     // Admin notification
-    await tenantDb(auth.tid).from('notifications').insert({
-      type: 'reschedule',
-      title: 'Client Rescheduled',
-      message: `${clientName} moved from ${oldDate} to ${newDate} at ${newTime}`,
-      booking_id: id,
-      channel: 'in_app',
-      status: 'sent',
-    })
+    await tenantDb(auth.tid)
+      .from('notifications') // tenant-scope-ok: tenantDb() stamps tenant_id on insert; audit heuristic doesn't parse the wrapper
+      .insert({
+        type: 'reschedule',
+        title: 'Client Rescheduled',
+        message: `${clientName} moved from ${oldDate} to ${newDate} at ${newTime}`,
+        booking_id: id,
+        channel: 'in_app',
+        status: 'sent',
+      })
 
     // Admin email
     await notify({
@@ -122,14 +124,16 @@ export async function PUT(
   if (status === 'cancelled') {
     const bookingDate = new Date(oldBooking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
-    await tenantDb(auth.tid).from('notifications').insert({
-      type: 'booking_cancelled',
-      title: 'Client Cancelled',
-      message: `${clientName} cancelled their ${bookingDate} booking`,
-      booking_id: id,
-      channel: 'in_app',
-      status: 'sent',
-    })
+    await tenantDb(auth.tid)
+      .from('notifications') // tenant-scope-ok: tenantDb() stamps tenant_id on insert; audit heuristic doesn't parse the wrapper
+      .insert({
+        type: 'booking_cancelled',
+        title: 'Client Cancelled',
+        message: `${clientName} cancelled their ${bookingDate} booking`,
+        booking_id: id,
+        channel: 'in_app',
+        status: 'sent',
+      })
 
     await notify({
       tenantId: auth.tid,
