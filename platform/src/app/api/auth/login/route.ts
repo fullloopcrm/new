@@ -25,7 +25,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Too many attempts. Try again in 5 minutes.' }, { status: 429 })
     }
 
-    const adminPassword = (process.env.ADMIN_PASSWORD || '').trim()
+    // Deliberately NOT `|| ''` — an unconfigured ADMIN_PASSWORD must never
+    // resolve to an empty string here. `password === adminPassword` below
+    // would then grant a full owner session to a request that sends
+    // `password: ""` (or omits it, since JSON destructuring makes it
+    // `undefined` and `undefined === ''` is false — but an explicit empty
+    // string in the body would match). Same fail-open shape as the
+    // ADMIN_PASSWORD HMAC-secret fix in lib/nycmaid/auth.ts.
+    const adminPassword = process.env.ADMIN_PASSWORD?.trim() || null
 
     // Try user-based login first (email + password)
     if (email && password) {
@@ -73,8 +80,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Fallback: legacy PIN-based login
-    if (password === adminPassword) {
+    // Fallback: legacy PIN-based login. `adminPassword` is null (never '')
+    // when unconfigured, so this can't be satisfied by an empty/omitted body
+    // password even if ADMIN_PASSWORD is unset.
+    if (adminPassword && password === adminPassword) {
       const session = createSessionCookie()
       const cookieStore = await cookies()
       cookieStore.set('admin_session', session, {
