@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { askSelena } from '@/lib/selena/agent'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { sendEmail as sendTenantEmail } from '@/lib/email'
@@ -116,6 +117,7 @@ async function sendReply(
 
 async function pollAccount(account: MailAccount): Promise<{ scanned: number; mirrored: number; skipped: number }> {
   const { tenantId, user } = account
+  const db = tenantDb(tenantId)
   let mirrored = 0
   let skipped = 0
   let scanned = 0
@@ -144,10 +146,9 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
         const messageId = parsed.messageId || ''
         if (!messageId) { skipped++; continue }
 
-        const { data: existing } = await supabaseAdmin
+        const { data: existing } = await db
           .from('comhub_messages')
           .select('id')
-          .eq('tenant_id', tenantId)
           .eq('external_id', messageId)
           .eq('channel', 'email')
           .limit(1)
@@ -169,8 +170,7 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
         const text = parsed.text || (typeof parsed.html === 'string' ? parsed.html.replace(/<[^>]+>/g, ' ').slice(0, 8000) : '')
         const sentAt = parsed.date ? parsed.date.toISOString() : new Date().toISOString()
 
-        await supabaseAdmin.from('comhub_messages').insert({
-          tenant_id: tenantId,
+        await db.from('comhub_messages').insert({
           thread_id: threadId,
           contact_id: contactId,
           channel: 'email',
@@ -186,29 +186,29 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
 
         // ── Yinez auto-reply ─────────────────────────────────────────────────
         try {
-          const { data: thread } = await supabaseAdmin
+          const { data: threadRaw } = await db
             .from('comhub_threads')
             .select('bot_paused_until')
             .eq('id', threadId as string)
             .single()
+          const thread = threadRaw as unknown as { bot_paused_until: string | null } | null
           const paused = thread?.bot_paused_until && new Date(thread.bot_paused_until) > new Date()
-          const { data: dnsClient } = await supabaseAdmin
+          const { data: dnsClientRaw } = await db
             .from('clients')
             .select('do_not_service')
-            .eq('tenant_id', tenantId)
             .ilike('email', fromAddr)
             .limit(1)
             .single()
+          const dnsClient = dnsClientRaw as unknown as { do_not_service: boolean | null } | null
           if (!paused && !dnsClient?.do_not_service) {
             const result = await askSelena('email', text || subject || '', threadId as string, undefined)
             if (result.text) {
               const replySubject = subject ? `Re: ${subject.replace(/^(re:\s*)+/i, '')}` : '(no subject)'
               const externalId = await sendReply(account, fromAddr, replySubject, result.text)
               if (externalId !== null || account.resendApiKey) {
-                const { data: outMsg } = await supabaseAdmin
+                const { data: outMsg } = await db
                   .from('comhub_messages')
                   .insert({
-                    tenant_id: tenantId,
                     thread_id: threadId,
                     contact_id: contactId,
                     channel: 'email',
@@ -228,14 +228,13 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
                   })
                   .select()
                   .single()
-                await supabaseAdmin
+                await db
                   .from('comhub_threads')
                   .update({
                     last_message_at: outMsg?.sent_at || new Date().toISOString(),
                     last_message_preview: (replySubject + ' — ' + result.text).slice(0, 140),
                     updated_at: new Date().toISOString(),
                   })
-                  .eq('tenant_id', tenantId)
                   .eq('id', threadId as string)
               }
             }
@@ -244,13 +243,13 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
           // Best-effort — never let Yinez auto-reply break the IMAP poll.
         }
 
-        const { data: cur } = await supabaseAdmin
+        const { data: curRaw } = await db
           .from('comhub_threads')
           .select('unread_count')
-          .eq('tenant_id', tenantId)
           .eq('id', threadId)
           .single()
-        await supabaseAdmin
+        const cur = curRaw as unknown as { unread_count: number | null } | null
+        await db
           .from('comhub_threads')
           .update({
             subject: subject || undefined,
@@ -259,7 +258,6 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
             unread_count: (cur?.unread_count ?? 0) + 1,
             updated_at: new Date().toISOString(),
           })
-          .eq('tenant_id', tenantId)
           .eq('id', threadId)
 
         mirrored++
