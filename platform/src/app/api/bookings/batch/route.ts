@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 import { sendEmail } from '@/lib/email'
@@ -33,7 +34,6 @@ export async function POST(request: Request) {
     const tokenExpires = new Date(b.start_time as string)
     tokenExpires.setHours(tokenExpires.getHours() + 24)
     return {
-      tenant_id: tenantId,
       client_id: b.client_id,
       team_member_id: b.team_member_id || b.team_member_id || null,
       start_time: b.start_time,
@@ -52,8 +52,8 @@ export async function POST(request: Request) {
     }
   })
 
-  const { data, error } = await supabaseAdmin
-    .from('bookings')  // tenant-scope-ok: insert payload carries tenant_id (built above)
+  const { data, error } = await tenantDb(tenantId)
+    .from('bookings')
     .insert(rows)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 
