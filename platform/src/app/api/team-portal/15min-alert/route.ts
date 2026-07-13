@@ -13,6 +13,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { parseTimestamp, formatET } from '@/lib/dates'
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
     const smsMessage = smsLines.join('\n')
 
     // Record the 30-min alert timestamp on the booking
-    await supabaseAdmin
+    await tenantDb(tenantId)
       .from('bookings')
       .update({ fifteen_min_alert_time: now.toISOString() })
       .eq('id', bookingId)
@@ -204,8 +205,7 @@ export async function POST(req: NextRequest) {
 
     // Escalate if client SMS failed entirely
     if (confirmedVia.length === 0 && clientId) {
-      await supabaseAdmin.from('admin_tasks').insert({
-        tenant_id: tenantId,
+      await tenantDb(tenantId).from('admin_tasks').insert({
         type: 'payment_request_undelivered',
         priority: 'high',
         title: `CALL ${clientName} manually — $${clientOwes} payment request undelivered`,

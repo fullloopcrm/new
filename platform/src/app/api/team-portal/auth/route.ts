@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createToken } from './token'
 
@@ -32,14 +33,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Business not found' }, { status: 404 })
   }
 
-  // Look up team member by PIN
-  const { data: member } = await supabaseAdmin
+  // Look up team member by PIN — scoped to the tenant resolved above.
+  const { data: member } = (await tenantDb(tenant.id)
     .from('team_members')
     .select('id, name, preferred_language, pay_rate, avatar_url, role')
-    .eq('tenant_id', tenant.id)
     .eq('pin', pin)
     .eq('status', 'active')
-    .single()
+    .single()) as { data: { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null } | null }
 
   if (!member) {
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
