@@ -32,8 +32,10 @@ export async function POST(request: NextRequest) {
   if (file.size > MAX_SIZE) return NextResponse.json({ success: false, error: 'File too large (max 25MB)' }, { status: 400 })
   if (!ALLOWED_TYPES.includes(file.type)) return NextResponse.json({ success: false, error: 'File type not allowed' }, { status: 400 })
 
-  const ext = file.name.split('.').pop() || 'bin'
-  const path = `${tenant.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const rawExt = (file.name.split('.').pop() || 'bin').toLowerCase()
+  const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'bin'
+  const safeFolder = String(folder).replace(/[^a-zA-Z0-9_-]/g, '') || 'lead-media'
+  const path = `${tenant.id}/${safeFolder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
   const buffer = Buffer.from(await file.arrayBuffer())
 

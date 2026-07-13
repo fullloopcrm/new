@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'File type not allowed. Use JPEG, PNG, or WebP.' }, { status: 400 })
   }
 
-  const ext = file.name.split('.').pop() || 'jpg'
+  const rawExt = (file.name.split('.').pop() || 'jpg').toLowerCase()
+  const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg'
   const randomId = Math.random().toString(36).slice(2)
   const path = `applications/${Date.now()}-${randomId}.${ext}`
 
