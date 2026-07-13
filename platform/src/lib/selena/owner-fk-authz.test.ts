@@ -97,6 +97,8 @@ const OWN_CLIENT = 'client-A'
 const FOREIGN_CLIENT = 'client-B'
 const OWN_CLEANER = 'cleaner-A'
 const FOREIGN_CLEANER = 'cleaner-B'
+const OWN_BOOKING = 'bk-1'
+const FOREIGN_BOOKING = 'bk-2'
 
 const agentResult = (): YinezResult => ({ text: '', toolsCalled: [] })
 
@@ -114,7 +116,17 @@ function baseResolver(table: string, eqs: Eqs): Resolved {
       ? { data: { id: OWN_CLEANER }, error: null }
       : { data: null, error: null }
   }
-  if (table === 'bookings') return { data: { id: 'bk-new', start_time: '2099-01-01T10:00:00' }, error: null }
+  if (table === 'bookings') {
+    // idInTenant's FK check filters by id + tenant_id (maybeSingle); the
+    // create_manual_booking post-insert .select().single() has no eq filters
+    // at all — only the FK-check path should be gated on OWN_BOOKING.
+    if (eqs.id !== undefined) {
+      return eqs.id === OWN_BOOKING && eqs.tenant_id === TENANT_A
+        ? { data: { id: OWN_BOOKING }, error: null }
+        : { data: null, error: null }
+    }
+    return { data: { id: 'bk-new', start_time: '2099-01-01T10:00:00' }, error: null }
+  }
   if (table === 'deals') return { data: { id: 'deal-new' }, error: null }
   return { data: null, error: null }
 }
@@ -199,6 +211,12 @@ describe('assign_cleaner_to_booking — FK tenant-ownership', () => {
   it("REJECTS a cleaner_id from another tenant (no booking update)", async () => {
     const out = await runTool('assign_cleaner_to_booking', { booking_id: 'bk-1', cleaner_id: FOREIGN_CLEANER }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
     expect(JSON.parse(out).error).toBe('cleaner not found')
+    expect(updateCalls).toHaveLength(0)
+  })
+
+  it("REJECTS a booking_id from another tenant even with an own-tenant cleaner (no booking update, false-success regression guard)", async () => {
+    const out = await runTool('assign_cleaner_to_booking', { booking_id: FOREIGN_BOOKING, cleaner_id: OWN_CLEANER }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
+    expect(JSON.parse(out).error).toBe('booking not found')
     expect(updateCalls).toHaveLength(0)
   })
 

@@ -214,7 +214,7 @@ export async function runTool(
 // Verify each referenced id resolves INSIDE the caller's tenant before the
 // side-effect runs; reject with a stable not-found error otherwise (do not
 // disclose that the id exists in some other tenant).
-async function idInTenant(table: 'clients' | 'cleaners' | 'deals', id: string, tid: string): Promise<boolean> {
+async function idInTenant(table: 'clients' | 'cleaners' | 'deals' | 'bookings', id: string, tid: string): Promise<boolean> {
   if (!id) return false
   const { data } = await supabaseAdmin.from(table).select('id').eq('id', id).eq('tenant_id', tid).maybeSingle()
   return !!data
@@ -928,6 +928,13 @@ async function handleAssignCleaner(input: { booking_id: string; cleaner_id: stri
   // reject a cleaner id that belongs to another tenant before the update.
   if (!(await idInTenant('cleaners', input.cleaner_id, tid))) {
     return JSON.stringify({ error: 'cleaner not found' })
+  }
+  // booking_id must also resolve inside the caller's tenant. Without this check,
+  // a foreign-tenant booking_id just makes the .eq('tenant_id', tid) filter below
+  // match zero rows — Supabase returns no error, so the handler would falsely
+  // report ok:true while writing nothing.
+  if (!(await idInTenant('bookings', input.booking_id, tid))) {
+    return JSON.stringify({ error: 'booking not found' })
   }
   const { error } = await supabaseAdmin
     .from('bookings')
