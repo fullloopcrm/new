@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   const url = new URL(req.url)
   const days = Math.max(1, Math.min(parseInt(url.searchParams.get('days') || '90', 10) || 90, 365))
@@ -54,10 +56,9 @@ export async function POST(req: NextRequest) {
           const messageId = parsed.messageId || ''
           if (!messageId) { skipped++; continue }
 
-          const { data: existing } = await supabaseAdmin
+          const { data: existing } = await db
             .from('comhub_messages')
             .select('id')
-            .eq('tenant_id', tenantId)
             .eq('external_id', messageId)
             .eq('channel', 'email')
             .limit(1)
@@ -85,8 +86,7 @@ export async function POST(req: NextRequest) {
           const text = parsed.text || (typeof parsed.html === 'string' ? parsed.html.replace(/<[^>]+>/g, ' ').slice(0, 8000) : '')
           const sentAt = parsed.date ? parsed.date.toISOString() : new Date().toISOString()
 
-          await supabaseAdmin.from('comhub_messages').insert({
-            tenant_id: tenantId,
+          await db.from('comhub_messages').insert({
             thread_id: threadId,
             contact_id: contactId,
             channel: 'email',
