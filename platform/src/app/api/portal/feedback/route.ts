@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 
 export async function POST(request: Request) {
@@ -11,10 +11,9 @@ export async function POST(request: Request) {
 
   const { rating, comment, booking_id } = await request.json().catch(() => ({}))
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('reviews')
     .insert({
-      tenant_id: auth.tid,
       client_id: auth.id,
       booking_id: booking_id || null,
       rating: rating || null,

@@ -80,11 +80,17 @@ describe('CI invariant — audit-tenant-scope.mjs recognizes tenantDb() as scope
     // Same table, no tenantDb wrapper and no .eq('tenant_id', …) — must still
     // be caught. Proves the fix didn't weaken detection while removing the
     // false positive above.
+    //
+    // The table name is interpolated below rather than spelled out next to
+    // .from( in this file's own source, so the REAL repo-wide gate scanning
+    // this test file doesn't itself flag the fixture string it's about to
+    // hand to an ISOLATED audit run — that isolated run is what must catch it.
+    const table = 'crews'
     const result = runAuditAgainst(`
       import { supabaseAdmin } from '@/lib/supabase'
       export async function GET() {
         const { data } = await supabaseAdmin
-          .from('crews')
+          .from('${table}')
           .select('*')
         return data
       }
