@@ -4,9 +4,7 @@ import { createSessionCookie, hashPassword } from '@/lib/nycmaid/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/nycmaid/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
-
-// In-memory rate limiting
-const loginAttempts = new Map<string, { count: number; lastAttempt: number }>()
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function POST(request: Request) {
   try {
@@ -14,17 +12,17 @@ export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for') || 'unknown'
     const ua = request.headers.get('user-agent') || 'unknown'
 
-    // Check rate limiting
-    const now = Date.now()
-    const attempts = loginAttempts.get(ip)
-
-    if (attempts) {
-      if (now - attempts.lastAttempt > 5 * 60 * 1000) {
-        loginAttempts.delete(ip)
-      } else if (attempts.count >= 5) {
-        await notify({ type: 'security', title: 'Login Locked', message: `IP ${ip} locked out after 5 failed attempts` })
-        return NextResponse.json({ error: 'Too many attempts. Try again in 5 minutes.' }, { status: 429 })
-      }
+    // Persistent (DB-backed) rate limiting, fail-closed. This endpoint used to
+    // rate-limit via an in-memory Map, which resets every cold start and is
+    // per-instance under concurrent serverless invocations — an attacker gets
+    // a fresh set of attempts on every new lambda instance, effectively no
+    // limit at all. failClosed: true so a rate-limiter DB outage denies the
+    // login instead of silently letting brute force through while blind,
+    // matching every other auth-critical endpoint (admin-auth, client/login,
+    // portal/auth, etc).
+    const rl = await rateLimitDb(`auth_login:${ip}`, 5, 5 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 5 minutes.' }, { status: 429 })
     }
 
     const adminPassword = (process.env.ADMIN_PASSWORD || '').trim()
@@ -43,8 +41,6 @@ export async function POST(request: Request) {
         if (user.status === 'disabled') {
           return NextResponse.json({ error: 'Account disabled. Contact your administrator.' }, { status: 403 })
         }
-
-        loginAttempts.delete(ip)
 
         // Update last_login
         await supabaseAdmin
@@ -79,8 +75,6 @@ export async function POST(request: Request) {
 
     // Fallback: legacy PIN-based login
     if (password === adminPassword) {
-      loginAttempts.delete(ip)
-
       const session = createSessionCookie()
       const cookieStore = await cookies()
       cookieStore.set('admin_session', session, {
@@ -114,13 +108,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, user: { name: 'Admin', role: 'owner' } })
     }
 
-    // Track failed attempt
-    const currentAttempts = loginAttempts.get(ip) || { count: 0, lastAttempt: now }
-    const newCount = currentAttempts.count + 1
-    loginAttempts.set(ip, { count: newCount, lastAttempt: now })
-
-    if (newCount >= 3) {
-      await notify({ type: 'security', title: 'Failed Login', message: `${newCount} failed login attempts from ${ip}` })
+    // Notify security once brute-force pressure is evident (3rd+ attempt in
+    // the window), same threshold the old in-memory counter used.
+    if (rl.remaining <= 2) {
+      await notify({ type: 'security', title: 'Failed Login', message: `Failed login attempt from ${ip} (${rl.remaining} attempts remaining before lockout)` })
     }
 
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
