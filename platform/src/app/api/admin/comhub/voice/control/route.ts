@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 
 type Action = 'hold' | 'unhold' | 'mute' | 'unmute' | 'hangup' | 'transfer_blind' | 'transfer_warm' | 'speak' | 'dtmf'
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const cfg = await resolveTenantVoiceConfig(tenantId)
 
   const body = (await req.json().catch(() => null)) as {
@@ -57,24 +58,23 @@ export async function POST(req: NextRequest) {
   let customerCallId = body.customer_call_id || ''
   let activeCallRowId: string | null = null
   if (!customerCallId && body.active_call_id) {
-    const { data } = await supabaseAdmin
+    const { data } = await db
       .from('comhub_active_calls')
       .select('id, customer_call_id')
       .eq('id', body.active_call_id)
-      .eq('tenant_id', tenantId)
       .single()
-    if (data) {
-      customerCallId = data.customer_call_id
-      activeCallRowId = data.id
+    const row = data as unknown as { id: string; customer_call_id: string } | null
+    if (row) {
+      customerCallId = row.customer_call_id
+      activeCallRowId = row.id
     }
   } else if (customerCallId) {
-    const { data } = await supabaseAdmin
+    const { data } = await db
       .from('comhub_active_calls')
       .select('id')
       .eq('customer_call_id', customerCallId)
-      .eq('tenant_id', tenantId)
       .single()
-    activeCallRowId = data?.id ?? null
+    activeCallRowId = (data as unknown as { id: string } | null)?.id ?? null
   }
 
   if (!customerCallId) {
@@ -110,11 +110,10 @@ export async function POST(req: NextRequest) {
         if (!result.ok) result = { ok: true, detail: 'forced db-only finalize' }
       }
       if (activeCallRowId) {
-        await supabaseAdmin
+        await db
           .from('comhub_active_calls')
           .update({ status: 'ended', ended_at: new Date().toISOString(), hangup_cause: 'admin_hangup' })
           .eq('id', activeCallRowId)
-          .eq('tenant_id', tenantId)
       }
       break
     }
@@ -181,11 +180,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (activeCallRowId && Object.keys(dbUpdate).length > 0) {
-    await supabaseAdmin
+    await db
       .from('comhub_active_calls')
       .update(dbUpdate)
       .eq('id', activeCallRowId)
-      .eq('tenant_id', tenantId)
   }
 
   return NextResponse.json({ ok: true, action, result: result.detail })

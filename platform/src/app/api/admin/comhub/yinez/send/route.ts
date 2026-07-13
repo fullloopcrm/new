@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { askSelena } from '@/lib/selena/agent'
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   const payload = await req.json().catch(() => null) as { body?: string } | null
   const text = (payload?.body || '').trim()
@@ -34,8 +36,7 @@ export async function POST(req: NextRequest) {
     .rpc('comhub_get_or_create_thread', { p_tenant_id: tenantId, p_contact_id: contactId, p_channel: 'admin' })
   if (tErr || !threadId) return NextResponse.json({ error: tErr?.message || 'thread create failed' }, { status: 500 })
 
-  await supabaseAdmin.from('comhub_messages').insert({
-    tenant_id: tenantId,
+  await db.from('comhub_messages').insert({
     thread_id: threadId,
     contact_id: contactId,
     channel: 'admin',
@@ -50,8 +51,7 @@ export async function POST(req: NextRequest) {
   const result = await askSelena('telegram', text, conversationId, ownerPhone)
   const reply = result.text || `[yinez returned empty — tools called: ${result.toolsCalled.join(', ') || 'none'}]`
 
-  await supabaseAdmin.from('comhub_messages').insert({
-    tenant_id: tenantId,
+  await db.from('comhub_messages').insert({
     thread_id: threadId,
     contact_id: contactId,
     channel: 'admin',
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     sent_at: new Date().toISOString(),
   })
 
-  await supabaseAdmin
+  await db
     .from('comhub_threads')
     .update({
       last_message_at: new Date().toISOString(),
@@ -69,7 +69,6 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', threadId)
-    .eq('tenant_id', tenantId)
 
   return NextResponse.json({ ok: true, reply, tools_called: result.toolsCalled, thread_id: threadId })
 }

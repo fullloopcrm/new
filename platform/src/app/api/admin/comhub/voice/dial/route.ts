@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const cfg = await resolveTenantVoiceConfig(tenantId)
 
   if (!cfg.apiKey || !cfg.voiceConnectionId) {
@@ -38,26 +40,28 @@ export async function POST(req: NextRequest) {
   let threadId = body.thread_id || null
 
   if (threadId) {
-    const { data: t } = await supabaseAdmin
+    const { data: t } = await db
       .from('comhub_threads')
       .select('id, contact_id, comhub_contacts(phone)')
       .eq('id', threadId)
-      .eq('tenant_id', tenantId)
       .single()
     if (t) {
-      contactId = (t as { contact_id: string }).contact_id
-      const c = (t as { comhub_contacts: { phone: string | null } | { phone: string | null }[] | null }).comhub_contacts
+      const row = t as unknown as {
+        contact_id: string
+        comhub_contacts: { phone: string | null } | { phone: string | null }[] | null
+      }
+      contactId = row.contact_id
+      const c = row.comhub_contacts
       const single = Array.isArray(c) ? c[0] : c
       customerPhone = customerPhone || single?.phone || ''
     }
   } else if (contactId && !customerPhone) {
-    const { data: c } = await supabaseAdmin
+    const { data: c } = await db
       .from('comhub_contacts')
       .select('phone')
       .eq('id', contactId)
-      .eq('tenant_id', tenantId)
       .single()
-    customerPhone = c?.phone || ''
+    customerPhone = (c as unknown as { phone: string | null } | null)?.phone || ''
   } else if (customerPhone && !contactId) {
     const { data, error } = await supabaseAdmin
       .rpc('comhub_get_or_create_contact_by_phone', { p_tenant_id: tenantId, p_phone: customerPhone })
@@ -99,8 +103,7 @@ export async function POST(req: NextRequest) {
   const data = await res.json()
   const callControlId = data?.data?.call_control_id || null
 
-  await supabaseAdmin.from('comhub_messages').insert({
-    tenant_id: tenantId,
+  await db.from('comhub_messages').insert({
     thread_id: threadId,
     contact_id: contactId,
     channel: 'voice',
@@ -112,7 +115,7 @@ export async function POST(req: NextRequest) {
     sent_at: new Date().toISOString(),
   })
 
-  await supabaseAdmin
+  await db
     .from('comhub_threads')
     .update({
       last_message_at: new Date().toISOString(),
@@ -120,7 +123,6 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', threadId)
-    .eq('tenant_id', tenantId)
 
   return NextResponse.json({ ok: true, call_control_id: callControlId, thread_id: threadId })
 }
