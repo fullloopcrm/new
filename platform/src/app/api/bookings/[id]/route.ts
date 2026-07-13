@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { pick } from '@/lib/validate'
 import { checkMemberDayOff } from '@/lib/availability'
 import { notify } from '@/lib/notify'
@@ -18,11 +19,10 @@ export async function GET(
     const { tenantId } = await getTenantForRequest()
     const { id } = await params
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('bookings')
       .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .single()
 
     if (error || !data) {
@@ -50,18 +50,18 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
     const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
+    const db = tenantDb(tenantId)
 
     // Check if team member has the day off or doesn't work that day
     if (fields.team_member_id && !body.force) {
       // Get the booking's start_time (from update or existing record)
       let bookingDate = fields.start_time ? (fields.start_time as string).split('T')[0] : null
       if (!bookingDate) {
-        const { data: existing } = await supabaseAdmin
+        const { data: existing } = (await db
           .from('bookings')
           .select('start_time')
           .eq('id', id)
-          .eq('tenant_id', tenantId)
-          .single()
+          .single()) as { data: { start_time: string } | null }
         if (existing) bookingDate = existing.start_time.split('T')[0]
       }
       if (bookingDate) {
@@ -76,18 +76,16 @@ export async function PUT(
     }
 
     // Get old booking for change detection
-    const { data: oldBooking } = await supabaseAdmin
+    const { data: oldBooking } = (await db
       .from('bookings')
       .select('status, team_member_id, start_time')
       .eq('id', id)
-      .eq('tenant_id', tenantId)
-      .single()
+      .single()) as { data: { status: string; team_member_id: string | null; start_time: string } | null }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('bookings')
       .update(fields)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone, pin)')
       .single()
 
@@ -179,20 +177,22 @@ export async function DELETE(
   try {
     const { tenantId } = tenant
     const { id } = await params
+    const db = tenantDb(tenantId)
 
     // Get booking details before deleting for notifications
-    const { data: booking } = await supabaseAdmin
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast the narrow-select
+    // result to the shape actually selected (see client/bookings for the same gap).
+    const { data: booking } = (await db
       .from('bookings')
       .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .eq('tenant_id', tenantId)
-      .single()
+      .single()) as { data: { client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null } | null } | null }
 
-    const { error } = await supabaseAdmin
+    const { error } = await db
       .from('bookings')
       .delete()
       .eq('id', id)
-      .eq('tenant_id', tenantId)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

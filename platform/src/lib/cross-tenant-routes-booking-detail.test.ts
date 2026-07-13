@@ -54,6 +54,7 @@ import { createTenantAdminToken } from '@/app/api/admin-auth/route'
 import { createClientSession } from '@/lib/client-auth'
 import { PATCH as statusPATCH } from '@/app/api/bookings/[id]/status/route'
 import { PATCH as paymentPATCH } from '@/app/api/bookings/[id]/payment/route'
+import { GET as bookingGET, PUT as bookingPUT, DELETE as bookingDELETE } from '@/app/api/bookings/[id]/route'
 import { GET as teamGET, PUT as teamPUT } from '@/app/api/bookings/[id]/team/route'
 import { POST as resetPOST } from '@/app/api/bookings/[id]/reset/route'
 import { DELETE as noteDELETE } from '@/app/api/booking-notes/[id]/route'
@@ -108,6 +109,34 @@ function reseed() {
   ])
 }
 beforeEach(reseed)
+
+describe('CROSS-TENANT ATTACK · bookings/[id] (base GET/PUT/DELETE)', () => {
+  it("tenant A's GET of a same-id booking returns ONLY tenant A's row (positive control)", async () => {
+    setAdminSessionFor(A_ID)
+    const res = await bookingGET(new Request('http://x'), paramsFor(SHARED_ID))
+    const body = await res.json()
+    expect(body.booking.tenant_id).toBe(A_ID)
+    expect(body.booking.client_id).toBe('cl-a')
+  })
+
+  it("tenant A's PUT never mutates tenant B's same-id booking", async () => {
+    setAdminSessionFor(A_ID)
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ notes: 'HIJACKED VIA BASE PUT' }) })
+    const res = await bookingPUT(req, paramsFor(SHARED_ID))
+    expect(res.status).toBe(200)
+    const bBooking = fake._all('bookings').find((r) => r.tenant_id === B_ID)!
+    expect(bBooking.notes).not.toBe('HIJACKED VIA BASE PUT')
+  })
+
+  it("tenant A's DELETE never removes tenant B's same-id booking", async () => {
+    setAdminSessionFor(A_ID)
+    const res = await bookingDELETE(new Request('http://x'), paramsFor(SHARED_ID))
+    expect(res.status).toBe(200)
+    const bBooking = fake._all('bookings').find((r) => r.tenant_id === B_ID)
+    expect(bBooking).toBeTruthy()
+    expect(fake._all('bookings').some((r) => r.tenant_id === A_ID)).toBe(false)
+  })
+})
 
 describe('CROSS-TENANT ATTACK · bookings/[id]/status', () => {
   it('tenant A transitions its own same-id booking (positive control)', async () => {

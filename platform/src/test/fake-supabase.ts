@@ -13,7 +13,7 @@
  * It supports only the surface the suite exercises:
  *   from(table)
  *     .select(cols, { count })  .insert(rows)  .update(vals)  .delete()  .upsert(rows,{onConflict})
- *     .eq(col,val) .neq .in(col,vals) .gte .lte .is(col,val) .order() .range() .limit(n)
+ *     .eq(col,val) .neq .in(col,vals) .gte .lte .lt .is(col,val) .order() .range() .limit(n)
  *     .single() .maybeSingle()  and thenable (await) resolution
  *
  * Not a general-purpose mock — do not grow it beyond what a test needs.
@@ -35,6 +35,7 @@ type Filter =
   | { kind: 'in'; col: string; vals: unknown[] }
   | { kind: 'gte'; col: string; val: unknown }
   | { kind: 'lte'; col: string; val: unknown }
+  | { kind: 'lt'; col: string; val: unknown }
   | { kind: 'is'; col: string; val: null | boolean }
 
 function matches(row: Row, filters: Filter[]): boolean {
@@ -56,6 +57,10 @@ function matches(row: Row, filters: Filter[]): boolean {
         break
       case 'lte':
         if (!(cell !== undefined && cell !== null && (cell as number | string) <= (f.val as number | string)))
+          return false
+        break
+      case 'lt':
+        if (!(cell !== undefined && cell !== null && (cell as number | string) < (f.val as number | string)))
           return false
         break
       case 'is':
@@ -118,8 +123,19 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     this.filters.push({ kind: 'lte', col, val })
     return this
   }
+  lt(col: string, val: unknown): this {
+    this.filters.push({ kind: 'lt', col, val })
+    return this
+  }
   is(col: string, val: null | boolean): this {
     this.filters.push({ kind: 'is', col, val })
+    return this
+  }
+  /** No-op: PostgREST `.or('a,b')` syntax isn't parsed here — it never narrows
+   * or widens tenant isolation (that's always `.eq('tenant_id', …)`), so tests
+   * that need business-filter precision should assert on a query that avoids
+   * `.or()` rather than rely on this to filter anything. */
+  or(_filter: string): this {
     return this
   }
   order(col: string, opts?: { ascending?: boolean }): this {

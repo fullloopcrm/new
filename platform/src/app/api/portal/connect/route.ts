@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -9,15 +10,16 @@ export async function GET(request: NextRequest) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
+  const db = tenantDb(auth.tid)
+
   try {
     // Find or create client channel
-    let { data: channel } = await supabaseAdmin
+    let { data: channel } = (await db
       .from('connect_channels')
       .select('id')
-      .eq('tenant_id', auth.tid)
       .eq('type', 'client')
       .eq('client_id', auth.id)
-      .single()
+      .single()) as { data: { id: string } | null }
 
     if (!channel) {
       // Get client name for channel
@@ -27,22 +29,21 @@ export async function GET(request: NextRequest) {
         .eq('id', auth.id)
         .single()
 
-      const { data: created } = await supabaseAdmin
+      const { data: created } = (await db
         .from('connect_channels')
         .insert({
-          tenant_id: auth.tid,
           type: 'client',
           name: client?.name || 'Client',
           client_id: auth.id,
         })
         .select('id')
-        .single()
+        .single()) as { data: { id: string } | null }
       channel = created
     }
 
     if (!channel) return NextResponse.json({ messages: [] })
 
-    const { data: messages } = await supabaseAdmin
+    const { data: messages } = await db
       .from('connect_messages')
       .select('id, sender_type, sender_id, sender_name, body, created_at')
       .eq('channel_id', channel.id)
@@ -50,12 +51,11 @@ export async function GET(request: NextRequest) {
       .limit(200)
 
     // Update read cursor
-    await supabaseAdmin
+    await db
       .from('connect_read_cursors')
       .upsert(
         {
           channel_id: channel.id,
-          tenant_id: auth.tid,
           reader_type: 'client',
           reader_id: auth.id,
           last_read_at: new Date().toISOString(),
@@ -79,6 +79,8 @@ export async function POST(request: NextRequest) {
   const { body, channel_id } = await request.json()
   if (!body?.trim()) return NextResponse.json({ error: 'Body required' }, { status: 400 })
 
+  const db = tenantDb(auth.tid)
+
   try {
     // Get client name
     const { data: client } = await supabaseAdmin
@@ -90,25 +92,23 @@ export async function POST(request: NextRequest) {
     let targetChannelId = channel_id
 
     if (!targetChannelId) {
-      let { data: channel } = await supabaseAdmin
+      let { data: channel } = (await db
         .from('connect_channels')
         .select('id')
-        .eq('tenant_id', auth.tid)
         .eq('type', 'client')
         .eq('client_id', auth.id)
-        .single()
+        .single()) as { data: { id: string } | null }
 
       if (!channel) {
-        const { data: created } = await supabaseAdmin
+        const { data: created } = (await db
           .from('connect_channels')
           .insert({
-            tenant_id: auth.tid,
             type: 'client',
             name: client?.name || 'Client',
             client_id: auth.id,
           })
           .select('id')
-          .single()
+          .single()) as { data: { id: string } | null }
         channel = created
       }
 
@@ -117,11 +117,10 @@ export async function POST(request: NextRequest) {
 
     if (!targetChannelId) return NextResponse.json({ error: 'No channel' }, { status: 400 })
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('connect_messages')
       .insert({
         channel_id: targetChannelId,
-        tenant_id: auth.tid,
         sender_type: 'client',
         sender_id: auth.id,
         sender_name: client?.name || 'Client',
@@ -133,12 +132,11 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Update read cursor
-    await supabaseAdmin
+    await db
       .from('connect_read_cursors')
       .upsert(
         {
           channel_id: targetChannelId,
-          tenant_id: auth.tid,
           reader_type: 'client',
           reader_id: auth.id,
           last_read_at: new Date().toISOString(),

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
     const now = new Date()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
@@ -16,14 +17,14 @@ export async function GET() {
       { count: completed },
       { data: paidBookings },
     ] = await Promise.all([
-      supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId).in('status', ['scheduled', 'confirmed']),
-      supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId).gte('start_time', now.toISOString()).lt('start_time', weekEnd),
-      supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', monthStart),
-      supabaseAdmin.from('bookings').select('price')
-        .eq('tenant_id', tenantId).eq('payment_status', 'paid').gte('payment_date', monthStart),
+      db.from('bookings').select('id', { count: 'exact', head: true })
+        .in('status', ['scheduled', 'confirmed']),
+      db.from('bookings').select('id', { count: 'exact', head: true })
+        .gte('start_time', now.toISOString()).lt('start_time', weekEnd),
+      db.from('bookings').select('id', { count: 'exact', head: true })
+        .in('status', ['completed', 'paid']).gte('start_time', monthStart),
+      db.from('bookings').select('price')
+        .eq('payment_status', 'paid').gte('payment_date', monthStart) as unknown as { data: { price: number | null }[] | null },
     ])
 
     const revenue = (paidBookings || []).reduce((sum, b) => sum + (b.price || 0), 0)
