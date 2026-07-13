@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
@@ -35,10 +35,10 @@ export async function POST(request: Request) {
     const code = String(100000 + randomInt(0, 900000))
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
 
-    const { error: dbError } = await supabaseAdmin
+    const { error: dbError } = await tenantDb(tenant.id)
       .from('verification_codes')
       .upsert(
-        { tenant_id: tenant.id, identifier, code, expires_at: expiresAt, used: false },
+        { identifier, code, expires_at: expiresAt, used: false },
         { onConflict: 'tenant_id,identifier' },
       )
     if (dbError) {
