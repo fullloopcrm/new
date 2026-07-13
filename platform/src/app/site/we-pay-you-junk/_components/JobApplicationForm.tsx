@@ -1,6 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// Must match ALLOWED_TYPES.photo.mimes in /api/apply/signed-url/route.ts.
+const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export function JobApplicationForm({ city, state }: { city?: string; state?: string }) {
   const [submitted, setSubmitted] = useState(false);
@@ -14,8 +23,8 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!/^image\//.test(file.type)) {
-      setError("Profile photo must be an image.");
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+      setError("Profile photo must be a JPG, PNG, or WEBP image.");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -25,12 +34,22 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
     setError(null);
     setPhotoUploading(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body });
-      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
-      if (!res.ok || !data.success || !data.url) throw new Error(data.error || "Upload failed");
-      setPhotoUrl(data.url);
+      const signedRes = await fetch("/api/apply/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "photo", filename: file.name, contentType: file.type }),
+      });
+      const signedData = (await signedRes.json()) as { path?: string; token?: string; publicUrl?: string; error?: string };
+      if (!signedRes.ok || !signedData.path || !signedData.token || !signedData.publicUrl) {
+        throw new Error(signedData.error || "Failed to prepare photo upload.");
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from("uploads")
+        .uploadToSignedUrl(signedData.path, signedData.token, file, { contentType: file.type });
+      if (uploadError) throw new Error("Failed to upload photo. Please try again.");
+
+      setPhotoUrl(signedData.publicUrl);
       setPhotoName(file.name);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Photo upload failed");
@@ -164,7 +183,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       </div>
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1">Profile photo (optional)</label>
-        <input type="file" accept="image/*" onChange={handlePhoto} disabled={photoUploading} className="w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-700 file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-teal-800" />
+        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhoto} disabled={photoUploading} className="w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-700 file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-teal-800" />
         {photoUploading && <p className="mt-1 text-xs text-slate-500">Uploading photo…</p>}
         {photoUrl && !photoUploading && <p className="mt-1 text-xs font-semibold text-teal-700">✓ {photoName || "Photo uploaded"}</p>}
       </div>
