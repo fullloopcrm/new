@@ -148,3 +148,160 @@ will land at merge.
 
 Commits this pass: `92de7d8a` (fix + test). tsc --noEmit clean; full vitest 115 files /
 991 passed + 1 pre-existing expected-fail, 0 regressions.
+
+---
+
+## LANE: TENANT-PROFILE/CONFIG (W1)
+
+**Scope per dispatch:** CHECKLIST §B (comms config) + integrations config, diff the FL
+nycmaid tenant row config vs nycmaid live env (Telnyx number/key, Resend key+domain,
+Telegram token+chat_id, Anthropic key, `email_from`, `payment_link`, `selena_config`
+completeness). Confirm every code send-path reads the **tenant field**, not a platform
+env default. This is a **read-only audit** lane — no "close the gap" instruction was
+given (unlike the other PARITY-DIFF lanes), and no DB command was run to produce it
+(W1's standing rule): every claim below is grounded in code reads + a read-only file
+read of `~/Desktop/nycmaid/.env.local` (names only, values never printed/logged).
+
+**Canonical registry used for this audit:** `src/lib/tenant-profile.ts` `PROFILE_FIELDS`
+— the one place the codebase itself declares which `tenants` column backs each comms
+field (`telnyxKey`→`telnyx_api_key`, `telnyxPhone`→`telnyx_phone`, `resendKey`→
+`resend_api_key`, `resendDomain`→`resend_domain`, `emailFrom`→`email_from`,
+`telegramBotToken`→`telegram_bot_token`, `telegramChatId`→`telegram_chat_id`,
+`anthropicKey`→`anthropic_api_key`). `payment_link` and `selena_config` aren't in this
+registry (payment_link is booking-money-path, selena_config is AI persona) so those are
+traced separately below.
+
+### ✅ MATCH — Telegram (fully tenant-scoped, no leak)
+
+`src/lib/nycmaid/notify.ts:57-62` selects `telegram_bot_token, telegram_chat_id` from
+the tenant row, decrypts with `decryptSecret()`, and calls `sendTelegram(chatId,
+text, botToken)` — the tenant's own bot, not the platform `TELEGRAM_BOT_TOKEN`/
+`TELEGRAM_OWNER_CHAT_ID` env fallback in `src/lib/telegram.ts:4-8` (that fallback exists
+for `notifyOwnerOnTelegram`/Jefe-internal alerts only, a different call path). Correct.
+
+### ✅ MATCH — Anthropic (tenant-scoped with intentional platform fallback)
+
+`src/lib/anthropic-client.ts` `resolveAnthropic(tenantId)` reads `tenants.anthropic_api_key`
+first, falls back to the platform key only if the tenant hasn't set one — this fallback
+is deliberate and documented (`anthropicKey` tier is `optional` in the registry, not
+`critical`). Confirmed at every nycmaid Claude-call site: `selena/agent.ts:422`,
+`selena/core.ts:2316`, `nycmaid/conversation-scorer.ts:216` — all call `resolveAnthropic(tid)`,
+none construct `new Anthropic()` directly. No leak.
+
+### ✅ MATCH — `payment_link` (tenant-scoped, faithfully ported)
+
+`team-portal/15min-alert/route.ts:62,164-165` and `cron/payment-followup-daily/route.ts:63,75,109`
+both select and gate on `tenant.payment_link` — the code comment at
+`15min-alert/route.ts:9` documents the port explicitly: `hardcoded Stripe PAY_LINK ->
+tenant.payment_link (per-tenant)`. Source (`~/Desktop/nycmaid/src/lib/email-templates.ts:482`)
+hardcodes `https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03` directly in the email template
+(no env/config indirection at all in source); FL correctly generalized that into a real
+per-tenant column instead of also hardcoding it. No leak, no drift.
+
+### ⚠️ DRIFT — Telnyx SMS + Resend email: nycmaid's OWN customer-facing send path does
+### NOT read the tenant column CHECKLIST §B says is set
+
+This is the one real finding of this lane, and it's a genuine split-brain, not a cosmetic
+nit:
+
+**Two parallel send stacks exist for the nycmaid tenant simultaneously:**
+
+1. **Generic/dashboard/cron stack** (`src/lib/sms.ts`, `sendSMS({ telnyxApiKey, telnyxPhone })`)
+   — used by `bookings/*`, `quotes/[id]/send`, `invoices/[id]/send`, `documents/*`,
+   `campaigns/[id]/send`, `reviews/request`, `webhooks/telnyx` (inbound owner-reply), and
+   the crons `confirmations`, `reminders`, `late-check-in`, `payment-reminder`,
+   `payment-followup-daily`, `outreach`, `retention`, `post-job-followup`,
+   `daily-summary`. Every one of these selects `telnyx_api_key, telnyx_phone` (and
+   `resend_api_key`/`email_from` where relevant) **from the tenant row** and passes them
+   through explicitly. ✅ Correct, tenant-scoped, no leak — confirmed at ~20 call sites.
+
+2. **nycmaid-legacy stack** (`src/lib/nycmaid/sms.ts` + `src/lib/nycmaid/email.ts`) — used
+   by `client-contacts.ts` (client-facing booking/confirm/reminder SMS), `notify-cleaner.ts`
+   (cleaner assignment SMS), `admin-contacts.ts` (owner alerts), `review-engine.ts` (the
+   entire rating/review-request flow), and one PIN-reminder send in `selena/core.ts:1285`.
+   **These read `process.env.TELNYX_API_KEY` / `process.env.TELNYX_FROM_NUMBER` /
+   `process.env.RESEND_API_KEY` at module scope** (`nycmaid/sms.ts:3-4`,
+   `nycmaid/email.ts:19-26`) — **platform env vars, not `tenants.telnyx_api_key` /
+   `tenants.telnyx_phone` / `tenants.resend_api_key`.** The email from-address is also a
+   hardcoded literal (`'The NYC Maid <hi@thenycmaid.com>'`, `nycmaid/email.ts:52`), not a
+   read of `tenants.email_from`.
+
+**Why this matters:** stack 2 is nycmaid's *highest-volume, most customer-visible* path —
+booking confirmations, cleaner dispatch, and the whole review/rating funnel all go
+through it. CHECKLIST §B marks "Telnyx key + number set & correct" / "Resend key set ·
+domain set" ✅ — that refers to the **tenant row columns** (confirmed populated per the
+checklist, and those columns ARE what stack 1 correctly reads). But stack 2 **ignores
+those columns entirely**. Today this is silently correct only because someone (presumably
+Jeff, outside this repo — Vercel project env vars, which I have no access to check or
+read) has apparently also set the *platform* `TELNYX_API_KEY` / `TELNYX_FROM_NUMBER` /
+`RESEND_API_KEY` env vars to nycmaid's own credentials — this is unverified by me since
+it lives in Vercel, not the repo or DB. Two concrete risks if that assumption is wrong or
+changes:
+
+- **If those platform env vars are ever repointed** (e.g., a future tenant reuses them,
+  or someone rotates them thinking they're "the platform default" rather than realizing
+  they're secretly nycmaid's real production credentials) — nycmaid's booking
+  confirmations, cleaner dispatch, and reviews silently break or silently send from the
+  wrong account.
+- **If Jeff edits `telnyx_api_key`/`telnyx_phone`/`resend_api_key`/`email_from` via the
+  admin profile UI** (`tenant-profile.ts`'s write path, `PATCH /api/admin/businesses/[id]`)
+  believing it updates nycmaid's live comms — for stack 1 it does; for stack 2 (the
+  actual client/cleaner/review traffic) **it has zero effect**, because that code never
+  reads the column.
+
+This is the same underlying architecture risk W6 already flagged from the *inbound webhook*
+side (`LEADER-CHANNEL` 10:44 entry: `TELNYX_PUBLIC_KEY` global env vs `tenant.telnyx_api_key`
+per-tenant mismatch causing the Jul-7 401) — this lane found the **outbound send** mirror of
+the same problem, one level deeper: it's not just signature verification reading a
+different key than the DB column, it's the entire nycmaid-legacy send stack never reading
+the DB column at all.
+
+**Not fixed / not reverted** — per this lane's explicit scope (audit + flag only, config
+values are Jeff's call, and collapsing two send stacks into one is an architectural
+decision bigger than "port nycmaid's behavior," the framing every other PARITY-DIFF lane
+was given). Flagging for Jeff:
+1. Confirm the Vercel-level `TELNYX_API_KEY` / `TELNYX_FROM_NUMBER` / `RESEND_API_KEY` env
+   vars are actually nycmaid's own credentials (not a stale platform default) — I cannot
+   check this myself (no Vercel/infra access, no DB command).
+2. Decide whether to (a) leave the split as-is until the standalone-nycmaid retirement
+   (the code's own comment calls this "nycmaid-legacy... retires with the standalone
+   cutover"), or (b) migrate `nycmaid/sms.ts`/`nycmaid/email.ts` onto the tenant-column
+   reads now so the admin profile UI actually controls nycmaid's real send credentials.
+
+### ⚠️ NOTED, not a live risk — `selena_config` completeness is moot for nycmaid
+
+Grepped `selena_config` across every `src/lib/nycmaid/*.ts` and `src/lib/selena/core.ts`
+(nycmaid's actual live agent, confirmed via the `LEADER-CHANNEL` finding that nycmaid
+"bypasses this path via their own hardcoded intake") — **zero hits.** nycmaid's persona,
+pricing copy, tone, greeting, and intake questions are all hardcoded literal strings in
+`core.ts`/`nycmaid/*.ts`, not sourced from `tenants.selena_config` jsonb at all. So:
+
+- **Functionally: no risk.** Whatever is (or isn't) in nycmaid's `selena_config` column has
+  zero effect on nycmaid's actual live behavior.
+- **Readiness-UI accuracy gap:** the generic profile registry (`tenant-profile.ts`) will
+  still evaluate nycmaid against `businessDescription`, `aiName`, `tone`, `greeting`,
+  `reviewLink`, etc. as `selena`-store fields and may report them "unfilled"/incomplete in
+  any dashboard/readiness view, even though real behavior is fine — a dashboard
+  false-negative, not a functional gap. Flagging so nobody chases a phantom "incomplete
+  selena_config" ticket for this tenant.
+
+### Tally
+
+- ✅ MATCH: Telegram (fully tenant-scoped), Anthropic (tenant-scoped w/ intentional
+  fallback), `payment_link` (tenant-scoped, correctly generalized from source's hardcoded
+  link), ~20 generic dashboard/cron Telnyx/Resend call sites (tenant-scoped)
+- ⚠️ DRIFT (flagged for Jeff, not fixed — audit-only lane, no close-the-gap instruction):
+  nycmaid-legacy stack (`nycmaid/sms.ts`, `nycmaid/email.ts` — client-contacts,
+  notify-cleaner, admin-contacts, review-engine, one Selena PIN-reminder) reads platform
+  env vars / hardcoded literals instead of `tenants.telnyx_api_key` / `telnyx_phone` /
+  `resend_api_key` / `email_from`
+- ⚠️ NOTED, no action needed: `selena_config` completeness is functionally moot for
+  nycmaid (readiness-UI-only gap)
+- **Not independently verified (out of lane's permitted tooling):** the actual current
+  values in the FL nycmaid tenant row (whether `telnyx_api_key`/`resend_api_key`/etc. are
+  populated with the *correct* live credentials) — this lane had no DB-command access per
+  standing rule; CHECKLIST §B already marks these ✅ as of 2026-07-07 from Jeff's own
+  verification. This report only confirms/refutes which **code paths** read those columns
+  vs. an env default, not the literal populated values today.
+
+No commits this pass — read-only audit, no code changed, no fix requested by dispatch scope.
