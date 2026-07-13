@@ -216,17 +216,35 @@ async function executeTool(
 
       const results = await Promise.all(
         ids.map(async id => {
-          const { error } = await supabaseAdmin
+          const { data, error } = await supabaseAdmin
             .from('bookings')
             .update(updates)
             .eq('id', id)
             .eq('tenant_id', tenantId)
-          return { id, error: error?.message }
+            .select('id')
+          return { id, error: error?.message, matched: (data?.length ?? 0) > 0 }
         })
       )
       const failed = results.filter(r => r.error)
       if (failed.length > 0) return JSON.stringify({ error: `${failed.length}/${ids.length} failed`, details: failed })
-      return JSON.stringify({ success: true, updated: ids.length })
+      const notFound = results.filter(r => !r.matched).map(r => r.id)
+      const updatedCount = results.length - notFound.length
+      if (updatedCount === 0) {
+        return JSON.stringify({
+          success: false,
+          updated: 0,
+          message: `None of the ${ids.length} booking id(s) belong to this business — nothing was updated.`,
+        })
+      }
+      if (notFound.length > 0) {
+        return JSON.stringify({
+          success: true,
+          updated: updatedCount,
+          not_found: notFound,
+          message: `${updatedCount}/${ids.length} booking(s) updated. ${notFound.length} id(s) did not match a booking for this business.`,
+        })
+      }
+      return JSON.stringify({ success: true, updated: updatedCount })
     }
 
     case 'cancel_bookings': {
@@ -241,17 +259,35 @@ async function executeTool(
       }
       const results = await Promise.all(
         ids.map(async id => {
-          const { error } = await supabaseAdmin
+          const { data, error } = await supabaseAdmin
             .from('bookings')
             .update({ status: 'cancelled' })
             .eq('id', id)
             .eq('tenant_id', tenantId)
-          return { id, error: error?.message }
+            .select('id')
+          return { id, error: error?.message, matched: (data?.length ?? 0) > 0 }
         })
       )
       const failed = results.filter(r => r.error)
       if (failed.length > 0) return JSON.stringify({ error: `${failed.length}/${ids.length} failed`, details: failed })
-      return JSON.stringify({ success: true, cancelled: ids.length })
+      const notFound = results.filter(r => !r.matched).map(r => r.id)
+      const cancelledCount = results.length - notFound.length
+      if (cancelledCount === 0) {
+        return JSON.stringify({
+          success: false,
+          cancelled: 0,
+          message: `None of the ${ids.length} booking id(s) belong to this business — nothing was cancelled.`,
+        })
+      }
+      if (notFound.length > 0) {
+        return JSON.stringify({
+          success: true,
+          cancelled: cancelledCount,
+          not_found: notFound,
+          message: `${cancelledCount}/${ids.length} booking(s) cancelled. ${notFound.length} id(s) did not match a booking for this business.`,
+        })
+      }
+      return JSON.stringify({ success: true, cancelled: cancelledCount })
     }
 
     case 'get_schedule_summary': {
