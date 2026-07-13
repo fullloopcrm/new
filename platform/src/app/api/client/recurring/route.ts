@@ -85,6 +85,21 @@ export async function POST(request: Request) {
     }
   }
 
+  // Validate a caller-supplied property_id belongs to THIS client (client/book
+  // never trusts a caller-supplied property_id at all — it always resolves one
+  // server-side off the client's own address; this route deviates from that
+  // pattern by accepting one directly, so it must be checked here instead).
+  if (property_id) {
+    const { data: prop } = await supabaseAdmin
+      .from('client_properties')
+      .select('id')
+      .eq('id', property_id)
+      .eq('client_id', client_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!prop) return NextResponse.json({ error: 'Invalid property selection' }, { status: 400 })
+  }
+
   // Repeat-client gate
   const { count: priorCount } = await supabaseAdmin
     .from('bookings')

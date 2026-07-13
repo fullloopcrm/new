@@ -47,6 +47,10 @@ beforeEach(() => {
       { id: 'tm-a1', tenant_id: 'tid-a' },
       { id: 'tm-b1', tenant_id: 'tid-b' },
     ],
+    client_properties: [
+      { id: 'prop-a1', tenant_id: 'tid-a', client_id: 'client-a' },
+      { id: 'prop-b1', tenant_id: 'tid-b', client_id: 'client-b' },
+    ],
   })
   holder.from = h.from
 })
@@ -111,5 +115,18 @@ describe('client/recurring — auth gap fixed', () => {
     const scheduleIns = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
     expect(scheduleIns!.rows.every((r) => r.team_member_id === 'tm-a1')).toBe(true)
     expect(h.seed.clients.find((c) => c.id === 'client-a')!.preferred_team_member_id).toBe('tm-a1')
+  })
+
+  it('cross-client property_id probe: a client cannot attach another client\'s property', async () => {
+    const res = await POST(req({ authorization: `Bearer ${TOKEN_A}` }, { ...validBody, client_id: 'client-a', property_id: 'prop-b1' }))
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'recurring_schedules')).toBeUndefined()
+  })
+
+  it('own property_id succeeds and is applied to the created series', async () => {
+    const res = await POST(req({ authorization: `Bearer ${TOKEN_A}` }, { ...validBody, client_id: 'client-a', property_id: 'prop-a1' }))
+    expect(res.status).toBe(200)
+    const scheduleIns = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
+    expect(scheduleIns!.rows.every((r) => r.property_id === 'prop-a1')).toBe(true)
   })
 })
