@@ -29,68 +29,111 @@ export async function createBookingFromQuote(
     throw new Error(`Can only convert accepted quotes (current: ${quote.status})`)
   }
 
-  // Resolve or create client (identical to createJobFromQuote / the /convert path).
-  let clientId = quote.client_id as string | null
-  if (!clientId) {
-    const existing = quote.contact_email
-      ? await supabaseAdmin
-          .from('clients')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('email', quote.contact_email)
-          .maybeSingle()
-      : { data: null }
-    if (existing.data?.id) {
-      clientId = existing.data.id as string
-    } else {
-      const { data: newClient, error: cErr } = await supabaseAdmin
-        .from('clients')
-        .insert({
-          tenant_id: tenantId,
-          name: quote.contact_name || quote.title || 'Quote Client',
-          email: quote.contact_email || null,
-          phone: quote.contact_phone || null,
-          address: quote.service_address || null,
-          source: 'quote',
-          status: 'active',
-        })
-        .select('id')
-        .single()
-      if (cErr) throw cErr
-      clientId = newClient.id as string
+  // Atomic claim: only a still-'accepted', not-yet-converted, not-yet-claimed
+  // quote can proceed past this point. Concurrent callers (e.g. the public
+  // accept endpoint retried, or an admin re-triggering close) race this
+  // UPDATE — the loser gets null back instead of falling through to create a
+  // duplicate booking. Shares `converted_at` with createJobFromQuote /
+  // createRecurringSeriesFromQuote as the claim marker since it's exclusive
+  // per quote regardless of which conversion path wins.
+  const { data: claim } = await supabaseAdmin
+    .from('quotes')
+    .update({ converted_at: new Date().toISOString() })
+    .eq('id', quoteId).eq('tenant_id', tenantId)
+    .eq('status', 'accepted')
+    .is('converted_booking_id', null)
+    .is('converted_at', null)
+    .select('id')
+    .maybeSingle()
+
+  if (!claim) {
+    // Already claimed (in flight or finished) by a concurrent call. If the
+    // winner already finished, return its booking id; otherwise surface a
+    // retryable conflict instead of silently creating a second booking.
+    const { data: latest } = await supabaseAdmin
+      .from('quotes')
+      .select('converted_booking_id')
+      .eq('id', quoteId)
+      .maybeSingle()
+    if (latest?.converted_booking_id) {
+      return { booking_id: latest.converted_booking_id as string, already_converted: true }
     }
+    throw new Error('Quote conversion already in progress')
   }
 
-  // bookings.start_time is NOT NULL, so a sold-but-unscheduled service can't be
-  // dateless. Place it on a near-future placeholder slot as 'pending' — the
-  // operator confirms/moves the real date. status 'pending' = needs scheduling.
-  const start = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
-  start.setHours(9, 0, 0, 0)
-  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
+  try {
+    // Resolve or create client (identical to createJobFromQuote / the /convert path).
+    let clientId = quote.client_id as string | null
+    if (!clientId) {
+      const existing = quote.contact_email
+        ? await supabaseAdmin
+            .from('clients')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('email', quote.contact_email)
+            .maybeSingle()
+        : { data: null }
+      if (existing.data?.id) {
+        clientId = existing.data.id as string
+      } else {
+        const { data: newClient, error: cErr } = await supabaseAdmin
+          .from('clients')
+          .insert({
+            tenant_id: tenantId,
+            name: quote.contact_name || quote.title || 'Quote Client',
+            email: quote.contact_email || null,
+            phone: quote.contact_phone || null,
+            address: quote.service_address || null,
+            source: 'quote',
+            status: 'active',
+          })
+          .select('id')
+          .single()
+        if (cErr) throw cErr
+        clientId = newClient.id as string
+      }
+    }
 
-  const { data: booking, error: bErr } = await supabaseAdmin
-    .from('bookings')
-    .insert({
-      tenant_id: tenantId,
-      client_id: clientId,
-      start_time: start.toISOString(),
-      end_time: end.toISOString(),
-      status: 'pending',
-      service_type: quote.title || 'Service',
-      price: quote.total_cents ? (quote.total_cents as number) / 100 : null,
-      notes: `Converted from quote ${quote.quote_number} — confirm the date`,
-      special_instructions: quote.notes || null,
-    })
-    .select('id')
-    .single()
-  if (bErr) throw bErr
-  const bookingId = booking.id as string
+    // bookings.start_time is NOT NULL, so a sold-but-unscheduled service can't be
+    // dateless. Place it on a near-future placeholder slot as 'pending' — the
+    // operator confirms/moves the real date. status 'pending' = needs scheduling.
+    const start = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+    start.setHours(9, 0, 0, 0)
+    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
 
-  await supabaseAdmin
-    .from('quotes')
-    .update({ status: 'converted', converted_booking_id: bookingId })
-    .eq('id', quoteId)
-    .eq('tenant_id', tenantId)
+    const { data: booking, error: bErr } = await supabaseAdmin
+      .from('bookings')
+      .insert({
+        tenant_id: tenantId,
+        client_id: clientId,
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        status: 'pending',
+        service_type: quote.title || 'Service',
+        price: quote.total_cents ? (quote.total_cents as number) / 100 : null,
+        notes: `Converted from quote ${quote.quote_number} — confirm the date`,
+        special_instructions: quote.notes || null,
+      })
+      .select('id')
+      .single()
+    if (bErr) throw bErr
+    const bookingId = booking.id as string
 
-  return { booking_id: bookingId, already_converted: false }
+    await supabaseAdmin
+      .from('quotes')
+      .update({ status: 'converted', converted_booking_id: bookingId })
+      .eq('id', quoteId)
+      .eq('tenant_id', tenantId)
+
+    return { booking_id: bookingId, already_converted: false }
+  } catch (err) {
+    // Creation failed after the claim succeeded — release it so a retry
+    // isn't permanently blocked by a stuck "conversion in progress" error.
+    await supabaseAdmin
+      .from('quotes')
+      .update({ converted_at: null })
+      .eq('id', quoteId)
+      .eq('tenant_id', tenantId)
+    throw err
+  }
 }
