@@ -38,43 +38,34 @@ type Filter =
   | { kind: 'lt'; col: string; val: unknown }
   | { kind: 'is'; col: string; val: null | boolean }
   | { kind: 'ilike'; col: string; pattern: RegExp }
+  | { kind: 'not'; inner: Filter }
+
+function matchesOne(row: Row, f: Filter): boolean {
+  if (f.kind === 'not') return !matchesOne(row, f.inner)
+  const cell = row[f.col]
+  switch (f.kind) {
+    case 'eq':
+      return cell === f.val
+    case 'neq':
+      return cell !== f.val
+    case 'in':
+      return f.vals.includes(cell)
+    case 'gte':
+      return cell !== undefined && cell !== null && (cell as number | string) >= (f.val as number | string)
+    case 'lte':
+      return cell !== undefined && cell !== null && (cell as number | string) <= (f.val as number | string)
+    case 'lt':
+      return cell !== undefined && cell !== null && (cell as number | string) < (f.val as number | string)
+    case 'is':
+      return f.val === null ? cell === null || cell === undefined : cell === f.val
+    case 'ilike':
+      return typeof cell === 'string' && f.pattern.test(cell)
+  }
+}
 
 function matches(row: Row, filters: Filter[]): boolean {
   for (const f of filters) {
-    const cell = row[f.col]
-    switch (f.kind) {
-      case 'eq':
-        if (cell !== f.val) return false
-        break
-      case 'neq':
-        if (cell === f.val) return false
-        break
-      case 'in':
-        if (!f.vals.includes(cell)) return false
-        break
-      case 'gte':
-        if (!(cell !== undefined && cell !== null && (cell as number | string) >= (f.val as number | string)))
-          return false
-        break
-      case 'lte':
-        if (!(cell !== undefined && cell !== null && (cell as number | string) <= (f.val as number | string)))
-          return false
-        break
-      case 'lt':
-        if (!(cell !== undefined && cell !== null && (cell as number | string) < (f.val as number | string)))
-          return false
-        break
-      case 'is':
-        if (f.val === null) {
-          if (cell !== null && cell !== undefined) return false
-        } else if (cell !== f.val) {
-          return false
-        }
-        break
-      case 'ilike':
-        if (typeof cell !== 'string' || !f.pattern.test(cell)) return false
-        break
-    }
+    if (!matchesOne(row, f)) return false
   }
   return true
 }
@@ -139,6 +130,15 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   ilike(col: string, pattern: string): this {
     const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*')
     this.filters.push({ kind: 'ilike', col, pattern: new RegExp(`^${escaped}$`, 'i') })
+    return this
+  }
+  /** PostgREST `.not(col, 'eq'|'is'|'neq', val)` — negates the named simple filter. */
+  not(col: string, op: 'eq' | 'is' | 'neq', val: unknown): this {
+    const inner: Filter =
+      op === 'eq' ? { kind: 'eq', col, val }
+      : op === 'neq' ? { kind: 'neq', col, val }
+      : { kind: 'is', col, val: val as null | boolean }
+    this.filters.push({ kind: 'not', inner })
     return this
   }
   /** No-op: PostgREST `.or('a,b')` syntax isn't parsed here — it never narrows

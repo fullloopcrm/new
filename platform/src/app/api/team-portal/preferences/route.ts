@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -9,12 +9,13 @@ export async function GET(request: NextRequest) {
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { data: member } = await supabaseAdmin
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: member } = (await tenantDb(auth.tid)
     .from('team_members')
     .select('notes')
     .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
-    .single()
+    .single()) as { data: { notes: string | null } | null }
 
   // Default preferences
   const defaults = {
@@ -59,12 +60,11 @@ export async function PUT(request: NextRequest) {
   const { notification_preferences, sms_consent } = await request.json()
 
   // Get current notes
-  const { data: member } = await supabaseAdmin
+  const { data: member } = (await tenantDb(auth.tid)
     .from('team_members')
     .select('notes')
     .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
-    .single()
+    .single()) as { data: { notes: string | null } | null }
 
   let notesObj: Record<string, unknown> = {}
   if (member?.notes) {
@@ -74,11 +74,10 @@ export async function PUT(request: NextRequest) {
   if (notification_preferences) notesObj.notification_preferences = notification_preferences
   if (sms_consent !== undefined) notesObj.sms_consent = sms_consent
 
-  await supabaseAdmin
+  await tenantDb(auth.tid)
     .from('team_members')
     .update({ notes: JSON.stringify(notesObj) })
     .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
 
   return NextResponse.json({ success: true })
 }
