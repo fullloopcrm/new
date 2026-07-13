@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -10,27 +10,33 @@ export async function GET(request: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   try {
+    const db = tenantDb(auth.tid)
+    // tenantDb's select() widens the columns literal to `string`, so
+    // postgrest-js can't statically parse the result shape here — cast at
+    // this boundary (see admin/comhub/threads/[id]/route.ts for precedent).
+    type ChannelRow = { id: string }
+    type CursorRow = { last_read_at: string | null }
+
     // Get client channel
-    const { data: channel } = await supabaseAdmin
+    const { data: channel } = (await db
       .from('connect_channels')
       .select('id')
-      .eq('tenant_id', auth.tid)
       .eq('type', 'client')
       .eq('client_id', auth.id)
-      .single()
+      .single()) as unknown as { data: ChannelRow | null }
 
     if (!channel) return NextResponse.json({ unread: 0 })
 
     // Get read cursor
-    const { data: cursor } = await supabaseAdmin
+    const { data: cursor } = (await db
       .from('connect_read_cursors')
       .select('last_read_at')
       .eq('channel_id', channel.id)
       .eq('reader_type', 'client')
       .eq('reader_id', auth.id)
-      .single()
+      .single()) as unknown as { data: CursorRow | null }
 
-    let query = supabaseAdmin
+    let query = db
       .from('connect_messages')
       .select('id', { count: 'exact', head: true })
       .eq('channel_id', channel.id)
