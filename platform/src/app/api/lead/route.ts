@@ -18,6 +18,7 @@ import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { isCommEnabled } from '@/lib/comms-prefs'
+import { escapeHtml } from '@/lib/escape-html'
 import { randomInt } from 'crypto'
 
 interface LeadBody {
@@ -123,10 +124,10 @@ export async function POST(request: NextRequest) {
           const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
           const subject = `[${tenant.name}] New job application: ${name}`
           const html = `<h2>New Job Application</h2>
-            <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Email:</strong> ${email || '—'}</p>
-            <p><strong>Phone:</strong> ${phoneRaw || '—'}</p>
-            ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${notes}</pre>` : ''}
+            <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+            <p><strong>Email:</strong> ${escapeHtml(email || '—')}</p>
+            <p><strong>Phone:</strong> ${escapeHtml(phoneRaw || '—')}</p>
+            ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(notes)}</pre>` : ''}
             <p><a href="${adminUrl}">View in admin</a></p>`
           await emailAdmins(tenant, subject, html)
         } catch (emailErr) {
