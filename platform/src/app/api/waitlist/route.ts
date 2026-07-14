@@ -13,6 +13,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
+import { escapeHtml } from '@/lib/escape-html'
 
 interface WaitlistEntry {
   id: string
@@ -157,7 +158,7 @@ export async function POST(request: Request) {
     tenantId: tenant.id,
     type: 'waitlist',
     title: 'New Waitlist',
-    message: `${name} (${phone}) waitlisted for ${when}${str(body.service_type) ? ` · ${str(body.service_type)}` : ''}`,
+    message: `${escapeHtml(name)} (${escapeHtml(phone)}) waitlisted for ${escapeHtml(when)}${str(body.service_type) ? ` · ${escapeHtml(str(body.service_type))}` : ''}`,
   }).catch(() => {})
   await smsAdmins(tenant.id, `WAITLIST — ${name} ${phone} for ${when}. They couldn't find an open slot at /book/new. Reach out to book them.`).catch(() => {})
 

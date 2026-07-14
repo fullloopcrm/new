@@ -9,6 +9,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
+import { escapeHtml } from '@/lib/escape-html'
 
 export async function GET() {
   try {
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'new_lead',
       title: 'New Management Application',
-      message: `${name} applied for ${position || 'operations-coordinator'}`,
+      message: `${escapeHtml(name)} applied for ${escapeHtml(position || 'operations-coordinator')}`,
       channel: 'email',
       recipientType: 'admin',
       metadata: { name, email: normalizedEmail, phone: cleanPhone, resume_url, video_url },

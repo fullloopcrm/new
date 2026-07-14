@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
+import { escapeHtml } from '@/lib/escape-html'
 
 interface ApplyBody {
   name?: string
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'cleaner_application',
       title: 'New Team Application',
-      message: `${name} • ${body.specialty || body.position || 'general'} • ${body.experience || '?'}`,
+      message: `${escapeHtml(name)} • ${escapeHtml(body.specialty || body.position || 'general')} • ${escapeHtml(body.experience || '?')}`,
     }).catch((err) => console.error('[apply] notify failed:', err))
 
     return NextResponse.json({ success: true, id: data.id })

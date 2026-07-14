@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
           tenantId: tenant.id,
           type: 'cleaner_application',
           title: 'New Team Application',
-          message: `${name}${phoneRaw ? ' • ' + phoneRaw : ''}`,
+          message: `${escapeHtml(name)}${phoneRaw ? ' • ' + escapeHtml(phoneRaw) : ''}`,
         }).catch((err) => console.error('[api/lead] application notify error:', err))
 
         // Email the tenant's admins too (mirrors /api/contact). notify() alone
@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
       tenantId: tenant.id,
       type: 'new_client',
       title: 'New Lead',
-      message: `${name}${phone ? ' • ' + phone : ''}`,
+      message: `${escapeHtml(name)}${phone ? ' • ' + escapeHtml(phone) : ''}`,
     }).catch((err) => console.error('[api/lead] notify error:', err))
 
     try {

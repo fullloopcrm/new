@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
+import { escapeHtml } from '@/lib/escape-html'
 import { provisionApprovedApplicant, type ApprovedApplication } from '@/lib/team-provisioning'
 
 // Rate limiting: 3 applications per 10 minutes per IP
@@ -125,7 +126,7 @@ export async function POST(request: Request) {
       tenantId,
       type: 'team_member_added',
       title: 'New Team Application',
-      message: `${name} applied to join the team`,
+      message: `${escapeHtml(name)} applied to join the team`,
       channel: 'email',
       recipientType: 'admin',
       metadata: { applicantName: name, phone: cleanPhone },

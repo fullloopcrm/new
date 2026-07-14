@@ -18,6 +18,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantBySlug } from '@/lib/tenant-lookup'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeHtml } from '@/lib/escape-html'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'cleaner_application',
       title: 'New Team Application',
-      message: `${name} • ${body.experience || '?'} • ${tenant.name}`,
+      message: `${escapeHtml(name)} • ${escapeHtml(body.experience || '?')} • ${escapeHtml(tenant.name)}`,
     }).catch((err) => console.error('[ingest/application] notify failed:', err))
 
     return NextResponse.json({ success: true, id: data.id })

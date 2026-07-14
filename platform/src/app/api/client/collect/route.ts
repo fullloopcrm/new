@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { escapeHtml } from '@/lib/escape-html'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
 import { attributeCollectForm } from '@/lib/attribution'
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
             tenantId: tenant.id,
             type: 'referral_lead',
             title: 'New Referrer Lead',
-            message: `${referrer_name || 'Unknown'} (${referrer_phone}) referred ${name} — not in system.`,
+            message: `${escapeHtml(referrer_name || 'Unknown')} (${escapeHtml(referrer_phone)}) referred ${escapeHtml(name)} — not in system.`,
           }).catch(() => {})
         }
       }
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
           tenantId: tenant.id,
           type: 'referral_lead',
           title: 'New Referrer Lead',
-          message: `${referrer_name} referred ${name} — not in system.`,
+          message: `${escapeHtml(referrer_name)} referred ${escapeHtml(name)} — not in system.`,
         }).catch(() => {})
       }
     }
@@ -135,7 +136,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'new_client',
       title: 'New Client Collected',
-      message: `${name}${src ? ` • from ${src}` : ''}${referralInfo ? ` (Ref: ${referralInfo})` : ''} • via Collect Form`,
+      message: `${escapeHtml(name)}${src ? ` • from ${escapeHtml(src)}` : ''}${referralInfo ? ` (Ref: ${escapeHtml(referralInfo)})` : ''} • via Collect Form`,
     }).catch(() => {})
 
     // Admin email

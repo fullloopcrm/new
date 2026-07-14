@@ -9,6 +9,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escape-html'
 
 interface CeoBody {
   name?: string
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'new_lead',
       title: 'New Founding CEO Application',
-      message: `${name} applied for founding-ceo`,
+      message: `${escapeHtml(name)} applied for founding-ceo`,
       channel: 'email',
       recipientType: 'admin',
       metadata: { name, email, phone: cleanPhone, resume_url: body.resumeUrl, video_url: body.videoUrl },

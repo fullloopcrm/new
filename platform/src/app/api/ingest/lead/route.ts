@@ -30,6 +30,7 @@ import { notify } from '@/lib/notify'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { trackError } from '@/lib/error-tracking'
+import { escapeHtml } from '@/lib/escape-html'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -210,7 +211,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'new_client',
       title: 'New Lead',
-      message: `${name}${phone ? ' • ' + phone : ''}`,
+      message: `${escapeHtml(name)}${phone ? ' • ' + escapeHtml(phone) : ''}`,
     }).catch((err) => console.error('[ingest/lead] notify error:', err))
 
     try {

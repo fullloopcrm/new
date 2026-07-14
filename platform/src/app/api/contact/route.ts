@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
         tenantId: tenant.id,
         type: 'cleaner_application',
         title: 'New Team Application',
-        message: `${name} • ${body.position || 'general'} • ${body.experience || '?'} yrs`,
+        message: `${escapeHtml(name)} • ${escapeHtml(body.position || 'general')} • ${escapeHtml(body.experience || '?')} yrs`,
       })
 
       try {
@@ -375,7 +375,7 @@ export async function POST(request: NextRequest) {
       tenantId: tenant.id,
       type: 'new_client',
       title: 'New Lead from Contact Form',
-      message: `${name} • ${formType}`,
+      message: `${escapeHtml(name)} • ${escapeHtml(formType)}`,
     })
 
     try {

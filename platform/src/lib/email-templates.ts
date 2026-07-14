@@ -1,4 +1,5 @@
 // Branded HTML email templates for notifications
+import { escapeHtml } from './escape-html'
 
 type TemplateData = {
   tenantName: string
@@ -373,13 +374,13 @@ export function adminNewClientEmail(
   const rows: string[] = []
   const row = (label: string, value: string) =>
     `<tr><td style="padding:10px 12px;color:#6b7280;font-size:12px;text-transform:uppercase;border-top:1px solid #e5e7eb;">${label}</td><td style="padding:10px 12px;color:#111827;font-size:14px;font-weight:500;text-align:right;border-top:1px solid #e5e7eb;">${value}</td></tr>`
-  rows.push(row('Name', client.name))
-  if (client.phone) rows.push(row('Phone', client.phone))
-  if (client.email) rows.push(row('Email', client.email))
-  if (client.address) rows.push(row('Address', client.address))
+  rows.push(row('Name', escapeHtml(client.name)))
+  if (client.phone) rows.push(row('Phone', escapeHtml(client.phone)))
+  if (client.email) rows.push(row('Email', escapeHtml(client.email)))
+  if (client.address) rows.push(row('Address', escapeHtml(client.address)))
   if (client.referralInfo)
-    rows.push(row('Referred by', client.referralInfo + (client.referrerMatched ? ' (matched)' : ' (unmatched)')))
-  if (client.notes) rows.push(row('Notes', client.notes))
+    rows.push(row('Referred by', escapeHtml(client.referralInfo) + (client.referrerMatched ? ' (matched)' : ' (unmatched)')))
+  if (client.notes) rows.push(row('Notes', escapeHtml(client.notes)))
 
   // Self-book online leads earn a discount that must be honored on the quote.
   const discountBanner = client.selfBookDiscountCents
