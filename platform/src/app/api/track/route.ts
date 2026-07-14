@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getSettings } from '@/lib/settings'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escape-html'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,11 +44,15 @@ async function notifyLeadEmailIfNeeded(args: {
   }
 
   const business = settings.business_name || 'your business'
+  const ctaType = escapeHtml(args.ctaType)
+  const page = args.page ? escapeHtml(args.page) : null
+  const referrer = args.referrer ? escapeHtml(args.referrer) : null
+  const utmSource = args.utmSource ? escapeHtml(args.utmSource) : null
   const subject = `New lead: ${args.ctaType} on ${args.page || business}`
   const lines = [
-    `<p>A visitor just clicked a <strong>${args.ctaType}</strong> CTA${args.page ? ` on <code>${args.page}</code>` : ''}.</p>`,
-    args.referrer ? `<p><strong>Referrer:</strong> ${args.referrer}</p>` : '',
-    args.utmSource ? `<p><strong>UTM source:</strong> ${args.utmSource}</p>` : '',
+    `<p>A visitor just clicked a <strong>${ctaType}</strong> CTA${page ? ` on <code>${page}</code>` : ''}.</p>`,
+    referrer ? `<p><strong>Referrer:</strong> ${referrer}</p>` : '',
+    utmSource ? `<p><strong>UTM source:</strong> ${utmSource}</p>` : '',
     `<p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/dashboard/leads">Open Leads dashboard</a></p>`,
   ].filter(Boolean).join('')
 
