@@ -29,6 +29,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Max 200 bookings per batch' }, { status: 400 })
   }
 
+  // client_id/team_member_id are caller-supplied per row; verify every id
+  // belongs to this tenant before insert — the response joins clients(*)/
+  // team_members(*) (full rows, incl. pin/pay_rate), so a foreign id would
+  // otherwise leak another tenant's client or staff PII in bulk.
+  const candidateClientIds = Array.from(new Set(bookingInputs.map(b => b.client_id).filter((v): v is string => typeof v === 'string')))
+  const candidateMemberIds = Array.from(new Set(bookingInputs.map(b => b.team_member_id).filter((v): v is string => typeof v === 'string')))
+  if (candidateClientIds.length > 0) {
+    const { data: ownedClients } = await supabaseAdmin.from('clients').select('id').eq('tenant_id', tenantId).in('id', candidateClientIds)
+    const ownedIds = new Set((ownedClients || []).map(r => r.id))
+    if (candidateClientIds.some(cid => !ownedIds.has(cid))) {
+      return NextResponse.json({ error: 'Invalid client_id in bookings array' }, { status: 404 })
+    }
+  }
+  if (candidateMemberIds.length > 0) {
+    const { data: ownedMembers } = await supabaseAdmin.from('team_members').select('id').eq('tenant_id', tenantId).in('id', candidateMemberIds)
+    const ownedIds = new Set((ownedMembers || []).map(r => r.id))
+    if (candidateMemberIds.some(mid => !ownedIds.has(mid))) {
+      return NextResponse.json({ error: 'Invalid team_member_id in bookings array' }, { status: 404 })
+    }
+  }
+
   const rows = bookingInputs.map(b => {
     const token = generateToken()
     const tokenExpires = new Date(b.start_time as string)

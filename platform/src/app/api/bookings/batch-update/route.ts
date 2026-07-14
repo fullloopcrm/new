@@ -4,6 +4,13 @@ import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { audit } from '@/lib/audit'
 import { notify } from '@/lib/notify'
+import { pick } from '@/lib/validate'
+
+const UPDATABLE_FIELDS = [
+  'client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time',
+  'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate',
+  'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price',
+] as const
 
 /**
  * Batch update multiple bookings in parallel.
@@ -25,8 +32,36 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'updates array required' }, { status: 400 })
     }
 
+    // Allow-list writable fields (raw u.data was previously spread straight into
+    // .update(), permitting mass-assignment of any column incl. tenant_id itself).
+    const sanitized = updates.map((u: { id: string; data: Record<string, unknown> }) => ({
+      id: u.id,
+      data: pick<Record<string, unknown>>(u.data, [...UPDATABLE_FIELDS]),
+    }))
+
+    // client_id/team_member_id are caller-supplied; verify every id belongs to
+    // this tenant before any write — the response joins clients(name, phone,
+    // email)/team_members(name, phone, email), so a foreign id would otherwise
+    // leak another tenant's PII in bulk.
+    const candidateClientIds = Array.from(new Set(sanitized.map(u => u.data.client_id).filter((v): v is string => typeof v === 'string')))
+    const candidateMemberIds = Array.from(new Set(sanitized.map(u => u.data.team_member_id).filter((v): v is string => typeof v === 'string')))
+    if (candidateClientIds.length > 0) {
+      const { data: ownedClients } = await supabaseAdmin.from('clients').select('id').eq('tenant_id', tenantId).in('id', candidateClientIds)
+      const ownedIds = new Set((ownedClients || []).map(r => r.id))
+      if (candidateClientIds.some(cid => !ownedIds.has(cid))) {
+        return NextResponse.json({ error: 'Invalid client_id in updates array' }, { status: 404 })
+      }
+    }
+    if (candidateMemberIds.length > 0) {
+      const { data: ownedMembers } = await supabaseAdmin.from('team_members').select('id').eq('tenant_id', tenantId).in('id', candidateMemberIds)
+      const ownedIds = new Set((ownedMembers || []).map(r => r.id))
+      if (candidateMemberIds.some(mid => !ownedIds.has(mid))) {
+        return NextResponse.json({ error: 'Invalid team_member_id in updates array' }, { status: 404 })
+      }
+    }
+
     const results = await Promise.all(
-      updates.map(async (u: { id: string; data: Record<string, unknown> }) => {
+      sanitized.map(async (u) => {
         const { data, error } = await supabaseAdmin
           .from('bookings')
           .update(u.data)
