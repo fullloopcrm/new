@@ -32,6 +32,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'new_team_member_id required for reassign' }, { status: 400 })
   }
 
+  // A caller-supplied new_team_member_id must belong to THIS tenant — team_members
+  // has no cross-tenant FK check, so without this a tenant admin could reassign a
+  // single occurrence's booking to another tenant's employee (same bug class as
+  // ../route.ts PUT).
+  if (type === 'reassign' && new_team_member_id) {
+    const { data: member } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('id', new_team_member_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!member) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+  }
+
   // Confirm the schedule belongs to this tenant; pull duration for move end-time.
   const { data: schedule } = await supabaseAdmin
     .from('recurring_schedules')
