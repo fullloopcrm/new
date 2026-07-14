@@ -47,6 +47,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'client_id or title is required' }, { status: 400 })
     }
 
+    // client_id is a caller-supplied FK — clients has no cross-tenant FK check,
+    // and every read of this route joins clients(name/email/phone/address)
+    // unscoped by tenant, so a foreign id would leak another tenant's client
+    // PII into this tenant's pipeline. Verify ownership before insert.
+    if (client_id) {
+      const { data: ownedClient } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', client_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedClient) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
     // Only block duplicate open deal on same client if no title was given
     // (same client can have multiple distinct deals when titled).
     if (client_id && !title) {
