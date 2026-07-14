@@ -1310,7 +1310,7 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
 
     const { data: booking } = await supabaseAdmin.from('bookings')
       .select('start_time, service_type, hourly_rate, clients(name, email, pin), cleaners(name)')
-      .eq('id', bookingId).eq('tenant_id', tid).single()
+      .eq('id', bookingId).eq('tenant_id', tid).eq('client_id', convo.client_id).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
 
     const client = booking.clients as unknown as { name: string; email: string; pin: string }
@@ -1484,10 +1484,14 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
 
 async function handleRescheduleBooking(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+
     const bookingId = input.booking_id as string
-    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, tenant_id').eq('id', bookingId).single()
+    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, tenant_id')
+      .eq('id', bookingId).eq('tenant_id', tid).eq('client_id', convo.client_id).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
-    const tid = (booking as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time and one-time bookings cannot be rescheduled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
@@ -1505,11 +1509,15 @@ async function handleRescheduleBooking(input: Record<string, unknown>, conversat
 
 async function handleCancelBooking(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+
     const bookingId = input.booking_id as string
     const reason = (input.reason as string) || 'Client requested'
-    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, clients(name), tenant_id').eq('id', bookingId).single()
+    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, clients(name), tenant_id')
+      .eq('id', bookingId).eq('tenant_id', tid).eq('client_id', convo.client_id).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
-    const tid = (booking as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
@@ -1646,7 +1654,7 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
 
     const { data: booking } = await supabaseAdmin.from('bookings')
       .select('id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, actual_hours, hourly_rate, price, cleaner_pay, payment_status, payment_method, status, service_type, cleaners(name), clients(name, address), client_properties(address)')
-      .eq('id', bookingId).eq('tenant_id', tid).single()
+      .eq('id', bookingId).eq('tenant_id', tid).eq('client_id', convo.client_id).single()
 
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
 
