@@ -128,7 +128,18 @@ export async function POST(request: Request) {
     if (!client) return NextResponse.json({ error: 'Could not resolve account' }, { status: 500 })
     if (client.do_not_service) return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
 
-    const response = NextResponse.json({ client, do_not_service: false })
+    // Only the fields the client-side UI needs — never the raw row. `clients`
+    // carries secrets (pin, the standalone login credential) and internal
+    // fields (selena_memory_summary, apology_credit_*, etc.) that must not
+    // cross the wire in a JSON response.
+    const safeClient = {
+      id: client.id,
+      name: client.name as string | undefined,
+      email: client.email,
+      phone: client.phone as string | undefined,
+    }
+
+    const response = NextResponse.json({ client: safeClient, do_not_service: false })
     const opts = clientSessionCookieOptions()
     response.cookies.set(opts.name, createClientSession(client.id, tenant.id), {
       httpOnly: opts.httpOnly,
