@@ -215,6 +215,19 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Regression lock** | `src/app/api/routes/route.witness.test.ts` (LOCK: foreign id 404s even with lat/lng also supplied; CONTROL: own-tenant id and HQ-fallback-on-omit both still create the route) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 264 files / 1133 passed / 37 skipped / 0 failed |
 
+### P14 — `finance/cpa-tokens` POST → cross-tenant `entity_id` FK injection  💰 — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/finance/cpa-tokens` (unconverted, raw `supabaseAdmin`) |
+| **Table** | `cpa_access_tokens` (FK `entity_id`, migration 036) |
+| **Attack vector** | Row stamped `tenant_id = A`; `entity_id = body.entity_id \|\| null` was inserted **verbatim**, no ownership check — same class as P4-P6 (`entities`/`chart_of_accounts` FK injection on `bank_accounts`/`expenses`/`accounting_periods`), just not yet swept on this sibling money-adjacent route. |
+| **Effect** | A CPA-access token minted by tenant A can carry another tenant's `entity_id`; `GET /api/finance/cpa-tokens` embeds `entities(name)` unscoped by tenant off that FK, surfacing B's entity name back to A on the very next list. (The token-consuming `GET /api/cpa/[token]/year-end-zip` itself is safe — it double-filters `journal_lines` by both `tenant_id` AND `entity_id`, so a foreign entity_id there just returns an empty report, not a data leak — the leak is on the admin-side list endpoint's embed, not the token redemption.) |
+| **Verdict** | **FIXED** (was proven-LIVE; found in a broad-hunt sweep of the finance module for the same entity_id FK-injection shape as P4-P6, 2026-07-14, W2) |
+| **Fix** | `body.entity_id`, when supplied, is now verified tenant-owned (`.eq('id',...).eq('tenant_id', tenantId)`) before insert; 404 on miss. Same pattern as `bank-accounts` POST (P4). |
+| **Regression lock** | `src/app/api/finance/cpa-tokens/route.witness.test.ts` (LOCK: foreign entity_id 404s, no row created; CONTROL: omitted entity_id and own-tenant entity_id both still create the token) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 269 files / 1151 passed / 37 skipped / 0 failed |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
