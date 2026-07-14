@@ -5,11 +5,11 @@ import path from 'node:path'
 /**
  * Constant-time secret compare hardening (P1/W1 queue-c).
  *
- * These 5 sites compared a caller-supplied credential (admin PIN, monitor
- * key, internal API key) against an env-configured secret with plain
- * `===`/`!==`, leaking the secret one byte at a time via response timing —
- * same class of bug already fixed for HMAC signatures elsewhere (see
- * portal-token-consttime.test.ts). Fix: route every compare through
+ * These sites compared a caller-supplied credential (admin PIN, monitor
+ * key, internal API key, CRON_SECRET) against an env-configured secret with
+ * plain `===`/`!==`, leaking the secret one byte at a time via response
+ * timing — same class of bug already fixed for HMAC signatures elsewhere
+ * (see portal-token-consttime.test.ts). Fix: route every compare through
  * `safeEqual()` (length-guarded crypto.timingSafeEqual, lib/secret-compare.ts).
  *
  * Source invariant, not a behavioral test, for the same reason as the sibling
@@ -39,6 +39,50 @@ const CASES: Array<{ file: string; vulnerable: RegExp }> = [
   {
     file: 'src/app/api/email/monitor/route.ts',
     vulnerable: /key\s*===\s*process\.env\.ELCHAPO_MONITOR_KEY/,
+  },
+  // Second batch: CRON_SECRET Bearer compares. `verifyCronSecret()` in
+  // lib/cron-auth.ts is shared by 30+ cron/system routes, so fixing it alone
+  // covers most callers -- these 9 standalone routes reimplement the check
+  // inline instead of using the shared helper and needed their own fix.
+  {
+    file: 'src/lib/cron-auth.ts',
+    vulnerable: /authHeader\s*!==\s*`Bearer \$\{secret\}`/,
+  },
+  {
+    file: 'src/app/api/cron/finance-post/route.ts',
+    vulnerable: /auth\s*!==\s*`Bearer \$\{process\.env\.CRON_SECRET\}`/,
+  },
+  {
+    file: 'src/app/api/cron/payment-followup-daily/route.ts',
+    vulnerable: /auth\s*!==\s*`Bearer \$\{secret\}`/,
+  },
+  {
+    file: 'src/app/api/cron/jefe-heartbeat/route.ts',
+    vulnerable: /auth\s*!==\s*`Bearer \$\{secret\}`/,
+  },
+  {
+    file: 'src/app/api/cron/comms-monitor/route.ts',
+    vulnerable: /auth\s*!==\s*`Bearer \$\{secret\}`/,
+  },
+  {
+    file: 'src/app/api/cron/health-monitor/route.ts',
+    vulnerable: /auth\s*!==\s*`Bearer \$\{secret\}`/,
+  },
+  {
+    file: 'src/app/api/cron/recurring-expenses/route.ts',
+    vulnerable: /auth\s*!==\s*`Bearer \$\{secret\}`/,
+  },
+  {
+    file: 'src/app/api/cron/comhub-email/route.ts',
+    vulnerable: /authHeader\s*===\s*`Bearer \$\{CRON_SECRET\}`\s*\|\|\s*querySecret\s*===\s*CRON_SECRET/,
+  },
+  {
+    file: 'src/app/api/indexnow/route.ts',
+    vulnerable: /authHeader\s*===\s*`Bearer \$\{process\.env\.CRON_SECRET\}`/,
+  },
+  {
+    file: 'src/app/api/admin/seo/apply/route.ts',
+    vulnerable: /bearer\s*===\s*`Bearer \$\{secret\}`/,
   },
 ]
 
