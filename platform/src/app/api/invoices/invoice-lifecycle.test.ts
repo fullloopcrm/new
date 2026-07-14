@@ -99,6 +99,7 @@ beforeEach(() => {
     ],
     invoice_activity: [],
     payments: [],
+    clients: [{ id: 'client-A', tenant_id: TENANT, name: 'Jane Doe' }],
     tenants: [
       {
         id: TENANT, name: 'Acme Co', slug: 'acme', domain: 'acme.example.com',

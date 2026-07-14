@@ -73,12 +73,38 @@ export async function POST(request: Request) {
     const quote_number = body.quote_number || (await generateQuoteNumber(tenantId))
     const public_token = generatePublicToken()
 
+    // client_id/deal_id are cross-table FKs — confirm each belongs to this
+    // tenant before writing it, or a caller could attach the quote to another
+    // tenant's client and exfiltrate that client's name/email/phone/address via
+    // the clients() join on this route's own GET and quotes/[id]'s GET (same
+    // class already fixed on PATCH /api/quotes/[id] but missed here on create).
+    const client_id = body.client_id || null
+    const deal_id = body.deal_id || null
+    if (client_id) {
+      const { data: client } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', client_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!client) return NextResponse.json({ error: 'Invalid client_id' }, { status: 400 })
+    }
+    if (deal_id) {
+      const { data: deal } = await supabaseAdmin
+        .from('deals')
+        .select('id')
+        .eq('id', deal_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!deal) return NextResponse.json({ error: 'Invalid deal_id' }, { status: 400 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('quotes')
       .insert({
         tenant_id: tenantId,
-        client_id: body.client_id || null,
-        deal_id: body.deal_id || null,
+        client_id,
+        deal_id,
         quote_number,
         status: 'draft',
         title: body.title || null,

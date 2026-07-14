@@ -144,13 +144,34 @@ export async function POST(request: Request) {
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
+    // client_id/booking_id/quote_id are cross-table FKs — confirm each belongs
+    // to this tenant before writing it, or a caller could attach the invoice to
+    // another tenant's client/booking/quote and exfiltrate its PII via the
+    // clients()/bookings() embeds used by this route's own GET, the invoice
+    // list, and finance/ar-aging + finance/reconcile-candidates.
+    const clientId = body.client_id || (prefillContact as { client_id?: string }).client_id || null
+    const bookingId = body.booking_id || body.from_booking_id || null
+    const quoteId = body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null
+    if (clientId) {
+      const { data: client } = await db.from('clients').select('id').eq('id', clientId).maybeSingle()
+      if (!client) return NextResponse.json({ error: 'Invalid client_id' }, { status: 400 })
+    }
+    if (bookingId) {
+      const { data: booking } = await db.from('bookings').select('id').eq('id', bookingId).maybeSingle()
+      if (!booking) return NextResponse.json({ error: 'Invalid booking_id' }, { status: 400 })
+    }
+    if (quoteId) {
+      const { data: quote } = await db.from('quotes').select('id').eq('id', quoteId).maybeSingle()
+      if (!quote) return NextResponse.json({ error: 'Invalid quote_id' }, { status: 400 })
+    }
+
     const { data, error } = await db
       .from('invoices')
       .insert({
         entity_id: entityId,
-        client_id: body.client_id || (prefillContact as { client_id?: string }).client_id || null,
-        booking_id: body.booking_id || body.from_booking_id || null,
-        quote_id: body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null,
+        client_id: clientId,
+        booking_id: bookingId,
+        quote_id: quoteId,
         invoice_number,
         status: 'draft',
         title: body.title || (prefillContact as { title?: string }).title || null,
