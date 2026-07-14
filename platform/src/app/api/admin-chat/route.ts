@@ -5,7 +5,7 @@ import { askSelena } from '@/lib/selena/agent'
 
 export const maxDuration = 60
 
-// Use the first OWNER_PHONES entry so isOwner() in agent.ts triggers admin context.
+// Use the first OWNER_PHONES entry so isOwnerOfTenant() in agent.ts triggers admin context (nycmaid only; OWNER_PHONES is honored for that tenant alone).
 function getOwnerPhone(): string {
   const list = (process.env.OWNER_PHONES || '').split(',').map((s) => s.trim()).filter(Boolean)
   return list[0] || '+12122029220'

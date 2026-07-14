@@ -171,16 +171,38 @@ async function resolveTenantForConversation(conversationId: string): Promise<str
   return getCurrentTenantId()
 }
 
-export function isOwner(phone: string | null | undefined): boolean {
-  if (!phone) return false
-  const list = (process.env.OWNER_PHONES || '').split(',').map((p) => p.replace(/\D/g, '').slice(-10)).filter(Boolean)
-  const norm = phone.replace(/\D/g, '').slice(-10)
-  return list.includes(norm)
-}
-
 // nycmaid's well-known UUID — when the tenant being served IS nycmaid, the
 // hardcoded references inside YINEZ_PROMPT are correct as-is.
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
+// Owner identity, scoped PER TENANT. A phone that owns tenant A must NOT
+// automatically get owner-only tooling (refunds, broadcasts, business data,
+// admin context) when a conversation resolves to tenant B — the prior
+// isOwner(phone) checked a single GLOBAL OWNER_PHONES env var with no tenant
+// binding at all, so any owner phone was owner of every tenant on the
+// platform. nycmaid keeps the legacy global env (preserves existing prod
+// behavior for the flagship, per migrations/2026_07_11_owner_phone_backfill.sql's
+// documented design); every other tenant is gated by its OWN tenants.owner_phone
+// column. Fail-closed: a tenant with no owner_phone set has no owner via this
+// check (see that migration's blocking list for tenants needing one populated).
+export async function isOwnerOfTenant(phone: string | null | undefined, tenantId: string): Promise<boolean> {
+  if (!phone) return false
+  const norm = phone.replace(/\D/g, '').slice(-10)
+  if (!norm) return false
+
+  if (tenantId === NYCMAID_TENANT_ID) {
+    const list = (process.env.OWNER_PHONES || '').split(',').map((p) => p.replace(/\D/g, '').slice(-10)).filter(Boolean)
+    return list.includes(norm)
+  }
+
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('owner_phone')
+    .eq('id', tenantId)
+    .maybeSingle()
+  const ownerNorm = (tenant?.owner_phone || '').replace(/\D/g, '').slice(-10)
+  return !!ownerNorm && ownerNorm === norm
+}
 
 /**
  * Build a brand-override preamble for non-nycmaid tenants. Yinez's main
@@ -257,11 +279,12 @@ wins. Period.
 export async function loadContext(tenantId: string, phone: string | null, _conversationId: string): Promise<string> {
   const parts: string[] = []
 
-  if (isOwner(phone)) {
+  const callerIsOwner = await isOwnerOfTenant(phone, tenantId)
+  if (callerIsOwner) {
     parts.push('CONTEXT: You are talking to Jeff, the owner of The NYC Maid. Use admin tools freely. Be terse with real numbers.')
   }
 
-  if (phone && !isOwner(phone)) {
+  if (phone && !callerIsOwner) {
     const last10 = phone.replace(/\D/g, '').slice(-10)
     // Phone may match multiple client rows (duplicates created by lead intake vs. booking flow).
     // .maybeSingle() returned null on dupes, so Yinez was treating returning clients as brand-new.

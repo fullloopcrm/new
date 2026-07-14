@@ -24,7 +24,7 @@ async function logEvent(tenantId: string, type: string, title: string, message: 
 
 // Tenant owners aren't in OWNER_PHONES, but reaching this bot from the tenant's
 // registered owner chat IS the auth. Pass the platform owner phone so the agent
-// unlocks owner tools (gating is phone-based via isOwner()).
+// unlocks owner tools (gating is phone-based, per-tenant, via isOwnerOfTenant()).
 function ownerPhone(): string {
   const list = (process.env.OWNER_PHONES || '').split(',').map((s) => s.trim()).filter(Boolean)
   return list[0] || '+12122029220'
