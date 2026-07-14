@@ -60,6 +60,18 @@ export async function POST(request: Request) {
     const { tenantId } = tenant
     const { team_member_id, amount, method, period_start, period_end } = await request.json()
 
+    if (!team_member_id) {
+      return NextResponse.json({ error: 'team_member_id required' }, { status: 400 })
+    }
+
+    const { data: member } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('id', team_member_id)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!member) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+
     const { data, error } = await supabaseAdmin
       .from('payroll_payments')
       .insert({
