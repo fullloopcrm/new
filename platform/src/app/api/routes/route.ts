@@ -53,14 +53,26 @@ export async function POST(request: Request) {
     let startLng: number | null = body.start_longitude ?? null
     let startAddress: string | null = body.start_address ?? null
 
-    if (body.team_member_id && (!startLat || !startLng)) {
+    // team_member_id is a caller-supplied FK — team_members has no cross-tenant
+    // FK check, and GET /api/routes embeds team_members(name, phone, home_lat/
+    // lng) unscoped by tenant off this row's FK, so a foreign id would leak
+    // another tenant's employee name/phone/home address on the next read.
+    // Verify ownership before insert regardless of whether start lat/lng were
+    // also supplied (previously the lookup — and therefore the only ownership
+    // check — was skipped whenever start_latitude/start_longitude were given).
+    let teamMemberId: string | null = null
+    if (body.team_member_id) {
       const { data: tm } = await supabaseAdmin
         .from('team_members')
         .select('home_latitude, home_longitude, address')
         .eq('tenant_id', tenantId)
         .eq('id', body.team_member_id)
-        .single()
-      if (tm) {
+        .maybeSingle()
+      if (!tm) {
+        return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+      teamMemberId = body.team_member_id
+      if (!startLat || !startLng) {
         startLat = tm.home_latitude
         startLng = tm.home_longitude
         startAddress = startAddress || tm.address
@@ -84,7 +96,7 @@ export async function POST(request: Request) {
       .from('routes')
       .insert({
         tenant_id: tenantId,
-        team_member_id: body.team_member_id || null,
+        team_member_id: teamMemberId,
         route_date: body.route_date,
         status: 'draft',
         start_address: startAddress,
