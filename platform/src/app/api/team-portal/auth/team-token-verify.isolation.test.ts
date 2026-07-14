@@ -116,4 +116,22 @@ describe('verifyToken (team portal) — cross-tenant + privilege isolation', () 
     delete process.env.TEAM_PORTAL_SECRET
     expect(verifyToken(tok)).toBeNull()
   })
+
+  it('rejects a referrer-portal token (scope:"ref") replayed at the team verifier', () => {
+    // TEAM_PORTAL_SECRET is shared with referrer-portal-auth.ts, so a
+    // referrer token is HMAC-valid here — the scope field is the only thing
+    // that can stop cross-portal replay.
+    const referrerToken = signPayload({ rid: 'referrer-A', tid: 'tenant-A', scope: 'ref', exp: Date.now() + 60_000 })
+    expect(verifyToken(referrerToken)).toBeNull()
+  })
+
+  it('accepts a correctly-scoped team token (control for the scope gate)', () => {
+    const out = verifyToken(createToken('member-A', 'tenant-A', 0, 'worker'))
+    expect(out).toEqual({ id: 'member-A', tid: 'tenant-A', role: 'worker' })
+  })
+
+  it('still accepts a legacy scope-less team token (grandfather clause)', () => {
+    const legacy = signPayload({ id: 'member-A', tid: 'tenant-A', r: 'lead', exp: Date.now() + 60_000 })
+    expect(verifyToken(legacy)).toEqual({ id: 'member-A', tid: 'tenant-A', role: 'lead' })
+  })
 })
