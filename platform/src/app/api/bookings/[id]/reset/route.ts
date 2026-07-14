@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 type BookingWithRelations = {
   check_in_time: string | null
@@ -19,13 +19,9 @@ type BookingWithRelations = {
 // SAFETY: undo-checkout is BLOCKED once payment_status === 'paid' — money has
 // already moved and texts have gone out; the office handles those manually.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  let tenantId: string
-  try {
-    ({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  if (authError) return authError
+  const { tenantId } = tenant
 
   const { id } = await params
   const body = await request.json().catch(() => ({}))
