@@ -78,6 +78,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const effPayRate = payRate ?? schedule.pay_rate ?? null
   const effHourlyRate = hourly_rate ?? schedule.hourly_rate ?? null
 
+  // team_member_id is a cross-table FK -- same class of bug already fixed on
+  // POST /api/bookings (fkChecks): an unvalidated FK here gets carried onto
+  // every regenerated booking, then exfiltrated cross-tenant via the
+  // team_members() join that GET routes trust blindly.
+  if (teamMemberId) {
+    const { data: owned } = await db.from('team_members').select('id').eq('id', teamMemberId).maybeSingle()
+    if (!owned) return NextResponse.json({ error: 'Invalid team_members' }, { status: 400 })
+  }
+
   const lastDate = dates[dates.length - 1]
 
   // 1. Update the rule.

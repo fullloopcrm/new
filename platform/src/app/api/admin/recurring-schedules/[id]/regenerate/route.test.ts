@@ -86,6 +86,11 @@ beforeEach(() => {
       { id: 'book-old-completed', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'completed', start_time: '2026-08-11T09:00:00' },
       { id: 'book-other-tenant', tenant_id: 'tenant-B', schedule_id: 'sched-B1', status: 'scheduled', start_time: '2026-08-10T09:00:00' },
     ],
+    team_members: [
+      { id: 'tm-1', tenant_id: 'tenant-A', name: 'Sam A' },
+      { id: 'cleaner-9', tenant_id: 'tenant-A', name: 'Cleaner Nine' },
+      { id: 'tm-other', tenant_id: 'tenant-B', name: 'Other Sam B' },
+    ],
   }
 })
 
@@ -195,6 +200,16 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — booking regener
     const row = h.store.bookings.find((b) => b.schedule_id === 'sched-A1' && b.start_time === '2026-08-15T09:00:00')!
     expect(row.team_member_id).toBe('cleaner-9')
     expect(row.pay_rate).toBe(30)
+  })
+
+  it("rejects a team_member_id belonging to another tenant instead of writing it (FK injection)", async () => {
+    const res = await POST(postReq({ ...baseBody, dates: ['2026-08-15'], team_member_id: 'tm-other' }), params('sched-A1'))
+
+    expect(res.status).toBe(400)
+    const row = h.store.bookings.find((b) => b.schedule_id === 'sched-A1' && b.start_time === '2026-08-15T09:00:00')
+    expect(row).toBeUndefined()
+    const sched = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!
+    expect(sched.team_member_id).toBeUndefined()
   })
 
   it('removes old scheduled/pending bookings from the cutoff forward, never touching completed history or past bookings', async () => {

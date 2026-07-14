@@ -42,6 +42,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const teamMemberId = body.team_member_id !== undefined ? body.team_member_id : body.cleaner_id
   const payRate = body.pay_rate !== undefined ? body.pay_rate : body.cleaner_pay_rate
 
+  // team_member_id is a cross-table FK -- same class of bug already fixed on
+  // POST /api/bookings (fkChecks): an unvalidated FK here gets carried onto
+  // this schedule's future bookings, then exfiltrated cross-tenant via the
+  // team_members() join that GET routes trust blindly.
+  if (teamMemberId) {
+    const { data: owned } = await db.from('team_members').select('id').eq('id', teamMemberId).maybeSingle()
+    if (!owned) return NextResponse.json({ error: 'Invalid team_members' }, { status: 400 })
+  }
+
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (teamMemberId !== undefined) updatePayload.team_member_id = teamMemberId || null
   if (body.recurring_type !== undefined) updatePayload.recurring_type = body.recurring_type

@@ -51,6 +51,14 @@ beforeEach(() => {
       { id: 'client-A', tenant_id: TENANT, name: 'Acme Client' },
       { id: 'client-B', tenant_id: OTHER, name: 'Other Client' },
     ],
+    team_members: [
+      { id: 'tm-A', tenant_id: TENANT, name: 'Team Member A' },
+      { id: 'tm-B', tenant_id: OTHER, name: 'Team Member B (secret)' },
+    ],
+    client_properties: [
+      { id: 'prop-A', tenant_id: TENANT, address: '1 Acme Way' },
+      { id: 'prop-B', tenant_id: OTHER, address: '2 Other Ave (secret)' },
+    ],
     recurring_schedules: [],
     bookings: [],
   }
@@ -106,5 +114,29 @@ describe('recurring schedule → occurrences (happy path)', () => {
 
     expect(h.store.recurring_schedules).toHaveLength(0)
     expect(h.store.bookings).toHaveLength(0)
+  })
+
+  it("rejects a team_member_id belonging to another tenant and writes nothing (FK injection)", async () => {
+    const res = await POST(req({ ...validBody, team_member_id: 'tm-B' }))
+    expect(res.status).toBe(400)
+
+    expect(h.store.recurring_schedules).toHaveLength(0)
+    expect(h.store.bookings).toHaveLength(0)
+  })
+
+  it("rejects a property_id belonging to another tenant and writes nothing (FK injection)", async () => {
+    const res = await POST(req({ ...validBody, property_id: 'prop-B' }))
+    expect(res.status).toBe(400)
+
+    expect(h.store.recurring_schedules).toHaveLength(0)
+    expect(h.store.bookings).toHaveLength(0)
+  })
+
+  it('still creates the schedule when team_member_id/property_id genuinely belong to the caller tenant', async () => {
+    const res = await POST(req({ ...validBody, team_member_id: 'tm-A', property_id: 'prop-A' }))
+    expect(res.status).toBe(200)
+
+    expect(h.store.recurring_schedules).toHaveLength(1)
+    expect(h.store.recurring_schedules[0]).toMatchObject({ team_member_id: 'tm-A', property_id: 'prop-A' })
   })
 })

@@ -116,6 +116,16 @@ export async function POST(request: Request) {
     .single()
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
+  // property_id/team_member_id are cross-table FKs too -- same class of bug
+  // already fixed on POST /api/bookings (fkChecks): an unvalidated FK here gets
+  // carried onto every generated booking, then exfiltrated cross-tenant via the
+  // client_properties()/team_members() joins that GET routes trust blindly.
+  for (const [fkId, table] of [[property_id, 'client_properties'], [teamMemberId, 'team_members']] as const) {
+    if (!fkId) continue
+    const { data: owned } = await db.from(table).select('id').eq('id', fkId).maybeSingle()
+    if (!owned) return NextResponse.json({ error: `Invalid ${table}` }, { status: 400 })
+  }
+
   // Dates: use those provided by the frontend, else generate 6 weeks.
   let dates: string[] = Array.isArray(body.dates)
     ? body.dates.filter((d: unknown): d is string => typeof d === 'string')

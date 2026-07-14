@@ -44,6 +44,10 @@ beforeEach(() => {
       { id: 'book-A1', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2026-08-01T10:00:00' },
       { id: 'book-X1', tenant_id: 'tenant-B', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2026-08-01T10:00:00' },
     ],
+    team_members: [
+      { id: 'tm-A9', tenant_id: 'tenant-A', name: 'Sam A9' },
+      { id: 'tm-other', tenant_id: 'tenant-B', name: 'Other Sam B' },
+    ],
   }
 })
 
@@ -78,5 +82,17 @@ describe('POST /api/admin/recurring-schedules/:id/exception — tenant isolation
     const bookX = h.store.bookings.find((b) => b.id === 'book-X1')
     expect(bookA?.team_member_id).toBe('tm-A9')
     expect(bookX?.team_member_id).toBeUndefined()
+  })
+
+  it("rejects a new_team_member_id belonging to another tenant instead of writing it (FK injection)", async () => {
+    const res = await POST(
+      postReq({ occurrence_date: '2026-08-01', type: 'reassign', new_team_member_id: 'tm-other' }),
+      params('sched-A1'),
+    )
+    expect(res.status).toBe(400)
+
+    const bookA = h.store.bookings.find((b) => b.id === 'book-A1')
+    expect(bookA?.team_member_id).toBeUndefined()
+    expect(h.store.recurring_exceptions.length).toBe(0)
   })
 })

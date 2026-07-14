@@ -41,6 +41,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
 
+  // new_team_member_id is a cross-table FK -- same class of bug already fixed
+  // on POST /api/bookings (fkChecks): an unvalidated FK here gets written onto
+  // the exception AND the materialized booking below, then exfiltrated
+  // cross-tenant via the team_members() join that GET routes trust blindly.
+  if (type === 'reassign' && new_team_member_id) {
+    const { data: owned } = await db.from('team_members').select('id').eq('id', new_team_member_id).maybeSingle()
+    if (!owned) return NextResponse.json({ error: 'Invalid team_members' }, { status: 400 })
+  }
+
   // Record (or replace) the exception for this date.
   const { error: upErr } = await db
     .from('recurring_exceptions')

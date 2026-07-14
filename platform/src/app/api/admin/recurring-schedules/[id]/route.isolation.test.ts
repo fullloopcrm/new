@@ -43,6 +43,10 @@ beforeEach(() => {
       { id: 'book-B1', tenant_id: 'tenant-B', schedule_id: 'sched-B1', status: 'scheduled', start_time: '2099-01-01T10:00:00', team_member_id: 'tm-old' },
       { id: 'book-X1', tenant_id: 'tenant-B', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2099-01-01T10:00:00', team_member_id: 'tm-old' },
     ],
+    team_members: [
+      { id: 'tm-new', tenant_id: 'tenant-A', name: 'New Sam A' },
+      { id: 'tm-other', tenant_id: 'tenant-B', name: 'Other Sam B' },
+    ],
   }
 })
 
@@ -77,6 +81,13 @@ describe('PUT /api/admin/recurring-schedules/:id — tenant isolation', () => {
     const bookX = h.store.bookings.find((b) => b.id === 'book-X1')
     expect(bookA?.team_member_id).toBe('tm-new')
     expect(bookX?.team_member_id).toBe('tm-old')
+  })
+
+  it("rejects a team_member_id belonging to another tenant instead of writing it (FK injection)", async () => {
+    const res = await PUT(putReq({ team_member_id: 'tm-other' }), params('sched-A1'))
+    expect(res.status).toBe(400)
+    const sched = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')
+    expect(sched?.team_member_id).toBe('tm-old')
   })
 })
 
