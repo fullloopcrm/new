@@ -1,8 +1,9 @@
 /**
  * Referral commissions ledger. Tenant-scoped. Ported from nycmaid.
  *
- * GET ?referrer_id=... — list a referrer's commissions (public: the referrer
- *                        portal calls this with their own ID).
+ * GET ?referrer_id=... — list a referrer's commissions. Requires a referrer
+ *                        session token (from /api/referrers/auth/verify)
+ *                        whose rid matches the requested referrer_id.
  * GET (no params, admin session) — list all commissions for the tenant.
  * POST (admin) — create a commission for a booking with a referrer_id.
  * PUT (admin) — update status; marking 'paid' bumps referrer.total_paid.
@@ -12,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
+import { getReferrerAuth } from '@/lib/referrer-portal-auth'
 
 export async function GET(request: Request) {
   try {
@@ -19,15 +21,30 @@ export async function GET(request: Request) {
     const referrerId = url.searchParams.get('referrer_id')
     const status = url.searchParams.get('status')
 
-    // Referrer-portal path: accept with referrer_id alone (no admin session).
-    // Scope the query by the tenant that owns the referrer.
+    // Referrer-portal path. Was previously reachable with the bare
+    // referrer_id and no session check -- referrer_id is a plain row id, not
+    // a secret, and was independently obtainable with zero auth from
+    // GET /api/referrers?code=... (any public referral link), so anyone who
+    // ever saw a referral link could pull this referrer's full commission
+    // history, including the client_name and booking price/date of every
+    // person they referred (third-party PII, not just the referrer's own
+    // data). Require the same referrer session token the earnings dashboard
+    // (/api/referrers/[code]) already gates on, and confirm it actually
+    // owns this referrer_id.
     if (referrerId) {
+      const auth = getReferrerAuth(request)
+      if (!auth || auth.rid !== referrerId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
       const { data: refRow } = await supabaseAdmin
         .from('referrers')
         .select('tenant_id')
         .eq('id', referrerId)
         .maybeSingle()
-      if (!refRow) return NextResponse.json({ error: 'Referrer not found' }, { status: 404 })
+      if (!refRow || refRow.tenant_id !== auth.tid) {
+        return NextResponse.json({ error: 'Referrer not found' }, { status: 404 })
+      }
 
       let query = supabaseAdmin
         .from('referral_commissions')

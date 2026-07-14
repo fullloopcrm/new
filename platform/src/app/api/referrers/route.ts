@@ -45,9 +45,17 @@ export async function GET(request: NextRequest) {
   if (!lookupTenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
   if (code) {
+    // No auth on this branch (it exists to resolve a public referral code /
+    // let a referrer look up their own code by email) -- never select
+    // total_earned/total_paid/preferred_payout here. A referral code is
+    // handed out publicly by design (it's the whole point of the share
+    // link), so anyone who has ever seen one could otherwise pull the
+    // referrer's earnings with zero auth. The real earnings dashboard is
+    // gated behind the email-OTP session (see /api/referrers/[code] +
+    // /api/referrers/auth/*) -- financial fields only live there.
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
+      .select('id, name, email, referral_code, created_at')
       .eq('tenant_id', lookupTenant.id)
       .eq('referral_code', code)
       .single()
@@ -57,9 +65,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (email) {
+    // Same no-financial-fields rule as the code branch above.
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
+      .select('id, name, email, referral_code, created_at')
       .eq('tenant_id', lookupTenant.id)
       .ilike('email', email)
       .single()
