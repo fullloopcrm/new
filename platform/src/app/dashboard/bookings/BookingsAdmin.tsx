@@ -1277,11 +1277,17 @@ function BookingsPage() {
               Close Out{closeOutJobs.length > 0 ? ` (${closeOutJobs.length})` : ''}
             </button>
             <button onClick={() => {
+              const escCsv = (v: unknown) => {
+                let s = v == null ? '' : String(v)
+                // Neutralize CSV formula injection (Excel/Sheets execute leading =,+,-,@).
+                if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+                return `"${s.replace(/"/g, '""')}"`
+              }
               const rows = filteredBookings.map(b => [
                 new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' }), new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
                 b.clients?.name || '', b.cleaners?.name || '', b.service_type || '', b.status,
                 b.hourly_rate ? '$' + b.hourly_rate : '', '$' + (b.price / 100).toFixed(0), b.payment_status || ''
-              ].map(v => `"${v}"`).join(','))
+              ].map(escCsv).join(','))
               const csv = 'Date,Time,Client,Cleaner,Service,Status,Rate,Price,Payment\n' + rows.join('\n')
               const blob = new Blob([csv], { type: 'text/csv' })
               const url = URL.createObjectURL(blob)

