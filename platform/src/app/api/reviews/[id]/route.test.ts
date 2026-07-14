@@ -74,4 +74,25 @@ describe('PUT /api/reviews/:id', () => {
     expect(res.status).toBe(500)
     expect(h.store.reviews.find((r) => r.id === 'rev-B1')?.response).toBeNull()
   })
+
+  // client_id/booking_id are caller-supplied FKs with no cross-tenant check at
+  // the DB layer. GET /api/reviews joins clients(name) off client_id, unscoped
+  // by tenant — repointing a review's client_id would leak a foreign tenant's
+  // client name on the next fetch. Now stripped by the allow-list.
+  it('ignores a client_id in the body instead of repointing the review at a foreign client', async () => {
+    const res = await PUT(putReq({ response: 'hi', client_id: 'foreign-client' }), params('rev-A1'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.review.client_id).toBeUndefined()
+    expect(h.store.reviews.find((r) => r.id === 'rev-A1')?.client_id).toBeUndefined()
+  })
+
+  it('ignores a booking_id in the body', async () => {
+    const res = await PUT(putReq({ response: 'hi', booking_id: 'foreign-booking' }), params('rev-A1'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.review.booking_id).toBeUndefined()
+  })
 })

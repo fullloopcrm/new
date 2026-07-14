@@ -70,4 +70,18 @@ describe('PUT /api/referrals/:id', () => {
     expect(res.status).toBe(500)
     expect(h.store.referrals.find((r) => r.id === 'ref-B1')?.status).toBe('pending')
   })
+
+  // referrer_client_id is a caller-supplied FK with no cross-tenant check at
+  // the DB layer. GET /api/referrals joins clients!referrals_referrer_client_id_fkey(name)
+  // off it, unscoped by tenant — repointing a referral's referrer_client_id
+  // would leak a foreign tenant's client name on the next fetch. Now stripped
+  // by the allow-list.
+  it('ignores a referrer_client_id in the body instead of repointing the referral at a foreign client', async () => {
+    const res = await PUT(putReq({ status: 'paid', referrer_client_id: 'foreign-client' }), params('ref-A1'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.referral.referrer_client_id).toBeUndefined()
+    expect(h.store.referrals.find((r) => r.id === 'ref-A1')?.referrer_client_id).toBeUndefined()
+  })
 })

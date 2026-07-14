@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { pick } from '@/lib/validate'
 
 export async function PUT(
   request: Request,
@@ -13,7 +14,10 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const { tenant_id: _tenantId, id: _id, ...safeBody } = body
+    // Allow-listed scalars only — never accept tenant_id (row donation) or the
+    // referrer_client_id FK (cross-tenant injection: GET /api/referrals joins
+    // clients!referrals_referrer_client_id_fkey(name) unscoped by tenant).
+    const safeBody = pick(body, ['status', 'name', 'email', 'phone', 'commission_rate', 'reward_amount', 'total_earned'])
 
     const { data, error } = await supabaseAdmin
       .from('referrals')
