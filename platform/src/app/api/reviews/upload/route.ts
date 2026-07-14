@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import crypto from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
@@ -19,6 +20,16 @@ export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) {
     return NextResponse.json({ error: 'Unknown tenant' }, { status: 400 })
+  }
+
+  // Public, unauthenticated endpoint (reached via tenant subdomain/custom-domain
+  // rewrite, which bypasses Clerk auth entirely) accepting up to 100MB video per
+  // request with previously no throttle at all -- an anonymous caller could run
+  // up storage costs fast. Same bucket pattern as the sibling public-upload route.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`reviews_upload:${tenant.id}:${ip}`, 60, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
   }
 
   try {
