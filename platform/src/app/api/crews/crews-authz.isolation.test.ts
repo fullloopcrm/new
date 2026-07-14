@@ -3,25 +3,15 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 /**
  * W4 INDEPENDENT verification lane — crews cross-tenant crew_members wipe (R-1).
  *
- * ┌─ STATUS ON p1-w4: FIX ABSENT ─────────────────────────────────────────────┐
- * │ The R-1 guard (commit dcef807b, "scope crew member replacement to caller   │
- * │ tenant") is NOT an ancestor of this branch's HEAD. src/app/api/crews/       │
- * │ route.ts::setMembers still does `.delete().eq('crew_id', crewId)` with NO   │
- * │ tenant re-verification. crew_members has no tenant_id column, so an owner   │
- * │ of tenant A can wipe/pollute tenant B's crew by PATCHing with B's crew      │
- * │ UUID. This was FLAGGED to the leader — not cherry-picked here.              │
+ * ┌─ STATUS ON p1-w4: FIXED ──────────────────────────────────────────────────┐
+ * │ Ported the R-1 guard (commit dcef807b, "scope crew member replacement to   │
+ * │ caller tenant") onto this branch: setMembers() now re-verifies the crew    │
+ * │ belongs to the caller's tenant (via the tenant-scoped crews table) before  │
+ * │ touching crew_members, and no-ops silently if it doesn't.                  │
  * └────────────────────────────────────────────────────────────────────────────┘
  *
- * Because the fix is absent, this file does two honest things:
- *   • WITNESS (active): runs the REAL PATCH handler and proves the exploit is
- *     LIVE on p1-w4 today — a cross-tenant PATCH DOES wipe tenant B's members.
- *     This is runtime evidence for the flag, not a code-read claim. When the
- *     R-1 guard lands this witness WILL start failing — that failure is the
- *     signal that the hole is closed; delete the witness and un-skip the
- *     regression below.
- *   • REGRESSION (skipped): the fix-proof secure assertion, ready to activate
- *     the moment dcef807b (or an equivalent guard) is merged into this branch.
- *     Independent harness — does not reuse the fix's own route.test.ts.
+ * The regression below is the activated fix-proof (was describe.skip while the
+ * fix was absent). Independent harness — does not reuse route.test.ts.
  */
 
 type Row = Record<string, unknown>
@@ -100,26 +90,8 @@ beforeEach(() => {
   }
 })
 
-// ── WITNESS: the R-1 hole is LIVE on p1-w4 (fix absent) ─────────────────────
-describe('WITNESS [R-1 LIVE on p1-w4 — fix dcef807b absent]', () => {
-  it('cross-tenant PATCH WIPES tenant B’s crew AND injects A’s member — vulnerability confirmed at runtime', async () => {
-    // Caller is tenant A; targets tenant B's crew UUID. With no tenant guard in
-    // setMembers, B's member (memberB) is deleted and A's member (memberA, valid
-    // under tenant A) is injected into B's crew — a wipe AND a cross-tenant
-    // pollution. When the fix lands, setMembers no-ops (B stays intact) and THIS
-    // TEST fails — that failure is the signal that the hole closed.
-    const res = await PATCH(patchReq({ id: 'crewB', member_ids: ['memberA'] }))
-    expect(res.status).toBe(200)
-    const bMembers = h.store.crew_members.filter((m) => m.crew_id === 'crewB')
-    expect(bMembers.some((m) => m.team_member_id === 'memberB')).toBe(false) // original wiped
-    expect(bMembers).toEqual([{ crew_id: 'crewB', team_member_id: 'memberA' }]) // A's member leaked in
-  })
-})
-
-// ── REGRESSION: secure behavior — ACTIVATE when the R-1 guard is merged ─────
-// Un-skip (and delete the WITNESS above) once dcef807b or an equivalent
-// tenant-ownership check lands in setMembers on this branch.
-describe.skip('R-1 regression (ACTIVATE when fix present): cross-tenant crew_members wipe blocked', () => {
+// ── REGRESSION: secure behavior — the R-1 guard is now present on this branch ──
+describe('R-1 regression: cross-tenant crew_members wipe blocked', () => {
   it('rejects an A-owner PATCH on tenant B’s crew: B’s members untouched, no A member injected', async () => {
     const res = await PATCH(patchReq({ id: 'crewB', member_ids: ['memberA'] }))
     expect(res.status).toBe(200) // no-op, not an error
