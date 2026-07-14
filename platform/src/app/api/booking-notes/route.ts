@@ -41,6 +41,19 @@ export async function POST(request: Request) {
     throw err
   }
 
+  // booking_id is a caller-supplied FK — booking_notes has no cross-tenant FK
+  // check, so an unvalidated id would let this tenant attach a note to another
+  // tenant's booking. Verify ownership before insert.
+  const { data: ownedBooking } = await supabaseAdmin
+    .from('bookings')
+    .select('id')
+    .eq('id', booking_id)
+    .eq('tenant_id', ctx.tenantId)
+    .maybeSingle()
+  if (!ownedBooking) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+  }
+
   const { data, error } = await supabaseAdmin
     .from('booking_notes')
     .insert({
