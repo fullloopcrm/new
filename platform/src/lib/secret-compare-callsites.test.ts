@@ -53,10 +53,6 @@ const CASES: Array<{ file: string; vulnerable: RegExp }> = [
     vulnerable: /auth\s*!==\s*`Bearer \$\{process\.env\.CRON_SECRET\}`/,
   },
   {
-    file: 'src/app/api/cron/payment-followup-daily/route.ts',
-    vulnerable: /auth\s*!==\s*`Bearer \$\{secret\}`/,
-  },
-  {
     file: 'src/app/api/cron/jefe-heartbeat/route.ts',
     vulnerable: /auth\s*!==\s*`Bearer \$\{secret\}`/,
   },
@@ -71,10 +67,6 @@ const CASES: Array<{ file: string; vulnerable: RegExp }> = [
   {
     file: 'src/app/api/cron/recurring-expenses/route.ts',
     vulnerable: /auth\s*!==\s*`Bearer \$\{secret\}`/,
-  },
-  {
-    file: 'src/app/api/cron/comhub-email/route.ts',
-    vulnerable: /authHeader\s*===\s*`Bearer \$\{CRON_SECRET\}`\s*\|\|\s*querySecret\s*===\s*CRON_SECRET/,
   },
   {
     file: 'src/app/api/indexnow/route.ts',
@@ -102,6 +94,27 @@ describe('constant-time secret compare invariant (queue-c)', () => {
       it('does NOT contain the vulnerable plain-string compare', () => {
         expect(src).not.toMatch(vulnerable)
       })
+    })
+  }
+})
+
+describe('comhub-email + payment-followup-daily — x-vercel-cron bypass closed', () => {
+  // Both routes used to OR an unauthenticated `x-vercel-cron: 1` header
+  // (spoofable by any external caller — Vercel does not cryptographically
+  // sign it) around the CRON_SECRET compare, and comhub-email additionally
+  // accepted the secret via a `?secret=` query param (logged in access/proxy
+  // logs). Both are now routed through the shared fail-closed
+  // verifyCronSecret() helper (lib/cron-auth.ts), which has neither bypass.
+  for (const file of [
+    'src/app/api/cron/comhub-email/route.ts',
+    'src/app/api/cron/payment-followup-daily/route.ts',
+  ]) {
+    it(`${file} routes auth through verifyCronSecret(), no x-vercel-cron/query-secret bypass`, () => {
+      const src = readFileSync(path.resolve(process.cwd(), file), 'utf8')
+      expect(src).toMatch(/import\s*\{\s*verifyCronSecret\s*\}\s*from\s*['"]@\/lib\/cron-auth['"]/)
+      expect(src).toMatch(/verifyCronSecret\s*\(/)
+      expect(src).not.toMatch(/x-vercel-cron/)
+      expect(src).not.toMatch(/searchParams\.get\(['"]secret['"]\)/)
     })
   }
 })
