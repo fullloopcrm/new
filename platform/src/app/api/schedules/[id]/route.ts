@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
+import { pick } from '@/lib/validate'
 
 export async function GET(
   _request: Request,
@@ -47,10 +48,11 @@ export async function PUT(
     const { tenantId } = await getTenantForRequest()
     const { id } = await params
     const body = await request.json()
+    const fields = pick(body, ['recurring_type', 'day_of_week', 'preferred_time', 'duration_hours', 'notes', 'special_instructions'])
 
     const { data, error } = await supabaseAdmin
       .from('recurring_schedules')
-      .update(body)
+      .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()
