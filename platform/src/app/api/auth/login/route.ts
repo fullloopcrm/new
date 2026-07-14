@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/nycmaid/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeHtml } from '@/lib/escape-html'
 
 export async function POST(request: Request) {
   try {
@@ -106,9 +107,9 @@ export async function POST(request: Request) {
       const html = `
         <div style="font-family: sans-serif; max-width: 400px;">
           <h3 style="color: #000;">Admin Login Alert</h3>
-          <p><strong>IP:</strong> ${ip}</p>
-          <p><strong>Time:</strong> ${timeET}</p>
-          <p><strong>Device:</strong> ${ua.substring(0, 100)}</p>
+          <p><strong>IP:</strong> ${escapeHtml(ip)}</p>
+          <p><strong>Time:</strong> ${escapeHtml(timeET)}</p>
+          <p><strong>Device:</strong> ${escapeHtml(ua.substring(0, 100))}</p>
           <p style="color: #666; font-size: 12px;">If this wasn't you, change ADMIN_PASSWORD immediately.</p>
         </div>
       `
