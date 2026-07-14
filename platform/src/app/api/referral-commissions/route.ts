@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 
 export async function GET(request: Request) {
@@ -61,7 +62,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Creates a commission ledger row + accrues it — same authz bar as the
+    // admin-only sibling action below (marking paid).
+    const { tenant, error: authError } = await requirePermission('referrals.create')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { booking_id } = await request.json()
     if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
 
@@ -149,7 +154,12 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Same permission bar as the sibling referrals/[id]/route.ts PUT — this
+    // route can also move money (marking 'paid' posts a ledger payment and
+    // bumps the referrer's total_paid), so it isn't a lower-stakes action.
+    const { tenant, error: authError } = await requirePermission('referrals.payout')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id, status, paid_via } = await request.json()
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 

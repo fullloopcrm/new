@@ -48,7 +48,13 @@ vi.mock('@/lib/supabase', () => ({
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@/lib/tenant-query', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/tenant-query')>()
-  return { ...actual, getTenantForRequest: async () => ({ tenantId: TENANT }) }
+  return {
+    ...actual,
+    // POST/PUT are now behind requirePermission('referrals.create'/'referrals.payout')
+    // (see route.isolation.test.ts) — role:'owner' keeps this race-condition test
+    // exercising the atomic-increment fix, not the unrelated permission gate.
+    getTenantForRequest: async () => ({ tenantId: TENANT, tenant: { id: TENANT }, role: 'owner' }),
+  }
 })
 vi.mock('@/lib/finance/post-adjustments', () => ({
   postCommissionAccrual: vi.fn(async () => ({ posted: false })),
