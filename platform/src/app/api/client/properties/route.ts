@@ -38,10 +38,18 @@ export async function GET(request: Request) {
 
   if (searchParams.get('include_history') === 'true' && auth.isAdmin) {
     const { supabaseAdmin } = await import('@/lib/supabase')
+    // isAdminAuthenticated() is a legacy admin_session cookie with no tenant
+    // binding — resolve the client's OWN tenant_id and require every returned
+    // row to match it, so a property_changes row ever mistagged to a foreign
+    // tenant can't surface here.
+    const { data: clientRow } = await supabaseAdmin.from('clients').select('tenant_id').eq('id', clientId!).single()
+    const tenantId = clientRow?.tenant_id as string | undefined
+    if (!tenantId) return NextResponse.json({ properties, history: [] })
     const { data: history } = await supabaseAdmin
       .from('property_changes')
       .select('id, property_id, action, old_value, new_value, changed_by, actor_id, source, created_at')
       .eq('client_id', clientId!)
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50)
     return NextResponse.json({ properties, history: history || [] })
