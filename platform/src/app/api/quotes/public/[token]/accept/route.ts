@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logQuoteEvent } from '@/lib/quote'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -157,7 +158,7 @@ export async function POST(request: Request, { params }: Params) {
         tenantId: quote.tenant_id,
         type: 'quote_accepted',
         title: `Quote ${quote.quote_number} accepted`,
-        message: `Signed by ${signature_name} — total $${(quote.total_cents / 100).toFixed(2)}`,
+        message: `Signed by ${escapeHtml(signature_name)} — total $${(quote.total_cents / 100).toFixed(2)}`,
         channel: 'email',
         recipientType: 'admin',
         metadata: { quote_id: quote.id, href: `/admin/sales-hub/quotes/${quote.id}` },
@@ -171,7 +172,7 @@ export async function POST(request: Request, { params }: Params) {
       tenantId: quote.tenant_id,
       subject: hasDeposit ? `Signed — awaiting deposit (${quote.quote_number})` : `SOLD — ${quote.quote_number}`,
       kicker: hasDeposit ? 'Signed — awaiting deposit' : 'Sold',
-      heading: hasDeposit ? `${signature_name} signed — deposit next` : `${signature_name} accepted — it's a sale`,
+      heading: hasDeposit ? `${escapeHtml(signature_name)} signed — deposit next` : `${escapeHtml(signature_name)} accepted — it's a sale`,
       bodyHtml: `<p style="margin:0 0 12px">Proposal <strong>${quote.quote_number}</strong> was accepted & signed.</p><p style="margin:0"><strong>${(quote.total_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</strong>${hasDeposit ? ` · deposit ${(quote.deposit_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} due` : (isRecurring ? ' · closed to Sold, recurring series created' : isBooking ? ' · closed to Sold, booking created' : ' · closed to Sold, job created')}</p>`,
       sms: hasDeposit
         ? `${signature_name} signed ${quote.quote_number}. Awaiting deposit.`
