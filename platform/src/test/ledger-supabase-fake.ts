@@ -22,7 +22,7 @@
  * Supported query surface (superset across the finance money tests):
  *   from(table)
  *     .select(cols?, { head }) .insert(p) .update(p) .upsert(p, opts)
- *     .eq(col,val) .in(col,vals) .gt(col,val) .gte(col,val) .lt(col,val)
+ *     .eq(col,val) .neq(col,val) .in(col,vals) .gt(col,val) .gte(col,val) .lt(col,val)
  *     .not() .order() .range() .limit()
  *     .single() .maybeSingle() .then(...)   // awaiting the chain = "many"
  *   rpc('post_journal_entry', params)
@@ -37,6 +37,7 @@ type State = {
   table: string
   op: 'select' | 'insert' | 'update' | 'upsert'
   eqs: Record<string, unknown>
+  neqs: Record<string, unknown>
   ins: Array<{ col: string; vals: unknown[] }>
   gts: Array<{ col: string; val: unknown }>
   gtes: Array<{ col: string; val: unknown }>
@@ -48,6 +49,7 @@ type State = {
 
 function matches(r: Record<string, unknown>, s: State): boolean {
   if (!Object.entries(s.eqs).every(([k, v]) => r[k] === v)) return false
+  if (!Object.entries(s.neqs).every(([k, v]) => r[k] !== v)) return false
   for (const i of s.ins) if (!i.vals.includes(r[i.col])) return false
   for (const g of s.gts) if (!(Number(r[g.col]) > Number(g.val))) return false
   for (const g of s.gtes) if (!(String(r[g.col]) >= String(g.val))) return false
@@ -106,6 +108,18 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
           }
         }
       }
+      // Mirrors migration 066's unique index on referral_commissions(booking_id)
+      // WHERE booking_id IS NOT NULL -- lets the POST /api/referral-commissions
+      // 23505 handling be exercised for real.
+      if (state.op === 'insert' && state.table === 'referral_commissions' && p.booking_id != null) {
+        const dup = rows.find((r) => r.booking_id === p.booking_id)
+        if (dup) {
+          return {
+            data: null,
+            error: { message: 'duplicate key value violates unique constraint on referral_commissions(booking_id)', code: '23505' },
+          }
+        }
+      }
       if (state.op === 'upsert' && state.upsertOpts?.onConflict) {
         const keys = state.upsertOpts.onConflict.split(',').map((k) => k.trim())
         const dup = rows.find((r) => keys.every((k) => r[k] === p[k]))
@@ -120,8 +134,16 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
   }
 
   if (state.op === 'update') {
-    for (const r of rows) if (matches(r, state)) Object.assign(r, state.payload as object)
-    return { data: null, error: null }
+    const updated: Array<Record<string, unknown>> = []
+    for (const r of rows) {
+      if (matches(r, state)) {
+        Object.assign(r, state.payload as object)
+        updated.push(r)
+      }
+    }
+    if (terminal === 'many') return { data: updated, error: null }
+    if (terminal === 'single') return { data: updated[0] ?? null, error: updated[0] ? null : { message: 'no rows' } }
+    return { data: updated[0] ?? null, error: null }
   }
 
   const found = rows.filter((r) => matches(r, state))
@@ -135,13 +157,14 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
 export function makeLedgerSupabaseFake(h: FakeStoreHandle) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, ins: [], gts: [], gtes: [], lts: [], head: false, payload: null, upsertOpts: null }
+      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], gts: [], gtes: [], lts: [], head: false, payload: null, upsertOpts: null }
       const chain: Record<string, unknown> = {
         select: (_c?: unknown, opts?: { head?: boolean }) => { if (opts?.head) state.head = true; return chain },
         insert: (p: unknown) => { state.op = 'insert'; state.payload = p; return chain },
         update: (p: unknown) => { state.op = 'update'; state.payload = p; return chain },
         upsert: (p: unknown, opts?: State['upsertOpts']) => { state.op = 'upsert'; state.payload = p; state.upsertOpts = opts ?? null; return chain },
         eq: (c: string, v: unknown) => { state.eqs[c] = v; return chain },
+        neq: (c: string, v: unknown) => { state.neqs[c] = v; return chain },
         in: (c: string, v: unknown[]) => { state.ins.push({ col: c, vals: v }); return chain },
         gt: (c: string, v: unknown) => { state.gts.push({ col: c, val: v }); return chain },
         gte: (c: string, v: unknown) => { state.gtes.push({ col: c, val: v }); return chain },

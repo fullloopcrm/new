@@ -1,0 +1,42 @@
+-- 066_unique_referral_commissions_booking.sql
+-- FILE ONLY -- do NOT execute here. Leader runs after Jeff approves.
+--
+-- WHY: POST /api/referral-commissions (route.ts) check-then-inserts a
+-- referral_commissions row keyed by booking_id with no DB backstop beyond
+-- 019_referral_commissions.sql's own inline UNIQUE(booking_id) constraint --
+-- this migration adds the same guarantee as a standalone, idempotent
+-- (IF NOT EXISTS) unique index, so the fix lands even if 019's inline
+-- constraint didn't make it into the live schema (see NOTE below), and so
+-- route.ts's new 23505 handling (same commit) has something real to catch.
+--
+-- Two concurrent POSTs for the SAME booking_id (double-click "create
+-- commission" in the admin UI, or an automated trigger firing twice) both
+-- pass the SELECT-then-INSERT `existing` check before either INSERT
+-- commits: a duplicate referral_commissions row, a double-counted
+-- referrer.total_earned bump (also fixed in this commit -- see the PUT
+-- handler's mark-paid idempotency fix), and a double-posted ledger accrual
+-- (already idempotent server-side via journal_entries' (tenant_id, source,
+-- source_id) uniqueness from 064, but the app-level state -- the extra row
+-- + the double total_earned bump -- was not).
+--
+-- NOTE (schema-drift risk, unresolved, needs DB read access to confirm):
+-- migration 008_missing_tables_and_columns.sql ALSO defines a
+-- `referral_commissions` table, with an entirely different, incompatible
+-- shape (no booking_id column at all -- it's the older client-to-client
+-- referral ledger keyed by referral_id/referrer_client_id, not this
+-- external-affiliate one). These migrations are applied manually with no
+-- tracking table (see each file's own "Apply: psql ... -f ..." comment), so
+-- whichever ran first on a given tenant DB wins and the other's CREATE
+-- TABLE IF NOT EXISTS is a silent no-op. If 008's shape is what's actually
+-- live, this index's CREATE will fail outright (no booking_id column to
+-- index) -- that failure is itself the signal that 019 never actually
+-- applied and the whole referral_commissions feature (route.ts,
+-- post-adjustments.ts postCommissionAccrual/postCommissionPayment, all of
+-- which read/write 019's column names) needs the larger reconciliation 019
+-- was supposed to be. NOT attempting that reconciliation here -- flagging
+-- for the leader/reconcile-gate lane to verify actual live columns
+-- (information_schema.columns) before running this.
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_referral_commissions_booking_unique
+  ON referral_commissions(booking_id)
+  WHERE booking_id IS NOT NULL;

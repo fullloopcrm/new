@@ -109,6 +109,14 @@ export async function POST(request: Request) {
       })
       .select()
       .single()
+    // Duplicate booking_id -- a retried/double-clicked create for a booking
+    // that already got a commission between our `existing` check above and
+    // this insert. Treat as the same 409 the check itself returns, instead
+    // of double-counting referrer.total_earned below. See migration
+    // 066_unique_referral_commissions_booking.sql.
+    if (error?.code === '23505') {
+      return NextResponse.json({ error: 'Commission already exists for this booking' }, { status: 409 })
+    }
     if (error) throw error
 
     // Accrue the commission expense/payable to the ledger.
@@ -151,45 +159,54 @@ export async function PUT(request: Request) {
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
     const updates: Record<string, unknown> = { status }
-
-    if (status === 'paid') {
+    const markingPaid = status === 'paid'
+    if (markingPaid) {
       updates.paid_at = new Date().toISOString()
       updates.paid_via = paid_via || 'zelle'
-
-      const { data: commission } = await supabaseAdmin
-        .from('referral_commissions')
-        .select('referrer_id, commission_cents')
-        .eq('id', id)
-        .eq('tenant_id', tenantId)
-        .single()
-      if (commission) {
-        const { data: ref } = await supabaseAdmin
-          .from('referrers')
-          .select('total_paid')
-          .eq('id', commission.referrer_id)
-          .eq('tenant_id', tenantId)
-          .single()
-        if (ref) {
-          await supabaseAdmin
-            .from('referrers')
-            .update({ total_paid: (ref.total_paid || 0) + (commission.commission_cents as number) })
-            .eq('id', commission.referrer_id)
-            .eq('tenant_id', tenantId)
-        }
-      }
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('referral_commissions')
-      .update(updates)
-      .eq('id', id)
-      .eq('tenant_id', tenantId)
-      .select()
-      .single()
+    // `.neq('status', 'paid')` makes the paid transition a DB-level
+    // compare-and-swap: only the request that actually flips pending/void ->
+    // paid gets a row back. A double-click on "Pay", a network retry, or two
+    // concurrent requests for the same commission would otherwise each
+    // re-read the referrer's total_paid before either write committed and
+    // both add commission_cents -- double-counting the payout and
+    // double-posting the ledger (postCommissionPayment below), even though
+    // no second real payment was ever made.
+    let query = supabaseAdmin.from('referral_commissions').update(updates).eq('id', id).eq('tenant_id', tenantId)
+    if (markingPaid) query = query.neq('status', 'paid')
+    const { data, error } = await query.select().maybeSingle()
     if (error) throw error
 
-    // Marking paid clears the payable against cash in the ledger.
-    if (status === 'paid' && data?.id) {
+    if (!data) {
+      // Either no row matches this id/tenant, or (mark-paid only) it was
+      // already paid -- tell them apart without re-applying the total_paid
+      // bump or re-posting the ledger.
+      const { data: current } = await supabaseAdmin
+        .from('referral_commissions')
+        .select('*')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      return NextResponse.json(current)
+    }
+
+    if (markingPaid) {
+      const { data: ref } = await supabaseAdmin
+        .from('referrers')
+        .select('total_paid')
+        .eq('id', data.referrer_id)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (ref) {
+        await supabaseAdmin
+          .from('referrers')
+          .update({ total_paid: (ref.total_paid || 0) + (data.commission_cents as number) })
+          .eq('id', data.referrer_id)
+          .eq('tenant_id', tenantId)
+      }
+      // Marking paid clears the payable against cash in the ledger.
       postCommissionPayment({ tenantId, commissionId: data.id })
         .catch(err => console.error('[ref-comm] payment post failed:', err))
     }
