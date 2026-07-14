@@ -52,6 +52,15 @@ export async function POST(request: Request) {
     const discount_cents = Number(body.discount_cents) || 0
     const totals = computeTotals(lineItems, tax_rate_bps, discount_cents)
 
+    // Confirm the client (if given) belongs to this tenant -- otherwise a
+    // foreign client_id gets its name/email/phone/address pulled into this
+    // tenant's quote via the GET join, a cross-tenant PII leak.
+    const clientId = typeof body.client_id === 'string' && body.client_id ? body.client_id : null
+    if (clientId) {
+      const { data: c } = await supabaseAdmin.from('clients').select('id').eq('id', clientId).eq('tenant_id', tenantId).single()
+      if (!c) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
     // Resolve the deposit into a concrete cents amount so the public page and
     // checkout never recompute. flat = cents; percent = basis points.
     const deposit_type = ['flat', 'percent'].includes(body.deposit_type) ? body.deposit_type : 'none'
@@ -85,7 +94,7 @@ export async function POST(request: Request) {
         .from('quotes')
         .insert({
           tenant_id: tenantId,
-          client_id: body.client_id || null,
+          client_id: clientId,
           deal_id: body.deal_id || null,
           quote_number,
           status: 'draft',

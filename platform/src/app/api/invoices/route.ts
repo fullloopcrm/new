@@ -143,6 +143,18 @@ export async function POST(request: Request) {
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
+    // Confirm a directly-supplied client (not one derived from an
+    // already-tenant-scoped booking/quote lookup above) belongs to this
+    // tenant -- otherwise a foreign client_id gets its name/email/phone/
+    // address pulled into this tenant's invoice via the GET join, a
+    // cross-tenant PII leak.
+    const directClientId = typeof body.client_id === 'string' && body.client_id ? body.client_id : null
+    if (directClientId) {
+      const { data: c } = await supabaseAdmin.from('clients').select('id').eq('id', directClientId).eq('tenant_id', tenantId).single()
+      if (!c) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+    const clientId = directClientId || (prefillContact as { client_id?: string }).client_id || null
+
     // invoice_number is derived from a COUNT() snapshot (generateInvoiceNumber),
     // so two concurrent creates in the same tenant/month can compute the same
     // number. The (tenant_id, invoice_number) unique index rejects the second
@@ -159,7 +171,7 @@ export async function POST(request: Request) {
         .insert({
           tenant_id: tenantId,
           entity_id: entityId,
-          client_id: body.client_id || (prefillContact as { client_id?: string }).client_id || null,
+          client_id: clientId,
           booking_id: body.booking_id || body.from_booking_id || null,
           quote_id: body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null,
           invoice_number,
