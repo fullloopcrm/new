@@ -4,6 +4,7 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 
@@ -34,7 +35,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('team.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -58,7 +61,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('team.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
     const id = body.id as string | undefined
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
@@ -92,7 +97,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('team.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const id = new URL(request.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
     await tenantDb(tenantId).from('crews').delete().eq('id', id)

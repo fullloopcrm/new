@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
   try {
@@ -24,7 +25,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('finance.expenses')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json()
     if (!body.label || !body.amount_cents || !body.frequency) {
       return NextResponse.json({ error: 'label, amount_cents, frequency required' }, { status: 400 })
