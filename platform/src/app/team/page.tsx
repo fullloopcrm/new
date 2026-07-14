@@ -691,7 +691,7 @@ export default function TeamHomePage() {
   return (
     <div className="pb-24 space-y-4">
       {/* PushPrompt */}
-      <PushPrompt role="team_member" userId={auth.member.id} />
+      <PushPrompt role="team_member" userId={auth.member.id} token={auth.token} />
 
       {/* ================ 1. RATE CARD ================ */}
       <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl p-5">
