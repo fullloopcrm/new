@@ -12,12 +12,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { backfillRevenueFromBookings } from '@/lib/finance/post-revenue'
 import { backfillUnpostedLabor } from '@/lib/finance/post-labor'
 import { backfillUnpostedCommissions } from '@/lib/finance/post-adjustments'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export async function POST(request: Request) {
-  const auth = request.headers.get('authorization') || ''
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const { data: tenants } = await supabaseAdmin.from('tenants').select('id').eq('status', 'active')
   const totals = { tenants: 0, revenue: 0, cogs: 0, labor: 0, commissions: 0 }

@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { postJournalEntry } from '@/lib/ledger'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 function advance(d: Date, freq: string): Date {
   const r = new Date(d)
@@ -21,11 +22,8 @@ function advance(d: Date, freq: string): Date {
 }
 
 export async function POST(request: Request) {
-  const auth = request.headers.get('authorization') || ''
-  const secret = process.env.CRON_SECRET
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const today = new Date().toISOString().slice(0, 10)
   const { data: due } = await supabaseAdmin
