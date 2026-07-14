@@ -7,6 +7,7 @@ import AddressAutocomplete from '@/components/address-autocomplete'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import PermissionsTab from './PermissionsTab'
 import CommunicationsTab from './CommunicationsTab'
+import DataExportPanel from './DataExportPanel'
 
 type Tenant = {
   id: string
@@ -1937,6 +1938,7 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+          <DataExportPanel />
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-3">Import Clients from CSV</h3>
 
