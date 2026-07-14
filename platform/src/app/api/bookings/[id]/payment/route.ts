@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
 
@@ -8,7 +9,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('bookings.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const { payment_status, payment_method, tip_amount, team_paid, team_pay, actual_hours } = await request.json()
 

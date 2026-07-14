@@ -12,11 +12,14 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(req: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const db = tenantDb(tenantId)
     const { unmatchedPaymentId, bookingId } = await req.json()
     if (!unmatchedPaymentId || !bookingId) {

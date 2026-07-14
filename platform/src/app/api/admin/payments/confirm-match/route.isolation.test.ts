@@ -17,22 +17,30 @@ const h = vi.hoisted(() => ({
   store: {} as Record<string, Array<Record<string, unknown>>>,
 })) as unknown as FakeStoreHandle & { tenantId: string }
 
+const roleHolder = vi.hoisted(() => ({ role: 'owner' as string }))
+
 vi.mock('@/lib/supabase', () => {
   const fake = makeTenantDbFake(h)
   return { supabaseAdmin: fake, supabase: fake }
 })
-vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: h.tenantId }),
-  AuthError: class AuthError extends Error { status = 401 },
-}))
+vi.mock('@/lib/tenant-query', () => {
+  class AuthError extends Error { status = 401 }
+  return {
+    getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: { id: h.tenantId }, role: roleHolder.role }),
+    AuthError,
+  }
+})
 vi.mock('@/lib/sms', () => ({ sendSMS: async () => {} }))
 
+// Real requirePermission + real rbac run against the mocked tenant-query above,
+// so a 'staff' role is denied by the ACTUAL permission table, not a stub.
 import { POST } from './route'
 
 const postReq = (body: unknown) => new Request('http://x', { method: 'POST', body: JSON.stringify(body) })
 
 beforeEach(() => {
   h.tenantId = 'tenant-A'
+  roleHolder.role = 'owner'
   h.seq = 0
   h.store = {
     unmatched_payments: [
@@ -85,5 +93,14 @@ describe('POST /api/admin/payments/confirm-match — tenant isolation', () => {
 
     const notification = h.store.notifications[0]
     expect(notification?.tenant_id).toBe('tenant-A')
+  })
+
+  it("PERMISSION PROBE: 'staff' role (no finance.*) is forbidden and nothing changes", async () => {
+    roleHolder.role = 'staff'
+    const res = await POST(postReq({ unmatchedPaymentId: 'unm-A1', bookingId: 'book-A1' }))
+    expect(res.status).toBe(403)
+
+    expect(h.store.unmatched_payments.find((u) => u.id === 'unm-A1')?.status).toBe('unmatched')
+    expect(h.store.payments.length).toBe(0)
   })
 })
