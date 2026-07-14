@@ -74,9 +74,23 @@ export async function POST(request: NextRequest) {
       .eq('id', auth.id)
       .single()
 
-    let targetChannelId = channel_id
+    // Never trust a caller-supplied channel_id directly — verify it's this
+    // tenant's own general channel before using it, otherwise a forged id
+    // could inject a message into another tenant's channel, or a specific
+    // client's private channel within this tenant.
+    let targetChannelId: string | undefined
+    if (channel_id) {
+      const { data: ownedChannel } = await supabaseAdmin
+        .from('connect_channels')
+        .select('id')
+        .eq('id', channel_id)
+        .eq('tenant_id', auth.tid)
+        .eq('type', 'general')
+        .single()
+      if (ownedChannel) targetChannelId = ownedChannel.id
+    }
 
-    // If no channel_id provided, use general channel
+    // If no channel_id provided (or it didn't pass ownership), use general channel
     if (!targetChannelId) {
       let { data: channel } = await supabaseAdmin
         .from('connect_channels')
