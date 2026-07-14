@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
@@ -7,7 +8,9 @@ import { audit } from '@/lib/audit'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('schedules.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
 
     const { data, error } = await supabaseAdmin
       .from('recurring_schedules')
@@ -30,7 +33,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('schedules.create')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const body = await request.json()
 
     const { data: fields, error: vError } = validate(body, {
@@ -48,6 +53,39 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const v = fields!
+
+    // client_id/team_member_id/service_type_id are caller-supplied FKs with no
+    // cross-tenant FK check, and every read of recurring_schedules joins
+    // clients(name)/team_members(name) unscoped by tenant, so a foreign id
+    // would leak another tenant's data into this tenant's schedule list.
+    // Verify ownership before insert.
+    const { data: ownedClient } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .eq('id', v.client_id as string)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!ownedClient) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+    if (v.team_member_id) {
+      const { data: ownedTeamMember } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .eq('id', v.team_member_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedTeamMember) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+    }
+
+    if (v.service_type_id) {
+      const { data: ownedServiceType } = await supabaseAdmin
+        .from('service_types')
+        .select('id')
+        .eq('id', v.service_type_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedServiceType) return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
+    }
 
     // Create schedule
     const { data: schedule, error } = await supabaseAdmin

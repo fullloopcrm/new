@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
@@ -8,7 +9,9 @@ import { audit } from '@/lib/audit'
 // notifies the client via SMS if tenant has Telnyx configured.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('schedules.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const { paused_until } = await request.json()
     if (!paused_until) {
@@ -81,7 +84,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 // DELETE — resume early.
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('schedules.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
 
     const { data: schedule, error } = await supabaseAdmin
