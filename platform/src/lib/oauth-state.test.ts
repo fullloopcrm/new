@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, vi } from 'vitest'
 import crypto from 'crypto'
 import { signOAuthState, verifyOAuthState } from './oauth-state'
 
@@ -8,7 +8,8 @@ import { signOAuthState, verifyOAuthState } from './oauth-state'
  * or forgeable state is a CSRF hole (CWE-352): an attacker could bind THEIR
  * Google account to a VICTIM tenant. The properties under test: only our own
  * secret can mint an accepted state, the tenant is bound in the signature, and
- * the state expires.
+ * the state expires. Covers google/auth+callback, admin/google/auth+callback,
+ * and social/connect/facebook+instagram, all of which share this mechanism.
  */
 
 const SECRET = 'oauth-state-test-secret'
@@ -27,6 +28,10 @@ describe('verifyOAuthState — happy path', () => {
   it('round-trips a freshly signed state back to its tenant id', () => {
     const state = signOAuthState('tenant-A')
     expect(verifyOAuthState(state)).toBe('tenant-A')
+  })
+
+  it('accepts a correctly signed, unexpired state', () => {
+    expect(verifyOAuthState(mint('tenant-Z', Date.now() + 60000))).toBe('tenant-Z')
   })
 })
 
@@ -56,8 +61,15 @@ describe('verifyOAuthState — expiry + malformed', () => {
     expect(verifyOAuthState(mint('tenant-A', Date.now() - 1))).toBeNull()
   })
 
-  it('accepts a correctly signed, unexpired state', () => {
-    expect(verifyOAuthState(mint('tenant-Z', Date.now() + 60000))).toBe('tenant-Z')
+  it('rejects an expired state (TTL enforced, fake-timers)', () => {
+    vi.useFakeTimers()
+    try {
+      const state = signOAuthState('tenant-A')
+      vi.advanceTimersByTime(16 * 60 * 1000) // > 15 min TTL
+      expect(verifyOAuthState(state)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('rejects a non-numeric expiry even if the signature matches', () => {
@@ -72,5 +84,20 @@ describe('verifyOAuthState — expiry + malformed', () => {
     ['too many parts', 'a.b.c.d'],
   ])('rejects malformed state: %s', (_label, state) => {
     expect(verifyOAuthState(state as string | null | undefined)).toBeNull()
+  })
+})
+
+describe('signOAuthState — fails closed', () => {
+  it('throws at sign-time if ADMIN_TOKEN_SECRET is unset (never signs with an empty/undefined secret)', async () => {
+    vi.resetModules()
+    const prior = process.env.ADMIN_TOKEN_SECRET
+    delete process.env.ADMIN_TOKEN_SECRET
+    try {
+      const { signOAuthState: sign } = await import('./oauth-state')
+      expect(() => sign('tenant-A')).toThrow()
+    } finally {
+      process.env.ADMIN_TOKEN_SECRET = prior
+      vi.resetModules()
+    }
   })
 })

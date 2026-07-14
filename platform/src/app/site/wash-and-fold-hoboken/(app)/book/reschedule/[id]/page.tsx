@@ -25,55 +25,70 @@ export default function ReschedulePage() {
   }, [bookingId])
 
   const loadBooking = async () => {
-    const res = await fetch(`/api/client/booking/${bookingId}`)
-    if (res.ok) {
-      setBooking(await res.json())
+    try {
+      const res = await fetch(`/api/client/booking/${bookingId}`)
+      if (res.ok) {
+        setBooking(await res.json())
+      }
+    } catch {
+      // booking stays null; same as a non-ok response above
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const loadAvailability = async (date: string) => {
     setLoading(true)
     setSelectedDate(date)
     setSelectedSlot(null)
-    
-    const duration = booking.service_type === 'Deep Cleaning' ? 4 : 
+
+    const duration = booking.service_type === 'Deep Cleaning' ? 4 :
                      booking.service_type === 'Move In/Out' ? 5 : 2
-    
-    const res = await fetch(`/api/client/availability?date=${date}&duration=${duration}`)
-    if (res.ok) {
-      const data = await res.json()
-      setAvailableSlots(data.slots)
+
+    try {
+      const res = await fetch(`/api/client/availability?date=${date}&duration=${duration}`)
+      if (res.ok) {
+        const data = await res.json()
+        setAvailableSlots(data.slots)
+      }
+    } catch {
+      // availableSlots stays as-is; same as a non-ok response above
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleReschedule = async () => {
     if (!selectedSlot) return
     setSaving(true)
 
-    const duration = booking.service_type === 'Deep Cleaning' ? 4 : 
+    const duration = booking.service_type === 'Deep Cleaning' ? 4 :
                      booking.service_type === 'Move In/Out' ? 5 : 2
 
     const startTime = new Date(`${selectedDate}T${selectedSlot.time}`)
     const endTime = new Date(startTime.getTime() + duration * 60 * 60 * 1000)
 
-    const res = await fetch(`/api/client/reschedule/${bookingId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-        cleaner_id: selectedSlot.cleaners[0]?.id
+    try {
+      const res = await fetch(`/api/client/reschedule/${bookingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          cleaner_id: selectedSlot.cleaners[0]?.id
+        })
       })
-    })
 
-    if (res.ok) {
-      router.push('/book/dashboard?rescheduled=1')
-    } else {
+      if (res.ok) {
+        router.push('/book/dashboard?rescheduled=1')
+      } else {
+        alert('Failed to reschedule. Please try again.')
+      }
+    } catch {
       alert('Failed to reschedule. Please try again.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const dates = Array.from({ length: 30 }, (_, i) => {

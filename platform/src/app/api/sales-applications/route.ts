@@ -148,7 +148,12 @@ export async function POST(request: Request) {
 
 // PUT - Update application status (admin only, tenant-scoped)
 export async function PUT(request: Request) {
-  const { tenant, error: authError } = await requirePermission('team.view')
+  // team.edit, not team.view -- this mutates status (approve/reject), the same
+  // class of write team-applications' sibling PUT already gates on team.edit.
+  // team.view is read-only in rbac.ts (granted to 'staff', which has no edit
+  // rights) so gating a write on it let any staff-role member approve/reject
+  // Commission Sales Partner applications.
+  const { tenant, error: authError } = await requirePermission('team.edit')
   if (authError) return authError
 
   try {
@@ -177,7 +182,8 @@ export async function PUT(request: Request) {
 
 // DELETE - Remove an application (admin only, tenant-scoped)
 export async function DELETE(request: Request) {
-  const { tenant, error: authError } = await requirePermission('team.view')
+  // team.edit, not team.view -- same reasoning as PUT above.
+  const { tenant, error: authError } = await requirePermission('team.edit')
   if (authError) return authError
 
   const { searchParams } = new URL(request.url)

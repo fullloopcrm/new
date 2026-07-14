@@ -3,7 +3,7 @@
  * financials, client counts, team list. Tenant-scoped.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 interface BookingRow {
@@ -14,6 +14,7 @@ interface BookingRow {
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -36,106 +37,91 @@ export async function GET() {
       completedRecentRes, scheduledAllRes,
       todayPaidRes, weekPaidRes, monthPaidRes, teamListRes,
     ] = await Promise.all([
-      supabaseAdmin
+      db
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
-        .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', endOfDay.toISOString())
         .in('status', [...liveStatuses, 'completed'])
         .order('start_time'),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
-        .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', endOfDay.toISOString())
         .in('status', [...liveStatuses, 'completed']),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
-        .eq('tenant_id', tenantId)
         .gte('start_time', startOfWeek.toISOString())
         .lt('start_time', endOfWeek.toISOString())
         .in('status', [...liveStatuses, 'completed']),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
-        .eq('tenant_id', tenantId)
         .gte('start_time', startOfMonth.toISOString())
         .lte('start_time', endOfMonth.toISOString())
         .in('status', [...liveStatuses, 'completed']),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
-        .eq('tenant_id', tenantId)
         .gte('start_time', startOfYear.toISOString())
         .lte('start_time', endOfYear.toISOString())
         .order('start_time'),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('price')
-        .eq('tenant_id', tenantId)
         .eq('status', 'completed')
         .eq('payment_status', 'pending'),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
-        .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', fourteenDaysOut.toISOString())
         .in('status', liveStatuses)
         .order('start_time'),
-      supabaseAdmin
+      db
         .from('clients')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId),
-      supabaseAdmin
+        .select('id', { count: 'exact', head: true }),
+      db
         .from('clients')
         .select('*')
-        .eq('tenant_id', tenantId)
         .gte('created_at', startOfMonth.toISOString()),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
         .eq('status', 'completed')
         .gte('start_time', thirtyDaysAgo.toISOString()),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
         .in('status', liveStatuses)
         .gte('start_time', startOfDay.toISOString())
         .lte('start_time', endOfYear.toISOString()),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('price')
-        .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', endOfDay.toISOString())
         .eq('status', 'completed')
         .eq('payment_status', 'paid'),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('price')
-        .eq('tenant_id', tenantId)
         .gte('start_time', startOfWeek.toISOString())
         .lt('start_time', endOfWeek.toISOString())
         .eq('status', 'completed')
         .eq('payment_status', 'paid'),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('price')
-        .eq('tenant_id', tenantId)
         .gte('start_time', startOfMonth.toISOString())
         .lte('start_time', endOfMonth.toISOString())
         .eq('status', 'completed')
         .eq('payment_status', 'paid'),
-      supabaseAdmin
+      db
         .from('team_members')
         .select('id, name')
-        .eq('tenant_id', tenantId)
         .eq('status', 'active')
         .order('name'),
     ])

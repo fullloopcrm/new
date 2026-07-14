@@ -9,7 +9,7 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { checkActivationReadiness, type OnboardingTaskStatus } from '@/lib/onboarding-tasks'
 
 const VALID: OnboardingTaskStatus[] = ['pending', 'in_progress', 'blocked', 'completed', 'skipped']
@@ -17,10 +17,9 @@ const VALID: OnboardingTaskStatus[] = ['pending', 'in_progress', 'blocked', 'com
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
-    const { data: tasks } = await supabaseAdmin
+    const { data: tasks } = await tenantDb(tenantId)
       .from('onboarding_tasks')
       .select('id, task_type, status, notes, completed_at')
-      .eq('tenant_id', tenantId)
       .order('created_at')
     const readiness = await checkActivationReadiness(tenantId)
     return NextResponse.json({ tasks: tasks ?? [], readiness })
@@ -45,10 +44,9 @@ export async function PATCH(request: Request) {
     const patch: Record<string, unknown> = { status }
     if (status === 'completed') patch.completed_at = new Date().toISOString()
 
-    const { data: task, error } = await supabaseAdmin
+    const { data: task, error } = await tenantDb(tenantId)
       .from('onboarding_tasks')
       .update(patch)
-      .eq('tenant_id', tenantId)
       .eq('id', task_id)
       .select('id, task_type, status, notes, completed_at')
       .single()

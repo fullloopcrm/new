@@ -9,6 +9,7 @@ function createRouteMatcher(patterns: string[]) {
 }
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
 import { signTenantHeader } from '@/lib/tenant-header-sig'
+import { verifyAdminTokenEdge } from '@/lib/admin-token-edge-verify'
 
 // Hosts that are the marketing site / main app (not tenant sites)
 const MAIN_HOSTS = new Set([
@@ -274,10 +275,13 @@ export default async function middleware(req: NextRequest) {
   // --- Main site / dashboard (existing behavior) ---
   if (!isPublicRoute(req)) {
     // Allow admin (PIN-auth) to bypass Clerk on dashboard + its API routes.
-    // admin_token alone is enough — an admin hitting /dashboard directly (no
-    // active impersonation) must not fall through to Clerk's handshake.
+    // A verified admin_token is enough — an admin hitting /dashboard directly
+    // (no active impersonation) must not fall through to Clerk's handshake.
+    // Verified (not just present) — see admin-token-edge-verify.ts; a
+    // presence-only check let any cookie value reach the route handler (which
+    // does verify), so this was a weak edge-layer check, not a live bypass.
     const adminCookie = req.cookies.get('admin_token')?.value
-    if (adminCookie) {
+    if (adminCookie && verifyAdminTokenEdge(adminCookie, process.env.ADMIN_TOKEN_SECRET)) {
       const p = req.nextUrl.pathname
       if (p.startsWith('/dashboard') || p.startsWith('/api/bookings') || p.startsWith('/api/clients') ||
           p.startsWith('/api/team') || p.startsWith('/api/finance') || p.startsWith('/api/campaigns') ||
@@ -455,7 +459,11 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   const response = NextResponse.rewrite(url)
   response.headers.set('x-tenant-id', tenantId)
   response.headers.set('x-tenant-slug', tenantSlug)
-  response.headers.set('x-tenant-sig', tenantSig)
+  // NB: never echo x-tenant-sig on the RESPONSE. The sig is a static
+  // HMAC(secret, tenantId) with no nonce/expiry; returning it to the client
+  // hands out a permanent forge-token that defeats the "only middleware can
+  // mint the sig" guarantee. Downstream code reads the sig from the REQUEST
+  // headers (set below), which never reach the client.
 
   // The national VA SEO pages (1,500+) are force-dynamic because they read
   // tenant headers, but their content is identical for every visitor on this

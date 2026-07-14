@@ -41,7 +41,11 @@ export async function POST(request: Request, { params }: Params) {
     const ip = ipFromRequest(request)
     const ua = request.headers.get('user-agent')
 
-    await supabaseAdmin
+    // Atomic claim — same pattern as ../sign/route.ts. Without the `.is(...)`
+    // guard, two concurrent consent submissions would both pass the check
+    // above and both write + both log a consent_accepted event, duplicating
+    // the ESIGN Act audit trail.
+    const { data: claimed } = await supabaseAdmin
       .from('document_signers')
       .update({
         consent_accepted_at: new Date().toISOString(),
@@ -49,6 +53,13 @@ export async function POST(request: Request, { params }: Params) {
         consent_user_agent: ua,
       })
       .eq('id', signer.id)
+      .is('consent_accepted_at', null)
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) {
+      return NextResponse.json({ ok: true, already_accepted: true })
+    }
 
     await logDocEvent({
       document_id: signer.document_id,

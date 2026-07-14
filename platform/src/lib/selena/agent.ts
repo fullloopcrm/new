@@ -212,6 +212,35 @@ export async function isOwnerOfTenant(phone: string | null | undefined, tenantId
 // hardcoded references inside YINEZ_PROMPT are correct as-is.
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
 
+// Owner identity, scoped PER TENANT. A phone that owns tenant A must NOT
+// automatically get owner-only tooling (refunds, broadcasts, business data,
+// admin context) when a conversation resolves to tenant B — the prior
+// isOwner(phone) checked a single GLOBAL OWNER_PHONES env var with no tenant
+// binding at all, so any owner phone was owner of every tenant on the
+// platform. nycmaid keeps the legacy global env (preserves existing prod
+// behavior for the flagship, per migrations/2026_07_11_owner_phone_backfill.sql's
+// documented design); every other tenant is gated by its OWN tenants.owner_phone
+// column. Fail-closed: a tenant with no owner_phone set has no owner via this
+// check (see that migration's blocking list for tenants needing one populated).
+export async function isOwnerOfTenant(phone: string | null | undefined, tenantId: string): Promise<boolean> {
+  if (!phone) return false
+  const norm = phone.replace(/\D/g, '').slice(-10)
+  if (!norm) return false
+
+  if (tenantId === NYCMAID_TENANT_ID) {
+    const list = (process.env.OWNER_PHONES || '').split(',').map((p) => p.replace(/\D/g, '').slice(-10)).filter(Boolean)
+    return list.includes(norm)
+  }
+
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('owner_phone')
+    .eq('id', tenantId)
+    .maybeSingle()
+  const ownerNorm = (tenant?.owner_phone || '').replace(/\D/g, '').slice(-10)
+  return !!ownerNorm && ownerNorm === norm
+}
+
 /**
  * Build a brand-override preamble for non-nycmaid tenants. Yinez's main
  * system prompt was authored for The NYC Maid and contains hardcoded

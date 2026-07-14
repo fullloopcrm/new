@@ -22,6 +22,7 @@ export async function POST(request: Request, { params }: Params) {
       .maybeSingle()
     if (!signer) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (signer.status === 'signed') return NextResponse.json({ error: 'Already signed' }, { status: 400 })
+    if (signer.status === 'declined') return NextResponse.json({ ok: true, already_declined: true })
 
     // Prevent re-opening a terminal-state document via decline.
     const { data: parent } = await supabaseAdmin
@@ -37,10 +38,21 @@ export async function POST(request: Request, { params }: Params) {
     const ua = request.headers.get('user-agent')
     const now = new Date().toISOString()
 
-    await supabaseAdmin
+    // Atomic claim — same pattern as ../sign/route.ts. Without the `.eq('status',
+    // signer.status)` guard, two concurrent declines would both pass the checks
+    // above and both write + both log a declined event, duplicating the audit
+    // trail on a legally significant document.
+    const { data: claimed } = await supabaseAdmin
       .from('document_signers')
       .update({ status: 'declined', declined_at: now, decline_reason: reason || null })
       .eq('id', signer.id)
+      .eq('status', signer.status)
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) {
+      return NextResponse.json({ ok: true, already_declined: true })
+    }
 
     // Any decline = doc declined (per product decision)
     await supabaseAdmin

@@ -437,15 +437,18 @@ export async function POST(req: NextRequest) {
   // JSON.parse. FAIL CLOSED: verifyTelnyx returns invalid on a missing header,
   // a bad signature, a stale (>5 min) timestamp, OR an unconfigured public key
   // — every one of those is a 401. The only bypass is the explicit
-  // TELNYX_WEBHOOK_VERIFY=off local-dev flag. This closes the prior fail-OPEN
-  // hole where an unsigned/forged call-control event could drive the whole
-  // dial/record/voicemail flow (toll-fraud / call forgery).
+  // TELNYX_VOICE_WEBHOOK_VERIFY=off local-dev flag (scoped to voice only, so
+  // it can't also silently disable the separate SMS webhook's own check).
+  // This closes the prior fail-OPEN hole where an unsigned/forged call-control
+  // event could drive the whole dial/record/voicemail flow (toll-fraud / call
+  // forgery) — the old check only confirmed a signature header was PRESENT
+  // and fresh, it never verified the Ed25519 signature itself.
   const rawBody = await req.text()
 
-  if (process.env.TELNYX_WEBHOOK_VERIFY !== 'off') {
+  if (process.env.TELNYX_VOICE_WEBHOOK_VERIFY !== 'off') {
     const result = verifyTelnyx(req.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
     if (!result.valid) {
-      console.warn('[telnyx-voice] rejected:', result.reason)
+      console.warn('[telnyx-voice webhook] rejected:', result.reason)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
   }

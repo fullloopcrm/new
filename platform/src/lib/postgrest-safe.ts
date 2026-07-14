@@ -24,3 +24,21 @@ export function sanitizePostgrestValue(raw: unknown): string {
     .replace(/\s+/g, ' ')
     .trim()
 }
+
+/**
+ * Escape LIKE/ILIKE wildcard metacharacters (`%`, `_`) and the escape
+ * character itself (`\`) so a value passed to `.ilike()` matches only
+ * literally. Postgres' default LIKE escape character is `\`.
+ *
+ * sanitizePostgrestValue() deliberately preserves `%`/`_` because most of
+ * its call sites build an intentional `%term%` substring search. This
+ * helper is for the opposite case: an "exact match, case-insensitive"
+ * `.ilike('column', value)` lookup, where a caller-controlled `%` or `_`
+ * changes matching semantics instead of just being a literal character —
+ * e.g. an anonymous request with `email: "%"` matching an arbitrary
+ * existing row instead of failing to match anything.
+ */
+export function escapeLikeValue(raw: unknown): string {
+  if (raw === null || raw === undefined) return ''
+  return String(raw).replace(/[\\%_]/g, '\\$&')
+}

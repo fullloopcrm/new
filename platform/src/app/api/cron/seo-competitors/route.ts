@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { runCompetitorScan } from '@/lib/seo/competitors'
 import { generateCompetitorProposals } from '@/lib/seo/competitor-remediate'
 
@@ -12,10 +13,8 @@ export const maxDuration = 300
 // Read-only against the web; writes seo_serp / seo_competitors / seo_issues /
 // seo_changes. Gated by SERPER_API_KEY — no key, no-op with a clear summary.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const url = new URL(request.url)
   const propertyLimit = Number(url.searchParams.get('properties')) || undefined

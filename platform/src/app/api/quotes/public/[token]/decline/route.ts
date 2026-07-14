@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logQuoteEvent } from '@/lib/quote'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -38,7 +39,7 @@ export async function POST(request: Request, { params }: Params) {
     // logging a duplicate deal-activity note / firing a duplicate owner
     // notification a second time. Same TOCTOU shape already fixed on the
     // sibling accept route.
-    const { data: claim } = await supabaseAdmin
+    const { data: claimed } = await supabaseAdmin
       .from('quotes')
       .update({
         status: 'declined',
@@ -49,7 +50,7 @@ export async function POST(request: Request, { params }: Params) {
       .eq('status', quote.status)
       .select('id')
       .maybeSingle()
-    if (!claim) {
+    if (!claimed) {
       return NextResponse.json({ ok: true, already_declined: true })
     }
 
@@ -80,7 +81,7 @@ export async function POST(request: Request, { params }: Params) {
         tenantId: quote.tenant_id,
         type: 'quote_declined',
         title: `Quote ${quote.quote_number} declined`,
-        message: reason ? `Reason: ${reason}` : 'No reason given',
+        message: reason ? `Reason: ${escapeHtml(reason)}` : 'No reason given',
         channel: 'email',
         recipientType: 'admin',
         metadata: { quote_id: quote.id },
@@ -95,7 +96,7 @@ export async function POST(request: Request, { params }: Params) {
       subject: `Proposal declined — ${quote.quote_number}`,
       kicker: 'Proposal declined',
       heading: `${quote.quote_number} was declined`,
-      bodyHtml: `<p style="margin:0 0 12px">The customer declined this proposal.</p>${reason ? `<p style="margin:0"><strong>Reason:</strong> ${reason.replace(/</g, '&lt;')}</p>` : '<p style="margin:0;color:#807B70">No reason given.</p>'}`,
+      bodyHtml: `<p style="margin:0 0 12px">The customer declined this proposal.</p>${reason ? `<p style="margin:0"><strong>Reason:</strong> ${escapeHtml(reason)}</p>` : '<p style="margin:0;color:#807B70">No reason given.</p>'}`,
       sms: `Proposal ${quote.quote_number} declined${reason ? `: ${reason}` : ''}. Re-quote or mark it lost.`,
     })
 

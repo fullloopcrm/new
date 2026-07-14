@@ -6,7 +6,7 @@
  * password creation is not supported, by design.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { hashAdminPin, generateAdminPin } from '@/lib/admin-pin'
 
@@ -16,10 +16,9 @@ export async function GET() {
   const { tenant, error: authError } = await requirePermission('settings.edit')
   if (authError) return authError
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .select('id, email, name, role, clerk_user_id, phone, created_at, pin_hash, pin_set_at, pin_last_login')
-    .eq('tenant_id', tenant.tenantId)
     .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -63,20 +62,18 @@ export async function POST(request: NextRequest) {
   // Generate a per-tenant-unique 6-digit PIN (retry on the rare collision).
   let pin = generateAdminPin()
   for (let i = 0; i < 5; i++) {
-    const { data: clash } = await supabaseAdmin
+    const { data: clash } = await tenantDb(tenant.tenantId)
       .from('tenant_members')
       .select('id')
-      .eq('tenant_id', tenant.tenantId)
       .eq('pin_hash', hashAdminPin(pin))
       .maybeSingle()
     if (!clash) break
     pin = generateAdminPin()
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .insert({
-      tenant_id: tenant.tenantId,
       name: name.trim(),
       role: memberRole,
       email: email ? String(email).trim().toLowerCase() : null,
@@ -99,20 +96,18 @@ export async function DELETE(request: NextRequest) {
   const id = body?.id
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-  const { data: target } = await supabaseAdmin
+  const { data: target } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .select('id, role')
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
     .single()
 
   if (!target) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
 
   if (target.role === 'owner') {
-    const { count } = await supabaseAdmin
+    const { count } = await tenantDb(tenant.tenantId)
       .from('tenant_members')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenant.tenantId)
       .eq('role', 'owner')
 
     if ((count ?? 0) <= 1) {
@@ -120,11 +115,10 @@ export async function DELETE(request: NextRequest) {
     }
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .delete()
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
@@ -152,11 +146,10 @@ export async function PUT(request: NextRequest) {
   if (name !== undefined) update.name = name
   if (phone !== undefined) update.phone = phone
 
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .update(update)
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

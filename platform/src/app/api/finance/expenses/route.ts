@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
 import { audit } from '@/lib/audit'
@@ -13,10 +13,9 @@ export async function GET(request: Request) {
     const { tenantId } = _authTenant
     const entityId = entityIdFromUrl(new URL(request.url))
 
-    let q = supabaseAdmin
+    let q = tenantDb(tenantId)
       .from('expenses')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('date', { ascending: false })
     if (entityId) q = q.eq('entity_id', entityId)
 
@@ -55,10 +54,9 @@ export async function POST(request: Request) {
 
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('expenses')
       .insert({
-        tenant_id: tenantId,
         entity_id: entityId,
         category: validated.category,
         amount: Math.round(Number(validated.amount) * 100),

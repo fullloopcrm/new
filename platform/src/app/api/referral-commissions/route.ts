@@ -1,8 +1,9 @@
 /**
  * Referral commissions ledger. Tenant-scoped. Ported from nycmaid.
  *
- * GET ?referrer_id=... — list a referrer's commissions (public: the referrer
- *                        portal calls this with their own ID).
+ * GET ?referrer_id=... — list a referrer's commissions. Requires a referrer
+ *                        session token (from /api/referrers/auth/verify)
+ *                        whose rid matches the requested referrer_id.
  * GET (no params, admin session) — list all commissions for the tenant.
  * POST (admin) — create a commission for a booking with a referrer_id.
  * PUT (admin) — update status; marking 'paid' bumps referrer.total_paid.
@@ -12,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
+import { getReferrerAuth } from '@/lib/referrer-portal-auth'
 
 export async function GET(request: Request) {
   try {
@@ -19,15 +21,30 @@ export async function GET(request: Request) {
     const referrerId = url.searchParams.get('referrer_id')
     const status = url.searchParams.get('status')
 
-    // Referrer-portal path: accept with referrer_id alone (no admin session).
-    // Scope the query by the tenant that owns the referrer.
+    // Referrer-portal path. Was previously reachable with the bare
+    // referrer_id and no session check -- referrer_id is a plain row id, not
+    // a secret, and was independently obtainable with zero auth from
+    // GET /api/referrers?code=... (any public referral link), so anyone who
+    // ever saw a referral link could pull this referrer's full commission
+    // history, including the client_name and booking price/date of every
+    // person they referred (third-party PII, not just the referrer's own
+    // data). Require the same referrer session token the earnings dashboard
+    // (/api/referrers/[code]) already gates on, and confirm it actually
+    // owns this referrer_id.
     if (referrerId) {
+      const auth = getReferrerAuth(request)
+      if (!auth || auth.rid !== referrerId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
       const { data: refRow } = await supabaseAdmin
         .from('referrers')
         .select('tenant_id')
         .eq('id', referrerId)
         .maybeSingle()
-      if (!refRow) return NextResponse.json({ error: 'Referrer not found' }, { status: 404 })
+      if (!refRow || refRow.tenant_id !== auth.tid) {
+        return NextResponse.json({ error: 'Referrer not found' }, { status: 404 })
+      }
 
       let query = supabaseAdmin
         .from('referral_commissions')
@@ -109,17 +126,15 @@ export async function POST(request: Request) {
       })
       .select()
       .single()
-    if (error) {
-      // The maybeSingle() check above is a fast path, not the guard -- two
-      // concurrent requests for the same booking can both pass it before
-      // either inserts. referral_commissions_booking_unique (booking_id)
-      // is the actual guard: the loser hits 23505 here and should get the
-      // same friendly "already exists" response, not a raw 500.
-      if (error.code === '23505') {
-        return NextResponse.json({ error: 'Commission already exists for this booking' }, { status: 409 })
-      }
-      throw error
+    // Duplicate booking_id -- a retried/double-clicked create for a booking
+    // that already got a commission between our `existing` check above and
+    // this insert. Treat as the same 409 the check itself returns, instead
+    // of double-counting referrer.total_earned below. See migration
+    // 066_unique_referral_commissions_booking.sql.
+    if (error?.code === '23505') {
+      return NextResponse.json({ error: 'Commission already exists for this booking' }, { status: 409 })
     }
+    if (error) throw error
 
     // Accrue the commission expense/payable to the ledger.
     postCommissionAccrual({ tenantId, commissionId: commissionRow.id })
@@ -161,45 +176,54 @@ export async function PUT(request: Request) {
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
     const updates: Record<string, unknown> = { status }
-
-    if (status === 'paid') {
+    const markingPaid = status === 'paid'
+    if (markingPaid) {
       updates.paid_at = new Date().toISOString()
       updates.paid_via = paid_via || 'zelle'
-
-      const { data: commission } = await supabaseAdmin
-        .from('referral_commissions')
-        .select('referrer_id, commission_cents')
-        .eq('id', id)
-        .eq('tenant_id', tenantId)
-        .single()
-      if (commission) {
-        const { data: ref } = await supabaseAdmin
-          .from('referrers')
-          .select('total_paid')
-          .eq('id', commission.referrer_id)
-          .eq('tenant_id', tenantId)
-          .single()
-        if (ref) {
-          await supabaseAdmin
-            .from('referrers')
-            .update({ total_paid: (ref.total_paid || 0) + (commission.commission_cents as number) })
-            .eq('id', commission.referrer_id)
-            .eq('tenant_id', tenantId)
-        }
-      }
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('referral_commissions')
-      .update(updates)
-      .eq('id', id)
-      .eq('tenant_id', tenantId)
-      .select()
-      .single()
+    // `.neq('status', 'paid')` makes the paid transition a DB-level
+    // compare-and-swap: only the request that actually flips pending/void ->
+    // paid gets a row back. A double-click on "Pay", a network retry, or two
+    // concurrent requests for the same commission would otherwise each
+    // re-read the referrer's total_paid before either write committed and
+    // both add commission_cents -- double-counting the payout and
+    // double-posting the ledger (postCommissionPayment below), even though
+    // no second real payment was ever made.
+    let query = supabaseAdmin.from('referral_commissions').update(updates).eq('id', id).eq('tenant_id', tenantId)
+    if (markingPaid) query = query.neq('status', 'paid')
+    const { data, error } = await query.select().maybeSingle()
     if (error) throw error
 
-    // Marking paid clears the payable against cash in the ledger.
-    if (status === 'paid' && data?.id) {
+    if (!data) {
+      // Either no row matches this id/tenant, or (mark-paid only) it was
+      // already paid -- tell them apart without re-applying the total_paid
+      // bump or re-posting the ledger.
+      const { data: current } = await supabaseAdmin
+        .from('referral_commissions')
+        .select('*')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      return NextResponse.json(current)
+    }
+
+    if (markingPaid) {
+      const { data: ref } = await supabaseAdmin
+        .from('referrers')
+        .select('total_paid')
+        .eq('id', data.referrer_id)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (ref) {
+        await supabaseAdmin
+          .from('referrers')
+          .update({ total_paid: (ref.total_paid || 0) + (data.commission_cents as number) })
+          .eq('id', data.referrer_id)
+          .eq('tenant_id', tenantId)
+      }
+      // Marking paid clears the payable against cash in the ledger.
       postCommissionPayment({ tenantId, commissionId: data.id })
         .catch(err => console.error('[ref-comm] payment post failed:', err))
     }

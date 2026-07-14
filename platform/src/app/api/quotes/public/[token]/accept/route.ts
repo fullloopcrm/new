@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logQuoteEvent } from '@/lib/quote'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -59,7 +60,10 @@ export async function POST(request: Request, { params }: Params) {
     // the WRITE itself with the status this request actually read (compare-
     // and-swap) so only one wins; the loser must stop before advancing the
     // deal / creating the job-or-booking / notifying the owner a second time.
-    const { data: claim } = await supabaseAdmin
+    // Job/booking/recurring-series creation below is separately idempotent
+    // via each helper's own atomic claim, so this only needed to guard this
+    // route's own side effects.
+    const { data: claimed } = await supabaseAdmin
       .from('quotes')
       .update({
         status: 'accepted',
@@ -74,7 +78,7 @@ export async function POST(request: Request, { params }: Params) {
       .eq('status', quote.status)
       .select('id')
       .maybeSingle()
-    if (!claim) {
+    if (!claimed) {
       return NextResponse.json({ ok: true, already_accepted: true })
     }
 
@@ -168,7 +172,7 @@ export async function POST(request: Request, { params }: Params) {
         tenantId: quote.tenant_id,
         type: 'quote_accepted',
         title: `Quote ${quote.quote_number} accepted`,
-        message: `Signed by ${signature_name} — total $${(quote.total_cents / 100).toFixed(2)}`,
+        message: `Signed by ${escapeHtml(signature_name)} — total $${(quote.total_cents / 100).toFixed(2)}`,
         channel: 'email',
         recipientType: 'admin',
         metadata: { quote_id: quote.id, href: `/admin/sales-hub/quotes/${quote.id}` },
@@ -182,7 +186,7 @@ export async function POST(request: Request, { params }: Params) {
       tenantId: quote.tenant_id,
       subject: hasDeposit ? `Signed — awaiting deposit (${quote.quote_number})` : `SOLD — ${quote.quote_number}`,
       kicker: hasDeposit ? 'Signed — awaiting deposit' : 'Sold',
-      heading: hasDeposit ? `${signature_name} signed — deposit next` : `${signature_name} accepted — it's a sale`,
+      heading: hasDeposit ? `${escapeHtml(signature_name)} signed — deposit next` : `${escapeHtml(signature_name)} accepted — it's a sale`,
       bodyHtml: `<p style="margin:0 0 12px">Proposal <strong>${quote.quote_number}</strong> was accepted & signed.</p><p style="margin:0"><strong>${(quote.total_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</strong>${hasDeposit ? ` · deposit ${(quote.deposit_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} due` : (isRecurring ? ' · closed to Sold, recurring series created' : isBooking ? ' · closed to Sold, booking created' : ' · closed to Sold, job created')}</p>`,
       sms: hasDeposit
         ? `${signature_name} signed ${quote.quote_number}. Awaiting deposit.`

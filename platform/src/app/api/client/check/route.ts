@@ -2,16 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
-
-// Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
-// address (Postgres default LIKE escape char is backslash) — this endpoint is
-// unauthenticated, so an unescaped '%'/'_' in the input let a caller with no
-// prior knowledge of any client turn a single-address lookup into a broad
-// enumeration of the tenant's client emails. Same pattern as the fix already
-// applied to /api/referrers (escapeLike) and lib/inbound-email-tenant.ts.
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, '\\$&')
-}
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 async function findClient(tenantId: string, input: string) {
   const trimmed = input.trim()
@@ -20,7 +11,8 @@ async function findClient(tenantId: string, input: string) {
   const { data: byEmail } = await tenantDb(tenantId)
     .from('clients')
     .select('id, phone, email, name')
-    .ilike('email', escapeLike(trimmed))
+    .eq('tenant_id', tenantId)
+    .ilike('email', escapeLikeValue(trimmed))
     .maybeSingle()
   if (byEmail) return byEmail
 

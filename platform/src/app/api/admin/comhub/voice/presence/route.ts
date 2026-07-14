@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 type PresenceStatus = 'available' | 'busy' | 'away' | 'offline'
 const VALID_STATUSES: PresenceStatus[] = ['available', 'busy', 'away', 'offline']
@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const adminId = await getActiveAdminMemberId(tenantId)
   if (!adminId) return NextResponse.json({ error: 'no tenant member found' }, { status: 412 })
 
@@ -32,9 +33,8 @@ export async function POST(req: NextRequest) {
       : 'available'
 
   const now = new Date().toISOString()
-  const { error } = await supabaseAdmin.from('comhub_admin_presence').upsert(
+  const { error } = await db.from('comhub_admin_presence').upsert(
     {
-      tenant_id: tenantId,
       admin_id: adminId,
       sip_username: body.sip_username,
       sip_address: body.sip_address ?? `sip:${body.sip_username}@sip.telnyx.com`,
@@ -56,12 +56,12 @@ export async function GET() {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
 
   const cutoff = new Date(Date.now() - 60_000).toISOString()
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('comhub_admin_presence')
     .select('admin_id, sip_username, sip_address, device_label, status, last_seen_at')
-    .eq('tenant_id', tenantId)
     .gte('last_seen_at', cutoff)
     .neq('status', 'offline')
     .order('last_seen_at', { ascending: false })
@@ -75,13 +75,13 @@ export async function DELETE() {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const adminId = await getActiveAdminMemberId(tenantId)
   if (!adminId) return NextResponse.json({ ok: true })
 
-  await supabaseAdmin
+  await db
     .from('comhub_admin_presence')
     .update({ status: 'offline', last_seen_at: new Date().toISOString() })
-    .eq('tenant_id', tenantId)
     .eq('admin_id', adminId)
   return NextResponse.json({ ok: true })
 }

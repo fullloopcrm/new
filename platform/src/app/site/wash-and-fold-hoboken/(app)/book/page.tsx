@@ -23,31 +23,36 @@ function ClientPortalContent() {
     setLoading(true)
     setError('')
 
-    const res = await fetch('/api/client/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.toLowerCase().trim(), pin })
-    })
+    try {
+      const res = await fetch('/api/client/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase().trim(), pin })
+      })
 
-    if (res.ok) {
-      const data = await res.json()
-      localStorage.setItem('client_id', data.client.id)
-      localStorage.setItem('client_name', data.client.name || 'Client')
-      if (data.client.do_not_service) {
-        localStorage.setItem('client_dns', 'true')
+      if (res.ok) {
+        const data = await res.json()
+        localStorage.setItem('client_id', data.client.id)
+        localStorage.setItem('client_name', data.client.name || 'Client')
+        if (data.client.do_not_service) {
+          localStorage.setItem('client_dns', 'true')
+        } else {
+          localStorage.removeItem('client_dns')
+        }
+        router.push('/book/dashboard')
       } else {
-        localStorage.removeItem('client_dns')
+        const data = await res.json().catch(() => ({}))
+        if (data.error === 'Client not found') {
+          setError('No account found with this email. Text (212) 202-8400 to book.')
+        } else {
+          setError('Invalid email or PIN. Check your booking confirmation email for your PIN.')
+        }
       }
-      router.push('/book/dashboard')
-    } else {
-      const data = await res.json().catch(() => ({}))
-      if (data.error === 'Client not found') {
-        setError('No account found with this email. Text (212) 202-8400 to book.')
-      } else {
-        setError('Invalid email or PIN. Check your booking confirmation email for your PIN.')
-      }
+    } catch {
+      setError('Unable to reach the server. Check your connection and try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const ref = searchParams.get('ref')

@@ -2,16 +2,15 @@
 // POST  → create a document record (typically against a requirement doc_type).
 // PATCH → update an existing document's status / file / expiry (by document_id).
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 const DOC_STATUSES = ['pending', 'submitted', 'approved', 'rejected', 'expired']
 
 async function assertMember(tenantId: string, memberId: string): Promise<boolean> {
-  const { data } = await supabaseAdmin
+  const { data } = await tenantDb(tenantId)
     .from('team_members')
     .select('id')
-    .eq('tenant_id', tenantId)
     .eq('id', memberId)
     .maybeSingle()
   return !!data
@@ -36,10 +35,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (body.status && !DOC_STATUSES.includes(body.status))
       return NextResponse.json({ error: 'invalid status' }, { status: 400 })
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('hr_documents')
       .insert({
-        tenant_id: tenantId,
         team_member_id: id,
         doc_type: body.doc_type.trim(),
         label: body.label?.trim() || null,
@@ -85,11 +83,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     // Scope the update to this tenant + member so a forged document_id can't
     // touch another tenant's row.
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('hr_documents')
       .update(patch)
       .eq('id', body.document_id)
-      .eq('tenant_id', tenantId)
       .eq('team_member_id', id)
       .select('*')
       .maybeSingle()

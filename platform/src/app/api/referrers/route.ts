@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 // Rate limiting
 const attempts = new Map<string, { count: number; resetAt: number }>()
@@ -32,16 +33,6 @@ function isValidName(name: string): boolean {
   return vowels / alpha.length > 0.15
 }
 
-// Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
-// address (Postgres default LIKE escape char is backslash) — this endpoint
-// is unauthenticated, so an unescaped '%'/'_' in `email` lets a caller with
-// no prior knowledge enumerate every referrer's email/earnings/payout info
-// for the tenant instead of confirming a single known address. Same pattern
-// as lib/inbound-email-tenant.ts's escapeLike().
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, '\\$&')
-}
-
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const email = request.nextUrl.searchParams.get('email')
@@ -56,9 +47,17 @@ export async function GET(request: NextRequest) {
   if (!lookupTenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
   if (code) {
+    // No auth on this branch (it exists to resolve a public referral code /
+    // let a referrer look up their own code by email) -- never select
+    // total_earned/total_paid/preferred_payout here. A referral code is
+    // handed out publicly by design (it's the whole point of the share
+    // link), so anyone who has ever seen one could otherwise pull the
+    // referrer's earnings with zero auth. The real earnings dashboard is
+    // gated behind the email-OTP session (see /api/referrers/[code] +
+    // /api/referrers/auth/*) -- financial fields only live there.
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, ref_code, total_earned, total_paid, preferred_payout, created_at')
+      .select('id, name, email, referral_code, created_at')
       .eq('tenant_id', lookupTenant.id)
       .eq('referral_code', code)
       .single()
@@ -68,11 +67,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (email) {
+    // Same no-financial-fields rule as the code branch above.
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, ref_code, total_earned, total_paid, preferred_payout, created_at')
+      .select('id, name, email, referral_code, created_at')
       .eq('tenant_id', lookupTenant.id)
-      .ilike('email', escapeLike(email))
+      .ilike('email', escapeLikeValue(email))
       .single()
 
     if (!data) return NextResponse.json({ error: 'Email not found' }, { status: 404 })
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
     .from('referrers')
     .select('id')
     .eq('tenant_id', tenant.id)
-    .ilike('email', escapeLike(email))
+    .ilike('email', escapeLikeValue(email))
     .single()
 
   if (existing) {

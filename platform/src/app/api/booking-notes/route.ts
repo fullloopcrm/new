@@ -40,6 +40,18 @@ export async function POST(request: Request) {
     throw err
   }
 
+  // booking_id is a caller-supplied FK — booking_notes has no cross-tenant FK
+  // check, so an unvalidated id would let this tenant attach a note to another
+  // tenant's booking. Verify ownership before insert.
+  const { data: ownedBooking } = await tenantDb(ctx.tenantId)
+    .from('bookings')
+    .select('id')
+    .eq('id', booking_id)
+    .maybeSingle()
+  if (!ownedBooking) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+  }
+
   const { data, error } = await tenantDb(ctx.tenantId)
     .from('booking_notes')
     .insert({

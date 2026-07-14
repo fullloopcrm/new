@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 
@@ -37,14 +37,14 @@ export async function GET(request: Request) {
   const { tenant, error } = await requirePermission('schedules.view')
   if (error) return error
   const { tenantId } = tenant
+  const db = tenantDb(tenantId)
 
   const url = new URL(request.url)
   const clientId = url.searchParams.get('client_id')
 
-  let query = supabaseAdmin
+  let query = db
     .from('recurring_schedules')
     .select('*, clients(id, name, phone, address), team_members(id, name)')
-    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
   if (clientId) query = query.eq('client_id', clientId)
 
@@ -54,10 +54,9 @@ export async function GET(request: Request) {
   // Attach next upcoming booking date per schedule.
   const withNext = await Promise.all(
     (data || []).map(async (schedule: { id: string }) => {
-      const { data: nextBooking } = await supabaseAdmin
+      const { data: nextBooking } = await db
         .from('bookings')
         .select('start_time')
-        .eq('tenant_id', tenantId)
         .eq('schedule_id', schedule.id)
         .in('status', ['scheduled', 'pending'])
         .gte('start_time', new Date().toISOString())
@@ -75,6 +74,7 @@ export async function POST(request: Request) {
   const { tenant, error } = await requirePermission('schedules.create')
   if (error) return error
   const { tenantId } = tenant
+  const db = tenantDb(tenantId)
 
   const body = await request.json()
   const {
@@ -152,10 +152,9 @@ export async function POST(request: Request) {
   sixWeeksOut.setDate(sixWeeksOut.getDate() + 42)
   const nextGenerateAfter = lastInitialDate || sixWeeksOut.toISOString().split('T')[0]
 
-  const { data: schedule, error: scheduleErr } = await supabaseAdmin
+  const { data: schedule, error: scheduleErr } = await db
     .from('recurring_schedules')
     .insert({
-      tenant_id: tenantId,
       client_id,
       property_id: property_id || null,
       team_member_id: teamMemberId,
@@ -188,7 +187,6 @@ export async function POST(request: Request) {
     const tokenExpires = new Date(startISO)
     tokenExpires.setHours(tokenExpires.getHours() + 24)
     return {
-      tenant_id: tenantId,
       client_id,
       property_id: property_id || null,
       team_member_id: teamMemberId,
@@ -207,8 +205,8 @@ export async function POST(request: Request) {
     }
   })
 
-  const { data: bookings, error: batchError } = await supabaseAdmin
-    .from('bookings')  // tenant-scope-ok: insert rows carry tenant_id (built above)
+  const { data: bookings, error: batchError } = await db
+    .from('bookings')
     .insert(rows)
     .select('id')
 

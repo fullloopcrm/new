@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
 import { guessZoneFromAddress } from '@/lib/service-zones'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 
@@ -90,17 +90,15 @@ export async function POST(request: Request) {
   const targetZone = job_address ? guessZoneFromAddress(job_address) : null
   const dow = dayOfWeekShort(job_date)
 
-  const { data: cleaners, error: cErr } = await supabaseAdmin
+  const { data: cleaners, error: cErr } = await tenantDb(tenantId)
     .from('team_members')
     .select('id, name, phone, working_days, schedule, unavailable_dates, service_zones, has_car, max_jobs_per_day, hourly_rate, preferred_language')
-    .eq('tenant_id', tenantId)
     .eq('status', 'active')
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
-  const { data: bookings } = await supabaseAdmin
+  const { data: bookings } = await tenantDb(tenantId)
     .from('bookings')
     .select('id, team_member_id, start_time, end_time, status')
-    .eq('tenant_id', tenantId)
     .gte('start_time', job_date + 'T00:00:00')
     .lte('start_time', job_date + 'T23:59:59')
     .in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])

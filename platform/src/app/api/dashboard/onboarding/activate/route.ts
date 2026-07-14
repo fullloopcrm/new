@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { checkActivationReadiness } from '@/lib/onboarding-tasks'
 import { registerCarryingDomain } from '@/lib/vercel-domains'
 
@@ -36,9 +37,11 @@ export async function POST() {
       .single()
     if (error || !tenant) return NextResponse.json({ error: 'Activation failed' }, { status: 500 })
 
+    const db = tenantDb(tenantId)
+
     // Platform record that a tenant went live (visible to Jefe / admin).
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: tenantId,
+    // tenantDb().insert() stamps tenant_id — can't drift from the request's own tenant.
+    await db.from('notifications').insert({
       type: 'tenant_activated',
       title: 'Tenant went live',
       message: `${tenant.name} completed onboarding and is now active.`,
@@ -49,8 +52,7 @@ export async function POST() {
     // block activation — a failure just surfaces a notification to fix manually.
     const domainResult = await registerCarryingDomain(tenant.slug)
     if (!domainResult.ok && domainResult.status !== 'skipped') {
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: tenantId,
+      await db.from('notifications').insert({
         type: 'carrying_domain_failed',
         title: 'Carrying domain not auto-registered',
         message: `${domainResult.domain}: ${domainResult.detail ?? 'error'} — add it manually in Vercel.`,

@@ -12,7 +12,6 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const clientId = searchParams.get('client_id')
-  if (!clientId) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
 
   // Ownership gate: without it, a known client_id leaks that client's preferred
   // and familiar cleaners to anyone. Session must match this tenant + client_id.
@@ -59,7 +58,6 @@ export async function PUT(request: Request) {
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
   const body = await request.json()
-  if (!body.client_id) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
 
   // Ownership gate: a forged client_id must not set another client's preferred
   // cleaner. Session must match this tenant + client_id.

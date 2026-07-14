@@ -3,7 +3,7 @@
  * Ported from nycmaid. Auth: reviews.view/reviews.request.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
@@ -11,10 +11,9 @@ export async function GET() {
   if (authError) return authError
 
   const tenantId = tenant.tenantId
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(tenantId)
     .from('reviews')
     .select('*')
-    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(500)
 
@@ -43,11 +42,10 @@ export async function PUT(request: NextRequest) {
   }
   if (typeof featured === 'boolean') update.featured = featured
 
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.tenantId)
     .from('reviews')
     .update(update)
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
@@ -58,11 +56,10 @@ export async function DELETE(request: NextRequest) {
   if (authError) return authError
 
   const { id } = await request.json()
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.tenantId)
     .from('reviews')
     .delete()
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

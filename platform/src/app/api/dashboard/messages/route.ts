@@ -4,28 +4,32 @@
 //   direction 'out' = from platform/admin → owner (incoming for the owner)
 //   direction 'in'  = from owner → platform/admin (the owner's own replies)
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { isCrossSiteRequest } from '@/lib/csrf-guard'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('tenant_owner_messages')
       .select('id, direction, channel, body, sender, sender_role, created_at')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: true })
       .limit(500)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Mark admin→owner messages as read now that the owner has loaded the thread.
-    await supabaseAdmin
-      .from('tenant_owner_messages')
-      .update({ read_at: new Date().toISOString() })
-      .eq('tenant_id', tenantId)
-      .eq('direction', 'out')
-      .is('read_at', null)
+    // Skipped on a forged cross-site GET (SameSite=Lax still sends cookies on
+    // top-level navigation) — see csrf-guard.ts.
+    if (!isCrossSiteRequest(request.headers)) {
+      await db
+        .from('tenant_owner_messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('direction', 'out')
+        .is('read_at', null)
+    }
 
     return NextResponse.json({ messages: data || [] })
   } catch (e) {
@@ -37,6 +41,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { tenantId, tenant } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
     let payload: { body?: string }
     try {
@@ -47,10 +52,9 @@ export async function POST(request: NextRequest) {
     const body = payload.body?.trim()
     if (!body) return NextResponse.json({ error: 'body required' }, { status: 400 })
 
-    const { data: inserted, error } = await supabaseAdmin
+    const { data: inserted, error } = await db
       .from('tenant_owner_messages')
       .insert({
-        tenant_id: tenantId,
         direction: 'in', // in = from owner → platform/admin
         channel: 'platform',
         body,
@@ -62,8 +66,7 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Surface the reply to the platform admin as an unread notification.
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: tenantId,
+    await db.from('notifications').insert({
       type: 'owner_message',
       title: `Owner reply — ${tenant?.name ?? 'tenant'}`,
       message: body.slice(0, 200),

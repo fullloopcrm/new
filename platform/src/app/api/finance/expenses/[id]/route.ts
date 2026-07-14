@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 import { pick } from '@/lib/validate'
 
@@ -22,20 +22,18 @@ export async function PUT(
     // Caller-supplied FK — verify it belongs to this tenant before update, so a
     // foreign id can't repoint the expense at another tenant's accounting entity.
     if (fields.entity_id) {
-      const { data: owned } = await supabaseAdmin
+      const { data: owned } = await tenantDb(tenantId)
         .from('entities')
         .select('id')
         .eq('id', fields.entity_id as string)
-        .eq('tenant_id', tenantId)
         .maybeSingle()
       if (!owned) return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('expenses')
       .update(fields)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -62,11 +60,10 @@ export async function DELETE(
     const { tenantId } = _authTenant
     const { id } = await params
 
-    const { error } = await supabaseAdmin
+    const { error } = await tenantDb(tenantId)
       .from('expenses')
       .delete()
       .eq('id', id)
-      .eq('tenant_id', tenantId)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

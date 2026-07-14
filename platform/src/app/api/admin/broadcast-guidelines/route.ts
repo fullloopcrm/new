@@ -4,7 +4,7 @@
  * tenant-scoped. No notifyCleaner lib needed — we iterate ourselves.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
@@ -18,11 +18,11 @@ interface TeamMemberRow {
 export async function POST() {
   try {
     const { tenantId, tenant } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
-    const { data: members } = await supabaseAdmin
+    const { data: members } = await db
       .from('team_members')
       .select('id, name, pin, preferred_language')
-      .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
     const rows = (members as TeamMemberRow[] | null) || []

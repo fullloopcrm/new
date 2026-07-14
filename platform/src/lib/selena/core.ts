@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
@@ -835,7 +836,7 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
     }
 
     const { data: client } = await supabaseAdmin
-      .from('clients').insert({ tenant_id: tid, name, phone, status: 'potential', pin: Math.floor(100000 + Math.random() * 900000).toString() }).select('id').single()
+      .from('clients').insert({ tenant_id: tid, name, phone, status: 'potential', pin: crypto.randomInt(100000, 1000000).toString() }).select('id').single()
 
     if (client) {
       const { createPrimaryContact } = await import('@/lib/nycmaid/client-contacts')
@@ -1065,7 +1066,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       }
       const inputEmail = typeof input.client_email === 'string' ? input.client_email.trim() || null : null
       const inputAddress = typeof input.client_address === 'string' ? input.client_address.trim() || null : null
-      const pin = Math.floor(100000 + Math.random() * 900000).toString()
+      const pin = crypto.randomInt(100000, 1000000).toString()
       const { data: newClient, error: clientErr } = await supabaseAdmin
         .from('clients')
         .insert({ tenant_id: tid, name: inputName, phone: digits, email: inputEmail, address: inputAddress, status: 'potential', pin })
@@ -1276,7 +1277,7 @@ async function handleSendPin(conversationId: string): Promise<string> {
     // Validate PIN is 6 digits — regenerate if not
     let pin = client.pin
     if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
-      pin = Math.floor(100000 + Math.random() * 900000).toString()
+      pin = crypto.randomInt(100000, 1000000).toString()
       await supabaseAdmin.from('clients').update({ pin }).eq('id', client.id).eq('tenant_id', tid)
     }
 
@@ -1486,19 +1487,17 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
 
 async function handleRescheduleBooking(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const bookingId = input.booking_id as string
-    // Cross-tenant trust boundary: resolve tenant + client from the CONVERSATION,
-    // never from the fetched booking row. Deriving tid from the row let a caller
-    // in tenant A reschedule tenant B's booking by supplying B's booking_id.
     const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
-    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
-    const callerClientId = (convo as { client_id?: string } | null)?.client_id
-    if (!callerClientId) return JSON.stringify({ error: 'no_account', message: 'No client account on this conversation.' })
-    // Scope the fetch to the caller's tenant so a foreign booking_id resolves to nothing.
+    if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+
+    const bookingId = input.booking_id as string
+    // Scope the fetch to the caller's tenant (derived from the conversation above,
+    // never from the booking row) so a foreign booking_id resolves to nothing.
     const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, tenant_id').eq('id', bookingId).eq('tenant_id', tid).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
     // Client-ownership: the booking must belong to the caller, not merely to their tenant.
-    if (booking.client_id !== callerClientId) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
+    if (booking.client_id !== convo.client_id) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time and one-time bookings cannot be rescheduled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
@@ -1516,19 +1515,18 @@ async function handleRescheduleBooking(input: Record<string, unknown>, conversat
 
 async function handleCancelBooking(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
+    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
+    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+
     const bookingId = input.booking_id as string
     const reason = (input.reason as string) || 'Client requested'
-    // Cross-tenant trust boundary: resolve tenant + client from the CONVERSATION,
-    // never from the fetched booking row (see handleRescheduleBooking).
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
-    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
-    const callerClientId = (convo as { client_id?: string } | null)?.client_id
-    if (!callerClientId) return JSON.stringify({ error: 'no_account', message: 'No client account on this conversation.' })
-    // Scope the fetch to the caller's tenant so a foreign booking_id resolves to nothing.
+    // Scope the fetch to the caller's tenant (derived from the conversation above,
+    // never from the booking row) so a foreign booking_id resolves to nothing.
     const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, clients(name), tenant_id').eq('id', bookingId).eq('tenant_id', tid).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
     // Client-ownership: the booking must belong to the caller, not merely to their tenant.
-    if (booking.client_id !== callerClientId) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
+    if (booking.client_id !== convo.client_id) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })

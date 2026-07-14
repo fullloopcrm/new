@@ -17,13 +17,6 @@ const reviewSchema = {
     { "@type": "PostalAddress", streetAddress: "801 S Figueroa St", addressLocality: "Los Angeles", addressRegion: "CA", postalCode: "90017", addressCountry: "US" },
     { "@type": "PostalAddress", streetAddress: "254 Commercial St", addressLocality: "Portland", addressRegion: "ME", postalCode: "04101", addressCountry: "US" },
   ],
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.9",
-    reviewCount: "312",
-    bestRating: "5",
-    worstRating: "1",
-  },
   review: [
     {
       "@type": "Review",

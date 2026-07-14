@@ -4,6 +4,7 @@
  * each tenant's admin. Tenant-aware port from nycmaid.
  */
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -12,9 +13,8 @@ import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 export const maxDuration = 60
 
 export async function GET(request: Request) {
-  if (!process.env.CRON_SECRET || request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const now = new Date()
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)

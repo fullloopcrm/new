@@ -4,15 +4,17 @@ import { requirePortalPermission } from '@/lib/team-portal-auth'
 
 // GET  /api/team-portal/messages  — the authenticated member's comhub thread with admin.
 // POST /api/team-portal/messages { body } — the authenticated member messages admin (lands in Comhub).
-// Auth: field-staff bearer token. The team_member_id comes from the VERIFIED
-// token (auth.id), never from the request — a caller-supplied id used to let
-// anyone read/post another team member's (or another tenant's) office thread.
+// Auth: field-staff bearer token. The team_member_id and tenant_id come from
+// the VERIFIED token (auth.id/auth.tid), never from the request — a
+// caller-supplied id would let anyone read/post another team member's (or
+// another tenant's) office thread.
 
-async function resolveThread(teamMemberId: string): Promise<{ contactId: string | null; threadId: string | null; tenantId: string | null }> {
+async function resolveThread(teamMemberId: string, tenantId: string): Promise<{ contactId: string | null; threadId: string | null; tenantId: string | null }> {
   const { data: member } = await supabaseAdmin
     .from('team_members')
     .select('id, name, phone, email, tenant_id')
     .eq('id', teamMemberId)
+    .eq('tenant_id', tenantId)
     .single()
   if (!member) return { contactId: null, threadId: null, tenantId: null }
 
@@ -40,7 +42,7 @@ export async function GET(req: NextRequest) {
   const { auth, error: authErr } = await requirePortalPermission(req, 'messages.use')
   if (authErr) return authErr
 
-  const { threadId } = await resolveThread(auth.id)
+  const { threadId } = await resolveThread(auth.id, auth.tid)
   if (!threadId) return NextResponse.json({ messages: [] })
 
   const { data, error } = await supabaseAdmin
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'body required' }, { status: 400 })
   }
 
-  const { contactId, threadId, tenantId } = await resolveThread(auth.id)
+  const { contactId, threadId, tenantId } = await resolveThread(auth.id, auth.tid)
   if (!contactId || !threadId) return NextResponse.json({ error: 'team member not found' }, { status: 404 })
 
   const { data: msg, error } = await supabaseAdmin

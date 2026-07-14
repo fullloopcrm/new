@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { checkMemberDayOff } from '@/lib/availability'
@@ -24,6 +25,7 @@ function formatMin(min: number): string {
 export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const url = request.nextUrl
     const status = url.searchParams.get('status')
     const clientId = url.searchParams.get('client_id')
@@ -35,10 +37,9 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || (isRange ? '500' : '50')), isRange ? 1000 : 200)
     const offset = (page - 1) * limit
 
-    let query = supabaseAdmin
+    let query = db
       .from('bookings')
       .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)', { count: 'exact' })
-      .eq('tenant_id', tenantId)
       .order('start_time', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
 
   try {
     const { tenantId } = tenant
+    const db = tenantDb(tenantId)
     const body = await request.json()
     const settings = await getSettings(tenantId)
 
@@ -95,25 +97,21 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
-    // Confirm client_id/property_id/team_member_id (if given) belong to this
-    // tenant -- otherwise a foreign id gets its name/phone/address pulled into
-    // this tenant's booking via the clients()/client_properties()/team_members()
-    // joins on both this response and every later GET, a cross-tenant PII leak
-    // (same class already fixed on quotes/invoices in 7907701b).
-    const { data: clientRow } = await supabaseAdmin
-      .from('clients').select('id').eq('id', validated.client_id as string).eq('tenant_id', tenantId).single()
-    if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-
-    if (validated.property_id) {
-      const { data: propertyRow } = await supabaseAdmin
-        .from('client_properties').select('id').eq('id', validated.property_id as string).eq('tenant_id', tenantId).single()
-      if (!propertyRow) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
-    }
-
-    if (validated.team_member_id) {
-      const { data: memberOwnedRow } = await supabaseAdmin
-        .from('team_members').select('id').eq('id', validated.team_member_id as string).eq('tenant_id', tenantId).single()
-      if (!memberOwnedRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+    // client_id/property_id/team_member_id/service_type_id are cross-table
+    // FKs — confirm each belongs to this tenant before inserting, or a
+    // caller could attribute the booking to another tenant's row and
+    // exfiltrate its PII via the clients()/team_members()/client_properties()
+    // joins on this route's own insert response and on GET.
+    const fkChecks: Array<[string | undefined, string]> = [
+      [validated.client_id as string | undefined, 'clients'],
+      [validated.property_id as string | undefined, 'client_properties'],
+      [validated.team_member_id as string | undefined, 'team_members'],
+      [validated.service_type_id as string | undefined, 'service_types'],
+    ]
+    for (const [fkId, table] of fkChecks) {
+      if (!fkId) continue
+      const { data: owned } = await db.from(table).select('id').eq('id', fkId).maybeSingle()
+      if (!owned) return NextResponse.json({ error: `Invalid ${table}` }, { status: 400 })
     }
 
     // Tenant rule: require_team_member forces a team_member_id at create time.
@@ -144,10 +142,9 @@ export async function POST(request: Request) {
       const startWithBuffer = new Date(new Date(validated.start_time as string).getTime() - bufferMs).toISOString()
       const endWithBuffer = new Date(new Date(endTime as string).getTime() + bufferMs).toISOString()
 
-      const { data: conflicts } = await supabaseAdmin
+      const { data: conflicts } = await db
         .from('bookings')
         .select('id, start_time, end_time')
-        .eq('tenant_id', tenantId)
         .eq('team_member_id', validated.team_member_id)
         .not('status', 'in', '("cancelled","no_show")')
         .lt('start_time', endWithBuffer)
@@ -171,11 +168,10 @@ export async function POST(request: Request) {
     // enforce. (force bypasses, like the day-off + conflict guards above.)
     if (validated.team_member_id && validated.start_time && !body.force) {
       const bookingDate = (validated.start_time as string).split('T')[0]
-      const { data: member } = await supabaseAdmin
+      const { data: member } = await db
         .from('team_members')
         .select('name, schedule, max_jobs_per_day')
         .eq('id', validated.team_member_id as string)
-        .eq('tenant_id', tenantId)
         .single()
       if (member) {
         const startMin = timestampToMin(validated.start_time as string)
@@ -194,10 +190,9 @@ export async function POST(request: Request) {
         }
         // Daily job cap.
         if (member.max_jobs_per_day) {
-          const { count } = await supabaseAdmin
+          const { count } = await db
             .from('bookings')
             .select('id', { count: 'exact', head: true })
-            .eq('tenant_id', tenantId)
             .eq('team_member_id', validated.team_member_id)
             .gte('start_time', bookingDate + 'T00:00:00')
             .lte('start_time', bookingDate + 'T23:59:59')
@@ -212,9 +207,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Look up service type name if service_type_id provided
+    // Look up service type name if service_type_id provided. Tenant-scoped via
+    // db so a service_type_id from another tenant can't be used here.
     if (validated.service_type_id) {
-      const { data: svc } = await supabaseAdmin
+      const { data: svc } = await db
         .from('service_types')
         .select('name')
         .eq('id', validated.service_type_id as string)
@@ -228,9 +224,9 @@ export async function POST(request: Request) {
       ? 'confirmed'
       : (settings.default_booking_status || 'scheduled')
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('bookings')
-      .insert({ ...validated, tenant_id: tenantId, status: newStatus })
+      .insert({ ...validated, status: newStatus })
       .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
       .single()
 

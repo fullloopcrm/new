@@ -1,10 +1,11 @@
+import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { sendEmail } from '@/lib/email'
 import { hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
-import { randomInt } from 'crypto'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 const OTP_TTL_MS = 10 * 60 * 1000
 
@@ -43,13 +44,15 @@ export async function POST(request: NextRequest) {
     .from('referrers')
     .select('id, name, email')
     .eq('tenant_id', tenant.id)
-    .ilike('email', email)
+    .ilike('email', escapeLikeValue(email))
     .eq('status', 'active')
     .maybeSingle()
 
   if (referrer) {
-    // Crypto RNG — Math.random() is predictable and unsafe for a login OTP.
-    const code = String(100000 + randomInt(0, 900000))
+    // crypto.randomInt is uniformly distributed and cryptographically strong;
+    // Math.random was brute-forceable with timing knowledge (same fix as
+    // src/app/api/portal/auth/token.ts's generateCode).
+    const code = String(100000 + crypto.randomInt(0, 900000))
     await supabaseAdmin
       .from('referrers')
       .update({ otp_hash: hashOtp(code), otp_expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString() })

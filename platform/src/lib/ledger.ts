@@ -110,6 +110,9 @@ export async function postJournalEntry(opts: {
 
   // Single-transaction insert via RPC. The entry + all lines land together;
   // there's never a transient window where an entry exists with zero lines.
+  // The RPC (migration 064) enforces (tenant_id, source, source_id) uniqueness
+  // at the DB level and returns NULL on a duplicate post instead of throwing —
+  // that NULL is the real idempotency gate, not the caller's pre-check SELECT.
   const { data, error } = await supabaseAdmin.rpc('post_journal_entry', {
     p_tenant_id: opts.tenant_id,
     p_entity_id: opts.entity_id || null,

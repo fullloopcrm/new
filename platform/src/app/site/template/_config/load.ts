@@ -1,7 +1,6 @@
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { supabaseAdmin } from '@/lib/supabase'
 import { siteConfig as defaultConfig } from './site'
-import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import type { SiteConfig } from './types'
 
 /**
@@ -94,7 +93,6 @@ export async function getSiteConfig(): Promise<SiteConfig> {
         : defaultConfig.geo
 
   const industry = str(tenant, 'industry') ?? defaultConfig.industry
-  const isCleaningTenant = industryProfile(industry).isCleaning
   const reviewStats = await loadReviewStats(str(tenant, 'id'))
   const hasReviews = reviewStats.count !== ''
 
@@ -125,11 +123,14 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       surface: defaultConfig.theme.surface,
     },
     agent: { name: agentName },
-    // Reviews come from the tenant's REAL google_reviews. A brand-new tenant
-    // with none must not display fabricated "5.0 / 50+"; cleaning tenants keep
-    // the existing default so their live sites don't regress.
-    rating: hasReviews ? reviewStats.rating : isCleaningTenant ? defaultConfig.rating : 0,
-    reviewCount: hasReviews ? reviewStats.count : isCleaningTenant ? defaultConfig.reviewCount : '',
+    // Reviews come ONLY from the tenant's REAL google_reviews. A tenant with none
+    // shows no rating at all — never a fabricated "5.0 / 50+". Emitting an
+    // aggregateRating a business did not actually earn is fake-review markup
+    // (Google manual-action risk), so there is no industry-based default here:
+    // reviewCount stays '' (falsy) until real reviews exist, which suppresses the
+    // AggregateRating JSON-LD and the visible star badge downstream.
+    rating: hasReviews ? reviewStats.rating : 0,
+    reviewCount: hasReviews ? reviewStats.count : '',
     services: (await loadServices(str(tenant, 'id'))) ?? defaultConfig.services,
     funnelMode:
       selena?.['funnel_mode'] === 'pipeline' ? 'pipeline'

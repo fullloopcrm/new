@@ -16,6 +16,20 @@ export async function POST(request: NextRequest) {
 
     const ctx = await getTenantForRequest()
 
+    // booking_id is a caller-supplied FK used both as an insert value and as a
+    // storage path segment below — booking_notes has no cross-tenant FK check,
+    // and an unsanitized id would also let a path-traversal payload write
+    // outside this tenant's storage prefix. Verify ownership before either.
+    const { data: ownedBooking } = await supabaseAdmin
+      .from('bookings')
+      .select('id')
+      .eq('id', bookingId)
+      .eq('tenant_id', ctx.tenantId)
+      .maybeSingle()
+    if (!ownedBooking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
+
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
     // MODE 1: URLs already uploaded
@@ -41,7 +55,8 @@ export async function POST(request: NextRequest) {
     if (!allowedTypes.includes(file.type)) return NextResponse.json({ error: 'Only JPEG, PNG, WebP, or HEIC allowed' }, { status: 400 })
     if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File must be under 5MB' }, { status: 400 })
 
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+    const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg'
     const path = `booking-notes/${bookingId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 

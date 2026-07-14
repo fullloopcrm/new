@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getValidAccessToken, getGoogleBusiness } from '@/lib/google'
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   // Get all tenants with Google connected
   const { data: tenants } = await supabaseAdmin

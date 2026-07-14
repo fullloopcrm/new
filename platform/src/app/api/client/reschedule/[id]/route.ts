@@ -41,15 +41,21 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const auth = await protectClientAPI(tenant.id, oldBooking.client_id)
   if (auth instanceof NextResponse) return auth
 
-  // Confirm a caller-supplied team_member_id belongs to this tenant --
-  // otherwise a foreign id gets its full row (name/phone/pay_rate) pulled
-  // into the response via the team_members!bookings_team_member_id_fkey
-  // join below, a cross-tenant PII leak to an external customer (same class
-  // already fixed on staff-facing bookings/schedules routes).
+  // A client picking who does their job must stay inside their own tenant's
+  // active roster — same gate /api/client/preferred-cleaner already enforces.
+  // Without this, team_member_id was written straight from client input with
+  // no ownership check, letting a client point their booking's assignee FK at
+  // any team_members row (including another tenant's), which then leaks that
+  // employee's name/rate into this tenant's booking joins.
   if (body.team_member_id) {
-    const { data: memberRow } = await tenantDb(tenant.id)
-      .from('team_members').select('id').eq('id', body.team_member_id).single()
-    if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+    const { data: member } = await tenantDb(tenant.id)
+      .from('team_members')
+      .select('id, active')
+      .eq('id', body.team_member_id)
+      .single()
+    if (!member || member.active === false) {
+      return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
+    }
   }
 
   const tz = tenant.timezone || 'America/New_York'

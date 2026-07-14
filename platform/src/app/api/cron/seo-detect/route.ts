@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { detectAllProperties } from '@/lib/seo/detect'
 
 export const runtime = 'nodejs'
@@ -8,10 +9,8 @@ export const maxDuration = 120
 // SIGNAL detection cron — classifies per-page telemetry into typed, tiered
 // opportunities in seo_issues. Read-only against sites; writes only seo_issues.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
   try {
     const summary = await detectAllProperties()
     return NextResponse.json({ ok: true, ...summary })

@@ -35,14 +35,15 @@ const TENANT_TABLES = new Set([
   'accounting_periods','admin_tasks','ai_usage','audit_log','audit_logs',
   'bank_accounts','bank_import_batches','bank_statements','bank_transactions','blocked_referrers',
   'booking_notes','booking_team_members','bookings','campaign_recipients','campaigns',
-  'categorization_patterns','chart_of_accounts','cleaner_applications','client_contacts','client_properties',
+  'categorization_patterns','chart_of_accounts','cleaner_applications','cleaner_broadcast_recipients','cleaner_broadcasts',
+  'client_contacts','client_properties',
   'client_referral_stats','client_reviews','client_sms_messages','clients','comhub_active_calls',
   'comhub_admin_phones','comhub_admin_presence','comhub_admin_voice_settings','comhub_channel_members','comhub_contacts',
   'comhub_mentions','comhub_messages','comhub_missed_call_sms','comhub_softphone_calls','comhub_templates',
   'comhub_threads','connect_channels','connect_messages','connect_read_cursors','cpa_access_tokens',
   'crews','deal_activities','deals','document_activity','document_fields',
   'document_signers','documents','domain_notes','domains','email_logs',
-  'entities','error_logs','expenses','google_reviews','hr_document_reminders',
+  'entities','error_logs','expenses','google_posts','google_reviews','hr_document_reminders',
   'hr_document_requirements','hr_documents','hr_employee_profiles','hr_notes','impersonation_events',
   'import_batches','import_rows','invoice_activity','invoices','jefe_tasks',
   'job_events','job_payments','jobs','journal_entries','journal_lines',
@@ -75,14 +76,36 @@ const files = execSync(`grep -rl "\\.from('" ${ROOT} --include="*.ts" --include=
 
 const flagged = []
 for (const file of files) {
-  const lines = readFileSync(file, 'utf8').split('\n')
+  const src = readFileSync(file, 'utf8')
+  const lines = src.split('\n')
+  // Variables bound to a tenantDb(...) wrapper instance (e.g. `const db =
+  // tenantDb(tenantId)`, reused as `db.from(...)` possibly many lines later).
+  // A `.from()` call through one of these is auto-scoped by the wrapper
+  // itself (lib/tenant-db.ts adds .eq('tenant_id', …) internally) even though
+  // the literal string "tenant_id" never appears at the call site.
+  const wrapperVars = [...src.matchAll(/\b(?:const|let)\s+(\w+)\s*=\s*tenantDb\(/g)].map((m) => m[1])
+
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/\.from\('([a-z_]+)'\)/)
     if (!m || !TENANT_TABLES.has(m[1])) continue
     if (/tenant-scope-ok/.test(lines[i])) continue
     if (/\.storage\.from\(/.test(lines[i])) continue             // storage bucket, not a table
+
+    // Inline `tenantDb(tenantId).from(...)` (same line, or chained across up
+    // to 3 lines — `tenantDb(tenantId)\n  .from(...)`), or a call through a
+    // tracked wrapper variable — same line (`db.from(...)`) or the variable
+    // sitting bare on one of the preceding chain-continuation lines
+    // (`db\n  .from(...)`).
+    const prevLines = lines.slice(Math.max(0, i - 3), i).map((l) => l.trim())
+    const wrapperInline = /tenantDb\(/.test(lines[i].slice(0, m.index)) || prevLines.some((l) => /tenantDb\(/.test(l))
+    const wrapperVarCall = wrapperVars.some((v) =>
+      new RegExp(`(?:^|[^\\w.])${v}\\s*\\.from\\(`).test(lines[i])
+      || prevLines.some((l) => new RegExp(`(?:^|[^\\w.])${v}$`).test(l))
+    )
+    const wrapperScoped = wrapperInline || wrapperVarCall
+
     const chain = lines.slice(i, i + 12).join('\n')
-    const scoped = /tenant_id/.test(chain)                       // filter or insert payload
+    const scoped = wrapperScoped || /tenant_id/.test(chain)      // filter, insert payload, or wrapper
     // Row/entity-specific keys are globally unique (UUIDs / secret tokens), so a
     // lookup by id / *_id / *token* is inherently row-scoped, not a leak.
     const idLookup = /\.(eq|in)\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\s*,/.test(chain)

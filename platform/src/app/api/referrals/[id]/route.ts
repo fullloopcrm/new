@@ -14,11 +14,14 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['status', 'commission_rate'])
+    // Allow-listed scalars only — never accept tenant_id (row donation) or the
+    // referrer_client_id FK (cross-tenant injection: GET /api/referrals joins
+    // clients!referrals_referrer_client_id_fkey(name) unscoped by tenant).
+    const safeBody = pick(body, ['status', 'name', 'email', 'phone', 'commission_rate', 'reward_amount', 'total_earned'])
 
     const { data, error } = await tenantDb(tenantId)
       .from('referrals')
-      .update(fields)
+      .update(safeBody)
       .eq('id', id)
       .select()
       .single()

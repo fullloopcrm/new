@@ -51,31 +51,25 @@ export async function PUT(
     const body = await request.json()
     const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
 
-    // client_id/team_member_id are caller-supplied; verify each belongs to this
-    // tenant before writing it — the response (and every later GET) joins
-    // clients(name, phone, address, email) / team_members(name, phone), so a
-    // foreign id would otherwise leak another tenant's PII into this booking.
-    if (fields.client_id) {
-      const { data: ownedClient } = await supabaseAdmin
-        .from('clients')
+    // client_id/team_member_id/service_type_id are cross-table FKs — confirm
+    // each belongs to this tenant before writing it, or a caller could
+    // reassign the booking to another tenant's row and exfiltrate its PII via
+    // the clients()/team_members() joins on both this route's GET and this
+    // PUT's own response.
+    const fkChecks: Array<[string | undefined, string]> = [
+      [fields.client_id as string | undefined, 'clients'],
+      [fields.team_member_id as string | undefined, 'team_members'],
+      [fields.service_type_id as string | undefined, 'service_types'],
+    ]
+    for (const [fkId, table] of fkChecks) {
+      if (!fkId) continue
+      const { data: owned } = await supabaseAdmin
+        .from(table)
         .select('id')
+        .eq('id', fkId)
         .eq('tenant_id', tenantId)
-        .eq('id', fields.client_id)
-        .single()
-      if (!ownedClient) {
-        return NextResponse.json({ error: 'Invalid client_id' }, { status: 404 })
-      }
-    }
-    if (fields.team_member_id) {
-      const { data: ownedMember } = await supabaseAdmin
-        .from('team_members')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('id', fields.team_member_id)
-        .single()
-      if (!ownedMember) {
-        return NextResponse.json({ error: 'Invalid team_member_id' }, { status: 404 })
-      }
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: `Invalid ${table === 'clients' ? 'client_id' : table === 'team_members' ? 'team_member_id' : 'service_type_id'}` }, { status: 400 })
     }
 
     // Check if team member has the day off or doesn't work that day

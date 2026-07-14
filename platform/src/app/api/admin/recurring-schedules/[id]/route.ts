@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 // Single recurring schedule: view / edit / cancel. Tenant-scoped, admin-only,
@@ -11,19 +11,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (error) return error
   const { tenantId } = tenant
   const { id } = await params
+  const db = tenantDb(tenantId)
 
-  const { data: schedule, error: qErr } = await supabaseAdmin
+  const { data: schedule, error: qErr } = await db
     .from('recurring_schedules')
     .select('*, clients(id, name, phone, address, email), team_members(id, name)')
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .single()
   if (qErr) return NextResponse.json({ error: qErr.message }, { status: 404 })
 
-  const { data: bookings } = await supabaseAdmin
+  const { data: bookings } = await db
     .from('bookings')
     .select('id, start_time, end_time, status, team_member_id, team_members!bookings_team_member_id_fkey(name)')
-    .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
     .gte('start_time', new Date().toISOString())
     .in('status', ['scheduled', 'pending'])
@@ -38,6 +37,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { tenantId } = tenant
   const { id } = await params
   const body = await request.json()
+  const db = tenantDb(tenantId)
 
   const teamMemberId = body.team_member_id !== undefined ? body.team_member_id : body.cleaner_id
   const payRate = body.pay_rate !== undefined ? body.pay_rate : body.cleaner_pay_rate
@@ -67,11 +67,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (body.special_instructions !== undefined) updatePayload.special_instructions = body.special_instructions
   if (body.status !== undefined) updatePayload.status = body.status
 
-  const { data, error: uErr } = await supabaseAdmin
+  const { data, error: uErr } = await db
     .from('recurring_schedules')
     .update(updatePayload)
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .select('*, clients(id, name), team_members(id, name)')
     .single()
   if (uErr) return NextResponse.json({ error: uErr.message }, { status: 500 })
@@ -79,10 +78,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   // Reassign future bookings if the team member changed. No notification sent
   // (admin-only flow); the new assignee sees it in their portal.
   if (teamMemberId !== undefined) {
-    await supabaseAdmin
+    await db
       .from('bookings')
       .update({ team_member_id: teamMemberId || null })
-      .eq('tenant_id', tenantId)
       .eq('schedule_id', id)
       .in('status', ['scheduled', 'pending'])
       .gte('start_time', new Date().toISOString())
@@ -96,20 +94,19 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (error) return error
   const { tenantId } = tenant
   const { id } = await params
+  const db = tenantDb(tenantId)
 
-  const { data: schedule, error: sErr } = await supabaseAdmin
+  const { data: schedule, error: sErr } = await db
     .from('recurring_schedules')
     .update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .select('*, clients(name)')
     .single()
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
 
-  const { data: cancelled } = await supabaseAdmin
+  const { data: cancelled } = await db
     .from('bookings')
     .update({ status: 'cancelled' })
-    .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
     .in('status', ['scheduled', 'pending'])
     .gte('start_time', new Date().toISOString())

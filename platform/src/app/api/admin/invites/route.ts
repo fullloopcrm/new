@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
 import { logSecurityEvent } from '@/lib/security'
@@ -29,11 +30,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
+  const db = tenantDb(tenant_id)
+
   // Check for existing pending invite
-  const { data: existing } = await supabaseAdmin
+  const { data: existing } = await db
     .from('tenant_invites')
     .select('id')
-    .eq('tenant_id', tenant_id)
     .eq('email', email.toLowerCase())
     .eq('accepted', false)
     .gte('expires_at', new Date().toISOString())
@@ -59,10 +61,9 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data: invite, error } = await supabaseAdmin
+  const { data: invite, error } = await db
     .from('tenant_invites')
     .insert({
-      tenant_id,
       email: email.toLowerCase(),
       role: resolvedRole,
       token,

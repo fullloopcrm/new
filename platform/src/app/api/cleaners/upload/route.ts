@@ -33,20 +33,24 @@ export async function POST(request: NextRequest) {
     const memberId = (formData.get('team_member_id') || formData.get('cleaner_id')) as string | null
 
     if (!isAdmin) {
+      // Public path requires an active team_member_id/cleaner_id — an
+      // anonymous caller with no entity to attach the photo to has no
+      // legitimate use of this endpoint and would otherwise get an
+      // unauthenticated, uncontrolled write into the tenant's storage bucket.
+      if (!memberId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
       const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
       const limit = await rateLimitDb(`upload:${tenantId}:${ip}`, 3, 10 * 60 * 1000)
       if (!limit.allowed) return NextResponse.json({ error: 'Too many uploads. Try again later.' }, { status: 429 })
 
-      if (memberId) {
-        const { data: member } = await supabaseAdmin
-          .from('team_members')
-          .select('id')
-          .eq('id', memberId)
-          .eq('tenant_id', tenantId)
-          .eq('status', 'active')
-          .single()
-        if (!member) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
+      const { data: member } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .eq('id', memberId)
+        .eq('tenant_id', tenantId)
+        .eq('status', 'active')
+        .single()
+      if (!member) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })

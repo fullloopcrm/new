@@ -5,6 +5,7 @@
  * Tenant-aware port from nycmaid.
  */
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
@@ -33,9 +34,8 @@ interface TenantRow {
 }
 
 export async function GET(request: Request) {
-  if (!process.env.CRON_SECRET || request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const moments = getActiveMoments()
   if (moments.length === 0) {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { renderAssistantMarkdown } from './render-markdown'
+import { renderAssistantMarkdown } from '@/lib/render-assistant-markdown'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 

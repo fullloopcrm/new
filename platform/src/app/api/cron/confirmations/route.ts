@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
@@ -10,10 +11,8 @@ export const maxDuration = 300 // Vercel pro plan
 // 1. Team members: resend job confirmation SMS every hour until confirmed
 // 2. Clients: send day-before confirmation text asking for reply
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const now = new Date()
   const results: { type: string; tenant: string; recipient: string }[] = []

@@ -3,15 +3,14 @@
  * Bails instantly if no tenants have email_monitor_enabled to keep cost low.
  */
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export const maxDuration = 60
 
 export async function GET(request: Request) {
-  const auth = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   // Cheap precheck — count enabled tenants. If none, bail.
   const { count } = await supabaseAdmin

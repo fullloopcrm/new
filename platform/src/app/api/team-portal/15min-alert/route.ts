@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       .from('bookings')
       .select('id, tenant_id, team_member_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
       .eq('id', bookingId)
+      .eq('tenant_id', auth.tid)
       .single()
 
     // Cross-tenant: never confirm a foreign booking even exists.

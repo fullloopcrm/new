@@ -7,15 +7,21 @@ import { decryptSecret } from '@/lib/secret-crypto'
 import { sendEmail as sendTenantEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 export const maxDuration = 60
 
-const CRON_SECRET = (process.env.CRON_SECRET || '').trim()
-const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+export const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+const NYCMAID_EMAIL_FROM = 'The NYC Maid <hi@thenycmaid.com>'
 
 type Brand = { name: string; phone?: string | null; email?: string | null; address?: string | null; logoUrl?: string | null; primaryColor?: string | null }
 
@@ -32,7 +38,7 @@ type MailAccount = {
   brand: Brand
 }
 
-async function collectAccounts(): Promise<MailAccount[]> {
+export async function collectAccounts(): Promise<MailAccount[]> {
   const accounts: MailAccount[] = []
 
   // Per-tenant: every tenant that has saved IMAP creds in its profile.
@@ -52,7 +58,11 @@ async function collectAccounts(): Promise<MailAccount[]> {
         user: String(t.imap_user).trim(),
         pass: decryptSecret(String(t.imap_pass)).trim(),
         resendApiKey: t.resend_api_key || null,
-        emailFrom: t.email_from || null,
+        // nycmaid must never fall through to the generic tenant-email default
+        // (Full Loop CRM <hello@fullloopcrm.com>) even if its profile row is
+        // migrated to Resend before email_from is set — its real from-address
+        // is hi@thenycmaid.com, matching the source production repo.
+        emailFrom: t.email_from || (t.id === NYCMAID_TENANT_ID ? NYCMAID_EMAIL_FROM : null),
         brand: {
           name: t.name || 'Full Loop',
           phone: t.phone,
@@ -278,12 +288,8 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
 // Polls every tenant's IMAP inbox (profile creds) + the nycmaid env fallback,
 // mirroring new mail into comhub_messages (tenant-scoped, deduped by Message-ID).
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization') || ''
-  const url = new URL(req.url)
-  const querySecret = url.searchParams.get('secret') || ''
-  const ok = (CRON_SECRET && (authHeader === `Bearer ${CRON_SECRET}` || querySecret === CRON_SECRET))
-            || req.headers.get('x-vercel-cron') === '1'
-  if (!ok) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const cronAuthError = verifyCronSecret(req)
+  if (cronAuthError) return cronAuthError
 
   const accounts = await collectAccounts()
   if (accounts.length === 0) return NextResponse.json({ error: 'no mailboxes configured' }, { status: 500 })

@@ -3,8 +3,8 @@
  * and a rendered HTML preview. Tenant-scoped.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
 
 interface BookingRow {
   client_id: string
@@ -36,10 +36,9 @@ export async function POST(request: Request) {
     const { tenantId, tenant } = await getTenantForRequest()
     const { audience_filter, email_body, channel, contact_filter } = await request.json()
 
-    let clientsQuery = supabaseAdmin
+    let clientsQuery = tenantDb(tenantId)
       .from('clients')
       .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, status, created_at', { count: 'exact', head: false })
-      .eq('tenant_id', tenantId)
       .eq('do_not_service', false)
       .limit(10000)
 
@@ -57,10 +56,9 @@ export async function POST(request: Request) {
     let filtered = allClients
 
     if (contact_filter && contact_filter !== 'all') {
-      const { data: bookings, error: bookingsError } = await supabaseAdmin
+      const { data: bookings, error: bookingsError } = await tenantDb(tenantId)
         .from('bookings')
         .select('client_id, status, start_time, recurring_type, price')
-        .eq('tenant_id', tenantId)
         .in('status', ['completed', 'scheduled', 'in_progress'])
         .limit(10000)
 

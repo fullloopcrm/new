@@ -26,11 +26,10 @@ export default function TeamMessagesPage() {
 
   const token = auth?.token ?? null
 
-  const fetchMessages = useCallback(async () => {
-    if (!token) return
+  const fetchMessages = useCallback(async (bearer: string) => {
     try {
       const res = await fetch('/api/team-portal/messages', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${bearer}` },
       })
       const data = await res.json()
       setMessages(data.messages || [])
@@ -43,8 +42,8 @@ export default function TeamMessagesPage() {
 
   useEffect(() => {
     if (!token) return
-    fetchMessages()
-    const interval = setInterval(() => fetchMessages(), 5000)
+    fetchMessages(token)
+    const interval = setInterval(() => fetchMessages(token), 5000)
     return () => clearInterval(interval)
   }, [token, fetchMessages])
 
@@ -66,7 +65,7 @@ export default function TeamMessagesPage() {
       if (!res.ok) {
         setComposer(body)
       } else {
-        fetchMessages()
+        fetchMessages(token)
       }
     } catch {
       setComposer(body)

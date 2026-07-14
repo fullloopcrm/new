@@ -8,7 +8,7 @@
  *     operator can hand it over. We never store or re-display it after this.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { hashAdminPin, generateAdminPin, isValidAdminPin } from '@/lib/admin-pin'
 
@@ -19,11 +19,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params
 
   // Confirm the member belongs to THIS tenant before touching their PIN.
-  const { data: member } = await supabaseAdmin
+  const { data: member } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .select('id')
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
     .maybeSingle()
 
   if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
@@ -41,10 +40,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // Enforce per-tenant PIN uniqueness defensively (the DB index also enforces it).
   const pinHash = hashAdminPin(pin)
-  const { data: clash } = await supabaseAdmin
+  const { data: clash } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .select('id')
-    .eq('tenant_id', tenant.tenantId)
     .eq('pin_hash', pinHash)
     .neq('id', id)
     .maybeSingle()
@@ -52,11 +50,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'That PIN is already in use — try again.' }, { status: 409 })
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .update({ pin_hash: pinHash, pin_set_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -69,11 +66,10 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   if (authError) return authError
 
   const { id } = await params
-  const { error } = await supabaseAdmin
+  const { error } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
     .update({ pin_hash: null, pin_set_at: null })
     .eq('id', id)
-    .eq('tenant_id', tenant.tenantId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

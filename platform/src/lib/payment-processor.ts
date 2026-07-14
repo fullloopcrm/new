@@ -172,27 +172,22 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     })
     .select('id')
     .single()
-  if (paymentInsertErr) {
-    // 23505 = a concurrent/redelivered call with the SAME (tenant_id,
-    // booking_id, reference_id) already won and inserted its row (double-tapped
-    // checkout, a client retry after a timeout, or a redelivered
-    // finalize-match request). Treat as an idempotent no-op — proceeding here
-    // would double-post revenue to the ledger and double-post the cleaner's
-    // payout to the ledger (the Stripe transfer itself is idempotency-keyed
-    // below, but the DB rows and ledger entries are not).
-    if ((paymentInsertErr as { code?: string }).code === '23505') {
-      console.warn(`[payment-processor] duplicate ${label} delivery ignored (booking ${bookingId}, ref ${referenceId})`)
-      const priorIsPartial = expectedCents > 0 && priorCents < expectedCents * PARTIAL_THRESHOLD
-      return {
-        status: priorIsPartial ? 'partial' : 'paid',
-        totalReceivedCents: priorCents,
-        expectedCents,
-        tipCents: 0,
-        cleanerPaidCents: 0,
-      }
-    }
-    console.error(`[payment-processor] ${label} insert failed:`, paymentInsertErr)
+
+  // Duplicate (tenant_id, booking_id, reference_id) -- a retried/redelivered
+  // call with the same reference_id (double-tapped checkout button, a client
+  // retry after a timeout, a redelivered finalize-match reconciliation
+  // request). The original call already posted revenue/payout/SMS; treat this
+  // one as an idempotent no-op instead of double-posting to the ledger and
+  // re-transferring funds. See migration 065_unique_payments_reference.sql.
+  if (paymentInsertErr?.code === '23505') {
+    console.warn(`[payment-processor] duplicate ${label} delivery ignored (booking ${bookingId}, ref ${referenceId})`)
+    // Base the reported status on priorCents alone (the true recorded total)
+    // rather than isPartial/totalReceivedCents above, which double-count this
+    // duplicate call's amountCents on top of the already-recorded payment.
+    const dedupIsPartial = expectedCents > 0 && priorCents < expectedCents * PARTIAL_THRESHOLD
+    return { status: dedupIsPartial ? 'partial' : 'paid', totalReceivedCents: priorCents, expectedCents, tipCents: 0, cleanerPaidCents: 0 }
   }
+  if (paymentInsertErr) console.error(`[payment-processor] ${label} insert failed:`, paymentInsertErr)
   if (paymentRow?.id) {
     postPaymentRevenue({ tenantId, paymentId: paymentRow.id })
       .catch(err => console.error('[payment-processor] revenue post failed:', err))

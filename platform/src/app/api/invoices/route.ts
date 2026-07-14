@@ -2,9 +2,9 @@
  * Invoices — list + create. Tenant-scoped.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { tenantDb } from '@/lib/tenant-db'
 import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
 import {
   normalizeLineItems,
@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const url = new URL(request.url)
     const status = url.searchParams.get('status')
     const clientId = url.searchParams.get('client_id')
@@ -27,10 +28,9 @@ export async function GET(request: Request) {
     const entityId = entityIdFromUrl(url)
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 100)
 
-    let q = supabaseAdmin
+    let q = db
       .from('invoices')
       .select('*, clients(id, name, email, phone, address)')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(limit)
 
@@ -58,16 +58,16 @@ export async function POST(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const body = await request.json()
 
     // Optional: generate from booking
     let prefillLineItems: unknown[] | null = null
     let prefillContact: Record<string, unknown> = {}
     if (body.from_booking_id) {
-      const { data: booking } = await supabaseAdmin
+      const { data: booking } = await db
         .from('bookings')
         .select('*, clients(id, name, email, phone, address), service_types(name, default_hourly_rate, pricing_model)')
-        .eq('tenant_id', tenantId)
         .eq('id', body.from_booking_id)
         .single()
       if (booking) {
@@ -102,10 +102,9 @@ export async function POST(request: Request) {
 
     // Optional: generate from quote
     if (body.from_quote_id) {
-      const { data: quote } = await supabaseAdmin
+      const { data: quote } = await db
         .from('quotes')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('id', body.from_quote_id)
         .single()
       if (quote) {
@@ -143,17 +142,26 @@ export async function POST(request: Request) {
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
-    // Confirm a directly-supplied client (not one derived from an
-    // already-tenant-scoped booking/quote lookup above) belongs to this
-    // tenant -- otherwise a foreign client_id gets its name/email/phone/
-    // address pulled into this tenant's invoice via the GET join, a
-    // cross-tenant PII leak.
-    const directClientId = typeof body.client_id === 'string' && body.client_id ? body.client_id : null
-    if (directClientId) {
-      const { data: c } = await supabaseAdmin.from('clients').select('id').eq('id', directClientId).eq('tenant_id', tenantId).single()
-      if (!c) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    // client_id/booking_id/quote_id are cross-table FKs — confirm each belongs
+    // to this tenant before writing it, or a caller could attach the invoice to
+    // another tenant's client/booking/quote and exfiltrate its PII via the
+    // clients()/bookings() embeds used by this route's own GET, the invoice
+    // list, and finance/ar-aging + finance/reconcile-candidates.
+    const clientId = body.client_id || (prefillContact as { client_id?: string }).client_id || null
+    const bookingId = body.booking_id || body.from_booking_id || null
+    const quoteId = body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null
+    if (clientId) {
+      const { data: client } = await db.from('clients').select('id').eq('id', clientId).maybeSingle()
+      if (!client) return NextResponse.json({ error: 'Invalid client_id' }, { status: 400 })
     }
-    const clientId = directClientId || (prefillContact as { client_id?: string }).client_id || null
+    if (bookingId) {
+      const { data: booking } = await db.from('bookings').select('id').eq('id', bookingId).maybeSingle()
+      if (!booking) return NextResponse.json({ error: 'Invalid booking_id' }, { status: 400 })
+    }
+    if (quoteId) {
+      const { data: quote } = await db.from('quotes').select('id').eq('id', quoteId).maybeSingle()
+      if (!quote) return NextResponse.json({ error: 'Invalid quote_id' }, { status: 400 })
+    }
 
     // invoice_number is derived from a COUNT() snapshot (generateInvoiceNumber),
     // so two concurrent creates in the same tenant/month can compute the same
@@ -166,14 +174,13 @@ export async function POST(request: Request) {
     for (let attempt = 0; attempt < 5; attempt++) {
       const invoice_number = explicitInvoiceNumber || (await generateInvoiceNumber(tenantId))
       const public_token = generateInvoicePublicToken()
-      const result = await supabaseAdmin
+      const result = await db
         .from('invoices')
         .insert({
-          tenant_id: tenantId,
           entity_id: entityId,
           client_id: clientId,
-          booking_id: body.booking_id || body.from_booking_id || null,
-          quote_id: body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null,
+          booking_id: bookingId,
+          quote_id: quoteId,
           invoice_number,
           status: 'draft',
           title: body.title || (prefillContact as { title?: string }).title || null,

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET() {
   try {
     const { tenantId, userId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
 
     const [
       { count: clientCount },
@@ -12,36 +13,31 @@ export async function GET() {
       { count: leadCount },
       { count: notificationCount },
     ] = await Promise.all([
-      supabaseAdmin
+      db
         .from('clients')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId),
-      supabaseAdmin
+        .select('id', { count: 'exact', head: true }),
+      db
         .from('bookings')
         .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed']),
-      supabaseAdmin
+      db
         .from('website_visits')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId),
-      supabaseAdmin
+        .select('id', { count: 'exact', head: true }),
+      db
         .from('notifications')
         .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
         .eq('read', false),
     ])
 
     // Connect unread count — count channels with messages newer than read cursor
     let connectUnread = 0
     try {
-      const { data: channels } = await supabaseAdmin
+      const { data: channels } = await db
         .from('connect_channels')
         .select('id')
-        .eq('tenant_id', tenantId)
 
       if (channels && channels.length > 0) {
-        const { data: cursors } = await supabaseAdmin
+        const { data: cursors } = await db
           .from('connect_read_cursors')
           .select('channel_id, last_read_at')
           .eq('reader_type', 'owner')
@@ -52,7 +48,7 @@ export async function GET() {
 
         for (const ch of channels) {
           const lastRead = cursorMap.get(ch.id)
-          let q = supabaseAdmin
+          let q = db
             .from('connect_messages')
             .select('id', { count: 'exact', head: true })
             .eq('channel_id', ch.id)

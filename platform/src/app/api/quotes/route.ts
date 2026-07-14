@@ -79,6 +79,20 @@ export async function POST(request: Request) {
     // Fulfillment: 'booking' (service → Bookings) | 'project' (→ Job board). null = project default.
     const fulfillment_type = ['booking', 'project'].includes(body.fulfillment_type) ? body.fulfillment_type : null
 
+    // deal_id is a cross-table FK — confirm it belongs to this tenant before
+    // writing it, or a caller could attach the quote to another tenant's deal
+    // (same class as the client_id check above).
+    const deal_id = body.deal_id || null
+    if (deal_id) {
+      const { data: deal } = await supabaseAdmin
+        .from('deals')
+        .select('id')
+        .eq('id', deal_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!deal) return NextResponse.json({ error: 'Invalid deal_id' }, { status: 400 })
+    }
+
     // quote_number is derived from a COUNT() snapshot (generateQuoteNumber), so
     // two concurrent creates in the same tenant/month can compute the same
     // number. The (tenant_id, quote_number) unique index rejects the second
@@ -95,7 +109,7 @@ export async function POST(request: Request) {
         .insert({
           tenant_id: tenantId,
           client_id: clientId,
-          deal_id: body.deal_id || null,
+          deal_id,
           quote_number,
           status: 'draft',
           title: body.title || null,

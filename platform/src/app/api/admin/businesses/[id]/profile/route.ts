@@ -17,6 +17,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantProfile, routeProfileWrite } from '@/lib/tenant-profile'
 import { computeReadiness } from '@/lib/tenant-readiness'
 import { ensureDefaultEntity } from '@/lib/entity-provision'
@@ -68,15 +69,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'No writable fields', ignored }, { status: 400 })
   }
 
+  const db = tenantDb(id)
+
   try {
     // Entity fields → default entity row (seed it if missing).
     if (Object.keys(entityCols).length) {
       const { data: tRow } = await supabaseAdmin.from('tenants').select('name').eq('id', id).single()
       await ensureDefaultEntity(id, (tRow?.name as string) || 'Main')
-      const { error } = await supabaseAdmin
+      const { error } = await db
         .from('entities')
         .update(entityCols)
-        .eq('tenant_id', id)
         .eq('is_default', true)
       if (error) throw new Error(`entity: ${error.message}`)
     }

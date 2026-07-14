@@ -36,7 +36,20 @@ export function tenantDb(tenantId: string) {
     from(table: string) {
       const base = supabaseAdmin.from(table)
       return {
-        /** SELECT auto-filtered to this tenant. */
+        /**
+         * SELECT auto-filtered to this tenant.
+         *
+         * `columns` is cast to `'*'` for TYPING ONLY — the real column string is
+         * still passed to PostgREST at runtime. Two reasons this is deliberate:
+         *   1. Widening the literal to `string` makes supabase's parser resolve the
+         *      row to `GenericStringError` (a compile error on every `.data` field).
+         *   2. Making the wrapper generic over the column literal makes tsc's
+         *      conditional-type machinery blow up (heap OOM) against the untyped
+         *      service_role client.
+         * The tradeoff: callers get `data: any` from the wrapper instead of a
+         * column-narrowed shape. Acceptable — the service_role client is already
+         * untyped, and tenant-safety (not row typing) is this wrapper's job.
+         */
         select: (columns = '*', opts?: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean }) =>
           // Cast to the '*' overload for TYPING ONLY — the real column string still
           // reaches PostgREST unchanged. Without this, TS resolves the generic
@@ -48,16 +61,13 @@ export function tenantDb(tenantId: string) {
         insert: (rows: Row | Row[]) => base.insert(stamp(rows, tenantId)),
 
         /**
-         * UPDATE auto-filtered to this tenant. tenant_id is stripped from the
-         * payload (like insert() stamps it) so a caller passing a raw request
-         * body can never reassign one of their own rows to a different
-         * tenant_id — the WHERE-clause filter alone only protects which rows
-         * can be touched, not what the SET clause is allowed to write.
+         * UPDATE auto-filtered to this tenant. tenant_id in the payload is always
+         * overridden to this wrapper's tenantId (like insert() stamps it) so a
+         * caller passing a raw request body can never reassign one of their own
+         * rows to a different tenant_id — the WHERE-clause filter alone only
+         * protects which rows can be touched, not what the SET clause writes.
          */
-        update: (values: Row) => {
-          const { tenant_id: _ignoredTenantId, ...safeValues } = values
-          return base.update(safeValues).eq('tenant_id', tenantId)
-        },
+        update: (values: Row) => base.update({ ...values, tenant_id: tenantId }).eq('tenant_id', tenantId),
 
         /** DELETE auto-filtered to this tenant. */
         delete: () => base.delete().eq('tenant_id', tenantId),

@@ -226,22 +226,6 @@ export function articleSchema(
   };
 }
 
-export function aggregateRatingSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "Full Loop CRM",
-    applicationCategory: "BusinessApplication",
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: "47",
-      bestRating: "5",
-      worstRating: "1",
-    },
-  };
-}
-
 export function softwareApplicationSchema(
   price: string = "1000",
   priceCurrency: string = "USD",

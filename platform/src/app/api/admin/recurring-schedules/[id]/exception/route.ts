@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 // Per-occurrence exception for a recurring series: skip / move / reassign ONE
@@ -14,6 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { tenant, error } = await requirePermission('schedules.edit')
   if (error) return error
   const { tenantId } = tenant
+  const db = tenantDb(tenantId)
   const { id } = await params
 
   const body = await request.json()
@@ -33,19 +34,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // Confirm the schedule belongs to this tenant; pull duration for move end-time.
-  const { data: schedule } = await supabaseAdmin
+  const { data: schedule } = await db
     .from('recurring_schedules')
     .select('id, duration_hours')
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
 
   // Record (or replace) the exception for this date.
-  const { error: upErr } = await supabaseAdmin
+  const { error: upErr } = await db
     .from('recurring_exceptions')
     .upsert(
-      { tenant_id: tenantId, schedule_id: id, occurrence_date, type, new_start_time, new_team_member_id },
+      { schedule_id: id, occurrence_date, type, new_start_time, new_team_member_id },
       { onConflict: 'schedule_id,occurrence_date' }
     )
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
@@ -53,10 +53,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // Apply to the materialized booking for that date, if present (scheduled/pending only).
   const dayStart = `${occurrence_date}T00:00:00`
   const dayEnd = `${occurrence_date}T23:59:59`
-  const { data: existing } = await supabaseAdmin
+  const { data: existing } = await db
     .from('bookings')
     .select('id, start_time')
-    .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
     .in('status', ['scheduled', 'pending'])
     .gte('start_time', dayStart)
@@ -65,17 +64,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let applied = 0
   for (const b of existing || []) {
     if (type === 'skip') {
-      await supabaseAdmin.from('bookings').delete().eq('id', b.id).eq('tenant_id', tenantId)
+      await db.from('bookings').delete().eq('id', b.id)
       applied++
     } else if (type === 'move' && new_start_time) {
       const [mh, mm] = new_start_time.split(':').map(Number)
       const startISO = `${occurrence_date}T${String(mh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`
       const endTotal = (mh || 0) * 60 + (mm || 0) + (Number(schedule.duration_hours) || 3) * 60
       const endISO = `${occurrence_date}T${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}:00`
-      await supabaseAdmin.from('bookings').update({ start_time: startISO, end_time: endISO }).eq('id', b.id).eq('tenant_id', tenantId)
+      await db.from('bookings').update({ start_time: startISO, end_time: endISO }).eq('id', b.id)
       applied++
     } else if (type === 'reassign') {
-      await supabaseAdmin.from('bookings').update({ team_member_id: new_team_member_id }).eq('id', b.id).eq('tenant_id', tenantId)
+      await db.from('bookings').update({ team_member_id: new_team_member_id }).eq('id', b.id)
       applied++
     }
   }

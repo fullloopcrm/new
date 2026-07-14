@@ -1,171 +1,241 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * getTenantForRequest is the authorization gate in front of EVERY API route
- * (payments/checkout, booking mutations, settings, …). A flaw here is a
- * cross-tenant breach on the whole platform, so the adversarial cases matter
- * more than the happy paths:
+ * getTenantForRequest is the auth + tenant gate that EVERY API route runs
+ * through. It decides which tenant a request is scoped to, so a wrong branch =
+ * cross-tenant access or a broken login. It was previously untested. These
+ * tests exercise each resolution branch and, critically, prove the negative
+ * cases: a forged/invalid signed header cannot grant tenant context, and an
+ * unauthenticated caller is rejected rather than silently defaulted.
  *
- *   - a per-tenant member token minted for tenant A must NOT authorize tenant B
- *     (verifyTenantAdminToken is scoped to the header tenant id)
- *   - a forged/unsigned x-tenant-id must be ignored even if a valid admin_token
- *     is attached (the signature is the only thing that binds a domain request
- *     to a tenant)
- *   - no valid credential of any kind → AuthError, never a silent tenant
- *
- * Every collaborator is mocked with a per-test toggle; the Supabase client is a
- * tiny builder whose .single() defers to a resolver keyed on (table, eq-filters).
+ * Every external dependency is mocked so the branch logic is what's under test:
+ *   - ./supabase           supabaseAdmin query builder (single() + insert())
+ *   - next/headers         cookies() / headers()
+ *   - @/lib/owner-session  getOwnerUserId (Clerk)
+ *   - ./impersonation      verifyImpersonationCookie
+ *   - ./tenant-header-sig  verifyTenantHeaderSig
+ *   - admin-auth route     verifyAdminToken / verifyTenantAdminToken
  */
 
-type Eqs = Record<string, unknown>
-let dbResolver: (table: string, eqs: Eqs) => { data: unknown; error: unknown }
+// SUPER_ADMIN_IDS is captured at module load from this env, so it must be set
+// BEFORE ./tenant-query is imported. vi.hoisted runs before the import graph.
+vi.hoisted(() => {
+  process.env.SUPER_ADMIN_CLERK_ID = 'super-1'
+})
 
+// ── controllable per-test state ─────────────────────────────────────────────
+type Eqs = Record<string, unknown>
+let dbResolve: (table: string, eqs: Eqs) => { data: unknown; error: unknown }
+let inserts: Array<{ table: string; payload: unknown }>
 let cookieMap: Record<string, string>
 let headerMap: Record<string, string>
-let ownerUserId: string | null
 let impersonateId: string | null
+let ownerUserId: string | null
 let adminTokenValid: boolean
 let tenantAdminResult: { memberId: string; role: string } | null
 let headerSigValid: boolean
 
-function sbBuilder(table: string) {
-  const eqs: Eqs = {}
-  const chain = {
-    select: () => chain,
-    eq: (col: string, val: unknown) => {
-      eqs[col] = val
-      return chain
-    },
-    single: async () => dbResolver(table, eqs),
-    insert: async () => ({ error: null }), // impersonation_events audit (best-effort)
+vi.mock('./supabase', () => {
+  function builder(table: string) {
+    const eqs: Eqs = {}
+    const chain: {
+      select: () => typeof chain
+      eq: (c: string, v: unknown) => typeof chain
+      single: () => Promise<{ data: unknown; error: unknown }>
+      insert: (payload: unknown) => Promise<{ error: null }>
+    } = {
+      select: () => chain,
+      eq: (c: string, v: unknown) => {
+        eqs[c] = v
+        return chain
+      },
+      single: async () => dbResolve(table, eqs),
+      insert: async (payload: unknown) => {
+        inserts.push({ table, payload })
+        return { error: null }
+      },
+    }
+    return chain
   }
-  return chain
-}
+  return { supabaseAdmin: { from: (t: string) => builder(t) } }
+})
 
 vi.mock('next/headers', () => ({
   cookies: async () => ({
-    get: (n: string) => (cookieMap[n] !== undefined ? { value: cookieMap[n] } : undefined),
+    get: (k: string) => (k in cookieMap ? { value: cookieMap[k] } : undefined),
   }),
-  headers: async () => ({ get: (n: string) => headerMap[n] ?? null }),
+  headers: async () => ({ get: (k: string) => headerMap[k] ?? null }),
 }))
-vi.mock('@/lib/owner-session', () => ({ getOwnerUserId: async () => ownerUserId }))
-vi.mock('./supabase', () => ({ supabaseAdmin: { from: (t: string) => sbBuilder(t) } }))
-vi.mock('@/app/api/admin-auth/route', () => ({
-  verifyAdminToken: () => adminTokenValid,
-  verifyTenantAdminToken: () => tenantAdminResult,
+
+vi.mock('@/lib/owner-session', () => ({
+  getOwnerUserId: async () => ownerUserId,
 }))
+
 vi.mock('./impersonation', () => ({
   IMPERSONATE_COOKIE: 'fl_impersonate',
-  verifyImpersonationCookie: () => impersonateId,
+  // Real fn maps a signed cookie → tenant id. Mock: any present cookie yields
+  // the test-configured impersonateId; absent cookie yields null.
+  verifyImpersonationCookie: (raw: string | undefined) => (raw ? impersonateId : null),
 }))
-vi.mock('./tenant-header-sig', () => ({ verifyTenantHeaderSig: () => headerSigValid }))
+
+vi.mock('./tenant-header-sig', () => ({
+  verifyTenantHeaderSig: () => headerSigValid,
+}))
+
+vi.mock('@/app/api/admin-auth/route', () => ({
+  verifyAdminToken: () => adminTokenValid,
+  verifyTenantAdminToken: (_token: string, _tenantId: string) => tenantAdminResult,
+}))
 
 import { getTenantForRequest, AuthError } from './tenant-query'
 
-const tenantRow = (id: string) => ({ id, name: `Tenant ${id}`, slug: id, status: 'active' })
+const tenantRow = (over: Partial<Record<string, unknown>> = {}) => ({
+  id: 't-1',
+  slug: 'acme',
+  name: 'Acme',
+  status: 'active',
+  ...over,
+})
 
 beforeEach(() => {
+  dbResolve = () => ({ data: null, error: null })
+  inserts = []
   cookieMap = {}
   headerMap = {}
-  ownerUserId = null
   impersonateId = null
+  ownerUserId = null
   adminTokenValid = false
   tenantAdminResult = null
   headerSigValid = false
-  dbResolver = () => ({ data: null, error: null })
 })
 
-describe('getTenantForRequest — adversarial cross-tenant guards', () => {
-  it('REJECTS a per-tenant member token minted for tenant A when used on tenant B', async () => {
-    // Domain request for tenant B, validly signed header, admin_token attached —
-    // but the token is NOT a global super-admin token and was NOT minted for B,
-    // so verifyTenantAdminToken(token, 'B') returns null.
-    headerMap['x-tenant-id'] = 't-B'
-    headerMap['x-tenant-sig'] = 'sig'
-    headerSigValid = true
-    cookieMap['admin_token'] = 'member-token-for-A'
-    adminTokenValid = false
-    tenantAdminResult = null
-    // With no other credential, the request must be rejected, not scoped to B.
-    await expect(getTenantForRequest()).rejects.toBeInstanceOf(AuthError)
+describe('getTenantForRequest — rejection / negative paths', () => {
+  it('throws AuthError 401 when there is no impersonation, no signed header, and no Clerk user', async () => {
+    await expect(getTenantForRequest()).rejects.toMatchObject({
+      constructor: AuthError,
+      status: 401,
+    })
   })
 
-  it('IGNORES a forged/unsigned x-tenant-id even with a valid admin_token', async () => {
-    headerMap['x-tenant-id'] = 't-B'
+  it('does NOT grant tenant context from a signed header whose signature is invalid (forgery guard)', async () => {
+    // Attacker supplies x-tenant-id + admin_token but no valid signature.
+    headerMap['x-tenant-id'] = 't-victim'
     headerMap['x-tenant-sig'] = 'forged'
-    headerSigValid = false // signature does not verify → whole header block skipped
-    cookieMap['admin_token'] = 'valid-global-admin'
-    adminTokenValid = true
-    // Falls through to Clerk; no Clerk user → Unauthorized. A forged header must
-    // never bind the request to t-B.
+    cookieMap['admin_token'] = 'whatever'
+    headerSigValid = false // signature does not verify
+    adminTokenValid = true // even a valid admin token must not rescue a bad sig
+    // No Clerk user → falls through to 401, never resolves t-victim.
     await expect(getTenantForRequest()).rejects.toMatchObject({ status: 401 })
   })
 
-  it('throws Unauthorized (401) when no credential of any kind is present', async () => {
-    await expect(getTenantForRequest()).rejects.toMatchObject({ status: 401 })
-  })
-
-  it('throws 404 (No tenant found) for a valid Clerk user with no membership', async () => {
-    ownerUserId = 'clerk-user-1'
-    dbResolver = (table) => (table === 'tenant_members' ? { data: null, error: null } : { data: null, error: null })
+  it('throws AuthError 404 when the Clerk user has no tenant membership', async () => {
+    ownerUserId = 'u-nomember'
+    dbResolve = (table) =>
+      table === 'tenant_members' ? { data: null, error: null } : { data: null, error: null }
     await expect(getTenantForRequest()).rejects.toMatchObject({ status: 404 })
   })
 })
 
-describe('getTenantForRequest — happy paths', () => {
-  it('resolves a normal Clerk member to their tenant + role', async () => {
-    ownerUserId = 'clerk-user-1'
-    dbResolver = (table, eqs) => {
-      if (table === 'tenant_members' && eqs.clerk_user_id === 'clerk-user-1')
-        return { data: { tenant_id: 't-1', role: 'staff' }, error: null }
-      if (table === 'tenants' && eqs.id === 't-1') return { data: tenantRow('t-1'), error: null }
+describe('getTenantForRequest — impersonation', () => {
+  it('resolves the impersonated tenant for a PIN admin and audits the event', async () => {
+    cookieMap['fl_impersonate'] = 'signed-cookie'
+    cookieMap['admin_token'] = 'admin-tok'
+    impersonateId = 't-imp'
+    adminTokenValid = true
+    dbResolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-imp'
+        ? { data: tenantRow({ id: 't-imp', slug: 'imp' }), error: null }
+        : { data: null, error: null }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx).toMatchObject({ userId: 'admin', tenantId: 't-imp', role: 'owner' })
+    // impersonation must be recorded in the audit log
+    expect(inserts.some((i) => i.table === 'impersonation_events')).toBe(true)
+  })
+
+  it('resolves the impersonated tenant for a Clerk super-admin', async () => {
+    cookieMap['fl_impersonate'] = 'signed-cookie'
+    impersonateId = 't-super-imp'
+    ownerUserId = 'super-1' // matches SUPER_ADMIN_CLERK_ID set via vi.hoisted
+    dbResolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-super-imp'
+        ? { data: tenantRow({ id: 't-super-imp' }), error: null }
+        : { data: null, error: null }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx).toMatchObject({ userId: 'super-1', tenantId: 't-super-imp', role: 'owner' })
+    expect(inserts.some((i) => i.table === 'impersonation_events')).toBe(true)
+  })
+})
+
+describe('getTenantForRequest — signed tenant-domain header', () => {
+  it('grants owner context to a global super-admin token on the tenant\'s own domain', async () => {
+    headerMap['x-tenant-id'] = 't-dom'
+    headerMap['x-tenant-sig'] = 'good-sig'
+    cookieMap['admin_token'] = 'admin-tok'
+    headerSigValid = true
+    adminTokenValid = true
+    dbResolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-dom'
+        ? { data: tenantRow({ id: 't-dom', slug: 'dom' }), error: null }
+        : { data: null, error: null }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx).toMatchObject({ userId: 'admin', tenantId: 't-dom', role: 'owner' })
+  })
+
+  it('grants member context to a per-tenant token minted for THIS domain', async () => {
+    headerMap['x-tenant-id'] = 't-dom'
+    headerMap['x-tenant-sig'] = 'good-sig'
+    cookieMap['admin_token'] = 'member-tok'
+    headerSigValid = true
+    adminTokenValid = false // not the global super-admin token
+    tenantAdminResult = { memberId: 'm-7', role: 'staff' }
+    dbResolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-dom'
+        ? { data: tenantRow({ id: 't-dom' }), error: null }
+        : { data: null, error: null }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx).toMatchObject({ userId: 'm-7', tenantId: 't-dom', role: 'staff' })
+  })
+
+  it('rejects a per-tenant token NOT minted for this domain (falls through to 401)', async () => {
+    headerMap['x-tenant-id'] = 't-dom'
+    headerMap['x-tenant-sig'] = 'good-sig'
+    cookieMap['admin_token'] = 'member-tok-for-other-tenant'
+    headerSigValid = true
+    adminTokenValid = false
+    tenantAdminResult = null // verifyTenantAdminToken rejects (wrong tenant)
+    // No Clerk user behind it → 401, never resolves t-dom.
+    await expect(getTenantForRequest()).rejects.toMatchObject({ status: 401 })
+  })
+})
+
+describe('getTenantForRequest — normal Clerk membership flow', () => {
+  it('resolves the tenant the Clerk user is a member of, with the membership role', async () => {
+    ownerUserId = 'u-42'
+    dbResolve = (table, eqs) => {
+      if (table === 'tenant_members' && eqs.clerk_user_id === 'u-42')
+        return { data: { tenant_id: 't-9', role: 'manager' }, error: null }
+      if (table === 'tenants' && eqs.id === 't-9')
+        return { data: tenantRow({ id: 't-9', slug: 'nine' }), error: null }
       return { data: null, error: null }
     }
+
     const ctx = await getTenantForRequest()
-    expect(ctx.tenantId).toBe('t-1')
-    expect(ctx.userId).toBe('clerk-user-1')
-    expect(ctx.role).toBe('staff')
+    expect(ctx).toMatchObject({ userId: 'u-42', tenantId: 't-9', role: 'manager' })
+    // a normal member login is NOT an impersonation — nothing audited
+    expect(inserts.some((i) => i.table === 'impersonation_events')).toBe(false)
   })
 
-  it('authorizes a per-tenant member token that WAS minted for this domain tenant', async () => {
-    headerMap['x-tenant-id'] = 't-B'
-    headerMap['x-tenant-sig'] = 'sig'
-    headerSigValid = true
-    cookieMap['admin_token'] = 'member-token-for-B'
-    adminTokenValid = false
-    tenantAdminResult = { memberId: 'm-9', role: 'manager' } // token verified against t-B
-    dbResolver = (table, eqs) =>
-      table === 'tenants' && eqs.id === 't-B' ? { data: tenantRow('t-B'), error: null } : { data: null, error: null }
-    const ctx = await getTenantForRequest()
-    expect(ctx.tenantId).toBe('t-B')
-    expect(ctx.userId).toBe('m-9')
-    expect(ctx.role).toBe('manager')
-  })
-
-  it('authorizes a global super-admin token on a tenant domain as owner', async () => {
-    headerMap['x-tenant-id'] = 't-B'
-    headerMap['x-tenant-sig'] = 'sig'
-    headerSigValid = true
-    cookieMap['admin_token'] = 'global-admin'
-    adminTokenValid = true
-    dbResolver = (table, eqs) =>
-      table === 'tenants' && eqs.id === 't-B' ? { data: tenantRow('t-B'), error: null } : { data: null, error: null }
-    const ctx = await getTenantForRequest()
-    expect(ctx.tenantId).toBe('t-B')
-    expect(ctx.userId).toBe('admin')
-    expect(ctx.role).toBe('owner')
-  })
-
-  it('resolves a PIN-admin impersonation cookie to the impersonated tenant as owner', async () => {
-    impersonateId = 't-imp'
-    cookieMap['fl_impersonate'] = 'signed-cookie'
-    cookieMap['admin_token'] = 'global-admin'
-    adminTokenValid = true
-    dbResolver = (table, eqs) =>
-      table === 'tenants' && eqs.id === 't-imp' ? { data: tenantRow('t-imp'), error: null } : { data: null, error: null }
-    const ctx = await getTenantForRequest()
-    expect(ctx.tenantId).toBe('t-imp')
-    expect(ctx.userId).toBe('admin')
-    expect(ctx.role).toBe('owner')
+  it('throws AuthError 404 when the membership points at a tenant row that no longer exists', async () => {
+    ownerUserId = 'u-orphan'
+    dbResolve = (table, eqs) => {
+      if (table === 'tenant_members') return { data: { tenant_id: 't-gone', role: 'owner' }, error: null }
+      if (table === 'tenants' && eqs.id === 't-gone') return { data: null, error: null }
+      return { data: null, error: null }
+    }
+    await expect(getTenantForRequest()).rejects.toMatchObject({ status: 404 })
   })
 })

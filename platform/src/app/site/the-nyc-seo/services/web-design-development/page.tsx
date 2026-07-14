@@ -165,13 +165,6 @@ export default function WebDesignPage() {
       { "@type": "Place", name: "Long Island" },
       { "@type": "Place", name: "Westchester" },
     ],
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: "89",
-      bestRating: "5",
-      worstRating: "1",
-    },
   };
 
   const serviceSchema = {

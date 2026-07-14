@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkTeamAvailability } from '@/lib/availability'
-import { getCurrentTenant } from '@/lib/tenant'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 /**
@@ -10,10 +10,9 @@ import { supabaseAdmin } from '@/lib/supabase'
  * GET /api/team-availability?date=2026-03-15&start_time=10:00&duration=3&exclude_booking=uuid&client_id=uuid
  */
 export async function GET(request: NextRequest) {
-  const tenant = await getCurrentTenant()
-  if (!tenant) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
+  if (authError) return authError
+  const tenant = { id: authTenant.tenantId }
 
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')

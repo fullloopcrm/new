@@ -228,7 +228,7 @@ async function executeTool(name: string, input: Record<string, unknown>, tenant:
 
     case 'update_bookings': {
       const ids = input.booking_ids as string[]
-      const updates = input.updates as Record<string, unknown>
+      const updates = pick(input.updates, ['team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status'])
       const confirmed = input.confirmed as boolean
 
       if (!confirmed) {
@@ -314,7 +314,7 @@ async function executeTool(name: string, input: Record<string, unknown>, tenant:
     case 'update_client': {
       const { error } = await supabaseAdmin
         .from('clients')
-        .update(input.updates as Record<string, unknown>)
+        .update(pick(input.updates, ['name', 'email', 'phone', 'address', 'notes', 'active']))
         .eq('id', input.client_id as string)
         .eq('tenant_id', tenantId)
       if (error) return JSON.stringify({ error: error.message })

@@ -35,13 +35,22 @@ export async function POST(request: Request) {
     max_hours,
     notes,
   } = body
+
+  // `/api/client(.*)` is exempted from the platform's Clerk/session middleware
+  // (see middleware.ts) — each handler must verify the caller IS the client.
+  // This route had no check at all: any caller who knew a client_id could spin
+  // up a real 6-week recurring booking series (discounted pricing, real SMS/
+  // email sent to that client) and reassign their preferred cleaner, with zero
+  // proof of session.
+  if (!client_id) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+
   const maxHoursClean = typeof max_hours === 'number' && max_hours > 0 ? max_hours : null
   const extras: string[] = Array.isArray(extra_cleaner_ids)
     ? extra_cleaner_ids.filter((x: unknown): x is string => typeof x === 'string' && x.length > 0 && x !== cleaner_id)
     : []
   const finalTeamSize = Math.max(1, Math.min(8, team_size || (1 + extras.length)))
 
-  if (!client_id || !frequency || !start_date || !time || !hours) {
+  if (!frequency || !start_date || !time || !hours) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
   if (!['weekly', 'biweekly', 'monthly'].includes(frequency)) {
@@ -68,6 +77,32 @@ export async function POST(request: Request) {
     const unknown = suppliedMemberIds.filter((id) => !validIds.has(id))
     if (unknown.length > 0) {
       return NextResponse.json({ error: 'Invalid cleaner selection' }, { status: 400 })
+    }
+  }
+
+  // Confirm property_id/cleaner_id/extra_cleaner_ids (if given) belong to this
+  // tenant -- otherwise a foreign id gets written into recurring_schedules and
+  // 6 future bookings (plus clients.preferred_team_member_id), a persistent
+  // cross-tenant FK write, same class already fixed on POST /api/bookings
+  // (534a5834) and the sibling /api/client/preferred-cleaner route.
+  if (property_id) {
+    const { data: propertyRow } = await supabaseAdmin
+      .from('client_properties').select('id').eq('id', property_id).eq('tenant_id', tenantId).single()
+    if (!propertyRow) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
+  }
+  if (cleaner_id) {
+    const { data: leadRow } = await supabaseAdmin
+      .from('team_members').select('id, active').eq('id', cleaner_id).eq('tenant_id', tenantId).single()
+    if (!leadRow || leadRow.active === false) {
+      return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
+    }
+  }
+  if (extras.length > 0) {
+    const { data: extraRows } = await supabaseAdmin
+      .from('team_members').select('id, active').eq('tenant_id', tenantId).in('id', extras)
+    const validIds = new Set((extraRows || []).filter((r) => r.active !== false).map((r) => r.id))
+    if (validIds.size !== extras.length) {
+      return NextResponse.json({ error: 'One or more team members not available' }, { status: 400 })
     }
   }
 

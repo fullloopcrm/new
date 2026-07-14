@@ -31,6 +31,7 @@ export async function POST(request: Request) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
+  const db = tenantDb(auth.tid)
   const body = await request.json().catch(() => ({}))
 
   // Enforce tenant scheduling rules (allow_same_day, min_days_ahead).
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
   let serviceType = null
   let price = null
   if (body.service_type_id) {
-    const { data: svc } = await tenantDb(auth.tid)
+    const { data: svc } = await db
       .from('service_types')
       .select('name, default_duration_hours, default_hourly_rate')
       .eq('id', body.service_type_id)
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     price = applyRecurringDiscount(price, recurringType)
   }
 
-  const { data, error } = await tenantDb(auth.tid)
+  const { data, error } = await db
     .from('bookings') // tenant-scope-ok: tenantDb() stamps tenant_id on insert; audit heuristic doesn't parse the wrapper
     .insert({
       client_id: auth.id,

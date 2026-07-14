@@ -4,8 +4,9 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { postJournalEntry } from '@/lib/ledger'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { postJournalEntry } from '@/lib/ledger'
+import { safeEqual } from '@/lib/secret-compare'
 
 function advance(d: Date, freq: string): Date {
   const r = new Date(d)
@@ -24,7 +25,7 @@ function advance(d: Date, freq: string): Date {
 export async function POST(request: Request) {
   const auth = request.headers.get('authorization') || ''
   const secret = process.env.CRON_SECRET
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!secret || !safeEqual(auth, `Bearer ${secret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -66,11 +67,11 @@ export async function POST(request: Request) {
       }
 
       // Find a matching CoA for the expense (by subtype/name)
-      const safeCategory = sanitizePostgrestValue(r.category)
+      const cat = sanitizePostgrestValue(r.category)
       const { data: coaMatch } = await supabaseAdmin
         .from('chart_of_accounts').select('id')
         .eq('tenant_id', r.tenant_id).eq('type', 'expense')
-        .or(`subtype.eq.${safeCategory},name.ilike.%${safeCategory}%`)
+        .or(`subtype.eq.${cat},name.ilike.%${cat}%`)
         .limit(1).maybeSingle()
 
       // Find any bank CoA (or skip if none)

@@ -4,6 +4,7 @@
  * and re-pings the client. Escalates to admin after 30 min unpaid.
  */
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
@@ -13,10 +14,8 @@ import { runNycMaidPaymentReminder } from '@/lib/nycmaid/payment-reminder'
 export const maxDuration = 60
 
 export async function GET(request: Request) {
-  const auth = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const now = new Date()
   const fifteenAgo = new Date(now.getTime() - 15 * 60 * 1000).toISOString()

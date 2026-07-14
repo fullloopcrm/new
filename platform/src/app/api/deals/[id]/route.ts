@@ -54,15 +54,18 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     if ('title' in body) updates.title_override = true
 
-    // Confirm a reassigned client_id belongs to this tenant -- otherwise a
-    // foreign client's name/email/phone gets pulled into this deal via the
-    // clients() join on this response and every later GET, a cross-tenant
-    // PII leak (same class already fixed on bookings/quotes/invoices in
-    // 534a5834/7907701b).
+    // client_id is a caller-supplied FK — clients has no cross-tenant FK check,
+    // and the deals→clients join in every read of this route is unscoped by
+    // tenant, so a foreign id would leak another tenant's client name/email/
+    // phone/address into this tenant's pipeline. Verify ownership before update.
     if ('client_id' in updates && updates.client_id) {
-      const { data: clientRow } = await supabaseAdmin
-        .from('clients').select('id').eq('id', updates.client_id as string).eq('tenant_id', tenantId).single()
-      if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      const { data: ownedClient } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', updates.client_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedClient) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 
     const { data, error } = await supabaseAdmin

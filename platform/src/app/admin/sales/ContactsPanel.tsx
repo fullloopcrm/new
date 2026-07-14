@@ -102,7 +102,9 @@ export function ContactsPanel() {
   function exportCsv() {
     const headers = ['Business', 'Contact', 'Email', 'Phone', 'City', 'State', 'Category', 'Stage', 'Fit', 'Source', 'Created']
     const esc = (v: unknown) => {
-      const s = v == null ? '' : String(v)
+      let s = v == null ? '' : String(v)
+      // Neutralize CSV formula injection (Excel/Sheets execute leading =,+,-,@).
+      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
     }
     const rows = contacts.map(c => [

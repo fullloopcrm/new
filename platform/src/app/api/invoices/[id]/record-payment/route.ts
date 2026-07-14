@@ -4,10 +4,10 @@
  * with invoice_id — the DB trigger bumps amount_paid_cents + status automatically.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { logInvoiceEvent } from '@/lib/invoice'
+import { tenantDb } from '@/lib/tenant-db'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -18,6 +18,7 @@ export async function POST(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
 
@@ -30,10 +31,9 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: `Invalid method: ${method}` }, { status: 400 })
     }
 
-    const { data: invoice } = await supabaseAdmin
+    const { data: invoice } = await db
       .from('invoices')
       .select('id, tenant_id, client_id, booking_id, total_cents, amount_paid_cents, status')
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
     if (!invoice) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -42,10 +42,9 @@ export async function POST(request: Request, { params }: Params) {
     }
 
     // Insert payment — DB trigger recomputes invoice.amount_paid_cents and status.
-    const { data: payment, error: pErr } = await supabaseAdmin
+    const { data: payment, error: pErr } = await db
       .from('payments')
       .insert({
-        tenant_id: tenantId,
         invoice_id: id,
         booking_id: invoice.booking_id,
         client_id: invoice.client_id,
@@ -63,7 +62,7 @@ export async function POST(request: Request, { params }: Params) {
     if (pErr) throw pErr
 
     // Re-fetch invoice for updated status after trigger
-    const { data: updated } = await supabaseAdmin
+    const { data: updated } = await db
       .from('invoices')
       .select('status, amount_paid_cents, total_cents, paid_at')
       .eq('id', id)

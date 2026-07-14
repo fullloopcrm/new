@@ -10,6 +10,13 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
 import type { AgentConfig, BookingModel, PricingModel } from './agent-config'
+import { getAuthoredConfig } from './tenants'
+import { buildPriceCopy } from './price-copy'
+
+// buildPriceCopy moved to ./price-copy (leaf module) so per-tenant authored
+// configs can reuse it without an import cycle. Re-exported here so existing
+// importers (and tests) that pull it from agent-config-loader keep working.
+export { buildPriceCopy } from './price-copy'
 
 function funnelToBooking(funnel: string, hasHourly: boolean): BookingModel {
   if (funnel === 'lead_only') return 'lead_only'
@@ -22,15 +29,52 @@ function funnelToPricing(funnel: string, hasHourly: boolean): PricingModel {
   return hasHourly ? 'hourly' : 'flat'
 }
 
+interface RawChecklistField {
+  key?: string
+  enabled?: boolean
+  required?: boolean
+  question?: string
+  sms_options?: string
+}
+
+/**
+ * F2 fix: the neutral base engine used to hardcode a generic 3-question intake
+ * for EVERY non-authored tenant, ignoring tenants.selena_config.checklist_fields
+ * — the per-trade checklist provisionTenant() seeds from CHECKLIST_BY_INDUSTRY
+ * (industry-presets.ts) and the owner can edit in dashboard/settings. Only the
+ * 19 hand-authored tenants (./tenants/index.ts) + nycmaid ever asked their real
+ * trade-specific intake questions; every other vertical (dumpster, plumbing,
+ * pest, ~34 more) got "What do you need? / Where are you located? / When do you
+ * need it?" regardless of what CHECKLIST_BY_INDUSTRY or the owner configured.
+ * This derives intake.questions from the enabled checklist fields, falling back
+ * to the generic questions only when no checklist has been configured at all.
+ */
+export function deriveIntakeQuestions(checklistFields: unknown, fallback: string[]): string[] {
+  const fields = Array.isArray(checklistFields) ? (checklistFields as RawChecklistField[]) : []
+  const questions = fields
+    .filter((f): f is RawChecklistField & { question: string } => Boolean(f?.enabled) && typeof f?.question === 'string' && f.question.trim().length > 0)
+    .map((f) => f.question.trim())
+  return questions.length > 0 ? questions : fallback
+}
+
 export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   const [{ data: tenant }, settings] = await Promise.all([
     supabaseAdmin
       .from('tenants')
-      .select('name, phone, email, domain, website_url, industry, agent_name, address')
+      .select('name, phone, email, domain, website_url, industry, agent_name, address, slug, selena_config')
       .eq('id', tenantId)
       .single(),
     getSettings(tenantId),
   ])
+
+  // Base-engine + per-tenant layer: if this tenant has an authored AgentConfig
+  // (migrated one at a time — exterminator first), use it in place of the
+  // neutral derivation below so it resolves to its OWN persona, not the generic
+  // professional default. The tenant's DB persona (tenants.selena_config) still
+  // folds ON TOP downstream (agent.ts applyPersonaToConfig) — this replaces only
+  // the neutral BASE, never the tenant's own authored persona data.
+  const authored = getAuthoredConfig((tenant as { slug?: string } | null)?.slug)
+  if (authored) return authored
 
   const name = tenant?.name || 'the business'
   const agentName = tenant?.agent_name || 'Jefe'
@@ -44,16 +88,14 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   const bookingModel = funnelToBooking(settings.funnel_mode, hasHourly)
   const pricingModel = funnelToPricing(settings.funnel_mode, hasHourly)
 
-  const priceCopy =
-    pricingModel === 'quote_only'
-      ? ''
-      : activeServices.length
-        ? `Services: ${activeServices.map((s) => s.name).join(', ')}. Quote only your configured rates — never invent a total you were not given.`
-        : 'Quote only your configured rates — never invent a number.'
+  const priceCopy = buildPriceCopy(activeServices, pricingModel)
 
   const serviceList = activeServices.length
     ? `What do you need? (${activeServices.map((s) => s.name).join(', ')})`
     : 'What do you need help with?'
+
+  const checklistFields = (tenant as { selena_config?: { checklist_fields?: unknown } } | null)?.selena_config?.checklist_fields
+  const intakeQuestions = deriveIntakeQuestions(checklistFields, [serviceList, 'Where are you located?', 'When do you need it?'])
 
   return {
     identity: {
@@ -82,7 +124,7 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
       'Do not promise anything the owner might not honor. Escalate refunds, disputes, and legal threats.',
     ],
     pricing: { model: pricingModel, copy: priceCopy },
-    intake: { questions: [serviceList, 'Where are you located?', 'When do you need it?'] },
+    intake: { questions: intakeQuestions },
     payment: {
       methods: settings.payment_methods || [],
       timing: 'as arranged',

@@ -1060,7 +1060,7 @@ export function adminRescheduleEmail(booking: any, oldDate: string, oldTime: str
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Booking rescheduled by client</h1>
-    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">${booking.clients?.name || 'A client'} has rescheduled their cleaning.</p>
+    <p style="color: #666; font-size: 15px; margin: 0 0 24px 0;">${escapeHtml(booking.clients?.name || 'A client')} has rescheduled their cleaning.</p>
 
     ${infoTable(`
       ${infoRow('Client', escapeHtml(booking.clients?.name || 'Unknown'))}
@@ -1103,7 +1103,7 @@ export function cleanerRescheduleEmail(booking: any, oldDate: string, oldTime: s
 
     <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 24px 0;">
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Address / Dirección</p>
-      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${address}</p>
+      <p style="margin: 0 0 12px 0; font-size: 15px; color: #000;">${escapeHtml(address)}</p>
       <a href="${mapsLink}" style="color: #0066cc; font-size: 14px;">Open in Maps / Abrir en Mapas →</a>
     </div>
 

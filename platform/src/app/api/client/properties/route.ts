@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { tenantDb } from '@/lib/tenant-db'
 import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
 import {
   listProperties,
@@ -39,15 +38,18 @@ export async function GET(request: Request) {
 
   if (searchParams.get('include_history') === 'true' && auth.isAdmin) {
     const { supabaseAdmin } = await import('@/lib/supabase')
-    // isAdminAuthenticated() carries no tenant binding (legacy admin_session,
-    // same class as the Selena IDOR) — client_id alone isn't enough proof of
-    // ownership, so resolve the client's own tenant and require rows to match it.
+    // isAdminAuthenticated() is a legacy admin_session cookie with no tenant
+    // binding — resolve the client's OWN tenant_id and require every returned
+    // row to match it, so a property_changes row ever mistagged to a foreign
+    // tenant can't surface here.
     const { data: clientRow } = await supabaseAdmin.from('clients').select('tenant_id').eq('id', clientId!).single()
-    if (!clientRow?.tenant_id) return NextResponse.json({ properties, history: [] })
-    const { data: history } = await tenantDb(clientRow.tenant_id)
+    const tenantId = clientRow?.tenant_id as string | undefined
+    if (!tenantId) return NextResponse.json({ properties, history: [] })
+    const { data: history } = await supabaseAdmin
       .from('property_changes')
       .select('id, property_id, action, old_value, new_value, changed_by, actor_id, source, created_at')
       .eq('client_id', clientId!)
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50)
     return NextResponse.json({ properties, history: history || [] })

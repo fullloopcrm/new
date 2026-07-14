@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
@@ -9,10 +10,8 @@ import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   // NYC Maid parity: auto-resume paused schedules whose pause window elapsed
   // (tenant-scoped). Safe no-op if the column/rows don't exist.

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 // Pause / resume a recurring schedule. Tenant-scoped, admin-only. Pausing
@@ -11,6 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { tenant, error } = await requirePermission('schedules.edit')
   if (error) return error
   const { tenantId } = tenant
+  const db = tenantDb(tenantId)
   const { id } = await params
 
   const body = await request.json()
@@ -19,21 +20,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'paused_until date is required' }, { status: 400 })
   }
 
-  const { data: schedule, error: sErr } = await supabaseAdmin
+  const { data: schedule, error: sErr } = await db
     .from('recurring_schedules')
     .update({ status: 'paused', paused_until, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .select('*, clients(name)')
     .single()
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
 
   const now = new Date().toISOString()
   const pauseEnd = paused_until + 'T23:59:59'
-  const { data: cancelled } = await supabaseAdmin
+  const { data: cancelled } = await db
     .from('bookings')
     .update({ status: 'cancelled' })
-    .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
     .in('status', ['scheduled', 'pending'])
     .gte('start_time', now)
@@ -52,13 +51,13 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { tenant, error } = await requirePermission('schedules.edit')
   if (error) return error
   const { tenantId } = tenant
+  const db = tenantDb(tenantId)
   const { id } = await params
 
-  const { data: schedule, error: sErr } = await supabaseAdmin
+  const { data: schedule, error: sErr } = await db
     .from('recurring_schedules')
     .update({ status: 'active', paused_until: null, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('tenant_id', tenantId)
     .select('*, clients(name)')
     .single()
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
