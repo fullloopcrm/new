@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 async function findClient(tenantId: string, input: string) {
   const trimmed = input.trim()
@@ -11,7 +12,7 @@ async function findClient(tenantId: string, input: string) {
     .from('clients')
     .select('id, phone, email, name')
     .eq('tenant_id', tenantId)
-    .ilike('email', trimmed)
+    .ilike('email', escapeLikeValue(trimmed))
     .maybeSingle()
   if (byEmail) return byEmail
 

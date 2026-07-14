@@ -5,6 +5,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { sendEmail } from '@/lib/email'
 import { hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 const OTP_TTL_MS = 10 * 60 * 1000
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     .from('referrers')
     .select('id, name, email')
     .eq('tenant_id', tenant.id)
-    .ilike('email', email)
+    .ilike('email', escapeLikeValue(email))
     .eq('status', 'active')
     .maybeSingle()
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sanitizePostgrestValue } from './postgrest-safe'
+import { sanitizePostgrestValue, escapeLikeValue } from './postgrest-safe'
 
 describe('sanitizePostgrestValue', () => {
   it('strips a comma-based filter-injection payload', () => {
@@ -36,5 +36,29 @@ describe('sanitizePostgrestValue', () => {
   it('returns empty string for null/undefined', () => {
     expect(sanitizePostgrestValue(null)).toBe('')
     expect(sanitizePostgrestValue(undefined)).toBe('')
+  })
+})
+
+describe('escapeLikeValue', () => {
+  it('escapes % so an exact-match ilike() cannot become a match-everything wildcard', () => {
+    expect(escapeLikeValue('%')).toBe('\\%')
+    expect(escapeLikeValue('%@gmail.com')).toBe('\\%@gmail.com')
+  })
+
+  it('escapes _ (single-char wildcard) too', () => {
+    expect(escapeLikeValue('a_b')).toBe('a\\_b')
+  })
+
+  it('escapes a literal backslash so it cannot be used to un-escape a later char', () => {
+    expect(escapeLikeValue('a\\%b')).toBe('a\\\\\\%b')
+  })
+
+  it('leaves an ordinary email untouched in content (only escape chars are inserted)', () => {
+    expect(escapeLikeValue('john.doe@example.com')).toBe('john.doe@example.com')
+  })
+
+  it('returns empty string for null/undefined', () => {
+    expect(escapeLikeValue(null)).toBe('')
+    expect(escapeLikeValue(undefined)).toBe('')
   })
 })

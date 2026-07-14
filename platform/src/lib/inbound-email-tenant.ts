@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase'
 import { getTenantByDomain } from './tenant-lookup'
+import { escapeLikeValue } from './postgrest-safe'
 
 /**
  * Tenant resolution for INBOUND email (Resend "email.received").
@@ -43,17 +44,11 @@ export function emailDomain(address: string): string | null {
   return dom || null
 }
 
-// Escape LIKE/ILIKE wildcards so an address/domain is matched literally
-// (Postgres default LIKE escape char is backslash).
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, '\\$&')
-}
-
 async function firstMatch(column: 'email_from' | 'resend_domain', value: string): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from('tenants')
     .select('id, name')
-    .ilike(column, escapeLike(value))
+    .ilike(column, escapeLikeValue(value))
     .order('id', { ascending: true })
     .limit(2)
 

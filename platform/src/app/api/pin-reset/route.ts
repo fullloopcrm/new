@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { hashAdminPin, isValidAdminPin } from '@/lib/admin-pin'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 /**
  * Self-service tenant-member PIN reset. Runs on a tenant's own domain: the
@@ -51,7 +52,7 @@ async function findMember(tenantId: string, contact: string): Promise<Member | n
     .from('tenant_members')
     .select('id, name, phone, email')
     .eq('tenant_id', tenantId)
-    .ilike('email', value)
+    .ilike('email', escapeLikeValue(value))
     .maybeSingle()
   return (byEmail.data as Member) || null
 }

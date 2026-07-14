@@ -39,23 +39,45 @@ function project(row: Record<string, unknown>, cols: string): Record<string, unk
   return Object.fromEntries(fields.map((f) => [f, row[f]]))
 }
 
+// A real (if minimal) SQL LIKE-pattern matcher: `%` = any run of chars, `_` =
+// any single char, `\` escapes the next char. This is what real Postgres
+// ILIKE does — a fake that just lower-cases and string-compares (the prior
+// version of this fake) can't catch a wildcard-injection regression because
+// it never treats `%`/`_` as wildcards in the first place.
+function ilikeMatches(pattern: string, value: string): boolean {
+  let regex = ''
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i]
+    if (c === '\\' && i + 1 < pattern.length) {
+      regex += pattern[++i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    } else if (c === '%') {
+      regex += '.*'
+    } else if (c === '_') {
+      regex += '.'
+    } else {
+      regex += c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    }
+  }
+  return new RegExp(`^${regex}$`, 'i').test(value)
+}
+
 vi.mock('@/lib/supabase', () => {
   const chain = (cols: string) => {
-    const state: { eqs: Record<string, unknown> } = { eqs: {} }
+    const state: { eqs: Record<string, unknown>; ilikes: Record<string, unknown> } = { eqs: {}, ilikes: {} }
     const builder = {
       eq(col: string, val: unknown) {
         state.eqs[col] = val
         return builder
       },
       ilike(col: string, val: unknown) {
-        state.eqs[col] = val
+        state.ilikes[col] = val
         return builder
       },
       single: async () => {
         const matches =
           state.eqs.tenant_id === REFERRER_ROW.tenant_id &&
           (state.eqs.referral_code === REFERRER_ROW.referral_code ||
-            (typeof state.eqs.email === 'string' && state.eqs.email.toLowerCase() === REFERRER_ROW.email.toLowerCase()))
+            (typeof state.ilikes.email === 'string' && ilikeMatches(state.ilikes.email, REFERRER_ROW.email)))
         if (!matches) return { data: null, error: { message: 'not found' } }
         return { data: project(REFERRER_ROW, cols), error: null }
       },
@@ -100,5 +122,22 @@ describe('GET /api/referrers -- public code/email lookup never leaks financial f
     expect(json).not.toHaveProperty('total_earned')
     expect(json).not.toHaveProperty('total_paid')
     expect(json).not.toHaveProperty('preferred_payout')
+  })
+})
+
+describe('GET /api/referrers?email= -- LIKE wildcard injection', () => {
+  it('a bare "%" does not match every referrer (would otherwise leak name/email/code with zero auth)', async () => {
+    const res = await GET(new NextRequest(`http://x/api/referrers?email=${encodeURIComponent('%')}`))
+    expect(res.status).toBe(404)
+  })
+
+  it('a partial pattern like "%@example.com" does not match the real referrer', async () => {
+    const res = await GET(new NextRequest(`http://x/api/referrers?email=${encodeURIComponent('%@example.com')}`))
+    expect(res.status).toBe(404)
+  })
+
+  it('the exact email (positive control) still resolves', async () => {
+    const res = await GET(new NextRequest(`http://x/api/referrers?email=${encodeURIComponent('referrer@example.com')}`))
+    expect(res.status).toBe(200)
   })
 })

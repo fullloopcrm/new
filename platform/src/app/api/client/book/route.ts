@@ -16,6 +16,7 @@ import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-prop
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
         .from('clients')
         .select('id')
         .eq('tenant_id', tenant.id)
-        .ilike('email', emailLower)
+        .ilike('email', escapeLikeValue(emailLower))
         .maybeSingle()
       if (byEmail) clientId = byEmail.id
 

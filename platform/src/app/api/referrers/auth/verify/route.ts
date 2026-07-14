@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 // Step 2 of referrer login: email + 6-digit code in → session token out.
 export async function POST(request: NextRequest) {
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     .from('referrers')
     .select('id, referral_code, otp_hash, otp_expires_at')
     .eq('tenant_id', tenant.id)
-    .ilike('email', email)
+    .ilike('email', escapeLikeValue(email))
     .eq('status', 'active')
     .maybeSingle()
 

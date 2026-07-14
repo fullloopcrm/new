@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 // Rate limiting
 const attempts = new Map<string, { count: number; resetAt: number }>()
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
       .from('referrers')
       .select('id, name, email, referral_code, created_at')
       .eq('tenant_id', lookupTenant.id)
-      .ilike('email', email)
+      .ilike('email', escapeLikeValue(email))
       .single()
 
     if (!data) return NextResponse.json({ error: 'Email not found' }, { status: 404 })
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
     .from('referrers')
     .select('id')
     .eq('tenant_id', tenant.id)
-    .ilike('email', email)
+    .ilike('email', escapeLikeValue(email))
     .single()
 
   if (existing) {
