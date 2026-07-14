@@ -123,7 +123,11 @@ describe('POST /api/portal/bookings — start_time + scheduling-rule validation'
 
   it('rejects a same-day booking when allow_same_day is false', async () => {
     h.getSettings.mockResolvedValue({ allow_same_day: false, min_days_ahead: 0 })
-    const today = new Date().toISOString().split('T')[0]
+    // Local-date components, matching how the route itself computes "today"
+    // (new Date().getFullYear/getMonth/getDate, not toISOString which is UTC
+    // and drifts a day off local "today" near midnight UTC).
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
     const res = await POST(postReq({ start_time: `${today}T09:00:00` }))
 
