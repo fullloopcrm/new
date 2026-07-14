@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
 
@@ -8,7 +9,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('reviews.request')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
     const fields = pick(body, ['status', 'rating', 'comment', 'google_review_url', 'requested_at', 'completed_at'])

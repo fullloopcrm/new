@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateReviewReply, postReviewReply } from '@/lib/google-reviews'
 import { getGoogleBusiness } from '@/lib/google'
@@ -40,7 +41,9 @@ export async function GET() {
 // POST — reply to a specific review (manual or AI-generated)
 export async function POST(request: NextRequest) {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('reviews.request')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { reviewId, reply, generateAI } = await request.json()
 
     if (!reviewId) {
@@ -52,7 +55,7 @@ export async function POST(request: NextRequest) {
       .from('google_reviews')
       .select('*')
       .eq('id', reviewId)
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (!review) {
@@ -64,7 +67,7 @@ export async function POST(request: NextRequest) {
     // Generate AI reply if requested
     if (generateAI) {
       replyText = await generateReviewReply(
-        tenant.id,
+        tenantId,
         review.reviewer_name,
         review.rating,
         review.comment || '',
@@ -78,13 +81,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Post to Google
-    const business = await getGoogleBusiness(tenant.id)
+    const business = await getGoogleBusiness(tenantId)
     if (!business?.location_name) {
       return NextResponse.json({ error: 'Google Business not connected' }, { status: 400 })
     }
 
     const reviewName = `${business.location_name}/reviews/${review.google_review_id}`
-    const posted = await postReviewReply(tenant.id, reviewName, replyText)
+    const posted = await postReviewReply(tenantId, reviewName, replyText)
 
     if (!posted) {
       return NextResponse.json({ error: 'Failed to post reply to Google' }, { status: 500 })
@@ -106,13 +109,15 @@ export async function POST(request: NextRequest) {
 // PUT — toggle auto-reply setting
 export async function PUT(request: NextRequest) {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('settings.integrations')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { autoReply } = await request.json()
 
     await supabaseAdmin
       .from('tenant_settings')
       .upsert(
-        { tenant_id: tenant.id, google_auto_reply: !!autoReply, updated_at: new Date().toISOString() },
+        { tenant_id: tenantId, google_auto_reply: !!autoReply, updated_at: new Date().toISOString() },
         { onConflict: 'tenant_id' }
       )
 

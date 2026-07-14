@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { guessZoneFromAddress } from '@/lib/service-zones'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 
@@ -57,13 +57,8 @@ function bookingOverlapsWindow(b: BookingRow, windowStart: Date, windowEnd: Date
 }
 
 export async function POST(request: Request) {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: ctx, error: authError } = await requirePermission('campaigns.send')
+  if (authError) return authError
   const tenantId = ctx.tenantId
 
   const body = await request.json().catch(() => ({}))

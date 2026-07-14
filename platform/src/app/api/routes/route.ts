@@ -3,11 +3,14 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const url = new URL(request.url)
     const date = url.searchParams.get('date')
     const teamMemberId = url.searchParams.get('team_member_id')
@@ -41,7 +44,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('bookings.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json()
 
     if (!body.route_date) {

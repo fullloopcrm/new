@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP, type EligibleApplicant } from '../constants'
 
 // Preview who an applicant broadcast would reach. Ported from nycmaid,
@@ -27,13 +27,9 @@ type ApplicantRow = {
 }
 
 export async function POST() {
-  let tenantId: string
-  try {
-    ({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant, error: authError } = await requirePermission('campaigns.send')
+  if (authError) return authError
+  const { tenantId } = tenant
 
   const { data: applicants, error } = await supabaseAdmin
     .from('cleaner_applications')

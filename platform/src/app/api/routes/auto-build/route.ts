@@ -8,7 +8,8 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import type { RouteStop } from '@/lib/route-optimizer'
 
 interface BookingRow {
@@ -26,7 +27,9 @@ interface BookingRow {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.edit')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const body = await request.json().catch(() => ({}))
     const date: string = body.date
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {

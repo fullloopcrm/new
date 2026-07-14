@@ -4,7 +4,8 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 interface BookingRow {
   client_id: string
@@ -33,7 +34,9 @@ function wrapEmail(bodyHtml: string, tenantName: string, brandColor: string): st
 
 export async function POST(request: Request) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('campaigns.create')
+    if (authError) return authError
+    const { tenantId, tenant } = authTenant
     const { audience_filter, email_body, channel, contact_filter } = await request.json()
 
     let clientsQuery = supabaseAdmin

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { createGooglePost, generateGooglePost, getGooglePosts } from '@/lib/google-posts'
 
 // GET — list all posts for tenant
@@ -17,12 +18,14 @@ export async function GET() {
 // POST — create a new Google Business post
 export async function POST(request: NextRequest) {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('campaigns.send')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { summary, generateAI, topic, callToActionType, callToActionUrl, photoUrl } = await request.json()
 
     // Generate AI content if requested
     if (generateAI) {
-      const generated = await generateGooglePost(tenant.id, topic)
+      const generated = await generateGooglePost(tenantId, topic)
       return NextResponse.json({ generatedPost: generated })
     }
 
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await createGooglePost({
-      tenantId: tenant.id,
+      tenantId,
       summary,
       callToActionType,
       callToActionUrl,
