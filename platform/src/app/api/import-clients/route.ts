@@ -6,7 +6,8 @@
 import { NextResponse } from 'next/server'
 import crypto from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 interface ClientInput {
   name?: string
@@ -18,7 +19,9 @@ interface ClientInput {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('clients.create')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { clients } = await request.json() as { clients?: ClientInput[] }
     if (!Array.isArray(clients)) {
       return NextResponse.json({ error: 'clients must be an array' }, { status: 400 })
