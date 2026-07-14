@@ -44,6 +44,21 @@ export async function PATCH(request: Request, { params }: Params) {
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
+    // team_member_id is caller-supplied; verify it belongs to this tenant before
+    // writing it (GET joins team_members(name, phone, home_lat/lng), so a foreign
+    // id would otherwise leak another tenant's staff PII onto this route).
+    if (updates.team_member_id) {
+      const { data: tm } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('id', updates.team_member_id)
+        .single()
+      if (!tm) {
+        return NextResponse.json({ error: 'Invalid team_member_id' }, { status: 404 })
+      }
+    }
+
     if ('stops' in body && Array.isArray(body.stops)) {
       updates.total_stops = body.stops.length
     }
