@@ -28,6 +28,18 @@ export async function POST(request: Request) {
     if (email) lookupKeys.push(email.toLowerCase())
     if (phoneDigits) lookupKeys.push(`sms:${phoneDigits}`)
 
+    // The IP-based limit above bounds one attacker box, but an attacker
+    // spreading guesses across rotating IPs/proxies would otherwise get an
+    // effectively unbounded number of tries at a single victim's 6-digit code
+    // within its 10-minute window. Mirror pin-reset's per-contact throttle
+    // (rate-limit by the identifier being attacked, not just the caller).
+    for (const key of lookupKeys) {
+      const idRl = await rateLimitDb(`client-verify-id:${tenant.id}:${key}`, 5, 10 * 60 * 1000, { failClosed: true })
+      if (!idRl.allowed) {
+        return NextResponse.json({ error: 'Too many attempts. Please wait 10 minutes.' }, { status: 429 })
+      }
+    }
+
     let verification = null
     for (const key of lookupKeys) {
       const { data } = await supabaseAdmin
