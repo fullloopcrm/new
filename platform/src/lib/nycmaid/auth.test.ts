@@ -56,6 +56,20 @@ describe('session cookie — forgery is rejected', () => {
     const wrongSig = createHmac('sha256', 'not-the-secret').update(payload).digest('hex')
     expect(verifySessionCookie(`${payload}.${wrongSig}`)).toEqual({ valid: false })
   })
+
+  it('rejects a non-hex signature without throwing (constant-time compare must fail closed, not crash)', () => {
+    const ts = Date.now().toString(36)
+    const payload = `user-1.token123.${ts}`
+    expect(() => verifySessionCookie(`${payload}.not-hex-at-all`)).not.toThrow()
+    expect(verifySessionCookie(`${payload}.not-hex-at-all`)).toEqual({ valid: false })
+  })
+
+  it('rejects a truncated-but-valid-hex-prefix signature (differing length must fail closed before timingSafeEqual)', () => {
+    const ts = Date.now().toString(36)
+    const payload = `user-1.token123.${ts}`
+    const shortSig = sign(payload).slice(0, 10)
+    expect(verifySessionCookie(`${payload}.${shortSig}`)).toEqual({ valid: false })
+  })
 })
 
 describe('session cookie — expiry', () => {
