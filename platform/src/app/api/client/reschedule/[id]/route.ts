@@ -41,6 +41,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const auth = await protectClientAPI(tenant.id, oldBooking.client_id)
   if (auth instanceof NextResponse) return auth
 
+  // Confirm a caller-supplied team_member_id belongs to this tenant --
+  // otherwise a foreign id gets its full row (name/phone/pay_rate) pulled
+  // into the response via the team_members!bookings_team_member_id_fkey
+  // join below, a cross-tenant PII leak to an external customer (same class
+  // already fixed on staff-facing bookings/schedules routes).
+  if (body.team_member_id) {
+    const { data: memberRow } = await tenantDb(tenant.id)
+      .from('team_members').select('id').eq('id', body.team_member_id).single()
+    if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+  }
+
   const tz = tenant.timezone || 'America/New_York'
   const oldDate = fmtDate(oldBooking.start_time, tz)
   const oldTime = fmtTime(oldBooking.start_time, tz)
