@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
+import { escapeHtml } from '@/lib/escape-html'
 
 export async function POST(request: Request) {
   try {
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
         await sendEmail({
           to: client.email,
           subject: `How was your experience with ${tenant.name}?`,
-          html: `<p>${message.replace(/\n/g, '<br>')}</p>`,
+          html: `<p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
           resendApiKey: tenant.resend_api_key,
         })
       } catch (e) {

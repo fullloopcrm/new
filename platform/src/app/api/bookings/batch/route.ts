@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
@@ -154,7 +155,7 @@ export async function POST(request: Request) {
         sendEmail({
           to: client.email,
           subject: `Booking confirmed for ${bookingDate}`,
-          html: `<p>Hi ${client.name || 'there'},</p><p>Your booking on <strong>${bookingDate}</strong> is confirmed.</p>`,
+          html: `<p>Hi ${escapeHtml(client.name || 'there')},</p><p>Your booking on <strong>${escapeHtml(bookingDate)}</strong> is confirmed.</p>`,
           from: fromEmail,
           resendApiKey: resendKey,
         }).catch(err => console.error('[batch] client email error:', err))

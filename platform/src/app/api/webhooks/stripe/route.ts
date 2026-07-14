@@ -15,6 +15,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { cleanerPaidHours } from '@/lib/billing-hours'
@@ -196,9 +197,9 @@ export async function POST(request: Request) {
                       <h1 style="color:white;margin:0;font-size:22px;">Welcome to Full Loop CRM</h1>
                     </div>
                     <div style="background:#f9fafb;padding:28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
-                      <p style="color:#111827;font-size:15px;line-height:1.6;margin:0 0 16px;">Hi ${prospect.owner_name || 'there'},</p>
+                      <p style="color:#111827;font-size:15px;line-height:1.6;margin:0 0 16px;">Hi ${escapeHtml(prospect.owner_name || 'there')},</p>
                       <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
-                        Your ${prospect.business_name} account is set up and ready. Click below to sign in, finish onboarding, and connect your phone number, email, and payment integrations.
+                        Your ${escapeHtml(prospect.business_name)} account is set up and ready. Click below to sign in, finish onboarding, and connect your phone number, email, and payment integrations.
                       </p>
                       <div style="text-align:center;margin:24px 0;">
                         <a href="${joinUrl}" style="display:inline-block;background:#1e40af;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Get Started</a>
