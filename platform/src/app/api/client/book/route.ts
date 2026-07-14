@@ -58,14 +58,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
     }
 
-    // DNS (do-not-service) gate — never create bookings for these clients.
+    // This is a PUBLIC, unauthenticated endpoint and body.client_id comes
+    // straight from the caller's localStorage (see client dashboards) with no
+    // server-side session binding. Confirm it belongs to THIS tenant before
+    // trusting it for anything below -- otherwise a client_id from a
+    // different tenant gets a real booking created under it, and that
+    // foreign client's name/phone/address (and, via resolveProperty, their
+    // property address) gets pulled into this tenant's dashboard through the
+    // clients()/client_properties() joins on GET /api/bookings, a
+    // cross-tenant PII leak reachable by any anonymous visitor (same class
+    // already fixed on the staff-facing creation routes this session).
+    // Doubles as the do-not-service (DNS) gate.
     if (body.client_id) {
       const { data: dnsCheck } = await tenantDb(tenant.id)
         .from('clients')
         .select('do_not_service')
         .eq('id', body.client_id as string)
         .single()
-      if (dnsCheck?.do_not_service) {
+      if (!dnsCheck) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
+      if (dnsCheck.do_not_service) {
         const contactPhone = tenant.phone || ''
         return NextResponse.json({
           error: `Please contact us${contactPhone ? ` at ${contactPhone}` : ''} to schedule your next service.`,
