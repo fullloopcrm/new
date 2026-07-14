@@ -9,13 +9,21 @@
  * GET returns the current live status (used by the onboarding completion page).
  *
  * Multi-tenant: uses tenant.stripe_api_key when present, falls back to env.
+ *
+ * Auth: requires an authenticated tenant-admin/operator session
+ * (requirePermission), scoped to their own tenant. This previously trusted
+ * an unauthenticated getTenantFromHeaders()/team_members-id fallback, which
+ * let anyone who could reach the route (middleware only checks that an
+ * admin_token cookie is *present*, not valid) pull live Stripe Connect
+ * status for any team member on any tenant by guessing/enumerating ids.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
-import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { decryptSecret } from '@/lib/secret-crypto'
 
 function getStripe(key: string | null | undefined): Stripe {
@@ -25,33 +33,19 @@ function getStripe(key: string | null | undefined): Stripe {
   return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
-async function resolveTenantForTeamMember(teamMemberId: string) {
-  // Prefer tenant from request headers (middleware injects it) but fall
-  // back to looking it up off the team_members row so this endpoint works
-  // when hit directly by Stripe redirect without host-based middleware.
-  const headerTenant = await getTenantFromHeaders()
-  if (headerTenant) return headerTenant
-
-  const { data: tm } = await supabaseAdmin
-    .from('team_members')
-    .select('tenant_id')
-    .eq('id', teamMemberId)
-    .single()
-  if (!tm?.tenant_id) return null
-
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('*')
-    .eq('id', tm.tenant_id)
-    .single()
-  return tenant
-}
-
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { tenant: authTenant, error: authError } = await requirePermission('team.edit')
+  if (authError) return authError
+
   try {
     const { id } = await params
+    const tenantId = authTenant.tenantId
 
-    const tenant = await resolveTenantForTeamMember(id)
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('*')
+      .eq('id', tenantId)
+      .single()
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
     const { data: teamMember } = await supabaseAdmin
@@ -99,6 +93,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       details_submitted: account.details_submitted,
     })
   } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('[stripe-status] POST error:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
   }
@@ -106,8 +101,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { tenantId } = await getTenantForRequest()
     const { id } = await params
-    const tenant = await resolveTenantForTeamMember(id)
+
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('*')
+      .eq('id', tenantId)
+      .single()
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
     const { data: tm } = await supabaseAdmin
@@ -128,6 +129,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       details_submitted: account.details_submitted,
     })
   } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('[stripe-status] GET error:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
   }
