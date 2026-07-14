@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
@@ -32,12 +33,23 @@ export async function GET(
   }
 }
 
+// PUT/DELETE mutate/remove a campaign (incl. flipping status straight to
+// 'approved', which is the exact gate campaigns.send checks before a send is
+// allowed) and previously called getTenantForRequest() with no permission
+// check at all -- any tenant member of ANY role (a 'manager', who only has
+// campaigns.view, or even 'staff', who has no campaigns permission at all)
+// could edit or delete a campaign, or self-approve one to bypass the tenant's
+// campaign_approval_required setting. POST /api/campaigns (create) already
+// correctly gates on campaigns.create; PUT/DELETE now match it.
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { tenant, error: authError } = await requirePermission('campaigns.create')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
     const fields = pick(body, ['name', 'type', 'subject', 'body', 'recipient_filter', 'status', 'scheduled_at'])
@@ -67,8 +79,11 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { tenant, error: authError } = await requirePermission('campaigns.create')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { id } = await params
 
     const { error } = await supabaseAdmin
