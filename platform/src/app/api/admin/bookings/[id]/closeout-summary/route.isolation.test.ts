@@ -2,25 +2,34 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
- * /api/admin/bookings/[id]/closeout-summary — tenantDb() conversion probe
- * (P1/W1 backlog batch). Platform-admin route: the booking lookup by id is
- * deliberately cross-tenant (superadmin tool), but every child table
- * (booking_team_members/payments/team_member_payouts/sms_logs) is now
- * scoped to the booking's OWN tenant via tenantDb(booking.tenant_id) instead
- * of a bare `.eq('booking_id', id)` — defense-in-depth, mirrors the
- * cleaner-payout route's precedent.
+ * /api/admin/bookings/[id]/closeout-summary — tenant isolation (P1/W1
+ * backlog batch + cross-lane fix ported from p1-w2 commit 998d6bbe). This
+ * route backs the shared /dashboard bookings closeout widget (every
+ * tenant's own admin), NOT a platform-super-admin-only tool — it was
+ * wrongly gated on requireAdmin() (401ing every ordinary tenant admin) and
+ * its top-level booking lookup wasn't tenant-scoped at all (a caller could
+ * pull ANY tenant's client/payment/payout data by booking id). Now gated on
+ * requirePermission('bookings.view') with `.eq('tenant_id', tenantId)` on
+ * the booking lookup. Every child table (booking_team_members/payments/
+ * team_member_payouts/sms_logs) is ALSO scoped to the booking's OWN tenant
+ * via tenantDb(booking.tenant_id) — defense-in-depth, mirrors the
+ * cleaner-payout route's precedent — kept even though the top-level check
+ * now makes booking.tenant_id always equal the caller's tenantId.
  */
 
 const h = vi.hoisted(() => ({
   seq: 0,
   store: {} as Record<string, Array<Record<string, unknown>>>,
-})) as unknown as FakeStoreHandle
+  requirePermission: vi.fn(),
+})) as unknown as FakeStoreHandle & {
+  requirePermission: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
+}
 
 vi.mock('@/lib/supabase', () => {
   const fake = makeTenantDbFake(h)
   return { supabaseAdmin: fake, supabase: fake }
 })
-vi.mock('@/lib/require-admin', () => ({ requireAdmin: async () => null }))
+vi.mock('@/lib/require-permission', () => ({ requirePermission: (...a: unknown[]) => h.requirePermission(...a) }))
 
 import { GET } from './route'
 
@@ -28,6 +37,8 @@ const params = (id: string) => ({ params: Promise.resolve({ id }) })
 
 beforeEach(() => {
   h.seq = 0
+  h.requirePermission.mockReset()
+  h.requirePermission.mockImplementation(async () => ({ tenant: { tenantId: 'tenant-A' }, error: null }))
   h.store = {
     bookings: [
       { id: 'book-A1', tenant_id: 'tenant-A', status: 'completed', team_size: 1, hourly_rate: 79 },
@@ -73,5 +84,18 @@ describe('GET /api/admin/bookings/[id]/closeout-summary — tenant isolation', (
     const json = await res.json()
     const lead = json.cleaner_payouts.find((c: { cleaner_id: string }) => c.cleaner_id === 'tm-1')
     expect(lead.total_paid_cents).toBe(500)
+  })
+
+  it('an ordinary tenant admin (not a platform super-admin) can view their own booking', async () => {
+    const res = await GET(new Request('http://x'), params('book-A1'))
+    expect(res.status).toBe(200)
+  })
+
+  it("a tenant-A admin gets 404, not another tenant's data, when the booking id belongs to tenant-B", async () => {
+    h.store.bookings.push({ id: 'book-B1', tenant_id: 'tenant-B', status: 'completed', team_size: 1, hourly_rate: 79 })
+
+    const res = await GET(new Request('http://x'), params('book-B1'))
+
+    expect(res.status).toBe(404)
   })
 })

@@ -1,16 +1,20 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
-import { requireAdmin } from '@/lib/require-admin'
+import { requirePermission } from '@/lib/require-permission'
 
 // GET /api/admin/bookings/:id/closeout-summary
+// Backs the shared /dashboard bookings closeout widget (every tenant's own
+// admin, not a platform-super-admin-only surface) -- gated on
+// requirePermission, not requireAdmin.
 // One-shot aggregation of every fact needed to close out a job:
 // time breakdown, bill math (with discounts itemized), every payment row,
 // over/under-payment + tip detection, per-team-member share + paid status,
 // and the audit trail of SMS sent for the booking. All money values in cents.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
+  const { tenant, error: authError } = await requirePermission('bookings.view')
   if (authError) return authError
+  const { tenantId } = tenant
 
   const { id } = await params
 
@@ -18,6 +22,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .from('bookings')
     .select('id, tenant_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, team_size, actual_hours, check_in_time, check_out_time, fifteen_min_alert_time, price, team_member_pay, payment_status, payment_method, payment_received_at, team_member_paid, team_member_paid_at, notes, client_id, team_member_id, clients(name, email, phone), team_members!bookings_team_member_id_fkey(id, name, phone)')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .single()
 
   if (error || !booking) {
