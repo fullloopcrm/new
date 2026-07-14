@@ -4,6 +4,7 @@ import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -28,13 +29,27 @@ export async function POST(request: Request) {
     max_hours,
     notes,
   } = body
+
+  // `/api/client(.*)` is exempted from the platform's Clerk/session middleware
+  // (see middleware.ts) — each handler must verify the caller IS the client.
+  // This route had no check at all: any caller who knew a client_id could spin
+  // up a real 6-week recurring booking series (discounted pricing, real SMS/
+  // email sent to that client) and reassign their preferred cleaner, with zero
+  // proof of session. Mirrors the authClient() gate used by /api/client/properties.
+  if (!client_id) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  const isAdmin = await isAdminAuthenticated()
+  if (!isAdmin) {
+    const auth = await protectClientAPI(client_id)
+    if (auth instanceof NextResponse) return auth
+  }
+
   const maxHoursClean = typeof max_hours === 'number' && max_hours > 0 ? max_hours : null
   const extras: string[] = Array.isArray(extra_cleaner_ids)
     ? extra_cleaner_ids.filter((x: unknown): x is string => typeof x === 'string' && x.length > 0 && x !== cleaner_id)
     : []
   const finalTeamSize = Math.max(1, Math.min(8, team_size || (1 + extras.length)))
 
-  if (!client_id || !frequency || !start_date || !time || !hours) {
+  if (!frequency || !start_date || !time || !hours) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
   if (!['weekly', 'biweekly', 'monthly'].includes(frequency)) {

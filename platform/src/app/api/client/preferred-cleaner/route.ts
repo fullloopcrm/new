@@ -1,5 +1,23 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
+
+// `/api/client(.*)` is exempted from the platform's Clerk/session middleware
+// (see middleware.ts) — tenant is resolved from a signed header, not a login,
+// so each handler must independently verify the caller IS the client whose
+// data they're reading/writing. This route took client_id from the query/body
+// with no session check at all: any caller who knew (or guessed) a client_id
+// could read another client's preferred-cleaner history or reassign it.
+// Mirrors the authClient() gate already used by /api/client/properties.
+async function authClient(clientId: string | null | undefined): Promise<NextResponse | { isAdmin: boolean }> {
+  if (!clientId) return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
+  const isAdmin = await isAdminAuthenticated()
+  if (!isAdmin) {
+    const auth = await protectClientAPI(clientId)
+    if (auth instanceof NextResponse) return auth
+  }
+  return { isAdmin }
+}
 
 // GET /api/client/preferred-cleaner?client_id=X
 // Returns the client's current preferred team member + the list of team
@@ -7,7 +25,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const clientId = searchParams.get('client_id')
-  if (!clientId) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
+  const auth = await authClient(clientId)
+  if (auth instanceof NextResponse) return auth
 
   const { data: client } = await supabaseAdmin
     .from('clients')
@@ -47,7 +66,8 @@ export async function GET(request: Request) {
 // body: { client_id, preferred_cleaner_id (or null to clear) }
 export async function PUT(request: Request) {
   const body = await request.json()
-  if (!body.client_id) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
+  const auth = await authClient(body.client_id)
+  if (auth instanceof NextResponse) return auth
 
   const { data: client } = await supabaseAdmin
     .from('clients')
