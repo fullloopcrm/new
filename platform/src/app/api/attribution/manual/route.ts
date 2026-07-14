@@ -47,7 +47,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing booking_id or domain' }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin
+    // booking_id is a caller-supplied FK. The update alone is tenant-scoped
+    // but silently no-ops (no error) on a foreign id, and the previous
+    // separate select — also scoped, but with its error ignored — meant a
+    // foreign booking_id still fell through to a false `{success:true}` AND
+    // inserted a notification row carrying that foreign booking_id (a
+    // cross-tenant FK reference on the notifications table). Chaining
+    // .select().single() on the update itself surfaces the "no match" case
+    // so a foreign booking_id is rejected before anything is written.
+    const { data: booking, error } = await supabaseAdmin
       .from('bookings')
       .update({
         attributed_domain: String(domain).replace(/^www\./, ''),
@@ -56,16 +64,13 @@ export async function POST(request: Request) {
       })
       .eq('id', booking_id)
       .eq('tenant_id', tenantId)
-    if (error) throw error
-
-    const { data: booking } = await supabaseAdmin
-      .from('bookings')
-      .select('clients(name)')
-      .eq('id', booking_id)
-      .eq('tenant_id', tenantId)
+      .select('id, clients(name)')
       .single()
+    if (error || !booking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
 
-    const clientName = (booking?.clients as unknown as { name?: string } | null)?.name || 'Unknown'
+    const clientName = (booking.clients as unknown as { name?: string } | null)?.name || 'Unknown'
 
     await supabaseAdmin.from('notifications').insert({
       tenant_id: tenantId,
