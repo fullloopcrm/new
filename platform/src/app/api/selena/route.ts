@@ -14,6 +14,15 @@ export async function GET(req: NextRequest) {
     const since = searchParams.get('since')
 
     if (convoId) {
+      // Tenant-verify: only return messages for convos owned by this tenant.
+      const { data: convo } = await supabaseAdmin
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', convoId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!convo) return NextResponse.json({ messages: [] })
+
       const { data: messages } = await supabaseAdmin
         .from('sms_conversation_messages')
         .select('direction, message, created_at')
