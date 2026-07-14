@@ -1,20 +1,22 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createHmac, randomBytes } from 'crypto'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import type { AdminRole } from '@/lib/nycmaid/roles'
 import { canAccessAPI } from '@/lib/nycmaid/roles'
+import { safeEqual, signWithSecret } from '@/lib/secret-compare'
 
-// Session token = random value signed with ADMIN_PASSWORD as secret
-// Can't be forged without knowing the password
+// Session token = random value signed with ADMIN_PASSWORD as secret.
+// Can't be forged without knowing the password — signWithSecret() throws if
+// ADMIN_PASSWORD is unset rather than silently signing with a '' key, which
+// would be a publicly-computable signature (zero-config session forgery).
 function signToken(token: string): string {
-  const secret = process.env.ADMIN_PASSWORD || ''
-  return createHmac('sha256', secret).update(token).digest('hex')
+  return signWithSecret(token, process.env.ADMIN_PASSWORD)
 }
 
-// Hash password with HMAC-SHA256
+// Hash password with HMAC-SHA256. No 'fallback' default — see signToken().
 export function hashPassword(password: string): string {
-  return createHmac('sha256', process.env.ADMIN_PASSWORD || 'fallback').update(password).digest('hex')
+  return signWithSecret(password, process.env.ADMIN_PASSWORD)
 }
 
 // Session cookie now encodes userId: userId.token.timestamp.signature
@@ -36,34 +38,40 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
   if (!cookie) return { valid: false }
   const parts = cookie.split('.')
 
-  // New user-based format: userId.token.timestamp.signature
-  if (parts.length === 4) {
-    const [userId, token, timestamp, signature] = parts
-    if (!userId || !token || !timestamp || !signature) return { valid: false }
-    const payload = `${userId}.${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
-    const created = parseInt(timestamp, 36)
-    if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
-    return { valid: true, userId }
-  }
+  try {
+    // New user-based format: userId.token.timestamp.signature
+    if (parts.length === 4) {
+      const [userId, token, timestamp, signature] = parts
+      if (!userId || !token || !timestamp || !signature) return { valid: false }
+      const payload = `${userId}.${token}.${timestamp}`
+      if (!safeEqual(signToken(payload), signature)) return { valid: false }
+      const created = parseInt(timestamp, 36)
+      if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
+      return { valid: true, userId }
+    }
 
-  // Legacy format: token.timestamp.signature (PIN login, no userId)
-  if (parts.length === 3) {
-    const [token, timestamp, signature] = parts
-    if (!token || !timestamp || !signature) return { valid: false }
-    const payload = `${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
-    const created = parseInt(timestamp, 36)
-    if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
-    return { valid: true } // Legacy session, no userId — treated as owner
-  }
+    // Legacy format: token.timestamp.signature (PIN login, no userId)
+    if (parts.length === 3) {
+      const [token, timestamp, signature] = parts
+      if (!token || !timestamp || !signature) return { valid: false }
+      const payload = `${token}.${timestamp}`
+      if (!safeEqual(signToken(payload), signature)) return { valid: false }
+      const created = parseInt(timestamp, 36)
+      if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
+      return { valid: true } // Legacy session, no userId — treated as owner
+    }
 
-  // Ancient legacy: token.signature
-  if (parts.length === 2) {
-    const [token, signature] = parts
-    if (!token || !signature) return { valid: false }
-    if (signToken(token) !== signature) return { valid: false }
-    return { valid: true }
+    // Ancient legacy: token.signature
+    if (parts.length === 2) {
+      const [token, signature] = parts
+      if (!token || !signature) return { valid: false }
+      if (!safeEqual(signToken(token), signature)) return { valid: false }
+      return { valid: true }
+    }
+  } catch {
+    // ADMIN_PASSWORD not configured — signToken() throws rather than sign
+    // with a publicly-computable '' key. Fail closed: no session is valid.
+    return { valid: false }
   }
 
   return { valid: false }
@@ -135,7 +143,12 @@ export function verifyClientSession(cookie: string): string | null {
   const [clientId, timestamp, signature] = parts
   if (!clientId || !timestamp || !signature) return null
   const payload = `${clientId}.${timestamp}`
-  if (signToken(payload) !== signature) return null
+  try {
+    if (!safeEqual(signToken(payload), signature)) return null
+  } catch {
+    // ADMIN_PASSWORD not configured — fail closed, same as verifySessionCookie.
+    return null
+  }
   // Sessions valid for 30 days
   const age = Date.now() - parseInt(timestamp)
   if (age > 30 * 24 * 60 * 60 * 1000) return null

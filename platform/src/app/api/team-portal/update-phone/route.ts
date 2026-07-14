@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
+import { safeEqual, signWithSecret } from '@/lib/secret-compare'
 
 // Token format: <team_member_id>.<expiry_ms>.<sig> signed with ADMIN_PASSWORD.
 
 function sign(payload: string): string {
-  return createHmac('sha256', process.env.ADMIN_PASSWORD || '').update(payload).digest('hex')
+  return signWithSecret(payload, process.env.ADMIN_PASSWORD)
 }
 
 interface ParsedToken {
@@ -21,8 +21,15 @@ function parseToken(token: string): ParsedToken {
   if (parts.length !== 3) return { valid: false, reason: 'malformed' }
   const [teamMemberId, expiry, sig] = parts
   if (!teamMemberId || !expiry || !sig) return { valid: false, reason: 'malformed' }
-  const expected = sign(`${teamMemberId}.${expiry}`)
-  if (expected !== sig) return { valid: false, reason: 'bad_signature' }
+  // sign() throws if ADMIN_PASSWORD is unset — fail closed (bad_signature)
+  // rather than signing with a publicly-computable '' key.
+  let expected: string
+  try {
+    expected = sign(`${teamMemberId}.${expiry}`)
+  } catch {
+    return { valid: false, reason: 'bad_signature' }
+  }
+  if (!safeEqual(expected, sig)) return { valid: false, reason: 'bad_signature' }
   const expiryMs = Number(expiry)
   if (!Number.isFinite(expiryMs) || Date.now() > expiryMs) return { valid: false, reason: 'expired' }
   return { valid: true, teamMemberId }
