@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
 
 // Token format: <team_member_id>.<expiry_ms>.<sig> signed with ADMIN_PASSWORD.
+// Matches the signing side in cron/phone-fixup/route.ts.
 
 function sign(payload: string): string {
   return createHmac('sha256', process.env.ADMIN_PASSWORD || '').update(payload).digest('hex')
@@ -22,7 +23,11 @@ function parseToken(token: string): ParsedToken {
   const [teamMemberId, expiry, sig] = parts
   if (!teamMemberId || !expiry || !sig) return { valid: false, reason: 'malformed' }
   const expected = sign(`${teamMemberId}.${expiry}`)
-  if (expected !== sig) return { valid: false, reason: 'bad_signature' }
+  // Constant-time compare to avoid leaking signature bytes via timing — same
+  // fix already applied to team-portal/auth/token.ts's verifyToken.
+  const sigBuf = Buffer.from(sig)
+  const expBuf = Buffer.from(expected)
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) return { valid: false, reason: 'bad_signature' }
   const expiryMs = Number(expiry)
   if (!Number.isFinite(expiryMs) || Date.now() > expiryMs) return { valid: false, reason: 'expired' }
   return { valid: true, teamMemberId }
