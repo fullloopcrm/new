@@ -87,7 +87,21 @@ export async function POST(request: NextRequest) {
       .eq('id', auth.id)
       .single()
 
-    let targetChannelId = channel_id
+    // Never trust a caller-supplied channel_id directly — verify it's this
+    // client's own channel before using it, otherwise a forged id could inject
+    // a message into another client's (or another tenant's) channel.
+    let targetChannelId: string | undefined
+    if (channel_id) {
+      const { data: ownedChannel } = await supabaseAdmin
+        .from('connect_channels')
+        .select('id')
+        .eq('id', channel_id)
+        .eq('tenant_id', auth.tid)
+        .eq('type', 'client')
+        .eq('client_id', auth.id)
+        .single()
+      if (ownedChannel) targetChannelId = ownedChannel.id
+    }
 
     if (!targetChannelId) {
       let { data: channel } = await supabaseAdmin
