@@ -37,6 +37,26 @@ function isMainHost(hostname: string): boolean {
   return MAIN_HOSTS.has(host)
 }
 
+// EU + EEA + UK + Switzerland — the jurisdiction where GDPR/ePrivacy require
+// opt-in consent before non-essential cookies load. Matches the "EEA, UK, or
+// Switzerland" language already published in tenant privacy policies.
+const EU_JURISDICTION_COUNTRIES = new Set([
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
+  'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES',
+  'SE', // EU
+  'IS', 'LI', 'NO', // EEA
+  'GB', // UK
+  'CH', // Switzerland
+])
+
+const EU_REGION_COOKIE = 'fl_region_eu'
+
+/** Vercel sets this header at the edge for every request; absent in local dev. */
+function isEuJurisdiction(req: NextRequest): boolean {
+  const country = req.headers.get('x-vercel-ip-country')
+  return !!country && EU_JURISDICTION_COUNTRIES.has(country.toUpperCase())
+}
+
 // Routes killed during the 2026-05-03 teaser pivot. Strategy shifted away
 // from licensing the platform to operators; these pages all assumed a
 // buyer/applicant funnel that no longer exists. Returning 410 (not 404)
@@ -456,12 +476,24 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // NextResponse.rewrite with modified headers
   const rewriteUrl = req.nextUrl.clone()
   rewriteUrl.pathname = sitePathname
-  return NextResponse.rewrite(rewriteUrl, {
+  const siteResponse = NextResponse.rewrite(rewriteUrl, {
     headers: response.headers,
     request: {
       headers: requestHeaders,
     },
   })
+
+  // Geo-detect EU/EEA/UK/Switzerland so the client-side consent banner can
+  // switch to GDPR opt-in without every marketing page becoming dynamic.
+  // Only set on actual site-page responses — not sitemap/robots/admin/API
+  // branches above, which return earlier and never reach here.
+  siteResponse.cookies.set(EU_REGION_COOKIE, isEuJurisdiction(req) ? '1' : '0', {
+    path: '/',
+    maxAge: 60 * 60 * 24, // re-checked daily in case a visitor's IP/geo changes
+    sameSite: 'lax',
+  })
+
+  return siteResponse
 }
 
 export const config = {

@@ -4,6 +4,8 @@ import { Sora, DM_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { SiteChromeHeader, SiteChromeFooter } from "@/app/site/the-home-services-company/_components/SiteChrome";
 import { SiteSchema } from "@/app/site/the-home-services-company/_components/SiteSchema";
+import ConsentBanner from "@/components/consent/ConsentBanner";
+import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"] });
 const dmSans = DM_Sans({ variable: "--font-dm-sans", subsets: ["latin"] });
@@ -50,8 +52,9 @@ export default function RootLayout({
         <SiteChromeHeader />
         <main>{children}</main>
         <SiteChromeFooter />
-        <Script id="tawk-to" strategy="afterInteractive">
-          {`
+        <ConsentGate>
+          <Script id="tawk-to" strategy="afterInteractive">
+            {`
             var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
             (function(){
               var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
@@ -62,7 +65,9 @@ export default function RootLayout({
               s0.parentNode.insertBefore(s1,s0);
             })();
           `}
-        </Script>
+          </Script>
+        </ConsentGate>
+        <ConsentBanner />
       </body>
     </html>
   );

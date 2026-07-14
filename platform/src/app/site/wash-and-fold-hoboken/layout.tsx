@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
+import ConsentBanner from "@/components/consent/ConsentBanner";
+import ConsentGate from "@/components/consent/ConsentGate";
 
 export const metadata: Metadata = {
   title: {
@@ -97,7 +99,8 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <Script id="tawk-to" strategy="afterInteractive">{`
+        <ConsentGate>
+          <Script id="tawk-to" strategy="afterInteractive">{`
           var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
           (function(){
             var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
@@ -108,6 +111,8 @@ export default function RootLayout({
             s0.parentNode.insertBefore(s1,s0);
           })();
         `}</Script>
+        </ConsentGate>
+        <ConsentBanner />
         <Script id="error-catcher" strategy="beforeInteractive">{`
           window.addEventListener('error', function(e) {
             if (!e.message) return;
