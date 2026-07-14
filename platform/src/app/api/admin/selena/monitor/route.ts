@@ -13,7 +13,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 function authorized(request: NextRequest): boolean {
   const expected = process.env.ELCHAPO_MONITOR_KEY
   if (!expected) return false
-  const key = request.headers.get('x-monitor-key') || request.nextUrl.searchParams.get('key')
+  // Header only — a ?key= query param gets written to access logs, browser
+  // history, and Referer headers, leaking the monitor key.
+  const key = request.headers.get('x-monitor-key')
   return key === expected
 }
 
