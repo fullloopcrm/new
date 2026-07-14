@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { entityIdFromUrl, getDefaultEntityId, isEntityOwnedByTenant } from '@/lib/entity'
 
 export async function GET(request: Request) {
   try {
@@ -33,6 +33,11 @@ export async function POST(request: Request) {
     const { tenantId } = _authTenant
     const body = await request.json()
     if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 })
+    // A foreign entity_id would join back as entities(id, name) on GET -- a
+    // cross-tenant leak of another tenant's business entity name.
+    if (body.entity_id && !(await isEntityOwnedByTenant(tenantId, body.entity_id))) {
+      return NextResponse.json({ error: 'Entity not found' }, { status: 404 })
+    }
 
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
