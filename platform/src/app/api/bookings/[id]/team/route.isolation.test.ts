@@ -50,6 +50,12 @@ beforeEach(() => {
     { tenant_id: B_ID, booking_id: SHARED_ID, team_member_id: 'tm-b', is_lead: true, position: 1 },
   ])
   fake._seed('tenants', [{ id: A_ID, name: 'Tenant A' }, { id: B_ID, name: 'Tenant B' }])
+  fake._seed('team_members', [
+    { id: 'tm-a', tenant_id: A_ID, active: true },
+    { id: 'tm-a2', tenant_id: A_ID, active: true },
+    { id: 'tm-a-inactive', tenant_id: A_ID, active: false },
+    { id: 'tm-b', tenant_id: B_ID, active: true },
+  ])
 })
 
 describe('bookings/[id]/team GET — tenantDb isolation', () => {
@@ -84,5 +90,32 @@ describe('bookings/[id]/team PUT — tenantDb isolation', () => {
     const aRows = fake._all('booking_team_members').filter((r) => r.tenant_id === A_ID)
     expect(aRows).toHaveLength(1)
     expect(aRows[0].team_member_id).toBe('tm-a2')
+  })
+
+  it('rejects a lead_id belonging to another tenant and never mutates the booking', async () => {
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ lead_id: 'tm-b', extra_team_member_ids: [], team_size: 1 }) })
+    const res = await PUT(req, paramsFor(SHARED_ID))
+    expect(res.status).toBe(400)
+
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)!
+    expect(aBooking.team_member_id).toBe('tm-a')
+    const aRows = fake._all('booking_team_members').filter((r) => r.tenant_id === A_ID)
+    expect(aRows).toHaveLength(1)
+    expect(aRows[0].team_member_id).toBe('tm-a')
+  })
+
+  it('rejects an extra_team_member_ids entry belonging to another tenant', async () => {
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ lead_id: 'tm-a2', extra_team_member_ids: ['tm-b'], team_size: 2 }) })
+    const res = await PUT(req, paramsFor(SHARED_ID))
+    expect(res.status).toBe(400)
+
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)!
+    expect(aBooking.team_member_id).toBe('tm-a')
+  })
+
+  it('rejects an inactive team member', async () => {
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ lead_id: 'tm-a-inactive', extra_team_member_ids: [], team_size: 1 }) })
+    const res = await PUT(req, paramsFor(SHARED_ID))
+    expect(res.status).toBe(400)
   })
 })

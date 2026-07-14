@@ -64,6 +64,26 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const teamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1 + newExtras.length))
   const db = tenantDb(ctx.tenantId)
 
+  // A caller assigning a booking's lead/extras must stay inside their own
+  // tenant's active roster — same gate /api/client/reschedule and
+  // /api/client/preferred-cleaner already enforce. Without this, lead_id /
+  // extra_team_member_ids were written straight from request-body input with
+  // no ownership check, letting any staff caller point team_member_id (and
+  // booking_team_members rows) at another tenant's team_members row, which
+  // then leaks that employee's name/phone/email via this booking's joins.
+  const requestedMemberIds = Array.from(new Set([newLead, ...newExtras].filter((x): x is string => !!x)))
+  if (requestedMemberIds.length > 0) {
+    const { data: validMembers } = (await db
+      .from('team_members')
+      .select('id, active')
+      .in('id', requestedMemberIds)) as { data: { id: string; active: boolean | null }[] | null }
+    const validIds = new Set((validMembers || []).filter((m) => m.active !== false).map((m) => m.id))
+    const invalidIds = requestedMemberIds.filter((id) => !validIds.has(id))
+    if (invalidIds.length > 0) {
+      return NextResponse.json({ error: 'One or more team members are not available' }, { status: 400 })
+    }
+  }
+
   // Snapshot the old team to figure out which extras are NEW (need notification).
   const { data: oldRows } = (await db
     .from('booking_team_members')
