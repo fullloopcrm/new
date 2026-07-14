@@ -46,8 +46,10 @@ jobs:
         run: npx vitest run
 
       - name: Tenant-isolation guard
-        # Fails if a NEW tenant-owned query is added without .eq('tenant_id', …).
-        # The 91 baselined legacy candidates are triaged separately; new leaks can't merge.
+        # Fails on ANY unscoped query on a tenant-owned table without .eq('tenant_id', …).
+        # Baseline was driven to zero (scripts/.tenant-scope-baseline.json = []) — no
+        # grandfathered debt. Any remaining unscoped query is a real gate failure until
+        # fixed with .eq('tenant_id', tenantId) or annotated `// tenant-scope-ok: <reason>`.
         run: node scripts/audit-tenant-scope.mjs
 
       - name: Lint
