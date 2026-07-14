@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { pick } from '@/lib/validate'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
@@ -153,7 +154,7 @@ const tools: Anthropic.Tool[] = [
   },
 ]
 
-async function executeTool(
+export async function executeTool(
   tenantId: string,
   name: string,
   input: Record<string, unknown>
@@ -200,7 +201,9 @@ async function executeTool(
 
     case 'update_bookings': {
       const ids = (input.booking_ids as string[]) || []
-      const updates = (input.updates as Record<string, unknown>) || {}
+      const updates = pick(input.updates, [
+        'team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status', 'payment_method',
+      ])
       const confirmed = input.confirmed as boolean
 
       if (!confirmed) {
@@ -283,9 +286,10 @@ async function executeTool(
     }
 
     case 'update_client': {
+      const updates = pick(input.updates, ['name', 'email', 'phone', 'address', 'notes', 'status', 'do_not_service'])
       const { error } = await db
         .from('clients')
-        .update(input.updates as Record<string, unknown>)
+        .update(updates)
         .eq('id', input.client_id as string)
       return JSON.stringify(error ? { error: error.message } : { success: true })
     }
