@@ -16,6 +16,20 @@ export async function POST(request: NextRequest) {
 
     const ctx = await getTenantForRequest()
 
+    // booking_id is a caller-supplied FK used both as an insert value and as a
+    // storage path segment below — booking_notes has no cross-tenant FK check,
+    // and an unsanitized id would also let a path-traversal payload write
+    // outside this tenant's storage prefix. Verify ownership before either.
+    const { data: ownedBooking } = await supabaseAdmin
+      .from('bookings')
+      .select('id')
+      .eq('id', bookingId)
+      .eq('tenant_id', ctx.tenantId)
+      .maybeSingle()
+    if (!ownedBooking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
+
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
     // MODE 1: URLs already uploaded
