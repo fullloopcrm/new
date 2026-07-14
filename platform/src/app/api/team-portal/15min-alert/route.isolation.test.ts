@@ -14,6 +14,10 @@ import type { FakeSupabase } from '@/test/fake-supabase'
  * every other tenantDb LEAK CONTROL in this suite calls out as unsafe-by-construction.
  */
 
+vi.hoisted(() => {
+  process.env.TEAM_PORTAL_SECRET = 'test-team-portal-secret'
+})
+
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
@@ -24,6 +28,7 @@ vi.mock('@/lib/admin-contacts', () => ({ smsAdmins: async () => {} }))
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
+import { createToken } from '../auth/token'
 
 vi.mock('@/lib/nycmaid/client-contacts', () => ({
   sendClientSMS: vi.fn(async () => ({ sent: 1, skipped: 0 })),
@@ -35,18 +40,24 @@ const A_ID = 'tenant-A'
 const B_ID = 'tenant-B'
 const A_BOOKING = 'bk-a'
 const B_BOOKING = 'bk-b'
+const A_WORKER = 'tm-a'
+const B_WORKER = 'tm-b'
 const fake = supabaseAdmin as unknown as FakeSupabase
 
-function booking(id: string, tenantId: string, clientId: string) {
-  return { id, tenant_id: tenantId, start_time: '2026-07-13T10:00:00Z', end_time: '2026-07-13T12:00:00Z', check_in_time: '2026-07-13T10:00:00Z', check_out_time: null, service_type: 'regular', hourly_rate: 69, pay_rate: 25, price: 138, notes: null, max_hours: null, team_size: 1, client_id: clientId, payment_status: 'pending', fifteen_min_alert_time: null, clients: { name: `${tenantId} Client`, phone: '+15550001', email: 'a@x.com', address: '10001' }, team_members: { name: `${tenantId} Worker`, pay_rate: 25 } }
+function booking(id: string, tenantId: string, clientId: string, teamMemberId: string) {
+  return { id, tenant_id: tenantId, team_member_id: teamMemberId, start_time: '2026-07-13T10:00:00Z', end_time: '2026-07-13T12:00:00Z', check_in_time: '2026-07-13T10:00:00Z', check_out_time: null, service_type: 'regular', hourly_rate: 69, pay_rate: 25, price: 138, notes: null, max_hours: null, team_size: 1, client_id: clientId, payment_status: 'pending', fifteen_min_alert_time: null, clients: { name: `${tenantId} Client`, phone: '+15550001', email: 'a@x.com', address: '10001' }, team_members: { name: `${tenantId} Worker`, pay_rate: 25 } }
 }
 
 beforeEach(() => {
   fake._store.clear()
-  fake._seed('bookings', [booking(A_BOOKING, A_ID, 'client-a'), booking(B_BOOKING, B_ID, 'client-b')])
+  fake._seed('bookings', [booking(A_BOOKING, A_ID, 'client-a', A_WORKER), booking(B_BOOKING, B_ID, 'client-b', B_WORKER)])
   fake._seed('tenants', [
     { id: A_ID, name: 'A Co', telnyx_api_key: null, telnyx_phone: null, payment_link: null },
     { id: B_ID, name: 'B Co', telnyx_api_key: null, telnyx_phone: null, payment_link: null },
+  ])
+  fake._seed('team_members', [
+    { id: A_WORKER, tenant_id: A_ID, status: 'active' },
+    { id: B_WORKER, tenant_id: B_ID, status: 'active' },
   ])
   vi.mocked(sendClientSMS).mockClear()
   vi.mocked(sendClientSMS).mockResolvedValue({ sent: 1, skipped: 0 })
@@ -56,16 +67,36 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function req(bookingId: string): NextRequest {
+function req(bookingId: string, token: string): NextRequest {
   return new NextRequest('http://x/api/team-portal/15min-alert', {
     method: 'POST',
+    headers: { authorization: `Bearer ${token}` },
     body: JSON.stringify({ bookingId, force: true }),
   })
 }
 
+describe('team-portal/15min-alert POST — auth', () => {
+  it('rejects a request with no bearer token', async () => {
+    const res = await POST(new NextRequest('http://x/api/team-portal/15min-alert', {
+      method: 'POST',
+      body: JSON.stringify({ bookingId: A_BOOKING, force: true }),
+    }))
+    expect(res.status).toBe(401)
+  })
+
+  it("rejects tenant A's worker firing the alert on tenant B's booking (cross-tenant + not-assigned)", async () => {
+    const token = createToken(A_WORKER, A_ID)
+    const res = await POST(req(B_BOOKING, token))
+    expect(res.status).toBe(404)
+    const bRow = fake._all('bookings').find((r) => r.id === B_BOOKING)
+    expect(bRow?.fifteen_min_alert_time).toBeNull()
+  })
+})
+
 describe('team-portal/15min-alert POST — tenantDb isolation', () => {
-  it("firing the alert for tenant A's booking stamps ONLY tenant A's row via its own resolved tenant_id, leaving tenant B's unrelated booking untouched", async () => {
-    const res = await POST(req(A_BOOKING))
+  it("firing the alert for tenant A's booking (as its assigned worker) stamps ONLY tenant A's row, leaving tenant B's unrelated booking untouched", async () => {
+    const token = createToken(A_WORKER, A_ID)
+    const res = await POST(req(A_BOOKING, token))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.success).toBe(true)
@@ -83,7 +114,8 @@ describe('team-portal/15min-alert POST — undelivered-payment escalation isolat
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.mocked(sendClientSMS).mockResolvedValue({ sent: 0, skipped: 0 })
 
-    const resPromise = POST(req(A_BOOKING))
+    const token = createToken(A_WORKER, A_ID)
+    const resPromise = POST(req(A_BOOKING, token))
     // Route retries once with a 60s backoff before giving up and escalating.
     await vi.advanceTimersByTimeAsync(65_000)
     const res = await resPromise
