@@ -8,6 +8,7 @@ import {
   canSignerAct,
   documentSignedPath,
   DOCUMENTS_BUCKET,
+  isTerminalStatus,
   logDocEvent,
   sha256Hex,
 } from '@/lib/documents'
@@ -58,6 +59,13 @@ export async function POST(request: Request, { params }: Params) {
       .eq('id', signer.document_id)
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    // Same guard as ../decline/route.ts: an admin voiding/expiring a document
+    // does not touch document_signers rows, so a signer whose link was still
+    // open could otherwise complete signing (and finalizeDocument would stamp
+    // it 'completed', silently reviving a voided/declined/expired document).
+    if (isTerminalStatus(doc.status)) {
+      return NextResponse.json({ error: `Document is ${doc.status}` }, { status: 400 })
+    }
 
     const { data: allSigners } = await supabaseAdmin
       .from('document_signers')
