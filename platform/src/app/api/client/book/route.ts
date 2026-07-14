@@ -52,15 +52,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
     }
 
-    // DNS (do-not-service) gate — never create bookings for these clients.
+    // body.client_id is caller-supplied and wholly unauthenticated (this is the
+    // public new/returning-customer booking form) — clients has no cross-tenant
+    // FK check, so a foreign id was previously accepted verbatim: create_booking_
+    // atomic's ownership PERFORM doesn't reject a no-match, and the read-back
+    // below embeds clients(*) unscoped, so another tenant's client PII (name/
+    // phone/email/address) would return in this response, and the confirmation
+    // email/SMS a few lines down would be sent to THAT client, not the caller.
+    // Verify ownership up front — 404 before any booking work runs — which also
+    // covers the do-not-service gate below.
     if (body.client_id) {
-      const { data: dnsCheck } = await supabaseAdmin
+      const { data: ownedClient } = await supabaseAdmin
         .from('clients')
         .select('do_not_service')
         .eq('id', body.client_id as string)
         .eq('tenant_id', tenant.id)
-        .single()
-      if (dnsCheck?.do_not_service) {
+        .maybeSingle()
+      if (!ownedClient) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
+      if (ownedClient.do_not_service) {
         const contactPhone = tenant.phone || ''
         return NextResponse.json({
           error: `Please contact us${contactPhone ? ` at ${contactPhone}` : ''} to schedule your next service.`,
