@@ -63,6 +63,35 @@ export async function POST(request: Request) {
     }, { status: 403 })
   }
 
+  // A client picking their crew must stay inside their own tenant's active
+  // roster — same gate /api/client/preferred-cleaner and reschedule enforce.
+  // Without this, cleaner_id/extra_cleaner_ids were written straight from
+  // client input with no ownership check, letting a client point their
+  // recurring schedule + every generated booking's team_member_id FK at any
+  // team_members row (including another tenant's).
+  if (cleaner_id) {
+    const { data: leadMember } = await supabaseAdmin
+      .from('team_members')
+      .select('id, active')
+      .eq('id', cleaner_id)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!leadMember || leadMember.active === false) {
+      return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
+    }
+  }
+  if (extras.length > 0) {
+    const { data: extraMembers } = await supabaseAdmin
+      .from('team_members')
+      .select('id, active')
+      .in('id', extras)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((extraMembers || []).filter((m) => m.active !== false).map((m) => m.id))
+    if (extras.some((id) => !validIds.has(id))) {
+      return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
+    }
+  }
+
   // Pricing: weekly 20%, biweekly/monthly 10%
   const baseRate = supplies === 'client' ? 59 : 79
   const discountPercent = frequency === 'weekly' ? 20 : 10
