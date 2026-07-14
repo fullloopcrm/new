@@ -312,7 +312,7 @@ export default function PortalHomePage() {
 
       {/* Push Notifications */}
       {!doNotService && (
-        <PushPrompt role="client" userId={auth.client.id} />
+        <PushPrompt role="client" userId={auth.client.id} token={auth.token} />
       )}
 
       {/* DNS Block Notice */}

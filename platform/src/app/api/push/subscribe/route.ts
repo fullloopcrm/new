@@ -1,28 +1,56 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getCurrentTenant } from '@/lib/tenant'
+import { verifyPortalToken } from '../../portal/auth/token'
+import { verifyToken as verifyTeamPortalToken } from '../../team-portal/auth/token'
+
+// Resolve WHO is subscribing and to WHICH tenant, from server-verified
+// identity only. The body's role selects which verification path to use, but
+// never supplies the team_member_id/client_id/tenant_id directly — those used
+// to be trusted verbatim from the request body, which let any caller (this
+// route accepts the public-site signed tenant header too, so no session was
+// even required) register a push subscription under ANY team_member_id or
+// client_id, including another tenant's, and silently intercept that
+// identity's real push notifications (sendPushToTeamMember/sendPushToClient
+// in lib/push.ts key off team_member_id/client_id with no tenant_id filter).
+async function resolveSubscriber(request: Request, role: string): Promise<
+  { ok: true; tenantId: string; teamMemberId: string | null; clientId: string | null }
+  | { ok: false; status: number; error: string }
+> {
+  if (role === 'team_member') {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '')
+    if (!token) return { ok: false, status: 401, error: 'Missing token' }
+    const auth = verifyTeamPortalToken(token)
+    if (!auth) return { ok: false, status: 401, error: 'Invalid token' }
+    return { ok: true, tenantId: auth.tid, teamMemberId: auth.id, clientId: null }
+  }
+  if (role === 'client') {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '')
+    if (!token) return { ok: false, status: 401, error: 'Missing token' }
+    const auth = verifyPortalToken(token)
+    if (!auth) return { ok: false, status: 401, error: 'Invalid token' }
+    return { ok: true, tenantId: auth.tid, teamMemberId: null, clientId: auth.id }
+  }
+  // admin — existing operator-dashboard session (Clerk / admin PIN impersonation).
+  const tenant = await getCurrentTenant()
+  if (!tenant) return { ok: false, status: 401, error: 'Not authenticated' }
+  return { ok: true, tenantId: tenant.id, teamMemberId: null, clientId: null }
+}
 
 export async function POST(request: Request) {
   try {
-    const { subscription, role, team_member_id, client_id } = await request.json()
+    const { subscription, role } = await request.json()
 
     if (!subscription?.endpoint) {
       return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
-
     const effectiveRole = role || 'admin'
-
-    if (effectiveRole === 'team_member' && !team_member_id) {
-      return NextResponse.json({ error: 'Missing team_member_id' }, { status: 400 })
+    const subscriber = await resolveSubscriber(request, effectiveRole)
+    if (!subscriber.ok) {
+      return NextResponse.json({ error: subscriber.error }, { status: subscriber.status })
     }
-    if (effectiveRole === 'client' && !client_id) {
-      return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
-    }
+    const { tenantId, teamMemberId, clientId } = subscriber
 
     // Check if this endpoint already exists
     const { data: existing } = await supabaseAdmin
@@ -37,9 +65,9 @@ export async function POST(request: Request) {
         .update({
           subscription,
           role: effectiveRole,
-          tenant_id: tenant.id,
-          team_member_id: effectiveRole === 'team_member' ? team_member_id : null,
-          client_id: effectiveRole === 'client' ? client_id : null,
+          tenant_id: tenantId,
+          team_member_id: teamMemberId,
+          client_id: clientId,
           updated_at: new Date().toISOString()
         })
         .eq('id', existing[0].id)
@@ -50,9 +78,9 @@ export async function POST(request: Request) {
           endpoint: subscription.endpoint,
           subscription,
           role: effectiveRole,
-          tenant_id: tenant.id,
-          team_member_id: effectiveRole === 'team_member' ? team_member_id : null,
-          client_id: effectiveRole === 'client' ? client_id : null
+          tenant_id: tenantId,
+          team_member_id: teamMemberId,
+          client_id: clientId
         })
     }
 
