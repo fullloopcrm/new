@@ -27,8 +27,17 @@ export async function POST(request: Request, { params }: Params) {
     if (quote.status === 'accepted' || quote.status === 'converted') {
       return NextResponse.json({ error: 'Already accepted' }, { status: 400 })
     }
+    if (quote.status === 'declined') {
+      return NextResponse.json({ ok: true, already_declined: true })
+    }
 
-    await supabaseAdmin
+    // Compare-and-swap on the status we just read: two concurrent declines
+    // (double-tapped Decline button, or a retry) would otherwise both pass
+    // the checks above and both insert a deal_activities note + fire the
+    // owner notification — this route wasn't even idempotent on a plain
+    // sequential resubmit before this fix. Only the request whose UPDATE
+    // matches the exact prior status wins the claim.
+    const { data: claimed } = await supabaseAdmin
       .from('quotes')
       .update({
         status: 'declined',
@@ -36,6 +45,13 @@ export async function POST(request: Request, { params }: Params) {
         declined_reason: reason || null,
       })
       .eq('id', quote.id)
+      .eq('status', quote.status)
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) {
+      return NextResponse.json({ ok: true, already_declined: true })
+    }
 
     await logQuoteEvent({
       quote_id: quote.id,
