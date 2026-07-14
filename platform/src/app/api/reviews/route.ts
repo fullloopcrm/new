@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('reviews.view')
+    if (authError) return authError
+    const tenantId = tenant.tenantId
 
     const { data, error } = await supabaseAdmin
       .from('reviews')
@@ -28,7 +31,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('reviews.request')
+    if (authError) return authError
+    const tenantId = tenant.tenantId
     const body = await request.json()
 
     const { data: fields, error: vError } = validate(body, {
