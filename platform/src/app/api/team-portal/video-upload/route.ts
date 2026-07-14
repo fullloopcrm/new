@@ -29,12 +29,16 @@ export async function GET(req: NextRequest) {
     }
 
     // Validate booking exists and belongs to this tenant + team member
-    const { data: booking } = await tenantDb(auth.tid)
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data: booking } = (await tenantDb(auth.tid)
       .from('bookings')
-      .select('id')
+      .select('id, team_member_id')
       .eq('id', bookingId)
-      .single()
-    if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      .single()) as { data: { team_member_id: string | null } | null }
+    if (!booking || booking.team_member_id !== auth.id) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
 
     const ext = (filename.split('.').pop() || 'mp4').toLowerCase()
     const safeExt = ['mp4', 'mov', 'webm', '3gp', 'm4v'].includes(ext) ? ext : 'mp4'
@@ -91,9 +95,11 @@ export async function POST(req: NextRequest) {
         .select('id, team_member_id, start_time, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
         .eq('id', booking_id)
         .single()) as {
-          data: { start_time: string; service_type: string | null; clients: unknown; team_members: unknown } | null
+          data: { team_member_id: string | null; start_time: string; service_type: string | null; clients: unknown; team_members: unknown } | null
         }
-      if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      if (!booking || booking.team_member_id !== auth.id) {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      }
 
       const field = type === 'walkthrough' ? 'walkthrough_video_url' : 'final_video_url'
       await tenantDb(auth.tid).from('bookings').update({
