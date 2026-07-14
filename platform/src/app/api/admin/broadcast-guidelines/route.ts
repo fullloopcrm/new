@@ -6,7 +6,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 interface TeamMemberRow {
   id: string
@@ -17,7 +18,16 @@ interface TeamMemberRow {
 
 export async function POST() {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    // Mass-SMS broadcast to every active team member (no TEST_MODE cap, unlike
+    // the sibling find-cleaner/send + message-applicants/send routes), and each
+    // message includes the recipient's own login PIN — same blast-radius/cost
+    // class as those two, gated on campaigns.send. This route previously only
+    // checked for a valid tenant session via getTenantForRequest(), so any
+    // authenticated role (incl. 'staff', which rbac.ts grants no campaigns.send)
+    // could trigger a real, uncapped SMS blast to the whole team.
+    const { tenant: reqCtx, error: authError } = await requirePermission('campaigns.send')
+    if (authError) return authError
+    const { tenantId, tenant } = reqCtx
 
     const { data: members } = await supabaseAdmin
       .from('team_members')

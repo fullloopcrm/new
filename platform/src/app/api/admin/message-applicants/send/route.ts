@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP } from '../constants'
 
@@ -20,16 +20,16 @@ type ApplicantRow = {
 }
 
 export async function POST(request: Request) {
-  let tenantId: string
-  let tenant: { telnyx_api_key: string | null; telnyx_phone: string | null }
-  try {
-    const ctx = await getTenantForRequest()
-    tenantId = ctx.tenantId
-    tenant = ctx.tenant
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Mass-SMS broadcast to applicants — same blast-radius/cost/brand-risk
+  // class as the sibling send-apology-batch route, which is gated on
+  // campaigns.send. This route previously only checked for a valid tenant
+  // session via getTenantForRequest(), so any authenticated role (incl.
+  // 'staff', which has no campaigns.send per rbac.ts) could broadcast SMS
+  // to every new applicant.
+  const { tenant: ctx, error: authError } = await requirePermission('campaigns.send')
+  if (authError) return authError
+  const tenantId = ctx.tenantId
+  const tenant = ctx.tenant
 
   const body = await request.json().catch(() => ({}))
   const { applicant_ids, message, confirmed } = body as {
