@@ -77,13 +77,17 @@ export async function POST(request: Request, { params }: Params) {
     const ua = request.headers.get('user-agent')
     const now = new Date().toISOString()
 
-    // Save each field value
+    // Save each field value. Scoped by document_id in addition to signer_id
+    // so a caller-supplied field_id can never touch a field row that lives on
+    // a different document (defense-in-depth alongside the signer_id-ownership
+    // check on field creation in /api/documents/[id]/fields).
     for (const fv of fieldValues) {
       if (!fv.field_id) continue
       await supabaseAdmin
         .from('document_fields')
         .update({ value: String(fv.value || ''), filled_at: now })
         .eq('id', fv.field_id)
+        .eq('document_id', doc.id)
         .eq('signer_id', signer.id)
     }
 

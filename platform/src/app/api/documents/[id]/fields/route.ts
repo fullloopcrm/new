@@ -78,6 +78,20 @@ export async function POST(request: Request, { params }: Params) {
     const normalized = normalizeField(body)
     if ('error' in normalized) return NextResponse.json({ error: normalized.error }, { status: 400 })
 
+    // signer_id is a caller-supplied FK — document_signers has no cross-document
+    // FK check, so an unverified signer_id would let a field be planted against
+    // a signer from a different document (any tenant). The sign endpoint later
+    // resolves/updates field values by signer_id alone, so this must be a real
+    // signer belonging to THIS document before it's persisted.
+    const { data: ownedSigner } = await supabaseAdmin
+      .from('document_signers')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('document_id', id)
+      .eq('id', normalized.signer_id)
+      .maybeSingle()
+    if (!ownedSigner) return NextResponse.json({ error: 'Signer not found on this document' }, { status: 404 })
+
     const { data, error } = await supabaseAdmin
       .from('document_fields')
       .insert({ ...normalized, tenant_id: tenantId, document_id: id })
@@ -114,6 +128,19 @@ export async function PUT(request: Request, { params }: Params) {
       const n = normalizeField(f)
       if ('error' in n) return NextResponse.json({ error: n.error }, { status: 400 })
       normalized.push(n)
+    }
+
+    // Same FK-injection guard as POST: every signer_id in the batch must
+    // belong to this document (and tenant) before any row is written.
+    const { data: docSigners } = await supabaseAdmin
+      .from('document_signers')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('document_id', id)
+    const validSignerIds = new Set((docSigners || []).map(s => s.id))
+    const foreignSignerId = normalized.find(f => !validSignerIds.has(f.signer_id))
+    if (foreignSignerId) {
+      return NextResponse.json({ error: 'Signer not found on this document' }, { status: 404 })
     }
 
     await supabaseAdmin.from('document_fields').delete().eq('tenant_id', tenantId).eq('document_id', id)
