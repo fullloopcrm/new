@@ -446,7 +446,7 @@ async function sendSigningInviteToSigner(
       await sendEmail({
         to: next.email,
         subject: `${tenant.name}: you're up — ${doc.title}`,
-        html: `<p>Hi ${next.name}, the prior signer has completed their portion. Please sign here: <a href="${encodeURI(signUrl)}">${signUrl}</a></p>`,
+        html: `<p>Hi ${escapeHtml(next.name)}, the prior signer has completed their portion. Please sign here: <a href="${encodeURI(signUrl)}">${signUrl}</a></p>`,
         from: fromEmail,
         resendApiKey: resendKey,
       })
