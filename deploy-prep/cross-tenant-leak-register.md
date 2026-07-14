@@ -188,6 +188,33 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 226 files / 1005 passed / 37 skipped / 0 failed |
 | **Rank rationale** | Same exfil severity as P1 (client/team-member PII, not just a dangling ref) — ranked with the P9/P10 `[id]`-route sweep since it was found in that later pass, not the original P0–P8 sweep. |
 
+### P12 — `client/book` POST → cross-tenant `client_id` FK injection + victim notification hijack  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/client/book` (unconverted, raw `supabaseAdmin` + `create_booking_atomic` RPC) — the **public, unauthenticated** self-service booking form |
+| **Table** | `bookings` (FK `client_id`) |
+| **Attack vector** | `body.client_id` was only used for a tenant-scoped `.single()` do-not-service check whose miss (foreign or nonexistent id) was silently ignored (no error handling on the destructured result) — the route then called `create_booking_atomic(p_client_id=body.client_id, ...)` regardless. The RPC's own "ownership" check is a bare `PERFORM ... FOR UPDATE` (migrations/2026_07_13_client_book_dedupe_atomic.sql) which does **not** raise on zero matching rows, so a foreign `client_id` sails straight into the INSERT. |
+| **Effect** | Worse than P1/P11: the booking read-back (`.select('*, clients(*), client_properties(*)')`) embeds the FK'd client **unscoped by tenant**, so the JSON response returns another tenant's real customer's full PII (name/phone/email/address/notes) to the anonymous caller — and the confirmation email/SMS sent moments later go to **that victim's own email/phone**, spamming a real customer with a booking confirmation from a business they never contacted. |
+| **Verdict** | **FIXED** (was proven-LIVE; found in a broad-hunt sweep of public/unauthenticated routes for the same FK-injection shape, 2026-07-14, W2) |
+| **Fix** | `body.client_id`, when supplied, is now verified tenant-owned via `.maybeSingle()` before any booking work runs; a miss 404s. The RPC itself is unchanged (still does not enforce ownership) — the app-layer check is the only guard and is sufficient since it is the RPC's sole caller. |
+| **Regression lock** | `src/app/api/client/book/route.witness.test.ts` (wrong-tenant + nonexistent-id 404 probes; CONTROL: own-tenant client_id still creates the booking) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 263 files / 1129 passed / 37 skipped / 0 failed |
+| **Rank rationale** | Same exfil class as P1/P11 but on a fully public/unauthenticated endpoint (no session, no permission gate of any kind stands between an anonymous visitor and the leak) — arguably the lowest bar to exploit of anything in this register. |
+
+### P13 — `routes` POST → cross-tenant `team_member_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/routes` (unconverted, raw `supabaseAdmin`) |
+| **Table** | `routes` (FK `team_member_id`) |
+| **Attack vector** | `body.team_member_id` was only looked up — and therefore only ever ownership-checked — when `start_latitude`/`start_longitude` were BOTH missing from the body; the insert always wrote `body.team_member_id` verbatim regardless of whether the lookup ran or what it found. Supplying `start_latitude`/`start_longitude` alongside a foreign `team_member_id` skipped the ownership check entirely. |
+| **Effect** | `GET /api/routes` embeds `team_members(id, name, phone, home_latitude, home_longitude)` unscoped by tenant off this row's FK, so a foreign `team_member_id` surfaces another tenant's employee name/phone/home address on the very next read. |
+| **Verdict** | **FIXED** (was proven-LIVE; found in the same broad-hunt sweep as P12, 2026-07-14, W2) |
+| **Fix** | `body.team_member_id`, when supplied, is now always verified tenant-owned before insert (independent of whether start lat/lng were also supplied); a miss 404s. |
+| **Regression lock** | `src/app/api/routes/route.witness.test.ts` (LOCK: foreign id 404s even with lat/lng also supplied; CONTROL: own-tenant id and HQ-fallback-on-omit both still create the route) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 264 files / 1133 passed / 37 skipped / 0 failed |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -274,7 +301,10 @@ live leaks. This section is a **negative result, not a to-do list**.
    2026-07-13, W2) → P9 invoices/quotes PATCH [id] client_id (✅ fixed,
    2026-07-13, W2) → P10 bank-accounts PATCH [id] coa_id (✅ fixed, 2026-07-13,
    W2) → P11 bookings PUT [id] client_id/team_member_id/service_type_id
-   (✅ fixed, 2026-07-13, W2).** All items in this register are now closed.
+   (✅ fixed, 2026-07-13, W2) → P12 client/book POST client_id (✅ fixed,
+   2026-07-14, W2, found in a broad-hunt sweep of public/unauthenticated
+   routes) → P13 routes POST team_member_id (✅ fixed, 2026-07-14, W2,
+   same sweep).** All items in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
