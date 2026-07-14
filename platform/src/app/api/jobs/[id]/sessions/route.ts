@@ -5,7 +5,8 @@
  * POST → { start_time, end_time?, notes? }
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 // booking_assignees has no tenant_id column (join table keyed by
 // booking_id/team_member_id, both already tenant-scoped upstream) — stays on
@@ -17,7 +18,9 @@ type Params = { params: Promise<{ id: string }> }
 
 export async function POST(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('bookings.create')
+    if (authError) return authError
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const { id } = await params
     const body = (await request.json().catch(() => ({}))) as {
