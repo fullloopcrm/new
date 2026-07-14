@@ -8,6 +8,17 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt } from 'crypto'
 
+// Escape LIKE/ILIKE wildcards so referrer_name is matched literally within
+// the intentional %...% substring search — this endpoint is unauthenticated,
+// so an unescaped '%'/'_' let a caller with zero knowledge of any real
+// referrer force a match against an arbitrary active referrer (e.g.
+// referrer_name: '%' matches any name), misattributing referral credit.
+// Same pattern already applied to /api/referrers, /api/client/check,
+// /api/pin-reset, /api/portal/collect.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
@@ -63,7 +74,7 @@ export async function POST(request: Request) {
       const { data: byName } = await tenantDb(tenant.id)
         .from('referrers')
         .select('id')
-        .ilike('name', `%${referrer_name.trim()}%`)
+        .ilike('name', `%${escapeLike(referrer_name.trim())}%`)
         .eq('active', true)
         .limit(1)
       if (byName && byName.length > 0) {

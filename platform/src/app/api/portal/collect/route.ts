@@ -23,6 +23,17 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { randomInt } from 'crypto'
 
+// Escape LIKE/ILIKE wildcards so referrer_name is matched literally within
+// the intentional %...% substring search — this endpoint is unauthenticated,
+// so an unescaped '%'/'_' let a caller with zero knowledge of any real
+// referrer force a match against an arbitrary active referrer (e.g.
+// referrer_name: '%' matches any name), misattributing referral credit.
+// Same pattern already applied to /api/referrers, /api/client/check,
+// /api/pin-reset.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 interface CollectBody {
   name?: string
   email?: string
@@ -99,7 +110,7 @@ export async function POST(request: NextRequest) {
         .from('referrers')
         .select('id')
         .eq('tenant_id', tenant.id)
-        .ilike('name', `%${referrer_name.trim()}%`)
+        .ilike('name', `%${escapeLike(referrer_name.trim())}%`)
         .eq('active', true)
         .limit(1)
 
