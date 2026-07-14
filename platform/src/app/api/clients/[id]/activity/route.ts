@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getCurrentTenant } from '@/lib/tenant'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const tenant = await getCurrentTenant()
-  if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { tenant, error: authError } = await requirePermission('clients.view')
+  if (authError) return authError
 
   const { id } = await params
 
@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .from('clients')
     .select('id, name, created_at')
     .eq('id', id)
-    .eq('tenant_id', tenant.id)
+    .eq('tenant_id', tenant.tenantId)
     .single()
 
   if (!client) return NextResponse.json([], { status: 404 })
@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name)')
     .eq('client_id', id)
-    .eq('tenant_id', tenant.id)
+    .eq('tenant_id', tenant.tenantId)
     .order('start_time', { ascending: false })
 
   const activities: { type: string; title: string; description: string; timestamp: string; location?: Record<string, unknown> }[] = []
@@ -43,7 +43,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       ? await supabaseAdmin
           .from('notifications')
           .select('*')
-          .eq('tenant_id', tenant.id)
+          .eq('tenant_id', tenant.tenantId)
           .in('booking_id', bookingIds)
       : { data: [] }
 
