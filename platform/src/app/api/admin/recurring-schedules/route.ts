@@ -119,6 +119,21 @@ export async function POST(request: Request) {
     .single()
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
+  // A caller-supplied team_member_id/cleaner_id must belong to THIS tenant —
+  // team_members has no cross-tenant FK check, so without this a tenant admin
+  // could create a recurring schedule (and every generated booking) assigned
+  // to another tenant's employee. Same bug class as [id]/route.ts PUT and
+  // [id]/exception/route.ts POST.
+  if (teamMemberId) {
+    const { data: memberRow } = await db
+      .from('team_members')
+      .select('id')
+      .eq('id', teamMemberId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!memberRow) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+  }
+
   // Dates: use those provided by the frontend, else generate 6 weeks.
   let dates: string[] = Array.isArray(body.dates)
     ? body.dates.filter((d: unknown): d is string => typeof d === 'string')

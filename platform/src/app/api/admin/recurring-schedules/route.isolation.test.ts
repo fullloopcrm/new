@@ -26,7 +26,7 @@ vi.mock('@/lib/require-permission', () => ({
 // POST-only dep — mocked so importing the route doesn't pull the real token lib.
 vi.mock('@/lib/tokens', () => ({ generateToken: () => 'tok' }))
 
-import { GET } from './route'
+import { GET, POST } from './route'
 
 function seed() {
   return {
@@ -34,8 +34,19 @@ function seed() {
       { id: 'rs-a', tenant_id: CTX_TENANT, client_id: 'c-a', recurring_type: 'weekly', created_at: '2026-01-02' },
       { id: 'rs-b', tenant_id: OTHER_TENANT, client_id: 'c-b', recurring_type: 'weekly', created_at: '2026-01-01' },
     ],
+    clients: [
+      { id: 'c-a', tenant_id: CTX_TENANT },
+    ],
+    team_members: [
+      { id: 'tm-a1', tenant_id: CTX_TENANT },
+      { id: 'tm-b1', tenant_id: OTHER_TENANT },
+    ],
     bookings: [],
   }
+}
+
+function postReq(body: unknown): Request {
+  return { url: 'http://t/api/admin/recurring-schedules', json: async () => body } as unknown as Request
 }
 
 let h: Harness
@@ -52,5 +63,43 @@ describe('admin/recurring-schedules GET — tenant isolation', () => {
     const ids = (body as Array<{ id: string }>).map((s) => s.id)
     expect(ids).toContain('rs-a')
     expect(ids).not.toContain('rs-b')
+  })
+})
+
+/**
+ * POST — cross-tenant team_member_id / cleaner_id regression test.
+ *
+ * BUG (fixed here): a caller-supplied `team_member_id` (or its `cleaner_id`
+ * alias) was written straight into the new `recurring_schedules` row AND
+ * every generated `bookings` row, with no check that it belonged to the
+ * acting tenant. Same bug class as [id]/route.ts PUT and
+ * [id]/exception/route.ts POST — team_members has no cross-tenant FK check.
+ */
+describe('admin/recurring-schedules POST — cross-tenant team_member_id guard', () => {
+  it('cross-tenant team_member_id probe: rejects a foreign team member id with 400', async () => {
+    const res = await POST(postReq({
+      client_id: 'c-a', team_member_id: 'tm-b1', recurring_type: 'weekly', start_date: '2026-08-10',
+    }))
+    expect(res.status).toBe(400)
+    const insert = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
+    expect(insert).toBeUndefined()
+  })
+
+  it('cross-tenant cleaner_id alias probe: also rejects a foreign id with 400', async () => {
+    const res = await POST(postReq({
+      client_id: 'c-a', cleaner_id: 'tm-b1', recurring_type: 'weekly', start_date: '2026-08-10',
+    }))
+    expect(res.status).toBe(400)
+    const insert = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
+    expect(insert).toBeUndefined()
+  })
+
+  it('same-tenant team_member_id succeeds', async () => {
+    const res = await POST(postReq({
+      client_id: 'c-a', team_member_id: 'tm-a1', recurring_type: 'weekly', start_date: '2026-08-10', dates: ['2026-08-10'],
+    }))
+    expect(res.status).toBe(200)
+    const insert = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
+    expect(insert?.rows[0]?.team_member_id).toBe('tm-a1')
   })
 })
