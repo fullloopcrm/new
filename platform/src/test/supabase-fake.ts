@@ -24,7 +24,7 @@
  * Supported query surface (superset; unused bits are inert for a given test):
  *   from(table)
  *     .select(cols?, { head }) .insert(payload) .update(payload)
- *     .eq(col, val) .gte(col, val) .lt(col, val) .not() .order() .limit()
+ *     .eq(col, val) .gte(col, val) .lt(col, val) .is(col, null|bool) .not() .order() .limit()
  *     .single() .maybeSingle() .then(...)   // awaiting the chain = "many"
  *
  * `gte`/`lt` compare stringwise (`String(a) >= String(b)`), which is what the
@@ -54,6 +54,8 @@ type State = {
   eqs: Record<string, unknown>
   gtes: Array<{ col: string; val: unknown }>
   lts: Array<{ col: string; val: unknown }>
+  /** `.is(col, null | true | false)` — PostgREST's IS NULL / IS TRUE / IS FALSE. */
+  ises: Array<{ col: string; val: null | boolean }>
   head: boolean
   payload: unknown
   /** `.select()` was chained — same as PostgREST's `Prefer: return=representation`.
@@ -65,6 +67,7 @@ function matches(r: Record<string, unknown>, s: State): boolean {
   if (!Object.entries(s.eqs).every(([k, v]) => r[k] === v)) return false
   for (const g of s.gtes) if (!(String(r[g.col]) >= String(g.val))) return false
   for (const l of s.lts) if (!(String(r[l.col]) < String(l.val))) return false
+  for (const i of s.ises) if ((r[i.col] ?? null) !== i.val) return false
   return true
 }
 
@@ -121,7 +124,7 @@ function runQuery(
 export function makeSupabaseFake(h: FakeStoreHandle, opts: SupabaseFakeOptions = {}) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, gtes: [], lts: [], head: false, payload: null, returning: false }
+      const state: State = { table, op: 'select', eqs: {}, gtes: [], lts: [], ises: [], head: false, payload: null, returning: false }
       const chain: Record<string, unknown> = {
         select: (_cols?: unknown, o?: { head?: boolean }) => { if (o?.head) state.head = true; state.returning = true; return chain },
         insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
@@ -129,6 +132,7 @@ export function makeSupabaseFake(h: FakeStoreHandle, opts: SupabaseFakeOptions =
         eq: (col: string, val: unknown) => { state.eqs[col] = val; return chain },
         gte: (col: string, val: unknown) => { state.gtes.push({ col, val }); return chain },
         lt: (col: string, val: unknown) => { state.lts.push({ col, val }); return chain },
+        is: (col: string, val: null | boolean) => { state.ises.push({ col, val }); return chain },
         not: () => chain,
         order: () => chain,
         limit: () => chain,
