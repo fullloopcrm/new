@@ -5,23 +5,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('campaigns.send')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { to, message } = await req.json()
     if (!to || !message) {
       return NextResponse.json({ error: 'to and message required' }, { status: 400 })
     }
 
-    const { data: tenant } = await supabaseAdmin
+    const { data: telnyxConfig } = await supabaseAdmin
       .from('tenants')
       .select('telnyx_api_key, telnyx_phone')
       .eq('id', tenantId)
       .single()
 
-    if (!tenant?.telnyx_api_key || !tenant.telnyx_phone) {
+    if (!telnyxConfig?.telnyx_api_key || !telnyxConfig.telnyx_phone) {
       return NextResponse.json({ error: 'Tenant has no Telnyx configured' }, { status: 400 })
     }
 
@@ -29,8 +32,8 @@ export async function POST(req: NextRequest) {
       await sendSMS({
         to: String(to),
         body: String(message),
-        telnyxApiKey: tenant.telnyx_api_key,
-        telnyxPhone: tenant.telnyx_phone,
+        telnyxApiKey: telnyxConfig.telnyx_api_key,
+        telnyxPhone: telnyxConfig.telnyx_phone,
       })
       return NextResponse.json({ success: true })
     } catch (smsErr) {
