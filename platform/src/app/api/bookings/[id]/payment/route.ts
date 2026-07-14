@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
@@ -8,7 +9,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: permError } = await requirePermission('bookings.edit')
+    if (permError) return permError
+    const { tenantId } = tenant
     const { id } = await params
     const { payment_status, payment_method, tip_amount, team_paid, team_pay, actual_hours } = await request.json()
 

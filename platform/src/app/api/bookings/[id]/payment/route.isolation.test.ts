@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
@@ -25,6 +26,14 @@ vi.mock('@/lib/tenant-query', () => ({
     }
   },
 }))
+let permissionError: unknown = null
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => (
+    permissionError
+      ? { tenant: null, error: permissionError }
+      : { tenant: { tenantId: currentTenantId }, error: null }
+  ),
+}))
 vi.mock('@/lib/audit', () => ({ audit: async () => ({ success: true }) }))
 
 import { supabaseAdmin } from '@/lib/supabase'
@@ -42,6 +51,7 @@ function paramsFor(id: string): { params: Promise<{ id: string }> } {
 beforeEach(() => {
   fake._store.clear()
   currentTenantId = A_ID
+  permissionError = null
   fake._seed('bookings', [
     { id: SHARED_ID, tenant_id: A_ID, payment_status: 'pending', status: 'completed' },
     { id: SHARED_ID, tenant_id: B_ID, payment_status: 'pending', status: 'completed' },
@@ -65,5 +75,17 @@ describe('bookings/[id]/payment PATCH — tenantDb isolation', () => {
     const bBooking = fake._all('bookings').find((r) => r.tenant_id === B_ID)!
     expect(bBooking.payment_status).toBe('pending')
     expect(bBooking.status).toBe('completed')
+  })
+})
+
+describe('bookings/[id]/payment PATCH — permission gate', () => {
+  it('a role lacking bookings.edit is forbidden and never mutates the booking', async () => {
+    permissionError = NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+    const req = new Request('http://x', { method: 'PATCH', body: JSON.stringify({ payment_status: 'paid', payment_method: 'card' }) })
+    const res = await PATCH(req, paramsFor(SHARED_ID))
+    expect(res.status).toBe(403)
+
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)!
+    expect(aBooking.payment_status).toBe('pending')
   })
 })

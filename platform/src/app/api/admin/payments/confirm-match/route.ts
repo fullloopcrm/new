@@ -11,11 +11,14 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(req: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: permError } = await requirePermission('finance.expenses')
+    if (permError) return permError
+    const { tenantId } = tenant
     const { unmatchedPaymentId, bookingId } = await req.json()
     if (!unmatchedPaymentId || !bookingId) {
       return NextResponse.json({ error: 'unmatchedPaymentId and bookingId required' }, { status: 400 })
@@ -100,13 +103,13 @@ export async function POST(req: Request) {
     const tm = booking.team_members as unknown as { name?: string; phone?: string; preferred_language?: string } | null
     const client = booking.clients as unknown as { name?: string; phone?: string } | null
 
-    const { data: tenant } = await supabaseAdmin
+    const { data: tenantRow } = await supabaseAdmin
       .from('tenants')
       .select('name, telnyx_api_key, telnyx_phone')
       .eq('id', tenantId)
       .single()
 
-    if (tm?.phone && tenant?.telnyx_api_key && tenant.telnyx_phone) {
+    if (tm?.phone && tenantRow?.telnyx_api_key && tenantRow.telnyx_phone) {
       const isEs = tm.preferred_language === 'es'
       const clientLabel = client?.name || (isEs ? 'cliente' : 'client')
       const tipLine = tipCents > 0
@@ -118,8 +121,8 @@ export async function POST(req: Request) {
       sendSMS({
         to: tm.phone,
         body,
-        telnyxApiKey: tenant.telnyx_api_key,
-        telnyxPhone: tenant.telnyx_phone,
+        telnyxApiKey: tenantRow.telnyx_api_key,
+        telnyxPhone: tenantRow.telnyx_phone,
       }).catch(err => console.error('[confirm-match] team SMS failed:', err))
     }
 
