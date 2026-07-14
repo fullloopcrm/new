@@ -19,6 +19,10 @@ vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: vi.fn().mockResolvedValue({ id: 'tenant-1', slug: 'test-tenant' }),
 }))
 
+vi.mock('@/lib/rate-limit-db', () => ({
+  rateLimitDb: vi.fn().mockResolvedValue({ allowed: true, remaining: 59 }),
+}))
+
 const uploadedPaths: string[] = []
 
 vi.mock('@/lib/supabase', () => ({
@@ -40,6 +44,7 @@ vi.mock('@/lib/supabase', () => ({
 // error in this project's vitest environment.
 function fakeRequest(fields: Record<string, unknown>) {
   return {
+    headers: { get: () => null },
     formData: async () => ({
       get: (key: string) => fields[key] ?? null,
     }),

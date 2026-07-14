@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Public, tenant-aware file upload for marketing-site forms (e.g. a photo of
 // the vehicle on a roadside booking form). Tenant is resolved from the signed
@@ -22,6 +23,15 @@ export async function POST(request: NextRequest) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) {
     return NextResponse.json({ success: false, error: 'Tenant not found for this host' }, { status: 404 })
+  }
+
+  // Unauthenticated, tenant-public endpoint accepting up to 25MB per request --
+  // without a limit here a caller could spam storage writes and run up hosting
+  // costs. Same window/threshold as the sibling lead-media/signed-url endpoint.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`public_upload:${tenant.id}:${ip}`, 60, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ success: false, error: 'Too many requests. Try again later.' }, { status: 429 })
   }
 
   const formData = await request.formData()
