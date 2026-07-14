@@ -90,7 +90,9 @@ export async function POST(req: NextRequest) {
         .eq('id', booking_id)
         .eq('tenant_id', auth.tid)
         .single()
-      if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      if (!booking || booking.team_member_id !== auth.id) {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      }
 
       const field = type === 'walkthrough' ? 'walkthrough_video_url' : 'final_video_url'
       await supabaseAdmin.from('bookings').update({
