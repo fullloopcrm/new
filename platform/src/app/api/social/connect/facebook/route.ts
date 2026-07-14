@@ -1,19 +1,22 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { signOAuthState } from '@/lib/oauth-state'
 
 export async function GET() {
   try {
-    await getTenantForRequest()
+    const { tenant } = await getTenantForRequest()
 
     const appId = process.env.FACEBOOK_APP_ID
     if (!appId) {
       return NextResponse.json({ error: 'Facebook app not configured' }, { status: 500 })
     }
 
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/social/connect/facebook/callback`
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+    const redirectUri = `${baseUrl}/api/social/connect/facebook/callback`
     const scopes = 'pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_metadata'
+    const state = signOAuthState(tenant.id)
 
-    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code`
+    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(state)}`
 
     return NextResponse.json({ url })
   } catch (e) {
