@@ -95,6 +95,17 @@ describe('PUT /api/finance/expenses/:id — update', () => {
     expect(json.expense.tenant_id).toBe('tenant-A')
     expect(h.store.expenses.find((e) => e.id === 'exp-A1')?.tenant_id).toBe('tenant-A')
   })
+
+  it('ignores an id field in the body instead of mass-assigning arbitrary/unknown columns onto the row', async () => {
+    const res = await PUT(putReq({ category: 'rent', id: 'exp-B1', not_a_real_column: 'x' }), params('exp-A1'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.expense.id).toBe('exp-A1')
+    expect(json.expense.not_a_real_column).toBeUndefined()
+    expect(h.store.expenses.find((e) => e.id === 'exp-A1')).toBeDefined()
+    expect(h.store.expenses.find((e) => e.id === 'exp-B1')?.category).toBe('utilities')
+  })
 })
 
 describe('DELETE /api/finance/expenses/:id', () => {

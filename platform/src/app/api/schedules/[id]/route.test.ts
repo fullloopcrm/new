@@ -123,6 +123,18 @@ describe('PUT /api/schedules/:id', () => {
     expect(json.schedule.tenant_id).toBe('tenant-A')
     expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')?.tenant_id).toBe('tenant-A')
   })
+
+  it('ignores an id field in the body instead of mass-assigning arbitrary/unknown columns onto the row', async () => {
+    const res = await PUT(putReq({ notes: 'hacked', id: 'sched-B1', client_id: 'client-B1', status: 'cancelled' }), params('sched-A1'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.schedule.id).toBe('sched-A1')
+    expect(json.schedule.client_id).toBe('client-A1') // unchanged — not in the allowlist
+    expect(json.schedule.status).toBe('active') // unchanged — not in the allowlist
+    expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')).toBeDefined()
+    expect(h.store.recurring_schedules.find((s) => s.id === 'sched-B1')?.notes).toBeUndefined()
+  })
 })
 
 describe('DELETE /api/schedules/:id', () => {
