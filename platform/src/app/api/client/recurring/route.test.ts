@@ -98,3 +98,65 @@ it('allows a client to create their own recurring series', async () => {
   // 2 seeded + newly generated recurring bookings
   expect((fake._store.get('bookings') ?? []).length).toBeGreaterThan(2)
 })
+
+// cleaner_id/extra_cleaner_ids/property_id were written straight into
+// recurring_schedules + 6 future bookings (+ clients.preferred_team_member_id)
+// with zero check they belonged to the caller's own tenant.
+const OTHER_TENANT_ID = 'tenant-2'
+
+it("rejects a cleaner_id belonging to a DIFFERENT tenant, and does not reassign preferred_team_member_id", async () => {
+  fake._seed('team_members', [{ id: 'foreign-cleaner', tenant_id: OTHER_TENANT_ID, active: true }])
+  withSession(OWNER_ID)
+  const res = await post({ ...basePayload, client_id: OWNER_ID, cleaner_id: 'foreign-cleaner' })
+  expect(res.status).toBe(400)
+  expect(fake._store.get('recurring_schedules') ?? []).toHaveLength(0)
+  const owner = (fake._store.get('clients') ?? []).find((c) => c.id === OWNER_ID)
+  expect(owner?.preferred_team_member_id).toBeUndefined()
+})
+
+it('rejects an inactive cleaner_id even when it belongs to the right tenant', async () => {
+  fake._seed('team_members', [{ id: 'inactive-cleaner', tenant_id: TENANT_ID, active: false }])
+  withSession(OWNER_ID)
+  const res = await post({ ...basePayload, client_id: OWNER_ID, cleaner_id: 'inactive-cleaner' })
+  expect(res.status).toBe(400)
+  expect(fake._store.get('recurring_schedules') ?? []).toHaveLength(0)
+})
+
+it('rejects an extra_cleaner_id belonging to a DIFFERENT tenant', async () => {
+  fake._seed('team_members', [
+    { id: 'lead-cleaner', tenant_id: TENANT_ID, active: true },
+    { id: 'foreign-extra', tenant_id: OTHER_TENANT_ID, active: true },
+  ])
+  withSession(OWNER_ID)
+  const res = await post({
+    ...basePayload,
+    client_id: OWNER_ID,
+    cleaner_id: 'lead-cleaner',
+    extra_cleaner_ids: ['foreign-extra'],
+  })
+  expect(res.status).toBe(400)
+  expect(fake._store.get('recurring_schedules') ?? []).toHaveLength(0)
+})
+
+it("rejects a property_id belonging to a DIFFERENT tenant's client", async () => {
+  fake._seed('client_properties', [{ id: 'foreign-property', tenant_id: OTHER_TENANT_ID }])
+  withSession(OWNER_ID)
+  const res = await post({ ...basePayload, client_id: OWNER_ID, property_id: 'foreign-property' })
+  expect(res.status).toBe(404)
+  expect(fake._store.get('recurring_schedules') ?? []).toHaveLength(0)
+})
+
+it('allows a valid same-tenant, active cleaner_id + property_id', async () => {
+  fake._seed('team_members', [{ id: 'good-cleaner', tenant_id: TENANT_ID, active: true }])
+  fake._seed('client_properties', [{ id: 'good-property', tenant_id: TENANT_ID }])
+  withSession(OWNER_ID)
+  const res = await post({
+    ...basePayload,
+    client_id: OWNER_ID,
+    cleaner_id: 'good-cleaner',
+    property_id: 'good-property',
+  })
+  expect(res.status).toBe(200)
+  const owner = (fake._store.get('clients') ?? []).find((c) => c.id === OWNER_ID)
+  expect(owner?.preferred_team_member_id).toBe('good-cleaner')
+})

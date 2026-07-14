@@ -65,6 +65,32 @@ export async function POST(request: Request) {
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
   const tenantId = clientRow.tenant_id
 
+  // Confirm property_id/cleaner_id/extra_cleaner_ids (if given) belong to this
+  // tenant -- otherwise a foreign id gets written into recurring_schedules and
+  // 6 future bookings (plus clients.preferred_team_member_id), a persistent
+  // cross-tenant FK write, same class already fixed on POST /api/bookings
+  // (534a5834) and the sibling /api/client/preferred-cleaner route.
+  if (property_id) {
+    const { data: propertyRow } = await supabaseAdmin
+      .from('client_properties').select('id').eq('id', property_id).eq('tenant_id', tenantId).single()
+    if (!propertyRow) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
+  }
+  if (cleaner_id) {
+    const { data: leadRow } = await supabaseAdmin
+      .from('team_members').select('id, active').eq('id', cleaner_id).eq('tenant_id', tenantId).single()
+    if (!leadRow || leadRow.active === false) {
+      return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
+    }
+  }
+  if (extras.length > 0) {
+    const { data: extraRows } = await supabaseAdmin
+      .from('team_members').select('id, active').eq('tenant_id', tenantId).in('id', extras)
+    const validIds = new Set((extraRows || []).filter((r) => r.active !== false).map((r) => r.id))
+    if (validIds.size !== extras.length) {
+      return NextResponse.json({ error: 'One or more team members not available' }, { status: 400 })
+    }
+  }
+
   // Repeat-client gate
   const { count: priorCount } = await supabaseAdmin
     .from('bookings')
