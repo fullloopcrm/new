@@ -48,6 +48,7 @@ export async function PUT(request: NextRequest) {
         .update({ read: true })
         .eq('id', body.id)
         .eq('tenant_id', auth.tid)
+        .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
     }
   } catch {
     // Table may not exist yet

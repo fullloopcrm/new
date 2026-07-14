@@ -37,6 +37,13 @@ export async function POST(request: Request) {
 
   const previous = booking.team_member_id
 
+  // The booking's current holder (if any) must also be inside the actor's
+  // scope — otherwise a lead could reassign a job belonging to a different
+  // crew/lead by simply supplying its booking_id.
+  if (previous && !scope.includes(previous)) {
+    return NextResponse.json({ error: 'That job is not in your crew' }, { status: 403 })
+  }
+
   const { data: target } = (await db
     .from('team_members')
     .select('pay_rate')
